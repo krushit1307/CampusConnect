@@ -5,6 +5,7 @@
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)
 ![Stars](https://img.shields.io/github/stars/krushit1307/CampusConnect?style=flat-square)
 ![ECSoC 2026](https://img.shields.io/badge/ECSoC-2026-blueviolet?style=flat-square)
+[![CodeRabbit Assured](https://img.shields.io/badge/CodeRabbit-Assured-green?style=flat-square)](https://coderabbit.ai)
 
 CampusConnect solves the chaos of college clubs juggling WhatsApp groups, spreadsheets, and paper certificates. It provides a single, unified platform for students and organizers to manage events, track memberships, and engage with their campus community seamlessly.
 
