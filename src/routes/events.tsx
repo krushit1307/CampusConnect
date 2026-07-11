@@ -30,7 +30,7 @@ function EventsPage() {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
 
-  const { data: events = [], isLoading } = useQuery({
+  const { data: queryData, isLoading } = useQuery({
     queryKey: ["events"],
     queryFn: async () => {
       const { data } = await supabase
@@ -45,7 +45,7 @@ function EventsPage() {
         .order("event_date", { ascending: true });
 
       // Fallback to mock data in development if database is empty
-      if (!data || data.length === 0) {
+      if (import.meta.env.DEV && (!data || data.length === 0)) {
         return [
           {
             id: "mock-1",
@@ -84,6 +84,8 @@ function EventsPage() {
     },
   });
 
+  const events = queryData || [];
+
   useEffect(() => {
     const channel = supabase
       .channel("realtime_rsvps")
@@ -101,10 +103,17 @@ function EventsPage() {
   const toggleRsvp = useMutation({
     mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
       if (!user) throw new Error("Must be logged in");
-      if (hasRsvpd) {
-        await supabase.from("event_rsvps").delete().match({ event_id: eventId, user_id: user.id });
-      } else {
-        await supabase.from("event_rsvps").insert({ event_id: eventId, user_id: user.id });
+      if (eventId.startsWith("mock-")) {
+        // Skip database call for mock event cards in development
+        console.log(`[CampusConnect] Mock RSVP toggled for event: ${eventId}`);
+        return;
+      }
+      const { error } = hasRsvpd
+        ? await supabase.from("event_rsvps").delete().match({ event_id: eventId, user_id: user.id })
+        : await supabase.from("event_rsvps").insert({ event_id: eventId, user_id: user.id });
+
+      if (error) {
+        throw new Error(error.message);
       }
     },
     onSuccess: () => {
