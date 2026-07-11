@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import { ThemeToggle } from "../ThemeToggle";
 
 const links = [
@@ -10,6 +10,9 @@ const links = [
 ] as const;
 
 export function Navbar() {
+  const location = useLocation();
+  const currentPath = location.pathname;
+
   return (
     <header className="sticky top-0 z-40 border-b-2 border-black bg-white">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
@@ -18,17 +21,25 @@ export function Navbar() {
           <span className="bg-black px-1 text-cream">CONNECT</span>
         </Link>
         <nav className="hidden items-center gap-6 md:flex">
-          {links.map((l) => (
-            <Link
-              key={l.to}
-              to={l.to}
-              className="font-mono text-sm font-bold uppercase hover:underline"
-              style={{ letterSpacing: "0.05em" }}
-              activeProps={{ className: "underline underline-offset-4" }}
-            >
-              {l.label}
-            </Link>
-          ))}
+          {links.map((l) => {
+            const isActive =
+              l.to === "/"
+                ? currentPath === "/"
+                : currentPath === l.to || currentPath.startsWith(l.to + "/");
+
+            return (
+              <Link
+                key={l.to}
+                to={l.to}
+                className={`font-mono text-sm font-bold uppercase hover:underline ${
+                  isActive ? "underline underline-offset-4 decoration-2" : ""
+                }`}
+                style={{ letterSpacing: "0.05em" }}
+              >
+                {l.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="flex items-center gap-3">
