@@ -5,6 +5,12 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 
+// Small building block for the skeleton below. Deliberately a plain div
+// (not the shared ui/skeleton component) to keep this change self-contained.
+function Bone({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse rounded-none bg-black/10 ${className}`} />;
+}
+
 export const Route = createFileRoute("/clubs/$slug")({
   head: () => ({
     meta: [
@@ -14,6 +20,50 @@ export const Route = createFileRoute("/clubs/$slug")({
   }),
   component: ClubProfile,
 });
+
+// Mimics the club header + events/members layout below while data is fetched
+// from Supabase, so navigating to a club doesn't flash an empty/blank page.
+function ClubProfileSkeleton() {
+  return (
+    <SiteShell>
+      <section className="border-b-2 border-black bg-lime px-4 py-14 md:px-6">
+        <div className="mx-auto max-w-6xl">
+          <Bone className="h-4 w-16" />
+          <Bone className="mt-3 h-12 w-2/3 max-w-md md:h-16" />
+          <Bone className="mt-4 h-4 w-full max-w-xl" />
+          <Bone className="mt-2 h-4 w-2/3 max-w-md" />
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Bone className="h-9 w-32" />
+            <Bone className="h-9 w-24" />
+          </div>
+        </div>
+      </section>
+      <section className="bg-cream px-4 py-12 md:px-6">
+        <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-3">
+          <div className="neu-border bg-white p-6 lg:col-span-2">
+            <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold">Upcoming events</h2>
+            <div className="divide-y-2 divide-black">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex items-center gap-4 py-4">
+                  <Bone className="h-9 w-14" />
+                  <Bone className="h-5 w-1/2" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="neu-border bg-white p-6">
+            <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold">Members</h2>
+            <div className="grid grid-cols-2 gap-2">
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <Bone key={i} className="h-9" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    </SiteShell>
+  );
+}
 
 function ClubProfile() {
   const { slug } = Route.useParams();
@@ -57,12 +107,7 @@ function ClubProfile() {
     },
   });
 
-  if (isLoading)
-    return (
-      <SiteShell>
-        <div className="p-10 font-mono">Loading club...</div>
-      </SiteShell>
-    );
+  if (isLoading) return <ClubProfileSkeleton />;
   if (!club)
     return (
       <SiteShell>

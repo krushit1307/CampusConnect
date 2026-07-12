@@ -5,6 +5,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
+import { EventCard } from "@/components/EventCard";
+import { CreateEventDialog } from "@/components/CreateEventDialog";
 
 export const Route = createFileRoute("/events")({
   head: () => ({
@@ -29,7 +31,7 @@ function EventsPage() {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
 
-  const { data: events = [], isLoading } = useQuery({
+  const { data: queryData, isLoading } = useQuery({
     queryKey: ["events"],
     queryFn: async () => {
       const { data } = await supabase
@@ -42,9 +44,48 @@ function EventsPage() {
         `,
         )
         .order("event_date", { ascending: true });
-      return data || [];
+
+      // Fallback to mock data in development if database is empty
+      if (import.meta.env.DEV && (!data || data.length === 0)) {
+        return [
+          {
+            id: "mock-1",
+            title: "Hackathon 2024",
+            description: "Annual college hackathon. Build something awesome in 24 hours!",
+            event_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            location: "Main Auditorium",
+            clubs: { name: "Tech Club" },
+            event_rsvps: [{ id: "rsvp-1", user_id: "user-1" }],
+          },
+          {
+            id: "mock-2",
+            title: "Watercolor Workshop",
+            description: "Learn the basics of watercolor painting.",
+            event_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+            location: "Art Studio 3",
+            clubs: { name: "Art & Design" },
+            event_rsvps: [],
+          },
+          {
+            id: "mock-3",
+            title: "Open Mic Night",
+            description: "Showcase your talent or just come to enjoy the performances.",
+            event_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+            location: "Student Center",
+            clubs: { name: "Music Society" },
+            event_rsvps: [
+              { id: "rsvp-2", user_id: "user-2" },
+              { id: "rsvp-3", user_id: "user-3" },
+            ],
+          },
+        ];
+      }
+
+      return data;
     },
   });
+
+  const events = queryData || [];
 
   useEffect(() => {
     const channel = supabase
@@ -63,10 +104,17 @@ function EventsPage() {
   const toggleRsvp = useMutation({
     mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
       if (!user) throw new Error("Must be logged in");
-      if (hasRsvpd) {
-        await supabase.from("event_rsvps").delete().match({ event_id: eventId, user_id: user.id });
-      } else {
-        await supabase.from("event_rsvps").insert({ event_id: eventId, user_id: user.id });
+      if (eventId.startsWith("mock-")) {
+        // Skip database call for mock event cards in development
+        console.log(`[CampusConnect] Mock RSVP toggled for event: ${eventId}`);
+        return;
+      }
+      const { error } = hasRsvpd
+        ? await supabase.from("event_rsvps").delete().match({ event_id: eventId, user_id: user.id })
+        : await supabase.from("event_rsvps").insert({ event_id: eventId, user_id: user.id });
+
+      if (error) {
+        throw new Error(error.message);
       }
     },
     onSuccess: () => {
@@ -87,7 +135,7 @@ function EventsPage() {
             <p className="eyebrow font-bold">All events · Fall semester</p>
             <h1 className="mt-2 text-4xl font-bold md:text-6xl">What's on this week.</h1>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t, i) => (
               <button
                 key={t}
@@ -97,6 +145,7 @@ function EventsPage() {
                 {t}
               </button>
             ))}
+            <CreateEventDialog user={user} />
           </div>
         </div>
       </section>
@@ -105,61 +154,16 @@ function EventsPage() {
           {isLoading ? (
             <div className="col-span-full font-mono text-center py-10">Loading events...</div>
           ) : (
-            filteredEvents.map((e, index) => {
-              const c = Array.isArray(e.clubs) ? e.clubs[0] : e.clubs;
-              const rsvps = Array.isArray(e.event_rsvps) ? e.event_rsvps : [];
-              const hasRsvpd = user ? rsvps.some((r) => r.user_id === user.id) : false;
-
-              return (
-                <article key={e.id} className="neu-border neu-press flex flex-col bg-white p-5">
-                  <div className="mb-4 flex items-start justify-between">
-                    {/* Updated: Standardized card badge layout using your global formatting utility */}
-                    <div
-                      className={`neu-border ${colors[index % colors.length]} px-4 py-3 text-center font-mono text-xs font-bold`}
-                    >
-                      {e.event_date
-                        ? formatDate(e.event_date).split(" at ")[0].toUpperCase()
-                        : "TBA"}
-                    </div>
-                    <span className="neu-border bg-cream px-2 py-1 font-mono text-[10px] font-bold uppercase">
-                      Event
-                    </span>
-                  </div>
-                  <h2 className="text-xl font-bold">{e.title}</h2>
-                  <p className="mt-1 font-mono text-xs">{c?.name}</p>
-                  <div className="my-4 border-t-2 border-black" />
-
-                  {/* Updated Data List: Displays full standardized clean text layout */}
-                  <dl className="space-y-1 font-mono text-xs">
-                    <div className="flex flex-col gap-0.5 border-b border-gray-100 pb-1.5">
-                      <dt className="font-bold uppercase text-gray-500">Date & Time</dt>
-                      <dd className="font-medium text-black">
-                        {e.event_date ? formatDate(e.event_date) : "TBA"}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between pt-1.5">
-                      <dt className="font-bold uppercase">Venue</dt>
-                      <dd>{e.location || "TBA"}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="font-bold uppercase text-lime-600">Attendees</dt>
-                      <dd className="font-bold">{rsvps.length} RSVP'd</dd>
-                    </div>
-                  </dl>
-
-                  <button
-                    onClick={() => {
-                      if (!user) return alert("Please log in to RSVP");
-                      toggleRsvp.mutate({ eventId: e.id, hasRsvpd });
-                    }}
-                    disabled={toggleRsvp.isPending}
-                    className={`neu-border neu-press mt-5 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider ${hasRsvpd ? "bg-lime text-black" : "bg-black text-cream"}`}
-                  >
-                    {hasRsvpd ? "RSVP'd ✓" : "RSVP →"}
-                  </button>
-                </article>
-              );
-            })
+            filteredEvents.map((e, index) => (
+              <EventCard
+                key={e.id}
+                event={e}
+                index={index}
+                user={user}
+                onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
+                isRsvpPending={toggleRsvp.isPending}
+              />
+            ))
           )}
         </div>
       </section>

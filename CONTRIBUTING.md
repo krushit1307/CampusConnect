@@ -41,7 +41,7 @@ Before you begin, make sure you have the following installed:
    - `feat:` (New feature)
    - `fix:` (Bug fix)
    - `docs:` (Documentation changes)
-   - `style:` (Formatting, missing semi colons, etc; no code change)
+   - `style:` (Formatting, missing semicolons, etc.; no code change)
    - `refactor:` (Refactoring production code)
    - `test:` (Adding tests, refactoring test; no production code change)
 
@@ -75,7 +75,7 @@ bun run lint
 
 _(Optionally configure your editor to format on save)._
 
-## 🙋‍♂️ How to Claim an Issue
+## 🙋 How to Claim an Issue
 
 To prevent duplicate work:
 
@@ -92,6 +92,8 @@ To prevent duplicate work:
 ## 💬 Communication Channel
 
 Got questions? Need help? Join the discussion!
-**[👉 Join the ECSoC Project Discord / Slack Here]** _(Maintainer: Add actual link here)_
+
+<!-- TODO: Replace with the actual Discord/Slack invite link -->
+**👉 Join the ECSoC Project Discord / Slack Here** _(link coming soon)_
 
 Thank you for contributing! 🚀

@@ -183,3 +183,77 @@
   letter-spacing: 0.15em;
   font-size: 0.7rem;
 }
+
+@utility markdown-content {
+  & > *:first-child {
+    margin-top: 0;
+  }
+  & > *:last-child {
+    margin-bottom: 0;
+  }
+
+  p {
+    margin: 0.5em 0;
+    white-space: pre-wrap;
+  }
+
+  strong {
+    font-weight: 700;
+  }
+
+  em {
+    font-style: italic;
+  }
+
+  a {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  code {
+    background: var(--cream);
+    border: 2px solid #000000;
+    padding: 0 0.3em;
+    font-size: 0.9em;
+  }
+
+  pre {
+    background: var(--cream);
+    border: 2px solid #000000;
+    padding: 0.75em;
+    overflow-x: auto;
+    margin: 0.5em 0;
+  }
+  pre code {
+    border: none;
+    padding: 0;
+  }
+
+  ul,
+  ol {
+    margin: 0.5em 0;
+    padding-left: 1.4em;
+  }
+  ul {
+    list-style-type: disc;
+  }
+  ol {
+    list-style-type: decimal;
+  }
+  li {
+    margin: 0.15em 0;
+  }
+
+  blockquote {
+    border-left: 3px solid #000000;
+    padding-left: 0.75em;
+    margin: 0.5em 0;
+    font-style: italic;
+  }
+
+  h1,
+  h2,
+  h3 {
+    margin: 0.6em 0 0.3em;
+  }
+}

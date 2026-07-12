@@ -22,6 +22,7 @@ export const Route = createFileRoute("/certificates")({
 function Certificates() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
+  const [openingId, setOpeningId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -102,10 +103,17 @@ function Certificates() {
                   </div>
                   <div className="mt-5 flex gap-3">
                     <button
-                      onClick={() => window.open(c.certificate_url, "_blank")}
-                      className="neu-border neu-press flex-1 bg-black px-3 py-2 font-mono text-xs font-bold uppercase text-cream"
+                      onClick={async () => {
+                        setOpeningId(c.id);
+                        const minDuration = new Promise((resolve) => setTimeout(resolve, 400));
+                        window.open(c.certificate_url, "_blank");
+                        await minDuration;
+                        setOpeningId(null);
+                      }}
+                      disabled={openingId === c.id}
+                      className="neu-border neu-press flex-1 bg-black px-3 py-2 font-mono text-xs font-bold uppercase text-cream disabled:opacity-50"
                     >
-                      View PDF
+                      {openingId === c.id ? "Generating..." : "View PDF"}
                     </button>
                     <button
                       onClick={() => {

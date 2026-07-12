@@ -1,5 +1,7 @@
 # CampusConnect: Every club. Every event. One brutally simple OS.
 
+**🗣️ Join our Discord Server for all contributors:** [https://discord.gg/BEMjApACe](https://discord.gg/BEMjApACe)
+
 ![License](https://img.shields.io/github/license/krushit1307/CampusConnect?style=flat-square)
 ![Open Issues](https://img.shields.io/github/issues/krushit1307/CampusConnect?style=flat-square)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)
@@ -28,6 +30,7 @@ CampusConnect solves the chaos of college clubs juggling WhatsApp groups, spread
 | **Backend**         | Supabase (Postgres, Auth, Storage, Realtime) |
 | **Package Manager** | Bun                                          |
 
+<<<<<<< HEAD
 ## 🏗️ Architecture / Database
 
 This project uses **Supabase (PostgreSQL)** as its backend database, with Supabase Auth and Row Level Security enabled for access control.
@@ -151,6 +154,105 @@ profiles ──< clubs >──< club_members >── clubs
   └── certificates
 ```
 
+=======
+## 🗄️ Architecture / Database
+
+CampusConnect's data lives entirely in Supabase (Postgres). The schema is defined in [`supabase/schema.sql`](./supabase/schema.sql) and centers on **clubs**, the **members**/**events** they run, and the **posts** their members write.
+
+### Entity-relationship diagram
+
+```mermaid
+erDiagram
+  PROFILES ||--o{ CLUBS : "creates"
+  PROFILES ||--o{ CLUB_MEMBERS : "joins as"
+  CLUBS ||--o{ CLUB_MEMBERS : "has"
+  CLUBS ||--o{ EVENTS : "hosts"
+  CLUBS ||--o{ POSTS : "has"
+  PROFILES ||--o{ EVENTS : "creates"
+  EVENTS ||--o{ EVENT_RSVPS : "receives"
+  PROFILES ||--o{ EVENT_RSVPS : "makes"
+  PROFILES ||--o{ POSTS : "authors"
+  POSTS ||--o{ COMMENTS : "has"
+  PROFILES ||--o{ COMMENTS : "authors"
+  EVENTS ||--o{ CERTIFICATES : "issues"
+  PROFILES ||--o{ CERTIFICATES : "receives"
+
+  PROFILES {
+    uuid id PK
+    text full_name
+    text avatar_url
+    text college
+    text bio
+    enum role "student | club_admin"
+  }
+  CLUBS {
+    uuid id PK
+    text name
+    text slug UK
+    text description
+    uuid created_by FK
+  }
+  CLUB_MEMBERS {
+    uuid id PK
+    uuid club_id FK
+    uuid user_id FK
+    enum role "member | admin"
+    enum status "pending | approved"
+  }
+  EVENTS {
+    uuid id PK
+    uuid club_id FK
+    text title
+    text description
+    timestamptz event_date
+    uuid created_by FK
+  }
+  EVENT_RSVPS {
+    uuid id PK
+    uuid event_id FK
+    uuid user_id FK
+    bool checked_in
+  }
+  POSTS {
+    uuid id PK
+    uuid club_id FK
+    uuid author_id FK
+    text content
+  }
+  COMMENTS {
+    uuid id PK
+    uuid post_id FK
+    uuid author_id FK
+    text content
+  }
+  CERTIFICATES {
+    uuid id PK
+    uuid event_id FK
+    uuid user_id FK
+    text certificate_url
+  }
+```
+
+### Tables
+
+| Table           | Key columns                                                                 | Purpose                                                                 |
+| :--------------- | :--------------------------------------------------------------------------- | :------------------------------------------------------------------------ |
+| `profiles`       | `id` (PK, = `auth.users.id`), `full_name`, `avatar_url`, `college`, `bio`, `role` | One row per authenticated user; auto-created by the `on_auth_user_created` trigger on signup. |
+| `clubs`          | `id` (PK), `name`, `slug` (unique), `description`, `banner_url`, `logo_url`, `created_by` → `profiles.id` | A campus club/society. `slug` is used for the public `/clubs/:slug` route. |
+| `club_members`   | `id` (PK), `club_id` → `clubs.id`, `user_id` → `profiles.id`, `role`, `status` | Join table linking users to clubs, with a `member`/`admin` role and a `pending`/`approved` status. Unique per `(club_id, user_id)`. |
+| `events`         | `id` (PK), `club_id` → `clubs.id`, `title`, `description`, `event_date`, `location`, `created_by` → `profiles.id` | An event hosted by a club. |
+| `event_rsvps`    | `id` (PK), `event_id` → `events.id`, `user_id` → `profiles.id`, `checked_in` | A user's RSVP to an event, plus a `checked_in` flag set on QR check-in. Unique per `(event_id, user_id)`. |
+| `posts`          | `id` (PK), `club_id` → `clubs.id`, `author_id` → `profiles.id`, `content` | A discussion post on a club's feed. |
+| `comments`       | `id` (PK), `post_id` → `posts.id`, `author_id` → `profiles.id`, `content` | A reply to a post. |
+| `certificates`   | `id` (PK), `event_id` → `events.id`, `user_id` → `profiles.id`, `certificate_url` | A generated certificate issued to a user for attending an event. |
+
+### Notes
+
+- All tables have **Row Level Security (RLS)** enabled — see the policies in [`supabase/schema.sql`](./supabase/schema.sql) for exactly who can read/write what (e.g. only club admins can create events, only authors can edit their own posts/comments).
+- `posts`, `comments`, and `event_rsvps` are added to the `supabase_realtime` publication, which is what powers the live-updating feed and RSVP counts.
+- Storage buckets (`avatars`, `club-banners`, `event-banners`, `certificates`) are public-read, with writes restricted to the authenticated user's own folder.
+
+>>>>>>> origin/main
 ## 🚀 Getting Started
 
 1. **Clone the repository:**

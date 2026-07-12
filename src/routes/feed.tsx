@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
+import ReactMarkdown from "react-markdown";
 
 export const Route = createFileRoute("/feed")({
   head: () => ({
@@ -146,7 +147,7 @@ function Feed() {
             <textarea
               value={newPost}
               onChange={(e) => setNewPost(e.target.value)}
-              placeholder="Post an update to your clubs..."
+              placeholder="Post an update to your clubs... (markdown supported: **bold**, *italics*, - bullets)"
               rows={3}
               className="w-full resize-none border-0 bg-transparent font-mono text-sm outline-none"
             />
@@ -201,9 +202,9 @@ function Feed() {
                       Post
                     </span>
                   </header>
-                  <p className="mt-2 font-mono text-sm leading-relaxed whitespace-pre-wrap">
-                    {p.content}
-                  </p>
+                  <div className="markdown-content mt-2 font-mono text-sm leading-relaxed">
+                    <ReactMarkdown>{p.content}</ReactMarkdown>
+                  </div>
                   <div className="mt-4 space-y-3 border-t-2 border-black pt-4">
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     {postComments.map((c: any) => {
@@ -218,7 +219,9 @@ function Feed() {
                               {timeAgo(c.created_at)}
                             </p>
                           </div>
-                          <p className="mt-1 font-mono text-sm whitespace-pre-wrap">{c.content}</p>
+                          <div className="markdown-content mt-1 font-mono text-sm">
+                            <ReactMarkdown>{c.content}</ReactMarkdown>
+                          </div>
                         </div>
                       );
                     })}

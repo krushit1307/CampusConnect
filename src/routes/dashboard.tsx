@@ -23,7 +23,7 @@ function Dashboard() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
-        router.navigate({ to: "/auth" });
+        router.navigate({ to: "/auth", replace: true });
       } else {
         setUser(user);
       }
