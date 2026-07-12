@@ -38,7 +38,7 @@ function EventsPage() {
         .from("events")
         .select(
           `
-          id, title, description, event_date, location, 
+          id, title, description, event_date, location, banner_url,
           clubs (name),
           event_rsvps (id, user_id)
         `,
