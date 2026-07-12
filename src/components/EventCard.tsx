@@ -6,6 +6,7 @@ interface Event {
   description: string | null;
   event_date: string | null;
   location: string | null;
+  banner_url?: string | null;
   clubs: { name: string } | { name: string }[] | null;
   event_rsvps: { id: string; user_id: string }[] | null;
 }
@@ -27,6 +28,14 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
 
   return (
     <article className="group neu-border flex flex-col bg-white p-5 transition-all duration-300 hover:-translate-x-1 hover:-translate-y-1 hover:scale-[1.02] hover:shadow-[8px_8px_0_0_#000000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[2px_2px_0_0_#000000]">
+      <div className="mb-4 overflow-hidden border-2 border-black">
+        <img
+          src={event.banner_url || "/images/placeholder.png"}
+          alt={event.title}
+          className="h-40 w-full object-cover"
+        />
+      </div>
+
       <div className="mb-4 flex items-start justify-between">
         <div
           className={`neu-border ${colors[index % colors.length]} px-4 py-3 text-center font-mono text-xs font-bold transition-transform duration-300 group-hover:scale-105`}
