@@ -14,7 +14,7 @@ COPY . .
 EXPOSE 8080
 ENV PORT=8080
 ENV HOST=0.0.0.0
-CMD ["bun", "run", "dev", "--host", "0.0.0.0"]
+CMD ["bun", "run", "dev", "--", "--host", "0.0.0.0", "--port", "8080"]
 
 # Stage 3: Build the application for production
 FROM base AS builder
@@ -25,7 +25,8 @@ RUN bun run build
 # Stage 4: Production runner environment
 FROM base AS runner
 ENV NODE_ENV=production
-COPY --from=builder /app/.output ./.output
+USER bun
+COPY --chown=bun:bun --from=builder /app/.output ./.output
 EXPOSE 3000
 ENV PORT=3000
 CMD ["bun", ".output/server/index.mjs"]

@@ -164,7 +164,12 @@ Alternatively, you can run the project containerized using Docker. This allows y
    ```
    Fill in your Supabase URL and Anon Key in `.env.local`.
 
-2. **Start the development container:**
+2. **Run database migrations (if applicable):**
+   ```bash
+   supabase db push
+   ```
+
+3. **Start the development container:**
    ```bash
    docker compose up --build
    ```
