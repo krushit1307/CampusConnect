@@ -1,4 +1,7 @@
 import { Link, useLocation } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 import { ThemeToggle } from "../ThemeToggle";
 
 const links = [
@@ -12,6 +15,16 @@ const links = [
 export function Navbar() {
   const location = useLocation();
   const currentPath = location.pathname;
+  const supabase = createClient();
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) =>
+      setUser(session?.user ?? null),
+    );
+    return () => subscription.unsubscribe();
+  }, []);
 
   return (
     <header className="sticky top-0 z-40 border-b-2 border-black bg-white">
@@ -45,13 +58,24 @@ export function Navbar() {
         <div className="flex items-center gap-3">
           <ThemeToggle />
 
-          <Link
-            to="/auth"
-            className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream hover:bg-cream hover:text-black"
-            style={{ letterSpacing: "0.08em" }}
-          >
-            Sign in
-          </Link>
+          {user ? (
+            <Link
+              to="/dashboard"
+              className="flex items-center gap-2"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-lime font-mono text-xs font-bold uppercase">
+                {user.email?.[0].toUpperCase() ?? "U"}
+              </div>
+            </Link>
+          ) : (
+            <Link
+              to="/auth"
+              className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream hover:bg-cream hover:text-black"
+              style={{ letterSpacing: "0.08em" }}
+            >
+              Sign in
+            </Link>
+          )}
         </div>
       </div>
     </header>
