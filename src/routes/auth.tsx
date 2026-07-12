@@ -47,14 +47,14 @@ function AuthPage() {
           },
         });
         if (signUpError) throw signUpError;
-        router.navigate({ to: "/dashboard" });
+        router.navigate({ to: "/dashboard", replace: true });
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (signInError) throw signInError;
-        router.navigate({ to: "/dashboard" });
+        router.navigate({ to: "/dashboard", replace: true });
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
