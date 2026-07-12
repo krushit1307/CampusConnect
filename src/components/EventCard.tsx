@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { formatDate } from "@/lib/utils";
 
 interface Event {
@@ -19,6 +20,7 @@ interface EventCardProps {
 }
 
 export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: EventCardProps) {
+  const [isDebouncing, setIsDebouncing] = useState(false);
   const c = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs;
   const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
   const hasRsvpd = user ? rsvps.some((r) => r.user_id === user.id) : false;
@@ -63,12 +65,15 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
       <button
         onClick={() => {
           if (!user) return alert("Please log in to RSVP");
+          if (isDebouncing) return;
+          setIsDebouncing(true);
           onRsvpToggle(event.id, hasRsvpd);
+          setTimeout(() => setIsDebouncing(false), 2000);
         }}
-        disabled={isRsvpPending}
+        disabled={isRsvpPending || isDebouncing}
         className={`neu-border mt-5 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 ${
           hasRsvpd ? "bg-lime text-black" : "bg-black text-cream"
-        }`}
+        } ${(isRsvpPending || isDebouncing) ? "opacity-75 cursor-not-allowed" : ""}`}
       >
         {hasRsvpd ? "RSVP'd ✓" : "RSVP →"}
       </button>
