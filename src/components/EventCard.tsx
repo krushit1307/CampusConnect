@@ -1,4 +1,5 @@
 import { formatDate } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Event {
   id: string;
@@ -62,7 +63,7 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
 
       <button
         onClick={() => {
-          if (!user) return alert("Please log in to RSVP");
+          if (!user) return void toast.error("Please log in to RSVP");
           onRsvpToggle(event.id, hasRsvpd);
         }}
         disabled={isRsvpPending}

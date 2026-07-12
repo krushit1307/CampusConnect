@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import ReactMarkdown from "react-markdown";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/feed")({
   head: () => ({
@@ -169,7 +170,7 @@ function Feed() {
               </select>
               <button
                 onClick={() => {
-                  if (!user) return alert("Log in first");
+                  if (!user) return void toast.error("Log in first");
                   if (newPost.trim()) postMutation.mutate();
                 }}
                 disabled={!newPost.trim() || postMutation.isPending}
@@ -234,7 +235,7 @@ function Feed() {
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && !e.shiftKey) {
                             e.preventDefault();
-                            if (!user) return alert("Log in first");
+                            if (!user) return void toast.error("Log in first");
                             const content = newComments[p.id];
                             if (content?.trim()) commentMutation.mutate({ postId: p.id, content });
                           }
