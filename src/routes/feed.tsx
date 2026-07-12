@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import ReactMarkdown from "react-markdown";
+import { calculateReadTime } from "../utils/readTime";
 
 export const Route = createFileRoute("/feed")({
   head: () => ({
@@ -194,8 +195,9 @@ function Feed() {
                       <p className="font-display text-lg font-bold">
                         {author?.full_name || "Unknown User"}
                       </p>
-                      <p className="font-mono text-xs">
+                      <p className="font-mono text-xs flex flex-wrap items-center">
                         in {club?.name || "Unknown Club"} · {timeAgo(p.created_at)}
+                        <span className="text-gray-500 ml-1">· {calculateReadTime(p.content)}</span>
                       </p>
                     </div>
                     <span className="neu-border bg-lime px-2 py-1 font-mono text-[10px] font-bold uppercase">
