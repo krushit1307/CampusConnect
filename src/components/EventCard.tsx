@@ -1,6 +1,7 @@
 import { formatDate } from "@/lib/utils";
 import { FormEvent, useState } from "react";
 import { X } from "lucide-react";
+import { toast } from "sonner";
 
 interface Event {
   id: string;
@@ -39,7 +40,7 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
 
   const handleRsvpClick = () => {
     if (!user) {
-      window.alert("Please log in to RSVP");
+      toast.error("Please log in to RSVP");
       return;
     }
 

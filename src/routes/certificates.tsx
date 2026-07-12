@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/certificates")({
   head: () => ({
@@ -118,7 +119,7 @@ function Certificates() {
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(c.certificate_url);
-                        alert("Link copied to clipboard!");
+                        toast.success("Link copied to clipboard!");
                       }}
                       className="neu-border neu-press flex-1 bg-white px-3 py-2 font-mono text-xs font-bold uppercase"
                     >
