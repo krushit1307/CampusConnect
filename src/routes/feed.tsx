@@ -265,7 +265,9 @@ function Feed() {
                       </p>
                       <p className="font-mono text-xs flex flex-wrap items-center">
                         in {club?.name || "Unknown Club"} · {timeAgo(post.created_at)}
-                        <span className="text-gray-500 ml-1">· {calculateReadTime(post.content)}</span>
+                        <span className="text-gray-500 ml-1">
+                          · {calculateReadTime(post.content)}
+                        </span>
                       </p>
                     </div>
                     <span className="neu-border bg-lime px-2 py-1 font-mono text-[10px] font-bold uppercase">
