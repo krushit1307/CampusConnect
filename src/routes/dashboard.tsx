@@ -64,18 +64,18 @@ function Dashboard() {
     queryFn: async () => {
       // Fetch events the user has RSVP'd to that are in the future
       const { data } = await supabase
-        .from("event_rsvps")
+        .from("events")
         .select(
           `
-          event_id,
-          events (
-            title, event_date,
-            clubs (name)
+          *,
+          clubs (name),
+          event_rsvps!inner (
+            id, user_id
           )
         `,
         )
-        .eq("user_id", user?.id)
-        .gte("events.event_date", new Date().toISOString())
+        .eq("event_rsvps.user_id", user?.id)
+        .gte("event_date", new Date().toISOString())
         .limit(3);
       return data || [];
     },
@@ -113,10 +113,10 @@ function Dashboard() {
             ) : (
               <ul className="divide-y-2 divide-black">
                 {upcomingEvents.map((r, i) => {
-                  const e = Array.isArray(r.events) ? r.events[0] : r.events;
-                  const c = e && !Array.isArray(e.clubs) ? e.clubs : null;
+                  const e = r;
+                  const c = Array.isArray(r.clubs) ? r.clubs[0] : r.clubs;
                   return (
-                    <li key={r.event_id} className="flex items-center gap-4 py-4">
+                    <li key={r.id} className="flex items-center gap-4 py-4">
                       <div
                         className={`neu-border ${colors[i % colors.length]} shrink-0 px-3 py-2 text-center font-mono text-xs font-bold`}
                       >
