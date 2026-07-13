@@ -1,0 +1,55 @@
+name: PR Verification (Safe Merge Check)
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  verify-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify PR Safety
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const review = context.payload.review;
+            const pr = context.payload.pull_request;
+            const repoOwner = context.repo.owner;
+
+            // 1. Check if the review is from CodeRabbit (typically 'coderabbitai[bot]')
+            const reviewerName = review.user.login.toLowerCase();
+            if (!reviewerName.includes('coderabbit')) {
+              console.log(`Review is from ${reviewerName}, not CodeRabbit. Skipping.`);
+              return;
+            }
+
+            // 2. We only proceed if CodeRabbit actually approves the PR
+            if (review.state.toLowerCase() !== 'approved') {
+              console.log(`CodeRabbit did not approve. State is: ${review.state}`);
+              return;
+            }
+
+            // 3. Fetch the latest PR details to check for merge conflicts
+            const { data: pullRequest } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number
+            });
+
+            // mergeable can be true, false, or null (if GitHub is still calculating)
+            if (pullRequest.mergeable === false) {
+              console.log("PR has merge conflicts. Cannot be marked safe.");
+              return;
+            }
+
+            // 4. Everything is good! Notify the maintainer.
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body: `🤖 **AI Triage Assistant:**\n\nCodeRabbit has successfully reviewed and approved this PR, and there are zero Git merge conflicts.\n\n@${repoOwner}, assuming all your automated tests (CI) have passed, this is ready for your final review and merge!`
+            });

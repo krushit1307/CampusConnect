@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
+import { toast } from "sonner";
 
 // Small building block for the skeleton below. Deliberately a plain div
 // (not the shared ui/skeleton component) to keep this change self-contained.
@@ -139,7 +140,7 @@ function ClubProfile() {
           <div className="mt-6 flex flex-wrap gap-3">
             <button
               onClick={() => {
-                if (!user) return alert("Please sign in first");
+                if (!user) return void toast.error("Please sign in first");
                 joinMutation.mutate();
               }}
               disabled={!!membership || joinMutation.isPending}

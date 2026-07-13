@@ -94,6 +94,7 @@ To prevent duplicate work:
 Got questions? Need help? Join the discussion!
 
 <!-- TODO: Replace with the actual Discord/Slack invite link -->
+
 **👉 Join the ECSoC Project Discord / Slack Here** _(link coming soon)_
 
 Thank you for contributing! 🚀
