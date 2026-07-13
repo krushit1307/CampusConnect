@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RoleBadge } from "@/components/RoleBadge";
 import { MessageCircle, PenLine, Sparkles } from "lucide-react";
 
 import { SiteShell } from "@/components/site/SiteShell";
@@ -71,10 +72,10 @@ function Feed() {
         .from("posts")
         .select(
           `
-          id, content, created_at,
-          profiles (full_name),
-          clubs (name),
-          comments (id, content, created_at, profiles (full_name))
+          id, content, created_at, club_id,
+          profiles (id, full_name),
+          clubs (id, name, club_members (user_id, role)),
+          comments (id, content, created_at, profiles (id, full_name))
           `,
         )
         .order("created_at", { ascending: false });
@@ -252,14 +253,21 @@ function Feed() {
             posts.map((post) => {
               const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
               const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
+              const clubMembers = Array.isArray(club?.club_members) ? club.club_members : [];
+              const authorMembership = clubMembers.find(
+                (m: { user_id: string; role: string }) => m.user_id === author?.id,
+              );
+              const authorRole = (authorMembership?.role ?? "member") as
+                "admin" | "organizer" | "member" | "alumni";
               const postComments = Array.isArray(post.comments) ? post.comments : [];
 
               return (
                 <article key={post.id} className="neu-border bg-white p-6">
                   <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-black pb-3">
                     <div>
-                      <p className="font-display text-lg font-bold">
+                      <p className="font-display text-lg font-bold flex items-center gap-2">
                         {author?.full_name || "Unknown User"}
+                        <RoleBadge role={authorRole} />
                       </p>
                       <p className="font-mono text-xs">
                         in {club?.name || "Unknown Club"} · {timeAgo(post.created_at)}
@@ -284,8 +292,22 @@ function Feed() {
                       return (
                         <div key={comment.id} className="neu-border bg-cream p-3">
                           <div className="flex justify-between">
-                            <p className="font-mono text-xs font-bold uppercase">
+                            <p className="font-mono text-xs font-bold uppercase flex items-center gap-1.5">
                               {commentAuthor?.full_name || "Unknown User"}
+                              {(() => {
+                                const cm = clubMembers.find(
+                                  (m: { user_id: string; role: string }) =>
+                                    m.user_id === commentAuthor?.id,
+                                );
+                                return (
+                                  <RoleBadge
+                                    role={
+                                      (cm?.role ?? "member") as
+                                        "admin" | "organizer" | "member" | "alumni"
+                                    }
+                                  />
+                                );
+                              })()}
                             </p>
                             <p className="font-mono text-[10px] text-gray-500">
                               {timeAgo(comment.created_at)}
