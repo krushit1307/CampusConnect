@@ -166,12 +166,15 @@ Alternatively, you can run the project containerized using Docker. This allows y
 #### Local Development (with Hot-Reloading / HMR)
 
 1. **Set up environment variables:**
+
    ```bash
    cp .env.example .env.local
    ```
+
    Fill in your Supabase URL and Anon Key in `.env.local`.
 
 2. **Run database migrations (if applicable):**
+
    ```bash
    supabase db push
    ```
@@ -185,6 +188,7 @@ Alternatively, you can run the project containerized using Docker. This allows y
 #### Production Build & Run
 
 1. **Build the production Docker image:**
+
    ```bash
    docker build --target runner -t campusconnect:latest .
    ```

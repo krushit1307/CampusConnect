@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button"; // Added unified Button component import
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
+import { ProfileHeaderSkeleton } from "@/components/ProfileHeaderSkeleton";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -31,7 +32,7 @@ function Dashboard() {
     });
   }, [router, supabase]);
 
-  const { data: profile } = useQuery({
+  const { data: profile, isLoading } = useQuery({
     queryKey: ["profile", user?.id],
     queryFn: async () => {
       const { data } = await supabase.from("profiles").select("*").eq("id", user?.id).single();
@@ -88,7 +89,11 @@ function Dashboard() {
   if (!user)
     return (
       <SiteShell>
-        <div className="p-10 font-mono">Loading...</div>
+        <section className="border-b-2 border-black bg-lime px-4 py-10 md:px-6">
+          <div className="mx-auto max-w-7xl">
+            <ProfileHeaderSkeleton />
+          </div>
+        </section>
       </SiteShell>
     );
 
@@ -96,10 +101,16 @@ function Dashboard() {
     <SiteShell>
       <section className="border-b-2 border-black bg-lime px-4 py-10 md:px-6">
         <div className="mx-auto max-w-7xl">
-          <p className="eyebrow font-bold">Signed in as {user.email}</p>
-          <h1 className="mt-2 text-4xl font-bold md:text-5xl">
-            Good morning, {profile?.full_name?.split(" ")[0] || "there"}.
-          </h1>
+          {isLoading ? (
+            <ProfileHeaderSkeleton />
+          ) : (
+            <>
+              <p className="eyebrow font-bold">Signed in as {user.email}</p>
+              <h1 className="mt-2 text-4xl font-bold md:text-5xl">
+                Good morning, {profile?.full_name?.split(" ")[0] || "there"}.
+              </h1>
+            </>
+          )}
         </div>
       </section>
       <section className="bg-cream px-4 py-10 md:px-6">
