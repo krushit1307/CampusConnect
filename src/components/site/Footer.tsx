@@ -1,4 +1,5 @@
 import { Sparkle } from "./Sparkle";
+import { ExternalLink } from "lucide-react";
 
 export function Footer() {
   return (
@@ -15,16 +16,32 @@ export function Footer() {
         <div className="flex gap-4 font-mono text-xs uppercase tracking-widest">
           <a
             href="https://github.com"
-            className="inline-block transition-transform duration-200 hover:scale-110 "
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 transition-transform duration-200 hover:scale-110"
           >
             GitHub
+            <ExternalLink className="w-4 h-4" />
           </a>
-          <a href="#" className="inline-block transition-transform duration-200 hover:scale-110 ">
+          <a
+            href="https://github.com/krushit1307/CampusConnect#readme"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 transition-transform duration-200 hover:scale-110"
+          >
             Docs
+            <ExternalLink className="w-4 h-4" />
           </a>
-          <a href="#" className="inline-block transition-transform duration-200 hover:scale-110 ">
+          <a
+            href="https://discord.gg/BEMjApACe"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 transition-transform duration-200 hover:scale-110"
+          >
             Discord
+            <ExternalLink className="w-4 h-4" />
           </a>
+          {/* Note: mailto links don't usually get external link icons since they open email clients */}
           <a href="mailto:support@campusconnect.com" className="hover:underline">
             Contact Us
           </a>
