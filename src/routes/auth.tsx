@@ -204,7 +204,14 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="eyebrow mb-1 block font-bold">{label}</span>
+      <span className="eyebrow mb-1 block font-bold">
+        {label}
+        {required && (
+          <span className="text-destructive ml-1" aria-hidden="true">
+            *
+          </span>
+        )}
+      </span>
       <div className="relative flex items-center border-0 border-b-2 border-black focus-within:bg-lime/40 group">
         <input
           type={type}

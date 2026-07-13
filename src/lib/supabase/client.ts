@@ -13,6 +13,12 @@
  */
 import { createBrowserClient } from "@supabase/ssr";
 
+// Polyfill WebSocket for SSR on older Node.js versions (e.g. Node 20)
+if (typeof window === "undefined" && !globalThis.WebSocket) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).WebSocket = class {};
+}
+
 // Validate environment variables on app startup in development mode
 if (import.meta.env.DEV) {
   const url =

@@ -114,7 +114,7 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <label className="block">
               <span className="font-mono text-xs font-bold uppercase">
-                Student ID <span aria-hidden="true">*</span>
+                Student ID <span className="text-destructive ml-1" aria-hidden="true">*</span>
               </span>
               <input
                 type="text"
@@ -132,7 +132,7 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
 
             <label className="block">
               <span className="font-mono text-xs font-bold uppercase">
-                Dietary preference <span aria-hidden="true">*</span>
+                Dietary preference <span className="text-destructive ml-1" aria-hidden="true">*</span>
               </span>
               <select
                 name="dietaryPreference"
