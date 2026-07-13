@@ -2,6 +2,7 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button"; // Added unified Button component import
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 
@@ -130,9 +131,14 @@ function Dashboard() {
                         <p className="truncate font-display text-lg font-bold">{e?.title}</p>
                         <p className="font-mono text-xs">{c?.name}</p>
                       </div>
-                      <button className="neu-border shrink-0 bg-white px-3 py-1 font-mono text-xs font-bold uppercase">
+                      {/* ✨ Replaced the raw HTML button with our unified Button component */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="neu-border shrink-0 bg-white px-3 py-1 font-mono text-xs font-bold uppercase"
+                      >
                         RSVP'd
-                      </button>
+                      </Button>
                     </li>
                   );
                 })}
@@ -180,6 +186,7 @@ function Dashboard() {
   );
 }
 
+// Widget component implementation below remains unchanged...
 function Widget({
   title,
   cta,
