@@ -3,9 +3,10 @@ import * as React from "react";
 const MOBILE_BREAKPOINT = 768;
 
 /**
- * A custom React hook that detects if the viewport width is below 768px.
- *
- * @returns {boolean} True if the viewport width is less than 768px, false otherwise.
+ * Custom React hook that detects whether the current viewport width matches a mobile screen size.
+ * It listens to window resize events dynamically via media queries.
+ * @function useIsMobile
+ * @returns {boolean} Returns `true` if the viewport width is less than the mobile breakpoint (768px), otherwise `false`. (Initially returns `false` until the effect runs).
  */
 export function useIsMobile() {
   const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined);

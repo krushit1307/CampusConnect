@@ -37,17 +37,9 @@ CREATE TABLE club_members (
   UNIQUE(club_id, user_id)
 );
 
-CREATE TABLE event_categories (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL UNIQUE,
-  description TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
 CREATE TABLE events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   club_id UUID REFERENCES clubs(id) ON DELETE CASCADE,
-  category_id UUID CONSTRAINT fk_events_category REFERENCES event_categories(id) ON DELETE SET NULL,
   title TEXT NOT NULL,
   description TEXT,
   banner_url TEXT,
@@ -57,8 +49,6 @@ CREATE TABLE events (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
-CREATE INDEX idx_events_category ON events(category_id);
 
 CREATE TABLE event_rsvps (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -99,7 +89,6 @@ CREATE TABLE certificates (
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE club_members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE event_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE event_rsvps ENABLE ROW LEVEL SECURITY;
 ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
@@ -127,9 +116,6 @@ CREATE POLICY "Admins can update members." ON club_members FOR UPDATE USING (
   EXISTS (SELECT 1 FROM club_members admin_members WHERE admin_members.club_id = club_members.club_id AND admin_members.user_id = auth.uid() AND admin_members.role = 'admin' AND admin_members.status = 'approved') OR
   EXISTS (SELECT 1 FROM clubs WHERE id = club_members.club_id AND created_by = auth.uid())
 );
-
--- event_categories: public read
-CREATE POLICY "Event categories are viewable by everyone." ON event_categories FOR SELECT USING (true);
 
 -- events: public read, only club admins can create/edit
 CREATE POLICY "Events are viewable by everyone." ON events FOR SELECT USING (true);
@@ -191,97 +177,18 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
--- ------------------------------------------------------------
 -- 5. Storage Buckets & Policies
--- ------------------------------------------------------------
+INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true) ON CONFLICT DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('club-banners', 'club-banners', true) ON CONFLICT DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('event-banners', 'event-banners', true) ON CONFLICT DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('certificates', 'certificates', true) ON CONFLICT DO NOTHING;
 
--- Create public buckets
-INSERT INTO storage.buckets (id, name, public)
-VALUES
-  ('avatars', 'avatars', true),
-  ('club-banners', 'club-banners', true),
-  ('event-banners', 'event-banners', true),
-  ('certificates', 'certificates', true)
-ON CONFLICT (id) DO UPDATE
-SET public = EXCLUDED.public;
+-- Allow public reads
+CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING ( bucket_id IN ('avatars', 'club-banners', 'event-banners', 'certificates') );
+-- Authenticated users can write to their own folders
+CREATE POLICY "Users can upload" ON storage.objects FOR INSERT WITH CHECK ( auth.role() = 'authenticated' AND (storage.foldername(name))[1] = auth.uid()::text );
 
--- Remove existing policies if they already exist
-DROP POLICY IF EXISTS "Public Access" ON storage.objects;
-DROP POLICY IF EXISTS "Users can upload" ON storage.objects;
-DROP POLICY IF EXISTS "Users can update own uploads" ON storage.objects;
-DROP POLICY IF EXISTS "Users can delete own uploads" ON storage.objects;
-
--- Public read access
-CREATE POLICY "Public Access"
-ON storage.objects
-FOR SELECT
-USING (
-  bucket_id IN (
-    'avatars',
-    'club-banners',
-    'event-banners',
-    'certificates'
-  )
-);
-
--- Authenticated users can upload only to their own folder
-CREATE POLICY "Users can upload"
-ON storage.objects
-FOR INSERT
-TO authenticated
-WITH CHECK (
-  bucket_id IN (
-    'avatars',
-    'club-banners',
-    'event-banners',
-    'certificates'
-  )
-  AND (storage.foldername(name))[1] = auth.uid()::text
-);
-
--- Users can overwrite/update only their own files
-CREATE POLICY "Users can update own uploads"
-ON storage.objects
-FOR UPDATE
-TO authenticated
-USING (
-  bucket_id IN (
-    'avatars',
-    'club-banners',
-    'event-banners',
-    'certificates'
-  )
-  AND (storage.foldername(name))[1] = auth.uid()::text
-)
-WITH CHECK (
-  bucket_id IN (
-    'avatars',
-    'club-banners',
-    'event-banners',
-    'certificates'
-  )
-  AND (storage.foldername(name))[1] = auth.uid()::text
-);
-
--- Users can delete only their own files
-CREATE POLICY "Users can delete own uploads"
-ON storage.objects
-FOR DELETE
-TO authenticated
-USING (
-  bucket_id IN (
-    'avatars',
-    'club-banners',
-    'event-banners',
-    'certificates'
-  )
-  AND (storage.foldername(name))[1] = auth.uid()::text
-);
-
--- ------------------------------------------------------------
 -- 6. Realtime
--- ------------------------------------------------------------
-
 ALTER PUBLICATION supabase_realtime ADD TABLE posts;
 ALTER PUBLICATION supabase_realtime ADD TABLE comments;
 ALTER PUBLICATION supabase_realtime ADD TABLE event_rsvps;

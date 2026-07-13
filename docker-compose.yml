@@ -1,0 +1,16 @@
+services:
+  web:
+    build:
+      context: .
+      target: dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.vinxi
+      - /app/.output
+    environment:
+      - NODE_ENV=development
+    env_file:
+      - .env.local
