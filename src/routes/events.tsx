@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { EventCard } from "@/components/EventCard";
+import { CreateEventDialog } from "@/components/CreateEventDialog";
 
 export const Route = createFileRoute("/events")({
   head: () => ({
@@ -37,7 +38,7 @@ function EventsPage() {
         .from("events")
         .select(
           `
-          id, title, description, event_date, location, 
+          id, title, description, event_date, location, banner_url,
           clubs (name),
           event_rsvps (id, user_id)
         `,
@@ -134,7 +135,7 @@ function EventsPage() {
             <p className="eyebrow font-bold">All events · Fall semester</p>
             <h1 className="mt-2 text-4xl font-bold md:text-6xl">What's on this week.</h1>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t, i) => (
               <button
                 key={t}
@@ -144,6 +145,7 @@ function EventsPage() {
                 {t}
               </button>
             ))}
+            <CreateEventDialog user={user} />
           </div>
         </div>
       </section>
