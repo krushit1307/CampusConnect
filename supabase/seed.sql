@@ -1,31 +1,197 @@
--- Seed data for CampusConnect
+-- Seed data for CampusConnect local development
 
--- Assuming we already have a user from auth.users (you should create one manually and get its ID if you want to link it).
--- For this seed, we will create dummy UUIDs for users if we need, but foreign key to auth.users might fail if we don't have real users.
--- We'll skip inserting into `profiles` directly if we don't have `auth.users` IDs, but to test queries, let's insert some dummy profiles.
--- NOTE: If you run this in Supabase, you might need to insert a real user via Auth first, then use their ID.
--- For demo purposes, we will disable triggers temporarily if we need to force insert, or just use real UUIDs.
+-- 1. Create dummy authenticated users in auth.users
+-- Default password: password123 (encrypted using blowfish crypt)
+INSERT INTO auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at
+) VALUES 
+(
+  '00000000-0000-0000-0000-000000000000',
+  'd0000000-0000-0000-0000-000000000001',
+  'authenticated',
+  'authenticated',
+  'admin@campusconnect.com',
+  crypt('password123', gen_salt('bf')),
+  NOW(),
+  '{"provider": "email", "providers": ["email"]}',
+  '{"full_name": "Admin User", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=Admin"}',
+  NOW(),
+  NOW()
+),
+(
+  '00000000-0000-0000-0000-000000000002',
+  'authenticated',
+  'authenticated',
+  'student@campusconnect.com',
+  crypt('password123', gen_salt('bf')),
+  NOW(),
+  '{"provider": "email", "providers": ["email"]}',
+  '{"full_name": "John Doe", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=John"}',
+  NOW(),
+  NOW()
+)
+ON CONFLICT (id) DO NOTHING;
 
--- 1. Dummy profiles (using arbitrary UUIDs - make sure to replace these or create them in auth first)
--- UUIDs used:
--- Admin User: 'd0000000-0000-0000-0000-000000000001'
--- Student 1: 'd0000000-0000-0000-0000-000000000002'
+-- 2. Update profiles details (triggers automatically created them on auth.users insert)
+UPDATE public.profiles
+SET role = 'club_admin',
+    college = 'Tech Institute of Technology',
+    bio = 'Project administrator and Tech Club advisor.'
+WHERE id = 'd0000000-0000-0000-0000-000000000001';
 
--- 2. Dummy Clubs
-INSERT INTO clubs (id, name, slug, description, banner_url, logo_url)
+UPDATE public.profiles
+SET role = 'student',
+    college = 'School of Fine Arts',
+    bio = 'Sophomore student interested in design and music.'
+WHERE id = 'd0000000-0000-0000-0000-000000000002';
+
+-- 3. Dummy Clubs
+INSERT INTO clubs (id, name, slug, description, banner_url, logo_url, created_by)
 VALUES 
-('c0000000-0000-0000-0000-000000000001', 'Tech Club', 'tech-club', 'A club for tech enthusiasts and developers.', 'https://placehold.co/800x400/000000/FFF?text=Tech+Club', 'https://placehold.co/200x200/000000/FFF?text=TC'),
-('c0000000-0000-0000-0000-000000000002', 'Art & Design', 'art-design', 'Exploring creativity through various mediums.', 'https://placehold.co/800x400/FF0000/FFF?text=Art+Club', 'https://placehold.co/200x200/FF0000/FFF?text=AC'),
-('c0000000-0000-0000-0000-000000000003', 'Music Society', 'music-society', 'For those who love playing and listening to music.', 'https://placehold.co/800x400/00FF00/FFF?text=Music+Society', 'https://placehold.co/200x200/00FF00/FFF?text=MS')
+(
+  'c0000000-0000-0000-0000-000000000001', 
+  'Tech Club', 
+  'tech-club', 
+  'A club for tech enthusiasts, programmers, and builders.', 
+  'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=800&auto=format&fit=crop', 
+  'https://api.dicebear.com/7.x/initials/svg?seed=TC',
+  'd0000000-0000-0000-0000-000000000001'
+),
+(
+  'c0000000-0000-0000-0000-000000000002', 
+  'Art & Design', 
+  'art-design', 
+  'Exploring creative limits and visual communication mediums.', 
+  'https://images.unsplash.com/photo-1513364776144-60967b0f800f?q=80&w=800&auto=format&fit=crop', 
+  'https://api.dicebear.com/7.x/initials/svg?seed=AD',
+  'd0000000-0000-0000-0000-000000000001'
+),
+(
+  'c0000000-0000-0000-0000-000000000003', 
+  'Music Society', 
+  'music-society', 
+  'Jam sessions, songwriting workshops, and campus concerts.', 
+  'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=800&auto=format&fit=crop', 
+  'https://api.dicebear.com/7.x/initials/svg?seed=MS',
+  'd0000000-0000-0000-0000-000000000002'
+)
 ON CONFLICT (id) DO NOTHING;
 
--- 3. Dummy Events
-INSERT INTO events (id, club_id, title, description, banner_url, event_date, location)
+-- 4. Club Memberships
+INSERT INTO club_members (id, club_id, user_id, role, status)
 VALUES
-('e0000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', 'Hackathon 2024', 'Annual college hackathon. Build something awesome in 24 hours!', 'https://placehold.co/800x400/000000/FFF?text=Hackathon', NOW() + INTERVAL '7 days', 'Main Auditorium'),
-('e0000000-0000-0000-0000-000000000002', 'c0000000-0000-0000-0000-000000000002', 'Watercolor Workshop', 'Learn the basics of watercolor painting.', 'https://placehold.co/800x400/FF0000/FFF?text=Workshop', NOW() + INTERVAL '3 days', 'Art Studio 3'),
-('e0000000-0000-0000-0000-000000000003', 'c0000000-0000-0000-0000-000000000003', 'Open Mic Night', 'Showcase your talent or just come to enjoy the performances.', 'https://placehold.co/800x400/00FF00/FFF?text=Open+Mic', NOW() + INTERVAL '14 days', 'Student Center')
+(
+  'm0000000-0000-0000-0000-000000000001',
+  'c0000000-0000-0000-0000-000000000001',
+  'd0000000-0000-0000-0000-000000000001',
+  'admin',
+  'approved'
+),
+(
+  'm0000000-0000-0000-0000-000000000002',
+  'c0000000-0000-0000-0000-000000000002',
+  'd0000000-0000-0000-0000-000000000002',
+  'admin',
+  'approved'
+),
+(
+  'm0000000-0000-0000-0000-000000000003',
+  'c0000000-0000-0000-0000-000000000001',
+  'd0000000-0000-0000-0000-000000000002',
+  'member',
+  'approved'
+)
 ON CONFLICT (id) DO NOTHING;
 
--- 4. Dummy Posts (without author_id for now as we don't have real users, but schema allows null if we didn't specify NOT NULL. Wait, author_id might fail FK constraint if not real. We will skip posts/comments for now or use a known user ID if you have one.)
--- You can manually add posts in the Supabase dashboard after creating a user.
+-- 5. Dummy Events
+INSERT INTO events (id, club_id, category_id, title, description, banner_url, event_date, start_date, end_date, location, created_by)
+VALUES
+(
+  'e0000000-0000-0000-0000-000000000001', 
+  'c0000000-0000-0000-0000-000000000001',
+  (SELECT id FROM event_categories WHERE name = 'Tech' LIMIT 1),
+  'Hackathon 2024', 
+  'Annual college hackathon. Build something awesome in 24 hours!', 
+  'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=800&auto=format&fit=crop', 
+  NOW() + INTERVAL '7 days',
+  NOW() + INTERVAL '7 days',
+  NOW() + INTERVAL '8 days',
+  'Main Auditorium',
+  'd0000000-0000-0000-0000-000000000001'
+),
+(
+  'e0000000-0000-0000-0000-000000000002', 
+  'c0000000-0000-0000-0000-000000000002',
+  (SELECT id FROM event_categories WHERE name = 'Workshop' LIMIT 1),
+  'Watercolor Workshop', 
+  'Learn the basics of watercolor painting with live demonstrations.', 
+  'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?q=80&w=800&auto=format&fit=crop', 
+  NOW() + INTERVAL '3 days',
+  NOW() + INTERVAL '3 days',
+  NOW() + INTERVAL '3 days' + INTERVAL '3 hours',
+  'Art Studio 3',
+  'd0000000-0000-0000-0000-000000000001'
+),
+(
+  'e0000000-0000-0000-0000-000000000003', 
+  'c0000000-0000-0000-0000-000000000003',
+  (SELECT id FROM event_categories WHERE name = 'Cultural' LIMIT 1),
+  'Open Mic Night', 
+  'Showcase your music talent or just come to enjoy the acoustic performances.', 
+  'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=800&auto=format&fit=crop', 
+  NOW() + INTERVAL '14 days',
+  NOW() + INTERVAL '14 days',
+  NOW() + INTERVAL '14 days' + INTERVAL '4 hours',
+  'Student Center Lounge',
+  'd0000000-0000-0000-0000-000000000002'
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- 6. Event RSVPs
+INSERT INTO event_rsvps (id, event_id, user_id, checked_in)
+VALUES
+(
+  'r0000000-0000-0000-0000-000000000001',
+  'e0000000-0000-0000-0000-000000000001',
+  'd0000000-0000-0000-0000-000000000002',
+  false
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- 7. Dummy Feed Posts
+INSERT INTO posts (id, club_id, author_id, content)
+VALUES
+(
+  'p0000000-0000-0000-0000-000000000001',
+  'c0000000-0000-0000-0000-000000000001',
+  'd0000000-0000-0000-0000-000000000001',
+  'Welcome to the Tech Club! Looking forward to hacking together at our annual hackathon next week.'
+),
+(
+  'p0000000-0000-0000-0000-000000000002',
+  'c0000000-0000-0000-0000-000000000002',
+  'd0000000-0000-0000-0000-000000000002',
+  'Check out this weeks palette recommendations for watercolor painting! Feel free to share your works here.'
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- 8. Post Comments
+INSERT INTO comments (id, post_id, author_id, content)
+VALUES
+(
+  'cc000000-0000-0000-0000-000000000001',
+  'p0000000-0000-0000-0000-000000000001',
+  'd0000000-0000-0000-0000-000000000002',
+  'Super excited! Cant wait to see what teams build.'
+)
+ON CONFLICT (id) DO NOTHING;
