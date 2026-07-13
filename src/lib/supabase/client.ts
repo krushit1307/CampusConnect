@@ -83,7 +83,8 @@ export function createClient() {
  * @param userId The ID of the user requesting to join.
  * @param message Optional message to the club admins.
  */
-export async function requestClubJoin(clubId: string, userId: string, message: string = "") {
+export async function requestClubJoin(clubId: string, userId: string, message?: string | null) {
+  const normalizedMessage = message ?? "";
   const supabase = createClient();
 
   // 1. Check if a request already exists
@@ -113,7 +114,7 @@ export async function requestClubJoin(clubId: string, userId: string, message: s
     .insert({
       club_id: clubId,
       user_id: userId,
-      message: message.trim(),
+      message: normalizedMessage.trim(),
       status: "pending",
     })
     .select()
