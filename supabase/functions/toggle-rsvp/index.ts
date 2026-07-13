@@ -8,6 +8,11 @@ const corsHeaders = {
 
 const RATE_LIMIT_WINDOW_MS = 2000; // 2 seconds
 
+/**
+ * Handles RSVP toggling with rate limiting.
+ * @param {Request} req - The incoming HTTP request.
+ * @returns {Promise<Response>} The HTTP response.
+ */
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });

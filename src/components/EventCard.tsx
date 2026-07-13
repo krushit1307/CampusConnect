@@ -22,6 +22,11 @@ interface EventCardProps {
   isRsvpPending: boolean;
 }
 
+/**
+ * Renders an event card with RSVP functionality, enforcing frontend rate limiting.
+ * @param {EventCardProps} props - The component props.
+ * @returns {JSX.Element} The rendered EventCard component.
+ */
 export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: EventCardProps) {
   const [isDebouncing, setIsDebouncing] = useState(false);
   const club = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs;

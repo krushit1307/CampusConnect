@@ -10,6 +10,11 @@ type MemberEmail = {
   email: string;
 };
 
+/**
+ * Handles sending email notifications to event members via Resend.
+ * @param {Request} req - The incoming HTTP request containing the event_id.
+ * @returns {Promise<Response>} The HTTP response.
+ */
 serve(async (req) => {
   // Handle CORS
   if (req.method === "OPTIONS") {
