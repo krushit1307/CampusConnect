@@ -1,3 +1,15 @@
+/**
+ * Formats a date string into a human-readable format.
+ *
+ * Converts a valid date string into the format:
+ * "Month Day, Year at HH:MM AM/PM".
+ * Returns an empty string for empty input and the original
+ * string if the provided date is invalid.
+ *
+ * @param dateString - The date string to format.
+ * @returns A formatted date string, the original input if invalid,
+ * or an empty string if no value is provided.
+ */
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 

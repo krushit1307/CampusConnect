@@ -14,11 +14,11 @@ export function Navbar() {
   const currentPath = location.pathname;
 
   return (
-    <header className="sticky top-0 z-40 border-b-2 border-black bg-white">
+    <header className="sticky top-0 z-40 border-b-2 border-black bg-white text-black dark:border-cream dark:bg-black dark:text-cream">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
         <Link to="/" className="font-display text-xl font-bold md:text-2xl">
           <span style={{ letterSpacing: "0.04em" }}>CAMPUS</span>
-          <span className="bg-black px-1 text-cream">CONNECT</span>
+          <span className="bg-black px-1 text-cream dark:bg-cream dark:text-black">CONNECT</span>
         </Link>
         <nav className="hidden items-center gap-6 md:flex">
           {links.map((l) => {
@@ -41,13 +41,11 @@ export function Navbar() {
             );
           })}
         </nav>
-
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <ThemeToggle />
-
           <Link
             to="/auth"
-            className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream hover:bg-cream hover:text-black"
+            className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream hover:bg-cream hover:text-black dark:bg-cream dark:text-black dark:hover:bg-black dark:hover:text-cream"
             style={{ letterSpacing: "0.08em" }}
           >
             Sign in

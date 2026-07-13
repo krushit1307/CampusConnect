@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { User } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
 import {
   Bold,
   Code2,
@@ -10,9 +10,12 @@ import {
   Link2,
   List,
   ListOrdered,
+  MessageCircle,
   MessageSquareText,
+  PenLine,
   Pencil,
   Quote,
+  Sparkles,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -191,11 +194,13 @@ function Feed() {
     queryKey: ["userClubs", user?.id],
     queryFn: async () => {
       if (!user) return [];
+
       const { data } = await supabase
         .from("club_members")
         .select("clubs (id, name)")
         .eq("user_id", user.id)
         .eq("status", "approved");
+
       return data || [];
     },
     enabled: !!user?.id,
@@ -208,6 +213,7 @@ function Feed() {
       const firstClub = Array.isArray(userClubs[0].clubs)
         ? userClubs[0].clubs[0]
         : userClubs[0].clubs;
+
       if (firstClub) setSelectedClubId(firstClub.id);
     }
   }, [userClubs, selectedClubId]);
@@ -223,9 +229,10 @@ function Feed() {
           profiles (full_name),
           clubs (name),
           comments (id, content, created_at, profiles (full_name))
-        `,
+          `,
         )
         .order("created_at", { ascending: false });
+
       return data || [];
     },
   });
@@ -252,11 +259,13 @@ function Feed() {
       if (!selectedClubId) throw new Error("Select a club");
 
       const { error } = await supabase.from("posts").insert({
+
         club_id: selectedClubId,
         author_id: user.id,
         content: newPost,
       });
       if (error) throw error;
+
       setNewPost("");
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["posts"] }),
@@ -266,11 +275,13 @@ function Feed() {
     mutationFn: async ({ postId, content }: { postId: string; content: string }) => {
       if (!user) throw new Error("Must be logged in");
       const { error } = await supabase.from("comments").insert({
+
         post_id: postId,
         author_id: user.id,
         content,
       });
       if (error) throw error;
+
       setNewComments((prev) => ({ ...prev, [postId]: "" }));
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["posts"] }),
@@ -280,9 +291,12 @@ function Feed() {
     const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
     const diff = new Date().getTime() - new Date(dateString).getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
     if (days > 0) return rtf.format(-days, "day");
+
     const hours = Math.floor(diff / (1000 * 60 * 60));
     if (hours > 0) return rtf.format(-hours, "hour");
+
     const minutes = Math.floor(diff / (1000 * 60));
     return rtf.format(-Math.max(1, minutes), "minute");
   };
@@ -311,6 +325,7 @@ function Feed() {
                 {userClubs.length === 0 && <option value="">No clubs joined</option>}
                 {userClubs.map((userClub) => {
                   const club = Array.isArray(userClub.clubs) ? userClub.clubs[0] : userClub.clubs;
+
                   return club ? (
                     <option key={club.id} value={club.id}>
                       Posting to · {club.name}
@@ -342,6 +357,57 @@ function Feed() {
 
           {isLoading ? (
             <div className="py-10 text-center font-mono">Loading feed...</div>
+          ) : posts.length === 0 ? (
+            <div
+              className="neu-border relative overflow-hidden bg-white px-6 py-12 text-center sm:px-10 sm:py-16"
+              role="status"
+              aria-live="polite"
+            >
+              <div
+                className="absolute -left-6 -top-6 h-24 w-24 rotate-12 border-2 border-black bg-lime"
+                aria-hidden="true"
+              />
+              <div
+                className="absolute -bottom-8 -right-6 h-28 w-28 -rotate-12 border-2 border-black bg-peach"
+                aria-hidden="true"
+              />
+
+              <div className="relative mx-auto flex max-w-xl flex-col items-center">
+                <div className="relative mb-6" aria-hidden="true">
+                  <div className="neu-border flex h-24 w-24 items-center justify-center bg-lime sm:h-28 sm:w-28">
+                    <MessageCircle className="h-12 w-12 sm:h-14 sm:w-14" strokeWidth={2.5} />
+                  </div>
+                  <div className="neu-border absolute -right-4 -top-4 flex h-10 w-10 items-center justify-center bg-peach">
+                    <Sparkles className="h-5 w-5" strokeWidth={2.5} />
+                  </div>
+                </div>
+
+                <p className="mb-3 font-mono text-xs font-bold uppercase tracking-[0.2em]">
+                  The conversation starts here
+                </p>
+                <h2 className="text-2xl font-bold sm:text-3xl">
+                  No posts yet. Be the first to start a discussion!
+                </h2>
+                <p className="mt-4 max-w-md font-mono text-sm leading-relaxed text-gray-700">
+                  Share an announcement, ask a question, or post an update for your club community.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const composer = document.querySelector<HTMLTextAreaElement>(
+                      'textarea[aria-label="Post content in Markdown"]',
+                    );
+                    composer?.focus();
+                    composer?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }}
+                  className="neu-border mt-7 inline-flex items-center gap-2 bg-black px-5 py-3 font-mono text-xs font-bold uppercase text-cream transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black"
+                >
+                  <PenLine className="h-4 w-4" aria-hidden="true" />
+                  Start a discussion
+                </button>
+              </div>
+            </div>
           ) : (
             posts.map((post) => {
               const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
@@ -374,6 +440,7 @@ function Feed() {
                       const commentAuthor = Array.isArray(comment.profiles)
                         ? comment.profiles[0]
                         : comment.profiles;
+
                       return (
                         <div key={comment.id} className="neu-border bg-cream p-3">
                           <div className="flex justify-between">
@@ -399,11 +466,13 @@ function Feed() {
                             ...prev,
                             [post.id]: event.target.value,
                           }))
+
                         }
                         onKeyDown={(event) => {
                           if (event.key === "Enter" && !event.shiftKey) {
                             event.preventDefault();
                             if (!user) return alert("Log in first");
+
                             const content = newComments[post.id];
                             if (content?.trim()) {
                               commentMutation.mutate({ postId: post.id, content });

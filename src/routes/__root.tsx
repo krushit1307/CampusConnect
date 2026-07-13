@@ -14,6 +14,7 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { createClient } from "../lib/supabase/client";
+import { ThemeProvider } from "../components/ThemeToggle";
 
 function NotFoundComponent() {
   return (
@@ -184,8 +185,10 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <ThemeProvider>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Outlet />
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
