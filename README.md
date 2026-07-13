@@ -120,16 +120,16 @@ erDiagram
 | `posts`        | `id` (PK), `club_id` → `clubs.id`, `author_id` → `profiles.id`, `content`                                         | A discussion post on a club's feed.                                                                                                 |
 | `comments`     | `id` (PK), `post_id` → `posts.id`, `author_id` → `profiles.id`, `content`                                         | A reply to a post.                                                                                                                  |
 | `certificates` | `id` (PK), `event_id` → `events.id`, `user_id` → `profiles.id`, `certificate_url`                                 | A generated certificate issued to a user for attending an event.                                                                    |
-| Table | Key columns | Purpose |
-| :---- | :---------- | :------ |
-| `profiles` | `id` (PK, = `auth.users.id`), `full_name`, `avatar_url`, `college`, `bio`, `role` | One row per authenticated user; auto-created by the `on_auth_user_created` trigger on signup. |
-| `clubs` | `id` (PK), `name`, `slug` (unique), `description`, `banner_url`, `logo_url`, `created_by` → `profiles.id` | A campus club or society. `slug` is used for the public `/clubs/:slug` route. |
-| `club_members` | `id` (PK), `club_id` → `clubs.id`, `user_id` → `profiles.id`, `role`, `status` | Join table linking users to clubs, with a `member`/`admin` role and a `pending`/`approved` status. |
-| `events` | `id` (PK), `club_id` → `clubs.id`, `title`, `description`, `event_date`, `location`, `created_by` → `profiles.id` | An event hosted by a club. |
-| `event_rsvps` | `id` (PK), `event_id` → `events.id`, `user_id` → `profiles.id`, `checked_in` | A user's RSVP to an event, plus a `checked_in` flag set on QR check-in. |
-| `posts` | `id` (PK), `club_id` → `clubs.id`, `author_id` → `profiles.id`, `content` | A discussion post on a club's feed. |
-| `comments` | `id` (PK), `post_id` → `posts.id`, `author_id` → `profiles.id`, `content` | A reply to a post. |
-| `certificates` | `id` (PK), `event_id` → `events.id`, `user_id` → `profiles.id`, `certificate_url` | A generated certificate issued to a user for attending an event. |
+| Table          | Key columns                                                                                                       | Purpose                                                                                                                             |
+| :----          | :----------                                                                                                       | :------                                                                                                                             |
+| `profiles`     | `id` (PK, = `auth.users.id`), `full_name`, `avatar_url`, `college`, `bio`, `role`                                 | One row per authenticated user; auto-created by the `on_auth_user_created` trigger on signup.                                       |
+| `clubs`        | `id` (PK), `name`, `slug` (unique), `description`, `banner_url`, `logo_url`, `created_by` → `profiles.id`         | A campus club or society. `slug` is used for the public `/clubs/:slug` route.                                                       |
+| `club_members` | `id` (PK), `club_id` → `clubs.id`, `user_id` → `profiles.id`, `role`, `status`                                    | Join table linking users to clubs, with a `member`/`admin` role and a `pending`/`approved` status.                                  |
+| `events`       | `id` (PK), `club_id` → `clubs.id`, `title`, `description`, `event_date`, `location`, `created_by` → `profiles.id` | An event hosted by a club.                                                                                                          |
+| `event_rsvps`  | `id` (PK), `event_id` → `events.id`, `user_id` → `profiles.id`, `checked_in`                                      | A user's RSVP to an event, plus a `checked_in` flag set on QR check-in.                                                             |
+| `posts`        | `id` (PK), `club_id` → `clubs.id`, `author_id` → `profiles.id`, `content`                                         | A discussion post on a club's feed.                                                                                                 |
+| `comments`     | `id` (PK), `post_id` → `posts.id`, `author_id` → `profiles.id`, `content`                                         | A reply to a post.                                                                                                                  |
+| `certificates` | `id` (PK), `event_id` → `events.id`, `user_id` → `profiles.id`, `certificate_url`                                 | A generated certificate issued to a user for attending an event.                                                                    |
 
 ### Notes
 
@@ -169,12 +169,15 @@ Alternatively, you can run the project containerized using Docker. This allows y
 #### Local Development (with Hot-Reloading / HMR)
 
 1. **Set up environment variables:**
+
    ```bash
    cp .env.example .env.local
    ```
+
    Fill in your Supabase URL and Anon Key in `.env.local`.
 
 2. **Run database migrations (if applicable):**
+
    ```bash
    supabase db push
    ```
@@ -188,6 +191,7 @@ Alternatively, you can run the project containerized using Docker. This allows y
 #### Production Build & Run
 
 1. **Build the production Docker image:**
+
    ```bash
    docker build --target runner -t campusconnect:latest .
    ```
