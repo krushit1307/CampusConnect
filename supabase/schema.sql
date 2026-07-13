@@ -76,6 +76,7 @@ CREATE TABLE posts (
   content TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE comments (

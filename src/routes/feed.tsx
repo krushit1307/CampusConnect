@@ -78,6 +78,7 @@ function Feed() {
           comments (id, content, created_at, profiles (full_name))
           `,
         )
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
       return data || [];
