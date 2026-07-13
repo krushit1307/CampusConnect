@@ -24,7 +24,7 @@ export function Footer() {
             <ExternalLink className="w-4 h-4" />
           </a>
           <a
-            href="#"
+            href="https://github.com/krushit1307/CampusConnect#readme"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 transition-transform duration-200 hover:scale-110"
@@ -33,7 +33,7 @@ export function Footer() {
             <ExternalLink className="w-4 h-4" />
           </a>
           <a
-            href="#"
+            href="https://discord.gg/BEMjApACe"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 transition-transform duration-200 hover:scale-110"
