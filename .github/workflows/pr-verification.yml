@@ -19,7 +19,7 @@ jobs:
             const review = context.payload.review;
             const pr = context.payload.pull_request;
             const repoOwner = context.repo.owner;
-            
+
             // 1. Check if the review is from CodeRabbit (typically 'coderabbitai[bot]')
             const reviewerName = review.user.login.toLowerCase();
             if (!reviewerName.includes('coderabbit')) {
