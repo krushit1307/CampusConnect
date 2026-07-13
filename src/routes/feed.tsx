@@ -17,7 +17,7 @@ import {
   Quote,
   Sparkles,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import ReactMarkdown from "react-markdown";
 
 import { SiteShell } from "@/components/site/SiteShell";
@@ -77,117 +77,135 @@ const toolbarActions: ToolbarAction[] = [
   },
 ];
 
-function MarkdownEditor({ value, onChange }: MarkdownEditorProps) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [mode, setMode] = useState<"write" | "preview">("write");
+export type MarkdownEditorRef = {
+  focusWrite: () => void;
+};
 
-  const applyMarkdown = ({
-    before,
-    after = "",
-    placeholder = "text",
-    linePrefix,
-  }: ToolbarAction) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
+const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>(
+  ({ value, onChange }, ref) => {
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const [mode, setMode] = useState<"write" | "preview">("write");
 
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = value.slice(start, end) || placeholder;
-    const prefix = linePrefix && start > 0 && value[start - 1] !== "\n" ? `\n${before}` : before;
-    const replacement = `${prefix}${selectedText}${after}`;
-    const nextValue = `${value.slice(0, start)}${replacement}${value.slice(end)}`;
+    useImperativeHandle(ref, () => ({
+      focusWrite: () => {
+        setMode("write");
+        requestAnimationFrame(() => {
+          textareaRef.current?.focus();
+          textareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+      },
+    }));
 
-    onChange(nextValue);
+    const applyMarkdown = ({
+      before,
+      after = "",
+      placeholder = "text",
+      linePrefix,
+    }: ToolbarAction) => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
 
-    requestAnimationFrame(() => {
-      textarea.focus();
-      const selectionStart = start + prefix.length;
-      textarea.setSelectionRange(selectionStart, selectionStart + selectedText.length);
-    });
-  };
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const selectedText = value.slice(start, end) || placeholder;
+      const prefix = linePrefix && start > 0 && value[start - 1] !== "\n" ? `\n${before}` : before;
+      const replacement = `${prefix}${selectedText}${after}`;
+      const nextValue = `${value.slice(0, start)}${replacement}${value.slice(end)}`;
 
-  return (
-    <div className="neu-border bg-white" aria-label="Markdown post editor">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-black bg-sky p-2">
-        <div className="flex flex-wrap gap-1" role="toolbar" aria-label="Markdown formatting">
-          {toolbarActions.map((action) => {
-            const Icon = action.icon;
-            return (
-              <button
-                key={action.label}
-                type="button"
-                onClick={() => applyMarkdown(action)}
-                className="neu-border bg-white p-2 transition hover:-translate-y-0.5 hover:bg-lime focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
-                aria-label={action.label}
-                title={action.label}
-              >
-                <Icon size={16} strokeWidth={2.5} aria-hidden="true" />
-              </button>
-            );
-          })}
+      onChange(nextValue);
+
+      requestAnimationFrame(() => {
+        textarea.focus();
+        const selectionStart = start + prefix.length;
+        textarea.setSelectionRange(selectionStart, selectionStart + selectedText.length);
+      });
+    };
+
+    return (
+      <div className="neu-border bg-white" aria-label="Markdown post editor">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-black bg-sky p-2">
+          <div className="flex flex-wrap gap-1" role="toolbar" aria-label="Markdown formatting">
+            {toolbarActions.map((action) => {
+              const Icon = action.icon;
+              return (
+                <button
+                  key={action.label}
+                  type="button"
+                  onClick={() => applyMarkdown(action)}
+                  className="neu-border bg-white p-2 transition hover:-translate-y-0.5 hover:bg-lime focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                  aria-label={action.label}
+                  title={action.label}
+                >
+                  <Icon size={16} strokeWidth={2.5} aria-hidden="true" />
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex" aria-label="Editor mode">
+            <button
+              type="button"
+              onClick={() => setMode("write")}
+              className={`neu-border flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase ${
+                mode === "write" ? "bg-black text-cream" : "bg-white"
+              }`}
+              aria-pressed={mode === "write"}
+            >
+              <Pencil size={14} aria-hidden="true" /> Write
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("preview")}
+              className={`neu-border -ml-0.5 flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase ${
+                mode === "preview" ? "bg-black text-cream" : "bg-white"
+              }`}
+              aria-pressed={mode === "preview"}
+            >
+              <Eye size={14} aria-hidden="true" /> Preview
+            </button>
+          </div>
         </div>
 
-        <div className="flex" aria-label="Editor mode">
-          <button
-            type="button"
-            onClick={() => setMode("write")}
-            className={`neu-border flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase ${
-              mode === "write" ? "bg-black text-cream" : "bg-white"
-            }`}
-            aria-pressed={mode === "write"}
-          >
-            <Pencil size={14} aria-hidden="true" /> Write
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("preview")}
-            className={`neu-border -ml-0.5 flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase ${
-              mode === "preview" ? "bg-black text-cream" : "bg-white"
-            }`}
-            aria-pressed={mode === "preview"}
-          >
-            <Eye size={14} aria-hidden="true" /> Preview
-          </button>
+        {mode === "write" ? (
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            placeholder="Share an update using Markdown…"
+            rows={7}
+            className="min-h-44 w-full resize-y bg-white p-4 font-mono text-sm outline-none placeholder:text-gray-500 focus:bg-cream/40"
+            aria-label="Post content in Markdown"
+          />
+        ) : (
+          <div className="min-h-44 bg-white p-4" aria-live="polite">
+            {value.trim() ? (
+              <div className="markdown-content font-mono text-sm leading-relaxed">
+                <ReactMarkdown>{value}</ReactMarkdown>
+              </div>
+            ) : (
+              <div className="flex min-h-36 flex-col items-center justify-center gap-2 text-center text-gray-500">
+                <MessageSquareText size={32} aria-hidden="true" />
+                <p className="font-mono text-sm">Your Markdown preview will appear here.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="border-t-2 border-black bg-cream px-4 py-2 font-mono text-[10px] uppercase">
+          Raw Markdown is saved. HTML is not rendered.
         </div>
       </div>
-
-      {mode === "write" ? (
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder="Share an update using Markdown…"
-          rows={7}
-          className="min-h-44 w-full resize-y bg-white p-4 font-mono text-sm outline-none placeholder:text-gray-500 focus:bg-cream/40"
-          aria-label="Post content in Markdown"
-        />
-      ) : (
-        <div className="min-h-44 bg-white p-4" aria-live="polite">
-          {value.trim() ? (
-            <div className="markdown-content font-mono text-sm leading-relaxed">
-              <ReactMarkdown>{value}</ReactMarkdown>
-            </div>
-          ) : (
-            <div className="flex min-h-36 flex-col items-center justify-center gap-2 text-center text-gray-500">
-              <MessageSquareText size={32} aria-hidden="true" />
-              <p className="font-mono text-sm">Your Markdown preview will appear here.</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="border-t-2 border-black bg-cream px-4 py-2 font-mono text-[10px] uppercase">
-        Raw Markdown is saved. HTML is not rendered.
-      </div>
-    </div>
-  );
-}
+    );
+  },
+);
+MarkdownEditor.displayName = "MarkdownEditor";
 
 function Feed() {
   const supabase = createClient();
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [newPost, setNewPost] = useState("");
+  const editorRef = useRef<MarkdownEditorRef>(null);
   const [newComments, setNewComments] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -263,7 +281,6 @@ function Feed() {
       if (!selectedClubId) throw new Error("Select a club");
 
       const { error } = await supabase.from("posts").insert({
-
         club_id: selectedClubId,
         author_id: user.id,
         content: newPost,
@@ -279,7 +296,6 @@ function Feed() {
     mutationFn: async ({ postId, content }: { postId: string; content: string }) => {
       if (!user) throw new Error("Must be logged in");
       const { error } = await supabase.from("comments").insert({
-
         post_id: postId,
         author_id: user.id,
         content,
@@ -317,7 +333,7 @@ function Feed() {
       <section className="bg-cream px-4 py-12 md:px-6">
         <div className="mx-auto max-w-4xl space-y-6">
           <div className="space-y-3">
-            <MarkdownEditor value={newPost} onChange={setNewPost} />
+            <MarkdownEditor ref={editorRef} value={newPost} onChange={setNewPost} />
 
             <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
               <select
@@ -399,11 +415,7 @@ function Feed() {
                 <button
                   type="button"
                   onClick={() => {
-                    const composer = document.querySelector<HTMLTextAreaElement>(
-                      'textarea[aria-label="Post content in Markdown"]',
-                    );
-                    composer?.focus();
-                    composer?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    editorRef.current?.focusWrite();
                   }}
                   className="neu-border mt-7 inline-flex items-center gap-2 bg-black px-5 py-3 font-mono text-xs font-bold uppercase text-cream transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black"
                 >
@@ -470,7 +482,6 @@ function Feed() {
                             ...prev,
                             [post.id]: event.target.value,
                           }))
-
                         }
                         onKeyDown={(event) => {
                           if (event.key === "Enter" && !event.shiftKey) {
