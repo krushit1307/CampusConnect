@@ -6,6 +6,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+type MemberEmail = {
+  email: string;
+};
+
 serve(async (req) => {
   // Handle CORS
   if (req.method === "OPTIONS") {
@@ -78,7 +82,7 @@ serve(async (req) => {
       });
     }
 
-    const emailList = members.map((m: any) => m.email);
+    const emailList = (members as MemberEmail[]).map((member) => member.email);
 
     // Dispatch Emails via Resend
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
@@ -133,9 +137,16 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       },
     );
+<<<<<<< HEAD
   } catch (error: any) {
     console.error("Function error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
+=======
+  } catch (error: unknown) {
+    console.error("Function error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return new Response(JSON.stringify({ error: message }), {
+>>>>>>> 183ea56b78a2e9095418950e2aa9bcc22d9d000f
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
