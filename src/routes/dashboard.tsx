@@ -70,9 +70,7 @@ function Dashboard() {
           *,
           clubs (name),
           event_rsvps!inner (
-            user_id
-            title, event_date,
-            clubs (name)
+            id, user_id
           )
         `,
         )
