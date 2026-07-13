@@ -63,22 +63,30 @@ serve(async (req) => {
     const lastRequest = await kv.get<number>(rateLimitKey);
 
     if (lastRequest.value && now - lastRequest.value < RATE_LIMIT_WINDOW_MS) {
-      return new Response(JSON.stringify({ error: "Rate limit exceeded. Please wait before toggling again." }), {
-        status: 429,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Rate limit exceeded. Please wait before toggling again." }),
+        {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
     await kv.set(rateLimitKey, now, { expireIn: RATE_LIMIT_WINDOW_MS });
 
     // Execute RSVP logic securely
     if (hasRsvpd) {
-      const { error } = await supabase.from("event_rsvps").delete().match({ event_id: eventId, user_id: user.id });
+      const { error } = await supabase
+        .from("event_rsvps")
+        .delete()
+        .match({ event_id: eventId, user_id: user.id });
 
       if (error) {
         throw error;
       }
     } else {
-      const { error } = await supabase.from("event_rsvps").insert({ event_id: eventId, user_id: user.id });
+      const { error } = await supabase
+        .from("event_rsvps")
+        .insert({ event_id: eventId, user_id: user.id });
 
       if (error) {
         throw error;
@@ -91,9 +99,12 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("Internal RSVP Error:", error);
-    return new Response(JSON.stringify({ error: "An unexpected error occurred processing your RSVP." }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    return new Response(
+      JSON.stringify({ error: "An unexpected error occurred processing your RSVP." }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      },
+    );
   }
 });

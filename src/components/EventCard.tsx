@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { formatDate } from "@/lib/utils";
-import { FormEvent, useState } from "react";
 import { X } from "lucide-react";
 
 interface Event {
@@ -43,8 +42,6 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
     setDietaryPreference("");
     setIsFormOpen(false);
   };
-
-
 
   const handleSubmit = (formEvent: FormEvent<HTMLFormElement>) => {
     formEvent.preventDefault();
@@ -177,7 +174,7 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
             if (isDebouncing) return;
             setIsDebouncing(true);
             setTimeout(() => setIsDebouncing(false), 2000);
-            
+
             if (hasRsvpd) {
               onRsvpToggle(event.id, true);
               return;
