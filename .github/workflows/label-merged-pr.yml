@@ -1,0 +1,44 @@
+name: Label Merged PRs
+
+on:
+  pull_request_target:
+    types: [closed]
+
+jobs:
+  add-labels-to-merged-pr:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Randomly select a label
+        id: pick-label
+        run: |
+          LABELS=("good-issue" "good-pr" "good-ui" "good-backend")
+          SELECTED_LABEL=${LABELS[$RANDOM % ${#LABELS[@]}]}
+          echo "selected_label=$SELECTED_LABEL" >> $GITHUB_OUTPUT
+
+      - name: Add labels to PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pull_request = context.payload.pull_request;
+            
+            // Check if PR already has labels
+            if (pull_request.labels && pull_request.labels.length > 0) {
+              console.log('PR already has labels. Skipping label addition.');
+              return;
+            }
+
+            const issue_number = pull_request.number;
+            const selected_label = '${{ steps.pick-label.outputs.selected_label }}';
+            
+            const labelsToAdd = ['ECSoC26', selected_label];
+            
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number,
+              labels: labelsToAdd
+            });

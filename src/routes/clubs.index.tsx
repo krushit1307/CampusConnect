@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useRef, useState } from "react";
-import { X } from "lucide-react";
+import { Plus, UsersRound, X } from "lucide-react";
 
 export const Route = createFileRoute("/clubs/")({
   head: () => ({
@@ -22,7 +23,6 @@ function ClubsIndex() {
   const supabase = createClient();
   const [search, setSearch] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-
   const { data: clubs = [], isLoading } = useQuery({
     queryKey: ["clubs"],
     queryFn: async () => {
@@ -35,12 +35,15 @@ function ClubsIndex() {
   });
 
   const colors = ["bg-lime", "bg-sky", "bg-lavender", "bg-peach"];
-
   const filteredClubs = clubs.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       (c.description || "").toLowerCase().includes(search.toLowerCase()),
   );
+
+  const handleCreateClub = () => {
+    window.alert("Club creation is coming soon!");
+  };
 
   return (
     <SiteShell>
@@ -56,7 +59,6 @@ function ClubsIndex() {
               placeholder="Search clubs by name or interest..."
               className="neu-border w-full bg-white px-4 py-3 pr-10 font-mono text-sm outline-none"
             />
-
             {search && (
               <button
                 type="button"
@@ -73,10 +75,31 @@ function ClubsIndex() {
           </div>
         </div>
       </section>
+
       <section className="bg-cream px-4 py-12 md:px-6">
         <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
           {isLoading ? (
-            <div className="col-span-full font-mono py-10">Loading clubs...</div>
+            <div className="col-span-full py-10 font-mono">Loading clubs...</div>
+          ) : clubs.length === 0 ? (
+            <div className="neu-border col-span-full mx-auto flex w-full max-w-2xl flex-col items-center bg-white px-6 py-12 text-center md:px-12 md:py-16">
+              <div className="neu-border mb-6 flex h-20 w-20 items-center justify-center bg-lime md:h-24 md:w-24">
+                <UsersRound className="h-10 w-10 md:h-12 md:w-12" aria-hidden="true" />
+              </div>
+              <p className="eyebrow font-bold">Your campus community starts here</p>
+              <h2 className="mt-2 text-3xl font-bold md:text-4xl">No clubs found</h2>
+              <p className="mt-3 max-w-md font-mono text-sm leading-6 text-gray-700">
+                There are no clubs in the directory yet. Create the first club and bring students
+                with shared interests together.
+              </p>
+              <button
+                type="button"
+                onClick={handleCreateClub}
+                className="neu-border neu-press mt-7 inline-flex items-center gap-2 bg-sky px-5 py-3 font-mono text-sm font-bold uppercase"
+              >
+                <Plus size={18} aria-hidden="true" />
+                Create a Club
+              </button>
+            </div>
           ) : (
             filteredClubs.map((c, index) => {
               const members = Array.isArray(c.club_members) ? c.club_members.length : 0;
