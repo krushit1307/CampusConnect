@@ -51,6 +51,12 @@ if (import.meta.env.DEV) {
   }
 }
 
+/**
+ * Creates a browser-safe Supabase client for fetching data and authentication.
+ * This client is meant to be used within React components (client-side).
+ *
+ * @returns An instance of the Supabase browser client.
+ */
 export function createClient() {
   const supabaseUrl =
     import.meta.env.VITE_SUPABASE_URL ||

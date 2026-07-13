@@ -1,6 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { getCookie, setCookie } from "vinxi/http";
 
+/**
+ * Creates a server-side Supabase client for secure data fetching in server functions.
+ * This manages cookie-based authentication securely across server components.
+ *
+ * @returns An instance of the Supabase server client.
+ */
 export function createServer() {
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey =
