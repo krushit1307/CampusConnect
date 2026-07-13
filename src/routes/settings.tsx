@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Camera } from "lucide-react";
+import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -69,8 +71,38 @@ function Panel({
 }
 
 function AvatarUpload({ name }: { name: string }) {
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
   const [preview, setPreview] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadAvatar() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("avatar_url")
+        .eq("id", user.id)
+        .single();
+
+      console.log("Loaded avatar:", data?.avatar_url);
+      if (isMounted && !error && data?.avatar_url) {
+        setPreview(data.avatar_url);
+      }
+    }
+
+    loadAvatar();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const initials = name
     .split(" ")
@@ -80,20 +112,79 @@ function AvatarUpload({ name }: { name: string }) {
     .slice(0, 2)
     .toUpperCase();
 
-  useEffect(() => {
-    return () => {
-      if (preview) URL.revokeObjectURL(preview);
-    };
-  }, [preview]);
-
-  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setPreview((current) => {
-      if (current) URL.revokeObjectURL(current);
-      return URL.createObjectURL(file);
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Only JPG, PNG and WEBP images are allowed.");
+      return;
+    }
+
+    const maxSize = 2 * 1024 * 1024;
+
+    if (file.size > maxSize) {
+      toast.error("Image must be under 2 MB.");
+      return;
+    }
+
+    try {
+      const avatarUrl = await uploadAvatar(file);
+      console.log("Avatar URL:", avatarUrl);
+
+      if (avatarUrl) {
+        setPreview(avatarUrl);
+        toast.success("Profile picture updated.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to upload avatar.");
+    } finally {
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
+    }
+  }
+
+  async function uploadAvatar(file: File): Promise<string | undefined> {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      toast.error("Please sign in first.");
+      return;
+    }
+
+    const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    const filePath = `${user.id}/${crypto.randomUUID()}.${extension}`;
+
+    const { error } = await supabase.storage.from("avatars").upload(filePath, file, {
+      upsert: true,
     });
+
+    if (error) {
+      throw error;
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("avatars").getPublicUrl(filePath);
+
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({
+        avatar_url: publicUrl,
+      })
+      .eq("id", user.id);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    return publicUrl;
   }
 
   return (
@@ -122,14 +213,16 @@ function AvatarUpload({ name }: { name: string }) {
         <input
           ref={inputRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp"
           onChange={handleFileChange}
           className="hidden"
         />
       </div>
       <div className="text-center sm:text-left">
         <p className="eyebrow font-bold">Profile picture</p>
-        <p className="font-mono text-xs text-gray-500">JPG or PNG. Square images look best.</p>
+        <p className="font-mono text-xs text-gray-500">
+          JPG, PNG or WEBP. Max 2 MB. Square images look best.
+        </p>
       </div>
     </div>
   );
