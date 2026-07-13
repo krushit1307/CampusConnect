@@ -20,9 +20,9 @@ export function Navbar() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) =>
-      setUser(session?.user ?? null),
-    );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_e, session) => setUser(session?.user ?? null));
     return () => subscription.unsubscribe();
   }, []);
 
@@ -58,10 +58,7 @@ export function Navbar() {
           <ThemeToggle />
 
           {user ? (
-            <Link
-              to="/dashboard"
-              className="flex items-center gap-2"
-            >
+            <Link to="/dashboard" className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-lime font-mono text-xs font-bold uppercase">
                 {user.email?.[0].toUpperCase() ?? "U"}
               </div>
