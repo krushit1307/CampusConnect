@@ -20,10 +20,11 @@ export function Navbar() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) =>
-      setUser(session?.user ?? null),
-    );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_e, session) => setUser(session?.user ?? null));
     return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -59,10 +60,7 @@ export function Navbar() {
           {user && <NotificationBell />}
 
           {user ? (
-            <Link
-              to="/dashboard"
-              className="flex items-center gap-2"
-            >
+            <Link to="/dashboard" className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-lime font-mono text-xs font-bold uppercase">
                 {user.email?.[0].toUpperCase() ?? "U"}
               </div>
@@ -106,7 +104,7 @@ function NotificationBell() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-white hover:bg-lime transition-colors"
+        className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-white transition-colors hover:bg-lime"
         aria-label="Notifications"
       >
         🔔
@@ -120,7 +118,10 @@ function NotificationBell() {
       {open && (
         <div className="neu-border absolute right-0 top-10 z-50 w-72 bg-white">
           <div className="border-b-2 border-black px-4 py-2">
-            <p className="font-mono text-xs font-bold uppercase" style={{ letterSpacing: "0.05em" }}>
+            <p
+              className="font-mono text-xs font-bold uppercase"
+              style={{ letterSpacing: "0.05em" }}
+            >
               Notifications
             </p>
           </div>
