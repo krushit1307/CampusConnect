@@ -55,7 +55,7 @@ if (import.meta.env.DEV) {
  * Creates and configures a browser-side Supabase client instance.
  * This client is used in client-side components to perform database operations,
  * listen to real-time updates, and handle user authentication sessions.
- * * @function createClient
+ * @function createClient
  * @returns {import("@supabase/supabase-js").SupabaseClient} An initialized browser-safe Supabase client instance.
  * @throws {Error} Throws an error if environment variables are missing or if the Supabase URL format is invalid.
  */

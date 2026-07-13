@@ -3,11 +3,11 @@ import { getCookie, setCookie } from "vinxi/http";
 
 /**
  * Creates and configures a server-side Supabase client instance using Vinxi HTTP helpers.
- * This client is used in server-side execution contexts (such as Server Actions, API routes, or 
- * server-rendered components) to securely interact with the database while automatically 
+ * This client is used in server-side execution contexts (such as Server Actions, API routes, or
+ * server-rendered components) to securely interact with the database while automatically
  * managing user authentication state via session cookies.
- * * @function createServer
- * @returns {import("@supabase/supabase-js").SupabaseClient} An initialized server-safe Supabase client configured with cookie storage methods.
+ * @function createServer
+ * @returns {import("@supabase/supabase-js").SupabaseClient} An initialized server-safe Supabase client configured with cookie storage methods. (Note: cookie writes may be ignored in Server Components, so session persistence may require middleware).
  * @throws {Error} Throws an error if environment variables are missing.
  */
 export function createServer() {
