@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { Camera } from "lucide-react";
+import { Camera, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 
@@ -75,6 +75,7 @@ function AvatarUpload({ name }: { name: string }) {
   const supabase = supabaseRef.current;
   const [preview, setPreview] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -129,6 +130,7 @@ function AvatarUpload({ name }: { name: string }) {
       toast.error("Image must be under 2 MB.");
       return;
     }
+    setUploading(true);
 
     try {
       const avatarUrl = await uploadAvatar(file);
@@ -137,6 +139,7 @@ function AvatarUpload({ name }: { name: string }) {
       if (avatarUrl) {
         setPreview(avatarUrl);
         toast.success("Profile picture updated.");
+        setUploading(false);
       }
     } catch (error) {
       console.error(error);
@@ -204,11 +207,16 @@ function AvatarUpload({ name }: { name: string }) {
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
+          disabled={uploading}
           aria-label="Change profile picture"
           title="Change profile picture"
           className="neu-border neu-press absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-black text-cream hover:bg-cream hover:text-black"
         >
-          <Camera className="h-4 w-4" />
+          {uploading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Camera className="h-4 w-4" />
+          )}
         </button>
         <input
           ref={inputRef}
