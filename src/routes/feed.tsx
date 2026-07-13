@@ -23,6 +23,8 @@ export const Route = createFileRoute("/feed")({
   component: Feed,
 });
 
+type MemberRole = "admin" | "organizer" | "member" | "alumni";
+
 function Feed() {
   const supabase = createClient();
   const queryClient = useQueryClient();
@@ -258,8 +260,7 @@ function Feed() {
               const authorMembership = clubMembers.find(
                 (m: { user_id: string; role: string }) => m.user_id === author?.id,
               );
-              const authorRole = (authorMembership?.role ?? "member") as
-                "admin" | "organizer" | "member" | "alumni";
+              const authorRole = (authorMembership?.role ?? "member") as MemberRole;
               const postComments = Array.isArray(post.comments) ? post.comments : [];
 
               return (
@@ -300,14 +301,7 @@ function Feed() {
                                   (m: { user_id: string; role: string }) =>
                                     m.user_id === commentAuthor?.id,
                                 );
-                                return (
-                                  <RoleBadge
-                                    role={
-                                      (cm?.role ?? "member") as
-                                        "admin" | "organizer" | "member" | "alumni"
-                                    }
-                                  />
-                                );
+                                return <RoleBadge role={(cm?.role ?? "member") as MemberRole} />;
                               })()}
                             </p>
                             <p className="font-mono text-[10px] text-gray-500">
