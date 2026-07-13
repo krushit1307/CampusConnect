@@ -7,7 +7,7 @@
  * What this code does in plain English:
  * 1. It grabs our project URL and public "anon" key from the environment variables (like a password safe).
  * 2. It creates a "browser client" which is basically a secure tunnel our React app uses
- *    to talk to Supabase (e.g., to fetch events or check if a user is logged in).
+ * to talk to Supabase (e.g., to fetch events or check if a user is logged in).
  *
  * You usually don't need to change this file unless we are adding new backend services!
  */
@@ -51,6 +51,14 @@ if (import.meta.env.DEV) {
   }
 }
 
+/**
+ * Creates and configures a browser-side Supabase client instance.
+ * This client is used in client-side components to perform database operations,
+ * listen to real-time updates, and handle user authentication sessions.
+ * @function createClient
+ * @returns {import("@supabase/supabase-js").SupabaseClient} An initialized browser-safe Supabase client instance.
+ * @throws {Error} Throws an error if environment variables are missing or if the Supabase URL format is invalid.
+ */
 export function createClient() {
   const supabaseUrl =
     import.meta.env.VITE_SUPABASE_URL ||
