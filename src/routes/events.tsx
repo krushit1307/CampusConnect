@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { EventCard } from "@/components/EventCard";
 import { CreateEventDialog } from "@/components/CreateEventDialog";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/events")({
   head: () => ({
@@ -109,17 +110,26 @@ function EventsPage() {
         console.log(`[CampusConnect] Mock RSVP toggled for event: ${eventId}`);
         return;
       }
-      const { error } = hasRsvpd
-        ? await supabase.from("event_rsvps").delete().match({ event_id: eventId, user_id: user.id })
-        : await supabase.from("event_rsvps").insert({ event_id: eventId, user_id: user.id });
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
+      const { data, error } = await supabase.functions.invoke("toggle-rsvp", {
+        body: { eventId, hasRsvpd },
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
       if (error) {
-        throw new Error(error.message);
+        throw error;
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
       queryClient.invalidateQueries({ queryKey: ["upcomingEvents"] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update RSVP. Please try again.");
     },
   });
 
