@@ -170,7 +170,9 @@ function Dashboard() {
                     >
                       <div>
                         <p className="font-display font-bold">
-                          <Link to={`/clubs/${club?.slug}`}>{club?.name}</Link>
+                          <Link to="/clubs/$slug" params={{ slug: club?.slug || "" }}>
+                            {club?.name}
+                          </Link>
                         </p>
                         <p className="font-mono text-xs">Active</p>
                       </div>

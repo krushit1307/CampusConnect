@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Camera, Loader2 } from "lucide-react";
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsPage() {
+  const [confirmOpen, setConfirmOpen] = useState(false);
   // TODO: Supabase — load + save profile fields, including avatar upload to storage
   return (
     <SiteShell>
@@ -43,9 +45,25 @@ function SettingsPage() {
             <Toggle label="New certificates" />
           </Panel>
           <Panel title="Danger zone" tone="bg-peach">
-            <button className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream">
+            <button
+              onClick={() => setConfirmOpen(true)}
+              className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream"
+            >
               Delete account
             </button>
+
+            <ConfirmModal
+              open={confirmOpen}
+              title="Delete account?"
+              description="This action cannot be undone."
+              confirmText="Delete"
+              cancelText="Cancel"
+              onCancel={() => setConfirmOpen(false)}
+              onConfirm={() => {
+                console.log("Delete account confirmed");
+                setConfirmOpen(false);
+              }}
+            />
           </Panel>
         </div>
       </section>

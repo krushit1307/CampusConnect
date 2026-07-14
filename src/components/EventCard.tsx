@@ -2,6 +2,7 @@ import { formatDate } from "@/lib/utils";
 import { FormEvent, useState } from "react";
 import { X } from "lucide-react";
 import { toast } from "sonner";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 
 interface Event {
   id: string;
@@ -45,7 +46,7 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
     }
 
     if (hasRsvpd) {
-      onRsvpToggle(event.id, true);
+      setConfirmOpen(true);
       return;
     }
 
@@ -64,6 +65,7 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
     onRsvpToggle(event.id, false);
     resetForm();
   };
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
     <article className={`neu-border p-5 ${colors[index % colors.length]}`}>
@@ -190,6 +192,32 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
           {isRsvpPending ? "Updating..." : hasRsvpd ? "RSVP'd ✓" : "RSVP →"}
         </button>
       ) : null}
+      <div className="mt-4 flex gap-2">
+        <a
+          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#1DA1F2] hover:text-white transition-colors"
+        >
+          Twitter
+        </a>
+        <a
+          href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#0A66C2] hover:text-white transition-colors"
+        >
+          LinkedIn
+        </a>
+        <a
+          href={`https://wa.me/?text=${encodeURIComponent(`Check out this event: ${event.title} - ${window.location.href}`)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#25D366] hover:text-white transition-colors"
+        >
+          WhatsApp
+        </a>
+      </div>
     </article>
   );
 }
