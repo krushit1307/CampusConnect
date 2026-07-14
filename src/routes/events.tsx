@@ -22,6 +22,18 @@ export const Route = createFileRoute("/events")({
   component: EventsPage,
 });
 
+interface EventItem {
+  id: string;
+  title: string;
+  description: string | null;
+  event_date: string | null;
+  location: string | null;
+  banner_url?: string | null;
+  clubs: { name: string } | { name: string }[] | null;
+  event_rsvps: { id: string; user_id: string }[] | null;
+  saved_events: { id: string; user_id: string }[] | null;
+}
+
 function EventsPage() {
   const supabase = createClient();
   const queryClient = useQueryClient();
@@ -134,10 +146,10 @@ function EventsPage() {
     onMutate: async ({ eventId, hasRsvpd }) => {
       await queryClient.cancelQueries({ queryKey: ["events"] });
 
-      const previousEvents = queryClient.getQueryData<any[]>(["events"]);
+      const previousEvents = queryClient.getQueryData<EventItem[]>(["events"]);
 
       if (previousEvents) {
-        queryClient.setQueryData<any[]>(
+        queryClient.setQueryData<EventItem[]>(
           ["events"],
           previousEvents.map((e) => {
             if (e.id === eventId) {
@@ -145,7 +157,7 @@ function EventsPage() {
               if (hasRsvpd) {
                 return {
                   ...e,
-                  event_rsvps: rsvpsList.filter((r: any) => r.user_id !== user?.id),
+                  event_rsvps: rsvpsList.filter((r) => r.user_id !== user?.id),
                 };
               } else {
                 return {
@@ -168,7 +180,9 @@ function EventsPage() {
       toast.error("Failed to update RSVP.");
     },
     onSuccess: (_data, variables) => {
-      toast.success(variables.hasRsvpd ? "RSVP cancelled successfully!" : "RSVP registered successfully!");
+      toast.success(
+        variables.hasRsvpd ? "RSVP cancelled successfully!" : "RSVP registered successfully!",
+      );
       if (!variables.eventId.startsWith("mock-")) {
         queryClient.invalidateQueries({ queryKey: ["events"] });
         queryClient.invalidateQueries({ queryKey: ["upcomingEvents"] });
@@ -184,7 +198,10 @@ function EventsPage() {
         return;
       }
       const { error } = isSaved
-        ? await supabase.from("saved_events").delete().match({ event_id: eventId, user_id: user.id })
+        ? await supabase
+            .from("saved_events")
+            .delete()
+            .match({ event_id: eventId, user_id: user.id })
         : await supabase.from("saved_events").insert({ event_id: eventId, user_id: user.id });
 
       if (error) {
@@ -194,10 +211,10 @@ function EventsPage() {
     onMutate: async ({ eventId, isSaved }) => {
       await queryClient.cancelQueries({ queryKey: ["events"] });
 
-      const previousEvents = queryClient.getQueryData<any[]>(["events"]);
+      const previousEvents = queryClient.getQueryData<EventItem[]>(["events"]);
 
       if (previousEvents) {
-        queryClient.setQueryData<any[]>(
+        queryClient.setQueryData<EventItem[]>(
           ["events"],
           previousEvents.map((e) => {
             if (e.id === eventId) {
@@ -205,7 +222,7 @@ function EventsPage() {
               if (isSaved) {
                 return {
                   ...e,
-                  saved_events: savedList.filter((s: any) => s.user_id !== user?.id),
+                  saved_events: savedList.filter((s) => s.user_id !== user?.id),
                 };
               } else {
                 return {

@@ -14,8 +14,15 @@ export const Route = createFileRoute("/dashboard")({
       { name: "description", content: "Your clubs, events, and activity at a glance." },
     ],
   }),
-  component: Dashboard,
-});
+interface DashboardSavedEvent {
+  id: string;
+  events: {
+    id: string;
+    title: string;
+    event_date: string | null;
+    clubs: { name: string } | { name: string }[] | null;
+  } | null;
+}
 
 function Dashboard() {
   const supabase = createClient();
@@ -140,10 +147,7 @@ function Dashboard() {
       </section>
       <section className="bg-cream px-4 py-10 md:px-6">
         <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-3">
-          <Widget
-            title="Upcoming events"
-            cta={{ label: "All events", to: "/events" }}
-          >
+          <Widget title="Upcoming events" cta={{ label: "All events", to: "/events" }}>
             {upcomingEvents.length === 0 ? (
               <p className="py-4 font-mono text-sm text-gray-500">No upcoming events yet.</p>
             ) : (
@@ -184,7 +188,7 @@ function Dashboard() {
               <p className="py-4 font-mono text-sm text-gray-500">No saved events yet.</p>
             ) : (
               <ul className="divide-y-2 divide-black">
-                {savedEvents.map((item: any, i) => {
+                {savedEvents.map((item: DashboardSavedEvent, i) => {
                   const e = item.events;
                   const c = e && (Array.isArray(e.clubs) ? e.clubs[0] : e.clubs);
                   if (!e) return null;
@@ -223,7 +227,9 @@ function Dashboard() {
                     >
                       <div>
                         <p className="font-display font-bold">
-                          <Link to="/clubs/$slug" params={{ slug: club?.slug || "" }}>{club?.name}</Link>
+                          <Link to="/clubs/$slug" params={{ slug: club?.slug || "" }}>
+                            {club?.name}
+                          </Link>
                         </p>
                         <p className="font-mono text-xs">Active</p>
                       </div>
