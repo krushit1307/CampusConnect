@@ -35,7 +35,9 @@ export const generateCertificate = createServerFn()
       throw new Error("Event or Profile not found");
     }
 
-    const clubName = Array.isArray(event.clubs) ? event.clubs[0]?.name : event.clubs?.name;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const clubsAny = event.clubs as any;
+    const clubName = Array.isArray(clubsAny) ? clubsAny[0]?.name : clubsAny?.name;
 
     // 3. Generate PDF
     const pdfDoc = await PDFDocument.create();

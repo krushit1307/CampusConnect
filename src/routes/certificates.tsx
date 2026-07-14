@@ -71,7 +71,8 @@ function Certificates() {
           ) : (
             certs.map((c, index) => {
               const event = Array.isArray(c.events) ? c.events[0] : c.events;
-              const club = event && !Array.isArray(event.clubs) ? event.clubs : null;
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const club = (event && !Array.isArray(event.clubs) ? event.clubs : null) as any;
 
               return (
                 <article key={c.id} className="neu-border neu-press bg-white p-6">

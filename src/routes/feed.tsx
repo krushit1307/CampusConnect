@@ -20,6 +20,7 @@ import {
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import ReactMarkdown from "react-markdown";
 
+import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { calculateReadTime } from "@/utils/readTime";
@@ -199,6 +200,8 @@ const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>(
 );
 MarkdownEditor.displayName = "MarkdownEditor";
 
+type MemberRole = "admin" | "organizer" | "member" | "alumni";
+
 function Feed() {
   const supabase = createClient();
   const queryClient = useQueryClient();
@@ -250,10 +253,10 @@ function Feed() {
         .from("posts")
         .select(
           `
-          id, content, created_at,
-          profiles (full_name),
-          clubs (name),
-          comments (id, content, created_at, profiles (full_name))
+          id, content, created_at, club_id,
+          profiles (id, full_name),
+          clubs (id, name, club_members (user_id, role)),
+          comments (id, content, created_at, profiles (id, full_name))
           `,
         )
         .is("deleted_at", null)
@@ -437,14 +440,20 @@ function Feed() {
               posts.map((post) => {
                 const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
                 const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
+                const clubMembers = Array.isArray(club?.club_members) ? club.club_members : [];
+                const authorMembership = clubMembers.find(
+                  (m: { user_id: string; role: string }) => m.user_id === author?.id,
+                );
+                const authorRole = (authorMembership?.role ?? "member") as MemberRole;
                 const postComments = Array.isArray(post.comments) ? post.comments : [];
 
                 return (
                   <article key={post.id} className="neu-border bg-white p-6">
                     <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-black pb-3">
                       <div>
-                        <p className="font-display text-lg font-bold">
+                        <p className="font-display text-lg font-bold flex items-center gap-2">
                           {author?.full_name || "Unknown User"}
+                          <RoleBadge role={authorRole} />
                         </p>
                         <p className="font-mono text-xs flex flex-wrap items-center">
                           in {club?.name || "Unknown Club"} · {timeAgo(post.created_at)}
@@ -453,38 +462,75 @@ function Feed() {
                           </span>
                         </p>
                       </div>
-                      <span className="neu-border bg-lime px-2 py-1 font-mono text-[10px] font-bold uppercase">
-                        Markdown post
-                      </span>
                     </header>
 
                     <div className="markdown-content mt-2 font-mono text-sm leading-relaxed">
                       <ReactMarkdown>{post.content}</ReactMarkdown>
                     </div>
 
-                    <div className="mt-4 space-y-3 border-t-2 border-black pt-4">
-                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                      {postComments.map((comment: any) => {
-                        const commentAuthor = Array.isArray(comment.profiles)
-                          ? comment.profiles[0]
-                          : comment.profiles;
+                    <div className="mt-4 flex gap-2 border-t-2 border-black pt-4">
+                      <a
+                        href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#1DA1F2] hover:text-white transition-colors"
+                      >
+                        Twitter
+                      </a>
+                      <a
+                        href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#0A66C2] hover:text-white transition-colors"
+                      >
+                        LinkedIn
+                      </a>
+                      <a
+                        href={`https://wa.me/?text=${encodeURIComponent(`Check out this post: ${post.content.substring(0, 50)}... - ${window.location.href}`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#25D366] hover:text-white transition-colors"
+                      >
+                        WhatsApp
+                      </a>
+                    </div>
 
-                        return (
-                          <div key={comment.id} className="neu-border bg-cream p-3">
-                            <div className="flex justify-between">
-                              <p className="font-mono text-xs font-bold uppercase">
-                                {commentAuthor?.full_name || "Unknown User"}
-                              </p>
-                              <p className="font-mono text-[10px] text-gray-500">
-                                {timeAgo(comment.created_at)}
-                              </p>
+                    <div className="mt-4 space-y-3 border-t-2 border-black pt-4">
+                      <h3 className="mb-4 flex items-center gap-2 font-mono text-xs font-bold uppercase">
+                        <MessageSquareText size={16} /> Comments ({postComments.length})
+                      </h3>
+
+                      <div className="space-y-4 pl-4">
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                        {postComments.map((comment: any) => {
+                          const commentAuthor = Array.isArray(comment.profiles)
+                            ? comment.profiles[0]
+                            : comment.profiles;
+
+                          return (
+                            <div key={comment.id} className="neu-border bg-cream p-3">
+                              <div className="flex justify-between">
+                                <p className="font-mono text-xs font-bold uppercase flex items-center gap-1.5">
+                                  {commentAuthor?.full_name || "Unknown User"}
+                                  {(() => {
+                                    const cm = clubMembers.find(
+                                      (m: { user_id: string; role: string }) =>
+                                        m.user_id === commentAuthor?.id,
+                                    );
+                                    return <RoleBadge role={(cm?.role ?? "member") as MemberRole} />;
+                                  })()}
+                                </p>
+                                <p className="font-mono text-[10px] text-gray-500">
+                                  {timeAgo(comment.created_at)}
+                                </p>
+                              </div>
+                              <div className="markdown-content mt-1 font-mono text-sm">
+                                <ReactMarkdown>{comment.content}</ReactMarkdown>
+                              </div>
                             </div>
-                            <div className="markdown-content mt-1 font-mono text-sm">
-                              <ReactMarkdown>{comment.content}</ReactMarkdown>
-                            </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
 
                       <div className="flex gap-2">
                         <input

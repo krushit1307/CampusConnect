@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
@@ -119,9 +120,9 @@ function ClubProfile() {
   const members = Array.isArray(club.club_members)
     ? club.club_members.filter((m) => m.status === "approved")
     : [];
-  const memberNames = members.map((m) => {
+  const memberList = members.map((m) => {
     const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
-    return profile?.full_name || "Unknown User";
+    return { name: profile?.full_name || "Unknown User", role: m.role as "admin" | "member" };
   });
 
   const events = Array.isArray(club.events) ? club.events : [];
@@ -185,13 +186,19 @@ function ClubProfile() {
             <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold">
               Members · {members.length}
             </h2>
-            {memberNames.length === 0 ? (
+            {memberList.length === 0 ? (
               <p className="font-mono text-sm">No members yet.</p>
             ) : (
-              <ul className="grid grid-cols-2 gap-2 font-mono text-sm">
-                {memberNames.map((m, i) => (
-                  <li key={i} className="neu-border bg-cream p-2 truncate" title={m}>
-                    {m}
+              <ul className="space-y-2 font-mono text-sm">
+                {memberList.map((m, i) => (
+                  <li
+                    key={i}
+                    className="neu-border bg-cream flex items-center justify-between gap-2 p-2"
+                  >
+                    <span className="truncate" title={m.name}>
+                      {m.name}
+                    </span>
+                    <RoleBadge role={m.role} />
                   </li>
                 ))}
               </ul>

@@ -9,6 +9,7 @@ import { EventCard } from "@/components/EventCard";
 import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { toast } from "sonner";
+import { EventCardSkeleton } from "@/components/EventCardSkeleton";
 
 export const Route = createFileRoute("/events")({
   head: () => ({
@@ -170,20 +171,18 @@ function EventsPage() {
         </section>
         <section className="bg-cream px-4 py-12 md:px-6">
           <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {isLoading ? (
-              <div className="col-span-full font-mono text-center py-10">Loading events...</div>
-            ) : (
-              filteredEvents.map((e, index) => (
-                <EventCard
-                  key={e.id}
-                  event={e}
-                  index={index}
-                  user={user}
-                  onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
-                  isRsvpPending={toggleRsvp.isPending}
-                />
-              ))
-            )}
+            {isLoading
+              ? Array.from({ length: 4 }).map((_, i) => <EventCardSkeleton key={i} />)
+              : filteredEvents.map((e, index) => (
+                  <EventCard
+                    key={e.id}
+                    event={e}
+                    index={index}
+                    user={user}
+                    onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
+                    isRsvpPending={toggleRsvp.isPending}
+                  />
+                ))}
           </div>
         </section>
       </PullToRefresh>
