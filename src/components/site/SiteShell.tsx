@@ -4,7 +4,7 @@ import { Footer } from "./Footer";
 
 export function SiteShell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col bg-cream text-black">
+    <div className="college-shell flex min-h-screen flex-col text-black">
       <Navbar />
       <main className="flex-1">{children}</main>
       <Footer />

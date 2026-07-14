@@ -34,7 +34,7 @@ function ClubsIndex() {
     },
   });
 
-  const colors = ["bg-lime", "bg-sky", "bg-lavender", "bg-peach"];
+  // Minimal aesthetic - removed color array
 
   const filteredClubs = clubs.filter(
     (c) =>
@@ -44,10 +44,10 @@ function ClubsIndex() {
 
   return (
     <SiteShell>
-      <section className="border-b-2 border-black bg-lavender px-4 py-14 md:px-6">
+      <section className="border-b border-gray-300 px-4 py-14 md:px-6">
         <div className="mx-auto max-w-7xl">
           <p className="eyebrow font-bold">Club directory · {clubs.length} active</p>
-          <h1 className="mt-2 text-4xl font-bold md:text-6xl">Find your people.</h1>
+          <h1 className="mt-2 text-4xl font-bold text-[#123a57] md:text-6xl">Find your people.</h1>
           <div className="relative mt-6 max-w-xl">
             <input
               ref={inputRef}
@@ -73,7 +73,7 @@ function ClubsIndex() {
           </div>
         </div>
       </section>
-      <section className="bg-cream px-4 py-12 md:px-6">
+      <section className="px-4 py-12 md:px-6">
         <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
           {isLoading ? (
             <div className="col-span-full font-mono py-10">Loading clubs...</div>
@@ -87,9 +87,7 @@ function ClubsIndex() {
                   params={{ slug: c.slug }}
                   className="neu-border neu-press block bg-white p-6"
                 >
-                  <div
-                    className={`neu-border ${colors[index % colors.length]} mb-4 inline-block px-3 py-1 font-mono text-xs font-bold uppercase`}
-                  >
+                  <div className="neu-border mb-4 inline-block bg-[#f5c66b] px-3 py-1 font-mono text-xs font-bold uppercase text-[#123a57]">
                     Club
                   </div>
                   <h2 className="text-2xl font-bold">{c.name}</h2>

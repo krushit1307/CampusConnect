@@ -20,13 +20,13 @@ function SettingsPage() {
   // TODO: Supabase — load + save profile fields, including avatar upload to storage
   return (
     <SiteShell>
-      <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
+      <section className="border-b-2 border-black px-4 py-14 md:px-6">
         <div className="mx-auto max-w-4xl">
           <p className="eyebrow font-bold">Account</p>
-          <h1 className="mt-2 text-4xl font-bold md:text-6xl">Settings.</h1>
+          <h1 className="mt-2 text-4xl font-bold text-[#123a57] md:text-6xl">Settings.</h1>
         </div>
       </section>
-      <section className="bg-cream px-4 py-12 md:px-6">
+      <section className="px-4 py-12 md:px-6">
         <div className="mx-auto max-w-4xl space-y-6">
           <Panel title="Profile">
             <AvatarUpload name="Ada Lovelace" />
@@ -40,8 +40,8 @@ function SettingsPage() {
             <Toggle label="Weekly digest of club activity" defaultChecked />
             <Toggle label="New certificates" />
           </Panel>
-          <Panel title="Danger zone" tone="bg-peach">
-            <button className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream">
+          <Panel title="Danger zone" tone="bg-red-50">
+            <button className="neu-border neu-press bg-[#123a57] px-4 py-2 font-mono text-xs font-bold uppercase text-white">
               Delete account
             </button>
           </Panel>
