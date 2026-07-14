@@ -84,6 +84,31 @@ function Dashboard() {
     enabled: !!user?.id,
   });
 
+  const { data: savedEvents = [] } = useQuery({
+    queryKey: ["savedEvents", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("saved_events")
+        .select(
+          `
+          id,
+          events (
+            id,
+            title,
+            event_date,
+            clubs (
+              name
+            )
+          )
+        `,
+        )
+        .eq("user_id", user?.id)
+        .order("saved_at", { ascending: false });
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
   const colors = ["bg-lime", "bg-sky", "bg-peach"];
 
   if (!user)
@@ -118,7 +143,6 @@ function Dashboard() {
           <Widget
             title="Upcoming events"
             cta={{ label: "All events", to: "/events" }}
-            className="lg:col-span-2"
           >
             {upcomingEvents.length === 0 ? (
               <p className="py-4 font-mono text-sm text-gray-500">No upcoming events yet.</p>
@@ -142,7 +166,6 @@ function Dashboard() {
                         <p className="truncate font-display text-lg font-bold">{e?.title}</p>
                         <p className="font-mono text-xs">{c?.name}</p>
                       </div>
-                      {/* ✨ Replaced the raw HTML button with our unified Button component */}
                       <Button
                         variant="outline"
                         size="sm"
@@ -150,6 +173,36 @@ function Dashboard() {
                       >
                         RSVP'd
                       </Button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Widget>
+          <Widget title="Saved events" cta={{ label: "Explore", to: "/events" }}>
+            {savedEvents.length === 0 ? (
+              <p className="py-4 font-mono text-sm text-gray-500">No saved events yet.</p>
+            ) : (
+              <ul className="divide-y-2 divide-black">
+                {savedEvents.map((item: any, i) => {
+                  const e = item.events;
+                  const c = e && (Array.isArray(e.clubs) ? e.clubs[0] : e.clubs);
+                  if (!e) return null;
+                  return (
+                    <li key={item.id} className="flex items-center gap-4 py-4">
+                      <div
+                        className={`neu-border ${colors[i % colors.length]} shrink-0 px-3 py-2 text-center font-mono text-xs font-bold`}
+                      >
+                        {e?.event_date
+                          ? new Date(e.event_date)
+                              .toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                              .toUpperCase()
+                          : "TBA"}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-display text-lg font-bold">{e?.title}</p>
+                        <p className="font-mono text-xs">{c?.name}</p>
+                      </div>
                     </li>
                   );
                 })}
@@ -170,7 +223,7 @@ function Dashboard() {
                     >
                       <div>
                         <p className="font-display font-bold">
-                          <Link to={`/clubs/${club?.slug}`}>{club?.name}</Link>
+                          <Link to="/clubs/$slug" params={{ slug: club?.slug || "" }}>{club?.name}</Link>
                         </p>
                         <p className="font-mono text-xs">Active</p>
                       </div>

@@ -41,7 +41,8 @@ function EventsPage() {
           `
           id, title, description, event_date, location, banner_url,
           clubs (name),
-          event_rsvps (id, user_id)
+          event_rsvps (id, user_id),
+          saved_events (id, user_id)
         `,
         )
         .order("event_date", { ascending: true });
@@ -57,6 +58,7 @@ function EventsPage() {
             location: "Main Auditorium",
             clubs: { name: "Tech Club" },
             event_rsvps: [{ id: "rsvp-1", user_id: "user-1" }],
+            saved_events: [],
           },
           {
             id: "mock-2",
@@ -66,6 +68,7 @@ function EventsPage() {
             location: "Art Studio 3",
             clubs: { name: "Art & Design" },
             event_rsvps: [],
+            saved_events: [],
           },
           {
             id: "mock-3",
@@ -78,6 +81,7 @@ function EventsPage() {
               { id: "rsvp-2", user_id: "user-2" },
               { id: "rsvp-3", user_id: "user-3" },
             ],
+            saved_events: [],
           },
         ];
       }
@@ -90,10 +94,13 @@ function EventsPage() {
 
   useEffect(() => {
     const channel = supabase
-      .channel("realtime_rsvps")
+      .channel("realtime_changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "event_rsvps" }, () => {
         queryClient.invalidateQueries({ queryKey: ["events"] });
         queryClient.invalidateQueries({ queryKey: ["upcomingEvents"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["events"] });
       })
       .subscribe();
 
@@ -124,9 +131,107 @@ function EventsPage() {
         throw error;
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["events"] });
-      queryClient.invalidateQueries({ queryKey: ["upcomingEvents"] });
+    onMutate: async ({ eventId, hasRsvpd }) => {
+      await queryClient.cancelQueries({ queryKey: ["events"] });
+
+      const previousEvents = queryClient.getQueryData<any[]>(["events"]);
+
+      if (previousEvents) {
+        queryClient.setQueryData<any[]>(
+          ["events"],
+          previousEvents.map((e) => {
+            if (e.id === eventId) {
+              const rsvpsList = Array.isArray(e.event_rsvps) ? e.event_rsvps : [];
+              if (hasRsvpd) {
+                return {
+                  ...e,
+                  event_rsvps: rsvpsList.filter((r: any) => r.user_id !== user?.id),
+                };
+              } else {
+                return {
+                  ...e,
+                  event_rsvps: [...rsvpsList, { id: "temp-rsvp-id", user_id: user?.id || "" }],
+                };
+              }
+            }
+            return e;
+          }),
+        );
+      }
+
+      return { previousEvents };
+    },
+    onError: (err, newVariables, context) => {
+      if (context?.previousEvents) {
+        queryClient.setQueryData(["events"], context.previousEvents);
+      }
+      toast.error("Failed to update RSVP.");
+    },
+    onSuccess: (data, variables) => {
+      toast.success(variables.hasRsvpd ? "RSVP cancelled successfully!" : "RSVP registered successfully!");
+      if (!variables.eventId.startsWith("mock-")) {
+        queryClient.invalidateQueries({ queryKey: ["events"] });
+        queryClient.invalidateQueries({ queryKey: ["upcomingEvents"] });
+      }
+    },
+  });
+
+  const toggleBookmark = useMutation({
+    mutationFn: async ({ eventId, isSaved }: { eventId: string; isSaved: boolean }) => {
+      if (!user) throw new Error("Must be logged in");
+      if (eventId.startsWith("mock-")) {
+        console.log(`[CampusConnect] Mock Bookmark toggled for event: ${eventId}`);
+        return;
+      }
+      const { error } = isSaved
+        ? await supabase.from("saved_events").delete().match({ event_id: eventId, user_id: user.id })
+        : await supabase.from("saved_events").insert({ event_id: eventId, user_id: user.id });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+    },
+    onMutate: async ({ eventId, isSaved }) => {
+      await queryClient.cancelQueries({ queryKey: ["events"] });
+
+      const previousEvents = queryClient.getQueryData<any[]>(["events"]);
+
+      if (previousEvents) {
+        queryClient.setQueryData<any[]>(
+          ["events"],
+          previousEvents.map((e) => {
+            if (e.id === eventId) {
+              const savedList = Array.isArray(e.saved_events) ? e.saved_events : [];
+              if (isSaved) {
+                return {
+                  ...e,
+                  saved_events: savedList.filter((s: any) => s.user_id !== user?.id),
+                };
+              } else {
+                return {
+                  ...e,
+                  saved_events: [...savedList, { id: "temp-id", user_id: user?.id || "" }],
+                };
+              }
+            }
+            return e;
+          }),
+        );
+      }
+
+      return { previousEvents };
+    },
+    onError: (err, newVariables, context) => {
+      if (context?.previousEvents) {
+        queryClient.setQueryData(["events"], context.previousEvents);
+      }
+      toast.error("Failed to update bookmark.");
+    },
+    onSuccess: (data, variables) => {
+      toast.success(variables.isSaved ? "Removed from saved events!" : "Saved to bookmarks!");
+      if (!variables.eventId.startsWith("mock-")) {
+        queryClient.invalidateQueries({ queryKey: ["events"] });
+      }
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to update RSVP. Please try again.");
@@ -172,6 +277,8 @@ function EventsPage() {
                 user={user}
                 onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
                 isRsvpPending={toggleRsvp.isPending}
+                onBookmarkToggle={(eventId, isSaved) => toggleBookmark.mutate({ eventId, isSaved })}
+                isBookmarkPending={toggleBookmark.isPending}
               />
             ))
           )}
