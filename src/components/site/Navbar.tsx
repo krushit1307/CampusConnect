@@ -134,7 +134,11 @@ function NotificationBell() {
       </button>
 
       {open && (
-        <div role="menu" aria-label="Notifications menu" className="neu-border absolute right-0 top-10 z-50 w-72 bg-white">
+        <div
+          role="menu"
+          aria-label="Notifications menu"
+          className="neu-border absolute right-0 top-10 z-50 w-72 bg-white"
+        >
           <div className="border-b-2 border-black px-4 py-2">
             <p
               className="font-mono text-xs font-bold uppercase"
@@ -150,9 +154,9 @@ function NotificationBell() {
               <p className="font-mono text-xs text-gray-400">No new notifications right now.</p>
             </div>
           ) : (
-            <ul role="menuitem" className="divide-y-2 divide-black">
+            <ul className="divide-y-2 divide-black">
               {notifications.map((n, i) => (
-                <li key={i} className="px-4 py-3 font-mono text-sm">
+                <li key={i} role="menuitem" className="px-4 py-3 font-mono text-sm">
                   {n}
                 </li>
               ))}
