@@ -142,6 +142,16 @@ function AuthPage() {
                 </Button>
               }
             />
+            {mode === "signin" && (
+              <p className="text-right">
+                <Link
+                  to="/forgot-password"
+                  className="font-mono text-xs font-bold underline underline-offset-2"
+                >
+                  Forgot password?
+                </Link>
+              </p>
+            )}
             {/* 2. Replaced primary submit button */}
             <Button
               type="submit"
