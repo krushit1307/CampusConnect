@@ -61,7 +61,10 @@ export function Navbar() {
 
           {user ? (
             <Link to="/dashboard" aria-label="Dashboard" className="flex items-center gap-2">
-              <div aria-hidden="true" className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-lime font-mono text-xs font-bold uppercase">
+              <div
+                aria-hidden="true"
+                className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-lime font-mono text-xs font-bold uppercase"
+              >
                 {user.email?.[0].toUpperCase() ?? "U"}
               </div>
             </Link>
@@ -118,7 +121,11 @@ function NotificationBell() {
       </button>
 
       {open && (
-        <div role="menu" className="neu-border absolute right-0 top-10 z-50 w-72 bg-white">
+        <div
+          role="menu"
+          aria-label="Notifications menu"
+          className="neu-border absolute right-0 top-10 z-50 w-72 bg-white"
+        >
           <div className="border-b-2 border-black px-4 py-2">
             <p
               className="font-mono text-xs font-bold uppercase"
