@@ -161,13 +161,13 @@ function EventsPage() {
 
       return { previousEvents };
     },
-    onError: (err, newVariables, context) => {
+    onError: (_err, _newVariables, context) => {
       if (context?.previousEvents) {
         queryClient.setQueryData(["events"], context.previousEvents);
       }
       toast.error("Failed to update RSVP.");
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       toast.success(variables.hasRsvpd ? "RSVP cancelled successfully!" : "RSVP registered successfully!");
       if (!variables.eventId.startsWith("mock-")) {
         queryClient.invalidateQueries({ queryKey: ["events"] });
@@ -221,20 +221,17 @@ function EventsPage() {
 
       return { previousEvents };
     },
-    onError: (err, newVariables, context) => {
+    onError: (_err, _newVariables, context) => {
       if (context?.previousEvents) {
         queryClient.setQueryData(["events"], context.previousEvents);
       }
       toast.error("Failed to update bookmark.");
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       toast.success(variables.isSaved ? "Removed from saved events!" : "Saved to bookmarks!");
       if (!variables.eventId.startsWith("mock-")) {
         queryClient.invalidateQueries({ queryKey: ["events"] });
       }
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to update RSVP. Please try again.");
     },
   });
 
