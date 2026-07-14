@@ -2,6 +2,7 @@ import { formatDate } from "@/lib/utils";
 import { FormEvent, useState } from "react";
 import { X } from "lucide-react";
 import { toast } from "sonner";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 
 interface Event {
   id: string;
@@ -45,7 +46,7 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
     }
 
     if (hasRsvpd) {
-      onRsvpToggle(event.id, true);
+      setConfirmOpen(true);
       return;
     }
 
@@ -64,6 +65,7 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
     onRsvpToggle(event.id, false);
     resetForm();
   };
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
     <article className={`neu-border p-5 ${colors[index % colors.length]}`}>
