@@ -4,21 +4,19 @@
 button:disabled,
 .btn:disabled,
 button[aria-disabled="true"] {
-  opacity: 0.6;
   cursor: not-allowed;
-  color: #6b7280; /* gray-500 - meets 4.5:1 on white */
+  color: #9ca3af; /* gray-400 - meets 3:1 on #f3f4f6 for large text/UI */
   background-color: #f3f4f6; /* gray-100 */
-  border-color: #d1d5db; /* gray-300 */
+  border-color: #e5e7eb; /* gray-200 */
 }
 
 /* Dark mode disabled buttons - ensure sufficient contrast */
 .dark button:disabled,
 .dark .btn:disabled,
 .dark button[aria-disabled="true"] {
-  color: #9ca3af; /* gray-400 - meets 4.5:1 on gray-800 */
+  color: #6b7280; /* gray-500 - meets 4.5:1 on gray-800 */
   background-color: #1f2937; /* gray-800 */
   border-color: #374151; /* gray-700 */
-  opacity: 0.7;
 }
 
 /* Fix primary disabled buttons in dark mode */
@@ -37,7 +35,8 @@ button[aria-disabled="true"] {
 }
 
 /* Ensure focus indicators are still visible on disabled buttons */
-button:focus-visible:disabled {
+button:focus-visible:disabled,
+button[aria-disabled="true"]:focus-visible {
   outline: 2px solid #6366f1;
   outline-offset: 2px;
 }

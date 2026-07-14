@@ -1,4 +1,5 @@
 @import "tailwindcss" source(none);
+@import "./styles/disabled-buttons.css";
 @source "../src";
 @import "tw-animate-css";
 
