@@ -140,7 +140,6 @@ erDiagram
    ```
 3. **Set up database & environment variables:**
    Choose one of the following two options to run your database:
-
    - **Option A: Remote Supabase (Default)**
      1. Copy `.env.example` to `.env.local`:
         ```bash
@@ -154,7 +153,8 @@ erDiagram
 
    - **Option B: Local Supabase Container (Recommended for offline development)**
      Follow the [Supabase Local Development & Seeding](#️-supabase-local-development--seeding) guide below to spin up a local container stack pre-populated with test records.
-5. **Start the development server:**
+
+4. **Start the development server:**
    ```bash
    bun run dev
    ```
@@ -204,10 +204,12 @@ Alternatively, you can run the project containerized using Docker. This allows y
 Instead of connecting to a remote Supabase instance, you can spin up the full Supabase database stack locally using Docker. This avoids API rate limits and populates your workspace with pre-seeded test data (users, events, clubs, posts, comments).
 
 1. **Start the local Supabase container stack:**
+
    ```bash
    supabase start
    ```
-   *Note: This command requires Docker to be running on your system.*
+
+   _Note: This command requires Docker to be running on your system._
 
 2. **Copy the credentials to `.env.local`:**
    After the database starts successfully, the CLI will output your local API credentials. Copy these keys and update your `.env.local` file:
@@ -217,9 +219,11 @@ Instead of connecting to a remote Supabase instance, you can spin up the full Su
 
 3. **Reset and seed the database:**
    To apply the initial migrations (`001_initial_schema.sql`, `002_...`) and automatically seed the database with test data:
+
    ```bash
    supabase db reset
    ```
+
    This will completely provision your local database. You can log in using:
    - **Admin Account**: `admin@campusconnect.com` / `password123`
    - **Student Account**: `student@campusconnect.com` / `password123`
@@ -236,6 +240,9 @@ Instead of connecting to a remote Supabase instance, you can spin up the full Su
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to get started. This is an **ECSoC 2026** project, so we are actively looking for contributors. Check out issues labeled `good-first-issue` to begin!
+
+> [!IMPORTANT]
+> **Code Formatting**: Before committing and pushing your code, you **MUST** run `bun run lint --fix` locally. This will automatically format your files and prevent our CI (GitHub Actions) from failing due to Prettier or ESLint errors. Pull Requests with failing CI checks will not be merged.
 
 ## 🗺️ Roadmap
 

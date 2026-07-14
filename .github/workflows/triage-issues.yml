@@ -20,7 +20,7 @@ jobs:
           script: |
             const isPR = !!context.payload.pull_request;
             const item = isPR ? context.payload.pull_request : context.payload.issue;
-            
+
             const author = item.user.login;
             const repoOwner = context.repo.owner;
             const title = (item.title || "").toLowerCase();

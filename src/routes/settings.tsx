@@ -236,12 +236,28 @@ function AvatarUpload({ name }: { name: string }) {
   );
 }
 
-function UnderlineInput({ label, defaultValue }: { label: string; defaultValue?: string }) {
+function UnderlineInput({
+  label,
+  defaultValue,
+  required,
+}: {
+  label: string;
+  defaultValue?: string;
+  required?: boolean;
+}) {
   return (
     <label className="block">
-      <span className="eyebrow mb-1 block font-bold">{label}</span>
+      <span className="eyebrow mb-1 block font-bold">
+        {label}
+        {required && (
+          <span className="text-destructive ml-1" aria-hidden="true">
+            *
+          </span>
+        )}
+      </span>
       <input
         defaultValue={defaultValue}
+        required={required}
         className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
       />
     </label>
