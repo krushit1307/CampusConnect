@@ -75,7 +75,8 @@ CREATE TABLE posts (
   author_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE comments (
@@ -191,18 +192,97 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
+-- ------------------------------------------------------------
 -- 5. Storage Buckets & Policies
-INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true) ON CONFLICT DO NOTHING;
-INSERT INTO storage.buckets (id, name, public) VALUES ('club-banners', 'club-banners', true) ON CONFLICT DO NOTHING;
-INSERT INTO storage.buckets (id, name, public) VALUES ('event-banners', 'event-banners', true) ON CONFLICT DO NOTHING;
-INSERT INTO storage.buckets (id, name, public) VALUES ('certificates', 'certificates', true) ON CONFLICT DO NOTHING;
+-- ------------------------------------------------------------
 
--- Allow public reads
-CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING ( bucket_id IN ('avatars', 'club-banners', 'event-banners', 'certificates') );
--- Authenticated users can write to their own folders
-CREATE POLICY "Users can upload" ON storage.objects FOR INSERT WITH CHECK ( auth.role() = 'authenticated' AND (storage.foldername(name))[1] = auth.uid()::text );
+-- Create public buckets
+INSERT INTO storage.buckets (id, name, public)
+VALUES
+  ('avatars', 'avatars', true),
+  ('club-banners', 'club-banners', true),
+  ('event-banners', 'event-banners', true),
+  ('certificates', 'certificates', true)
+ON CONFLICT (id) DO UPDATE
+SET public = EXCLUDED.public;
 
+-- Remove existing policies if they already exist
+DROP POLICY IF EXISTS "Public Access" ON storage.objects;
+DROP POLICY IF EXISTS "Users can upload" ON storage.objects;
+DROP POLICY IF EXISTS "Users can update own uploads" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete own uploads" ON storage.objects;
+
+-- Public read access
+CREATE POLICY "Public Access"
+ON storage.objects
+FOR SELECT
+USING (
+  bucket_id IN (
+    'avatars',
+    'club-banners',
+    'event-banners',
+    'certificates'
+  )
+);
+
+-- Authenticated users can upload only to their own folder
+CREATE POLICY "Users can upload"
+ON storage.objects
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id IN (
+    'avatars',
+    'club-banners',
+    'event-banners',
+    'certificates'
+  )
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Users can overwrite/update only their own files
+CREATE POLICY "Users can update own uploads"
+ON storage.objects
+FOR UPDATE
+TO authenticated
+USING (
+  bucket_id IN (
+    'avatars',
+    'club-banners',
+    'event-banners',
+    'certificates'
+  )
+  AND (storage.foldername(name))[1] = auth.uid()::text
+)
+WITH CHECK (
+  bucket_id IN (
+    'avatars',
+    'club-banners',
+    'event-banners',
+    'certificates'
+  )
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Users can delete only their own files
+CREATE POLICY "Users can delete own uploads"
+ON storage.objects
+FOR DELETE
+TO authenticated
+USING (
+  bucket_id IN (
+    'avatars',
+    'club-banners',
+    'event-banners',
+    'certificates'
+  )
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- ------------------------------------------------------------
 -- 6. Realtime
+-- ------------------------------------------------------------
+
 ALTER PUBLICATION supabase_realtime ADD TABLE posts;
 ALTER PUBLICATION supabase_realtime ADD TABLE comments;
 ALTER PUBLICATION supabase_realtime ADD TABLE event_rsvps;

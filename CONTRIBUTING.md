@@ -65,15 +65,19 @@ Before you begin, make sure you have the following installed:
 - **Add Screenshots:** If your change affects the UI, please include before/after screenshots in the PR description.
 - **Pass CI:** Ensure your code passes all checks (build and lint) in GitHub Actions.
 
-## 💅 Code Style
+## 💅 Code Style & Formatting (CRITICAL)
 
-This project uses **ESLint** and **Prettier**. Please run the lint command before committing your code to ensure it matches the project's style guidelines:
+This project uses **ESLint** and **Prettier** to maintain code quality. **Failing to format your code will cause your Pull Request CI checks to fail!**
+
+Before committing any code, you **MUST** run the auto-fix linter command to format your files:
 
 ```bash
-bun run lint
+bun run lint --fix
 ```
 
-_(Optionally configure your editor to format on save)._
+This command will automatically fix spacing, missing quotes, and other formatting issues. If it reports any remaining errors that cannot be auto-fixed, you must resolve them manually before pushing.
+
+_(Highly Recommended: Configure your code editor to "Format on Save" using the Prettier extension)._
 
 ## 🙋 How to Claim an Issue
 
@@ -94,6 +98,7 @@ To prevent duplicate work:
 Got questions? Need help? Join the discussion!
 
 <!-- TODO: Replace with the actual Discord/Slack invite link -->
+
 **👉 Join the ECSoC Project Discord / Slack Here** _(link coming soon)_
 
 Thank you for contributing! 🚀

@@ -32,7 +32,7 @@ CampusConnect solves the chaos of college clubs juggling WhatsApp groups, spread
 
 ## 🗄️ Architecture / Database
 
-CampusConnect's data lives entirely in Supabase (Postgres). The schema is defined in [`supabase/schema.sql`](./supabase/schema.sql) and centers on **clubs**, the **members**/**events** they run, and the **posts** their members write.
+CampusConnect stores its data in Supabase (Postgres) and uses Supabase Auth plus Row Level Security to protect access. The schema is defined in [supabase/schema.sql](./supabase/schema.sql) and centers on clubs, the members and events they run, and the posts their members write.
 
 ### Entity-relationship diagram
 
@@ -108,24 +108,24 @@ erDiagram
   }
 ```
 
-### Tables
+### Core tables
 
-| Table           | Key columns                                                                 | Purpose                                                                 |
-| :--------------- | :--------------------------------------------------------------------------- | :------------------------------------------------------------------------ |
-| `profiles`       | `id` (PK, = `auth.users.id`), `full_name`, `avatar_url`, `college`, `bio`, `role` | One row per authenticated user; auto-created by the `on_auth_user_created` trigger on signup. |
-| `clubs`          | `id` (PK), `name`, `slug` (unique), `description`, `banner_url`, `logo_url`, `created_by` → `profiles.id` | A campus club/society. `slug` is used for the public `/clubs/:slug` route. |
-| `club_members`   | `id` (PK), `club_id` → `clubs.id`, `user_id` → `profiles.id`, `role`, `status` | Join table linking users to clubs, with a `member`/`admin` role and a `pending`/`approved` status. Unique per `(club_id, user_id)`. |
-| `events`         | `id` (PK), `club_id` → `clubs.id`, `title`, `description`, `event_date`, `location`, `created_by` → `profiles.id` | An event hosted by a club. |
-| `event_rsvps`    | `id` (PK), `event_id` → `events.id`, `user_id` → `profiles.id`, `checked_in` | A user's RSVP to an event, plus a `checked_in` flag set on QR check-in. Unique per `(event_id, user_id)`. |
-| `posts`          | `id` (PK), `club_id` → `clubs.id`, `author_id` → `profiles.id`, `content` | A discussion post on a club's feed. |
-| `comments`       | `id` (PK), `post_id` → `posts.id`, `author_id` → `profiles.id`, `content` | A reply to a post. |
-| `certificates`   | `id` (PK), `event_id` → `events.id`, `user_id` → `profiles.id`, `certificate_url` | A generated certificate issued to a user for attending an event. |
+| Table          | Key columns                                                                                                       | Purpose                                                                                                                             |
+| :------------- | :---------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------- |
+| `profiles`     | `id` (PK, = `auth.users.id`), `full_name`, `avatar_url`, `college`, `bio`, `role`                                 | One row per authenticated user; auto-created by the `on_auth_user_created` trigger on signup.                                       |
+| `clubs`        | `id` (PK), `name`, `slug` (unique), `description`, `banner_url`, `logo_url`, `created_by` → `profiles.id`         | A campus club/society. `slug` is used for the public `/clubs/:slug` route.                                                          |
+| `club_members` | `id` (PK), `club_id` → `clubs.id`, `user_id` → `profiles.id`, `role`, `status`                                    | Join table linking users to clubs, with a `member`/`admin` role and a `pending`/`approved` status. Unique per `(club_id, user_id)`. |
+| `events`       | `id` (PK), `club_id` → `clubs.id`, `title`, `description`, `event_date`, `location`, `created_by` → `profiles.id` | An event hosted by a club.                                                                                                          |
+| `event_rsvps`  | `id` (PK), `event_id` → `events.id`, `user_id` → `profiles.id`, `checked_in`                                      | A user's RSVP to an event, plus a `checked_in` flag set on QR check-in. Unique per `(event_id, user_id)`.                           |
+| `posts`        | `id` (PK), `club_id` → `clubs.id`, `author_id` → `profiles.id`, `content`                                         | A discussion post on a club's feed.                                                                                                 |
+| `comments`     | `id` (PK), `post_id` → `posts.id`, `author_id` → `profiles.id`, `content`                                         | A reply to a post.                                                                                                                  |
+| `certificates` | `id` (PK), `event_id` → `events.id`, `user_id` → `profiles.id`, `certificate_url`                                 | A generated certificate issued to a user for attending an event.                                                                    |
 
 ### Notes
 
-- All tables have **Row Level Security (RLS)** enabled — see the policies in [`supabase/schema.sql`](./supabase/schema.sql) for exactly who can read/write what (e.g. only club admins can create events, only authors can edit their own posts/comments).
-- `posts`, `comments`, and `event_rsvps` are added to the `supabase_realtime` publication, which is what powers the live-updating feed and RSVP counts.
-- Storage buckets (`avatars`, `club-banners`, `event-banners`, `certificates`) are public-read, with writes restricted to the authenticated user's own folder.
+- All tables have Row Level Security enabled; the policies in [supabase/schema.sql](./supabase/schema.sql) define exactly who can read and write data.
+- `posts`, `comments`, and `event_rsvps` are included in the `supabase_realtime` publication to power live-updating feed and RSVP behavior.
+- Storage buckets such as `avatars`, `club-banners`, `event-banners`, and `certificates` are public-read, with writes restricted to the authenticated user's own folder.
 
 ## 🚀 Getting Started
 
@@ -138,19 +138,98 @@ erDiagram
    ```bash
    bun install
    ```
-3. **Set up environment variables:**
-   ```bash
-   cp .env.example .env.local
-   ```
-   Fill in your Supabase URL and Anon Key in `.env.local`.
-4. **Run database migrations (if applicable):**
-   ```bash
-   supabase db push
-   ```
-5. **Start the development server:**
+3. **Set up database & environment variables:**
+   Choose one of the following two options to run your database:
+   - **Option A: Remote Supabase (Default)**
+     1. Copy `.env.example` to `.env.local`:
+        ```bash
+        cp .env.example .env.local
+        ```
+     2. Fill in your remote hosted Supabase URL and Anon Key.
+     3. Apply database migrations to your remote project:
+        ```bash
+        supabase db push
+        ```
+
+   - **Option B: Local Supabase Container (Recommended for offline development)**
+     Follow the [Supabase Local Development & Seeding](#️-supabase-local-development--seeding) guide below to spin up a local container stack pre-populated with test records.
+
+4. **Start the development server:**
    ```bash
    bun run dev
    ```
+
+### 🐳 Running with Docker
+
+Alternatively, you can run the project containerized using Docker. This allows you to build and run the application without needing Bun or Node installed locally on your host machine.
+
+#### Local Development (with Hot-Reloading / HMR)
+
+1. **Set up environment variables:**
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   Fill in your Supabase URL and Anon Key in `.env.local`.
+
+2. **Run database migrations (if applicable):**
+
+   ```bash
+   supabase db push
+   ```
+
+3. **Start the development container:**
+   ```bash
+   docker compose up --build
+   ```
+   This will build the dev image and launch the Vite dev server inside the container. The application will be accessible at `http://localhost:8080` with volume-mounted hot-reloading (HMR) fully functional.
+
+#### Production Build & Run
+
+1. **Build the production Docker image:**
+
+   ```bash
+   docker build --target runner -t campusconnect:latest .
+   ```
+
+2. **Run the production container:**
+   ```bash
+   docker run -d -p 3000:3000 --env-file .env.local --name campusconnect campusconnect:latest
+   ```
+   The production-built Vinxi SSR server will run and serve client traffic on `http://localhost:3000`.
+
+### 🗄️ Supabase Local Development & Seeding
+
+Instead of connecting to a remote Supabase instance, you can spin up the full Supabase database stack locally using Docker. This avoids API rate limits and populates your workspace with pre-seeded test data (users, events, clubs, posts, comments).
+
+1. **Start the local Supabase container stack:**
+
+   ```bash
+   supabase start
+   ```
+
+   _Note: This command requires Docker to be running on your system._
+
+2. **Copy the credentials to `.env.local`:**
+   After the database starts successfully, the CLI will output your local API credentials. Copy these keys and update your `.env.local` file:
+   - `VITE_SUPABASE_URL`: Set to `http://127.0.0.1:54321`
+   - `VITE_SUPABASE_ANON_KEY`: Paste the `anon key` printed by the CLI
+   - `SUPABASE_SERVICE_ROLE_KEY`: Paste the `service_role key` printed by the CLI
+
+3. **Reset and seed the database:**
+   To apply the initial migrations (`001_initial_schema.sql`, `002_...`) and automatically seed the database with test data:
+
+   ```bash
+   supabase db reset
+   ```
+
+   This will completely provision your local database. You can log in using:
+   - **Admin Account**: `admin@campusconnect.com` / `password123`
+   - **Student Account**: `student@campusconnect.com` / `password123`
+
+4. **Access Supabase Studio:**
+   You can view and manage your local database tables by opening the local Supabase Studio dashboard in your browser at `http://127.0.0.1:54323/`.
 
 ## 📁 Project Structure
 
@@ -161,6 +240,9 @@ erDiagram
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to get started. This is an **ECSoC 2026** project, so we are actively looking for contributors. Check out issues labeled `good-first-issue` to begin!
+
+> [!IMPORTANT]
+> **Code Formatting**: Before committing and pushing your code, you **MUST** run `bun run lint --fix` locally. This will automatically format your files and prevent our CI (GitHub Actions) from failing due to Prettier or ESLint errors. Pull Requests with failing CI checks will not be merged.
 
 ## 🗺️ Roadmap
 

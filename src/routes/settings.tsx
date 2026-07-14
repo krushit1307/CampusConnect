@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { Camera } from "lucide-react";
+import { Camera, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -17,6 +20,7 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsPage() {
+  const [confirmOpen, setConfirmOpen] = useState(false);
   // TODO: Supabase — load + save profile fields, including avatar upload to storage
   return (
     <SiteShell>
@@ -41,9 +45,25 @@ function SettingsPage() {
             <Toggle label="New certificates" />
           </Panel>
           <Panel title="Danger zone" tone="bg-peach">
-            <button className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream">
+            <button
+              onClick={() => setConfirmOpen(true)}
+              className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream"
+            >
               Delete account
             </button>
+
+            <ConfirmModal
+              open={confirmOpen}
+              title="Delete account?"
+              description="This action cannot be undone."
+              confirmText="Delete"
+              cancelText="Cancel"
+              onCancel={() => setConfirmOpen(false)}
+              onConfirm={() => {
+                console.log("Delete account confirmed");
+                setConfirmOpen(false);
+              }}
+            />
           </Panel>
         </div>
       </section>
@@ -69,8 +89,39 @@ function Panel({
 }
 
 function AvatarUpload({ name }: { name: string }) {
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
   const [preview, setPreview] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadAvatar() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("avatar_url")
+        .eq("id", user.id)
+        .single();
+
+      console.log("Loaded avatar:", data?.avatar_url);
+      if (isMounted && !error && data?.avatar_url) {
+        setPreview(data.avatar_url);
+      }
+    }
+
+    loadAvatar();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const initials = name
     .split(" ")
@@ -80,20 +131,81 @@ function AvatarUpload({ name }: { name: string }) {
     .slice(0, 2)
     .toUpperCase();
 
-  useEffect(() => {
-    return () => {
-      if (preview) URL.revokeObjectURL(preview);
-    };
-  }, [preview]);
-
-  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setPreview((current) => {
-      if (current) URL.revokeObjectURL(current);
-      return URL.createObjectURL(file);
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Only JPG, PNG and WEBP images are allowed.");
+      return;
+    }
+
+    const maxSize = 2 * 1024 * 1024;
+
+    if (file.size > maxSize) {
+      toast.error("Image must be under 2 MB.");
+      return;
+    }
+    setUploading(true);
+
+    try {
+      const avatarUrl = await uploadAvatar(file);
+      console.log("Avatar URL:", avatarUrl);
+
+      if (avatarUrl) {
+        setPreview(avatarUrl);
+        toast.success("Profile picture updated.");
+        setUploading(false);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to upload avatar.");
+    } finally {
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
+    }
+  }
+
+  async function uploadAvatar(file: File): Promise<string | undefined> {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      toast.error("Please sign in first.");
+      return;
+    }
+
+    const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    const filePath = `${user.id}/${crypto.randomUUID()}.${extension}`;
+
+    const { error } = await supabase.storage.from("avatars").upload(filePath, file, {
+      upsert: true,
     });
+
+    if (error) {
+      throw error;
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("avatars").getPublicUrl(filePath);
+
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({
+        avatar_url: publicUrl,
+      })
+      .eq("id", user.id);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    return publicUrl;
   }
 
   return (
@@ -113,34 +225,57 @@ function AvatarUpload({ name }: { name: string }) {
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
+          disabled={uploading}
           aria-label="Change profile picture"
           title="Change profile picture"
           className="neu-border neu-press absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-black text-cream hover:bg-cream hover:text-black"
         >
-          <Camera className="h-4 w-4" />
+          {uploading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Camera className="h-4 w-4" />
+          )}
         </button>
         <input
           ref={inputRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp"
           onChange={handleFileChange}
           className="hidden"
         />
       </div>
       <div className="text-center sm:text-left">
         <p className="eyebrow font-bold">Profile picture</p>
-        <p className="font-mono text-xs text-gray-500">JPG or PNG. Square images look best.</p>
+        <p className="font-mono text-xs text-gray-500">
+          JPG, PNG or WEBP. Max 2 MB. Square images look best.
+        </p>
       </div>
     </div>
   );
 }
 
-function UnderlineInput({ label, defaultValue }: { label: string; defaultValue?: string }) {
+function UnderlineInput({
+  label,
+  defaultValue,
+  required,
+}: {
+  label: string;
+  defaultValue?: string;
+  required?: boolean;
+}) {
   return (
     <label className="block">
-      <span className="eyebrow mb-1 block font-bold">{label}</span>
+      <span className="eyebrow mb-1 block font-bold">
+        {label}
+        {required && (
+          <span className="text-destructive ml-1" aria-hidden="true">
+            *
+          </span>
+        )}
+      </span>
       <input
         defaultValue={defaultValue}
+        required={required}
         className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
       />
     </label>
