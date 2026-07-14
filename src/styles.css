@@ -155,7 +155,9 @@
   textarea:focus-visible,
   select:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px var(--color-background), 0 0 0 4px var(--color-ring);
+    box-shadow:
+      0 0 0 2px var(--color-background),
+      0 0 0 4px var(--color-ring);
   }
 
   /* Focus rings for all interactive elements */
@@ -163,7 +165,9 @@
   a:focus-visible,
   [tabindex]:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px var(--color-background), 0 0 0 4px var(--color-ring);
+    box-shadow:
+      0 0 0 2px var(--color-background),
+      0 0 0 4px var(--color-ring);
   }
 }
 
