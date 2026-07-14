@@ -67,7 +67,11 @@ export function Navbar() {
           {user && <NotificationBell />}
 
           {user ? (
-            <Link to="/dashboard" aria-label="Dashboard" className="flex items-center gap-2 shrink-0">
+            <Link
+              to="/dashboard"
+              aria-label="Dashboard"
+              className="flex items-center gap-2 shrink-0"
+            >
               <div
                 aria-hidden="true"
                 className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-lime font-mono text-xs font-bold uppercase"

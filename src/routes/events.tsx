@@ -153,7 +153,9 @@ function EventsPage() {
           <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="eyebrow font-bold">All events · Fall semester</p>
-              <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">What's on this week.</h1>
+              <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">
+                What's on this week.
+              </h1>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t, i) => (

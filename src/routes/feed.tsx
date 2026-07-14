@@ -337,7 +337,9 @@ function Feed() {
         <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
           <div className="mx-auto max-w-4xl">
             <p className="eyebrow font-bold">Discussion feed</p>
-            <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">What clubs are talking about.</h1>
+            <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">
+              What clubs are talking about.
+            </h1>
           </div>
         </section>
 
@@ -517,7 +519,9 @@ function Feed() {
                                       (m: { user_id: string; role: string }) =>
                                         m.user_id === commentAuthor?.id,
                                     );
-                                    return <RoleBadge role={(cm?.role ?? "member") as MemberRole} />;
+                                    return (
+                                      <RoleBadge role={(cm?.role ?? "member") as MemberRole} />
+                                    );
                                   })()}
                                 </p>
                                 <p className="font-mono text-[10px] text-gray-500">
