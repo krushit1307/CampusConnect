@@ -103,7 +103,7 @@ export function Navbar() {
           <div className="flex flex-col gap-2">
             {links.map((l) => {
               const isActive =
-                l.to === "/"
+                (l.to as string) === "/"
                   ? currentPath === "/"
                   : currentPath === l.to || currentPath.startsWith(l.to + "/");
 
