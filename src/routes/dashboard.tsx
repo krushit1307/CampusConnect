@@ -105,8 +105,8 @@ function Dashboard() {
             <ProfileHeaderSkeleton />
           ) : (
             <>
-              <p className="eyebrow font-bold">Signed in as {user.email}</p>
-              <h1 className="mt-2 text-4xl font-bold md:text-5xl">
+              <p className="eyebrow font-bold break-all">Signed in as {user.email}</p>
+              <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-5xl">
                 Good morning, {profile?.full_name?.split(" ")[0] || "there"}.
               </h1>
             </>
@@ -212,7 +212,7 @@ function Widget({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`neu-border bg-white p-6 ${className}`}>
+    <div className={`neu-border bg-white p-4 sm:p-6 ${className}`}>
       <div className="mb-4 flex items-center justify-between border-b-2 border-black pb-3">
         <h2 className="text-xl font-bold">{title}</h2>
         {cta && (

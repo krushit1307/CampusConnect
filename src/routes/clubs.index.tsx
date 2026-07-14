@@ -50,7 +50,7 @@ function ClubsIndex() {
       <section className="border-b-2 border-black bg-lavender px-4 py-14 md:px-6">
         <div className="mx-auto max-w-7xl">
           <p className="eyebrow font-bold">Club directory · {clubs.length} active</p>
-          <h1 className="mt-2 text-4xl font-bold md:text-6xl">Find your people.</h1>
+          <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">Find your people.</h1>
           <div className="relative mt-6 max-w-xl">
             <input
               ref={inputRef}
