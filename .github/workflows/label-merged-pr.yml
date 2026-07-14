@@ -24,7 +24,7 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const pull_request = context.payload.pull_request;
-            
+
             // Check if PR already has labels
             if (pull_request.labels && pull_request.labels.length > 0) {
               console.log('PR already has labels. Skipping label addition.');
@@ -33,9 +33,9 @@ jobs:
 
             const issue_number = pull_request.number;
             const selected_label = '${{ steps.pick-label.outputs.selected_label }}';
-            
+
             const labelsToAdd = ['ECSoC26', selected_label];
-            
+
             await github.rest.issues.addLabels({
               owner,
               repo,
