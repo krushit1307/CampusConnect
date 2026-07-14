@@ -90,6 +90,7 @@ export function Navbar() {
 function NotificationBell() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const notifications: string[] = [];
 
   useEffect(() => {
@@ -100,12 +101,29 @@ function NotificationBell() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open]);
+
   return (
     <div ref={ref} className="relative">
       <button
+        ref={buttonRef}
         onClick={() => setOpen((o) => !o)}
-        className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-white transition-colors hover:bg-lime"
+        className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-white transition-colors hover:bg-lime focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
         aria-label="Notifications"
+        aria-expanded={open}
+        aria-haspopup="true"
       >
         🔔
         {notifications.length > 0 && (
@@ -116,7 +134,7 @@ function NotificationBell() {
       </button>
 
       {open && (
-        <div className="neu-border absolute right-0 top-10 z-50 w-72 bg-white">
+        <div role="menu" aria-label="Notifications menu" className="neu-border absolute right-0 top-10 z-50 w-72 bg-white">
           <div className="border-b-2 border-black px-4 py-2">
             <p
               className="font-mono text-xs font-bold uppercase"
@@ -132,7 +150,7 @@ function NotificationBell() {
               <p className="font-mono text-xs text-gray-400">No new notifications right now.</p>
             </div>
           ) : (
-            <ul className="divide-y-2 divide-black">
+            <ul role="menuitem" className="divide-y-2 divide-black">
               {notifications.map((n, i) => (
                 <li key={i} className="px-4 py-3 font-mono text-sm">
                   {n}
