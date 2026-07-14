@@ -14,9 +14,17 @@ export const Route = createFileRoute("/dashboard")({
       { name: "description", content: "Your clubs, events, and activity at a glance." },
     ],
   }),
+  component: Dashboard,
+});
+
 interface DashboardSavedEvent {
   id: string;
   events: {
+    id: string;
+    title: string;
+    event_date: string | null;
+    clubs: { name: string } | { name: string }[] | null;
+  }[] | {
     id: string;
     title: string;
     event_date: string | null;
@@ -189,7 +197,7 @@ function Dashboard() {
             ) : (
               <ul className="divide-y-2 divide-black">
                 {savedEvents.map((item: DashboardSavedEvent, i) => {
-                  const e = item.events;
+                  const e = Array.isArray(item.events) ? item.events[0] : item.events;
                   const c = e && (Array.isArray(e.clubs) ? e.clubs[0] : e.clubs);
                   if (!e) return null;
                   return (
