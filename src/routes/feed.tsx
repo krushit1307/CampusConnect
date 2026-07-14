@@ -22,9 +22,7 @@ import ReactMarkdown from "react-markdown";
 
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState } from "react";
-import { User } from "@supabase/supabase-js";
-import ReactMarkdown from "react-markdown";
+
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/feed")({
