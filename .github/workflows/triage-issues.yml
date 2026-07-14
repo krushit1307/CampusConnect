@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Auto-assign and Label
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const isPR = !!context.payload.pull_request;
