@@ -3,11 +3,8 @@ import { RoleBadge } from "@/components/RoleBadge";
 import { MessageCircle, PenLine, Sparkles } from "lucide-react";
 
 import { SiteShell } from "@/components/site/SiteShell";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState } from "react";
-import { User } from "@supabase/supabase-js";
-import ReactMarkdown from "react-markdown";
+import { calculateReadTime } from "@/utils/readTime";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/feed")({
@@ -30,6 +27,7 @@ function Feed() {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [newPost, setNewPost] = useState("");
+  const editorRef = useRef<MarkdownEditorRef>(null);
   const [newComments, setNewComments] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -43,11 +41,7 @@ function Feed() {
 
       const { data } = await supabase
         .from("club_members")
-        .select(
-          `
-          clubs (id, name)
-          `,
-        )
+        .select("clubs (id, name)")
         .eq("user_id", user.id)
         .eq("status", "approved");
 
@@ -56,7 +50,7 @@ function Feed() {
     enabled: !!user?.id,
   });
 
-  const [selectedClubId, setSelectedClubId] = useState<string>("");
+  const [selectedClubId, setSelectedClubId] = useState("");
 
   useEffect(() => {
     if (userClubs.length > 0 && !selectedClubId) {
@@ -81,6 +75,7 @@ function Feed() {
           comments (id, content, created_at, profiles (id, full_name))
           `,
         )
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
       return data || [];
@@ -108,11 +103,12 @@ function Feed() {
       if (!user) throw new Error("Must be logged in");
       if (!selectedClubId) throw new Error("Select a club");
 
-      await supabase.from("posts").insert({
+      const { error } = await supabase.from("posts").insert({
         club_id: selectedClubId,
         author_id: user.id,
         content: newPost,
       });
+      if (error) throw error;
 
       setNewPost("");
     },
@@ -122,12 +118,12 @@ function Feed() {
   const commentMutation = useMutation({
     mutationFn: async ({ postId, content }: { postId: string; content: string }) => {
       if (!user) throw new Error("Must be logged in");
-
-      await supabase.from("comments").insert({
+      const { error } = await supabase.from("comments").insert({
         post_id: postId,
         author_id: user.id,
         content,
       });
+      if (error) throw error;
 
       setNewComments((prev) => ({ ...prev, [postId]: "" }));
     },
@@ -159,24 +155,19 @@ function Feed() {
 
       <section className="bg-cream px-4 py-12 md:px-6">
         <div className="mx-auto max-w-4xl space-y-6">
-          <div className="neu-border bg-white p-4">
-            <textarea
-              value={newPost}
-              onChange={(e) => setNewPost(e.target.value)}
-              placeholder="Post an update to your clubs... (markdown supported: **bold**, *italics*, - bullets)"
-              rows={3}
-              className="w-full resize-none border-0 bg-transparent font-mono text-sm outline-none"
-            />
+          <div className="space-y-3">
+            <MarkdownEditor ref={editorRef} value={newPost} onChange={setNewPost} />
 
-            <div className="mt-2 flex items-center justify-between border-t-2 border-black pt-3">
+            <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
               <select
                 value={selectedClubId}
-                onChange={(e) => setSelectedClubId(e.target.value)}
+                onChange={(event) => setSelectedClubId(event.target.value)}
                 className="bg-transparent font-mono text-xs outline-none"
+                aria-label="Choose club for post"
               >
                 {userClubs.length === 0 && <option value="">No clubs joined</option>}
-                {userClubs.map((uc) => {
-                  const club = Array.isArray(uc.clubs) ? uc.clubs[0] : uc.clubs;
+                {userClubs.map((userClub) => {
+                  const club = Array.isArray(userClub.clubs) ? userClub.clubs[0] : userClub.clubs;
 
                   return club ? (
                     <option key={club.id} value={club.id}>
@@ -187,16 +178,24 @@ function Feed() {
               </select>
 
               <button
+                type="button"
                 onClick={() => {
-                  if (!user) return void toast.error("Log in first");
+                  if (!user) return alert("Log in first");
+                  if (!selectedClubId) return alert("Join or select a club first");
                   if (newPost.trim()) postMutation.mutate();
                 }}
-                disabled={!newPost.trim() || postMutation.isPending}
-                className="neu-border bg-black px-4 py-1 font-mono text-xs font-bold uppercase text-cream disabled:opacity-50"
+                disabled={!newPost.trim() || !selectedClubId || postMutation.isPending}
+                className="neu-border neu-press bg-black px-5 py-2 font-mono text-xs font-bold uppercase text-cream disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Post
+                {postMutation.isPending ? "Posting…" : "Post Markdown"}
               </button>
             </div>
+
+            {postMutation.isError && (
+              <p className="neu-border bg-peach p-3 font-mono text-xs" role="alert">
+                Could not publish the post. Please try again.
+              </p>
+            )}
           </div>
 
           {isLoading ? (
@@ -239,11 +238,7 @@ function Feed() {
                 <button
                   type="button"
                   onClick={() => {
-                    const composer = document.querySelector<HTMLTextAreaElement>(
-                      'textarea[placeholder^="Post an update"]',
-                    );
-                    composer?.focus();
-                    composer?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    editorRef.current?.focusWrite();
                   }}
                   className="neu-border mt-7 inline-flex items-center gap-2 bg-black px-5 py-3 font-mono text-xs font-bold uppercase text-cream transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black"
                 >
@@ -271,12 +266,15 @@ function Feed() {
                         {author?.full_name || "Unknown User"}
                         <RoleBadge role={authorRole} />
                       </p>
-                      <p className="font-mono text-xs">
+                      <p className="font-mono text-xs flex flex-wrap items-center">
                         in {club?.name || "Unknown Club"} · {timeAgo(post.created_at)}
+                        <span className="text-gray-500 ml-1">
+                          · {calculateReadTime(post.content)}
+                        </span>
                       </p>
                     </div>
                     <span className="neu-border bg-lime px-2 py-1 font-mono text-[10px] font-bold uppercase">
-                      Post
+                      Markdown post
                     </span>
                   </header>
 
@@ -318,13 +316,16 @@ function Feed() {
                     <div className="flex gap-2">
                       <input
                         value={newComments[post.id] || ""}
-                        onChange={(e) =>
-                          setNewComments((prev) => ({ ...prev, [post.id]: e.target.value }))
+                        onChange={(event) =>
+                          setNewComments((prev) => ({
+                            ...prev,
+                            [post.id]: event.target.value,
+                          }))
                         }
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            if (!user) return void toast.error("Log in first");
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" && !event.shiftKey) {
+                            event.preventDefault();
+                            if (!user) return alert("Log in first");
 
                             const content = newComments[post.id];
                             if (content?.trim()) {
