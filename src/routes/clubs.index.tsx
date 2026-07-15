@@ -1,9 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-
+import { useEffect, useRef, useState } from "react";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { useRef, useState } from "react";
 import { Plus, UsersRound, X } from "lucide-react";
 
 export const Route = createFileRoute("/clubs/")({
@@ -21,8 +20,16 @@ export const Route = createFileRoute("/clubs/")({
 
 function ClubsIndex() {
   const supabase = createClient();
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
   const { data: clubs = [], isLoading } = useQuery({
     queryKey: ["clubs"],
     queryFn: async () => {
@@ -54,15 +61,16 @@ function ClubsIndex() {
           <div className="relative mt-6 max-w-xl">
             <input
               ref={inputRef}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search clubs by name or interest..."
               className="neu-border w-full bg-white px-4 py-3 pr-10 font-mono text-sm outline-none"
             />
-            {search && (
+            {searchInput && (
               <button
                 type="button"
                 onClick={() => {
+                  setSearchInput("");
                   setSearch("");
                   inputRef.current?.focus();
                 }}
