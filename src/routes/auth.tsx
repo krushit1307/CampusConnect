@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Sparkle } from "@/components/site/Sparkle";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button"; // Added unified Button component import
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft } from "lucide-react"; // ArrowLeft imported for back-to-home navigation link (#208)
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
@@ -92,9 +92,19 @@ function AuthPage() {
       <Sparkle className="absolute bottom-8 left-8" size={16} />
       <Sparkle className="absolute bottom-8 right-8" size={16} />
       <div className="w-full max-w-md">
-        <Link to="/" className="mb-6 inline-block font-display text-2xl font-bold">
-          CAMPUS<span className="bg-black px-1 text-cream">CONNECT</span>
-        </Link>
+        {/* Issue #208: Added navigation layout containing the application logo and a back-to-home link/button so users can easily return to the landing page from the auth page */}
+        <div className="mb-6 flex items-center justify-between">
+          <Link to="/" className="font-display text-2xl font-bold">
+            CAMPUS<span className="bg-black px-1 text-cream">CONNECT</span>
+          </Link>
+          <Link
+            to="/"
+            className="neu-border flex items-center gap-1.5 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase text-black hover:bg-black hover:text-cream transition-colors"
+          >
+            <ArrowLeft size={14} />
+            Home
+          </Link>
+        </div>
         <div className="neu-border bg-white p-8">
           <p className="eyebrow mb-2 font-bold">
             {mode === "signin" ? "Welcome back" : "Get started"}
