@@ -3,8 +3,8 @@ import { useState } from "react";
 import { Sparkle } from "@/components/site/Sparkle";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button"; // Added unified Button component import
-import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import { PasswordInput } from "@/components/ui/password-input";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -23,7 +23,6 @@ function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -124,24 +123,21 @@ function AuthPage() {
             />
             <Field
               label="Password"
-              type={showPassword ? "text" : "password"}
+              type="password"
               name="password"
               placeholder="********"
               required
-              rightElement={
-                /* 1. Replaced the password toggle button with the ghost variant */
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="flex items-center justify-center p-1 text-black hover:scale-105 transition-transform outline-none"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </Button>
-              }
             />
+            {mode === "signin" && (
+              <p className="text-right">
+                <Link
+                  to="/forgot-password"
+                  className="font-mono text-xs font-bold underline underline-offset-2"
+                >
+                  Forgot password?
+                </Link>
+              </p>
+            )}
             {/* 2. Replaced primary submit button */}
             <Button
               type="submit"
@@ -174,7 +170,6 @@ function AuthPage() {
               onClick={() => {
                 setMode(mode === "signin" ? "signup" : "signin");
                 setError(null);
-                setShowPassword(false);
               }}
               className="h-auto p-0 font-bold underline"
             >
@@ -213,13 +208,22 @@ function Field({
         )}
       </span>
       <div className="relative flex items-center border-0 border-b-2 border-black focus-within:bg-lime/40 group">
-        <input
-          type={type}
-          name={name}
-          placeholder={placeholder}
-          required={required}
-          className="w-full bg-transparent px-1 py-2 font-mono text-sm outline-none"
-        />
+        {type === "password" ? (
+          <PasswordInput
+            name={name}
+            placeholder={placeholder}
+            required={required}
+            className="w-full bg-transparent px-1 py-2 font-mono text-sm outline-none"
+          />
+        ) : (
+          <input
+            type={type}
+            name={name}
+            placeholder={placeholder}
+            required={required}
+            className="w-full bg-transparent px-1 py-2 font-mono text-sm outline-none"
+          />
+        )}
         {rightElement && (
           <div className="absolute right-2 flex items-center justify-center">{rightElement}</div>
         )}

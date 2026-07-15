@@ -239,7 +239,7 @@ Instead of connecting to a remote Supabase instance, you can spin up the full Su
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to get started. This is an **ECSoC 2026** project, so we are actively looking for contributors. Check out issues labeled `good-first-issue` to begin!
+We welcome contributions! Please see our [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to get started. This is an **ECSoC 2026** project, so we are actively looking for contributors. Check out issues labeled `good first issue` to begin!
 
 > [!IMPORTANT]
 > **Code Formatting**: Before committing and pushing your code, you **MUST** run `bun run lint --fix` locally. This will automatically format your files and prevent our CI (GitHub Actions) from failing due to Prettier or ESLint errors. Pull Requests with failing CI checks will not be merged.

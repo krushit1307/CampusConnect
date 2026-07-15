@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { ThemeToggle } from "../ThemeToggle";
+import { Menu, X } from "lucide-react";
 
 const links = [
   { to: "/events", label: "Events" },
@@ -17,6 +18,7 @@ export function Navbar() {
   const currentPath = location.pathname;
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -27,10 +29,15 @@ export function Navbar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Close mobile menu when location changes
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
   return (
     <header className="sticky top-0 z-40 border-b-2 border-black bg-white text-black dark:border-cream dark:bg-black dark:text-cream">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
-        <Link to="/" className="font-display text-xl font-bold md:text-2xl">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-3 sm:px-4 md:px-6">
+        <Link to="/" className="font-display text-lg font-bold sm:text-xl md:text-2xl shrink-0">
           <span style={{ letterSpacing: "0.04em" }}>CAMPUS</span>
           <span className="bg-black px-1 text-cream dark:bg-cream dark:text-black">CONNECT</span>
         </Link>
@@ -55,12 +62,16 @@ export function Navbar() {
             );
           })}
         </nav>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <ThemeToggle />
           {user && <NotificationBell />}
 
           {user ? (
-            <Link to="/dashboard" aria-label="Dashboard" className="flex items-center gap-2">
+            <Link
+              to="/dashboard"
+              aria-label="Dashboard"
+              className="flex items-center gap-2 shrink-0"
+            >
               <div
                 aria-hidden="true"
                 className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-lime font-mono text-xs font-bold uppercase"
@@ -71,21 +82,53 @@ export function Navbar() {
           ) : (
             <Link
               to="/auth"
-              className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream hover:bg-cream hover:text-black"
+              className="neu-border neu-press bg-black px-3 py-1.5 font-mono text-xs font-bold uppercase text-cream hover:bg-cream hover:text-black dark:bg-cream dark:text-black dark:hover:bg-black dark:hover:text-cream"
               style={{ letterSpacing: "0.08em" }}
             >
               Sign in
             </Link>
           )}
-          <Link
-            to="/auth"
-            className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream hover:bg-cream hover:text-black dark:bg-cream dark:text-black dark:hover:bg-black dark:hover:text-cream"
-            style={{ letterSpacing: "0.08em" }}
+
+          {/* Mobile Hamburger menu */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="neu-border flex h-8 w-8 items-center justify-center bg-white p-1 text-black transition-colors hover:bg-lime dark:bg-black dark:text-cream md:hidden shrink-0"
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileMenuOpen}
           >
-            Sign in
-          </Link>
+            {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
         </div>
       </div>
+
+      {/* Mobile navigation panel */}
+      {mobileMenuOpen && (
+        <nav className="border-t-2 border-black bg-cream p-4 dark:border-cream dark:bg-black md:hidden">
+          <div className="flex flex-col gap-2">
+            {links.map((l) => {
+              const isActive =
+                (l.to as string) === "/"
+                  ? currentPath === "/"
+                  : currentPath === l.to || currentPath.startsWith(l.to + "/");
+
+              return (
+                <Link
+                  key={l.to}
+                  to={l.to}
+                  className={`neu-border w-full px-4 py-2.5 font-mono text-sm font-bold uppercase text-left transition-colors ${
+                    isActive
+                      ? "bg-black text-cream dark:bg-cream dark:text-black"
+                      : "bg-white text-black hover:bg-lime dark:bg-[#1a1a1a] dark:text-cream dark:hover:bg-lime/25"
+                  }`}
+                  style={{ letterSpacing: "0.05em" }}
+                >
+                  {l.label}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      )}
     </header>
   );
 }
