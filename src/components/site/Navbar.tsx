@@ -1,5 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { ThemeToggle } from "../ThemeToggle";
+import { NavbarNotificationDropdown } from './NavbarNotificationDropdown';
 
 const links = [
   { to: "/events", label: "Events" },
@@ -22,18 +23,15 @@ export function Navbar() {
         </Link>
         <nav className="hidden items-center gap-6 md:flex">
           {links.map((l) => {
-            const isActive =
-              l.to === "/"
-                ? currentPath === "/"
-                : currentPath === l.to || currentPath.startsWith(l.to + "/");
+
+            const isActive = currentPath === l.to || currentPath.startsWith(l.to + "/");
 
             return (
               <Link
                 key={l.to}
                 to={l.to}
-                className={`font-mono text-sm font-bold uppercase hover:underline ${
-                  isActive ? "underline underline-offset-4 decoration-2" : ""
-                }`}
+                className={`font-mono text-sm font-bold uppercase hover:underline ${isActive ? "underline underline-offset-4 decoration-2" : ""
+                  }`}
                 style={{ letterSpacing: "0.05em" }}
               >
                 {l.label}
@@ -42,8 +40,12 @@ export function Navbar() {
           })}
         </nav>
 
+        {/* The Action items wrapper container */}
         <div className="flex items-center gap-3">
           <ThemeToggle />
+
+          {/* Notification dropdown placed smoothly next to ThemeToggle */}
+          <NavbarNotificationDropdown />
 
           <Link
             to="/auth"
