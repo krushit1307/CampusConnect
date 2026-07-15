@@ -13,6 +13,12 @@
  */
 import { createBrowserClient } from "@supabase/ssr";
 
+// Polyfill WebSocket for SSR on older Node.js versions (e.g. Node 20)
+if (typeof window === "undefined" && !globalThis.WebSocket) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).WebSocket = class {};
+}
+
 // Validate environment variables on app startup in development mode
 if (import.meta.env.DEV) {
   const url =
@@ -83,4 +89,54 @@ export function createClient() {
   }
 
   return createBrowserClient(supabaseUrl, supabaseAnonKey);
+}
+
+/**
+ * Sends a request to join an invite-only club.
+ * @param clubId The ID of the club.
+ * @param userId The ID of the user requesting to join.
+ * @param message Optional message to the club admins.
+ */
+export async function requestClubJoin(clubId: string, userId: string, message?: string | null) {
+  const normalizedMessage = message ?? "";
+  const supabase = createClient();
+
+  // 1. Check if a request already exists
+  const { data: existingRequest, error: fetchError } = await supabase
+    .from("club_requests")
+    .select("id, status")
+    .eq("club_id", clubId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (fetchError) {
+    throw new Error(`Failed to check existing requests: ${fetchError.message}`);
+  }
+
+  if (existingRequest) {
+    if (existingRequest.status === "pending") {
+      throw new Error("You already have a pending join request for this club.");
+    }
+    if (existingRequest.status === "approved") {
+      throw new Error("You are already a member of this club.");
+    }
+  }
+
+  // 2. Insert new request
+  const { data, error } = await supabase
+    .from("club_requests")
+    .insert({
+      club_id: clubId,
+      user_id: userId,
+      message: normalizedMessage.trim(),
+      status: "pending",
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to submit join request: ${error.message}`);
+  }
+
+  return data;
 }

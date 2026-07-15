@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as FeedRouteImport } from './routes/feed'
 import { Route as EventsRouteImport } from './routes/events'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -29,6 +31,16 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FeedRoute = FeedRouteImport.update({
@@ -85,6 +97,8 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/events': typeof EventsRoute
   '/feed': typeof FeedRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/clubs/$slug': typeof ClubsSlugRoute
@@ -97,6 +111,8 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/events': typeof EventsRoute
   '/feed': typeof FeedRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/clubs/$slug': typeof ClubsSlugRoute
@@ -111,6 +127,8 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/events': typeof EventsRoute
   '/feed': typeof FeedRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/clubs/$slug': typeof ClubsSlugRoute
@@ -126,6 +144,8 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/events'
     | '/feed'
+    | '/forgot-password'
+    | '/reset-password'
     | '/settings'
     | '/sitemap.xml'
     | '/clubs/$slug'
@@ -138,6 +158,8 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/events'
     | '/feed'
+    | '/forgot-password'
+    | '/reset-password'
     | '/settings'
     | '/sitemap.xml'
     | '/clubs/$slug'
@@ -151,6 +173,8 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/events'
     | '/feed'
+    | '/forgot-password'
+    | '/reset-password'
     | '/settings'
     | '/sitemap.xml'
     | '/clubs/$slug'
@@ -165,6 +189,8 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   EventsRoute: typeof EventsRoute
   FeedRoute: typeof FeedRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SettingsRoute: typeof SettingsRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
 }
@@ -183,6 +209,20 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/feed': {
@@ -271,6 +311,8 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   EventsRoute: EventsRoute,
   FeedRoute: FeedRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SettingsRoute: SettingsRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
 }

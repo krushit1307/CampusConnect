@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+// @ts-expect-error - internal dependency of TanStack Start
 import { getCookie, setCookie } from "vinxi/http";
 
 /**

@@ -1,4 +1,5 @@
 @import "tailwindcss" source(none);
+@import "./styles/disabled-buttons.css";
 @source "../src";
 @import "tw-animate-css";
 
@@ -148,6 +149,26 @@
     letter-spacing: -0.02em;
     line-height: 1.05;
     font-weight: 700;
+  }
+
+  /* Focus rings for interactive form elements */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--color-background),
+      0 0 0 4px var(--color-ring);
+  }
+
+  /* Focus rings for all interactive elements */
+  button:focus-visible,
+  a:focus-visible,
+  [tabindex]:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--color-background),
+      0 0 0 4px var(--color-ring);
   }
 }
 

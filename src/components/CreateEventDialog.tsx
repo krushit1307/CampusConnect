@@ -120,7 +120,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Title</FormLabel>
+                  <FormLabel required>Title</FormLabel>
                   <FormControl>
                     <Input placeholder="Hackathon 2026" maxLength={TITLE_MAX_LENGTH} {...field} />
                   </FormControl>
@@ -134,7 +134,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel required>Description</FormLabel>
                   <FormControl>
                     <Textarea placeholder="What's this event about?" rows={4} {...field} />
                   </FormControl>
@@ -149,7 +149,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                 name="startDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Start date</FormLabel>
+                    <FormLabel required>Start date</FormLabel>
                     <FormControl>
                       <Input type="datetime-local" {...field} />
                     </FormControl>
@@ -163,7 +163,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                 name="endDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>End date</FormLabel>
+                    <FormLabel required>End date</FormLabel>
                     <FormControl>
                       <Input type="datetime-local" {...field} />
                     </FormControl>
