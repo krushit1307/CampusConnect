@@ -1,8 +1,10 @@
-import { formatDate } from "@/lib/utils";
+import { formatDate, getGoogleCalendarUrl } from "@/lib/utils";
 import { FormEvent, useState } from "react";
-import { X } from "lucide-react";
+import { X, Link as LinkIcon, Calendar, Check, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Event {
   id: string;
@@ -28,15 +30,44 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
   const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
   const hasRsvpd = user ? rsvps.some((rsvp) => rsvp.user_id === user.id) : false;
   const colors = ["bg-lime", "bg-sky", "bg-peach", "bg-lavender"];
+  const googleCalendarUrl = getGoogleCalendarUrl({
+    title: event.title,
+    description: event.description,
+    event_date: event.event_date,
+    location: event.location,
+  });
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [studentId, setStudentId] = useState("");
   const [dietaryPreference, setDietaryPreference] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success("Event link copied to clipboard!");
+    } catch (error) {
+      toast.error("Failed to copy link.");
+    }
+  };
 
   const resetForm = () => {
     setStudentId("");
     setDietaryPreference("");
     setIsFormOpen(false);
+  };
+
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}${window.location.pathname}#event-${event.id}`;
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast.success("Link copied to clipboard!");
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      toast.error("Failed to copy link");
+    }
   };
 
   const handleRsvpClick = () => {
@@ -68,10 +99,24 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
-    <article className={`neu-border p-5 ${colors[index % colors.length]}`}>
-      <p className="font-mono text-xs font-bold uppercase tracking-wider">
-        {event.event_date ? formatDate(event.event_date).split(" at ")[0].toUpperCase() : "TBA"}
-      </p>
+    <article id={`event-${event.id}`} className={`neu-border p-5 ${colors[index % colors.length]}`}>
+      <div className="flex items-start justify-between gap-3">
+        <p className="font-mono text-xs font-bold uppercase tracking-wider">
+          {event.event_date ? formatDate(event.event_date).split(" at ")[0].toUpperCase() : "TBA"}
+        </p>
+        <button
+          type="button"
+          onClick={handleShare}
+          aria-label="Copy event link"
+          className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white"
+        >
+          {copied ? (
+            <Check aria-hidden="true" size={14} strokeWidth={3} />
+          ) : (
+            <Share2 aria-hidden="true" size={14} strokeWidth={3} />
+          )}
+        </button>
+      </div>
 
       <p className="mt-3 font-mono text-xs font-bold uppercase">Event</p>
       <h2 className="mt-1 text-2xl font-black">{event.title}</h2>
@@ -181,16 +226,48 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
       ) : null}
 
       {!isFormOpen || hasRsvpd ? (
-        <button
-          type="button"
-          onClick={handleRsvpClick}
-          disabled={isRsvpPending}
-          className={`neu-border mt-5 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
-            hasRsvpd ? "bg-lime text-black" : "bg-black text-cream"
-          }`}
-        >
-          {isRsvpPending ? "Updating..." : hasRsvpd ? "RSVP'd ✓" : "RSVP →"}
-        </button>
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleRsvpClick}
+            disabled={isRsvpPending}
+            className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
+              hasRsvpd ? "bg-lime text-black" : "bg-black text-cream"
+            }`}
+          >
+            {isRsvpPending ? "Updating..." : hasRsvpd ? "RSVP'd ✓" : "RSVP →"}
+          </button>
+
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handleCopyLink}
+                  variant="outline"
+                  className="neu-border neu-press bg-white hover:bg-cream h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                >
+                  <LinkIcon className="h-4 w-4 mr-2" />
+                  Copy Link
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Copy Event Link</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          {hasRsvpd && googleCalendarUrl && (
+            <a
+              href={googleCalendarUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="neu-border bg-white px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
+            >
+              <Calendar aria-hidden="true" size={14} strokeWidth={3} />
+              Add to Google Calendar
+            </a>
+          )}
+        </div>
       ) : null}
       <div className="mt-4 flex gap-2">
         <a
