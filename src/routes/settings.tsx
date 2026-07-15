@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Camera, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -21,7 +22,55 @@ export const Route = createFileRoute("/settings")({
 
 function SettingsPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
-  // TODO: Supabase — load + save profile fields, including avatar upload to storage
+  const supabase = createClient();
+  const queryClient = useQueryClient();
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+  }, [supabase]);
+
+  const { data: profile, isLoading } = useQuery({
+    queryKey: ["profile", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name, username, bio")
+        .eq("id", user?.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const updateProfile = useMutation({
+    mutationFn: async (formData: FormData) => {
+      const fullName = formData.get("full_name") as string;
+      const username = formData.get("username") as string;
+      const bio = formData.get("bio") as string;
+      
+      const { error } = await supabase
+        .from("profiles")
+        .update({ full_name: fullName, username, bio })
+        .eq("id", user?.id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Profile updated successfully!");
+      queryClient.invalidateQueries({ queryKey: ["profile", user?.id] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update profile");
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    updateProfile.mutate(new FormData(e.currentTarget));
+  };
+
   return (
     <SiteShell>
       <section className="border-b-2 border-black px-4 py-14 md:px-6">
@@ -33,11 +82,26 @@ function SettingsPage() {
       <section className="px-4 py-12 md:px-6">
         <div className="mx-auto max-w-4xl space-y-6">
           <Panel title="Profile">
-            <AvatarUpload name="Ada Lovelace" />
-            <UnderlineInput label="Full name" defaultValue="Ada Lovelace" />
-            <UnderlineInput label="Handle" defaultValue="@ada" />
-            <UnderlineInput label="College email" defaultValue="ada@college.edu" />
-            <UnderlineInput label="Bio" defaultValue="Systems programming, tea, and long walks." />
+            {isLoading ? (
+              <div className="py-10 font-mono text-sm text-gray-500">Loading profile...</div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <AvatarUpload name={profile?.full_name || "User"} />
+                <UnderlineInput label="Full name" name="full_name" defaultValue={profile?.full_name || ""} required />
+                <UnderlineInput label="Handle" name="username" defaultValue={profile?.username || ""} />
+                <UnderlineInput label="College email" defaultValue={user?.email || ""} disabled />
+                <UnderlineInput label="Bio" name="bio" defaultValue={profile?.bio || ""} />
+                <div className="pt-4">
+                  <button
+                    type="submit"
+                    disabled={updateProfile.isPending}
+                    className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream disabled:opacity-50"
+                  >
+                    {updateProfile.isPending ? "Saving..." : "Save Profile"}
+                  </button>
+                </div>
+              </form>
+            )}
           </Panel>
           <Panel title="Notifications">
             <Toggle label="Email me about upcoming RSVPs" defaultChecked />
@@ -261,10 +325,14 @@ function UnderlineInput({
   label,
   defaultValue,
   required,
+  name,
+  disabled,
 }: {
   label: string;
   defaultValue?: string;
   required?: boolean;
+  name?: string;
+  disabled?: boolean;
 }) {
   return (
     <label className="block">
@@ -277,9 +345,11 @@ function UnderlineInput({
         )}
       </span>
       <input
+        name={name}
         defaultValue={defaultValue}
         required={required}
-        className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+        disabled={disabled}
+        className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40 disabled:opacity-50"
       />
     </label>
   );
