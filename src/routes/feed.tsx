@@ -40,6 +40,7 @@ export const Route = createFileRoute("/feed")({
   component: Feed,
 });
 
+type MemberRole = "admin" | "organizer" | "member" | "alumni";
 type MarkdownEditorProps = {
   value: string;
   onChange: (value: string) => void;
@@ -199,8 +200,6 @@ const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>(
   },
 );
 MarkdownEditor.displayName = "MarkdownEditor";
-
-type MemberRole = "admin" | "organizer" | "member" | "alumni";
 
 function Feed() {
   const supabase = createClient();

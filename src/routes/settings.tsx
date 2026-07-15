@@ -147,13 +147,13 @@ function SettingsPage() {
 
   return (
     <SiteShell>
-      <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
+      <section className="border-b-2 border-black px-4 py-14 md:px-6">
         <div className="mx-auto max-w-4xl">
           <p className="eyebrow font-bold">Account</p>
-          <h1 className="mt-2 text-4xl font-bold md:text-6xl">Settings.</h1>
+          <h1 className="mt-2 text-4xl font-bold text-[#123a57] md:text-6xl">Settings.</h1>
         </div>
       </section>
-      <section className="bg-cream px-4 py-12 md:px-6">
+      <section className="px-4 py-12 md:px-6">
         <div className="mx-auto max-w-4xl space-y-6">
           <Panel title="Profile">
             <AvatarUpload name={currentFullName || "User"} />
@@ -296,10 +296,10 @@ function SettingsPage() {
             <Toggle label="Weekly digest of club activity" defaultChecked />
             <Toggle label="New certificates" />
           </Panel>
-          <Panel title="Danger zone" tone="bg-peach">
+          <Panel title="Danger zone" tone="bg-red-50">
             <button
               onClick={() => setConfirmOpen(true)}
-              className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream"
+              className="neu-border neu-press bg-[#123a57] px-4 py-2 font-mono text-xs font-bold uppercase text-white"
             >
               Delete account
             </button>
@@ -344,6 +344,7 @@ function AvatarUpload({ name }: { name: string }) {
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
   const [preview, setPreview] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -365,6 +366,7 @@ function AvatarUpload({ name }: { name: string }) {
       console.log("Loaded avatar:", data?.avatar_url);
       if (isMounted && !error && data?.avatar_url) {
         setPreview(data.avatar_url);
+        setImageError(false);
       }
     }
 
@@ -408,6 +410,7 @@ function AvatarUpload({ name }: { name: string }) {
 
       if (avatarUrl) {
         setPreview(avatarUrl);
+        setImageError(false);
         toast.success("Profile picture updated.");
         setUploading(false);
       }
@@ -464,7 +467,7 @@ function AvatarUpload({ name }: { name: string }) {
     <div className="flex flex-col items-center gap-3 border-b-2 border-black pb-6 sm:flex-row sm:items-center sm:gap-5">
       <div className="relative shrink-0">
         <div className="neu-border flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-lime">
-          {preview ? (
+          {preview && !imageError ? (
             <img
               src={preview}
               alt="Profile picture preview"

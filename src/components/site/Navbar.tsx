@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { ThemeToggle } from "../ThemeToggle";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Menu, X } from "lucide-react";
 
 const links = [
@@ -43,10 +44,7 @@ export function Navbar() {
         </Link>
         <nav aria-label="Main navigation" className="hidden items-center gap-6 md:flex">
           {links.map((l) => {
-            const isActive =
-              (l.to as string) === "/"
-                ? currentPath === "/"
-                : currentPath === l.to || currentPath.startsWith(l.to + "/");
+            const isActive = currentPath === l.to || currentPath.startsWith(l.to + "/");
 
             return (
               <Link
@@ -106,10 +104,7 @@ export function Navbar() {
         <nav className="border-t-2 border-black bg-cream p-4 dark:border-cream dark:bg-black md:hidden">
           <div className="flex flex-col gap-2">
             {links.map((l) => {
-              const isActive =
-                (l.to as string) === "/"
-                  ? currentPath === "/"
-                  : currentPath === l.to || currentPath.startsWith(l.to + "/");
+              const isActive = currentPath === l.to || currentPath.startsWith(l.to + "/");
 
               return (
                 <Link
@@ -163,21 +158,26 @@ function NotificationBell() {
 
   return (
     <div ref={ref} className="relative">
-      <button
-        ref={buttonRef}
-        onClick={() => setOpen((o) => !o)}
-        className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-white transition-colors hover:bg-lime focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
-        aria-label="Notifications"
-        aria-expanded={open}
-        aria-haspopup="true"
-      >
-        🔔
-        {notifications.length > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-black bg-peach font-mono text-[9px] font-bold">
-            {notifications.length}
-          </span>
-        )}
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            ref={buttonRef}
+            onClick={() => setOpen((o) => !o)}
+            className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-white transition-colors hover:bg-lime focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+            aria-label="Notifications"
+            aria-expanded={open}
+            aria-haspopup="true"
+          >
+            🔔
+            {notifications.length > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-black bg-peach font-mono text-[9px] font-bold">
+                {notifications.length}
+              </span>
+            )}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>Notifications</TooltipContent>
+      </Tooltip>
 
       {open && (
         <div

@@ -134,7 +134,11 @@
   }
 
   body {
-    background-color: var(--color-background);
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top left, rgba(124, 200, 162, 0.28), transparent 28%),
+      radial-gradient(circle at 85% 8%, rgba(245, 198, 107, 0.32), transparent 24%),
+      linear-gradient(135deg, #f8efe2 0%, #eef8fb 48%, #f6e0c5 100%);
     color: var(--color-foreground);
     font-family: var(--font-mono);
   }
@@ -169,6 +173,59 @@
     box-shadow:
       0 0 0 2px var(--color-background),
       0 0 0 4px var(--color-ring);
+  }
+}
+
+@layer components {
+  .college-shell {
+    background:
+      radial-gradient(circle at top left, rgba(124, 200, 162, 0.16), transparent 30%),
+      linear-gradient(135deg, rgba(248, 239, 226, 0.96), rgba(238, 248, 251, 0.95));
+  }
+
+  .college-nav {
+    background: rgba(255, 255, 255, 0.86);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 10px 30px rgba(18, 58, 87, 0.08);
+  }
+
+  .college-hero {
+    position: relative;
+    overflow: hidden;
+    background:
+      linear-gradient(120deg, rgba(9, 42, 71, 0.97), rgba(17, 76, 115, 0.94)),
+      radial-gradient(circle at top right, rgba(245, 198, 107, 0.33), transparent 28%);
+  }
+
+  .college-hero::before {
+    content: "";
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 120px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.12) 20%,
+      transparent 50%,
+      rgba(255, 255, 255, 0.12) 80%,
+      transparent 100%
+    );
+    background-size: 220px 100%;
+    opacity: 0.7;
+    pointer-events: none;
+  }
+
+  .college-card {
+    background: rgba(255, 255, 255, 0.92);
+    border: 2px solid #123a57;
+    box-shadow: 6px 6px 0 0 #123a57;
+    backdrop-filter: blur(6px);
+  }
+
+  .college-pill {
+    border: 2px solid #123a57;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 4px 4px 0 0 #123a57;
   }
 }
 

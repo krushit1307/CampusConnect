@@ -47,20 +47,20 @@ function Certificates() {
     enabled: !!user?.id,
   });
 
-  const colors = ["bg-lime", "bg-sky", "bg-lavender", "bg-peach"];
+  // Minimal aesthetic - removed color array
 
   return (
     <SiteShell>
-      <section className="border-b-2 border-black bg-lavender px-4 py-14 md:px-6">
+      <section className="border-b-2 border-black px-4 py-14 md:px-6">
         <div className="mx-auto max-w-7xl">
           <p className="eyebrow font-bold">Your certificates · {certs.length} issued</p>
-          <h1 className="mt-2 text-4xl font-bold md:text-6xl">Proof of work.</h1>
+          <h1 className="mt-2 text-4xl font-bold text-[#123a57] md:text-6xl">Proof of work.</h1>
           <p className="mt-4 max-w-2xl font-mono text-sm">
             Every certificate is signed and verifiable at a public URL. Share them anywhere.
           </p>
         </div>
       </section>
-      <section className="bg-cream px-4 py-12 md:px-6">
+      <section className="px-4 py-12 md:px-6">
         <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2">
           {isLoading ? (
             <div className="col-span-full font-mono py-10">Loading certificates...</div>
@@ -76,9 +76,7 @@ function Certificates() {
 
               return (
                 <article key={c.id} className="neu-border neu-press bg-white p-6">
-                  <div
-                    className={`neu-border ${colors[index % colors.length]} mb-4 flex items-center justify-between px-4 py-6`}
-                  >
+                  <div className="neu-border mb-4 flex items-center justify-between bg-[#f5c66b] px-4 py-6 text-[#123a57]">
                     <div>
                       <p className="eyebrow font-bold">Certificate</p>
                       <p className="mt-1 font-display text-2xl font-bold">
