@@ -1,8 +1,10 @@
 import { formatDate } from "@/lib/utils";
 import { FormEvent, useState } from "react";
-import { X } from "lucide-react";
+import { X, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Event {
   id: string;
@@ -32,6 +34,15 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [studentId, setStudentId] = useState("");
   const [dietaryPreference, setDietaryPreference] = useState("");
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success("Event link copied to clipboard!");
+    } catch (error) {
+      toast.error("Failed to copy link.");
+    }
+  };
 
   const resetForm = () => {
     setStudentId("");
@@ -180,18 +191,38 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
         </form>
       ) : null}
 
-      {!isFormOpen || hasRsvpd ? (
-        <button
-          type="button"
-          onClick={handleRsvpClick}
-          disabled={isRsvpPending}
-          className={`neu-border mt-5 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
-            hasRsvpd ? "bg-lime text-black" : "bg-black text-cream"
-          }`}
-        >
-          {isRsvpPending ? "Updating..." : hasRsvpd ? "RSVP'd ✓" : "RSVP →"}
-        </button>
-      ) : null}
+      <div className="mt-5 flex flex-wrap gap-3 items-center">
+        {!isFormOpen || hasRsvpd ? (
+          <button
+            type="button"
+            onClick={handleRsvpClick}
+            disabled={isRsvpPending}
+            className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
+              hasRsvpd ? "bg-lime text-black" : "bg-black text-cream"
+            }`}
+          >
+            {isRsvpPending ? "Updating..." : hasRsvpd ? "RSVP'd ✓" : "RSVP →"}
+          </button>
+        ) : null}
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={handleCopyLink}
+                variant="outline"
+                className="neu-border neu-press bg-white hover:bg-cream h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+              >
+                <LinkIcon className="h-4 w-4 mr-2" />
+                Copy Link
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Copy Event Link</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
       <div className="mt-4 flex gap-2">
         <a
           href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
