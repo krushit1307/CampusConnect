@@ -92,6 +92,7 @@ function AvatarUpload({ name }: { name: string }) {
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
   const [preview, setPreview] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -113,6 +114,7 @@ function AvatarUpload({ name }: { name: string }) {
       console.log("Loaded avatar:", data?.avatar_url);
       if (isMounted && !error && data?.avatar_url) {
         setPreview(data.avatar_url);
+        setImageError(false);
       }
     }
 
@@ -156,6 +158,7 @@ function AvatarUpload({ name }: { name: string }) {
 
       if (avatarUrl) {
         setPreview(avatarUrl);
+        setImageError(false);
         toast.success("Profile picture updated.");
         setUploading(false);
       }
@@ -212,7 +215,7 @@ function AvatarUpload({ name }: { name: string }) {
     <div className="flex flex-col items-center gap-3 border-b-2 border-black pb-6 sm:flex-row sm:items-center sm:gap-5">
       <div className="relative shrink-0">
         <div className="neu-border flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-lime">
-          {preview ? (
+          {preview && !imageError ? (
             <img
               src={preview}
               alt="Profile picture preview"
