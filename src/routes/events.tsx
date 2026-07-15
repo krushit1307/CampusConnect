@@ -7,6 +7,9 @@ import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { EventCard } from "@/components/EventCard";
 import { CreateEventDialog } from "@/components/CreateEventDialog";
+import { PullToRefresh } from "@/components/PullToRefresh";
+import { toast } from "sonner";
+import { EventCardSkeleton } from "@/components/EventCardSkeleton";
 
 export const Route = createFileRoute("/events")({
   head: () => ({
@@ -31,14 +34,18 @@ function EventsPage() {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
 
-  const { data: queryData, isLoading } = useQuery({
+  const {
+    data: queryData,
+    isLoading,
+    isFetching,
+  } = useQuery({
     queryKey: ["events"],
     queryFn: async () => {
       const { data } = await supabase
         .from("events")
         .select(
           `
-          id, title, description, event_date, location, 
+          id, title, description, event_date, location, banner_url,
           clubs (name),
           event_rsvps (id, user_id)
         `,
@@ -109,17 +116,26 @@ function EventsPage() {
         console.log(`[CampusConnect] Mock RSVP toggled for event: ${eventId}`);
         return;
       }
-      const { error } = hasRsvpd
-        ? await supabase.from("event_rsvps").delete().match({ event_id: eventId, user_id: user.id })
-        : await supabase.from("event_rsvps").insert({ event_id: eventId, user_id: user.id });
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
+      const { data, error } = await supabase.functions.invoke("toggle-rsvp", {
+        body: { eventId, hasRsvpd },
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
       if (error) {
-        throw new Error(error.message);
+        throw error;
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
       queryClient.invalidateQueries({ queryKey: ["upcomingEvents"] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update RSVP. Please try again.");
     },
   });
 
@@ -129,44 +145,49 @@ function EventsPage() {
 
   return (
     <SiteShell>
-      <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="eyebrow font-bold">All events · Fall semester</p>
-            <h1 className="mt-2 text-4xl font-bold md:text-6xl">What's on this week.</h1>
+      <PullToRefresh
+        isRefreshing={isFetching}
+        onRefresh={() => queryClient.invalidateQueries({ queryKey: ["events"] })}
+      >
+        <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
+          <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="eyebrow font-bold">All events · Fall semester</p>
+              <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">
+                What's on this week.
+              </h1>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t, i) => (
+                <button
+                  key={t}
+                  onClick={() => setFilter(t)}
+                  className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase ${filter === t ? "bg-black text-cream" : "bg-white"}`}
+                >
+                  {t}
+                </button>
+              ))}
+              <CreateEventDialog user={user} />
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t, i) => (
-              <button
-                key={t}
-                onClick={() => setFilter(t)}
-                className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase ${filter === t ? "bg-black text-cream" : "bg-white"}`}
-              >
-                {t}
-              </button>
-            ))}
-            <CreateEventDialog user={user} />
+        </section>
+        <section className="bg-cream px-4 py-12 md:px-6">
+          <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {isLoading
+              ? Array.from({ length: 4 }).map((_, i) => <EventCardSkeleton key={i} />)
+              : filteredEvents.map((e, index) => (
+                  <EventCard
+                    key={e.id}
+                    event={e}
+                    index={index}
+                    user={user}
+                    onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
+                    isRsvpPending={toggleRsvp.isPending}
+                  />
+                ))}
           </div>
-        </div>
-      </section>
-      <section className="bg-cream px-4 py-12 md:px-6">
-        <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {isLoading ? (
-            <div className="col-span-full font-mono text-center py-10">Loading events...</div>
-          ) : (
-            filteredEvents.map((e, index) => (
-              <EventCard
-                key={e.id}
-                event={e}
-                index={index}
-                user={user}
-                onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
-                isRsvpPending={toggleRsvp.isPending}
-              />
-            ))
-          )}
-        </div>
-      </section>
+        </section>
+      </PullToRefresh>
     </SiteShell>
   );
 }

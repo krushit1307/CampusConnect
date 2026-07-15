@@ -1,4 +1,5 @@
 @import "tailwindcss" source(none);
+@import "./styles/disabled-buttons.css";
 @source "../src";
 @import "tw-animate-css";
 
@@ -98,7 +99,33 @@
 }
 
 .dark {
-  /* Light-only editorial theme; dark mode intentionally unused. */
+  --background: #111111;
+  --foreground: #f3f1e4;
+  --card: #171717;
+  --card-foreground: #f3f1e4;
+  --popover: #171717;
+  --popover-foreground: #f3f1e4;
+  --primary: #dff25c;
+  --primary-foreground: #111111;
+  --secondary: #1f1f1f;
+  --secondary-foreground: #f3f1e4;
+  --muted: #1f1f1f;
+  --muted-foreground: #cfcfcf;
+  --accent: #bce3f2;
+  --accent-foreground: #111111;
+  --destructive: #e53935;
+  --destructive-foreground: #ffffff;
+  --border: #f3f1e4;
+  --input: #f3f1e4;
+  --ring: #dff25c;
+  --sidebar: #111111;
+  --sidebar-foreground: #f3f1e4;
+  --sidebar-primary: #dff25c;
+  --sidebar-primary-foreground: #111111;
+  --sidebar-accent: #1f1f1f;
+  --sidebar-accent-foreground: #f3f1e4;
+  --sidebar-border: #f3f1e4;
+  --sidebar-ring: #dff25c;
 }
 
 @layer base {
@@ -122,6 +149,26 @@
     letter-spacing: -0.02em;
     line-height: 1.05;
     font-weight: 700;
+  }
+
+  /* Focus rings for interactive form elements */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--color-background),
+      0 0 0 4px var(--color-ring);
+  }
+
+  /* Focus rings for all interactive elements */
+  button:focus-visible,
+  a:focus-visible,
+  [tabindex]:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--color-background),
+      0 0 0 4px var(--color-ring);
   }
 }
 

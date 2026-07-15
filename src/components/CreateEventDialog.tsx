@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
+import { eventFormSchema, TITLE_MAX_LENGTH, type EventFormValues } from "@/lib/eventUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,26 +28,6 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
-
-const TITLE_MAX_LENGTH = 100;
-
-const eventFormSchema = z
-  .object({
-    title: z
-      .string()
-      .trim()
-      .min(1, "Title is required.")
-      .max(TITLE_MAX_LENGTH, `Title must be ${TITLE_MAX_LENGTH} characters or fewer.`),
-    description: z.string().trim().min(1, "Description is required."),
-    startDate: z.string().min(1, "Start date is required."),
-    endDate: z.string().min(1, "End date is required."),
-  })
-  .refine((data) => new Date(data.endDate) > new Date(data.startDate), {
-    message: "End date must be after the start date.",
-    path: ["endDate"],
-  });
-
-type EventFormValues = z.infer<typeof eventFormSchema>;
 
 const defaultValues: EventFormValues = {
   title: "",
@@ -140,7 +120,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Title</FormLabel>
+                  <FormLabel required>Title</FormLabel>
                   <FormControl>
                     <Input placeholder="Hackathon 2026" maxLength={TITLE_MAX_LENGTH} {...field} />
                   </FormControl>
@@ -154,7 +134,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel required>Description</FormLabel>
                   <FormControl>
                     <Textarea placeholder="What's this event about?" rows={4} {...field} />
                   </FormControl>
@@ -169,7 +149,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                 name="startDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Start date</FormLabel>
+                    <FormLabel required>Start date</FormLabel>
                     <FormControl>
                       <Input type="datetime-local" {...field} />
                     </FormControl>
@@ -183,7 +163,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                 name="endDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>End date</FormLabel>
+                    <FormLabel required>End date</FormLabel>
                     <FormControl>
                       <Input type="datetime-local" {...field} />
                     </FormControl>

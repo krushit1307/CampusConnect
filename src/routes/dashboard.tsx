@@ -2,8 +2,10 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button"; // Added unified Button component import
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
+import { ProfileHeaderSkeleton } from "@/components/ProfileHeaderSkeleton";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -30,7 +32,7 @@ function Dashboard() {
     });
   }, [router, supabase]);
 
-  const { data: profile } = useQuery({
+  const { data: profile, isLoading } = useQuery({
     queryKey: ["profile", user?.id],
     queryFn: async () => {
       const { data } = await supabase.from("profiles").select("*").eq("id", user?.id).single();
@@ -64,18 +66,18 @@ function Dashboard() {
     queryFn: async () => {
       // Fetch events the user has RSVP'd to that are in the future
       const { data } = await supabase
-        .from("event_rsvps")
+        .from("events")
         .select(
           `
-          event_id,
-          events (
-            title, event_date,
-            clubs (name)
+          *,
+          clubs (name),
+          event_rsvps!inner (
+            id, user_id
           )
         `,
         )
-        .eq("user_id", user?.id)
-        .gte("events.event_date", new Date().toISOString())
+        .eq("event_rsvps.user_id", user?.id)
+        .gte("event_date", new Date().toISOString())
         .limit(3);
       return data || [];
     },
@@ -87,7 +89,11 @@ function Dashboard() {
   if (!user)
     return (
       <SiteShell>
-        <div className="p-10 font-mono">Loading...</div>
+        <section className="border-b-2 border-black bg-lime px-4 py-10 md:px-6">
+          <div className="mx-auto max-w-7xl">
+            <ProfileHeaderSkeleton />
+          </div>
+        </section>
       </SiteShell>
     );
 
@@ -95,10 +101,16 @@ function Dashboard() {
     <SiteShell>
       <section className="border-b-2 border-black bg-lime px-4 py-10 md:px-6">
         <div className="mx-auto max-w-7xl">
-          <p className="eyebrow font-bold">Signed in as {user.email}</p>
-          <h1 className="mt-2 text-4xl font-bold md:text-5xl">
-            Good morning, {profile?.full_name?.split(" ")[0] || "there"}.
-          </h1>
+          {isLoading ? (
+            <ProfileHeaderSkeleton />
+          ) : (
+            <>
+              <p className="eyebrow font-bold break-all">Signed in as {user.email}</p>
+              <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-5xl">
+                Good morning, {profile?.full_name?.split(" ")[0] || "there"}.
+              </h1>
+            </>
+          )}
         </div>
       </section>
       <section className="bg-cream px-4 py-10 md:px-6">
@@ -113,10 +125,10 @@ function Dashboard() {
             ) : (
               <ul className="divide-y-2 divide-black">
                 {upcomingEvents.map((r, i) => {
-                  const e = Array.isArray(r.events) ? r.events[0] : r.events;
-                  const c = e && !Array.isArray(e.clubs) ? e.clubs : null;
+                  const e = r;
+                  const c = Array.isArray(r.clubs) ? r.clubs[0] : r.clubs;
                   return (
-                    <li key={r.event_id} className="flex items-center gap-4 py-4">
+                    <li key={r.id} className="flex items-center gap-4 py-4">
                       <div
                         className={`neu-border ${colors[i % colors.length]} shrink-0 px-3 py-2 text-center font-mono text-xs font-bold`}
                       >
@@ -130,9 +142,14 @@ function Dashboard() {
                         <p className="truncate font-display text-lg font-bold">{e?.title}</p>
                         <p className="font-mono text-xs">{c?.name}</p>
                       </div>
-                      <button className="neu-border shrink-0 bg-white px-3 py-1 font-mono text-xs font-bold uppercase">
+                      {/* ✨ Replaced the raw HTML button with our unified Button component */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="neu-border shrink-0 bg-white px-3 py-1 font-mono text-xs font-bold uppercase"
+                      >
                         RSVP'd
-                      </button>
+                      </Button>
                     </li>
                   );
                 })}
@@ -153,7 +170,9 @@ function Dashboard() {
                     >
                       <div>
                         <p className="font-display font-bold">
-                          <Link to={`/clubs/${club?.slug}`}>{club?.name}</Link>
+                          <Link to="/clubs/$slug" params={{ slug: club?.slug || "" }}>
+                            {club?.name}
+                          </Link>
                         </p>
                         <p className="font-mono text-xs">Active</p>
                       </div>
@@ -180,6 +199,7 @@ function Dashboard() {
   );
 }
 
+// Widget component implementation below remains unchanged...
 function Widget({
   title,
   cta,
@@ -192,7 +212,7 @@ function Widget({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`neu-border bg-white p-6 ${className}`}>
+    <div className={`neu-border bg-white p-4 sm:p-6 ${className}`}>
       <div className="mb-4 flex items-center justify-between border-b-2 border-black pb-3">
         <h2 className="text-xl font-bold">{title}</h2>
         {cta && (

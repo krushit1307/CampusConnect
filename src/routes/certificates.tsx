@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/certificates")({
   head: () => ({
@@ -70,7 +71,8 @@ function Certificates() {
           ) : (
             certs.map((c, index) => {
               const event = Array.isArray(c.events) ? c.events[0] : c.events;
-              const club = event && !Array.isArray(event.clubs) ? event.clubs : null;
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const club = (event && !Array.isArray(event.clubs) ? event.clubs : null) as any;
 
               return (
                 <article key={c.id} className="neu-border neu-press bg-white p-6">
@@ -116,9 +118,13 @@ function Certificates() {
                       {openingId === c.id ? "Generating..." : "View PDF"}
                     </button>
                     <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(c.certificate_url);
-                        alert("Link copied to clipboard!");
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(c.certificate_url);
+                          toast.success("Link copied to clipboard!");
+                        } catch (err) {
+                          toast.error("Failed to copy link");
+                        }
                       }}
                       className="neu-border neu-press flex-1 bg-white px-3 py-2 font-mono text-xs font-bold uppercase"
                     >

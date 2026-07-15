@@ -2,6 +2,7 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { Sparkle } from "@/components/site/Sparkle";
 import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button"; // Added unified Button component import
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
@@ -128,49 +129,57 @@ function AuthPage() {
               placeholder="********"
               required
               rightElement={
-                <button
+                /* 1. Replaced the password toggle button with the ghost variant */
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => setShowPassword(!showPassword)}
                   className="flex items-center justify-center p-1 text-black hover:scale-105 transition-transform outline-none"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+                </Button>
               }
             />
-            <button
+            {/* 2. Replaced primary submit button */}
+            <Button
               type="submit"
               disabled={loading}
               className="neu-border neu-press w-full bg-black px-4 py-3 font-mono text-sm font-bold uppercase tracking-wider text-cream disabled:opacity-50"
             >
               {loading ? "Loading..." : mode === "signin" ? "Sign in" : "Create account"}
-            </button>
+            </Button>
           </form>
           <div className="my-6 flex items-center gap-3">
             <div className="h-[2px] flex-1 bg-black" />
             <span className="eyebrow font-bold">or</span>
             <div className="h-[2px] flex-1 bg-black" />
           </div>
-          <button
+          {/* 3. Replaced Google sign-in button */}
+          <Button
             onClick={handleGoogleSignIn}
             disabled={loading}
+            variant="outline"
             className="neu-border neu-press w-full bg-white px-4 py-3 font-mono text-sm font-bold uppercase tracking-wider disabled:opacity-50"
           >
             Continue with Google
-          </button>
+          </Button>
           <p className="mt-6 text-center font-mono text-xs">
             {mode === "signin" ? "New here?" : "Already have an account?"}{" "}
-            <button
+            {/* 4. Replaced mode switch toggle link button */}
+            <Button
               type="button"
+              variant="link"
               onClick={() => {
                 setMode(mode === "signin" ? "signup" : "signin");
                 setError(null);
                 setShowPassword(false);
               }}
-              className="font-bold underline"
+              className="h-auto p-0 font-bold underline"
             >
               {mode === "signin" ? "Create an account" : "Sign in"}
-            </button>
+            </Button>
           </p>
         </div>
       </div>
@@ -195,7 +204,14 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="eyebrow mb-1 block font-bold">{label}</span>
+      <span className="eyebrow mb-1 block font-bold">
+        {label}
+        {required && (
+          <span className="text-destructive ml-1" aria-hidden="true">
+            *
+          </span>
+        )}
+      </span>
       <div className="relative flex items-center border-0 border-b-2 border-black focus-within:bg-lime/40 group">
         <input
           type={type}
