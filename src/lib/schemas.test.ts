@@ -27,7 +27,7 @@ describe("profileSchema", () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.flatten().fieldErrors.fullName).toContain(
-          "Full name must be at least 2 characters long."
+          "Full name must be at least 2 characters long.",
         );
       }
     });
@@ -49,7 +49,7 @@ describe("profileSchema", () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.flatten().fieldErrors.handle).toContain(
-          "Handle must be at least 2 characters long."
+          "Handle must be at least 2 characters long.",
         );
       }
     });
@@ -75,7 +75,7 @@ describe("profileSchema", () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.flatten().fieldErrors.collegeEmail).toContain(
-          "Please enter a valid email address."
+          "Please enter a valid email address.",
         );
       }
     });
@@ -99,7 +99,7 @@ describe("profileSchema", () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.flatten().fieldErrors.bio).toContain(
-          "Bio must be 160 characters or fewer."
+          "Bio must be 160 characters or fewer.",
         );
       }
     });
@@ -114,18 +114,27 @@ describe("profileSchema", () => {
     });
 
     it("accepts a valid HTTP/HTTPS URL", () => {
-      const result1 = profileSchema.safeParse({ ...validPayload, linkedinUrl: "https://linkedin.com" });
-      const result2 = profileSchema.safeParse({ ...validPayload, linkedinUrl: "http://linkedin.com" });
+      const result1 = profileSchema.safeParse({
+        ...validPayload,
+        linkedinUrl: "https://linkedin.com",
+      });
+      const result2 = profileSchema.safeParse({
+        ...validPayload,
+        linkedinUrl: "http://linkedin.com",
+      });
       expect(result1.success).toBe(true);
       expect(result2.success).toBe(true);
     });
 
     it("rejects a URL without protocol", () => {
-      const result = profileSchema.safeParse({ ...validPayload, linkedinUrl: "linkedin.com/in/ada" });
+      const result = profileSchema.safeParse({
+        ...validPayload,
+        linkedinUrl: "linkedin.com/in/ada",
+      });
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.flatten().fieldErrors.linkedinUrl).toContain(
-          "Please enter a valid URL (include http:// or https://)."
+          "Please enter a valid URL (include http:// or https://).",
         );
       }
     });
@@ -152,7 +161,7 @@ describe("profileSchema", () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.flatten().fieldErrors.phoneNumber).toContain(
-          "Please enter a valid phone number (minimum 10 digits)."
+          "Please enter a valid phone number (minimum 10 digits).",
         );
       }
     });

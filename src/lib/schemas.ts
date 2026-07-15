@@ -1,19 +1,13 @@
 import { z } from "zod";
 
 export const profileSchema = z.object({
-  fullName: z
-    .string()
-    .trim()
-    .min(2, "Full name must be at least 2 characters long."),
+  fullName: z.string().trim().min(2, "Full name must be at least 2 characters long."),
   handle: z
     .string()
     .trim()
     .min(2, "Handle must be at least 2 characters long.")
     .regex(/^[a-zA-Z0-9_]+$/, "Handle can only contain letters, numbers, and underscores."),
-  collegeEmail: z
-    .string()
-    .trim()
-    .email("Please enter a valid email address."),
+  collegeEmail: z.string().trim().email("Please enter a valid email address."),
   bio: z
     .string()
     .trim()

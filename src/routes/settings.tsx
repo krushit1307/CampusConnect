@@ -48,7 +48,11 @@ function SettingsPage() {
     });
   }, [router, supabase]);
 
-  const { data: profile, isLoading: isProfileLoading, refetch } = useQuery({
+  const {
+    data: profile,
+    isLoading: isProfileLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["profile", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -153,7 +157,7 @@ function SettingsPage() {
         <div className="mx-auto max-w-4xl space-y-6">
           <Panel title="Profile">
             <AvatarUpload name={currentFullName || "User"} />
-            
+
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
@@ -161,7 +165,9 @@ function SettingsPage() {
                   name="fullName"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <FormLabel required className="eyebrow font-bold">Full name</FormLabel>
+                      <FormLabel required className="eyebrow font-bold">
+                        Full name
+                      </FormLabel>
                       <FormControl>
                         <input
                           {...field}
@@ -178,7 +184,9 @@ function SettingsPage() {
                   name="handle"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <FormLabel required className="eyebrow font-bold">Handle</FormLabel>
+                      <FormLabel required className="eyebrow font-bold">
+                        Handle
+                      </FormLabel>
                       <FormControl>
                         <input
                           {...field}
@@ -196,7 +204,9 @@ function SettingsPage() {
                   name="collegeEmail"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <FormLabel required className="eyebrow font-bold">College email</FormLabel>
+                      <FormLabel required className="eyebrow font-bold">
+                        College email
+                      </FormLabel>
                       <FormControl>
                         <input
                           {...field}
@@ -329,7 +339,6 @@ function Panel({
     </section>
   );
 }
-
 
 function AvatarUpload({ name }: { name: string }) {
   const supabaseRef = useRef(createClient());
