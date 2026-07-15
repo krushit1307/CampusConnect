@@ -1,28 +1,28 @@
-import * as React from "react";
+type Role = "admin" | "organizer" | "member" | "alumni";
 
-type MemberRole = "admin" | "organizer" | "member" | "alumni";
+const variantMap: Record<Role, string> = {
+  admin: "bg-peach border-black text-black",
+  organizer: "bg-lavender border-black text-black",
+  member: "bg-sky border-black text-black",
+  alumni: "bg-lime border-black text-black",
+};
 
-interface RoleBadgeProps {
-  role: MemberRole;
-}
+const labelMap: Record<Role, string> = {
+  admin: "Admin",
+  organizer: "Organizer",
+  member: "Member",
+  alumni: "Alumni",
+};
 
-export function RoleBadge({ role }: RoleBadgeProps) {
-  if (!role || role === "member") return null;
-
-  const colorMap: Record<MemberRole, string> = {
-    admin: "bg-peach",
-    organizer: "bg-lime",
-    alumni: "bg-sky",
-    member: "bg-white",
-  };
+export function RoleBadge({ role }: { role: Role }) {
+  const styles = variantMap[role] ?? variantMap.member;
+  const label = labelMap[role] ?? role;
 
   return (
     <span
-      className={`neu-border ml-2 inline-block px-2 py-0.5 font-mono text-[9px] font-bold uppercase text-black ${
-        colorMap[role] || "bg-white"
-      }`}
+      className={`inline-block border px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase leading-none ${styles}`}
     >
-      {role}
+      {label}
     </span>
   );
 }

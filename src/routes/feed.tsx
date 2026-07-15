@@ -33,6 +33,8 @@ export const Route = createFileRoute("/feed")({
 
 type MemberRole = "admin" | "organizer" | "member" | "alumni";
 
+type MemberRole = "admin" | "organizer" | "member" | "alumni";
+
 function Feed() {
   const supabase = createClient();
   const queryClient = useQueryClient();

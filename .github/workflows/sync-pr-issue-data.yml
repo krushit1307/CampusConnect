@@ -19,24 +19,24 @@ jobs:
             const pull_request = context.payload.pull_request;
             const pr_number = pull_request.number;
             const body = pull_request.body || '';
-            
+
             // Matches: close #123, closes #123, closed #123, fix #123, fixes #123, fixed #123, resolve #123, resolves #123, resolved #123
             const regex = /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#(\d+)/gi;
-            
+
             let match;
             const issueNumbers = new Set();
             while ((match = regex.exec(body)) !== null) {
               issueNumbers.add(parseInt(match[1], 10));
             }
-            
+
             if (issueNumbers.size === 0) {
               console.log('No linked issues found in the PR body using closing keywords.');
               return;
             }
-            
+
             const labelsToAdd = new Set();
             const assigneesToAdd = new Set();
-            
+
             for (const issue_number of issueNumbers) {
               console.log(`Fetching data for issue #${issue_number}`);
               try {
@@ -57,7 +57,7 @@ jobs:
                 console.error(`Could not fetch issue #${issue_number}: ${error.message}`);
               }
             }
-            
+
             if (labelsToAdd.size > 0) {
               console.log(`Adding labels: ${Array.from(labelsToAdd).join(', ')}`);
               await github.rest.issues.addLabels({
@@ -67,7 +67,7 @@ jobs:
                 labels: Array.from(labelsToAdd)
               });
             }
-            
+
             if (assigneesToAdd.size > 0) {
               console.log(`Adding assignees: ${Array.from(assigneesToAdd).join(', ')}`);
               await github.rest.issues.addAssignees({
