@@ -1,9 +1,6 @@
 import { formatDate, getGoogleCalendarUrl } from "@/lib/utils";
 import { FormEvent, useState } from "react";
-feat/event-copy-link
-import { X, Link as LinkIcon } from "lucide-react";
-import { Calendar, Check, Share2, X } from "lucide-react";
-main
+import { X, Link as LinkIcon, Calendar, Check, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Button } from "@/components/ui/button";
@@ -228,12 +225,8 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
         </form>
       ) : null}
 
-feat/event-copy-link
-      <div className="mt-5 flex flex-wrap gap-3 items-center">
-        {!isFormOpen || hasRsvpd ? (
       {!isFormOpen || hasRsvpd ? (
         <div className="mt-5 flex flex-wrap items-center gap-3">
-main
           <button
             type="button"
             onClick={handleRsvpClick}
@@ -244,27 +237,24 @@ main
           >
             {isRsvpPending ? "Updating..." : hasRsvpd ? "RSVP'd ✓" : "RSVP →"}
           </button>
-feat/event-copy-link
-        ) : null}
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={handleCopyLink}
-                variant="outline"
-                className="neu-border neu-press bg-white hover:bg-cream h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
-              >
-                <LinkIcon className="h-4 w-4 mr-2" />
-                Copy Link
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Copy Event Link</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handleCopyLink}
+                  variant="outline"
+                  className="neu-border neu-press bg-white hover:bg-cream h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                >
+                  <LinkIcon className="h-4 w-4 mr-2" />
+                  Copy Link
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Copy Event Link</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
           {hasRsvpd && googleCalendarUrl && (
             <a
@@ -279,8 +269,6 @@ feat/event-copy-link
           )}
         </div>
       ) : null}
-
-main
       <div className="mt-4 flex gap-2">
         <a
           href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
