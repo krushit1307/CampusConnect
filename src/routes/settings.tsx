@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Camera, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -35,7 +36,7 @@ function SettingsPage() {
   const router = useRouter();
   const supabase = createClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -125,9 +126,9 @@ function SettingsPage() {
       }
 
       refetch();
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
-      toast.error(error.message || "Failed to update profile.");
+      toast.error(error instanceof Error ? error.message : "Failed to update profile.");
     } finally {
       setIsSaving(false);
     }
@@ -375,7 +376,7 @@ function AvatarUpload({ name }: { name: string }) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [supabase]);
 
   const initials = name
     .split(" ")
