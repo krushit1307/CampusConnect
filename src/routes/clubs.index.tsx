@@ -108,7 +108,7 @@ function ClubsIndex() {
                   key={c.slug}
                   to="/clubs/$slug"
                   params={{ slug: c.slug }}
-                  className="neu-border neu-press block bg-white p-6"
+                  className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000]"
                 >
                   <div
                     className={`neu-border ${colors[index % colors.length]} mb-4 inline-block px-3 py-1 font-mono text-xs font-bold uppercase`}
@@ -119,7 +119,12 @@ function ClubsIndex() {
                   <div className="my-3 border-t-2 border-black" />
                   <div className="flex items-center justify-between font-mono text-xs">
                     <span>{members} members</span>
-                    <span className="font-bold uppercase">View →</span>
+                    <span className="font-bold uppercase flex items-center gap-1">
+                      View{" "}
+                      <span className="transition-transform duration-300 group-hover:translate-x-1">
+                        →
+                      </span>
+                    </span>
                   </div>
                 </Link>
               );

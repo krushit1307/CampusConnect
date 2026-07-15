@@ -37,7 +37,7 @@ export function Navbar() {
         <nav className="hidden items-center gap-6 md:flex">
           {links.map((l) => {
             const isActive =
-              l.to === "/"
+              (l.to as string) === "/"
                 ? currentPath === "/"
                 : currentPath === l.to || currentPath.startsWith(l.to + "/");
 
