@@ -167,6 +167,14 @@ function EventsPage() {
                   {t}
                 </button>
               ))}
+              {filter !== "All" && (
+                <button
+                  onClick={() => setFilter("All")}
+                  className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream"
+                >
+                  Clear All
+                </button>
+              )}
               <CreateEventDialog user={user} />
             </div>
           </div>
