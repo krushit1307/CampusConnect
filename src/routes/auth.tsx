@@ -2,7 +2,7 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { Sparkle } from "@/components/site/Sparkle";
 import { createClient } from "@/lib/supabase/client";
-import { Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
@@ -91,9 +91,18 @@ function AuthPage() {
       <Sparkle className="absolute bottom-8 left-8" size={16} />
       <Sparkle className="absolute bottom-8 right-8" size={16} />
       <div className="w-full max-w-md">
-        <Link to="/" className="mb-6 inline-block font-display text-2xl font-bold text-[#123a57]">
-          CAMPUS<span className="bg-[#123a57] px-1 text-white">CONNECT</span>
-        </Link>
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <Link to="/" className="font-display text-2xl font-bold text-[#123a57]">
+            CAMPUS<span className="bg-[#123a57] px-1 text-white">CONNECT</span>
+          </Link>
+          <Link
+            to="/"
+            className="flex items-center gap-2 font-mono text-xs font-bold uppercase text-[#123a57] underline-offset-4 hover:underline"
+          >
+            <ArrowLeft size={16} aria-hidden="true" />
+            Home
+          </Link>
+        </div>
         <div className="neu-border bg-white p-8">
           <p className="eyebrow mb-2 font-bold">
             {mode === "signin" ? "Welcome back" : "Get started"}
