@@ -6,7 +6,8 @@ import { Sparkle } from "@/components/site/Sparkle";
 function AnimatedCounter({ value }: { value: string }) {
   const [displayValue, setDisplayValue] = useState("0");
   const ref = useRef<HTMLSpanElement>(null);
-  const [hasAnimated, setHasAnimated] = useState(false);
+  const hasAnimatedRef = useRef(false);
+  const frameRef = useRef<number | null>(null);
 
   useEffect(() => {
     const match = value.match(/^([\d.,]+)(.*)$/);
@@ -26,10 +27,9 @@ function AnimatedCounter({ value }: { value: string }) {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !hasAnimated) {
-          setHasAnimated(true);
+        if (entries[0].isIntersecting && !hasAnimatedRef.current) {
+          hasAnimatedRef.current = true;
 
-          let animationFrameId: number;
           const duration = 1800;
           const startTime = performance.now();
 
@@ -47,17 +47,14 @@ function AnimatedCounter({ value }: { value: string }) {
             }
 
             if (progress < 1) {
-              animationFrameId = requestAnimationFrame(animate);
+              frameRef.current = requestAnimationFrame(animate);
             } else {
+              frameRef.current = null;
               setDisplayValue(value);
             }
           };
 
-          animationFrameId = requestAnimationFrame(animate);
-
-          return () => {
-            cancelAnimationFrame(animationFrameId);
-          };
+          frameRef.current = requestAnimationFrame(animate);
         }
       },
       { threshold: 0.1 },
@@ -69,12 +66,18 @@ function AnimatedCounter({ value }: { value: string }) {
     }
 
     return () => {
+      if (frameRef.current !== null) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
+
       if (currentRef) {
         observer.unobserve(currentRef);
       }
+
       observer.disconnect();
     };
-  }, [value, hasAnimated]);
+  }, [value]);
 
   return <span ref={ref}>{displayValue}</span>;
 }

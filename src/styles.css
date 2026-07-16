@@ -337,7 +337,7 @@
 }
 
 /* Hero Section CSS Animations & Keyframes */
-@keyframes fadeInUp {
+@keyframes fade-in-up {
   from {
     opacity: 0;
     transform: translateY(30px);
@@ -348,7 +348,7 @@
   }
 }
 
-@keyframes fadeIn {
+@keyframes fade-in {
   from {
     opacity: 0;
   }
@@ -357,7 +357,7 @@
   }
 }
 
-@keyframes floatBlob1 {
+@keyframes float-blob-1 {
   0% {
     transform: translate(0px, 0px) scale(1);
   }
@@ -372,7 +372,7 @@
   }
 }
 
-@keyframes floatBlob2 {
+@keyframes float-blob-2 {
   0% {
     transform: translate(0px, 0px) scale(1);
   }
@@ -387,7 +387,7 @@
   }
 }
 
-@keyframes floatBlob3 {
+@keyframes float-blob-3 {
   0% {
     transform: translate(0px, 0px) scale(1);
   }
@@ -399,7 +399,7 @@
   }
 }
 
-@keyframes gradientBg {
+@keyframes gradient-bg {
   0% {
     background-position: 0% 50%;
   }
@@ -414,28 +414,28 @@
 @utility animate-hero-bg {
   background: linear-gradient(-45deg, #123a57, #1c4b6e, #0e293e, #123a57);
   background-size: 400% 400%;
-  animation: gradientBg 18s ease infinite;
+  animation: gradient-bg 18s ease infinite;
 }
 
 @utility animate-fade-in-up {
-  animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fade-in-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   opacity: 0;
 }
 
 @utility animate-fade-in {
-  animation: fadeIn 1s ease-out forwards;
+  animation: fade-in 1s ease-out forwards;
 }
 
 @utility animate-blob-1 {
-  animation: floatBlob1 18s ease-in-out infinite;
+  animation: float-blob-1 18s ease-in-out infinite;
 }
 
 @utility animate-blob-2 {
-  animation: floatBlob2 22s ease-in-out infinite;
+  animation: float-blob-2 22s ease-in-out infinite;
 }
 
 @utility animate-blob-3 {
-  animation: floatBlob3 25s ease-in-out infinite;
+  animation: float-blob-3 25s ease-in-out infinite;
 }
 
 @utility animate-delay-100 {
@@ -461,6 +461,9 @@
   transition:
     opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
     transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.scroll-reveal:not(.visible) {
   will-change: opacity, transform;
 }
 
