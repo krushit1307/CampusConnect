@@ -11,6 +11,8 @@ import ClubsIndex from "./routes/clubs.index";
 import ClubDetails from "./routes/clubs.$slug";
 import ClubsLayout from "./routes/clubs";
 import Dashboard from "./routes/dashboard";
+import DashboardOverview from "./routes/dashboard.index";
+import DashboardRsvps from "./routes/dashboard.rsvps";
 import EventsIndex from "./routes/events";
 import EventDetails from "./routes/events.$eventId";
 import Feed from "./routes/feed";
@@ -32,7 +34,10 @@ export default function App() {
             <Route path=":slug" element={<ClubDetails />} />
           </Route>
 
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Dashboard />}>
+            <Route index element={<DashboardOverview />} />
+            <Route path="rsvps" element={<DashboardRsvps />} />
+          </Route>
 
           <Route path="/events">
             <Route index element={<EventsIndex />} />

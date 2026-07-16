@@ -24,8 +24,8 @@ interface EventCardProps {
   user: { id: string } | null;
   onRsvpToggle: (eventId: string, hasRsvpd: boolean) => void;
   isRsvpPending: boolean;
-  onBookmarkToggle: (eventId: string, isSaved: boolean) => void;
-  isBookmarkPending: boolean;
+  onBookmarkToggle?: (eventId: string, isSaved: boolean) => void;
+  isBookmarkPending?: boolean;
 }
 
 export function EventCard({
@@ -117,7 +117,7 @@ export function EventCard({
       toast.error("Please log in to bookmark events");
       return;
     }
-    onBookmarkToggle(event.id, isSaved);
+    onBookmarkToggle?.(event.id, isSaved);
   };
 
   return (
@@ -130,15 +130,17 @@ export function EventCard({
           {event.event_date ? formatDate(event.event_date).split(" at ")[0].toUpperCase() : "TBA"}
         </p>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleBookmarkClick}
-            disabled={isBookmarkPending}
-            className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white"
-            aria-label={isSaved ? "Unsave event" : "Save event"}
-          >
-            <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
-          </button>
+          {onBookmarkToggle && (
+            <button
+              type="button"
+              onClick={handleBookmarkClick}
+              disabled={isBookmarkPending}
+              className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white"
+              aria-label={isSaved ? "Unsave event" : "Save event"}
+            >
+              <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
+            </button>
+          )}
           <button
             type="button"
             onClick={handleShare}
