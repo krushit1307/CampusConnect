@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link, useParams } from "react-router-dom";
+import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
@@ -12,23 +12,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 
-export const Route = createFileRoute("/events/$eventId")({
-  head: () => ({
-    meta: [
-      { title: `Event Details — CampusConnect` },
-      {
-        name: "description",
-        content: "Discover event details, date, venue and attendees on CampusConnect.",
-      },
-    ],
-  }),
-  component: EventDetailsPage,
-});
-
-function EventDetailsPage() {
-  const { eventId } = Route.useParams();
+export default function EventDetailsPage() {
+  const { eventId = "" } = useParams();
   const supabase = createClient();
-  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [copied, setCopied] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -37,7 +23,11 @@ function EventDetailsPage() {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
 
-  const { data: event, isLoading } = useQuery({
+  const {
+    data: event,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["event", eventId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -124,8 +114,7 @@ function EventDetailsPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["event", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["events"] });
+      refetch();
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to update RSVP. Please try again.");
@@ -245,11 +234,7 @@ function EventDetailsPage() {
           {club && (
             <p className="mt-3 font-mono text-sm font-bold">
               Organized by:{" "}
-              <Link
-                to="/clubs/$slug"
-                params={{ slug: club.slug }}
-                className="underline hover:text-black/70"
-              >
+              <Link to={`/clubs/${club.slug}`} className="underline hover:text-black/70">
                 {club.name}
               </Link>
             </p>

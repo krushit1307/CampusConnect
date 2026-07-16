@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@/hooks/useReactQueryReplacement";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
@@ -47,7 +47,6 @@ const generateSlug = (text: string) => {
 export function CreateClubDialog({ user }: { user: User | null }) {
   const [open, setOpen] = useState(false);
   const supabase = createClient();
-  const queryClient = useQueryClient();
 
   const form = useForm<ClubFormValues>({
     resolver: zodResolver(clubFormSchema),
@@ -114,7 +113,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
     },
     onSuccess: () => {
       toast.success("Club created successfully!");
-      queryClient.invalidateQueries({ queryKey: ["clubs"] });
+      window.dispatchEvent(new Event("refetchClubs"));
       form.reset(defaultValues);
       setOpen(false);
     },

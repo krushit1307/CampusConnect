@@ -1,24 +1,11 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import { Sparkle } from "@/components/site/Sparkle";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/forgot-password")({
-  head: () => ({
-    meta: [
-      { title: "Reset your password — CampusConnect" },
-      {
-        name: "description",
-        content: "Request a password reset link for your CampusConnect account.",
-      },
-    ],
-  }),
-  component: ForgotPasswordPage,
-});
-
-function ForgotPasswordPage() {
+export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);

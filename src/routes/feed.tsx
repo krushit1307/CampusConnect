@@ -1,5 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@/hooks/useReactQueryReplacement";
 import type { User } from "@supabase/supabase-js";
 import { MessageCircle, MessageSquareText, PenLine, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -13,24 +12,10 @@ import { PullToRefresh } from "@/components/PullToRefresh";
 import { toast } from "sonner";
 import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
 
-export const Route = createFileRoute("/feed")({
-  head: () => ({
-    meta: [
-      { title: "Discussion feed — CampusConnect" },
-      {
-        name: "description",
-        content: "Announcements, discussions, and threads across your clubs.",
-      },
-    ],
-  }),
-  component: Feed,
-});
-
 type MemberRole = "admin" | "organizer" | "member" | "alumni";
 
-function Feed() {
+export default function Feed() {
   const supabase = createClient();
-  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [newPost, setNewPost] = useState("");
   const editorRef = useRef<MarkdownEditorRef>(null);
@@ -72,6 +57,7 @@ function Feed() {
     data: posts = [],
     isLoading,
     isFetching,
+    refetch: refetchPosts,
   } = useQuery({
     queryKey: ["posts"],
     queryFn: async () => {
@@ -96,17 +82,17 @@ function Feed() {
     const channel = supabase
       .channel("realtime_feed")
       .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["posts"] });
+        refetchPosts();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["posts"] });
+        refetchPosts();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, queryClient]);
+  }, [supabase, refetchPosts]);
 
   const postMutation = useMutation({
     mutationFn: async () => {
@@ -122,7 +108,7 @@ function Feed() {
 
       setNewPost("");
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["posts"] }),
+    onSuccess: () => refetchPosts(),
   });
 
   const commentMutation = useMutation({
@@ -137,7 +123,7 @@ function Feed() {
 
       setNewComments((prev) => ({ ...prev, [postId]: "" }));
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["posts"] }),
+    onSuccess: () => refetchPosts(),
   });
 
   const timeAgo = (dateString: string) => {
@@ -156,10 +142,7 @@ function Feed() {
 
   return (
     <SiteShell>
-      <PullToRefresh
-        isRefreshing={isFetching}
-        onRefresh={() => queryClient.invalidateQueries({ queryKey: ["posts"] })}
-      >
+      <PullToRefresh isRefreshing={isFetching} onRefresh={() => refetchPosts()}>
         <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
           <div className="mx-auto max-w-4xl">
             <p className="eyebrow font-bold">Discussion feed</p>

@@ -1,30 +1,17 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 
 import { useEffect, useRef, useState } from "react";
 
 import { SiteShell } from "@/components/site/SiteShell";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { Plus, UsersRound, X } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { CreateClubDialog } from "@/components/CreateClubDialog";
 
-export const Route = createFileRoute("/clubs/")({
-  head: () => ({
-    meta: [
-      { title: "Club directory — CampusConnect" },
-      {
-        name: "description",
-        content: "Discover student clubs, tech communities, and societies on your campus.",
-      },
-    ],
-  }),
-  component: ClubsIndex,
-});
-
 const ITEMS_PER_PAGE = 12;
 
-function ClubsIndex() {
+export default function ClubsIndex() {
   const supabase = createClient();
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -152,8 +139,7 @@ function ClubsIndex() {
                 return (
                   <Link
                     key={c.slug}
-                    to="/clubs/$slug"
-                    params={{ slug: c.slug }}
+                    to={`/clubs/${c.slug}`}
                     className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000]"
                   >
                     <div
