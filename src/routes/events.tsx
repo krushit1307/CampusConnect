@@ -157,7 +157,7 @@ function EventsPage() {
               if (hasRsvpd) {
                 return {
                   ...e,
-                  event_rsvps: rsvpsList.filter((r) => r.user_id !== user?.id),
+                  event_rsvps: rsvpsList.filter((r) => r.user_id !== (user?.id || "")),
                 };
               } else {
                 return {
@@ -222,7 +222,7 @@ function EventsPage() {
               if (isSaved) {
                 return {
                   ...e,
-                  saved_events: savedList.filter((s) => s.user_id !== user?.id),
+                  saved_events: savedList.filter((s) => s.user_id !== (user?.id || "")),
                 };
               } else {
                 return {

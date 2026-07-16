@@ -17,19 +17,16 @@ export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
 });
 
+interface SavedEventDetails {
+  id: string;
+  title: string;
+  event_date: string | null;
+  clubs: { name: string } | { name: string }[] | null;
+}
+
 interface DashboardSavedEvent {
   id: string;
-  events: {
-    id: string;
-    title: string;
-    event_date: string | null;
-    clubs: { name: string } | { name: string }[] | null;
-  }[] | {
-    id: string;
-    title: string;
-    event_date: string | null;
-    clubs: { name: string } | { name: string }[] | null;
-  } | null;
+  events: SavedEventDetails[] | SavedEventDetails | null;
 }
 
 function Dashboard() {
@@ -197,9 +194,11 @@ function Dashboard() {
             ) : (
               <ul className="divide-y-2 divide-black">
                 {savedEvents.map((item: DashboardSavedEvent, i) => {
-                  const e = Array.isArray(item.events) ? item.events[0] : item.events;
-                  const c = e && (Array.isArray(e.clubs) ? e.clubs[0] : e.clubs);
+                  const rawEvent = item.events;
+                  if (!rawEvent) return null;
+                  const e = Array.isArray(rawEvent) ? rawEvent[0] : rawEvent;
                   if (!e) return null;
+                  const c = Array.isArray(e.clubs) ? e.clubs[0] : e.clubs;
                   return (
                     <li key={item.id} className="flex items-center gap-4 py-4">
                       <div
@@ -272,7 +271,10 @@ function Widget({
   children,
 }: {
   title: string;
-  cta?: { label: string; to: string };
+  cta?: {
+    label: string;
+    to: "/events" | "/clubs" | "/feed" | "/dashboard" | "/certificates" | "/auth" | "/";
+  };
   className?: string;
   children: React.ReactNode;
 }) {
