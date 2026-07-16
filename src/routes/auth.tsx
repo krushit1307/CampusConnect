@@ -79,6 +79,8 @@ export default function AuthPage() {
 
       setError(message);
       toast.error(message);
+    } finally {
+      setLoading(false);
     }
   }
 
