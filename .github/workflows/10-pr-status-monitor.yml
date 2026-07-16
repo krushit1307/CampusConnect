@@ -14,6 +14,7 @@ permissions:
   pull-requests: write
   issues: write
   checks: read
+  actions: read
   contents: read
 
 concurrency:
@@ -154,37 +155,58 @@ jobs:
               };
 
               // ─── 6a. MERGE CONFLICT CHECK (highest priority) ──────────────────
-              // mergeable: true = clean, false = has conflicts, null = still computing
-              if (mergeable === false) {
+              // mergeable: null means GitHub is still computing — retry up to 3x
+              let mergeableState = mergeable;
+              if (mergeableState === null) {
+                for (let attempt = 1; attempt <= 3; attempt++) {
+                  console.log(`PR #${prNumber}: mergeable is null, retrying (${attempt}/3) after 10s...`);
+                  await new Promise(r => setTimeout(r, 10000));
+                  try {
+                    const { data: freshPr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+                    mergeableState = freshPr.mergeable;
+                    if (mergeableState !== null) break;
+                  } catch(e) { console.error(`Retry fetch failed: ${e.message}`); }
+                }
+              }
+
+              if (mergeableState === false) {
                 await removeLabel("Blue");
                 await addLabel("Red");
-
-                const conflictBody =
-                  `## ⚠️ Merge Conflicts Detected!\n\n` +
-                  `Hey @${targetUser}, this PR has **merge conflicts** with the base branch and cannot be merged until they are resolved. 🙏\n\n` +
-                  `### 🛠️ How to Resolve\n\n` +
-                  `You can resolve conflicts directly in the browser by clicking the **\"Resolve conflicts\"** button on the PR page, or locally via the command line:\n\n` +
-                  `\`\`\`bash\n` +
-                  `# Sync your branch with the latest main\n` +
-                  `git checkout main\n` +
-                  `git pull origin main\n` +
-                  `git checkout your-branch-name\n` +
-                  `git merge main\n` +
-                  `# Resolve the conflicts in your editor, then:\n` +
-                  `git add .\n` +
-                  `git commit -m "fix: resolve merge conflicts"\n` +
-                  `git push\n` +
-                  `\`\`\`\n\n` +
-                  `---\n` +
-                  `_Once conflicts are resolved and all CI checks pass, the **Red** label will automatically be replaced with **Blue**! 💙_`;
-
-                await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: conflictBody });
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: prNumber,
+                  body: `@${targetUser} ⚠️ This PR has **merge conflicts**. Please resolve them before it can be merged.`
+                });
                 console.log(`⚠️ PR #${prNumber} labeled "Red" — merge conflicts detected.`);
                 return;
               }
 
-              if (mergeable === null) {
-                console.log(`PR #${prNumber}: GitHub is still computing mergeability. Skipping conflict check for now.`);
+              if (mergeableState === null) {
+                console.log(`PR #${prNumber}: Could not determine mergeability after retries. Skipping conflict check.`);
+              }
+
+              // ─── 6b. AWAITING APPROVAL CHECK ──────────────────────────
+              // When a first-time contributor opens a PR, GitHub requires a maintainer
+              // to approve CI workflows. These show up as workflow runs with
+              // status='action_required'. If any exist, label Red so maintainer notices.
+              try {
+                const { data: workflowRuns } = await github.rest.actions.listWorkflowRunsForRepo({
+                  owner, repo, head_sha: headSha, per_page: 50,
+                });
+                const awaitingApproval = workflowRuns.workflow_runs.filter(
+                  (run) => run.status === 'action_required'
+                );
+                if (awaitingApproval.length > 0) {
+                  await removeLabel("Blue");
+                  await addLabel("Red");
+                  await github.rest.issues.createComment({
+                    owner, repo, issue_number: prNumber,
+                    body: `@${context.repo.owner} ⏳ This PR from @${targetUser} has **${awaitingApproval.length} workflow(s) awaiting your approval** before CI can run. Please approve them in the Actions tab.`
+                  });
+                  console.log(`⏳ PR #${prNumber} labeled "Red" — workflows awaiting approval.`);
+                  return;
+                }
+              } catch(e) {
+                console.log(`Could not check workflow runs: ${e.message}`);
               }
 
               // ─── 6b. Still pending CI? Log and skip ───────────────────────────
@@ -198,30 +220,11 @@ jobs:
               if (failedChecks.length > 0) {
                 await removeLabel("Blue");
                 await addLabel("Red");
-
-                const failedRows = failedChecks.map((check) => {
-                  const link = check.html_url ? `[View Run](${check.html_url})` : "N/A";
-                  return `| ❌ \`${check.name}\` | ${check.conclusion || 'unknown'} | ${link} |`;
-                }).join("\n");
-
-                const fixHints = failedChecks.map((check) => {
-                  const name = check.name.toLowerCase();
-                  if (name.includes("lint")) return "- **Lint Error:** Run `npm run lint` locally and fix all reported issues.";
-                  if (name.includes("format") || name.includes("prettier")) return "- **Format Error:** Run `npx prettier --write .` to auto-format your code.";
-                  if (name.includes("build")) return "- **Build Error:** Run `npm run build` locally to reproduce and fix the build error.";
-                  if (name.includes("codeql") || name.includes("security")) return "- **Security Scan:** Check the CodeQL report in the Security tab for vulnerability details.";
-                  if (name.includes("pr validation") || name.includes("pr check")) return "- **PR Validation:** Ensure your PR description links an issue (e.g., `Closes #123`) and has a clear description.";
-                  return `- **\`${check.name}\`:** Check the [workflow run logs](${check.html_url}) for details.`;
+                const failedNames = failedChecks.map((c) => `**${c.name}**`).join(", ");
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: prNumber,
+                  body: `@${targetUser} ❌ CI checks failing: ${failedNames}. Please fix and push again.`
                 });
-
-                const body =
-                  `## ❌ CI Checks Failing on this PR\n\n` +
-                  `Hey @${targetUser}, one or more automated checks are failing on your latest push. Please review the details below and push a fix. 🙏\n\n` +
-                  `### Failed Checks\n\n| Check | Status | Link |\n|---|---|---|\n${failedRows}\n\n` +
-                  `### 🛠️ How to Fix\n\n${fixHints.join("\n")}\n\n` +
-                  `---\n_Once you push a fix, this check will re-run automatically. The **Red** label will be replaced with **Blue** when everything passes! 💙_`;
-
-                await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
                 console.log(`❌ PR #${prNumber} labeled "Red" — ${failedChecks.length} check(s) failed.`);
                 return;
               }
@@ -229,17 +232,10 @@ jobs:
               // ─── 8. SUCCESS PATH ───────────────────────────────────────────────
               await removeLabel("Red");
               await addLabel("Blue");
-
-              const passedRows = relevantChecks
-                .map((check) => `| ✅ \`${check.name}\` | ${check.conclusion} |`).join("\n");
-
-              const successBody =
-                `## ✅ All CI Checks Passing!\n\n` +
-                `Great work, @${targetUser}! 🎉 Every automated check on this PR has passed successfully.\n\n` +
-                `### Passed Checks\n\n| Check | Status |\n|---|---|\n${passedRows}\n\n` +
-                `---\n_This PR is now labeled **Blue** and is ready for a maintainer review! 🚀_`;
-
-              await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: successBody });
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: prNumber,
+                body: `@${targetUser} ✅ All CI checks passed! This PR is ready for review.`
+              });
               console.log(`✅ PR #${prNumber} labeled "Blue" — all checks passed!`);
             }
 
