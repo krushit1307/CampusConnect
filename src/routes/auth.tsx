@@ -143,11 +143,7 @@ function AuthPage() {
               }
             />
             {/* 2. Replaced primary submit button */}
-            <Button
-              type="submit"
-              disabled={loading}
-              className="neu-border neu-press w-full bg-black px-4 py-3 font-mono text-sm font-bold uppercase tracking-wider text-cream disabled:opacity-50"
-            >
+            <Button type="submit" disabled={loading} className="w-full">
               {loading ? "Loading..." : mode === "signin" ? "Sign in" : "Create account"}
             </Button>
           </form>
@@ -161,7 +157,7 @@ function AuthPage() {
             onClick={handleGoogleSignIn}
             disabled={loading}
             variant="outline"
-            className="neu-border neu-press w-full bg-white px-4 py-3 font-mono text-sm font-bold uppercase tracking-wider disabled:opacity-50"
+            className="w-full"
           >
             Continue with Google
           </Button>

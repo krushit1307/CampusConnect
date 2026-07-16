@@ -175,11 +175,7 @@ function Dashboard() {
                         <p className="truncate font-display text-lg font-bold">{e?.title}</p>
                         <p className="font-mono text-xs">{c?.name}</p>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="neu-border shrink-0 bg-white px-3 py-1 font-mono text-xs font-bold uppercase"
-                      >
+                      <Button variant="outline" size="sm" className="shrink-0">
                         RSVP'd
                       </Button>
                     </li>
