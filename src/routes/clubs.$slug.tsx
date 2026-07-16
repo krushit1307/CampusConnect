@@ -1,27 +1,18 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { useParams } from "react-router-dom";
 import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
 
 // Small building block for the skeleton below. Deliberately a plain div
 // (not the shared ui/skeleton component) to keep this change self-contained.
 function Bone({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse rounded-none bg-black/10 ${className}`} />;
 }
-
-export const Route = createFileRoute("/clubs/$slug")({
-  head: () => ({
-    meta: [
-      { title: "Club — CampusConnect" },
-      { name: "description", content: "Club profile, events, and members on CampusConnect." },
-    ],
-  }),
-  component: ClubProfile,
-});
 
 // Mimics the club header + events/members layout below while data is fetched
 // from Supabase, so navigating to a club doesn't flash an empty/blank page.
@@ -67,17 +58,20 @@ function ClubProfileSkeleton() {
   );
 }
 
-function ClubProfile() {
-  const { slug } = Route.useParams();
+export default function ClubProfile() {
+  const { slug } = useParams();
   const supabase = createClient();
-  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
 
-  const { data: club, isLoading } = useQuery({
+  const {
+    data: club,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["club", slug],
     queryFn: async () => {
       const { data } = await supabase
@@ -105,7 +99,7 @@ function ClubProfile() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["club", slug] });
+      refetch();
     },
   });
 
@@ -137,7 +131,9 @@ function ClubProfile() {
         <div className="mx-auto max-w-6xl">
           <p className="eyebrow font-bold">Club</p>
           <h1 className="mt-2 text-5xl font-bold text-[#123a57] md:text-7xl">{club.name}</h1>
-          <p className="mt-4 max-w-2xl font-mono text-sm md:text-base">{club.description}</p>
+          <div className="markdown-content mt-4 max-w-2xl font-mono text-sm md:text-base leading-relaxed">
+            <ReactMarkdown>{club.description || ""}</ReactMarkdown>
+          </div>
           <div className="mt-6 flex flex-wrap gap-3">
             <button
               onClick={() => {

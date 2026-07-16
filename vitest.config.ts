@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     environment: "node",
     // Use a separate config file so vitest never loads vite.config.ts
-    // and its browser-only plugin stack (@tanstack/react-start, etc.)
+    // and its browser-only plugin stack (Vite plugins, etc.)
   },
   resolve: {
     alias: {

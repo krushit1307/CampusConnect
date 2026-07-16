@@ -1,10 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { Sparkle } from "@/components/site/Sparkle";
-
-export const Route = createFileRoute("/")({
-  component: Landing,
-});
 
 function SectionEyebrow({ children }: { children: React.ReactNode }) {
   return (
@@ -18,7 +14,7 @@ function SectionEyebrow({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Landing() {
+export default function Landing() {
   return (
     <SiteShell>
       {/* HERO — PR 207 Image-backed with overlay */}
@@ -355,7 +351,7 @@ function Landing() {
                 </thead>
                 <tbody>
                   {[
-                    ["Frontend", "React + TanStack Start"],
+                    ["Frontend", "React + Vite"],
                     ["Styling", "Tailwind CSS v4"],
                     ["Backend", "Supabase (Postgres + Auth)"],
                     ["Certificates", "PDF-lib"],

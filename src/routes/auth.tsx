@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { Sparkle } from "@/components/site/Sparkle";
 import { createClient } from "@/lib/supabase/client";
@@ -7,24 +7,11 @@ import { ArrowLeft } from "lucide-react"; // ArrowLeft imported for back-to-home
 import { toast } from "sonner";
 import { PasswordInput } from "@/components/ui/password-input";
 
-export const Route = createFileRoute("/auth")({
-  head: () => ({
-    meta: [
-      { title: "Sign in — CampusConnect" },
-      {
-        name: "description",
-        content: "Sign in or create a CampusConnect account to run your college club.",
-      },
-    ],
-  }),
-  component: AuthPage,
-});
-
-function AuthPage() {
+export default function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
+  const navigate = useNavigate();
   const supabase = createClient();
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -48,14 +35,14 @@ function AuthPage() {
           },
         });
         if (signUpError) throw signUpError;
-        router.navigate({ to: "/dashboard", replace: true });
+        navigate("/dashboard", { replace: true });
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (signInError) throw signInError;
-        router.navigate({ to: "/dashboard", replace: true });
+        navigate("/dashboard", { replace: true });
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
