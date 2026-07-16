@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 interface NotificationItemProps {
   notification: {
@@ -25,7 +25,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onMar
     <div
       onClick={handleItemClick}
       className={`p-3 border-b border-gray-100 cursor-pointer transition-colors duration-200 hover:bg-gray-50 flex flex-col gap-1 text-left ${
-        !notification.isRead ? 'bg-blue-50/60 font-medium' : 'bg-white'
+        !notification.isRead ? "bg-blue-50/60 font-medium" : "bg-white"
       }`}
     >
       <div className="flex justify-between items-start gap-2">
@@ -36,10 +36,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onMar
       </div>
       <h4 className="text-sm text-gray-800 line-clamp-1">{notification.title}</h4>
       <p className="text-xs text-gray-500 line-clamp-2">{notification.message}</p>
-      
-      {!notification.isRead && (
-        <span className="w-2 h-2 bg-blue-600 rounded-full mt-1 self-end" />
-      )}
+
+      {!notification.isRead && <span className="w-2 h-2 bg-blue-600 rounded-full mt-1 self-end" />}
     </div>
   );
 };
