@@ -78,7 +78,9 @@ export function CreateClubDialog({ user }: { user: User | null }) {
         .maybeSingle();
 
       if (existingClub) {
-        throw new Error("A club with this slug already exists. Please choose a different name or edit the slug.");
+        throw new Error(
+          "A club with this slug already exists. Please choose a different name or edit the slug.",
+        );
       }
 
       // Insert club
@@ -99,14 +101,12 @@ export function CreateClubDialog({ user }: { user: User | null }) {
 
       // Automatically add creator as admin member
       if (newClub) {
-        const { error: memberError } = await supabase
-          .from("club_members")
-          .insert({
-            club_id: newClub.id,
-            user_id: user.id,
-            role: "admin",
-            status: "approved",
-          });
+        const { error: memberError } = await supabase.from("club_members").insert({
+          club_id: newClub.id,
+          user_id: user.id,
+          role: "admin",
+          status: "approved",
+        });
         if (memberError) {
           console.error("[CreateClubDialog] Failed to add creator as member:", memberError);
         }

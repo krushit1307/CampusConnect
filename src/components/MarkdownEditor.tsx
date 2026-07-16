@@ -60,7 +60,17 @@ export type MarkdownEditorRef = {
 };
 
 export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>(
-  ({ value, onChange, placeholder = "Share an update using Markdown…", rows = 7, minHeightClass = "min-h-44", id }, ref) => {
+  (
+    {
+      value,
+      onChange,
+      placeholder = "Share an update using Markdown…",
+      rows = 7,
+      minHeightClass = "min-h-44",
+      id,
+    },
+    ref,
+  ) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [mode, setMode] = useState<"write" | "preview">("write");
 

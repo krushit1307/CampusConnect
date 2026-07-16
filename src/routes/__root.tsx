@@ -8,12 +8,61 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { ArrowLeft, Home, MapPinned } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { createClient } from "../lib/supabase/client";
 import { ThemeProvider } from "../components/ThemeToggle";
+
+function NotFoundComponent() {
+  return (
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-cream px-4 py-12 sm:px-6">
+      <div
+        aria-hidden="true"
+        className="absolute -left-12 top-10 h-32 w-32 rotate-12 border-2 border-black bg-sky sm:h-44 sm:w-44"
+      />
+      <div
+        aria-hidden="true"
+        className="absolute -right-10 bottom-12 h-28 w-28 -rotate-12 border-2 border-black bg-peach sm:h-40 sm:w-40"
+      />
+
+      <div className="neu-border relative z-10 max-w-md bg-white p-8 text-center sm:p-10">
+        <div className="neu-border mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-lavender">
+          <MapPinned className="h-8 w-8" strokeWidth={2.5} />
+        </div>
+
+        <p className="font-mono text-xs font-bold uppercase tracking-widest text-gray-500">
+          Error 404
+        </p>
+        <h1 className="mt-2 text-3xl font-black sm:text-4xl">Page not found</h1>
+        <p className="mt-3 text-sm text-gray-600 sm:text-base">
+          The page you're looking for doesn't exist or may have been moved.
+        </p>
+
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          <Link
+            to="/"
+            className="neu-border neu-press inline-flex items-center justify-center gap-2 bg-black px-5 py-3 font-mono text-xs font-bold uppercase tracking-wider text-cream"
+          >
+            <Home className="h-4 w-4" strokeWidth={2.5} />
+            Go home
+          </Link>
+          <button
+            type="button"
+            onClick={() => window.history.back()}
+            className="neu-border neu-press inline-flex items-center justify-center gap-2 bg-white px-5 py-3 font-mono text-xs font-bold uppercase tracking-wider"
+          >
+            <ArrowLeft className="h-4 w-4" strokeWidth={2.5} />
+            Go back
+          </button>
+        </div>
+      </div>
+    </main>
+  );
+}
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
@@ -31,41 +80,43 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <p className="mt-2 text-sm text-muted-foreground">
           Something went wrong on our end. You can try refreshing or head back home.
         </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
+
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
           <button
-            onClick={() => {
-              router.invalidate();
-              reset();
-            }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            type="button"
+            onClick={() => reset()}
+            className="neu-border neu-press inline-flex items-center justify-center gap-2 bg-black px-5 py-3 font-mono text-xs font-bold uppercase tracking-wider text-cream"
           >
             Try again
           </button>
-          <a
-            href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+          <Link
+            to="/"
+            className="neu-border neu-press inline-flex items-center justify-center gap-2 bg-white px-5 py-3 font-mono text-xs font-bold uppercase tracking-wider"
           >
+            <Home className="h-4 w-4" strokeWidth={2.5} />
             Go home
-          </a>
+          </Link>
         </div>
       </div>
     </div>
   );
 }
 
-export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+export const Route = createRootRouteWithContext<{
+  queryClient: QueryClient;
+}>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "CampusConnect — Community & event OS for college clubs" },
+      { title: "CampusConnect Hub" },
       {
         name: "description",
         content:
           "Open-source community and event management platform for college clubs and tech communities. Run events, grow clubs, issue certificates.",
       },
       { name: "author", content: "CampusConnect" },
-      { property: "og:title", content: "CampusConnect — Community & event OS for college clubs" },
+      { property: "og:title", content: "CampusConnect Hub" },
       {
         property: "og:description",
         content:
@@ -80,7 +131,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/favicon.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/favicon.png", type: "image/png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -89,6 +141,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
     ],
   }),
+  notFoundComponent: NotFoundComponent,
   shellComponent: RootShell,
   component: RootComponent,
   errorComponent: ErrorComponent,
@@ -112,10 +165,12 @@ function RootShell({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <SkipToContent />
-        {children}
-        <Toaster />
-        <ScrollToTop />
+        <TooltipProvider delayDuration={200}>
+          <SkipToContent />
+          {children}
+          <Toaster />
+          <ScrollToTop />
+        </TooltipProvider>
         <Scripts />
       </body>
     </html>

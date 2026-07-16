@@ -1,12 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@supabase/supabase-js";
-import {
-  MessageCircle,
-  MessageSquareText,
-  PenLine,
-  Sparkles,
-} from "lucide-react";
+import { MessageCircle, MessageSquareText, PenLine, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
@@ -30,8 +25,6 @@ export const Route = createFileRoute("/feed")({
   }),
   component: Feed,
 });
-
-type MemberRole = "admin" | "organizer" | "member" | "alumni";
 
 type MemberRole = "admin" | "organizer" | "member" | "alumni";
 

@@ -209,6 +209,32 @@ Instead of connecting to a remote Supabase instance, you can spin up the full Su
    supabase start
    ```
 
+   This will build the dev image and launch the Vite dev server inside the container. The application will be accessible at `http://localhost:8080` with volume-mounted hot-reloading (HMR) fully functional.
+
+#### Production Build & Run
+
+1. **Build the production Docker image:**
+
+   ```bash
+   docker build --target runner -t campusconnect:latest .
+   ```
+
+2. **Run the production container:**
+   ```bash
+   docker run -d -p 3000:3000 --env-file .env.local --name campusconnect campusconnect:latest
+   ```
+   The production-built Vinxi SSR server will run and serve client traffic on `http://localhost:3000`.
+
+### 🗄️ Supabase Local Development & Seeding
+
+Instead of connecting to a remote Supabase instance, you can spin up the full Supabase database stack locally using Docker. This avoids API rate limits and populates your workspace with pre-seeded test data (users, events, clubs, posts, comments).
+
+1. **Start the local Supabase container stack:**
+
+   ```bash
+   supabase start
+   ```
+
    _Note: This command requires Docker to be running on your system._
 
 2. **Copy the credentials to `.env.local`:**
@@ -229,6 +255,76 @@ Instead of connecting to a remote Supabase instance, you can spin up the full Su
    - **Student Account**: `student@campusconnect.com` / `password123`
 
 4. **Access Supabase Studio:**
+   You can view and manage your local database tables by opening the local Supabase Studio dashboard in your browser at `http://127.0.0.1:54323/`.
+
+   This will build the dev image and launch the Vite dev server inside the container. The application will be accessible at `http://localhost:8080` with volume-mounted hot-reloading (HMR) fully functional.
+
+#### Production Build & Run
+
+1. **Build the production Docker image:**
+
+   ```bash
+   docker build --target runner -t campusconnect:latest .
+   ```
+
+2. **Run the production container:**
+   ```bash
+   docker run -d -p 3000:3000 --env-file .env.local --name campusconnect campusconnect:latest
+   ```
+   The production-built Vinxi SSR server will run and serve client traffic on `http://localhost:3000`.
+
+### 🗄️ Supabase Local Development & Seeding
+
+Instead of connecting to a remote Supabase instance, you can spin up the full Supabase database stack locally using Docker. This avoids API rate limits and populates your workspace with pre-seeded test data (users, events, clubs, posts, comments).
+
+1. **Start the local Supabase container stack:**
+
+   ```bash
+   supabase start
+   ```
+
+   _Note: This command requires Docker to be running on your system._
+
+2. **Copy the credentials to `.env.local`:**
+   After the database starts successfully, the CLI will output your local API credentials. Copy these keys and update your `.env.local` file:
+   - `VITE_SUPABASE_URL`: Set to `http://127.0.0.1:54321`
+   - `VITE_SUPABASE_ANON_KEY`: Paste the `anon key` printed by the CLI
+   - `SUPABASE_SERVICE_ROLE_KEY`: Paste the `service_role key` printed by the CLI
+
+3. **Reset and seed the database:**
+   To apply the initial migrations (`001_initial_schema.sql`, `002_...`) and automatically seed the database with test data:
+
+   ```bash
+   supabase db reset
+   ```
+
+   This will completely provision your local database. You can log in using:
+   - **Admin Account**: `admin@campusconnect.com` / `password123`
+   - **Student Account**: `student@campusconnect.com` / `password123`
+
+4. **Access Supabase Studio:**
+   You can view and manage your local database tables by opening the local Supabase Studio dashboard in your browser at `http://127.0.0.1:54323/`.
+
+   _Note: This command requires Docker to be running on your system._
+
+5. **Copy the credentials to `.env.local`:**
+   After the database starts successfully, the CLI will output your local API credentials. Copy these keys and update your `.env.local` file:
+   - `VITE_SUPABASE_URL`: Set to `http://127.0.0.1:54321`
+   - `VITE_SUPABASE_ANON_KEY`: Paste the `anon key` printed by the CLI
+   - `SUPABASE_SERVICE_ROLE_KEY`: Paste the `service_role key` printed by the CLI
+
+6. **Reset and seed the database:**
+   To apply the initial migrations (`001_initial_schema.sql`, `002_...`) and automatically seed the database with test data:
+
+   ```bash
+   supabase db reset
+   ```
+
+   This will completely provision your local database. You can log in using:
+   - **Admin Account**: `admin@campusconnect.com` / `password123`
+   - **Student Account**: `student@campusconnect.com` / `password123`
+
+7. **Access Supabase Studio:**
    You can view and manage your local database tables by opening the local Supabase Studio dashboard in your browser at `http://127.0.0.1:54323/`.
 
 ## 📁 Project Structure
