@@ -1,6 +1,6 @@
 import { formatDate } from "@/lib/utils";
 import { FormEvent, useState } from "react";
-import { X } from "lucide-react";
+import { X, Bookmark } from "lucide-react";
 import { toast } from "sonner";
 
 interface Event {
@@ -12,6 +12,7 @@ interface Event {
   banner_url?: string | null;
   clubs: { name: string } | { name: string }[] | null;
   event_rsvps: { id: string; user_id: string }[] | null;
+  saved_events: { id: string; user_id: string }[] | null;
 }
 
 interface EventCardProps {
@@ -20,9 +21,19 @@ interface EventCardProps {
   user: { id: string } | null;
   onRsvpToggle: (eventId: string, hasRsvpd: boolean) => void;
   isRsvpPending: boolean;
+  onBookmarkToggle: (eventId: string, isSaved: boolean) => void;
+  isBookmarkPending: boolean;
 }
 
-export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: EventCardProps) {
+export function EventCard({
+  event,
+  index,
+  user,
+  onRsvpToggle,
+  isRsvpPending,
+  onBookmarkToggle,
+  isBookmarkPending,
+}: EventCardProps) {
   const club = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs;
   const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
   const hasRsvpd = user ? rsvps.some((rsvp) => rsvp.user_id === user.id) : false;
@@ -65,9 +76,30 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
     resetForm();
   };
 
+  const savedEventsList = Array.isArray(event.saved_events) ? event.saved_events : [];
+  const isSaved = user ? savedEventsList.some((se) => se.user_id === user.id) : false;
+
+  const handleBookmarkClick = () => {
+    if (!user) {
+      toast.error("Please log in to bookmark events");
+      return;
+    }
+    onBookmarkToggle(event.id, isSaved);
+  };
+
   return (
-    <article className={`neu-border p-5 ${colors[index % colors.length]}`}>
-      <p className="font-mono text-xs font-bold uppercase tracking-wider">
+    <article className={`neu-border p-5 relative ${colors[index % colors.length]}`}>
+      <button
+        type="button"
+        onClick={handleBookmarkClick}
+        disabled={isBookmarkPending}
+        className="absolute right-4 top-4 neu-border p-1.5 bg-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+        aria-label={isSaved ? "Unsave event" : "Save event"}
+      >
+        <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
+      </button>
+
+      <p className="font-mono text-xs font-bold uppercase tracking-wider pr-10">
         {event.event_date ? formatDate(event.event_date).split(" at ")[0].toUpperCase() : "TBA"}
       </p>
 

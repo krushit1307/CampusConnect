@@ -103,7 +103,7 @@ function AvatarUpload({ name }: { name: string }) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [supabase]);
 
   const initials = name
     .split(" ")
