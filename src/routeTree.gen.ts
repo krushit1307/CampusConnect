@@ -20,8 +20,10 @@ import { Route as ClubsRouteImport } from './routes/clubs'
 import { Route as CertificatesRouteImport } from './routes/certificates'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
 import { Route as ClubsIndexRouteImport } from './routes/clubs.index'
 import { Route as EventsEventIdRouteImport } from './routes/events.$eventId'
+import { Route as DashboardRsvpsRouteImport } from './routes/dashboard.rsvps'
 import { Route as ClubsSlugRouteImport } from './routes/clubs.$slug'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -79,6 +81,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const ClubsIndexRoute = ClubsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -88,6 +95,11 @@ const EventsEventIdRoute = EventsEventIdRouteImport.update({
   id: '/$eventId',
   path: '/$eventId',
   getParentRoute: () => EventsRoute,
+} as any)
+const DashboardRsvpsRoute = DashboardRsvpsRouteImport.update({
+  id: '/rsvps',
+  path: '/rsvps',
+  getParentRoute: () => DashboardRoute,
 } as any)
 const ClubsSlugRoute = ClubsSlugRouteImport.update({
   id: '/$slug',
@@ -100,7 +112,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/certificates': typeof CertificatesRoute
   '/clubs': typeof ClubsRouteWithChildren
-  '/dashboard': typeof DashboardRoute
+  '/dashboard': typeof DashboardRouteWithChildren
   '/events': typeof EventsRouteWithChildren
   '/feed': typeof FeedRoute
   '/forgot-password': typeof ForgotPasswordRoute
@@ -108,14 +120,15 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/clubs/$slug': typeof ClubsSlugRoute
+  '/dashboard/rsvps': typeof DashboardRsvpsRoute
   '/events/$eventId': typeof EventsEventIdRoute
   '/clubs/': typeof ClubsIndexRoute
+  '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/certificates': typeof CertificatesRoute
-  '/dashboard': typeof DashboardRoute
   '/events': typeof EventsRouteWithChildren
   '/feed': typeof FeedRoute
   '/forgot-password': typeof ForgotPasswordRoute
@@ -123,8 +136,10 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/clubs/$slug': typeof ClubsSlugRoute
+  '/dashboard/rsvps': typeof DashboardRsvpsRoute
   '/events/$eventId': typeof EventsEventIdRoute
   '/clubs': typeof ClubsIndexRoute
+  '/dashboard': typeof DashboardIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -132,7 +147,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/certificates': typeof CertificatesRoute
   '/clubs': typeof ClubsRouteWithChildren
-  '/dashboard': typeof DashboardRoute
+  '/dashboard': typeof DashboardRouteWithChildren
   '/events': typeof EventsRouteWithChildren
   '/feed': typeof FeedRoute
   '/forgot-password': typeof ForgotPasswordRoute
@@ -140,8 +155,10 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/clubs/$slug': typeof ClubsSlugRoute
+  '/dashboard/rsvps': typeof DashboardRsvpsRoute
   '/events/$eventId': typeof EventsEventIdRoute
   '/clubs/': typeof ClubsIndexRoute
+  '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -158,14 +175,15 @@ export interface FileRouteTypes {
     | '/settings'
     | '/sitemap.xml'
     | '/clubs/$slug'
+    | '/dashboard/rsvps'
     | '/events/$eventId'
     | '/clubs/'
+    | '/dashboard/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
     | '/certificates'
-    | '/dashboard'
     | '/events'
     | '/feed'
     | '/forgot-password'
@@ -173,8 +191,10 @@ export interface FileRouteTypes {
     | '/settings'
     | '/sitemap.xml'
     | '/clubs/$slug'
+    | '/dashboard/rsvps'
     | '/events/$eventId'
     | '/clubs'
+    | '/dashboard'
   id:
     | '__root__'
     | '/'
@@ -189,8 +209,10 @@ export interface FileRouteTypes {
     | '/settings'
     | '/sitemap.xml'
     | '/clubs/$slug'
+    | '/dashboard/rsvps'
     | '/events/$eventId'
     | '/clubs/'
+    | '/dashboard/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -198,7 +220,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   CertificatesRoute: typeof CertificatesRoute
   ClubsRoute: typeof ClubsRouteWithChildren
-  DashboardRoute: typeof DashboardRoute
+  DashboardRoute: typeof DashboardRouteWithChildren
   EventsRoute: typeof EventsRouteWithChildren
   FeedRoute: typeof FeedRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
@@ -286,6 +308,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/': {
+      id: '/dashboard/'
+      path: '/'
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof DashboardIndexRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/clubs/': {
       id: '/clubs/'
       path: '/'
@@ -299,6 +328,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/events/$eventId'
       preLoaderRoute: typeof EventsEventIdRouteImport
       parentRoute: typeof EventsRoute
+    }
+    '/dashboard/rsvps': {
+      id: '/dashboard/rsvps'
+      path: '/rsvps'
+      fullPath: '/dashboard/rsvps'
+      preLoaderRoute: typeof DashboardRsvpsRouteImport
+      parentRoute: typeof DashboardRoute
     }
     '/clubs/$slug': {
       id: '/clubs/$slug'
@@ -322,6 +358,20 @@ const ClubsRouteChildren: ClubsRouteChildren = {
 
 const ClubsRouteWithChildren = ClubsRoute._addFileChildren(ClubsRouteChildren)
 
+interface DashboardRouteChildren {
+  DashboardRsvpsRoute: typeof DashboardRsvpsRoute
+  DashboardIndexRoute: typeof DashboardIndexRoute
+}
+
+const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardRsvpsRoute: DashboardRsvpsRoute,
+  DashboardIndexRoute: DashboardIndexRoute,
+}
+
+const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
+  DashboardRouteChildren,
+)
+
 interface EventsRouteChildren {
   EventsEventIdRoute: typeof EventsEventIdRoute
 }
@@ -338,7 +388,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   CertificatesRoute: CertificatesRoute,
   ClubsRoute: ClubsRouteWithChildren,
-  DashboardRoute: DashboardRoute,
+  DashboardRoute: DashboardRouteWithChildren,
   EventsRoute: EventsRouteWithChildren,
   FeedRoute: FeedRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
