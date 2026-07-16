@@ -351,7 +351,7 @@ export default function Landing() {
                 </thead>
                 <tbody>
                   {[
-                    ["Frontend", "React + TanStack Start"],
+                    ["Frontend", "React + Vite"],
                     ["Styling", "Tailwind CSS v4"],
                     ["Backend", "Supabase (Postgres + Auth)"],
                     ["Certificates", "PDF-lib"],
