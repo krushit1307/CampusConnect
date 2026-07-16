@@ -11,8 +11,21 @@ CREATE TABLE profiles (
   college TEXT,
   bio TEXT,
   role user_role DEFAULT 'student'::user_role,
+  notification_preferences JSONB NOT NULL DEFAULT '{"rsvps": true, "digest": true, "certs": true}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE profiles
+ADD CONSTRAINT profiles_notification_preferences_valid
+CHECK (
+  jsonb_typeof(notification_preferences) = 'object'
+  AND notification_preferences ? 'rsvps'
+  AND notification_preferences ? 'digest'
+  AND notification_preferences ? 'certs'
+  AND jsonb_typeof(notification_preferences->'rsvps') = 'boolean'
+  AND jsonb_typeof(notification_preferences->'digest') = 'boolean'
+  AND jsonb_typeof(notification_preferences->'certs') = 'boolean'
 );
 
 CREATE TABLE clubs (
