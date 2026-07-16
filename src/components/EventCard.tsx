@@ -1,6 +1,6 @@
 import { formatDate, getGoogleCalendarUrl } from "@/lib/utils";
 import { FormEvent, useState } from "react";
-import { X, Link as LinkIcon, Calendar, Check, Share2 } from "lucide-react";
+import { Calendar, Check, Share2, X, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Button } from "@/components/ui/button";

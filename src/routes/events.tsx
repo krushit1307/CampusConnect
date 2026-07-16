@@ -1,7 +1,6 @@
 import { formatDate } from "../lib/utils";
-import { createFileRoute } from "@tanstack/react-router";
 import { SiteShell } from "@/components/site/SiteShell";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
@@ -11,22 +10,8 @@ import { PullToRefresh } from "@/components/PullToRefresh";
 import { toast } from "sonner";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
 
-export const Route = createFileRoute("/events")({
-  head: () => ({
-    meta: [
-      { title: "Events — CampusConnect" },
-      {
-        name: "description",
-        content: "Discover and RSVP to workshops, talks, hackathons, and meetups on campus.",
-      },
-    ],
-  }),
-  component: EventsPage,
-});
-
-function EventsPage() {
+export default function EventsPage() {
   const supabase = createClient();
-  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [filter, setFilter] = useState("All");
 
@@ -38,6 +23,7 @@ function EventsPage() {
     data: queryData,
     isLoading,
     isFetching,
+    refetch,
   } = useQuery({
     queryKey: ["events"],
     queryFn: async () => {
@@ -98,15 +84,20 @@ function EventsPage() {
     const channel = supabase
       .channel("realtime_rsvps")
       .on("postgres_changes", { event: "*", schema: "public", table: "event_rsvps" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["events"] });
-        queryClient.invalidateQueries({ queryKey: ["upcomingEvents"] });
+        refetch();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, queryClient]);
+  }, [supabase, refetch]);
+
+  useEffect(() => {
+    const handleRefetch = () => refetch();
+    window.addEventListener("refetchEvents", handleRefetch);
+    return () => window.removeEventListener("refetchEvents", handleRefetch);
+  }, [refetch]);
 
   const toggleRsvp = useMutation({
     mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
@@ -131,8 +122,7 @@ function EventsPage() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["events"] });
-      queryClient.invalidateQueries({ queryKey: ["upcomingEvents"] });
+      refetch();
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to update RSVP. Please try again.");
@@ -151,10 +141,7 @@ function EventsPage() {
 
   return (
     <SiteShell>
-      <PullToRefresh
-        isRefreshing={isFetching}
-        onRefresh={() => queryClient.invalidateQueries({ queryKey: ["events"] })}
-      >
+      <PullToRefresh isRefreshing={isFetching} onRefresh={() => refetch()}>
         <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
           <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
@@ -173,6 +160,14 @@ function EventsPage() {
                   {t}
                 </button>
               ))}
+              {filter !== "All" && (
+                <button
+                  onClick={() => setFilter("All")}
+                  className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream"
+                >
+                  Clear All
+                </button>
+              )}
               <CreateEventDialog user={user} />
             </div>
           </div>

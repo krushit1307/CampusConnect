@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@/hooks/useReactQueryReplacement";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
@@ -39,7 +39,6 @@ const defaultValues: EventFormValues = {
 export function CreateEventDialog({ user }: { user: User | null }) {
   const [open, setOpen] = useState(false);
   const supabase = createClient();
-  const queryClient = useQueryClient();
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
@@ -73,8 +72,8 @@ export function CreateEventDialog({ user }: { user: User | null }) {
     },
     onSuccess: () => {
       toast.success("Event created!");
-      queryClient.invalidateQueries({ queryKey: ["events"] });
-      queryClient.invalidateQueries({ queryKey: ["upcomingEvents"] });
+      // Invalidate queries is handled by realtime subscriptions if needed or refresh
+      window.dispatchEvent(new Event("refetchEvents"));
       form.reset(defaultValues);
       setOpen(false);
     },

@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Sparkle } from "@/components/site/Sparkle";
 import { createClient } from "@/lib/supabase/client";
@@ -6,26 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/reset-password")({
-  head: () => ({
-    meta: [
-      { title: "Set a new password — CampusConnect" },
-      {
-        name: "description",
-        content: "Choose a new password for your CampusConnect account.",
-      },
-    ],
-  }),
-  component: ResetPasswordPage,
-});
-
-function ResetPasswordPage() {
+export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [checkingLink, setCheckingLink] = useState(true);
   const [linkValid, setLinkValid] = useState(false);
-  const router = useRouter();
+  const navigate = useNavigate();
   const supabase = createClient();
 
   // The Supabase client parses the recovery token out of the magic-link URL and
@@ -89,7 +76,7 @@ function ResetPasswordPage() {
       toast.success("Password updated. Please sign in with your new password.");
       // Sign out of the recovery session so the new password is required going forward.
       await supabase.auth.signOut();
-      router.navigate({ to: "/auth", replace: true });
+      navigate("/auth", { replace: true });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       setError(err.message);
