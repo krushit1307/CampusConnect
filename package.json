@@ -12,7 +12,9 @@
     "format": "prettier --write .",
     "test": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "github:update-labels": "npx tsx scripts/update-labels.ts",
+    "github:create-new-issues": "npx tsx scripts/create-new-issues.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -69,7 +71,6 @@
     "tailwindcss": "^4.2.1",
     "tw-animate-css": "^1.3.4",
     "vaul": "^1.1.2",
-    "vite-tsconfig-paths": "^6.0.2",
     "zod": "^3.24.2"
   },
   "lint-staged": {

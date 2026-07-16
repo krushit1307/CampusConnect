@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
-
 import { useEffect, useRef, useState } from "react";
 
 import { SiteShell } from "@/components/site/SiteShell";
@@ -29,16 +28,6 @@ function ClubsIndex() {
   const [search, setSearch] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-
-  // Switch to useInfiniteQuery for chunk-by-chunk data loading
-  const {
-    data,
-    isLoading,
-    isFetchingNextPage,
-    hasNextPage,
-    fetchNextPage,
-  } = useInfiniteQuery({
-
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearch(searchInput);
@@ -46,8 +35,9 @@ function ClubsIndex() {
 
     return () => clearTimeout(timer);
   }, [searchInput]);
-  const { data: clubs = [], isLoading } = useQuery({
 
+  // Switch to useInfiniteQuery for chunk-by-chunk data loading
+  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useInfiniteQuery({
     queryKey: ["clubs"],
     initialPageParam: 0,
     queryFn: async ({ pageParam = 0 }) => {
@@ -56,10 +46,7 @@ function ClubsIndex() {
 
       const { data, count } = await supabase
         .from("clubs")
-        .select(
-          `id, name, slug, description, club_members (id)`,
-          { count: "exact" }
-        )
+        .select(`id, name, slug, description, club_members (id)`, { count: "exact" })
         .range(from, to);
 
       return {
@@ -76,7 +63,7 @@ function ClubsIndex() {
   const totalActiveCount = data?.pages[0]?.totalCount || allClubs.length;
 
   const colors = ["bg-lime", "bg-sky", "bg-lavender", "bg-peach"];
-  
+
   const filteredClubs = allClubs.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -91,7 +78,6 @@ function ClubsIndex() {
     <SiteShell>
       <section className="border-b-2 border-black bg-lavender px-4 py-14 md:px-6">
         <div className="mx-auto max-w-7xl">
-
           <p className="eyebrow font-bold">Club directory · {totalActiveCount} active</p>
           <h1 className="mt-2 text-4xl font-bold md:text-6xl">Find your people.</h1>
 
@@ -130,7 +116,10 @@ function ClubsIndex() {
             {isLoading ? (
               // Initial Page Loader Skeletons
               Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="neu-border bg-white p-6 animate-pulse h-48 flex flex-col justify-between">
+                <div
+                  key={i}
+                  className="neu-border bg-white p-6 animate-pulse h-48 flex flex-col justify-between"
+                >
                   <div>
                     <div className="h-6 bg-gray-200 w-16 mb-4 rounded neu-border border-gray-300" />
                     <div className="h-8 bg-gray-200 w-3/4 rounded" />
@@ -166,7 +155,7 @@ function ClubsIndex() {
                     key={c.slug}
                     to="/clubs/$slug"
                     params={{ slug: c.slug }}
-                    className="neu-border neu-press block bg-white p-6"
+                    className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000]"
                   >
                     <div
                       className={`neu-border ${colors[index % colors.length]} mb-4 inline-block px-3 py-1 font-mono text-xs font-bold uppercase`}
@@ -177,7 +166,12 @@ function ClubsIndex() {
                     <div className="my-3 border-t-2 border-black" />
                     <div className="flex items-center justify-between font-mono text-xs">
                       <span>{members} members</span>
-                      <span className="font-bold uppercase">View →</span>
+                      <span className="font-bold uppercase flex items-center gap-1">
+                        View{" "}
+                        <span className="transition-transform duration-300 group-hover:translate-x-1">
+                          →
+                        </span>
+                      </span>
                     </div>
                   </Link>
                 );
@@ -187,7 +181,10 @@ function ClubsIndex() {
             {/* Next Page Fetching Skeleton Additions */}
             {isFetchingNextPage &&
               Array.from({ length: 3 }).map((_, i) => (
-                <div key={`next-load-${i}`} className="neu-border bg-white p-6 animate-pulse h-48 flex flex-col justify-between">
+                <div
+                  key={`next-load-${i}`}
+                  className="neu-border bg-white p-6 animate-pulse h-48 flex flex-col justify-between"
+                >
                   <div>
                     <div className="h-6 bg-gray-200 w-16 mb-4 rounded neu-border border-gray-300" />
                     <div className="h-8 bg-gray-200 w-3/4 rounded" />
@@ -209,38 +206,6 @@ function ClubsIndex() {
                 {isFetchingNextPage ? "Loading more..." : "Load More Clubs"}
               </button>
             </div>
-
-
-          ) : (
-            filteredClubs.map((c, index) => {
-              const members = Array.isArray(c.club_members) ? c.club_members.length : 0;
-              return (
-                <Link
-                  key={c.slug}
-                  to="/clubs/$slug"
-                  params={{ slug: c.slug }}
-                  className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000]"
-                >
-                  <div
-                    className={`neu-border ${colors[index % colors.length]} mb-4 inline-block px-3 py-1 font-mono text-xs font-bold uppercase`}
-                  >
-                    Club
-                  </div>
-                  <h2 className="text-2xl font-bold">{c.name}</h2>
-                  <div className="my-3 border-t-2 border-black" />
-                  <div className="flex items-center justify-between font-mono text-xs">
-                    <span>{members} members</span>
-                    <span className="font-bold uppercase flex items-center gap-1">
-                      View{" "}
-                      <span className="transition-transform duration-300 group-hover:translate-x-1">
-                        →
-                      </span>
-                    </span>
-                  </div>
-                </Link>
-              );
-            })
-
           )}
         </div>
       </section>

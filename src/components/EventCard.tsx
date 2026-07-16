@@ -1,8 +1,10 @@
 import { formatDate, getGoogleCalendarUrl } from "@/lib/utils";
 import { FormEvent, useState } from "react";
-import { Calendar, Check, Share2, X } from "lucide-react";
+import { X, Link as LinkIcon, Calendar, Check, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Event {
   id: string;
@@ -39,6 +41,15 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
   const [studentId, setStudentId] = useState("");
   const [dietaryPreference, setDietaryPreference] = useState("");
   const [copied, setCopied] = useState(false);
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success("Event link copied to clipboard!");
+    } catch (error) {
+      toast.error("Failed to copy link.");
+    }
+  };
 
   const resetForm = () => {
     setStudentId("");
@@ -227,6 +238,24 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
             {isRsvpPending ? "Updating..." : hasRsvpd ? "RSVP'd ✓" : "RSVP →"}
           </button>
 
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handleCopyLink}
+                  variant="outline"
+                  className="neu-border neu-press bg-white hover:bg-cream h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                >
+                  <LinkIcon className="h-4 w-4 mr-2" />
+                  Copy Link
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Copy Event Link</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           {hasRsvpd && googleCalendarUrl && (
             <a
               href={googleCalendarUrl}
@@ -240,7 +269,6 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
           )}
         </div>
       ) : null}
-
       <div className="mt-4 flex gap-2">
         <a
           href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
