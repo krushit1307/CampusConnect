@@ -460,6 +460,9 @@ function AvatarUpload({ name }: { name: string }) {
               src={preview}
               alt="Profile picture preview"
               className="h-full w-full object-cover"
+              width={96}
+              height={96}
+              loading="lazy"
             />
           ) : (
             <span className="font-display text-2xl font-bold">{initials}</span>
