@@ -2,7 +2,7 @@ import { formatDate, getGoogleCalendarUrl } from "@/lib/utils";
 import { FormEvent, useState } from "react";
 import { Calendar, Check, Share2, X, Bookmark, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
-import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -39,7 +39,9 @@ export function EventCard({
 }: EventCardProps) {
   const club = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs;
   const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
-  const hasRsvpd = user ? rsvps.some((rsvp) => rsvp.user_id === user.id) : false;
+  const myRsvp = user ? rsvps.find((rsvp) => rsvp.user_id === user.id) : null;
+
+  const hasRsvpd = !!myRsvp;
   const colors = ["bg-lime", "bg-sky", "bg-peach", "bg-lavender"];
   const googleCalendarUrl = getGoogleCalendarUrl({
     title: event.title,
@@ -52,6 +54,7 @@ export function EventCard({
   const [studentId, setStudentId] = useState("");
   const [dietaryPreference, setDietaryPreference] = useState("");
   const [copied, setCopied] = useState(false);
+  const [ticketOpen, setTicketOpen] = useState(false);
 
   const handleCopyLink = async () => {
     try {
@@ -305,6 +308,16 @@ export function EventCard({
               Add to Google Calendar
             </a>
           )}
+          {hasRsvpd && myRsvp && (
+            <Button
+              type="button"
+              onClick={() => setTicketOpen(true)}
+              variant="outline"
+              className="neu-border neu-press bg-white hover:bg-cream h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+            >
+              View Ticket
+            </Button>
+          )}
         </div>
       ) : null}
       <div className="mt-4 flex gap-2">
@@ -333,6 +346,12 @@ export function EventCard({
           WhatsApp
         </a>
       </div>
+      <TicketDialog
+        open={ticketOpen}
+        onOpenChange={setTicketOpen}
+        event={event}
+        rsvpId={myRsvp?.id ?? ""}
+      />
     </article>
   );
 }
