@@ -1,26 +1,14 @@
 import { formatDate } from "../lib/utils";
-import { createFileRoute } from "@tanstack/react-router";
 import { SiteShell } from "@/components/site/SiteShell";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { EventCard } from "@/components/EventCard";
 import { CreateEventDialog } from "@/components/CreateEventDialog";
+import { PullToRefresh } from "@/components/PullToRefresh";
 import { toast } from "sonner";
-
-export const Route = createFileRoute("/events")({
-  head: () => ({
-    meta: [
-      { title: "Events — CampusConnect" },
-      {
-        name: "description",
-        content: "Discover and RSVP to workshops, talks, hackathons, and meetups on campus.",
-      },
-    ],
-  }),
-  component: EventsPage,
-});
+import { EventCardSkeleton } from "@/components/EventCardSkeleton";
 
 interface EventItem {
   id: string;
@@ -34,9 +22,8 @@ interface EventItem {
   saved_events: { id: string; user_id: string }[] | null;
 }
 
-function EventsPage() {
+export default function EventsPage() {
   const supabase = createClient();
-  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [filter, setFilter] = useState("All");
 
@@ -44,7 +31,12 @@ function EventsPage() {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
 
-  const { data: queryData, isLoading } = useQuery({
+  const {
+    data: queryData,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({
     queryKey: ["events"],
     queryFn: async () => {
       const { data } = await supabase
@@ -108,18 +100,23 @@ function EventsPage() {
     const channel = supabase
       .channel("realtime_changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "event_rsvps" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["events"] });
-        queryClient.invalidateQueries({ queryKey: ["upcomingEvents"] });
+        refetch();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["events"] });
+        refetch();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, queryClient]);
+  }, [supabase, refetch]);
+
+  useEffect(() => {
+    const handleRefetch = () => refetch();
+    window.addEventListener("refetchEvents", handleRefetch);
+    return () => window.removeEventListener("refetchEvents", handleRefetch);
+  }, [refetch]);
 
   const toggleRsvp = useMutation({
     mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
@@ -143,50 +140,14 @@ function EventsPage() {
         throw error;
       }
     },
-    onMutate: async ({ eventId, hasRsvpd }) => {
-      await queryClient.cancelQueries({ queryKey: ["events"] });
-
-      const previousEvents = queryClient.getQueryData<EventItem[]>(["events"]);
-
-      if (previousEvents) {
-        queryClient.setQueryData<EventItem[]>(
-          ["events"],
-          previousEvents.map((e) => {
-            if (e.id === eventId) {
-              const rsvpsList = Array.isArray(e.event_rsvps) ? e.event_rsvps : [];
-              if (hasRsvpd) {
-                return {
-                  ...e,
-                  event_rsvps: rsvpsList.filter((r) => r.user_id !== (user?.id || "")),
-                };
-              } else {
-                return {
-                  ...e,
-                  event_rsvps: [...rsvpsList, { id: "temp-rsvp-id", user_id: user?.id || "" }],
-                };
-              }
-            }
-            return e;
-          }),
-        );
-      }
-
-      return { previousEvents };
-    },
-    onError: (_err, _newVariables, context) => {
-      if (context?.previousEvents) {
-        queryClient.setQueryData(["events"], context.previousEvents);
-      }
-      toast.error("Failed to update RSVP.");
-    },
     onSuccess: (_data, variables) => {
       toast.success(
         variables.hasRsvpd ? "RSVP cancelled successfully!" : "RSVP registered successfully!",
       );
-      if (!variables.eventId.startsWith("mock-")) {
-        queryClient.invalidateQueries({ queryKey: ["events"] });
-        queryClient.invalidateQueries({ queryKey: ["upcomingEvents"] });
-      }
+      refetch();
+    },
+    onError: () => {
+      toast.error("Failed to update RSVP.");
     },
   });
 
@@ -208,96 +169,79 @@ function EventsPage() {
         throw new Error(error.message);
       }
     },
-    onMutate: async ({ eventId, isSaved }) => {
-      await queryClient.cancelQueries({ queryKey: ["events"] });
-
-      const previousEvents = queryClient.getQueryData<EventItem[]>(["events"]);
-
-      if (previousEvents) {
-        queryClient.setQueryData<EventItem[]>(
-          ["events"],
-          previousEvents.map((e) => {
-            if (e.id === eventId) {
-              const savedList = Array.isArray(e.saved_events) ? e.saved_events : [];
-              if (isSaved) {
-                return {
-                  ...e,
-                  saved_events: savedList.filter((s) => s.user_id !== (user?.id || "")),
-                };
-              } else {
-                return {
-                  ...e,
-                  saved_events: [...savedList, { id: "temp-id", user_id: user?.id || "" }],
-                };
-              }
-            }
-            return e;
-          }),
-        );
-      }
-
-      return { previousEvents };
-    },
-    onError: (_err, _newVariables, context) => {
-      if (context?.previousEvents) {
-        queryClient.setQueryData(["events"], context.previousEvents);
-      }
-      toast.error("Failed to update bookmark.");
-    },
     onSuccess: (_data, variables) => {
       toast.success(variables.isSaved ? "Removed from saved events!" : "Saved to bookmarks!");
-      if (!variables.eventId.startsWith("mock-")) {
-        queryClient.invalidateQueries({ queryKey: ["events"] });
-      }
+      refetch();
+    },
+    onError: () => {
+      toast.error("Failed to update bookmark.");
     },
   });
 
   const colors = ["bg-lime", "bg-sky", "bg-peach", "bg-lavender"];
 
-  const filteredEvents = filter === "All" ? events : events.filter(() => true);
+  const filteredEvents =
+    filter === "All"
+      ? events
+      : events.filter((e) => {
+          const searchStr = `${e.title} ${e.description}`.toLowerCase();
+          return searchStr.includes(filter.toLowerCase());
+        });
 
   return (
     <SiteShell>
-      <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="eyebrow font-bold">All events · Fall semester</p>
-            <h1 className="mt-2 text-4xl font-bold md:text-6xl">What's on this week.</h1>
+      <PullToRefresh isRefreshing={isFetching} onRefresh={() => refetch()}>
+        <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
+          <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="eyebrow font-bold">All events · Fall semester</p>
+              <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">
+                What's on this week.
+              </h1>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t, i) => (
+                <button
+                  key={t}
+                  onClick={() => setFilter(t)}
+                  className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase ${filter === t ? "bg-black text-cream" : "bg-white"}`}
+                >
+                  {t}
+                </button>
+              ))}
+              {filter !== "All" && (
+                <button
+                  onClick={() => setFilter("All")}
+                  className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream"
+                >
+                  Clear All
+                </button>
+              )}
+              <CreateEventDialog user={user} />
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t, i) => (
-              <button
-                key={t}
-                onClick={() => setFilter(t)}
-                className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase ${filter === t ? "bg-black text-cream" : "bg-white"}`}
-              >
-                {t}
-              </button>
-            ))}
-            <CreateEventDialog user={user} />
+        </section>
+        <section className="bg-cream px-4 py-12 md:px-6">
+          <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {isLoading
+              ? Array.from({ length: 4 }).map((_, i) => <EventCardSkeleton key={i} />)
+              : filteredEvents.map((e, index) => (
+                  <EventCard
+                    key={e.id}
+                    event={e}
+                    index={index}
+                    user={user}
+                    onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
+                    isRsvpPending={toggleRsvp.isPending}
+                    onBookmarkToggle={(eventId, isSaved) =>
+                      toggleBookmark.mutate({ eventId, isSaved })
+                    }
+                    isBookmarkPending={toggleBookmark.isPending}
+                  />
+                ))}
           </div>
-        </div>
-      </section>
-      <section className="bg-cream px-4 py-12 md:px-6">
-        <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {isLoading ? (
-            <div className="col-span-full font-mono text-center py-10">Loading events...</div>
-          ) : (
-            filteredEvents.map((e, index) => (
-              <EventCard
-                key={e.id}
-                event={e}
-                index={index}
-                user={user}
-                onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
-                isRsvpPending={toggleRsvp.isPending}
-                onBookmarkToggle={(eventId, isSaved) => toggleBookmark.mutate({ eventId, isSaved })}
-                isBookmarkPending={toggleBookmark.isPending}
-              />
-            ))
-          )}
-        </div>
-      </section>
+        </section>
+      </PullToRefresh>
     </SiteShell>
   );
 }

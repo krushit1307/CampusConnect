@@ -7,7 +7,7 @@ Welcome to **CampusConnect**! We are thrilled to have you here. This project is 
 Before you begin, make sure you have the following installed:
 
 - **Node.js** (v18 or higher recommended)
-- **Bun** (`curl -fsSL https://bun.sh/install | bash`)
+- **npm** (included with Node.js)
 - **Supabase CLI** (if you need to run or test backend migrations locally)
 - Basic familiarity with **React, TypeScript, and Tailwind CSS**
 
@@ -72,7 +72,7 @@ This project uses **ESLint** and **Prettier** to maintain code quality. **Failin
 Before committing any code, you **MUST** run the auto-fix linter command to format your files:
 
 ```bash
-bun run lint --fix
+npm run lint
 ```
 
 This command will automatically fix spacing, missing quotes, and other formatting issues. If it reports any remaining errors that cannot be auto-fixed, you must resolve them manually before pushing.

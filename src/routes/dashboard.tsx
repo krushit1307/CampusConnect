@@ -1,21 +1,11 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { Link, useNavigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button"; // Added unified Button component import
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { ProfileHeaderSkeleton } from "@/components/ProfileHeaderSkeleton";
-
-export const Route = createFileRoute("/dashboard")({
-  head: () => ({
-    meta: [
-      { title: "Dashboard — CampusConnect" },
-      { name: "description", content: "Your clubs, events, and activity at a glance." },
-    ],
-  }),
-  component: Dashboard,
-});
 
 interface SavedEventDetails {
   id: string;
@@ -29,20 +19,20 @@ interface DashboardSavedEvent {
   events: SavedEventDetails[] | SavedEventDetails | null;
 }
 
-function Dashboard() {
+export default function Dashboard() {
   const supabase = createClient();
-  const router = useRouter();
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
-        router.navigate({ to: "/auth", replace: true });
+        navigate("/auth", { replace: true });
       } else {
         setUser(user);
       }
     });
-  }, [router, supabase]);
+  }, [navigate, supabase]);
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ["profile", user?.id],
@@ -142,8 +132,8 @@ function Dashboard() {
             <ProfileHeaderSkeleton />
           ) : (
             <>
-              <p className="eyebrow font-bold">Signed in as {user.email}</p>
-              <h1 className="mt-2 text-4xl font-bold md:text-5xl">
+              <p className="eyebrow font-bold break-all">Signed in as {user.email}</p>
+              <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-5xl">
                 Good morning, {profile?.full_name?.split(" ")[0] || "there"}.
               </h1>
             </>
@@ -230,9 +220,7 @@ function Dashboard() {
                     >
                       <div>
                         <p className="font-display font-bold">
-                          <Link to="/clubs/$slug" params={{ slug: club?.slug || "" }}>
-                            {club?.name}
-                          </Link>
+                          <Link to={`/clubs/${club?.slug || ""}`}>{club?.name}</Link>
                         </p>
                         <p className="font-mono text-xs">Active</p>
                       </div>
@@ -275,7 +263,7 @@ function Widget({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`neu-border bg-white p-6 ${className}`}>
+    <div className={`neu-border bg-white p-4 sm:p-6 ${className}`}>
       <div className="mb-4 flex items-center justify-between border-b-2 border-black pb-3">
         <h2 className="text-xl font-bold">{title}</h2>
         {cta && (
