@@ -1,5 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
@@ -7,13 +6,8 @@ import { EventCard } from "@/components/EventCard";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/dashboard/rsvps")({
-  component: DashboardRsvps,
-});
-
-function DashboardRsvps() {
-  const supabase = createClient();
-  const queryClient = useQueryClient();
+export default function DashboardRsvps() {
+  const [supabase] = useState(() => createClient());
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
 
@@ -26,7 +20,7 @@ function DashboardRsvps() {
   }, [supabase]);
 
   // Fetch events the user has RSVP'd to, including all RSVPs for total count
-  const { data: rsvps = [], isLoading } = useQuery({
+  const { data: rsvps = [], isLoading, refetch } = useQuery({
     queryKey: ["userRsvps", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -77,9 +71,7 @@ function DashboardRsvps() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["userRsvps"] });
-      queryClient.invalidateQueries({ queryKey: ["events"] });
-      queryClient.invalidateQueries({ queryKey: ["upcomingEvents"] });
+      refetch();
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to update RSVP. Please try again.");

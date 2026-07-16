@@ -1,16 +1,11 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
+import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 
-export const Route = createFileRoute("/dashboard/")({
-  component: DashboardOverview,
-});
-
-function DashboardOverview() {
-  const supabase = createClient();
+export default function DashboardOverview() {
+  const [supabase] = useState(() => createClient());
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -122,7 +117,7 @@ function DashboardOverview() {
                 >
                   <div>
                     <p className="font-display font-bold">
-                      <Link to="/clubs/$slug" params={{ slug: club?.slug || "" }}>
+                      <Link to={`/clubs/${club?.slug || ""}`}>
                         {club?.name}
                       </Link>
                     </p>

@@ -1,26 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { SiteShell } from "@/components/site/SiteShell";
-import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/certificates")({
-  head: () => ({
-    meta: [
-      { title: "Certificates — CampusConnect" },
-      {
-        name: "description",
-        content:
-          "Verifiable certificates for the events, workshops, and hackathons you've attended.",
-      },
-    ],
-  }),
-  component: Certificates,
-});
-
-function Certificates() {
+export default function Certificates() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);

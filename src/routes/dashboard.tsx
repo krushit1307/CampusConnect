@@ -1,40 +1,31 @@
-import { createFileRoute, Link, useRouter, Outlet } from "@tanstack/react-router";
+import { NavLink, useNavigate, Outlet } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { ProfileHeaderSkeleton } from "@/components/ProfileHeaderSkeleton";
 
-export const Route = createFileRoute("/dashboard")({
-  head: () => ({
-    meta: [
-      { title: "Dashboard — CampusConnect" },
-      { name: "description", content: "Your clubs, events, and activity at a glance." },
-    ],
-  }),
-  component: DashboardLayout,
-});
-
-function DashboardLayout() {
-  const supabase = createClient();
-  const router = useRouter();
+export default function Dashboard() {
+  const [supabase] = useState(() => createClient());
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
-        router.navigate({ to: "/auth", replace: true });
+        navigate("/auth", { replace: true });
       } else {
         setUser(user);
       }
     });
-  }, [router, supabase]);
+  }, [navigate, supabase]);
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ["profile", user?.id],
     queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("*").eq("id", user?.id).single();
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", user?.id).single();
+      if (error) throw error;
       return data;
     },
     enabled: !!user?.id,
@@ -68,33 +59,31 @@ function DashboardLayout() {
 
           {/* Sub-navigation Tabs */}
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link
+            <NavLink
               to="/dashboard"
-              activeOptions={{ exact: true }}
-              activeProps={{
-                className: "bg-black text-cream dark:bg-cream dark:text-black",
-              }}
-              inactiveProps={{
-                className:
-                  "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10",
-              }}
-              className="neu-border px-5 py-2 font-mono text-sm font-bold uppercase transition-all"
+              end
+              className={({ isActive }) =>
+                `neu-border px-5 py-2 font-mono text-sm font-bold uppercase transition-all ${
+                  isActive
+                    ? "bg-black text-cream dark:bg-cream dark:text-black"
+                    : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
+                }`
+              }
             >
               Overview
-            </Link>
-            <Link
+            </NavLink>
+            <NavLink
               to="/dashboard/rsvps"
-              activeProps={{
-                className: "bg-black text-cream dark:bg-cream dark:text-black",
-              }}
-              inactiveProps={{
-                className:
-                  "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10",
-              }}
-              className="neu-border px-5 py-2 font-mono text-sm font-bold uppercase transition-all"
+              className={({ isActive }) =>
+                `neu-border px-5 py-2 font-mono text-sm font-bold uppercase transition-all ${
+                  isActive
+                    ? "bg-black text-cream dark:bg-cream dark:text-black"
+                    : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
+                }`
+              }
             >
               My RSVPs
-            </Link>
+            </NavLink>
           </div>
         </div>
       </section>

@@ -1,30 +1,17 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 
 import { useEffect, useRef, useState } from "react";
 
 import { SiteShell } from "@/components/site/SiteShell";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { Plus, UsersRound, X } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { CreateClubDialog } from "@/components/CreateClubDialog";
 
-export const Route = createFileRoute("/clubs/")({
-  head: () => ({
-    meta: [
-      { title: "Club directory — CampusConnect" },
-      {
-        name: "description",
-        content: "Discover student clubs, tech communities, and societies on your campus.",
-      },
-    ],
-  }),
-  component: ClubsIndex,
-});
-
 const ITEMS_PER_PAGE = 12;
 
-function ClubsIndex() {
+export default function ClubsIndex() {
   const supabase = createClient();
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -44,30 +31,37 @@ function ClubsIndex() {
   }, [searchInput]);
 
   // Switch to useInfiniteQuery for chunk-by-chunk data loading
-  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useInfiniteQuery({
-    queryKey: ["clubs"],
-    initialPageParam: 0,
-    queryFn: async ({ pageParam = 0 }) => {
-      const from = pageParam * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
+  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage, refetch } =
+    useInfiniteQuery({
+      queryKey: ["clubs"],
+      initialPageParam: 0,
+      queryFn: async ({ pageParam = 0 }) => {
+        const from = pageParam * ITEMS_PER_PAGE;
+        const to = from + ITEMS_PER_PAGE - 1;
 
-      const { data, count } = await supabase
-        .from("clubs")
-        .select(`id, name, slug, description, club_members (id)`, { count: "exact" })
-        .range(from, to);
+        const { data, count } = await supabase
+          .from("clubs")
+          .select(`id, name, slug, description, club_members (id)`, { count: "exact" })
+          .range(from, to);
 
-      return {
-        clubs: data || [],
-        nextPage: (data || []).length === ITEMS_PER_PAGE ? pageParam + 1 : undefined,
-        totalCount: count || 0,
-      };
-    },
-    getNextPageParam: (lastPage) => lastPage.nextPage,
-  });
+        return {
+          clubs: data || [],
+          nextPage: (data || []).length === ITEMS_PER_PAGE ? pageParam + 1 : undefined,
+          totalCount: count || 0,
+        };
+      },
+      getNextPageParam: (lastPage) => lastPage.nextPage,
+    });
 
   // Flatten the nested page arrays from useInfiniteQuery into a single list
   const allClubs = data?.pages.flatMap((page) => page.clubs) || [];
   const totalActiveCount = data?.pages[0]?.totalCount || allClubs.length;
+
+  useEffect(() => {
+    const handleRefetch = () => refetch();
+    window.addEventListener("refetchClubs", handleRefetch);
+    return () => window.removeEventListener("refetchClubs", handleRefetch);
+  }, [refetch]);
 
   const colors = ["bg-lime", "bg-sky", "bg-lavender", "bg-peach"];
 
@@ -152,8 +146,7 @@ function ClubsIndex() {
                 return (
                   <Link
                     key={c.slug}
-                    to="/clubs/$slug"
-                    params={{ slug: c.slug }}
+                    to={`/clubs/${c.slug}`}
                     className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000]"
                   >
                     <div

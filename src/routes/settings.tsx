@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { useNavigate } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
@@ -6,7 +6,7 @@ import { Camera, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { profileSchema, type ProfileFormValues } from "@/lib/schemas";
@@ -19,21 +19,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
-export const Route = createFileRoute("/settings")({
-  head: () => ({
-    meta: [
-      { title: "Settings — CampusConnect" },
-      {
-        name: "description",
-        content: "Manage your CampusConnect profile, notifications, and account.",
-      },
-    ],
-  }),
-  component: SettingsPage,
-});
-
-function SettingsPage() {
-  const router = useRouter();
+export default function SettingsPage() {
+  const navigate = useNavigate();
   const supabase = createClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
@@ -42,12 +29,12 @@ function SettingsPage() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
-        router.navigate({ to: "/auth", replace: true });
+        navigate("/auth", { replace: true });
       } else {
         setUser(user);
       }
     });
-  }, [router, supabase]);
+  }, [navigate, supabase]);
 
   const {
     data: profile,

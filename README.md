@@ -28,7 +28,7 @@ CampusConnect solves the chaos of college clubs juggling WhatsApp groups, spread
 | :------------------ | :------------------------------------------- |
 | **Frontend**        | Vite, React, TypeScript, Tailwind CSS        |
 | **Backend**         | Supabase (Postgres, Auth, Storage, Realtime) |
-| **Package Manager** | Bun                                          |
+| **Package Manager** | npm                                          |
 
 ## 🗄️ Architecture / Database
 
@@ -136,7 +136,7 @@ erDiagram
    ```
 2. **Install dependencies:**
    ```bash
-   bun install
+   npm install
    ```
 3. **Set up database & environment variables:**
    Choose one of the following two options to run your database:
@@ -156,12 +156,12 @@ erDiagram
 
 4. **Start the development server:**
    ```bash
-   bun run dev
+   npm run dev
    ```
 
 ### 🐳 Running with Docker
 
-Alternatively, you can run the project containerized using Docker. This allows you to build and run the application without needing Bun or Node installed locally on your host machine.
+Alternatively, you can run the project containerized using Docker. This allows you to build and run the application without needing Node/npm installed locally on your host machine.
 
 #### Local Development (with Hot-Reloading / HMR)
 
@@ -338,7 +338,7 @@ Instead of connecting to a remote Supabase instance, you can spin up the full Su
 We welcome contributions! Please see our [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to get started. This is an **ECSoC 2026** project, so we are actively looking for contributors. Check out issues labeled `good first issue` to begin!
 
 > [!IMPORTANT]
-> **Code Formatting**: Before committing and pushing your code, you **MUST** run `bun run lint --fix` locally. This will automatically format your files and prevent our CI (GitHub Actions) from failing due to Prettier or ESLint errors. Pull Requests with failing CI checks will not be merged.
+> **Code Formatting**: Before committing and pushing your code, you **MUST** run `npm run lint` locally. This will automatically format your files and prevent our CI (GitHub Actions) from failing due to Prettier or ESLint errors. Pull Requests with failing CI checks will not be merged.
 
 ## 🗺️ Roadmap
 
