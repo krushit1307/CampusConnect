@@ -31,30 +31,37 @@ export default function ClubsIndex() {
   }, [searchInput]);
 
   // Switch to useInfiniteQuery for chunk-by-chunk data loading
-  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useInfiniteQuery({
-    queryKey: ["clubs"],
-    initialPageParam: 0,
-    queryFn: async ({ pageParam = 0 }) => {
-      const from = pageParam * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
+  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage, refetch } =
+    useInfiniteQuery({
+      queryKey: ["clubs"],
+      initialPageParam: 0,
+      queryFn: async ({ pageParam = 0 }) => {
+        const from = pageParam * ITEMS_PER_PAGE;
+        const to = from + ITEMS_PER_PAGE - 1;
 
-      const { data, count } = await supabase
-        .from("clubs")
-        .select(`id, name, slug, description, club_members (id)`, { count: "exact" })
-        .range(from, to);
+        const { data, count } = await supabase
+          .from("clubs")
+          .select(`id, name, slug, description, club_members (id)`, { count: "exact" })
+          .range(from, to);
 
-      return {
-        clubs: data || [],
-        nextPage: (data || []).length === ITEMS_PER_PAGE ? pageParam + 1 : undefined,
-        totalCount: count || 0,
-      };
-    },
-    getNextPageParam: (lastPage) => lastPage.nextPage,
-  });
+        return {
+          clubs: data || [],
+          nextPage: (data || []).length === ITEMS_PER_PAGE ? pageParam + 1 : undefined,
+          totalCount: count || 0,
+        };
+      },
+      getNextPageParam: (lastPage) => lastPage.nextPage,
+    });
 
   // Flatten the nested page arrays from useInfiniteQuery into a single list
   const allClubs = data?.pages.flatMap((page) => page.clubs) || [];
   const totalActiveCount = data?.pages[0]?.totalCount || allClubs.length;
+
+  useEffect(() => {
+    const handleRefetch = () => refetch();
+    window.addEventListener("refetchClubs", handleRefetch);
+    return () => window.removeEventListener("refetchClubs", handleRefetch);
+  }, [refetch]);
 
   const colors = ["bg-lime", "bg-sky", "bg-lavender", "bg-peach"];
 

@@ -152,6 +152,7 @@ export function useInfiniteQuery<TData, TError = Error>({
         fetchPage(nextPageParam, true);
       }
     },
+    refetch: () => fetchPage(initialPageParam, false),
     error,
   };
 }

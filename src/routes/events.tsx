@@ -93,6 +93,12 @@ export default function EventsPage() {
     };
   }, [supabase, refetch]);
 
+  useEffect(() => {
+    const handleRefetch = () => refetch();
+    window.addEventListener("refetchEvents", handleRefetch);
+    return () => window.removeEventListener("refetchEvents", handleRefetch);
+  }, [refetch]);
+
   const toggleRsvp = useMutation({
     mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
       if (!user) throw new Error("Must be logged in");
