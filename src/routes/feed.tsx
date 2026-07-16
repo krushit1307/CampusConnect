@@ -259,7 +259,7 @@ export default function Feed() {
                 const postComments = Array.isArray(post.comments) ? post.comments : [];
 
                 return (
-                  <article key={post.id} className="neu-border bg-white p-6">
+                  <article id={`post-${post.id}`} key={post.id} className="neu-border bg-white p-6">
                     <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-black pb-3">
                       <div>
                         <p className="font-display text-lg font-bold flex items-center gap-2">
@@ -281,7 +281,7 @@ export default function Feed() {
 
                     <div className="mt-4 flex gap-2 border-t-2 border-black pt-4">
                       <a
-                        href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
+                        href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(`${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#1DA1F2] hover:text-white transition-colors"
@@ -289,7 +289,7 @@ export default function Feed() {
                         Twitter
                       </a>
                       <a
-                        href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`}
+                        href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#0A66C2] hover:text-white transition-colors"
@@ -297,7 +297,7 @@ export default function Feed() {
                         LinkedIn
                       </a>
                       <a
-                        href={`https://wa.me/?text=${encodeURIComponent(`Check out this post: ${post.content.substring(0, 50)}... - ${window.location.href}`)}`}
+                        href={`https://wa.me/?text=${encodeURIComponent(`Check out this post: ${post.content.substring(0, 50)}... - ${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#25D366] hover:text-white transition-colors"
