@@ -20,7 +20,11 @@ export default function DashboardRsvps() {
   }, [supabase]);
 
   // Fetch events the user has RSVP'd to, including all RSVPs for total count
-  const { data: rsvps = [], isLoading, refetch } = useQuery({
+  const {
+    data: rsvps = [],
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["userRsvps", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
