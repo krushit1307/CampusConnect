@@ -29,6 +29,7 @@ export function Navbar() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_e, session) => setUser(session?.user ?? null));
     return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Close mobile menu when location changes

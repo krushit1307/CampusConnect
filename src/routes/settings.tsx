@@ -485,6 +485,7 @@ function AvatarUpload({ name }: { name: string }) {
       file,
       setUploadProgress,
     );
+    setUploadProgress(null);
 
     const {
       data: { publicUrl },

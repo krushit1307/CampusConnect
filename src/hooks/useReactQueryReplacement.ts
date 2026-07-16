@@ -35,6 +35,7 @@ export function useQuery<TData, TError = Error>({
     } finally {
       setIsFetching(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryKeyString, enabled]); // Serialize queryKey to avoid infinite loops
 
   useEffect(() => {
@@ -144,6 +145,7 @@ export function useInfiniteQuery<TData, TError = Error>({
 
   useEffect(() => {
     fetchPage(initialPageParam, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only fetch initial on mount
 
   return {
