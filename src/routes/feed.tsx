@@ -3,13 +3,12 @@ import type { User } from "@supabase/supabase-js";
 import { MessageCircle, MessageSquareText, PenLine, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-
+import { toast } from "sonner";
 import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { calculateReadTime } from "@/utils/readTime";
 import { PullToRefresh } from "@/components/PullToRefresh";
-import { toast } from "sonner";
 import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
 import {
   AlertDialog,
@@ -66,10 +65,10 @@ export default function Feed() {
     }
   }, [userClubs, selectedClubId]);
 
+
   const {
     data,
     isLoading,
-    isFetching,
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
@@ -81,29 +80,40 @@ export default function Feed() {
       const from = pageParam * POSTS_PER_PAGE;
       const to = from + POSTS_PER_PAGE - 1;
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("posts")
-        .select(
-          `
-          id, content, created_at, club_id,
-          profiles (id, full_name),
-          clubs (id, name, club_members (user_id, role)),
-          comments (id, content, created_at, profiles (id, full_name))
-          `,
+        .select(`
+        id, content, created_at, club_id,
+        profiles (id, full_name),
+        clubs (
+          id,
+          name,
+          club_members (user_id, role)
+        ),
+        comments (
+          id,
+          content,
+          created_at,
+          profiles (id, full_name)
         )
-        .is("deleted_at", null)
+      `)
         .order("created_at", { ascending: false })
         .range(from, to);
 
+      if (error) throw error;
+
       return {
         posts: data || [],
-        nextPage: (data || []).length === POSTS_PER_PAGE ? pageParam + 1 : undefined,
+        nextPage:
+          (data || []).length === POSTS_PER_PAGE
+            ? pageParam + 1
+            : undefined,
       };
     },
     getNextPageParam: (lastPage) => lastPage.nextPage,
   });
 
-  const posts = data?.pages.flatMap((page) => page.posts) || [];
+  const posts = data?.pages.flatMap((page) => page.posts) ?? [];
 
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -121,7 +131,7 @@ export default function Feed() {
 
     observer.observe(sentinelRef.current);
     return () => observer.disconnect();
-  }, [hasNextPage, isFetchingNextPage]);
+}, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   useEffect(() => {
     const channel = supabase
@@ -205,7 +215,7 @@ export default function Feed() {
 
   return (
     <SiteShell>
-      <PullToRefresh isRefreshing={isFetching} onRefresh={() => refetchPosts()}>
+      <PullToRefresh isRefreshing={isLoading || isFetchingNextPage} onRefresh={() => refetchPosts()}>
         <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
           <div className="mx-auto max-w-4xl">
             <p className="eyebrow font-bold">Discussion feed</p>
@@ -473,20 +483,15 @@ export default function Feed() {
                 );
               })
             )}
-
             {isFetchingNextPage &&
               Array.from({ length: 2 }).map((_, i) => (
                 <div
-                  key={`next-load-${i}`}
-                  className="neu-border bg-white p-6 animate-pulse h-48 flex flex-col justify-between"
+                  key={`loading-${i}`}
+                  className="neu-border bg-white p-6 animate-pulse"
                 >
-                  <div>
-                    <div className="h-6 bg-gray-200 w-1/3 mb-4 rounded neu-border border-gray-300" />
-                    <div className="h-4 bg-gray-200 w-full rounded mb-2" />
-                    <div className="h-4 bg-gray-200 w-full rounded mb-2" />
-                    <div className="h-4 bg-gray-200 w-5/6 rounded" />
-                  </div>
-                  <div className="h-8 bg-gray-200 w-full mt-4 rounded" />
+                  <div className="h-6 w-1/3 rounded bg-gray-200" />
+                  <div className="mt-4 h-4 w-full rounded bg-gray-200" />
+                  <div className="mt-2 h-4 w-5/6 rounded bg-gray-200" />
                 </div>
               ))}
 
@@ -497,9 +502,9 @@ export default function Feed() {
             )}
 
             <div ref={sentinelRef} aria-hidden="true" />
-          </div>
-        </section>
-      </PullToRefresh>
-    </SiteShell>
+          </div >
+        </section >
+      </PullToRefresh >
+    </SiteShell >
   );
 }
