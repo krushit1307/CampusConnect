@@ -42,11 +42,13 @@ function EventDetailsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
-        .select(`
+        .select(
+          `
           id, title, description, event_date, location, banner_url,
           clubs (name, slug),
           event_rsvps (id, user_id)
-        `)
+        `,
+        )
         .eq("id", eventId)
         .single();
 
@@ -55,19 +57,42 @@ function EventDetailsPage() {
         if (import.meta.env.DEV && eventId.startsWith("mock-")) {
           return {
             id: eventId,
-            title: eventId === "mock-1" ? "Hackathon 2024" : eventId === "mock-2" ? "Watercolor Workshop" : "Open Mic Night",
-            description: eventId === "mock-1" 
-              ? "Annual college hackathon. Build something awesome in 24 hours!" 
-              : eventId === "mock-2" 
-                ? "Learn the basics of watercolor painting with live demonstrations." 
-                : "Showcase your music talent or just come to enjoy the acoustic performances.",
+            title:
+              eventId === "mock-1"
+                ? "Hackathon 2024"
+                : eventId === "mock-2"
+                  ? "Watercolor Workshop"
+                  : "Open Mic Night",
+            description:
+              eventId === "mock-1"
+                ? "Annual college hackathon. Build something awesome in 24 hours!"
+                : eventId === "mock-2"
+                  ? "Learn the basics of watercolor painting with live demonstrations."
+                  : "Showcase your music talent or just come to enjoy the acoustic performances.",
             event_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-            location: eventId === "mock-1" ? "Main Auditorium" : eventId === "mock-2" ? "Art Studio 3" : "Student Center",
+            location:
+              eventId === "mock-1"
+                ? "Main Auditorium"
+                : eventId === "mock-2"
+                  ? "Art Studio 3"
+                  : "Student Center",
             banner_url: null as string | null,
-            clubs: [{ 
-              name: eventId === "mock-1" ? "Tech Club" : eventId === "mock-2" ? "Art & Design" : "Music Society", 
-              slug: eventId === "mock-1" ? "tech-club" : eventId === "mock-2" ? "art-design" : "music-society" 
-            }],
+            clubs: [
+              {
+                name:
+                  eventId === "mock-1"
+                    ? "Tech Club"
+                    : eventId === "mock-2"
+                      ? "Art & Design"
+                      : "Music Society",
+                slug:
+                  eventId === "mock-1"
+                    ? "tech-club"
+                    : eventId === "mock-2"
+                      ? "art-design"
+                      : "music-society",
+              },
+            ],
             event_rsvps: eventId === "mock-1" ? [{ id: "rsvp-1", user_id: "user-1" }] : [],
           };
         }
@@ -118,7 +143,8 @@ function EventDetailsPage() {
           <div className="mx-auto max-w-md neu-border bg-white p-8 text-center">
             <h1 className="text-3xl font-black">Event Not Found</h1>
             <p className="mt-4 font-mono text-sm leading-6">
-              The event you are looking for does not exist, has been removed, or the link is incorrect.
+              The event you are looking for does not exist, has been removed, or the link is
+              incorrect.
             </p>
             <Link
               to="/events"
@@ -219,7 +245,11 @@ function EventDetailsPage() {
           {club && (
             <p className="mt-3 font-mono text-sm font-bold">
               Organized by:{" "}
-              <Link to="/clubs/$slug" params={{ slug: club.slug }} className="underline hover:text-black/70">
+              <Link
+                to="/clubs/$slug"
+                params={{ slug: club.slug }}
+                className="underline hover:text-black/70"
+              >
                 {club.name}
               </Link>
             </p>
@@ -230,7 +260,9 @@ function EventDetailsPage() {
             <div className="flex gap-3">
               <Calendar className="mt-1 h-5 w-5 shrink-0 text-black/60" />
               <div>
-                <dt className="font-mono text-xs font-bold uppercase text-black/50">Date &amp; Time</dt>
+                <dt className="font-mono text-xs font-bold uppercase text-black/50">
+                  Date &amp; Time
+                </dt>
                 <dd className="mt-1 text-sm font-bold">
                   {event.event_date ? formatDate(event.event_date) : "TBA"}
                 </dd>
@@ -319,7 +351,9 @@ function EventDetailsPage() {
 
           {/* Social Share Buttons */}
           <div className="mt-10 border-t-2 border-black pt-6">
-            <h3 className="font-mono text-xs font-bold uppercase text-black/50">Share with Friends</h3>
+            <h3 className="font-mono text-xs font-bold uppercase text-black/50">
+              Share with Friends
+            </h3>
             <div className="mt-4 flex flex-wrap gap-2">
               <a
                 href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}

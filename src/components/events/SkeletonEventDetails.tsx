@@ -5,7 +5,11 @@ export function SkeletonEventDetails() {
   return (
     <SiteShell>
       {/* Banner / Hero section skeleton */}
-      <section className="border-b-2 border-black bg-peach/30 px-4 py-8 md:px-6 md:py-12" role="status" aria-live="polite">
+      <section
+        className="border-b-2 border-black bg-peach/30 px-4 py-8 md:px-6 md:py-12"
+        role="status"
+        aria-live="polite"
+      >
         <div className="mx-auto max-w-4xl">
           {/* Banner placeholder */}
           <Skeleton className="neu-border h-48 w-full md:h-80 bg-black/10" />

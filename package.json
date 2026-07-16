@@ -12,7 +12,9 @@
     "format": "prettier --write .",
     "test": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "github:update-labels": "npx tsx scripts/update-labels.ts",
+    "github:create-new-issues": "npx tsx scripts/create-new-issues.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

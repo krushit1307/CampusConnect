@@ -141,7 +141,13 @@ function EventsPage() {
 
   const colors = ["bg-lime", "bg-sky", "bg-peach", "bg-lavender"];
 
-  const filteredEvents = filter === "All" ? events : events.filter(() => true);
+  const filteredEvents =
+    filter === "All"
+      ? events
+      : events.filter((e) => {
+          const searchStr = `${e.title} ${e.description}`.toLowerCase();
+          return searchStr.includes(filter.toLowerCase());
+        });
 
   return (
     <SiteShell>
