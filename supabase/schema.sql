@@ -60,6 +60,24 @@ CREATE TABLE events (
 
 CREATE INDEX idx_events_category ON events(category_id);
 
+CREATE INDEX idx_club_members_club_id
+ON club_members(club_id);
+
+CREATE INDEX idx_club_members_user_id
+ON club_members(user_id);
+
+CREATE INDEX idx_event_rsvps_event_id
+ON event_rsvps(event_id);
+
+CREATE INDEX idx_event_rsvps_user_id
+ON event_rsvps(user_id);
+
+CREATE INDEX idx_posts_club_id
+ON posts(club_id);
+
+CREATE INDEX idx_comments_post_id
+ON comments(post_id);
+
 CREATE TABLE event_rsvps (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID REFERENCES events(id) ON DELETE CASCADE,
