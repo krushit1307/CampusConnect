@@ -1,9 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { SiteShell } from "@/components/site/SiteShell";
-import { useQuery } from "@tanstack/react-query";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/certificates")({
@@ -51,91 +53,103 @@ function Certificates() {
 
   return (
     <SiteShell>
-      <section className="border-b-2 border-black bg-lavender px-4 py-14 md:px-6">
-        <div className="mx-auto max-w-7xl">
-          <p className="eyebrow font-bold">Your certificates · {certs.length} issued</p>
-          <h1 className="mt-2 text-4xl font-bold md:text-6xl">Proof of work.</h1>
-          <p className="mt-4 max-w-2xl font-mono text-sm">
-            Every certificate is signed and verifiable at a public URL. Share them anywhere.
-          </p>
-        </div>
-      </section>
-      <section className="bg-cream px-4 py-12 md:px-6">
-        <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2">
-          {isLoading ? (
-            <div className="col-span-full font-mono py-10">Loading certificates...</div>
-          ) : certs.length === 0 ? (
-            <div className="col-span-full font-mono py-10 text-gray-500">
-              You don't have any certificates yet. Attend events to earn them!
+      <SidebarProvider>
+        <DashboardSidebar />
+        <SidebarInset>
+          <section className="border-b-2 border-black bg-lavender px-4 py-14 md:px-6">
+            <div className="mx-auto max-w-7xl">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="eyebrow font-bold">Your certificates · {certs.length} issued</p>
+                  <h1 className="mt-2 text-4xl font-bold md:text-6xl">Proof of work.</h1>
+                </div>
+                <div className="block md:hidden">
+                  <SidebarTrigger />
+                </div>
+              </div>
+              <p className="mt-4 max-w-2xl font-mono text-sm">
+                Every certificate is signed and verifiable at a public URL. Share them anywhere.
+              </p>
             </div>
-          ) : (
-            certs.map((c, index) => {
-              const event = Array.isArray(c.events) ? c.events[0] : c.events;
-              const club = event && !Array.isArray(event.clubs) ? event.clubs : null;
+          </section>
+          <section className="bg-cream px-4 py-12 md:px-6">
+            <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2">
+              {isLoading ? (
+                <div className="col-span-full font-mono py-10">Loading certificates...</div>
+              ) : certs.length === 0 ? (
+                <div className="col-span-full font-mono py-10 text-gray-500">
+                  You don't have any certificates yet. Attend events to earn them!
+                </div>
+              ) : (
+                certs.map((c, index) => {
+                  const event = Array.isArray(c.events) ? c.events[0] : c.events;
+                  const club = event && !Array.isArray(event.clubs) ? event.clubs : null;
 
-              return (
-                <article key={c.id} className="neu-border neu-press bg-white p-6">
-                  <div
-                    className={`neu-border ${colors[index % colors.length]} mb-4 flex items-center justify-between px-4 py-6`}
-                  >
-                    <div>
-                      <p className="eyebrow font-bold">Certificate</p>
-                      <p className="mt-1 font-display text-2xl font-bold">
-                        {event?.title || "Unknown Event"}
-                      </p>
-                    </div>
-                    <span className="font-mono text-xs font-bold">
-                      {c.issued_at
-                        ? new Date(c.issued_at)
-                            .toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                            .toUpperCase()
-                        : "N/A"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between font-mono text-xs">
-                    <div>
-                      <p className="font-bold uppercase">Issued by</p>
-                      <p>{club?.name || "CampusConnect"}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold uppercase">ID</p>
-                      <p className="truncate max-w-[100px]">{c.id.split("-")[0]}</p>
-                    </div>
-                  </div>
-                  <div className="mt-5 flex gap-3">
-                    <button
-                      onClick={async () => {
-                        setOpeningId(c.id);
-                        const minDuration = new Promise((resolve) => setTimeout(resolve, 400));
-                        window.open(c.certificate_url, "_blank");
-                        await minDuration;
-                        setOpeningId(null);
-                      }}
-                      disabled={openingId === c.id}
-                      className="neu-border neu-press flex-1 bg-black px-3 py-2 font-mono text-xs font-bold uppercase text-cream disabled:opacity-50"
-                    >
-                      {openingId === c.id ? "Generating..." : "View PDF"}
-                    </button>
-                    <button
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(c.certificate_url);
-                          toast.success("Link copied to clipboard!");
-                        } catch (err) {
-                          toast.error("Failed to copy link");
-                        }
-                      }}
-                      className="neu-border neu-press flex-1 bg-white px-3 py-2 font-mono text-xs font-bold uppercase"
-                    >
-                      Copy link
-                    </button>
-                  </div>
-                </article>
-              );
-            })
-          )}
-        </div>
-      </section>
+                  return (
+                    <article key={c.id} className="neu-border neu-press bg-white p-6">
+                      <div
+                        className={`neu-border ${colors[index % colors.length]} mb-4 flex items-center justify-between px-4 py-6`}
+                      >
+                        <div>
+                          <p className="eyebrow font-bold">Certificate</p>
+                          <p className="mt-1 font-display text-2xl font-bold">
+                            {event?.title || "Unknown Event"}
+                          </p>
+                        </div>
+                        <span className="font-mono text-xs font-bold">
+                          {c.issued_at
+                            ? new Date(c.issued_at)
+                                .toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                                .toUpperCase()
+                            : "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between font-mono text-xs">
+                        <div>
+                          <p className="font-bold uppercase">Issued by</p>
+                          <p>{club?.name || "CampusConnect"}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold uppercase">ID</p>
+                          <p className="truncate max-w-[100px]">{c.id.split("-")[0]}</p>
+                        </div>
+                      </div>
+                      <div className="mt-5 flex gap-3">
+                        <button
+                          onClick={async () => {
+                            setOpeningId(c.id);
+                            const minDuration = new Promise((resolve) => setTimeout(resolve, 400));
+                            window.open(c.certificate_url, "_blank");
+                            await minDuration;
+                            setOpeningId(null);
+                          }}
+                          disabled={openingId === c.id}
+                          className="neu-border neu-press flex-1 bg-black px-3 py-2 font-mono text-xs font-bold uppercase text-cream disabled:opacity-50"
+                        >
+                          {openingId === c.id ? "Generating..." : "View PDF"}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(c.certificate_url);
+                              toast.success("Link copied to clipboard!");
+                            } catch (err) {
+                              toast.error("Failed to copy link");
+                            }
+                          }}
+                          className="neu-border neu-press flex-1 bg-white px-3 py-2 font-mono text-xs font-bold uppercase"
+                        >
+                          Copy link
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </section>
+        </SidebarInset>
+      </SidebarProvider>
     </SiteShell>
   );
 }

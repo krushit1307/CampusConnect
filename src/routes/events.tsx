@@ -1,12 +1,13 @@
-import { formatDate } from "../lib/utils";
-import { createFileRoute } from "@tanstack/react-router";
-import { SiteShell } from "@/components/site/SiteShell";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState } from "react";
-import { User } from "@supabase/supabase-js";
-import { EventCard } from "@/components/EventCard";
 import { CreateEventDialog } from "@/components/CreateEventDialog";
+import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
+import { EventCard } from "@/components/EventCard";
+import { SiteShell } from "@/components/site/SiteShell";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { createClient } from "@/lib/supabase/client";
+import { User } from "@supabase/supabase-js";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/events")({
@@ -139,44 +140,57 @@ function EventsPage() {
 
   return (
     <SiteShell>
-      <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="eyebrow font-bold">All events · Fall semester</p>
-            <h1 className="mt-2 text-4xl font-bold md:text-6xl">What's on this week.</h1>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t, i) => (
-              <button
-                key={t}
-                onClick={() => setFilter(t)}
-                className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase ${filter === t ? "bg-black text-cream" : "bg-white"}`}
-              >
-                {t}
-              </button>
-            ))}
-            <CreateEventDialog user={user} />
-          </div>
-        </div>
-      </section>
-      <section className="bg-cream px-4 py-12 md:px-6">
-        <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {isLoading ? (
-            <div className="col-span-full font-mono text-center py-10">Loading events...</div>
-          ) : (
-            filteredEvents.map((e, index) => (
-              <EventCard
-                key={e.id}
-                event={e}
-                index={index}
-                user={user}
-                onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
-                isRsvpPending={toggleRsvp.isPending}
-              />
-            ))
-          )}
-        </div>
-      </section>
+      <SidebarProvider>
+        <DashboardSidebar />
+        <SidebarInset>
+          <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
+            <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div className="flex items-start justify-between w-full md:block">
+                <div>
+                  <p className="eyebrow font-bold">All events · Fall semester</p>
+                  <h1 className="mt-2 text-4xl font-bold md:text-6xl">What's on this week.</h1>
+                </div>
+
+                <div className="block md:hidden">
+                  <SidebarTrigger />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2"></div>
+              <div className="flex flex-wrap items-center gap-2">
+                {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t, i) => (
+                  <button
+                    key={t}
+                    onClick={() => setFilter(t)}
+                    className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase ${filter === t ? "bg-black text-cream" : "bg-white"}`}
+                  >
+                    {t}
+                  </button>
+                ))}
+                <CreateEventDialog user={user} />
+              </div>
+            </div>
+          </section>
+          <section className="bg-cream px-4 py-12 md:px-6">
+            <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {isLoading ? (
+                <div className="col-span-full font-mono text-center py-10">Loading events...</div>
+              ) : (
+                filteredEvents.map((e, index) => (
+                  <EventCard
+                    key={e.id}
+                    event={e}
+                    index={index}
+                    user={user}
+                    onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
+                    isRsvpPending={toggleRsvp.isPending}
+                  />
+                ))
+              )}
+            </div>
+          </section>
+        </SidebarInset>
+      </SidebarProvider>
     </SiteShell>
   );
 }

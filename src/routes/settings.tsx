@@ -1,10 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { SiteShell } from "@/components/site/SiteShell";
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { Camera, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { createClient } from "@/lib/supabase/client";
-
+import { createFileRoute } from "@tanstack/react-router";
+import { Camera, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { toast } from "sonner";
 export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
@@ -22,33 +23,49 @@ function SettingsPage() {
   // TODO: Supabase — load + save profile fields, including avatar upload to storage
   return (
     <SiteShell>
-      <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
-        <div className="mx-auto max-w-4xl">
-          <p className="eyebrow font-bold">Account</p>
-          <h1 className="mt-2 text-4xl font-bold md:text-6xl">Settings.</h1>
-        </div>
-      </section>
-      <section className="bg-cream px-4 py-12 md:px-6">
-        <div className="mx-auto max-w-4xl space-y-6">
-          <Panel title="Profile">
-            <AvatarUpload name="Ada Lovelace" />
-            <UnderlineInput label="Full name" defaultValue="Ada Lovelace" />
-            <UnderlineInput label="Handle" defaultValue="@ada" />
-            <UnderlineInput label="College email" defaultValue="ada@college.edu" />
-            <UnderlineInput label="Bio" defaultValue="Systems programming, tea, and long walks." />
-          </Panel>
-          <Panel title="Notifications">
-            <Toggle label="Email me about upcoming RSVPs" defaultChecked />
-            <Toggle label="Weekly digest of club activity" defaultChecked />
-            <Toggle label="New certificates" />
-          </Panel>
-          <Panel title="Danger zone" tone="bg-peach">
-            <button className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream">
-              Delete account
-            </button>
-          </Panel>
-        </div>
-      </section>
+      <SidebarProvider>
+        <DashboardSidebar />
+        <SidebarInset>
+          <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
+            <div className="mx-auto max-w-4xl">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="eyebrow font-bold">Account</p>
+                  <h1 className="mt-2 text-4xl font-bold md:text-6xl">Settings.</h1>
+                </div>
+
+                <div className="block md:hidden">
+                  <SidebarTrigger />
+                </div>
+              </div>
+            </div>
+          </section>
+          <section className="bg-cream px-4 py-12 md:px-6">
+            <div className="mx-auto max-w-4xl space-y-6">
+              <Panel title="Profile">
+                <AvatarUpload name="Ada Lovelace" />
+                <UnderlineInput label="Full name" defaultValue="Ada Lovelace" />
+                <UnderlineInput label="Handle" defaultValue="@ada" />
+                <UnderlineInput label="College email" defaultValue="ada@college.edu" />
+                <UnderlineInput
+                  label="Bio"
+                  defaultValue="Systems programming, tea, and long walks."
+                />
+              </Panel>
+              <Panel title="Notifications">
+                <Toggle label="Email me about upcoming RSVPs" defaultChecked />
+                <Toggle label="Weekly digest of club activity" defaultChecked />
+                <Toggle label="New certificates" />
+              </Panel>
+              <Panel title="Danger zone" tone="bg-peach">
+                <button className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream">
+                  Delete account
+                </button>
+              </Panel>
+            </div>
+          </section>
+        </SidebarInset>
+      </SidebarProvider>
     </SiteShell>
   );
 }
