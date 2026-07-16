@@ -40,7 +40,7 @@ export default function EventsPage() {
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ["events"],
+    queryKey: ["events", user?.id ?? "anonymous"],
     queryFn: async () => {
       const { data } = await supabase
         .from("events")

@@ -105,10 +105,7 @@ export default function DashboardOverview() {
 
   return (
     <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-3">
-      <Widget
-        title="Upcoming events"
-        cta={{ label: "All events", to: "/events" }}
-      >
+      <Widget title="Upcoming events" cta={{ label: "All events", to: "/events" }}>
         {upcomingEvents.length === 0 ? (
           <p className="py-4 font-mono text-sm text-gray-500">No upcoming events yet.</p>
         ) : (
