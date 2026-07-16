@@ -1,36 +1,26 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { Link, useNavigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button"; // Added unified Button component import
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { ProfileHeaderSkeleton } from "@/components/ProfileHeaderSkeleton";
 
-export const Route = createFileRoute("/dashboard")({
-  head: () => ({
-    meta: [
-      { title: "Dashboard — CampusConnect" },
-      { name: "description", content: "Your clubs, events, and activity at a glance." },
-    ],
-  }),
-  component: Dashboard,
-});
-
-function Dashboard() {
+export default function Dashboard() {
   const supabase = createClient();
-  const router = useRouter();
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
-        router.navigate({ to: "/auth", replace: true });
+        navigate("/auth", { replace: true });
       } else {
         setUser(user);
       }
     });
-  }, [router, supabase]);
+  }, [navigate, supabase]);
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ["profile", user?.id],
@@ -170,9 +160,7 @@ function Dashboard() {
                     >
                       <div>
                         <p className="font-display font-bold">
-                          <Link to="/clubs/$slug" params={{ slug: club?.slug || "" }}>
-                            {club?.name}
-                          </Link>
+                          <Link to={`/clubs/${club?.slug || ""}`}>{club?.name}</Link>
                         </p>
                         <p className="font-mono text-xs">Active</p>
                       </div>

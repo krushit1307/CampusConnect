@@ -1,8 +1,10 @@
-import { formatDate } from "@/lib/utils";
+import { formatDate, getGoogleCalendarUrl } from "@/lib/utils";
 import { FormEvent, useState } from "react";
-import { Check, Share2, X } from "lucide-react";
+import { Calendar, Check, Share2, X, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Event {
   id: string;
@@ -28,11 +30,26 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
   const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
   const hasRsvpd = user ? rsvps.some((rsvp) => rsvp.user_id === user.id) : false;
   const colors = ["bg-lime", "bg-sky", "bg-peach", "bg-lavender"];
+  const googleCalendarUrl = getGoogleCalendarUrl({
+    title: event.title,
+    description: event.description,
+    event_date: event.event_date,
+    location: event.location,
+  });
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [studentId, setStudentId] = useState("");
   const [dietaryPreference, setDietaryPreference] = useState("");
   const [copied, setCopied] = useState(false);
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success("Event link copied to clipboard!");
+    } catch (error) {
+      toast.error("Failed to copy link.");
+    }
+  };
 
   const resetForm = () => {
     setStudentId("");
@@ -209,16 +226,48 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
       ) : null}
 
       {!isFormOpen || hasRsvpd ? (
-        <button
-          type="button"
-          onClick={handleRsvpClick}
-          disabled={isRsvpPending}
-          className={`neu-border mt-5 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
-            hasRsvpd ? "bg-lime text-black" : "bg-black text-cream"
-          }`}
-        >
-          {isRsvpPending ? "Updating..." : hasRsvpd ? "RSVP'd ✓" : "RSVP →"}
-        </button>
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleRsvpClick}
+            disabled={isRsvpPending}
+            className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
+              hasRsvpd ? "bg-lime text-black" : "bg-black text-cream"
+            }`}
+          >
+            {isRsvpPending ? "Updating..." : hasRsvpd ? "RSVP'd ✓" : "RSVP →"}
+          </button>
+
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handleCopyLink}
+                  variant="outline"
+                  className="neu-border neu-press bg-white hover:bg-cream h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                >
+                  <LinkIcon className="h-4 w-4 mr-2" />
+                  Copy Link
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Copy Event Link</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          {hasRsvpd && googleCalendarUrl && (
+            <a
+              href={googleCalendarUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="neu-border bg-white px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
+            >
+              <Calendar aria-hidden="true" size={14} strokeWidth={3} />
+              Add to Google Calendar
+            </a>
+          )}
+        </div>
       ) : null}
       <div className="mt-4 flex gap-2">
         <a
