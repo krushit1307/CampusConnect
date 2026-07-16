@@ -119,6 +119,7 @@ function DashboardRsvps() {
       <div className="flex gap-2 border-b-2 border-black pb-4 dark:border-cream">
         <button
           onClick={() => setActiveTab("upcoming")}
+          aria-pressed={activeTab === "upcoming"}
           className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase transition-all hover:scale-105 active:scale-95 ${
             activeTab === "upcoming"
               ? "bg-black text-cream dark:bg-cream dark:text-black"
@@ -129,6 +130,7 @@ function DashboardRsvps() {
         </button>
         <button
           onClick={() => setActiveTab("past")}
+          aria-pressed={activeTab === "past"}
           className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase transition-all hover:scale-105 active:scale-95 ${
             activeTab === "past"
               ? "bg-black text-cream dark:bg-cream dark:text-black"

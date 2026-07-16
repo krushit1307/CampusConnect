@@ -24,7 +24,7 @@ function DashboardOverview() {
   const { data: userClubs = [] } = useQuery({
     queryKey: ["userClubs", user?.id],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("club_members")
         .select(
           `
@@ -36,6 +36,7 @@ function DashboardOverview() {
         )
         .eq("user_id", user?.id)
         .eq("status", "approved");
+      if (error) throw error;
       return data || [];
     },
     enabled: !!user?.id,
@@ -44,7 +45,7 @@ function DashboardOverview() {
   const { data: upcomingEvents = [] } = useQuery({
     queryKey: ["upcomingEvents", user?.id],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("events")
         .select(
           `
@@ -57,7 +58,9 @@ function DashboardOverview() {
         )
         .eq("event_rsvps.user_id", user?.id)
         .gte("event_date", new Date().toISOString())
+        .order("event_date", { ascending: true })
         .limit(3);
+      if (error) throw error;
       return data || [];
     },
     enabled: !!user?.id,
@@ -96,13 +99,9 @@ function DashboardOverview() {
                     <p className="truncate font-display text-lg font-bold">{e?.title}</p>
                     <p className="font-mono text-xs">{c?.name}</p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="neu-border shrink-0 bg-white px-3 py-1 font-mono text-xs font-bold uppercase"
-                  >
+                  <span className="neu-border shrink-0 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase">
                     RSVP'd
-                  </Button>
+                  </span>
                 </li>
               );
             })}
