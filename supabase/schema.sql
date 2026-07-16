@@ -53,12 +53,28 @@ CREATE TABLE events (
   banner_url TEXT,
   event_date TIMESTAMPTZ,
   location TEXT,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
   created_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX idx_events_category ON events(category_id);
+
+ALTER TABLE events
+ADD CONSTRAINT events_latitude_valid
+CHECK (
+    latitude IS NULL OR
+    (latitude >= -90 AND latitude <= 90)
+);
+
+ALTER TABLE events
+ADD CONSTRAINT events_longitude_valid
+CHECK (
+    longitude IS NULL OR
+    (longitude >= -180 AND longitude <= 180)
+);
 
 CREATE TABLE event_rsvps (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
