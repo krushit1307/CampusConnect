@@ -311,6 +311,9 @@ function Feed() {
       setNewComments((prev) => ({ ...prev, [postId]: "" }));
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["posts"] }),
+    onError: (error) => {
+      toast.error(error.message || "Failed to post comment. Please try again.");
+    },
   });
 
   const timeAgo = (dateString: string) => {
