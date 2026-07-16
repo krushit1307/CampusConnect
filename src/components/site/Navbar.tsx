@@ -53,8 +53,14 @@ export function Navbar() {
   }, [location.pathname]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate("/");
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.error("Sign out failed:", error.message);
+      return;
+    }
+
+    navigate("/", { replace: true });
   };
 
   return (
@@ -99,7 +105,7 @@ export function Navbar() {
                   <button
                     type="button"
                     aria-label="User menu"
-                    className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-lime font-mono text-xs font-bold uppercase focus:outline-none"
+                    className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-lime font-mono text-xs font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 dark:focus-visible:ring-cream"
                   >
                     {user.email?.[0]?.toUpperCase() ?? "U"}
                   </button>
