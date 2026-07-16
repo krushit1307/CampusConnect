@@ -15,7 +15,7 @@ interface Event {
   banner_url?: string | null;
   clubs: { name: string } | { name: string }[] | null;
   event_rsvps: { id: string; user_id: string }[] | null;
-  saved_events: { id: string; user_id: string }[] | null;
+  saved_events?: { id: string; user_id: string }[] | null;
 }
 
 interface EventCardProps {
