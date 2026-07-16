@@ -4,7 +4,7 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Camera, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
 
 import { Progress } from "@/components/ui/progress";
 
@@ -473,7 +473,7 @@ function AvatarUpload({ name }: { name: string }) {
       return;
     }
 
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseUrl = getSupabaseUrl();
     const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
     const filePath = `${user.id}/${crypto.randomUUID()}.${extension}`;
 
