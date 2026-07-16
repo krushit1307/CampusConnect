@@ -141,7 +141,13 @@ function EventsPage() {
 
   const colors = ["bg-lime", "bg-sky", "bg-peach", "bg-lavender"];
 
-  const filteredEvents = filter === "All" ? events : events.filter(() => true);
+  const filteredEvents =
+    filter === "All"
+      ? events
+      : events.filter((e) => {
+          const searchStr = `${e.title} ${e.description}`.toLowerCase();
+          return searchStr.includes(filter.toLowerCase());
+        });
 
   return (
     <SiteShell>
@@ -167,6 +173,14 @@ function EventsPage() {
                   {t}
                 </button>
               ))}
+              {filter !== "All" && (
+                <button
+                  onClick={() => setFilter("All")}
+                  className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream"
+                >
+                  Clear All
+                </button>
+              )}
               <CreateEventDialog user={user} />
             </div>
           </div>

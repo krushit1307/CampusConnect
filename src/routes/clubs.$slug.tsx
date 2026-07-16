@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
 
 // Small building block for the skeleton below. Deliberately a plain div
 // (not the shared ui/skeleton component) to keep this change self-contained.
@@ -137,7 +138,9 @@ function ClubProfile() {
         <div className="mx-auto max-w-6xl">
           <p className="eyebrow font-bold">Club</p>
           <h1 className="mt-2 text-5xl font-bold text-[#123a57] md:text-7xl">{club.name}</h1>
-          <p className="mt-4 max-w-2xl font-mono text-sm md:text-base">{club.description}</p>
+          <div className="markdown-content mt-4 max-w-2xl font-mono text-sm md:text-base leading-relaxed">
+            <ReactMarkdown>{club.description || ""}</ReactMarkdown>
+          </div>
           <div className="mt-6 flex flex-wrap gap-3">
             <button
               onClick={() => {
