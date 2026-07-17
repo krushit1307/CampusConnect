@@ -177,6 +177,21 @@
 }
 
 @layer components {
+  .auth-mode-transition {
+    animation: auth-mode-transition 240ms ease-out;
+  }
+
+  @keyframes auth-mode-transition {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
   .college-shell {
     background:
       radial-gradient(circle at top left, rgba(124, 200, 162, 0.16), transparent 30%),
@@ -485,4 +500,112 @@
     transition-duration: 0s !important;
     transition-delay: 0s !important;
   }
+}
+  /* Neubrutalist overrides for React Big Calendar */
+.rbc-calendar {
+  font-family: var(--font-mono);
+  background-color: #ffffff;
+}
+
+.rbc-month-view {
+  border: 2px solid #000000 !important;
+  border-radius: 0px !important;
+}
+
+.rbc-day-bg {
+  border-left: 2px solid #000000 !important;
+}
+
+.rbc-month-row {
+  border-bottom: 2px solid #000000 !important;
+}
+
+.rbc-header {
+  border-bottom: 2px solid #000000 !important;
+  border-left: 2px solid #000000 !important;
+  font-family: var(--font-display) !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  padding: 8px 0 !important;
+  font-size: 0.85rem !important;
+  background-color: var(--lime) !important;
+}
+
+.rbc-header:first-child {
+  border-left: none !important;
+}
+
+.rbc-day-bg:first-child {
+  border-left: none !important;
+}
+
+.rbc-today {
+  background-color: var(--sky) !important;
+}
+
+.rbc-off-range-bg {
+  background-color: #f7f5ea !important;
+}
+
+.rbc-event {
+  border: 2px solid #000000 !important;
+  border-radius: 0px !important;
+  background-color: var(--peach) !important;
+  color: #000000 !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  box-shadow: 2px 2px 0px 0px #000000 !important;
+  transition: transform 120ms ease;
+}
+
+.rbc-event:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px 0px #000000 !important;
+}
+
+.rbc-toolbar {
+  margin-bottom: 20px !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+}
+
+.rbc-toolbar-label {
+  font-family: var(--font-display) !important;
+  font-weight: 900 !important;
+  font-size: 1.5rem !important;
+  text-transform: uppercase !important;
+}
+
+.rbc-toolbar button {
+  border: 2px solid #000000 !important;
+  border-radius: 0px !important;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  font-family: var(--font-mono) !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  font-size: 12px !important;
+  padding: 6px 12px !important;
+  transition: all 120ms ease !important;
+  cursor: pointer !important;
+  box-shadow: 3px 3px 0px 0px #000000 !important;
+}
+
+.rbc-toolbar button:hover {
+  background-color: var(--cream) !important;
+  transform: translate(-1px, -1px) !important;
+  box-shadow: 4px 4px 0px 0px #000000 !important;
+}
+
+.rbc-toolbar button:active {
+  transform: translate(2px, 2px) !important;
+  box-shadow: 1px 1px 0px 0px #000000 !important;
+}
+
+.rbc-toolbar button.rbc-active {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
