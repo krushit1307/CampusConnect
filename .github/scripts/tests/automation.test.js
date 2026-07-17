@@ -72,7 +72,7 @@ function createGithub(issueFactory) {
       if (apiMethod === this.rest.issues.listComments)
         return this.rest.issues.listComments(args).then((r) => r.data);
       if (args.assignee) {
-        return new Array(args.assignee === "busy-user" ? 4 : 1).fill(0).map((_, i) => ({
+        return new Array(args.assignee === "busy-user" ? 5 : 1).fill(0).map((_, i) => ({
           number: i + 1,
           title: `Issue ${i + 1}`,
         }));
@@ -146,10 +146,10 @@ test("claim: already assigned", async () => {
   github.state.assignees[10] = "other-user";
   const context = baseContext();
   await processClaim({ github, context, core: createCore() });
-  assert.ok(github.state.comments.some((c) => c.body.includes("currently assigned")));
+  assert.ok(github.state.comments.some((c) => c.body.includes("already working on this one")));
 });
 
-test("claim: max 4 active issues", async () => {
+test("claim: max 5 active issues", async () => {
   process.env.GITHUB_REPOSITORY = "org/repo";
   const github = createGithub(issueFactory);
   const context = baseContext();
@@ -160,7 +160,7 @@ test("claim: max 4 active issues", async () => {
     author_association: "CONTRIBUTOR",
   };
   await processClaim({ github, context, core: createCore() });
-  assert.ok(github.state.comments.some((c) => c.body.includes("limit is **4**")));
+  assert.ok(github.state.comments.some((c) => c.body.includes("the max is **5**")));
 });
 
 test("unclaim: unauthorized unclaim", async () => {
@@ -300,7 +300,7 @@ test("issue lifecycle close clears metadata and preserves assignees", async () =
 
 test("expiration: reminder and expiration paths", async () => {
   process.env.GITHUB_REPOSITORY = "org/repo";
-  const oldDate = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+  const oldDate = new Date(Date.now() - 35 * 60 * 60 * 1000).toISOString();
   const github = createGithub((number, state) =>
     issueFactory(number, state, {
       body: `<!-- cc:metadata:start -->\n{"assignedAt":"${oldDate}","lastActivityAt":"${oldDate}"}\n<!-- cc:metadata:end -->`,

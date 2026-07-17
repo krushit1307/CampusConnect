@@ -3,6 +3,9 @@ name: "10 PR Status Monitor"
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
+  workflow_run:
+    workflows: ["CI Pipeline", "05 PR Validation", "PR Verification (Safe Merge Check)"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -18,7 +21,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: pr-status-monitor-${{ github.event.pull_request.number || github.run_id }}
+  group: pr-status-monitor-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -48,6 +51,16 @@ jobs:
               // Re-fetch to get the mergeable field (payload may not have it)
               const { data: fullPr } = await github.rest.pulls.get({ owner, repo, pull_number: pr.number });
               prsToProcess = [{ number: fullPr.number, headSha: fullPr.head.sha, assignees: fullPr.assignees, author: fullPr.user.login, mergeable: fullPr.mergeable }];
+            } else if (context.eventName === 'workflow_run') {
+              const prs = context.payload.workflow_run.pull_requests;
+              if (prs && prs.length > 0) {
+                const pr = prs[0];
+                const { data: fullPr } = await github.rest.pulls.get({ owner, repo, pull_number: pr.number });
+                prsToProcess = [{ number: fullPr.number, headSha: fullPr.head.sha, assignees: fullPr.assignees, author: fullPr.user.login, mergeable: fullPr.mergeable }];
+              } else {
+                console.log("No pull requests associated with this workflow run. Exiting.");
+                return;
+              }
             } else {
               // Triggered manually via workflow_dispatch
               const inputPrNumber = context.payload.inputs?.pr_number;
