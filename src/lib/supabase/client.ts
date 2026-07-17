@@ -58,6 +58,29 @@ if (import.meta.env.DEV) {
 }
 
 /**
+ * Resolves the Supabase project URL using a multi-source fallback chain.
+ * Checks `import.meta.env.VITE_SUPABASE_URL`, then `import.meta.env.NEXT_PUBLIC_SUPABASE_URL`,
+ * then `process.env.VITE_SUPABASE_URL`, then `process.env.NEXT_PUBLIC_SUPABASE_URL`.
+ * @returns {string} The resolved Supabase project URL.
+ * @throws {Error} If no Supabase URL is defined in any of the checked sources.
+ */
+export function getSupabaseUrl(): string {
+  const url =
+    import.meta.env.VITE_SUPABASE_URL ||
+    import.meta.env.NEXT_PUBLIC_SUPABASE_URL ||
+    (typeof process !== "undefined" ? process.env.VITE_SUPABASE_URL : undefined) ||
+    (typeof process !== "undefined" ? process.env.NEXT_PUBLIC_SUPABASE_URL : undefined);
+
+  if (!url) {
+    throw new Error(
+      "Supabase URL must be defined in your environment variables (VITE_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL).",
+    );
+  }
+
+  return url;
+}
+
+/**
  * Creates and configures a browser-side Supabase client instance.
  * This client is used in client-side components to perform database operations,
  * listen to real-time updates, and handle user authentication sessions.
@@ -69,13 +92,13 @@ export function createClient() {
   const supabaseUrl =
     import.meta.env.VITE_SUPABASE_URL ||
     import.meta.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.VITE_SUPABASE_URL ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL;
+    (typeof process !== "undefined" ? process.env.VITE_SUPABASE_URL : undefined) ||
+    (typeof process !== "undefined" ? process.env.NEXT_PUBLIC_SUPABASE_URL : undefined);
   const supabaseAnonKey =
     import.meta.env.VITE_SUPABASE_ANON_KEY ||
     import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.VITE_SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    (typeof process !== "undefined" ? process.env.VITE_SUPABASE_ANON_KEY : undefined) ||
+    (typeof process !== "undefined" ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY : undefined);
 
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error("Supabase URL and Anon Key must be defined in your environment variables.");

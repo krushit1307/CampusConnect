@@ -11,8 +11,21 @@ CREATE TABLE profiles (
   college TEXT,
   bio TEXT,
   role user_role DEFAULT 'student'::user_role,
+  notification_preferences JSONB NOT NULL DEFAULT '{"rsvps": true, "digest": true, "certs": true}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE profiles
+ADD CONSTRAINT profiles_notification_preferences_valid
+CHECK (
+  jsonb_typeof(notification_preferences) = 'object'
+  AND notification_preferences ? 'rsvps'
+  AND notification_preferences ? 'digest'
+  AND notification_preferences ? 'certs'
+  AND jsonb_typeof(notification_preferences->'rsvps') = 'boolean'
+  AND jsonb_typeof(notification_preferences->'digest') = 'boolean'
+  AND jsonb_typeof(notification_preferences->'certs') = 'boolean'
 );
 
 CREATE TABLE clubs (
@@ -53,12 +66,37 @@ CREATE TABLE events (
   banner_url TEXT,
   event_date TIMESTAMPTZ,
   location TEXT,
+  max_attendees INTEGER,
   created_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+ALTER TABLE events
+ADD CONSTRAINT check_events_max_attendees
+CHECK (
+  max_attendees IS NULL OR max_attendees > 0
+);
+
 CREATE INDEX idx_events_category ON events(category_id);
+
+CREATE INDEX idx_club_members_club_id
+ON club_members(club_id);
+
+CREATE INDEX idx_club_members_user_id
+ON club_members(user_id);
+
+CREATE INDEX idx_event_rsvps_event_id
+ON event_rsvps(event_id);
+
+CREATE INDEX idx_event_rsvps_user_id
+ON event_rsvps(user_id);
+
+CREATE INDEX idx_posts_club_id
+ON posts(club_id);
+
+CREATE INDEX idx_comments_post_id
+ON comments(post_id);
 
 CREATE TABLE event_rsvps (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -98,8 +136,8 @@ CREATE TABLE certificates (
 
 CREATE TABLE saved_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_id UUID REFERENCES events(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   saved_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(event_id, user_id)
 );

@@ -1,0 +1,29 @@
+name: "09 Issue Lifecycle"
+
+on:
+  issues:
+    types: [closed, reopened, transferred, unassigned, deleted]
+  issue_comment:
+    types: [deleted]
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: lifecycle-${{ github.event.issue.number || github.event.comment.id }}
+  cancel-in-progress: false
+
+jobs:
+  lifecycle:
+    if: github.event.issue.pull_request == null || github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Process lifecycle events
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { processIssueLifecycle } = await import(`${process.cwd()}/.github/scripts/lifecycle.js`);
+            await processIssueLifecycle({ github, context, core });

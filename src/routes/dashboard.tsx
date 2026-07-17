@@ -1,21 +1,11 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { NavLink, useNavigate, Link } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button"; // Added unified Button component import
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { ProfileHeaderSkeleton } from "@/components/ProfileHeaderSkeleton";
-
-export const Route = createFileRoute("/dashboard")({
-  head: () => ({
-    meta: [
-      { title: "Dashboard — CampusConnect" },
-      { name: "description", content: "Your clubs, events, and activity at a glance." },
-    ],
-  }),
-  component: Dashboard,
-});
+import { Button } from "@/components/ui/button";
 
 interface SavedEventDetails {
   id: string;
@@ -29,25 +19,30 @@ interface DashboardSavedEvent {
   events: SavedEventDetails[] | SavedEventDetails | null;
 }
 
-function Dashboard() {
-  const supabase = createClient();
-  const router = useRouter();
+export default function Dashboard() {
+  const [supabase] = useState(() => createClient());
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
-        router.navigate({ to: "/auth", replace: true });
+        navigate("/auth", { replace: true });
       } else {
         setUser(user);
       }
     });
-  }, [router, supabase]);
+  }, [navigate, supabase]);
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ["profile", user?.id],
     queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("*").eq("id", user?.id).single();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user?.id)
+        .single();
+      if (error) throw error;
       return data;
     },
     enabled: !!user?.id,
@@ -76,7 +71,6 @@ function Dashboard() {
   const { data: upcomingEvents = [] } = useQuery({
     queryKey: ["upcomingEvents", user?.id],
     queryFn: async () => {
-      // Fetch events the user has RSVP'd to that are in the future
       const { data } = await supabase
         .from("events")
         .select(
@@ -142,12 +136,41 @@ function Dashboard() {
             <ProfileHeaderSkeleton />
           ) : (
             <>
-              <p className="eyebrow font-bold">Signed in as {user.email}</p>
-              <h1 className="mt-2 text-4xl font-bold md:text-5xl">
+              <p className="eyebrow font-bold break-all">Signed in as {user.email}</p>
+              <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-5xl">
                 Good morning, {profile?.full_name?.split(" ")[0] || "there"}.
               </h1>
             </>
           )}
+
+          {/* Sub-navigation Tabs */}
+          <div className="mt-8 flex flex-wrap gap-3">
+            <NavLink
+              to="/dashboard"
+              end
+              className={({ isActive }) =>
+                `neu-border px-5 py-2 font-mono text-sm font-bold uppercase transition-all ${
+                  isActive
+                    ? "bg-black text-cream dark:bg-cream dark:text-black"
+                    : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
+                }`
+              }
+            >
+              Overview
+            </NavLink>
+            <NavLink
+              to="/dashboard/rsvps"
+              className={({ isActive }) =>
+                `neu-border px-5 py-2 font-mono text-sm font-bold uppercase transition-all ${
+                  isActive
+                    ? "bg-black text-cream dark:bg-cream dark:text-black"
+                    : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
+                }`
+              }
+            >
+              My RSVPs
+            </NavLink>
+          </div>
         </div>
       </section>
       <section className="bg-cream px-4 py-10 md:px-6">
@@ -234,7 +257,7 @@ function Dashboard() {
                     >
                       <div>
                         <p className="font-display font-bold">
-                          <Link to="/clubs/$slug" params={{ slug: club?.slug || "" }}>
+                          <Link to={`/clubs/${club?.slug || ""}`}>
                             {club?.name}
                           </Link>
                         </p>
@@ -263,7 +286,6 @@ function Dashboard() {
   );
 }
 
-// Widget component implementation below remains unchanged...
 function Widget({
   title,
   cta,
