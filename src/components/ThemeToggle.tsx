@@ -96,7 +96,7 @@ export function ThemeToggle() {
           type="button"
           onClick={cycleTheme}
           aria-label={`Current theme: ${theme}`}
-          className="neu-border neu-press flex h-10 w-10 items-center justify-center bg-white transition-colors hover:bg-black hover:text-white dark:bg-black dark:text-white dark:hover:bg-white dark:hover:text-black"
+          className="neu-border neu-press flex h-10 w-10 items-center justify-center bg-white transition-colors hover:bg-black hover:text-white dark:bg-black dark:text-[#ffffff] dark:hover:bg-white dark:hover:text-black"
         >
           {theme === "light" && <Sun className="h-5 w-5" />}
           {theme === "dark" && <Moon className="h-5 w-5" />}

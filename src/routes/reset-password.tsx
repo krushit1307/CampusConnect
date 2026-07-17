@@ -87,29 +87,29 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-cream px-4 py-16">
+    <div className="relative flex min-h-screen items-center justify-center bg-auth-bg text-auth-text px-4 py-16">
       <Sparkle className="absolute left-8 top-8" size={20} />
       <Sparkle className="absolute right-8 top-8" size={20} />
       <Sparkle className="absolute bottom-8 left-8" size={16} />
       <Sparkle className="absolute bottom-8 right-8" size={16} />
       <div className="w-full max-w-md">
         <Link to="/" className="mb-6 inline-block font-display text-2xl font-bold">
-          CAMPUS<span className="bg-black px-1 text-cream">CONNECT</span>
+          CAMPUS<span className="bg-auth-text px-1 text-auth-bg">CONNECT</span>
         </Link>
-        <div className="neu-border bg-white p-8">
+        <div className="neu-border bg-auth-surface p-8">
           <p className="eyebrow mb-2 font-bold">Reset password</p>
           <h1 className="mb-6 text-3xl font-bold">Choose a new password</h1>
 
           {checkingLink ? (
-            <p className="font-mono text-sm text-gray-600">Checking your reset link...</p>
+            <p className="font-mono text-sm text-auth-text-muted">Checking your reset link...</p>
           ) : !linkValid ? (
             <div className="space-y-4">
-              <div className="bg-red-100 p-3 font-mono text-sm text-red-700">
+              <div className="bg-destructive/10 p-3 font-mono text-sm text-destructive">
                 This reset link is invalid or has expired. Please request a new one.
               </div>
               <Link
                 to="/forgot-password"
-                className="inline-block font-mono text-xs font-bold underline underline-offset-2"
+                className="inline-block font-mono text-xs font-bold text-auth-link underline underline-offset-2 hover:text-auth-link-hover"
               >
                 Request a new link
               </Link>
@@ -117,7 +117,9 @@ export default function ResetPasswordPage() {
           ) : (
             <>
               {error && (
-                <div className="mb-4 bg-red-100 p-2 font-mono text-sm text-red-700">{error}</div>
+                <div className="mb-4 bg-destructive/10 p-2 font-mono text-sm text-destructive">
+                  {error}
+                </div>
               )}
               <form onSubmit={onSubmit} className="space-y-4">
                 <Field
@@ -132,7 +134,7 @@ export default function ResetPasswordPage() {
                       variant="ghost"
                       size="icon"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="flex items-center justify-center p-1 text-black hover:scale-105 transition-transform outline-none"
+                      className="flex items-center justify-center p-1 text-auth-icon hover:scale-105 transition-transform outline-none"
                       aria-label={showPassword ? "Hide password" : "Show password"}
                     >
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -149,7 +151,7 @@ export default function ResetPasswordPage() {
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="neu-border neu-press w-full bg-black px-4 py-3 font-mono text-sm font-bold uppercase tracking-wider text-cream disabled:opacity-50"
+                  className="neu-border neu-press w-full bg-auth-text px-4 py-3 font-mono text-sm font-bold uppercase tracking-wider text-auth-bg disabled:opacity-50"
                 >
                   {loading ? "Updating..." : "Update password"}
                 </Button>
@@ -178,7 +180,7 @@ function Field({
   rightElement?: React.ReactNode;
 }) {
   return (
-    <label className="block">
+    <label className="block text-auth-text">
       <span className="eyebrow mb-1 block font-bold">
         {label}
         {required && (
@@ -187,13 +189,13 @@ function Field({
           </span>
         )}
       </span>
-      <div className="relative flex items-center border-0 border-b-2 border-black focus-within:bg-lime/40 group">
+      <div className="group relative flex items-center border-0 border-b-2 border-auth-border bg-auth-input-bg focus-within:border-auth-focus-border focus-within:bg-auth-focus-bg focus-within:ring-1 focus-within:ring-auth-focus-ring focus-within:ring-offset-0">
         <input
           type={type}
           name={name}
           placeholder={placeholder}
           required={required}
-          className="w-full bg-transparent px-1 py-2 font-mono text-sm outline-none"
+          className="w-full bg-transparent px-1 py-2 font-mono text-sm text-auth-text placeholder:text-auth-placeholder outline-none"
         />
         {rightElement && (
           <div className="absolute right-2 flex items-center justify-center">{rightElement}</div>

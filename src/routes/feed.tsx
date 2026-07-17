@@ -312,7 +312,7 @@ post_reactions (id, emoji, user_id)
                   <h2 className="text-2xl font-bold sm:text-3xl">
                     No posts yet. Be the first to start a discussion!
                   </h2>
-                  <p className="mt-4 max-w-md font-mono text-sm leading-relaxed text-gray-700">
+                  <p className="mt-4 max-w-md font-mono text-sm leading-relaxed text-gray-700 dark:text-gray-300">
                     Share an announcement, ask a question, or post an update for your club
                     community.
                   </p>
@@ -372,7 +372,7 @@ post_reactions (id, emoji, user_id)
                               <AlertDialogTitle className="font-display text-xl font-bold">
                                 Delete post?
                               </AlertDialogTitle>
-                              <AlertDialogDescription className="font-mono text-sm text-gray-700">
+                              <AlertDialogDescription className="font-mono text-sm text-gray-700 dark:text-gray-300">
                                 Are you sure you want to delete this post? This action cannot be
                                 undone.
                               </AlertDialogDescription>

@@ -109,7 +109,7 @@ export default function Certificates() {
                   No Proof of Work Yet
                 </h2>
 
-                <p className="font-mono text-sm max-w-xl text-gray-600 mb-8 leading-relaxed">
+                <p className="font-mono text-sm max-w-xl text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">
                   Verifiable certificates are awarded for attending events, workshops, and
                   hackathons. Once you participate, your credentials will appear here automatically.
                 </p>
@@ -130,7 +130,7 @@ export default function Certificates() {
                         STEP 01
                       </span>
                       <h3 className="font-display text-xl font-bold mb-2">Explore Events</h3>
-                      <p className="font-mono text-xs text-gray-600 leading-relaxed">
+                      <p className="font-mono text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
                         Browse active student clubs, technology communities, and upcoming workshops
                         on campus.
                       </p>
@@ -143,7 +143,7 @@ export default function Certificates() {
                         STEP 02
                       </span>
                       <h3 className="font-display text-xl font-bold mb-2">Attend & Check In</h3>
-                      <p className="font-mono text-xs text-gray-600 leading-relaxed">
+                      <p className="font-mono text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
                         Join the activities, get your attendance marked by organizers, and complete
                         any required milestones.
                       </p>
@@ -156,7 +156,7 @@ export default function Certificates() {
                         STEP 03
                       </span>
                       <h3 className="font-display text-xl font-bold mb-2">Claim Certificate</h3>
-                      <p className="font-mono text-xs text-gray-600 leading-relaxed">
+                      <p className="font-mono text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
                         Receive your cryptographically signed certificate, public verification link,
                         and PDF.
                       </p>
@@ -190,7 +190,7 @@ export default function Certificates() {
                           {event?.title || "Unknown Event"}
                         </h3>
                       </div>
-                      <div className="space-y-2 font-mono text-xs text-gray-700">
+                      <div className="space-y-2 font-mono text-xs text-gray-700 dark:text-gray-300">
                         <div className="flex justify-between border-b border-black/10 pb-1">
                           <span className="font-bold uppercase text-black">Club</span>
                           <span>{club?.name || "CampusConnect"}</span>

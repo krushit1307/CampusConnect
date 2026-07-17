@@ -93,7 +93,7 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-cream px-4 py-16">
+    <div className="relative flex min-h-screen items-center justify-center bg-auth-bg text-auth-text px-4 py-16">
       <Sparkle className="absolute left-8 top-8" size={20} />
       <Sparkle className="absolute right-8 top-8" size={20} />
       <Sparkle className="absolute bottom-8 left-8" size={16} />
@@ -103,19 +103,19 @@ export default function AuthPage() {
         <div className="mb-6 flex items-center justify-between">
           <Link to="/" className="font-display text-2xl font-bold">
             CAMPUS
-            <span className="bg-black px-1 text-cream">CONNECT</span>
+            <span className="bg-auth-text px-1 text-auth-bg">CONNECT</span>
           </Link>
 
           <Link
             to="/"
-            className="neu-border flex items-center gap-1.5 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase text-black transition-colors hover:bg-black hover:text-cream"
+            className="neu-border flex items-center gap-1.5 bg-auth-surface px-3 py-1.5 font-mono text-xs font-bold uppercase text-auth-text transition-colors hover:bg-auth-text hover:text-auth-bg"
           >
-            <ArrowLeft size={14} />
+            <ArrowLeft size={14} className="text-auth-icon" />
             Home
           </Link>
         </div>
 
-        <div className="neu-border bg-white p-8">
+        <div className="neu-border bg-auth-surface p-8">
           <div key={mode} className="auth-mode-transition">
             <p className="eyebrow mb-2 font-bold">
               {mode === "signin" ? "Welcome back" : "Get started"}
@@ -126,7 +126,9 @@ export default function AuthPage() {
             </h1>
 
             {error && (
-              <div className="mb-4 bg-red-100 p-2 font-mono text-sm text-red-700">{error}</div>
+              <div className="mb-4 bg-destructive/10 p-2 font-mono text-sm text-destructive">
+                {error}
+              </div>
             )}
 
             <form onSubmit={onSubmit} className="space-y-4">
@@ -174,34 +176,38 @@ export default function AuthPage() {
                 <p className="text-right">
                   <Link
                     to="/forgot-password"
-                    className="font-mono text-xs font-bold underline underline-offset-2"
+                    className="font-mono text-xs font-bold text-auth-link underline underline-offset-2 hover:text-auth-link-hover"
                   >
                     Forgot password?
                   </Link>
                 </p>
               )}
 
-              <Button type="submit" disabled={loading} className="w-full">
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-auth-btn-primary-bg text-auth-btn-primary-text hover:bg-auth-btn-primary-bg/90"
+              >
                 {loading ? "Loading..." : mode === "signin" ? "Sign in" : "Create account"}
               </Button>
             </form>
 
             <div className="my-6 flex items-center gap-3">
-              <div className="h-[2px] flex-1 bg-black" />
-              <span className="eyebrow font-bold">or</span>
-              <div className="h-[2px] flex-1 bg-black" />
+              <div className="h-[2px] flex-1 bg-auth-border" />
+              <span className="eyebrow font-bold text-auth-text-muted">or</span>
+              <div className="h-[2px] flex-1 bg-auth-border" />
             </div>
 
             <Button
               onClick={handleGoogleSignIn}
               disabled={loading}
               variant="outline"
-              className="w-full"
+              className="w-full border-auth-border text-auth-text hover:bg-auth-btn-secondary-bg hover:text-auth-btn-secondary-text"
             >
               Continue with Google
             </Button>
 
-            <p className="mt-6 text-center font-mono text-xs">
+            <p className="mt-6 text-center font-mono text-xs text-auth-text-secondary">
               {mode === "signin" ? "New here?" : "Already have an account?"}{" "}
               <Button
                 type="button"
@@ -210,7 +216,7 @@ export default function AuthPage() {
                   setMode(mode === "signin" ? "signup" : "signin");
                   setError(null);
                 }}
-                className="h-auto p-0 font-bold underline"
+                className="h-auto p-0 font-bold text-auth-link underline hover:text-auth-link-hover"
               >
                 {mode === "signin" ? "Create an account" : "Sign in"}
               </Button>
@@ -240,7 +246,7 @@ function Field({
   rightElement?: React.ReactNode;
 }) {
   return (
-    <label className="block">
+    <label className="block text-auth-text">
       <span className="eyebrow mb-1 block font-bold">
         {label}
         {required && (
@@ -250,14 +256,14 @@ function Field({
         )}
       </span>
 
-      <div className="group relative flex items-center border-0 border-b-2 border-black focus-within:bg-lime/40">
+      <div className="group relative flex items-center border-0 border-b-2 border-auth-border bg-auth-input-bg focus-within:border-auth-focus-border focus-within:bg-auth-focus-bg focus-within:ring-1 focus-within:ring-auth-focus-ring focus-within:ring-offset-0">
         {type === "password" ? (
           <PasswordInput
             name={name}
             placeholder={placeholder}
             required={required}
             autoComplete={autoComplete}
-            className="w-full bg-transparent px-1 py-2 font-mono text-sm outline-none"
+            className="w-full bg-transparent px-1 py-2 font-mono text-sm text-auth-text placeholder:text-auth-placeholder outline-none"
           />
         ) : (
           <input
@@ -266,7 +272,7 @@ function Field({
             placeholder={placeholder}
             required={required}
             autoComplete={autoComplete}
-            className="w-full bg-transparent px-1 py-2 font-mono text-sm outline-none"
+            className="w-full bg-transparent px-1 py-2 font-mono text-sm text-auth-text placeholder:text-auth-placeholder outline-none"
           />
         )}
 

@@ -62,7 +62,7 @@ export function ScrollToTop() {
               r={RING_RADIUS}
               fill="none"
               strokeWidth="2"
-              className="stroke-black/15 dark:stroke-white/15"
+              className="stroke-black/15 dark:stroke-[#ffffff]/15"
             />
             <circle
               cx="28"
@@ -73,14 +73,14 @@ export function ScrollToTop() {
               strokeLinecap="round"
               strokeDasharray={RING_CIRCUMFERENCE}
               strokeDashoffset={ringOffset}
-              className="stroke-black transition-[stroke-dashoffset] duration-150 ease-out dark:stroke-white"
+              className="stroke-black transition-[stroke-dashoffset] duration-150 ease-out dark:stroke-[#ffffff]"
             />
           </svg>
           <button
             type="button"
             onClick={scrollToTop}
             aria-label="Back to top"
-            className="neu-border neu-press absolute inset-0 m-auto flex h-12 w-12 items-center justify-center rounded-full bg-cream text-black transition-colors hover:bg-black hover:text-white dark:bg-black dark:text-white dark:hover:bg-white dark:hover:text-black"
+            className="neu-border neu-press absolute inset-0 m-auto flex h-12 w-12 items-center justify-center rounded-full bg-cream text-black transition-colors hover:bg-black hover:text-white dark:bg-black dark:text-[#ffffff] dark:hover:bg-white dark:hover:text-black"
           >
             <ArrowUp className="h-5 w-5" />
           </button>

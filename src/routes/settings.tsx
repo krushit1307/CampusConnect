@@ -141,7 +141,9 @@ export default function SettingsPage() {
       <section className="border-b-2 border-black px-4 py-14 md:px-6">
         <div className="mx-auto max-w-4xl">
           <p className="eyebrow font-bold">Account</p>
-          <h1 className="mt-2 text-4xl font-bold text-[#123a57] md:text-6xl">Settings.</h1>
+          <h1 className="mt-2 text-4xl font-bold text-[#123a57] dark:text-[#ffffff] md:text-6xl">
+            Settings.
+          </h1>
         </div>
       </section>
       <section className="px-4 py-12 md:px-6">

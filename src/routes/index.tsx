@@ -123,7 +123,7 @@ function ScrollReveal({ children, delay = 0 }: { children: React.ReactNode; dela
 function SectionEyebrow({ children }: { children: React.ReactNode }) {
   return (
     <p
-      className="eyebrow flex items-center gap-2 font-bold text-[#123a57]"
+      className="eyebrow flex items-center gap-2 font-bold text-[#123a57] dark:text-[#ffffff]"
       style={{ letterSpacing: "0.1em", fontSize: "12px" }}
     >
       <Sparkle size={10} />
@@ -163,7 +163,7 @@ export default function Landing() {
           <div className="mt-8 flex flex-wrap justify-center gap-4 animate-fade-in-up animate-delay-700">
             <Link
               to="/auth"
-              className="rounded-md bg-[#f5c66b] px-8 py-3 font-mono font-bold uppercase text-[#123a57] transition hover:bg-white active:scale-95"
+              className="rounded-md bg-[#f5c66b] px-8 py-3 font-mono font-bold uppercase text-[#123a57] dark:text-[#ffffff] transition hover:bg-white active:scale-95"
             >
               Get Started
             </Link>
@@ -181,10 +181,10 @@ export default function Landing() {
       <section className="bg-white px-4 py-20 md:px-6 md:py-32">
         <div className="mx-auto max-w-7xl">
           <div className="mb-20 text-center">
-            <h2 className="mb-6 font-display text-5xl font-bold text-[#123a57] md:text-6xl">
+            <h2 className="mb-6 font-display text-5xl font-bold text-[#123a57] dark:text-[#ffffff] md:text-6xl">
               Our Featured Features
             </h2>
-            <p className="mx-auto max-w-3xl font-mono text-lg leading-relaxed text-gray-700">
+            <p className="mx-auto max-w-3xl font-mono text-lg leading-relaxed text-gray-700 dark:text-gray-300">
               Everything you need to run student clubs and community events—all in one platform.
             </p>
           </div>
@@ -193,7 +193,10 @@ export default function Landing() {
             {[
               {
                 icon: (
-                  <svg viewBox="0 0 100 100" className="h-16 w-16 stroke-[#123a57] fill-none">
+                  <svg
+                    viewBox="0 0 100 100"
+                    className="h-16 w-16 stroke-[#123a57] dark:stroke-[#ffffff] fill-none"
+                  >
                     <circle cx="30" cy="25" r="8" />
                     <path
                       d="M20 38h20a2 2 0 012 2v12a2 2 0 01-2 2H20a2 2 0 01-2-2V40a2 2 0 012-2z"
@@ -254,10 +257,12 @@ export default function Landing() {
                   <div className="mb-6 transition-transform duration-300 hover:scale-115 hover:rotate-3">
                     {feature.icon}
                   </div>
-                  <h3 className="mb-3 font-display text-2xl font-bold text-[#123a57]">
+                  <h3 className="mb-3 font-display text-2xl font-bold text-[#123a57] dark:text-[#ffffff]">
                     {feature.title}
                   </h3>
-                  <p className="font-mono text-sm leading-relaxed text-gray-600">{feature.desc}</p>
+                  <p className="font-mono text-sm leading-relaxed text-gray-600 dark:text-gray-400">
+                    {feature.desc}
+                  </p>
                 </div>
               </ScrollReveal>
             ))}
@@ -266,10 +271,10 @@ export default function Landing() {
       </section>
 
       {/* ABOUT THE PLATFORM (from main, restyled) */}
-      <section className="bg-gray-50 border-t-2 border-gray-200 px-4 py-20 md:px-6">
+      <section className="bg-gray-50 dark:bg-[#0B1120] border-t-2 border-gray-200 px-4 py-20 md:px-6">
         <div className="mx-auto max-w-6xl">
           <SectionEyebrow>About the platform</SectionEyebrow>
-          <h2 className="mb-12 max-w-2xl text-4xl font-bold text-[#123a57] md:text-5xl">
+          <h2 className="mb-12 max-w-2xl text-4xl font-bold text-[#123a57] dark:text-[#ffffff] md:text-5xl">
             Built for the way student communities actually work.
           </h2>
           <div className="grid gap-6 md:grid-cols-3">
@@ -291,12 +296,16 @@ export default function Landing() {
               },
             ].map((c, idx) => (
               <ScrollReveal key={c.n} delay={idx * 150}>
-                <article className="neu-border bg-white p-6 transition-all duration-300 hover:-translate-y-2 hover:shadow-[8px_8px_0_0_#123a57] hover:border-[#123a57]">
+                <article className="neu-border bg-white p-6 transition-all duration-300 hover:-translate-y-2 hover:shadow-[8px_8px_0_0_#123a57] dark:hover:shadow-[8px_8px_0_0_#ffffff] hover:border-[#123a57] dark:border-[#ffffff]">
                   <div className="neu-border mb-4 inline-block bg-[#123a57] text-[#fef8eb] px-3 py-1 font-mono text-sm font-bold">
                     {c.n}
                   </div>
-                  <h3 className="mb-3 text-2xl font-bold text-[#123a57]">{c.t}</h3>
-                  <p className="font-mono text-sm leading-relaxed text-gray-700">{c.d}</p>
+                  <h3 className="mb-3 text-2xl font-bold text-[#123a57] dark:text-[#ffffff]">
+                    {c.t}
+                  </h3>
+                  <p className="font-mono text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                    {c.d}
+                  </p>
                 </article>
               </ScrollReveal>
             ))}
@@ -319,7 +328,9 @@ export default function Landing() {
                   <p className="font-display text-4xl font-bold text-[#f5c66b] md:text-5xl">
                     <AnimatedCounter value={item.stat} />
                   </p>
-                  <p className="mt-2 font-mono font-bold uppercase text-gray-600">{item.label}</p>
+                  <p className="mt-2 font-mono font-bold uppercase text-gray-600 dark:text-gray-400">
+                    {item.label}
+                  </p>
                 </div>
               </ScrollReveal>
             ))}
@@ -328,15 +339,15 @@ export default function Landing() {
       </section>
 
       {/* CORE CAPABILITIES (PR 207) & HOW IT WORKS (main) */}
-      <section className="border-y-2 border-gray-200 bg-gray-50 px-4 py-20 md:px-6 md:py-28">
+      <section className="border-y-2 border-gray-200 bg-gray-50 dark:bg-[#0B1120] px-4 py-20 md:px-6 md:py-28">
         <div className="mx-auto max-w-6xl grid md:grid-cols-2 gap-12">
           <div>
             <ScrollReveal>
               <SectionEyebrow>Everything You Need</SectionEyebrow>
-              <h2 className="mb-4 font-display text-4xl font-bold text-[#123a57] md:text-5xl">
+              <h2 className="mb-4 font-display text-4xl font-bold text-[#123a57] dark:text-[#ffffff] md:text-5xl">
                 Create a club. Publish an event. Ship certificates.
               </h2>
-              <p className="font-mono text-gray-600 leading-relaxed mb-6">
+              <p className="font-mono text-gray-600 dark:text-gray-400 leading-relaxed mb-6">
                 CampusConnect collapses the tools clubs juggle — forms, spreadsheets, chat, posters,
                 email — into one workflow that respects your time.
               </p>
@@ -363,7 +374,9 @@ export default function Landing() {
                           <path d="M4 12l6 6L20 6" />
                         </svg>
                       </span>
-                      <span className="font-mono text-sm font-semibold text-[#123a57]">{item}</span>
+                      <span className="font-mono text-sm font-semibold text-[#123a57] dark:text-[#ffffff]">
+                        {item}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -389,10 +402,14 @@ export default function Landing() {
                 ].map((c) => (
                   <article
                     key={c.t}
-                    className="neu-border bg-white p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#123a57] hover:border-[#123a57]"
+                    className="neu-border bg-white p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#123a57] dark:hover:shadow-[6px_6px_0_0_#ffffff] hover:border-[#123a57] dark:border-[#ffffff]"
                   >
-                    <h3 className="mb-2 text-xl font-bold text-[#123a57]">{c.t}</h3>
-                    <p className="font-mono text-sm leading-relaxed text-gray-700">{c.d}</p>
+                    <h3 className="mb-2 text-xl font-bold text-[#123a57] dark:text-[#ffffff]">
+                      {c.t}
+                    </h3>
+                    <p className="font-mono text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                      {c.d}
+                    </p>
                   </article>
                 ))}
               </div>
@@ -404,23 +421,25 @@ export default function Landing() {
       {/* HOW IT WORKS — Testimonial (PR 207) */}
       <section className="border-b-2 border-gray-200 bg-white px-4 py-16 md:px-6">
         <div className="mx-auto max-w-4xl text-center">
-          <p className="mb-4 font-mono text-sm uppercase tracking-widest text-[#123a57]">
+          <p className="mb-4 font-mono text-sm uppercase tracking-widest text-[#123a57] dark:text-[#ffffff]">
             Why students love CampusConnect
           </p>
-          <p className="mb-6 font-mono italic leading-relaxed text-gray-700">
+          <p className="mb-6 font-mono italic leading-relaxed text-gray-700 dark:text-gray-300">
             "This platform completely transformed how we run our tech club. No more scattered
             spreadsheets or missed updates. Everything is in one place and our members actually
             engage now."
           </p>
-          <p className="font-display font-bold text-[#123a57]">- Campus Club Leaders</p>
+          <p className="font-display font-bold text-[#123a57] dark:text-[#ffffff]">
+            - Campus Club Leaders
+          </p>
         </div>
       </section>
 
       {/* THE LANDSCAPE (main) */}
-      <section className="bg-gray-50 border-b-2 border-gray-200 px-4 py-20 md:px-6">
+      <section className="bg-gray-50 dark:bg-[#0B1120] border-b-2 border-gray-200 px-4 py-20 md:px-6">
         <div className="mx-auto max-w-6xl">
           <SectionEyebrow>The landscape</SectionEyebrow>
-          <h2 className="mb-12 max-w-2xl text-4xl font-bold text-[#123a57] md:text-5xl">
+          <h2 className="mb-12 max-w-2xl text-4xl font-bold text-[#123a57] dark:text-[#ffffff] md:text-5xl">
             Where CampusConnect fits.
           </h2>
           <div className="grid gap-6 md:grid-cols-2">
@@ -443,9 +462,13 @@ export default function Landing() {
               },
             ].map((c, idx) => (
               <ScrollReveal key={c.t} delay={idx * 150}>
-                <article className="neu-border bg-white p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#123a57] hover:border-[#123a57]">
-                  <h3 className="mb-2 text-xl font-bold text-[#123a57]">{c.t}</h3>
-                  <p className="font-mono text-sm leading-relaxed text-gray-700">{c.d}</p>
+                <article className="neu-border bg-white p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#123a57] dark:hover:shadow-[6px_6px_0_0_#ffffff] hover:border-[#123a57] dark:border-[#ffffff]">
+                  <h3 className="mb-2 text-xl font-bold text-[#123a57] dark:text-[#ffffff]">
+                    {c.t}
+                  </h3>
+                  <p className="font-mono text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                    {c.d}
+                  </p>
                 </article>
               </ScrollReveal>
             ))}
@@ -459,21 +482,25 @@ export default function Landing() {
           <div>
             <ScrollReveal>
               <SectionEyebrow>Two ways to run your club</SectionEyebrow>
-              <h2 className="text-4xl font-bold text-[#123a57] md:text-5xl mb-6">
+              <h2 className="text-4xl font-bold text-[#123a57] dark:text-[#ffffff] md:text-5xl mb-6">
                 Hosted or self-hosted. Same features either way.
               </h2>
               <div className="grid grid-cols-2 gap-4">
-                <div className="neu-border bg-white p-5 border-l-4 border-l-[#123a57] transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#123a57]">
-                  <p className="eyebrow font-bold text-[#123a57]">Recommended</p>
-                  <h3 className="mt-2 text-2xl font-bold text-[#123a57]">Cloud</h3>
-                  <p className="mt-3 font-mono text-xs leading-relaxed text-gray-600">
+                <div className="neu-border bg-white p-5 border-l-4 border-l-[#123a57] transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#123a57] dark:hover:shadow-[6px_6px_0_0_#ffffff]">
+                  <p className="eyebrow font-bold text-[#123a57] dark:text-[#ffffff]">
+                    Recommended
+                  </p>
+                  <h3 className="mt-2 text-2xl font-bold text-[#123a57] dark:text-[#ffffff]">
+                    Cloud
+                  </h3>
+                  <p className="mt-3 font-mono text-xs leading-relaxed text-gray-600 dark:text-gray-400">
                     Managed hosting, SSO with your college email, zero DevOps.
                   </p>
                 </div>
                 <div className="neu-border bg-white p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#000000]">
                   <p className="eyebrow font-bold text-gray-500">Fork it</p>
                   <h3 className="mt-2 text-2xl font-bold">Self-host</h3>
-                  <p className="mt-3 font-mono text-xs leading-relaxed text-gray-600">
+                  <p className="mt-3 font-mono text-xs leading-relaxed text-gray-600 dark:text-gray-400">
                     Docker Compose up. Own the database, own the data.
                   </p>
                 </div>
@@ -484,10 +511,10 @@ export default function Landing() {
           <div>
             <ScrollReveal delay={200}>
               <SectionEyebrow>Under the hood</SectionEyebrow>
-              <h2 className="mb-6 text-4xl font-bold text-[#123a57] md:text-5xl">
+              <h2 className="mb-6 text-4xl font-bold text-[#123a57] dark:text-[#ffffff] md:text-5xl">
                 Boring, proven tech.
               </h2>
-              <div className="neu-border overflow-hidden bg-white transition-all duration-300 hover:shadow-[6px_6px_0_0_#123a57] hover:border-[#123a57]">
+              <div className="neu-border overflow-hidden bg-white transition-all duration-300 hover:shadow-[6px_6px_0_0_#123a57] dark:hover:shadow-[6px_6px_0_0_#ffffff] hover:border-[#123a57] dark:border-[#ffffff]">
                 <table className="w-full font-mono text-sm text-left">
                   <thead>
                     <tr className="bg-[#123a57] text-[#fef8eb]">
@@ -503,11 +530,13 @@ export default function Landing() {
                       ["Certificates", "PDF-lib"],
                       ["Deploy", "Cloudflare Workers"],
                     ].map(([a, b], i) => (
-                      <tr key={a} className={i % 2 ? "bg-gray-50" : "bg-white"}>
-                        <td className="border-b-2 border-black p-4 font-bold text-[#123a57]">
+                      <tr key={a} className={i % 2 ? "bg-gray-50 dark:bg-[#0B1120]" : "bg-white"}>
+                        <td className="border-b-2 border-black p-4 font-bold text-[#123a57] dark:text-[#ffffff]">
                           {a}
                         </td>
-                        <td className="border-b-2 border-black p-4 text-gray-700">{b}</td>
+                        <td className="border-b-2 border-black p-4 text-gray-700 dark:text-gray-300">
+                          {b}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -519,10 +548,10 @@ export default function Landing() {
       </section>
 
       {/* FEATURE HIGHLIGHT (main) */}
-      <section className="bg-gray-50 border-t-2 border-gray-200 px-4 py-20 md:px-6">
+      <section className="bg-gray-50 dark:bg-[#0B1120] border-t-2 border-gray-200 px-4 py-20 md:px-6">
         <div className="mx-auto max-w-6xl">
           <SectionEyebrow>Integrations & tools</SectionEyebrow>
-          <h2 className="mb-12 max-w-2xl text-4xl font-bold text-[#123a57] md:text-5xl">
+          <h2 className="mb-12 max-w-2xl text-4xl font-bold text-[#123a57] dark:text-[#ffffff] md:text-5xl">
             Plays nice with the tools you already use.
           </h2>
           <div className="grid gap-6 md:grid-cols-4">
@@ -533,9 +562,13 @@ export default function Landing() {
               { t: "Zapier", d: "Every action fires a webhook." },
             ].map((c, idx) => (
               <ScrollReveal key={c.t} delay={idx * 100}>
-                <article className="neu-border bg-white p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#123a57] hover:border-[#123a57]">
-                  <h3 className="mb-2 text-xl font-bold text-[#123a57]">{c.t}</h3>
-                  <p className="font-mono text-sm leading-relaxed text-gray-700">{c.d}</p>
+                <article className="neu-border bg-white p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#123a57] dark:hover:shadow-[6px_6px_0_0_#ffffff] hover:border-[#123a57] dark:border-[#ffffff]">
+                  <h3 className="mb-2 text-xl font-bold text-[#123a57] dark:text-[#ffffff]">
+                    {c.t}
+                  </h3>
+                  <p className="font-mono text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                    {c.d}
+                  </p>
                 </article>
               </ScrollReveal>
             ))}
@@ -553,7 +586,7 @@ export default function Landing() {
             </p>
             <Link
               to="/auth"
-              className="inline-block rounded-md bg-[#f5c66b] px-8 py-4 font-mono font-bold uppercase text-[#123a57] transition hover:bg-white active:scale-95"
+              className="inline-block rounded-md bg-[#f5c66b] px-8 py-4 font-mono font-bold uppercase text-[#123a57] dark:text-[#ffffff] transition hover:bg-white active:scale-95"
             >
               Create Your Club Now
             </Link>

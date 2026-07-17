@@ -158,7 +158,9 @@ export default function ClubProfile() {
       <section className="border-b-2 border-black px-4 py-14 md:px-6">
         <div className="mx-auto max-w-6xl">
           <p className="eyebrow font-bold">Club</p>
-          <h1 className="mt-2 text-5xl font-bold text-[#123a57] md:text-7xl">{club.name}</h1>
+          <h1 className="mt-2 text-5xl font-bold text-[#123a57] dark:text-[#ffffff] md:text-7xl">
+            {club.name}
+          </h1>
           <div className="markdown-content mt-4 max-w-2xl font-mono text-sm md:text-base leading-relaxed">
             <ReactMarkdown>{club.description || ""}</ReactMarkdown>
           </div>
@@ -241,7 +243,7 @@ export default function ClubProfile() {
               <ul className="divide-y-2 divide-black">
                 {events.map((e) => (
                   <li key={e.id} className="flex items-center gap-4 py-4">
-                    <div className="neu-border bg-gray-100 px-3 py-2 font-mono text-xs font-bold text-gray-700">
+                    <div className="neu-border bg-gray-100 px-3 py-2 font-mono text-xs font-bold text-gray-700 dark:text-gray-300">
                       {e.event_date
                         ? new Date(e.event_date)
                             .toLocaleDateString("en-US", { month: "short", day: "numeric" })

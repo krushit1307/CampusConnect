@@ -96,7 +96,7 @@ export function NotFoundPage() {
             <h1 className="font-display text-2xl font-black leading-snug text-black sm:text-3xl">
               No, no, that's right.
             </h1>
-            <p className="mx-auto max-w-xs font-mono text-xs leading-relaxed text-gray-700 sm:max-w-sm sm:text-sm">
+            <p className="mx-auto max-w-xs font-mono text-xs leading-relaxed text-gray-700 dark:text-gray-300 sm:max-w-sm sm:text-sm">
               This is a 404 page. And this page exists, no matter what anyone says.
             </p>
           </div>

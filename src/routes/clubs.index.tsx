@@ -132,7 +132,7 @@ export default function ClubsIndex() {
                 </div>
                 <p className="eyebrow font-bold">Your campus community starts here</p>
                 <h2 className="mt-2 text-3xl font-bold md:text-4xl">No clubs found</h2>
-                <p className="mt-3 max-w-md font-mono text-sm leading-6 text-gray-700">
+                <p className="mt-3 max-w-md font-mono text-sm leading-6 text-gray-700 dark:text-gray-300">
                   There are no clubs in the directory yet. Create the first club and bring students
                   with shared interests together.
                 </p>

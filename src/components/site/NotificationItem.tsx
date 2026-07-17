@@ -24,7 +24,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onMar
   return (
     <div
       onClick={handleItemClick}
-      className={`p-3 border-b border-gray-100 cursor-pointer transition-colors duration-200 hover:bg-gray-50 flex flex-col gap-1 text-left ${
+      className={`p-3 border-b border-gray-100 cursor-pointer transition-colors duration-200 hover:bg-gray-50 dark:bg-[#0B1120] flex flex-col gap-1 text-left ${
         !notification.isRead ? "bg-blue-50/60 font-medium" : "bg-white"
       }`}
     >

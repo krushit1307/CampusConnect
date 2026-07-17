@@ -41,40 +41,42 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-cream px-4 py-16">
+    <div className="relative flex min-h-screen items-center justify-center bg-auth-bg text-auth-text px-4 py-16">
       <Sparkle className="absolute left-8 top-8" size={20} />
       <Sparkle className="absolute right-8 top-8" size={20} />
       <Sparkle className="absolute bottom-8 left-8" size={16} />
       <Sparkle className="absolute bottom-8 right-8" size={16} />
       <div className="w-full max-w-md">
         <Link to="/" className="mb-6 inline-block font-display text-2xl font-bold">
-          CAMPUS<span className="bg-black px-1 text-cream">CONNECT</span>
+          CAMPUS<span className="bg-auth-text px-1 text-auth-bg">CONNECT</span>
         </Link>
-        <div className="neu-border bg-white p-8">
+        <div className="neu-border bg-auth-surface p-8">
           <p className="eyebrow mb-2 font-bold">Forgot password</p>
           <h1 className="mb-6 text-3xl font-bold">Reset your password</h1>
 
           {submitted ? (
             <div className="space-y-4">
-              <div className="bg-lime/40 p-3 font-mono text-sm">
+              <div className="bg-auth-focus-bg border border-auth-focus-border p-3 font-mono text-sm">
                 If an account exists for that email, we&apos;ve sent a link to reset your password.
                 Check your inbox (and spam folder).
               </div>
               <Link
                 to="/auth"
-                className="inline-block font-mono text-xs font-bold underline underline-offset-2"
+                className="inline-block font-mono text-xs font-bold text-auth-link underline underline-offset-2 hover:text-auth-link-hover"
               >
                 Back to sign in
               </Link>
             </div>
           ) : (
             <>
-              <p className="mb-6 font-mono text-sm text-gray-600">
+              <p className="mb-6 font-mono text-sm text-auth-text-muted">
                 Enter the email associated with your account and we&apos;ll send you a link to reset
                 your password.
               </p>
               {error && (
-                <div className="mb-4 bg-red-100 p-2 font-mono text-sm text-red-700">{error}</div>
+                <div className="mb-4 bg-destructive/10 p-2 font-mono text-sm text-destructive">
+                  {error}
+                </div>
               )}
               <form onSubmit={onSubmit} className="space-y-4">
                 <Field
@@ -87,14 +89,17 @@ export default function ForgotPasswordPage() {
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="neu-border neu-press w-full bg-black px-4 py-3 font-mono text-sm font-bold uppercase tracking-wider text-cream disabled:opacity-50"
+                  className="neu-border neu-press w-full bg-auth-text px-4 py-3 font-mono text-sm font-bold uppercase tracking-wider text-auth-bg disabled:opacity-50"
                 >
                   {loading ? "Sending..." : "Send reset link"}
                 </Button>
               </form>
-              <p className="mt-6 text-center font-mono text-xs">
+              <p className="mt-6 text-center font-mono text-xs text-auth-text-secondary">
                 Remembered it?{" "}
-                <Link to="/auth" className="font-bold underline underline-offset-2">
+                <Link
+                  to="/auth"
+                  className="font-bold text-auth-link underline underline-offset-2 hover:text-auth-link-hover"
+                >
                   Sign in
                 </Link>
               </p>
@@ -120,7 +125,7 @@ function Field({
   required?: boolean;
 }) {
   return (
-    <label className="block">
+    <label className="block text-auth-text">
       <span className="eyebrow mb-1 block font-bold">
         {label}
         {required && (
@@ -129,13 +134,13 @@ function Field({
           </span>
         )}
       </span>
-      <div className="relative flex items-center border-0 border-b-2 border-black focus-within:bg-lime/40 group">
+      <div className="group relative flex items-center border-0 border-b-2 border-auth-border bg-auth-input-bg focus-within:border-auth-focus-border focus-within:bg-auth-focus-bg focus-within:ring-1 focus-within:ring-auth-focus-ring focus-within:ring-offset-0">
         <input
           type={type}
           name={name}
           placeholder={placeholder}
           required={required}
-          className="w-full bg-transparent px-1 py-2 font-mono text-sm outline-none"
+          className="w-full bg-transparent px-1 py-2 font-mono text-sm text-auth-text placeholder:text-auth-placeholder outline-none"
         />
       </div>
     </label>

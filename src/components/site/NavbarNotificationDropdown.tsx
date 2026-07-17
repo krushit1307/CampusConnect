@@ -58,7 +58,7 @@ export const NavbarNotificationDropdown: React.FC = () => {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={toggleDropdown}
-        className="relative p-2 text-gray-600 hover:text-gray-900 focus:outline-none rounded-full transition-colors flex items-center justify-center"
+        className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 focus:outline-none rounded-full transition-colors flex items-center justify-center"
         aria-label="Notifications"
       >
         <svg
@@ -85,8 +85,10 @@ export const NavbarNotificationDropdown: React.FC = () => {
 
       {isOpen && (
         <div className="absolute right-0 mt-2 w-80 sm:w-96 max-h-[480px] bg-white rounded-lg shadow-xl border border-gray-200 z-50 origin-top-right">
-          <div className="p-3 border-b border-gray-200 bg-gray-50 flex justify-between items-center sticky top-0 z-10">
-            <h3 className="font-semibold text-sm text-gray-700">Notifications</h3>
+          <div className="p-3 border-b border-gray-200 bg-gray-50 dark:bg-[#0B1120] flex justify-between items-center sticky top-0 z-10">
+            <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300">
+              Notifications
+            </h3>
             {unreadCount > 0 && (
               <button
                 onClick={() => setNotifications(notifications.map((n) => ({ ...n, isRead: true })))}

@@ -10,7 +10,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast: "group toast neu-border font-mono bg-white text-black",
-          description: "group-[.toast]:text-gray-700",
+          description: "group-[.toast]:text-gray-700 dark:text-gray-300",
           actionButton: "neu-border bg-black text-white",
           cancelButton: "neu-border bg-gray-200 text-black",
           error: "!bg-peach text-black",
