@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button"; // Added unified Button component import
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import { getFriendlyAuthError } from "@/utils/authErrors";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -59,8 +60,9 @@ function AuthPage() {
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      setError(err.message);
-      toast.error(err.message || "Something went wrong. Please try again.");
+      const friendlyMessage = getFriendlyAuthError(err);
+      setError(friendlyMessage);
+      toast.error(friendlyMessage);
     } finally {
       setLoading(false);
     }
@@ -79,8 +81,9 @@ function AuthPage() {
       if (error) throw error;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      setError(err.message);
-      toast.error(err.message || "Something went wrong. Please try again.");
+      const friendlyMessage = getFriendlyAuthError(err);
+      setError(friendlyMessage);
+      toast.error(friendlyMessage);
       setLoading(false);
     }
   }
