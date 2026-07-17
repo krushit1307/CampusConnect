@@ -1,4 +1,4 @@
-import { formatDate, getGoogleCalendarUrl } from "@/lib/utils";
+import { formatDate, formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
 import { FormEvent, useState } from "react";
 import { Calendar, Check, Share2, X, Bookmark, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -11,6 +11,8 @@ interface Event {
   title: string;
   description: string | null;
   event_date: string | null;
+  start_date: string | null;
+  end_date: string | null;
   location: string | null;
   banner_url?: string | null;
   clubs: { name: string } | { name: string }[] | null;
@@ -47,6 +49,8 @@ export function EventCard({
     title: event.title,
     description: event.description,
     event_date: event.event_date,
+    start_date: event.start_date,
+    end_date: event.end_date,
     location: event.location,
   });
 
@@ -168,9 +172,7 @@ export function EventCard({
       <dl className="mt-5 grid gap-4 sm:grid-cols-3">
         <div>
           <dt className="font-mono text-xs font-bold uppercase">Date &amp; Time</dt>
-          <dd className="mt-1 text-sm">
-            {event.event_date ? formatDate(event.event_date) : "TBA"}
-          </dd>
+          <dd className="mt-1 text-sm">{formatEventDateRange(event)}</dd>
         </div>
         <div>
           <dt className="font-mono text-xs font-bold uppercase">Venue</dt>

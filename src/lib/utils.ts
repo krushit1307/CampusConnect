@@ -52,19 +52,67 @@ export const formatDate = (dateString: string): string => {
   return `${formattedDate} at ${formattedTime}`;
 };
 
+export function formatEventDateRange(event: {
+  event_date: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+}): string {
+  const startValue = event.start_date || event.event_date;
+
+  if (!startValue) return "TBA";
+
+  if (!event.end_date) {
+    return formatDate(startValue);
+  }
+
+  const startDate = new Date(startValue);
+  const endDate = new Date(event.end_date);
+
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    return formatDate(startValue);
+  }
+
+  const isSameDay = startDate.toDateString() === endDate.toDateString();
+
+  if (!isSameDay) {
+    return `${formatDate(startValue)} – ${formatDate(event.end_date)}`;
+  }
+
+  const dateFormatter = new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  const timeFormatter = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+  return `${dateFormatter.format(startDate)} at ${timeFormatter.format(startDate)} – ${timeFormatter.format(endDate)}`;
+}
+
 export function getGoogleCalendarUrl(event: {
   title: string;
   description: string | null;
   event_date: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
   location: string | null;
 }): string | null {
-  if (!event.event_date) return null;
+  const startValue = event.start_date || event.event_date;
 
-  const startDate = new Date(event.event_date);
+  if (!startValue) return null;
+
+  const startDate = new Date(startValue);
   if (isNaN(startDate.getTime())) return null;
 
-  // Default duration to 1 hour
-  const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+  const endDate = event.end_date
+    ? new Date(event.end_date)
+    : new Date(startDate.getTime() + 60 * 60 * 1000);
+
+  if (isNaN(endDate.getTime())) return null;
 
   const formatUtcDate = (date: Date) => {
     return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";

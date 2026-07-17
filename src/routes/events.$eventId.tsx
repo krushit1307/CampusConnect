@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
-import { formatDate, getGoogleCalendarUrl } from "@/lib/utils";
+import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
 import { toast } from "sonner";
 import { ArrowLeft, Calendar, Check, Link as LinkIcon, MapPin, Share2, Users } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -34,7 +34,7 @@ export default function EventDetailsPage() {
         .from("events")
         .select(
           `
-          id, title, description, event_date, location, banner_url,
+          id, title, description, event_date, start_date, end_date, location, banner_url,
           clubs (name, slug),
           event_rsvps (id, user_id)
         `,
@@ -60,6 +60,10 @@ export default function EventDetailsPage() {
                   ? "Learn the basics of watercolor painting with live demonstrations."
                   : "Showcase your music talent or just come to enjoy the acoustic performances.",
             event_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            start_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            end_date: new Date(
+              Date.now() + 7 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
+            ).toISOString(),
             location:
               eventId === "mock-1"
                 ? "Main Auditorium"
@@ -155,6 +159,8 @@ export default function EventDetailsPage() {
     title: event.title,
     description: event.description || "",
     event_date: event.event_date || "",
+    start_date: event.start_date,
+    end_date: event.end_date,
     location: event.location || "",
   });
 
@@ -251,9 +257,7 @@ export default function EventDetailsPage() {
                 <dt className="font-mono text-xs font-bold uppercase text-black/50">
                   Date &amp; Time
                 </dt>
-                <dd className="mt-1 text-sm font-bold">
-                  {event.event_date ? formatDate(event.event_date) : "TBA"}
-                </dd>
+                <dd className="mt-1 text-sm font-bold">{formatEventDateRange(event)}</dd>
               </div>
             </div>
 
