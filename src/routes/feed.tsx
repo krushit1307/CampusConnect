@@ -1,6 +1,6 @@
-import { useMutation, useQuery } from "@/hooks/useReactQueryReplacement";
+import { useMutation, useQuery, useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import type { User } from "@supabase/supabase-js";
-import { MessageCircle, MessageSquareText, PenLine, Sparkles } from "lucide-react";
+import { MessageCircle, MessageSquareText, PenLine, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
@@ -11,8 +11,21 @@ import { calculateReadTime } from "@/utils/readTime";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { toast } from "sonner";
 import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type MemberRole = "admin" | "organizer" | "member" | "alumni";
+
+const POSTS_PER_PAGE = 10;
 
 export default function Feed() {
   const supabase = createClient();
@@ -54,13 +67,20 @@ export default function Feed() {
   }, [userClubs, selectedClubId]);
 
   const {
-    data: posts = [],
+    data,
     isLoading,
     isFetching,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
     refetch: refetchPosts,
-  } = useQuery({
+  } = useInfiniteQuery({
     queryKey: ["posts"],
-    queryFn: async () => {
+    initialPageParam: 0,
+    queryFn: async ({ pageParam = 0 }) => {
+      const from = pageParam * POSTS_PER_PAGE;
+      const to = from + POSTS_PER_PAGE - 1;
+
       const { data } = await supabase
         .from("posts")
         .select(
@@ -72,11 +92,36 @@ export default function Feed() {
           `,
         )
         .is("deleted_at", null)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .range(from, to);
 
-      return data || [];
+      return {
+        posts: data || [],
+        nextPage: (data || []).length === POSTS_PER_PAGE ? pageParam + 1 : undefined,
+      };
     },
+    getNextPageParam: (lastPage) => lastPage.nextPage,
   });
+
+  const posts = data?.pages.flatMap((page) => page.posts) || [];
+
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: "100px" },
+    );
+
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage]);
 
   useEffect(() => {
     const channel = supabase
@@ -124,6 +169,24 @@ export default function Feed() {
       setNewComments((prev) => ({ ...prev, [postId]: "" }));
     },
     onSuccess: () => refetchPosts(),
+  });
+
+  const deletePostMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      if (!user) throw new Error("Must be logged in");
+      const { error } = await supabase
+        .from("posts")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", postId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchPosts();
+      toast.success("Post deleted successfully!");
+    },
+    onError: () => {
+      toast.error("Failed to delete post.");
+    },
   });
 
   const timeAgo = (dateString: string) => {
@@ -260,7 +323,7 @@ export default function Feed() {
 
                 return (
                   <article key={post.id} className="neu-border bg-white p-6">
-                    <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-black pb-3">
+                    <header className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b-2 border-black pb-3">
                       <div>
                         <p className="font-display text-lg font-bold flex items-center gap-2">
                           {author?.full_name || "Unknown User"}
@@ -273,6 +336,42 @@ export default function Feed() {
                           </span>
                         </p>
                       </div>
+                      {user?.id === author?.id && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <button
+                              type="button"
+                              className="neu-border neu-press flex items-center gap-1 bg-[#FF6B6B] hover:bg-[#FF8787] text-black px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer"
+                              aria-label="Delete post"
+                            >
+                              <Trash2 size={10} strokeWidth={2.5} />
+                              Delete
+                            </button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="neu-border bg-white rounded-none p-6">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="font-display text-xl font-bold">
+                                Delete post?
+                              </AlertDialogTitle>
+                              <AlertDialogDescription className="font-mono text-sm text-gray-700">
+                                Are you sure you want to delete this post? This action cannot be
+                                undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+                              <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
+                                Cancel
+                              </AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deletePostMutation.mutate(post.id)}
+                                className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
+                              >
+                                Confirm
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                     </header>
 
                     <div className="markdown-content mt-2 font-mono text-sm leading-relaxed">
@@ -374,6 +473,30 @@ export default function Feed() {
                 );
               })
             )}
+
+            {isFetchingNextPage &&
+              Array.from({ length: 2 }).map((_, i) => (
+                <div
+                  key={`next-load-${i}`}
+                  className="neu-border bg-white p-6 animate-pulse h-48 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="h-6 bg-gray-200 w-1/3 mb-4 rounded neu-border border-gray-300" />
+                    <div className="h-4 bg-gray-200 w-full rounded mb-2" />
+                    <div className="h-4 bg-gray-200 w-full rounded mb-2" />
+                    <div className="h-4 bg-gray-200 w-5/6 rounded" />
+                  </div>
+                  <div className="h-8 bg-gray-200 w-full mt-4 rounded" />
+                </div>
+              ))}
+
+            {!hasNextPage && posts.length > 0 && (
+              <div className="py-10 text-center font-mono text-sm font-bold text-gray-500 uppercase">
+                You're all caught up! 🎉
+              </div>
+            )}
+
+            <div ref={sentinelRef} aria-hidden="true" />
           </div>
         </section>
       </PullToRefresh>

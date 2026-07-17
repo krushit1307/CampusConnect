@@ -208,6 +208,9 @@ export default function EventDetailsPage() {
               src={event.banner_url}
               alt={event.title}
               className="neu-border h-48 w-full object-cover md:h-80"
+              width={896}
+              height={320}
+              loading="lazy"
             />
           ) : (
             <div className="neu-border flex h-48 w-full items-center justify-center bg-peach md:h-80">

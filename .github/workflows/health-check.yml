@@ -1,0 +1,39 @@
+name: Keep-Alive Health Check
+
+on:
+  schedule:
+    # Trigger every 14 minutes to prevent Render's free tier from spinning down (which happens after 15 mins of inactivity)
+    - cron: "*/14 * * * *"
+  workflow_dispatch: # Allows manual trigger from the GitHub Actions tab
+
+jobs:
+  ping-backend:
+    runs-on: ubuntu-latest
+    env:
+      BACKEND_URL: ${{ secrets.RENDER_BACKEND_URL }}
+
+    steps:
+      - name: Ping /api/health
+        run: |
+          # Use backend URL from env; default to a placeholder if not configured
+          if [ -z "$BACKEND_URL" ]; then
+            echo "⚠️ RENDER_BACKEND_URL is not set. Defaulting to https://campusconnect.onrender.com"
+            BACKEND_URL="https://campusconnect.onrender.com"
+          fi
+          
+          # Remove trailing slash if present
+          BACKEND_URL=$(echo "$BACKEND_URL" | sed 's/\/$//')
+          
+          echo "📡 Sending keep-alive request to $BACKEND_URL/api/health..."
+          
+          # Send request and extract http status code
+          STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$BACKEND_URL/api/health")
+          
+          echo "📥 Response Status Code: $STATUS_CODE"
+          
+          if [ "$STATUS_CODE" -eq 200 ]; then
+            echo "✅ Render backend is active and responded successfully."
+          else
+            echo "❌ Backend did not respond with 200 OK."
+            exit 1
+          fi

@@ -1,15 +1,35 @@
-name: Sync Issue Data to Merged PR
+name: "05 PR Validation"
 
 on:
   pull_request_target:
-    types: [opened, edited, synchronize, reopened]
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  pull-requests: write
+  issues: write
+  contents: read
+  checks: read
 
 jobs:
-  sync-labels-and-assignees:
+  pr-validation:
+    name: Validate PR via Bot
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-      issues: read
+    concurrency:
+      group: pr-check-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Validate PR
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { processPrValidation } = await import(`${process.cwd()}/.github/scripts/pr.js`);
+            await processPrValidation({ github, context, core });
+
+  sync-labels-and-assignees:
+    name: Sync Issue Data to PR
+    runs-on: ubuntu-latest
     steps:
       - name: Sync labels and assignees from Issue to PR
         uses: actions/github-script@v7
