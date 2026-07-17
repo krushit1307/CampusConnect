@@ -225,8 +225,12 @@ export default function EventsPage() {
         });
 
   const sortedEvents = [...filteredEvents].sort((a, b) => {
-    const dateA = new Date(a.event_date ?? 0).getTime();
-    const dateB = new Date(b.event_date ?? 0).getTime();
+    if (!a.event_date && !b.event_date) return 0;
+    if (!a.event_date) return 1;
+    if (!b.event_date) return -1;
+
+    const dateA = new Date(a.event_date).getTime();
+    const dateB = new Date(b.event_date).getTime();
 
     return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
   });
