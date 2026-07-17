@@ -19,28 +19,25 @@ export default function ForgotPasswordPage() {
     const email = formData.get("email") as string;
 
     try {
-  const { error } = await supabase.functions.invoke(
-    "request-password-reset",
-    {
-      body: {
-        email,
-        redirectTo: `${window.location.origin}/reset-password`,
-      },
-    },
-  );
+      const { error } = await supabase.functions.invoke("request-password-reset", {
+        body: {
+          email,
+          redirectTo: `${window.location.origin}/reset-password`,
+        },
+      });
 
-  if (error) throw error;
+      if (error) throw error;
 
-  // Always show the same success state, whether or not the email exists,
-  // so we don't leak which addresses have an account.
-  setSubmitted(true);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-} catch (err: any) {
-  setError(err.message);
-  toast.error(err.message || "Something went wrong. Please try again.");
-} finally {
-  setLoading(false);
-}
+      // Always show the same success state, whether or not the email exists,
+      // so we don't leak which addresses have an account.
+      setSubmitted(true);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      setError(err.message);
+      toast.error(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
