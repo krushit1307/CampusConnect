@@ -61,7 +61,7 @@ function Certificates() {
         </div>
       </section>
       <section className="bg-cream px-4 py-12 md:px-6">
-        <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2">
+        <div className="mx-auto grid w-full max-w-7xl gap-6 md:grid-cols-2">
           {isLoading ? (
             <div className="col-span-full font-mono py-10">Loading certificates...</div>
           ) : certs.length === 0 ? (
@@ -75,13 +75,16 @@ function Certificates() {
               const club = (event && !Array.isArray(event.clubs) ? event.clubs : null) as any;
 
               return (
-                <article key={c.id} className="neu-border neu-press bg-white p-6">
+                <article
+                  key={c.id}
+                  className="neu-border neu-press w-full max-w-full overflow-hidden bg-white p-6"
+                >
                   <div
-                    className={`neu-border ${colors[index % colors.length]} mb-4 flex items-center justify-between px-4 py-6`}
+                    className={`neu-border ${colors[index % colors.length]} mb-4 flex flex-wrap items-start justify-between gap-3 px-4 py-6`}
                   >
                     <div>
                       <p className="eyebrow font-bold">Certificate</p>
-                      <p className="mt-1 font-display text-2xl font-bold">
+                      <p className="mt-1 break-words font-display text-2xl font-bold">
                         {event?.title || "Unknown Event"}
                       </p>
                     </div>
@@ -103,7 +106,7 @@ function Certificates() {
                       <p className="truncate max-w-[100px]">{c.id.split("-")[0]}</p>
                     </div>
                   </div>
-                  <div className="mt-5 flex gap-3">
+                  <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                     <button
                       onClick={async () => {
                         setOpeningId(c.id);
