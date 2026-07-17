@@ -65,7 +65,6 @@ export default function Feed() {
     }
   }, [userClubs, selectedClubId]);
 
-
   const {
     data,
     isLoading,
@@ -82,7 +81,8 @@ export default function Feed() {
 
       const { data, error } = await supabase
         .from("posts")
-        .select(`
+        .select(
+          `
         id, content, created_at, club_id,
         profiles (id, full_name),
         clubs (
@@ -96,7 +96,8 @@ export default function Feed() {
           created_at,
           profiles (id, full_name)
         )
-      `)
+      `,
+        )
         .order("created_at", { ascending: false })
         .range(from, to);
 
@@ -104,10 +105,7 @@ export default function Feed() {
 
       return {
         posts: data || [],
-        nextPage:
-          (data || []).length === POSTS_PER_PAGE
-            ? pageParam + 1
-            : undefined,
+        nextPage: (data || []).length === POSTS_PER_PAGE ? pageParam + 1 : undefined,
       };
     },
     getNextPageParam: (lastPage) => lastPage.nextPage,
@@ -131,7 +129,7 @@ export default function Feed() {
 
     observer.observe(sentinelRef.current);
     return () => observer.disconnect();
-}, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   useEffect(() => {
     const channel = supabase
@@ -215,7 +213,10 @@ export default function Feed() {
 
   return (
     <SiteShell>
-      <PullToRefresh isRefreshing={isLoading || isFetchingNextPage} onRefresh={() => refetchPosts()}>
+      <PullToRefresh
+        isRefreshing={isLoading || isFetchingNextPage}
+        onRefresh={() => refetchPosts()}
+      >
         <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
           <div className="mx-auto max-w-4xl">
             <p className="eyebrow font-bold">Discussion feed</p>
@@ -485,10 +486,7 @@ export default function Feed() {
             )}
             {isFetchingNextPage &&
               Array.from({ length: 2 }).map((_, i) => (
-                <div
-                  key={`loading-${i}`}
-                  className="neu-border bg-white p-6 animate-pulse"
-                >
+                <div key={`loading-${i}`} className="neu-border bg-white p-6 animate-pulse">
                   <div className="h-6 w-1/3 rounded bg-gray-200" />
                   <div className="mt-4 h-4 w-full rounded bg-gray-200" />
                   <div className="mt-2 h-4 w-5/6 rounded bg-gray-200" />
@@ -502,9 +500,9 @@ export default function Feed() {
             )}
 
             <div ref={sentinelRef} aria-hidden="true" />
-          </div >
-        </section >
-      </PullToRefresh >
-    </SiteShell >
+          </div>
+        </section>
+      </PullToRefresh>
+    </SiteShell>
   );
 }
