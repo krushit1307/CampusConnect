@@ -91,8 +91,26 @@ ON event_feedbacks;
 CREATE POLICY "Users can update own feedback."
 ON event_feedbacks
 FOR UPDATE
-USING (auth.uid() = user_id)
-WITH CHECK (auth.uid() = user_id);
+USING (
+    auth.uid() = user_id
+    AND EXISTS (
+        SELECT 1
+        FROM event_rsvps
+        WHERE event_rsvps.event_id = event_feedbacks.event_id
+          AND event_rsvps.user_id = auth.uid()
+          AND event_rsvps.checked_in = TRUE
+    )
+)
+WITH CHECK (
+    auth.uid() = user_id
+    AND EXISTS (
+        SELECT 1
+        FROM event_rsvps
+        WHERE event_rsvps.event_id = event_feedbacks.event_id
+          AND event_rsvps.user_id = auth.uid()
+          AND event_rsvps.checked_in = TRUE
+    )
+);
 
 DROP POLICY IF EXISTS "Users can delete own feedback."
 ON event_feedbacks;
@@ -103,11 +121,27 @@ FOR DELETE
 USING (auth.uid() = user_id);
 
 -- ------------------------------------------------------------
--- Trigger Function
+-- Trigger Functions
 -- ------------------------------------------------------------
 
+CREATE OR REPLACE FUNCTION prevent_feedback_event_id_change()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NEW.event_id <> OLD.event_id THEN
+        RAISE EXCEPTION 'event_id cannot be changed after insertion.';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION update_event_average_rating()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 DECLARE
     target_event UUID;
 BEGIN
@@ -126,11 +160,20 @@ BEGIN
 
     RETURN COALESCE(NEW, OLD);
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- ------------------------------------------------------------
--- Trigger
+-- Triggers
 -- ------------------------------------------------------------
+
+DROP TRIGGER IF EXISTS ensure_feedback_event_immutable
+ON event_feedbacks;
+
+CREATE TRIGGER ensure_feedback_event_immutable
+BEFORE UPDATE
+ON event_feedbacks
+FOR EACH ROW
+EXECUTE FUNCTION prevent_feedback_event_id_change();
 
 DROP TRIGGER IF EXISTS on_event_feedback_changed
 ON event_feedbacks;
