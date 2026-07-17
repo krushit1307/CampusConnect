@@ -160,6 +160,29 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.is_system_admin() TO authenticated;
+
+-- Helper function: check if user is club admin
+CREATE OR REPLACE FUNCTION public.is_club_admin(club_id UUID, user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1
+    FROM public.club_members
+    WHERE club_members.club_id = is_club_admin.club_id
+      AND club_members.user_id = is_club_admin.user_id
+      AND club_members.role = 'admin'::member_role
+      AND club_members.status = 'approved'::join_status
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_club_admin(UUID, UUID) TO authenticated;
+
 -- 3. Row Level Security (RLS)
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
@@ -182,7 +205,7 @@ CREATE POLICY "Clubs are viewable by everyone." ON clubs FOR SELECT USING (true)
 CREATE POLICY "Users can create clubs." ON clubs FOR INSERT WITH CHECK (auth.uid() = created_by);
 CREATE POLICY "Club admins can update clubs." ON clubs FOR UPDATE USING (
   auth.uid() = created_by OR 
-  EXISTS (SELECT 1 FROM club_members WHERE club_id = clubs.id AND user_id = auth.uid() AND role = 'admin' AND status = 'approved')
+  public.is_club_admin(id, auth.uid())
 );
 
 -- club_members: members can read their club's list, only club admins can approve/change roles
@@ -203,24 +226,24 @@ CREATE POLICY "System admins can delete event categories." ON event_categories F
 -- events: public read, only club admins can create/edit
 CREATE POLICY "Events are viewable by everyone." ON events FOR SELECT USING (true);
 CREATE POLICY "Club admins can insert events." ON events FOR INSERT WITH CHECK (
-  EXISTS (SELECT 1 FROM club_members WHERE club_id = events.club_id AND user_id = auth.uid() AND role = 'admin' AND status = 'approved') OR
+  public.is_club_admin(club_id, auth.uid()) OR
   EXISTS (SELECT 1 FROM clubs WHERE id = events.club_id AND created_by = auth.uid())
 );
 CREATE POLICY "Club admins can update events." ON events FOR UPDATE USING (
-  EXISTS (SELECT 1 FROM club_members WHERE club_id = events.club_id AND user_id = auth.uid() AND role = 'admin' AND status = 'approved') OR
+  public.is_club_admin(club_id, auth.uid()) OR
   EXISTS (SELECT 1 FROM clubs WHERE id = events.club_id AND created_by = auth.uid())
 );
 
 -- event_rsvps: users can create/read their own RSVPs, club admins can read all for their events
 CREATE POLICY "Users can read own RSVPs." ON event_rsvps FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Club admins can read all RSVPs." ON event_rsvps FOR SELECT USING (
-  EXISTS (SELECT 1 FROM club_members WHERE club_id = (SELECT club_id FROM events WHERE id = event_rsvps.event_id) AND user_id = auth.uid() AND role = 'admin' AND status = 'approved') OR
+  public.is_club_admin((SELECT club_id FROM events WHERE id = event_rsvps.event_id), auth.uid()) OR
   EXISTS (SELECT 1 FROM clubs WHERE id = (SELECT club_id FROM events WHERE id = event_rsvps.event_id) AND created_by = auth.uid())
 );
 CREATE POLICY "Users can RSVP." ON event_rsvps FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can remove their RSVP." ON event_rsvps FOR DELETE USING (auth.uid() = user_id);
 CREATE POLICY "Club admins can update RSVPs (check in)." ON event_rsvps FOR UPDATE USING (
-  EXISTS (SELECT 1 FROM club_members WHERE club_id = (SELECT club_id FROM events WHERE id = event_rsvps.event_id) AND user_id = auth.uid() AND role = 'admin' AND status = 'approved') OR
+  public.is_club_admin((SELECT club_id FROM events WHERE id = event_rsvps.event_id), auth.uid()) OR
   EXISTS (SELECT 1 FROM clubs WHERE id = (SELECT club_id FROM events WHERE id = event_rsvps.event_id) AND created_by = auth.uid())
 );
 
