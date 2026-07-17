@@ -1,5 +1,5 @@
 -- 1. Create custom types
-CREATE TYPE user_role AS ENUM ('student', 'club_admin');
+CREATE TYPE user_role AS ENUM ('student', 'club_admin', 'system_admin');
 CREATE TYPE member_role AS ENUM ('member', 'admin');
 CREATE TYPE join_status AS ENUM ('pending', 'approved');
 
@@ -135,6 +135,32 @@ CREATE TABLE saved_events (
   UNIQUE(event_id, user_id)
 );
 
+-- Helper function: check if user is system admin
+CREATE OR REPLACE FUNCTION public.is_system_admin()
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+BEGIN
+  -- Check Supabase JWT app_metadata claim first (fast path)
+  IF (auth.jwt() -> 'app_metadata' ->> 'role') = 'system_admin' THEN
+    RETURN TRUE;
+  END IF;
+
+  -- Fallback: check the profiles table role column
+  RETURN EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = auth.uid()
+      AND role::TEXT = 'system_admin'
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_system_admin() TO authenticated;
+
 -- 3. Row Level Security (RLS)
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
@@ -169,8 +195,11 @@ CREATE POLICY "Admins can update members." ON club_members FOR UPDATE USING (
   EXISTS (SELECT 1 FROM clubs WHERE id = club_members.club_id AND created_by = auth.uid())
 );
 
--- event_categories: public read
+-- event_categories: public read, only system admins can modify
 CREATE POLICY "Event categories are viewable by everyone." ON event_categories FOR SELECT USING (true);
+CREATE POLICY "System admins can insert event categories." ON event_categories FOR INSERT TO authenticated WITH CHECK (public.is_system_admin());
+CREATE POLICY "System admins can update event categories." ON event_categories FOR UPDATE TO authenticated USING (public.is_system_admin()) WITH CHECK (public.is_system_admin());
+CREATE POLICY "System admins can delete event categories." ON event_categories FOR DELETE TO authenticated USING (public.is_system_admin());
 
 -- events: public read, only club admins can create/edit
 CREATE POLICY "Events are viewable by everyone." ON events FOR SELECT USING (true);
