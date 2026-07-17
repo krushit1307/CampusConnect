@@ -1,0 +1,39 @@
+name: "07 Issue Comment Guidance"
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: guidance-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  guidance:
+    if: |
+      github.event.issue.pull_request == null &&
+      !startsWith(github.event.comment.body, '/') &&
+      (
+        contains(github.event.comment.body, 'assign me') ||
+        contains(github.event.comment.body, 'please assign') ||
+        contains(github.event.comment.body, 'interested') ||
+        contains(github.event.comment.body, 'I''d like to contribute') ||
+        contains(github.event.comment.body, 'can I work on this') ||
+        contains(github.event.comment.body, 'I want to work on this') ||
+        contains(github.event.comment.body, 'can I take this issue') ||
+        contains(github.event.comment.body, 'happy to work on this')
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Process natural-language claim guidance
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { processIssueCommentGuidance } = await import(`${process.cwd()}/.github/scripts/issue-comments.js`);
+            await processIssueCommentGuidance({ github, context, core });

@@ -1,16 +1,26 @@
 import { useMutation, useQuery, useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import type { User } from "@supabase/supabase-js";
-import { MessageCircle, MessageSquareText, PenLine, Sparkles } from "lucide-react";
+import { MessageCircle, MessageSquareText, PenLine, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-
+import { toast } from "sonner";
 import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { calculateReadTime } from "@/utils/readTime";
 import { PullToRefresh } from "@/components/PullToRefresh";
-import { toast } from "sonner";
 import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type MemberRole = "admin" | "organizer" | "member" | "alumni";
 
@@ -59,17 +69,10 @@ export default function Feed() {
     data,
     isLoading,
     isFetching,
-    isFetchingNextPage,
-    hasNextPage,
-    fetchNextPage,
     refetch: refetchPosts,
   } = useInfiniteQuery({
     queryKey: ["posts"],
-    initialPageParam: 0,
-    queryFn: async ({ pageParam = 0 }) => {
-      const from = pageParam * POSTS_PER_PAGE;
-      const to = from + POSTS_PER_PAGE - 1;
-
+    queryFn: async () => {
       const { data } = await supabase
         .from("posts")
         .select(
@@ -77,41 +80,15 @@ export default function Feed() {
           id, content, created_at, club_id,
           profiles (id, full_name),
           clubs (id, name, club_members (user_id, role)),
-          comments (id, content, created_at, profiles (id, full_name)),
-          post_reactions (id, emoji, user_id)
+          comments (id, content, created_at, profiles (id, full_name))
           `,
         )
         .is("deleted_at", null)
-        .order("created_at", { ascending: false })
-        .range(from, to);
+        .order("created_at", { ascending: false });
 
-      return {
-        posts: data || [],
-        nextPage: (data || []).length === POSTS_PER_PAGE ? pageParam + 1 : undefined,
-      };
+      return data || [];
     },
-    getNextPageParam: (lastPage) => lastPage.nextPage,
   });
-
-  const posts = data?.pages.flatMap((page) => page.posts) || [];
-
-  const sentinelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!sentinelRef.current) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
-          fetchNextPage();
-        }
-      },
-      { rootMargin: "100px" },
-    );
-
-    observer.observe(sentinelRef.current);
-    return () => observer.disconnect();
-  }, [hasNextPage, isFetchingNextPage]);
 
   useEffect(() => {
     const channel = supabase
@@ -164,34 +141,6 @@ export default function Feed() {
     onSuccess: () => refetchPosts(),
   });
 
-  const reactionMutation = useMutation({
-    mutationFn: async ({
-      postId,
-      emoji,
-      isReacted,
-    }: {
-      postId: string;
-      emoji: string;
-      isReacted: boolean;
-    }) => {
-      if (!user) throw new Error("Must be logged in");
-
-      if (isReacted) {
-        const { error } = await supabase
-          .from("post_reactions")
-          .delete()
-          .match({ post_id: postId, user_id: user.id, emoji });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("post_reactions")
-          .insert({ post_id: postId, user_id: user.id, emoji });
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => refetchPosts(),
-  });
-
   const timeAgo = (dateString: string) => {
     const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
     const diff = new Date().getTime() - new Date(dateString).getTime();
@@ -208,7 +157,10 @@ export default function Feed() {
 
   return (
     <SiteShell>
-      <PullToRefresh isRefreshing={isFetching} onRefresh={() => refetchPosts()}>
+      <PullToRefresh
+        isRefreshing={isLoading || isFetchingNextPage}
+        onRefresh={() => refetchPosts()}
+      >
         <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
           <div className="mx-auto max-w-4xl">
             <p className="eyebrow font-bold">Discussion feed</p>
@@ -325,7 +277,7 @@ export default function Feed() {
                 const postComments = Array.isArray(post.comments) ? post.comments : [];
 
                 return (
-                  <article key={post.id} className="neu-border bg-white p-6">
+                  <article id={`post-${post.id}`} key={post.id} className="neu-border bg-white p-6">
                     <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-black pb-3">
                       <div>
                         <p className="font-display text-lg font-bold flex items-center gap-2">
@@ -339,6 +291,42 @@ export default function Feed() {
                           </span>
                         </p>
                       </div>
+                      {user?.id === author?.id && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <button
+                              type="button"
+                              className="neu-border neu-press flex items-center gap-1 bg-[#FF6B6B] hover:bg-[#FF8787] text-black px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer"
+                              aria-label="Delete post"
+                            >
+                              <Trash2 size={10} strokeWidth={2.5} />
+                              Delete
+                            </button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="neu-border bg-white rounded-none p-6">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="font-display text-xl font-bold">
+                                Delete post?
+                              </AlertDialogTitle>
+                              <AlertDialogDescription className="font-mono text-sm text-gray-700">
+                                Are you sure you want to delete this post? This action cannot be
+                                undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+                              <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
+                                Cancel
+                              </AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deletePostMutation.mutate(post.id)}
+                                className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
+                              >
+                                Confirm
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                     </header>
 
                     <div className="markdown-content mt-2 font-mono text-sm leading-relaxed">
@@ -379,7 +367,7 @@ export default function Feed() {
 
                     <div className="mt-4 flex gap-2 border-t-2 border-black pt-4">
                       <a
-                        href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
+                        href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(`${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#1DA1F2] hover:text-white transition-colors"
@@ -387,7 +375,7 @@ export default function Feed() {
                         Twitter
                       </a>
                       <a
-                        href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`}
+                        href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#0A66C2] hover:text-white transition-colors"
@@ -395,7 +383,7 @@ export default function Feed() {
                         LinkedIn
                       </a>
                       <a
-                        href={`https://wa.me/?text=${encodeURIComponent(`Check out this post: ${post.content.substring(0, 50)}... - ${window.location.href}`)}`}
+                        href={`https://wa.me/?text=${encodeURIComponent(`Check out this post: ${post.content.substring(0, 50)}... - ${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#25D366] hover:text-white transition-colors"
@@ -472,30 +460,6 @@ export default function Feed() {
                 );
               })
             )}
-
-            {isFetchingNextPage &&
-              Array.from({ length: 2 }).map((_, i) => (
-                <div
-                  key={`next-load-${i}`}
-                  className="neu-border bg-white p-6 animate-pulse h-48 flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="h-6 bg-gray-200 w-1/3 mb-4 rounded neu-border border-gray-300" />
-                    <div className="h-4 bg-gray-200 w-full rounded mb-2" />
-                    <div className="h-4 bg-gray-200 w-full rounded mb-2" />
-                    <div className="h-4 bg-gray-200 w-5/6 rounded" />
-                  </div>
-                  <div className="h-8 bg-gray-200 w-full mt-4 rounded" />
-                </div>
-              ))}
-
-            {!hasNextPage && posts.length > 0 && (
-              <div className="py-10 text-center font-mono text-sm font-bold text-gray-500 uppercase">
-                You're all caught up! 🎉
-              </div>
-            )}
-
-            <div ref={sentinelRef} aria-hidden="true" />
           </div>
         </section>
       </PullToRefresh>

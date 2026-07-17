@@ -4,6 +4,18 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 
+interface SavedEventDetails {
+  id: string;
+  title: string;
+  event_date: string | null;
+  clubs: { name: string } | { name: string }[] | null;
+}
+
+interface DashboardSavedEvent {
+  id: string;
+  events: SavedEventDetails[] | SavedEventDetails | null;
+}
+
 export default function DashboardOverview() {
   const [supabase] = useState(() => createClient());
   const [user, setUser] = useState<User | null>(null);
@@ -61,17 +73,39 @@ export default function DashboardOverview() {
     enabled: !!user?.id,
   });
 
+  const { data: savedEvents = [] } = useQuery({
+    queryKey: ["savedEvents", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("saved_events")
+        .select(
+          `
+          id,
+          events (
+            id,
+            title,
+            event_date,
+            clubs (
+              name
+            )
+          )
+        `,
+        )
+        .eq("user_id", user?.id)
+        .order("saved_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
   const colors = ["bg-lime", "bg-sky", "bg-peach"];
 
   if (!user) return null;
 
   return (
     <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-3">
-      <Widget
-        title="Upcoming events"
-        cta={{ label: "All events", to: "/events" }}
-        className="lg:col-span-2"
-      >
+      <Widget title="Upcoming events" cta={{ label: "All events", to: "/events" }}>
         {upcomingEvents.length === 0 ? (
           <p className="py-4 font-mono text-sm text-gray-500">No upcoming events yet.</p>
         ) : (
@@ -103,6 +137,40 @@ export default function DashboardOverview() {
           </ul>
         )}
       </Widget>
+
+      <Widget title="Saved events" cta={{ label: "Explore", to: "/events" }}>
+        {savedEvents.length === 0 ? (
+          <p className="py-4 font-mono text-sm text-gray-500">No saved events yet.</p>
+        ) : (
+          <ul className="divide-y-2 divide-black">
+            {savedEvents.map((item: DashboardSavedEvent, i) => {
+              const rawEvent = item.events;
+              if (!rawEvent) return null;
+              const e = Array.isArray(rawEvent) ? rawEvent[0] : rawEvent;
+              if (!e) return null;
+              const c = Array.isArray(e.clubs) ? e.clubs[0] : e.clubs;
+              return (
+                <li key={item.id} className="flex items-center gap-4 py-4">
+                  <div
+                    className={`neu-border ${colors[i % colors.length]} shrink-0 px-3 py-2 text-center font-mono text-xs font-bold`}
+                  >
+                    {e?.event_date
+                      ? new Date(e.event_date)
+                          .toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                          .toUpperCase()
+                      : "TBA"}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-display text-lg font-bold">{e?.title}</p>
+                    <p className="font-mono text-xs">{c?.name}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Widget>
+
       <Widget title="Your clubs" cta={{ label: "Directory", to: "/clubs" }}>
         {userClubs.length === 0 ? (
           <p className="font-mono text-sm text-gray-500">You haven't joined any clubs yet.</p>
@@ -130,6 +198,7 @@ export default function DashboardOverview() {
           </ul>
         )}
       </Widget>
+
       <Widget title="Recent activity" className="lg:col-span-3">
         <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
           <li className="flex items-start gap-2">
