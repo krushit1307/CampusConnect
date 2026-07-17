@@ -35,7 +35,6 @@ export function useQuery<TData, TError = Error>({
     } finally {
       setIsFetching(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryKeyString, enabled]); // Serialize queryKey to avoid infinite loops
 
   useEffect(() => {
@@ -145,20 +144,26 @@ export function useInfiniteQuery<TData, TError = Error>({
 
   useEffect(() => {
     fetchPage(initialPageParam, false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only fetch initial on mount
+
+  const fetchNextPage = useCallback(() => {
+    if (hasNextPage && nextPageParam !== undefined) {
+      fetchPage(nextPageParam, true);
+    }
+  }, [hasNextPage, nextPageParam, fetchPage]);
+
+  const refetch = useCallback(() => {
+    fetchPage(initialPageParam, false);
+  }, [fetchPage, initialPageParam]);
 
   return {
     data: { pages },
     isLoading: isFetching && pages.length === 0,
+    isFetching,
     isFetchingNextPage,
     hasNextPage,
-    fetchNextPage: () => {
-      if (hasNextPage && nextPageParam !== undefined) {
-        fetchPage(nextPageParam, true);
-      }
-    },
-    refetch: () => fetchPage(initialPageParam, false),
+    fetchNextPage,
+    refetch,
     error,
   };
 }

@@ -1,0 +1,27 @@
+name: "01 Claim"
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: claim-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  claim:
+    if: github.event.issue.pull_request == null && contains(github.event.comment.body, '/claim')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Process /claim command
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { processClaim } = await import(`${process.cwd()}/.github/scripts/claim.js`);
+            await processClaim({ github, context, core });

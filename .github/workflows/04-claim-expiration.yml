@@ -1,0 +1,27 @@
+name: "04 Claim Expiration"
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: expiration-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  expire-claims:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Process claim expiration
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { processClaimExpiration } = await import(`${process.cwd()}/.github/scripts/expiration.js`);
+            await processClaimExpiration({ github, context, core });
