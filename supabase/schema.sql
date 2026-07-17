@@ -11,8 +11,21 @@ CREATE TABLE profiles (
   college TEXT,
   bio TEXT,
   role user_role DEFAULT 'student'::user_role,
+  notification_preferences JSONB NOT NULL DEFAULT '{"rsvps": true, "digest": true, "certs": true}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE profiles
+ADD CONSTRAINT profiles_notification_preferences_valid
+CHECK (
+  jsonb_typeof(notification_preferences) = 'object'
+  AND notification_preferences ? 'rsvps'
+  AND notification_preferences ? 'digest'
+  AND notification_preferences ? 'certs'
+  AND jsonb_typeof(notification_preferences->'rsvps') = 'boolean'
+  AND jsonb_typeof(notification_preferences->'digest') = 'boolean'
+  AND jsonb_typeof(notification_preferences->'certs') = 'boolean'
 );
 
 CREATE TABLE clubs (
@@ -60,6 +73,24 @@ CREATE TABLE events (
 
 CREATE INDEX idx_events_category ON events(category_id);
 
+CREATE INDEX idx_club_members_club_id
+ON club_members(club_id);
+
+CREATE INDEX idx_club_members_user_id
+ON club_members(user_id);
+
+CREATE INDEX idx_event_rsvps_event_id
+ON event_rsvps(event_id);
+
+CREATE INDEX idx_event_rsvps_user_id
+ON event_rsvps(user_id);
+
+CREATE INDEX idx_posts_club_id
+ON posts(club_id);
+
+CREATE INDEX idx_comments_post_id
+ON comments(post_id);
+
 CREATE TABLE event_rsvps (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID REFERENCES events(id) ON DELETE CASCADE,
@@ -75,7 +106,8 @@ CREATE TABLE posts (
   author_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE comments (
@@ -95,6 +127,14 @@ CREATE TABLE certificates (
   issued_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE saved_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  saved_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(event_id, user_id)
+);
+
 -- 3. Row Level Security (RLS)
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
@@ -105,6 +145,7 @@ ALTER TABLE event_rsvps ENABLE ROW LEVEL SECURITY;
 ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE certificates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE saved_events ENABLE ROW LEVEL SECURITY;
 
 -- profiles: users can read all, update only their own row
 CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT USING (true);
@@ -176,6 +217,11 @@ CREATE POLICY "Authors can delete own comments." ON comments FOR DELETE USING (a
 CREATE POLICY "Users can read own certificates." ON certificates FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Service role can insert certificates." ON certificates FOR INSERT WITH CHECK (true); -- Usually handled by edge functions / server
 
+-- saved_events: users can manage their own saved events/bookmarks
+CREATE POLICY "Users can read own saved events." ON saved_events FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can save events." ON saved_events FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can unsave events." ON saved_events FOR DELETE USING (auth.uid() = user_id);
+
 -- 4. Triggers
 -- Auto-create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -191,18 +237,103 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
+-- ------------------------------------------------------------
 -- 5. Storage Buckets & Policies
-INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true) ON CONFLICT DO NOTHING;
-INSERT INTO storage.buckets (id, name, public) VALUES ('club-banners', 'club-banners', true) ON CONFLICT DO NOTHING;
-INSERT INTO storage.buckets (id, name, public) VALUES ('event-banners', 'event-banners', true) ON CONFLICT DO NOTHING;
-INSERT INTO storage.buckets (id, name, public) VALUES ('certificates', 'certificates', true) ON CONFLICT DO NOTHING;
+-- ------------------------------------------------------------
 
--- Allow public reads
-CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING ( bucket_id IN ('avatars', 'club-banners', 'event-banners', 'certificates') );
--- Authenticated users can write to their own folders
-CREATE POLICY "Users can upload" ON storage.objects FOR INSERT WITH CHECK ( auth.role() = 'authenticated' AND (storage.foldername(name))[1] = auth.uid()::text );
+-- Create public buckets
+INSERT INTO storage.buckets (id, name, public)
+VALUES
+  ('avatars', 'avatars', true),
+  ('club-banners', 'club-banners', true),
+  ('event-banners', 'event-banners', true),
+  ('certificates', 'certificates', true)
+ON CONFLICT (id) DO UPDATE
+SET public = EXCLUDED.public;
 
+-- Remove existing policies if they already exist
+DROP POLICY IF EXISTS "Public Access" ON storage.objects;
+DROP POLICY IF EXISTS "Users can upload" ON storage.objects;
+DROP POLICY IF EXISTS "Users can update own uploads" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete own uploads" ON storage.objects;
+
+-- Public read access
+CREATE POLICY "Public Access"
+ON storage.objects
+FOR SELECT
+USING (
+  bucket_id IN (
+    'avatars',
+    'club-banners',
+    'event-banners',
+    'certificates'
+  )
+);
+
+-- Authenticated users can upload only to their own folder
+CREATE POLICY "Users can upload"
+ON storage.objects
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id IN (
+    'avatars',
+    'club-banners',
+    'event-banners',
+    'certificates'
+  )
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Users can overwrite/update only their own files
+CREATE POLICY "Users can update own uploads"
+ON storage.objects
+FOR UPDATE
+TO authenticated
+USING (
+  bucket_id IN (
+    'avatars',
+    'club-banners',
+    'event-banners',
+    'certificates'
+  )
+  AND (storage.foldername(name))[1] = auth.uid()::text
+)
+WITH CHECK (
+  bucket_id IN (
+    'avatars',
+    'club-banners',
+    'event-banners',
+    'certificates'
+  )
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Users can delete only their own files
+CREATE POLICY "Users can delete own uploads"
+ON storage.objects
+FOR DELETE
+TO authenticated
+USING (
+  bucket_id IN (
+    'avatars',
+    'club-banners',
+    'event-banners',
+    'certificates'
+  )
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- ------------------------------------------------------------
 -- 6. Realtime
+-- ------------------------------------------------------------
+
 ALTER PUBLICATION supabase_realtime ADD TABLE posts;
 ALTER PUBLICATION supabase_realtime ADD TABLE comments;
 ALTER PUBLICATION supabase_realtime ADD TABLE event_rsvps;
+
+-- Backfill any missing profiles for existing authenticated users
+INSERT INTO public.profiles (id, full_name, avatar_url)
+SELECT id, raw_user_meta_data->>'full_name', raw_user_meta_data->>'avatar_url'
+FROM auth.users
+ON CONFLICT (id) DO NOTHING;

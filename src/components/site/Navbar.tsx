@@ -1,5 +1,20 @@
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 import { ThemeToggle } from "../ThemeToggle";
+import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
+
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+
+import { Menu, X } from "lucide-react";
 
 const links = [
   { to: "/events", label: "Events" },
@@ -11,49 +26,166 @@ const links = [
 
 export function Navbar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const currentPath = location.pathname;
 
+  const supabase = createClient();
+
+  const [user, setUser] = useState<User | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.error("Sign out failed:", error.message);
+      return;
+    }
+
+    navigate("/", { replace: true });
+  };
+
   return (
-    <header className="sticky top-0 z-40 border-b-2 border-black bg-white">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
-        <Link to="/" className="font-display text-xl font-bold md:text-2xl">
+    <header className="sticky top-0 z-40 border-b-2 border-black bg-white text-black dark:border-cream dark:bg-black dark:text-cream">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-3 sm:px-4 md:px-6">
+        {/* Logo */}
+        <Link to="/" className="shrink-0 font-display text-lg font-bold sm:text-xl md:text-2xl">
           <span style={{ letterSpacing: "0.04em" }}>CAMPUS</span>
-          <span className="bg-black px-1 text-cream">CONNECT</span>
+          <span className="bg-black px-1 text-cream dark:bg-cream dark:text-black">CONNECT</span>
         </Link>
-        <nav className="hidden items-center gap-6 md:flex">
-          {links.map((l) => {
-            const isActive =
-              l.to === "/"
-                ? currentPath === "/"
-                : currentPath === l.to || currentPath.startsWith(l.to + "/");
+
+        {/* Desktop Navbar */}
+        <nav aria-label="Main navigation" className="hidden items-center gap-6 md:flex">
+          {links.map((link) => {
+            const isActive = currentPath === link.to || currentPath.startsWith(link.to + "/");
 
             return (
               <Link
-                key={l.to}
-                to={l.to}
+                key={link.to}
+                to={link.to}
                 className={`font-mono text-sm font-bold uppercase hover:underline ${
                   isActive ? "underline underline-offset-4 decoration-2" : ""
                 }`}
                 style={{ letterSpacing: "0.05em" }}
               >
-                {l.label}
+                {link.label}
               </Link>
             );
           })}
         </nav>
 
+        {/* Actions */}
         <div className="flex items-center gap-3">
-          <ThemeToggle />
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <ThemeToggle />
 
-          <Link
-            to="/auth"
-            className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream hover:bg-cream hover:text-black"
-            style={{ letterSpacing: "0.08em" }}
+            {user && <NavbarNotificationDropdown />}
+
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="User menu"
+                    className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-lime font-mono text-xs font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 dark:focus-visible:ring-cream"
+                  >
+                    {user.email?.[0]?.toUpperCase() ?? "U"}
+                  </button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end" className="w-56">
+                  {/* Email */}
+                  <DropdownMenuLabel className="break-all text-xs">{user.email}</DropdownMenuLabel>
+
+                  <DropdownMenuSeparator />
+
+                  {/* Dashboard */}
+                  <DropdownMenuItem asChild>
+                    <Link to="/dashboard">Dashboard</Link>
+                  </DropdownMenuItem>
+
+                  {/* Settings */}
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings">Settings</Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+
+                  {/* Sign Out */}
+                  <DropdownMenuItem
+                    onClick={handleSignOut}
+                    className="cursor-pointer text-red-600 focus:text-red-600"
+                  >
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Link
+                to="/auth"
+                className="neu-border neu-press bg-black px-3 py-1.5 font-mono text-xs font-bold uppercase text-cream hover:bg-cream hover:text-black dark:bg-cream dark:text-black dark:hover:bg-black dark:hover:text-cream"
+                style={{ letterSpacing: "0.08em" }}
+              >
+                Sign in
+              </Link>
+            )}
+          </div>
+
+          {/* Mobile menu */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="neu-border flex h-8 w-8 shrink-0 items-center justify-center bg-white p-1 text-black transition-colors hover:bg-lime dark:bg-black dark:text-cream md:hidden"
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileMenuOpen}
           >
-            Sign in
-          </Link>
+            {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
         </div>
       </div>
+
+      {/* Mobile Navigation */}
+      {mobileMenuOpen && (
+        <nav className="border-t-2 border-black bg-cream p-4 dark:border-cream dark:bg-black md:hidden">
+          <div className="flex flex-col gap-2">
+            {links.map((link) => {
+              const isActive = currentPath === link.to || currentPath.startsWith(link.to + "/");
+
+              return (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className={`neu-border w-full px-4 py-2.5 text-left font-mono text-sm font-bold uppercase ${
+                    isActive
+                      ? "bg-black text-cream dark:bg-cream dark:text-black"
+                      : "bg-white text-black hover:bg-lime dark:bg-[#1a1a1a] dark:text-cream"
+                  }`}
+                  style={{ letterSpacing: "0.05em" }}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      )}
     </header>
   );
 }

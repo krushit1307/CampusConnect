@@ -1,0 +1,68 @@
+name: Triage New Issues and PRs
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  assign-and-label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto-assign and Label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const isPR = !!context.payload.pull_request;
+            const item = isPR ? context.payload.pull_request : context.payload.issue;
+
+            const author = item.user.login;
+            const repoOwner = context.repo.owner;
+            const title = (item.title || "").toLowerCase();
+            const body = (item.body || "").toLowerCase();
+            const number = isPR ? context.payload.pull_request.number : context.issue.number;
+
+            // 1. Assign to the person who opened it (wrap in try-catch because bots/non-collaborators cannot be assigned)
+            try {
+              await github.rest.issues.addAssignees({
+                owner: repoOwner,
+                repo: context.repo.repo,
+                issue_number: number,
+                assignees: [author]
+              });
+            } catch (error) {
+              console.log(`Could not assign ${author} (they might be a bot or a non-collaborator). Continuing...`);
+            }
+
+            // 2. Add labels ONLY if opened by a contributor (not the repo owner)
+            if (author !== repoOwner) {
+              let labelsToAdd = ['ECSoC26']; 
+
+              const content = title + " " + body;
+              
+              if (content.includes('ui') || content.includes('frontend') || content.includes('design') || content.includes('css')) {
+                  labelsToAdd.push('good-ui');
+              } else if (content.includes('backend') || content.includes('api') || content.includes('server') || content.includes('database')) {
+                  labelsToAdd.push('good-backend');
+              } else if (isPR || content.includes('pull request') || content.includes('pr ')) {
+                  labelsToAdd.push('good-pr');
+              } else {
+                  labelsToAdd.push('good-issue');
+              }
+
+              await github.rest.issues.addLabels({
+                owner: repoOwner,
+                repo: context.repo.repo,
+                issue_number: number,
+                labels: labelsToAdd
+              });
+              
+              console.log(`Assigned to ${author} and added labels: ${labelsToAdd.join(', ')}.`);
+            } else {
+              console.log("Opened by repository owner. Skipping automatic labeling.");
+            }

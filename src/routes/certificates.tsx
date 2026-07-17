@@ -1,26 +1,13 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { SiteShell } from "@/components/site/SiteShell";
-import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { Award, ArrowRight, Copy, Download, X } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { formatDateOnly } from "@/lib/utils";
-
-export const Route = createFileRoute("/certificates")({
-  head: () => ({
-    meta: [
-      { title: "Certificates — CampusConnect" },
-      {
-        name: "description",
-        content:
-          "Verifiable certificates for the events, workshops, and hackathons you've attended.",
-      },
-    ],
-  }),
-  component: Certificates,
-});
+import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 interface CertificateClub {
   name: string;
@@ -38,7 +25,7 @@ interface Certificate {
   events: CertificateEvent | CertificateEvent[] | null;
 }
 
-function Certificates() {
+export default function Certificates() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
