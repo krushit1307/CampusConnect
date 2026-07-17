@@ -29,6 +29,18 @@ interface EventItem {
   saved_events: { id: string; user_id: string }[] | null;
 }
 
+interface EventItem {
+  id: string;
+  title: string;
+  description: string | null;
+  event_date: string | null;
+  location: string | null;
+  banner_url?: string | null;
+  clubs: { name: string } | { name: string }[] | null;
+  event_rsvps: { id: string; user_id: string }[] | null;
+  saved_events: { id: string; user_id: string }[] | null;
+}
+
 const EventsCalendar = lazy(() => import("@/components/events/EventsCalendar"));
 
 export default function EventsPage() {

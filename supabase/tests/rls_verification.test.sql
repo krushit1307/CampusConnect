@@ -4,8 +4,8 @@ BEGIN;
 -- Enable pgTAP extension if not already enabled
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
--- Plan the tests (we have 5 tests)
-SELECT plan(5);
+-- Plan the tests (we have 8 tests)
+SELECT plan(8);
 
 -- Grant privileges to authenticated role so that table-level permissions do not interfere with RLS testing
 GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated, anon;
@@ -16,12 +16,14 @@ INSERT INTO auth.users (id, email, aud, role, raw_user_meta_data)
 VALUES
   ('90000000-0000-0000-0000-000000000001', 'usera@test.com', 'authenticated', 'authenticated', '{"full_name": "User A"}'),
   ('90000000-0000-0000-0000-000000000002', 'userb@test.com', 'authenticated', 'authenticated', '{"full_name": "User B"}'),
-  ('90000000-0000-0000-0000-000000000003', 'admin@test.com', 'authenticated', 'authenticated', '{"full_name": "Admin User"}')
+  ('90000000-0000-0000-0000-000000000003', 'admin@test.com', 'authenticated', 'authenticated', '{"full_name": "Admin User"}'),
+  ('90000000-0000-0000-0000-000000000010', 'sysadmin@test.com', 'authenticated', 'authenticated', '{"full_name": "System Admin User"}')
 ON CONFLICT (id) DO NOTHING;
 
 -- Set correct roles in profiles table
 UPDATE public.profiles SET role = 'student' WHERE id IN ('90000000-0000-0000-0000-000000000001', '90000000-0000-0000-0000-000000000002');
 UPDATE public.profiles SET role = 'club_admin' WHERE id = '90000000-0000-0000-0000-000000000003';
+UPDATE public.profiles SET role = 'system_admin' WHERE id = '90000000-0000-0000-0000-000000000010';
 
 -- Create a club
 INSERT INTO public.clubs (id, name, slug, description, created_by)
@@ -106,6 +108,44 @@ SELECT set_config('request.jwt.claim.sub', '90000000-0000-0000-0000-000000000001
 SELECT lives_ok(
   $$INSERT INTO public.posts (id, club_id, author_id, content) VALUES ('90000000-0000-0000-0000-000000000009', '90000000-0000-0000-0000-000000000004', '90000000-0000-0000-0000-000000000001', 'This post should succeed')$$,
   'Approved member can create posts'
+);
+
+-- ==========================================
+-- Test RLS: Non-admin users cannot write to event_categories
+-- ==========================================
+
+-- Switch context to authenticated User A (non-admin student)
+SET local role authenticated;
+SELECT set_config('request.jwt.claim.sub', '90000000-0000-0000-0000-000000000001', true);
+
+SELECT throws_ok(
+  $$INSERT INTO public.event_categories (id, name, description) VALUES ('90000000-0000-0000-0000-000000000021', 'Racer Category', 'Should fail')$$,
+  '42501',
+  NULL,
+  'Non-admin cannot insert event categories'
+);
+
+-- Reset back to postgres superuser role
+RESET role;
+
+-- ==========================================
+-- Test RLS: System admin users can write to event_categories
+-- ==========================================
+
+-- Switch context to System Admin User
+SET local role authenticated;
+SELECT set_config('request.jwt.claim.sub', '90000000-0000-0000-0000-000000000010', true);
+
+-- Can insert
+SELECT lives_ok(
+  $$INSERT INTO public.event_categories (id, name, description) VALUES ('90000000-0000-0000-0000-000000000021', 'New Admin Category', 'Created by system admin')$$,
+  'System admin can insert event categories'
+);
+
+-- Can update and delete
+SELECT lives_ok(
+  $$UPDATE public.event_categories SET description = 'Updated by system admin' WHERE id = '90000000-0000-0000-0000-000000000021'$$,
+  'System admin can update event categories'
 );
 
 -- Reset role and finish
