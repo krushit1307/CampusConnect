@@ -79,6 +79,22 @@ This command will automatically fix spacing, missing quotes, and other formattin
 
 _(Highly Recommended: Configure your code editor to "Format on Save" using the Prettier extension)._
 
+## Edge Function Authentication
+
+Custom Supabase Edge Functions should use the shared authentication middleware located at:
+
+`supabase/functions/shared/auth-middleware.ts`
+
+Example:
+
+```ts
+import { verifyAuth } from "../shared/auth-middleware.ts";
+
+const user = await verifyAuth(req, supabase);
+```
+
+The middleware validates the Bearer JWT and returns the authenticated user. Invalid or missing tokens should result in an HTTP 401 response.
+
 ## 🙋 How to Claim an Issue
 
 This repository uses an automated bot to assign issues to contributors!
