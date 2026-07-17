@@ -1,0 +1,27 @@
+name: "03 Manual Assignment"
+
+on:
+  issues:
+    types: [assigned]
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: assignment-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  assignment:
+    if: github.event.issue.pull_request == null
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Process manual assignment
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { processManualAssignment } = await import(`${process.cwd()}/.github/scripts/assignment.js`);
+            await processManualAssignment({ github, context, core });

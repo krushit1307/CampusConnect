@@ -8,21 +8,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/certificates")({
-  head: () => ({
-    meta: [
-      { title: "Certificates — CampusConnect" },
-      {
-        name: "description",
-        content:
-          "Verifiable certificates for the events, workshops, and hackathons you've attended.",
-      },
-    ],
-  }),
-  component: Certificates,
-});
-
-function Certificates() {
+export default function Certificates() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
@@ -49,8 +35,6 @@ function Certificates() {
     enabled: !!user?.id,
   });
 
-  const colors = ["bg-lime", "bg-sky", "bg-lavender", "bg-peach"];
-
   return (
     <SiteShell>
       <SidebarProvider>
@@ -61,7 +45,7 @@ function Certificates() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="eyebrow font-bold">Your certificates · {certs.length} issued</p>
-                  <h1 className="mt-2 text-4xl font-bold md:text-6xl">Proof of work.</h1>
+                  <h1 className="mt-2 text-4xl font-bold text-[#123a57] md:text-6xl">Proof of work.</h1>
                 </div>
                 <div className="block md:hidden">
                   <SidebarTrigger />
@@ -81,15 +65,14 @@ function Certificates() {
                   You don't have any certificates yet. Attend events to earn them!
                 </div>
               ) : (
-                certs.map((c, index) => {
+                certs.map((c) => {
                   const event = Array.isArray(c.events) ? c.events[0] : c.events;
-                  const club = event && !Array.isArray(event.clubs) ? event.clubs : null;
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const club = (event && !Array.isArray(event.clubs) ? event.clubs : null) as any;
 
                   return (
                     <article key={c.id} className="neu-border neu-press bg-white p-6">
-                      <div
-                        className={`neu-border ${colors[index % colors.length]} mb-4 flex items-center justify-between px-4 py-6`}
-                      >
+                      <div className="neu-border mb-4 flex items-center justify-between bg-[#f5c66b] px-4 py-6 text-[#123a57]">
                         <div>
                           <p className="eyebrow font-bold">Certificate</p>
                           <p className="mt-1 font-display text-2xl font-bold">

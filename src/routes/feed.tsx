@@ -1,207 +1,35 @@
+import { useMutation, useQuery, useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import type { User } from "@supabase/supabase-js";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-import {
-  Bold,
-  Code2,
-  Eye,
-  Heading2,
-  Italic,
-  Link2,
-  List,
-  ListOrdered,
-  MessageCircle,
-  MessageSquareText,
-  PenLine,
-  Pencil,
-  Quote,
-  Sparkles,
-} from "lucide-react";
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { MessageCircle, MessageSquareText, PenLine, Sparkles, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-
-import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
+import { toast } from "sonner";
+import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
+import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { createClient } from "@/lib/supabase/client";
 import { calculateReadTime } from "@/utils/readTime";
+import { PullToRefresh } from "@/components/PullToRefresh";
+import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
-export const Route = createFileRoute("/feed")({
-  head: () => ({
-    meta: [
-      { title: "Discussion feed — CampusConnect" },
-      {
-        name: "description",
-        content: "Announcements, discussions, and threads across your clubs.",
-      },
-    ],
-  }),
-  component: Feed,
-});
+type MemberRole = "admin" | "organizer" | "member" | "alumni";
 
-type MarkdownEditorProps = {
-  value: string;
-  onChange: (value: string) => void;
-};
+const POSTS_PER_PAGE = 10;
 
-type ToolbarAction = {
-  label: string;
-  icon: typeof Bold;
-  before: string;
-  after?: string;
-  placeholder?: string;
-  linePrefix?: boolean;
-};
-
-const toolbarActions: ToolbarAction[] = [
-  { label: "Bold", icon: Bold, before: "**", after: "**", placeholder: "bold text" },
-  { label: "Italic", icon: Italic, before: "*", after: "*", placeholder: "italic text" },
-  { label: "Heading", icon: Heading2, before: "## ", placeholder: "Heading", linePrefix: true },
-  { label: "Bulleted list", icon: List, before: "- ", placeholder: "List item", linePrefix: true },
-  {
-    label: "Numbered list",
-    icon: ListOrdered,
-    before: "1. ",
-    placeholder: "List item",
-    linePrefix: true,
-  },
-  { label: "Quote", icon: Quote, before: "> ", placeholder: "Quote", linePrefix: true },
-  { label: "Inline code", icon: Code2, before: "`", after: "`", placeholder: "code" },
-  {
-    label: "Link",
-    icon: Link2,
-    before: "[",
-    after: "](https://example.com)",
-    placeholder: "link text",
-  },
-];
-
-export type MarkdownEditorRef = {
-  focusWrite: () => void;
-};
-
-const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>(
-  ({ value, onChange }, ref) => {
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const [mode, setMode] = useState<"write" | "preview">("write");
-
-    useImperativeHandle(ref, () => ({
-      focusWrite: () => {
-        setMode("write");
-        requestAnimationFrame(() => {
-          textareaRef.current?.focus();
-          textareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-        });
-      },
-    }));
-
-    const applyMarkdown = ({
-      before,
-      after = "",
-      placeholder = "text",
-      linePrefix,
-    }: ToolbarAction) => {
-      const textarea = textareaRef.current;
-      if (!textarea) return;
-
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const selectedText = value.slice(start, end) || placeholder;
-      const prefix = linePrefix && start > 0 && value[start - 1] !== "\n" ? `\n${before}` : before;
-      const replacement = `${prefix}${selectedText}${after}`;
-      const nextValue = `${value.slice(0, start)}${replacement}${value.slice(end)}`;
-
-      onChange(nextValue);
-
-      requestAnimationFrame(() => {
-        textarea.focus();
-        const selectionStart = start + prefix.length;
-        textarea.setSelectionRange(selectionStart, selectionStart + selectedText.length);
-      });
-    };
-
-    return (
-      <div className="neu-border bg-white" aria-label="Markdown post editor">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-black bg-sky p-2">
-          <div className="flex flex-wrap gap-1" role="toolbar" aria-label="Markdown formatting">
-            {toolbarActions.map((action) => {
-              const Icon = action.icon;
-              return (
-                <button
-                  key={action.label}
-                  type="button"
-                  onClick={() => applyMarkdown(action)}
-                  className="neu-border bg-white p-2 transition hover:-translate-y-0.5 hover:bg-lime focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
-                  aria-label={action.label}
-                  title={action.label}
-                >
-                  <Icon size={16} strokeWidth={2.5} aria-hidden="true" />
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex" aria-label="Editor mode">
-            <button
-              type="button"
-              onClick={() => setMode("write")}
-              className={`neu-border flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase ${
-                mode === "write" ? "bg-black text-cream" : "bg-white"
-              }`}
-              aria-pressed={mode === "write"}
-            >
-              <Pencil size={14} aria-hidden="true" /> Write
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("preview")}
-              className={`neu-border -ml-0.5 flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase ${
-                mode === "preview" ? "bg-black text-cream" : "bg-white"
-              }`}
-              aria-pressed={mode === "preview"}
-            >
-              <Eye size={14} aria-hidden="true" /> Preview
-            </button>
-          </div>
-        </div>
-
-        {mode === "write" ? (
-          <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(event) => onChange(event.target.value)}
-            placeholder="Share an update using Markdown…"
-            rows={7}
-            className="min-h-44 w-full resize-y bg-white p-4 font-mono text-sm outline-none placeholder:text-gray-500 focus:bg-cream/40"
-            aria-label="Post content in Markdown"
-          />
-        ) : (
-          <div className="min-h-44 bg-white p-4" aria-live="polite">
-            {value.trim() ? (
-              <div className="markdown-content font-mono text-sm leading-relaxed">
-                <ReactMarkdown>{value}</ReactMarkdown>
-              </div>
-            ) : (
-              <div className="flex min-h-36 flex-col items-center justify-center gap-2 text-center text-gray-500">
-                <MessageSquareText size={32} aria-hidden="true" />
-                <p className="font-mono text-sm">Your Markdown preview will appear here.</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="border-t-2 border-black bg-cream px-4 py-2 font-mono text-[10px] uppercase">
-          Raw Markdown is saved. HTML is not rendered.
-        </div>
-      </div>
-    );
-  },
-);
-MarkdownEditor.displayName = "MarkdownEditor";
-
-function Feed() {
+export default function Feed() {
   const supabase = createClient();
-  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [newPost, setNewPost] = useState("");
   const editorRef = useRef<MarkdownEditorRef>(null);
@@ -239,41 +67,87 @@ function Feed() {
     }
   }, [userClubs, selectedClubId]);
 
-  const { data: posts = [], isLoading } = useQuery({
+  const {
+    data,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch: refetchPosts,
+  } = useInfiniteQuery({
     queryKey: ["posts"],
-    queryFn: async () => {
-      const { data } = await supabase
+    initialPageParam: 0,
+    queryFn: async ({ pageParam = 0 }) => {
+      const from = pageParam * POSTS_PER_PAGE;
+      const to = from + POSTS_PER_PAGE - 1;
+
+      const { data, error } = await supabase
         .from("posts")
         .select(
           `
-          id, content, created_at,
-          profiles (full_name),
-          clubs (name),
-          comments (id, content, created_at, profiles (full_name))
-          `,
+        id, content, created_at, club_id,
+        profiles (id, full_name),
+        clubs (
+          id,
+          name,
+          club_members (user_id, role)
+        ),
+        comments (
+          id,
+          content,
+          created_at,
+          profiles (id, full_name)
         )
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false });
+      `,
+        )
+        .order("created_at", { ascending: false })
+        .range(from, to);
 
-      return data || [];
+      if (error) throw error;
+
+      return {
+        posts: data || [],
+        nextPage: (data || []).length === POSTS_PER_PAGE ? pageParam + 1 : undefined,
+      };
     },
+    getNextPageParam: (lastPage) => lastPage.nextPage,
   });
+
+  const posts = data?.pages.flatMap((page) => page.posts) ?? [];
+
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: "100px" },
+    );
+
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   useEffect(() => {
     const channel = supabase
       .channel("realtime_feed")
       .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["posts"] });
+        refetchPosts();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["posts"] });
+        refetchPosts();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, queryClient]);
+  }, [supabase, refetchPosts]);
 
   const postMutation = useMutation({
     mutationFn: async () => {
@@ -289,7 +163,7 @@ function Feed() {
 
       setNewPost("");
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["posts"] }),
+    onSuccess: () => refetchPosts(),
   });
 
   const commentMutation = useMutation({
@@ -304,7 +178,25 @@ function Feed() {
 
       setNewComments((prev) => ({ ...prev, [postId]: "" }));
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["posts"] }),
+    onSuccess: () => refetchPosts(),
+  });
+
+  const deletePostMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      if (!user) throw new Error("Must be logged in");
+      const { error } = await supabase
+        .from("posts")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", postId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchPosts();
+      toast.success("Post deleted successfully!");
+    },
+    onError: () => {
+      toast.error("Failed to delete post.");
+    },
   });
 
   const timeAgo = (dateString: string) => {
@@ -326,203 +218,309 @@ function Feed() {
       <SidebarProvider>
         <DashboardSidebar />
         <SidebarInset>
-          <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
-            <div className="mx-auto max-w-4xl">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="eyebrow font-bold">Discussion feed</p>
-                  <h1 className="mt-2 text-4xl font-bold md:text-6xl">
-                    What clubs are talking about.
-                  </h1>
-                </div>
-                <div className="block md:hidden">
-                  <SidebarTrigger />
+          <PullToRefresh
+            isRefreshing={isLoading || isFetchingNextPage}
+            onRefresh={() => refetchPosts()}
+          >
+            <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
+              <div className="mx-auto max-w-4xl">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="eyebrow font-bold">Discussion feed</p>
+                    <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">
+                      What clubs are talking about.
+                    </h1>
+                  </div>
+                  <div className="block md:hidden">
+                    <SidebarTrigger />
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
 
-          <section className="bg-cream px-4 py-12 md:px-6">
-            <div className="mx-auto max-w-4xl space-y-6">
-              <div className="space-y-3">
-                <MarkdownEditor ref={editorRef} value={newPost} onChange={setNewPost} />
+            <section className="bg-cream px-4 py-12 md:px-6">
+              <div className="mx-auto max-w-4xl space-y-6">
+                <div className="space-y-3">
+                  <MarkdownEditor ref={editorRef} value={newPost} onChange={setNewPost} />
 
-                <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
-                  <select
-                    value={selectedClubId}
-                    onChange={(event) => setSelectedClubId(event.target.value)}
-                    className="bg-transparent font-mono text-xs outline-none"
-                    aria-label="Choose club for post"
-                  >
-                    {userClubs.length === 0 && <option value="">No clubs joined</option>}
-                    {userClubs.map((userClub) => {
-                      const club = Array.isArray(userClub.clubs)
-                        ? userClub.clubs[0]
-                        : userClub.clubs;
+                  <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                    <select
+                      value={selectedClubId}
+                      onChange={(event) => setSelectedClubId(event.target.value)}
+                      className="bg-transparent font-mono text-xs outline-none"
+                      aria-label="Choose club for post"
+                    >
+                      {userClubs.length === 0 && <option value="">No clubs joined</option>}
+                      {userClubs.map((userClub) => {
+                        const club = Array.isArray(userClub.clubs)
+                          ? userClub.clubs[0]
+                          : userClub.clubs;
 
-                      return club ? (
-                        <option key={club.id} value={club.id}>
-                          Posting to · {club.name}
-                        </option>
-                      ) : null;
-                    })}
-                  </select>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!user) return alert("Log in first");
-                      if (!selectedClubId) return alert("Join or select a club first");
-                      if (newPost.trim()) postMutation.mutate();
-                    }}
-                    disabled={!newPost.trim() || !selectedClubId || postMutation.isPending}
-                    className="neu-border neu-press bg-black px-5 py-2 font-mono text-xs font-bold uppercase text-cream disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {postMutation.isPending ? "Posting…" : "Post Markdown"}
-                  </button>
-                </div>
-
-                {postMutation.isError && (
-                  <p className="neu-border bg-peach p-3 font-mono text-xs" role="alert">
-                    Could not publish the post. Please try again.
-                  </p>
-                )}
-              </div>
-
-              {isLoading ? (
-                <div className="py-10 text-center font-mono">Loading feed...</div>
-              ) : posts.length === 0 ? (
-                <div
-                  className="neu-border relative overflow-hidden bg-white px-6 py-12 text-center sm:px-10 sm:py-16"
-                  role="status"
-                  aria-live="polite"
-                >
-                  <div
-                    className="absolute -left-6 -top-6 h-24 w-24 rotate-12 border-2 border-black bg-lime"
-                    aria-hidden="true"
-                  />
-                  <div
-                    className="absolute -bottom-8 -right-6 h-28 w-28 -rotate-12 border-2 border-black bg-peach"
-                    aria-hidden="true"
-                  />
-
-                  <div className="relative mx-auto flex max-w-xl flex-col items-center">
-                    <div className="relative mb-6" aria-hidden="true">
-                      <div className="neu-border flex h-24 w-24 items-center justify-center bg-lime sm:h-28 sm:w-28">
-                        <MessageCircle className="h-12 w-12 sm:h-14 sm:w-14" strokeWidth={2.5} />
-                      </div>
-                      <div className="neu-border absolute -right-4 -top-4 flex h-10 w-10 items-center justify-center bg-peach">
-                        <Sparkles className="h-5 w-5" strokeWidth={2.5} />
-                      </div>
-                    </div>
-
-                    <p className="mb-3 font-mono text-xs font-bold uppercase tracking-[0.2em]">
-                      The conversation starts here
-                    </p>
-                    <h2 className="text-2xl font-bold sm:text-3xl">
-                      No posts yet. Be the first to start a discussion!
-                    </h2>
-                    <p className="mt-4 max-w-md font-mono text-sm leading-relaxed text-gray-700">
-                      Share an announcement, ask a question, or post an update for your club
-                      community.
-                    </p>
+                        return club ? (
+                          <option key={club.id} value={club.id}>
+                            Posting to · {club.name}
+                          </option>
+                        ) : null;
+                      })}
+                    </select>
 
                     <button
                       type="button"
                       onClick={() => {
-                        editorRef.current?.focusWrite();
+                        if (!user) return alert("Log in first");
+                        if (!selectedClubId) return alert("Join or select a club first");
+                        if (newPost.trim()) postMutation.mutate();
                       }}
-                      className="neu-border mt-7 inline-flex items-center gap-2 bg-black px-5 py-3 font-mono text-xs font-bold uppercase text-cream transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black"
+                      disabled={!newPost.trim() || !selectedClubId || postMutation.isPending}
+                      className="neu-border neu-press bg-black px-5 py-2 font-mono text-xs font-bold uppercase text-cream disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <PenLine className="h-4 w-4" aria-hidden="true" />
-                      Start a discussion
+                      {postMutation.isPending ? "Posting…" : "Post Markdown"}
                     </button>
                   </div>
+
+                  {postMutation.isError && (
+                    <p className="neu-border bg-peach p-3 font-mono text-xs" role="alert">
+                      Could not publish the post. Please try again.
+                    </p>
+                  )}
                 </div>
-              ) : (
-                posts.map((post) => {
-                  const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
-                  const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
-                  const postComments = Array.isArray(post.comments) ? post.comments : [];
 
-                  return (
-                    <article key={post.id} className="neu-border bg-white p-6">
-                      <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-black pb-3">
-                        <div>
-                          <p className="font-display text-lg font-bold">
-                            {author?.full_name || "Unknown User"}
-                          </p>
-                          <p className="font-mono text-xs flex flex-wrap items-center">
-                            in {club?.name || "Unknown Club"} · {timeAgo(post.created_at)}
-                            <span className="text-gray-500 ml-1">
-                              · {calculateReadTime(post.content)}
-                            </span>
-                          </p>
+                {isLoading ? (
+                  <div className="py-10 text-center font-mono">Loading feed...</div>
+                ) : posts.length === 0 ? (
+                  <div
+                    className="neu-border relative overflow-hidden bg-white px-6 py-12 text-center sm:px-10 sm:py-16"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <div
+                      className="absolute -left-6 -top-6 h-24 w-24 rotate-12 border-2 border-black bg-lime"
+                      aria-hidden="true"
+                    />
+                    <div
+                      className="absolute -bottom-8 -right-6 h-28 w-28 -rotate-12 border-2 border-black bg-peach"
+                      aria-hidden="true"
+                    />
+
+                    <div className="relative mx-auto flex max-w-xl flex-col items-center">
+                      <div className="relative mb-6" aria-hidden="true">
+                        <div className="neu-border flex h-24 w-24 items-center justify-center bg-lime sm:h-28 sm:w-28">
+                          <MessageCircle className="h-12 w-12 sm:h-14 sm:w-14" strokeWidth={2.5} />
                         </div>
-                        <span className="neu-border bg-lime px-2 py-1 font-mono text-[10px] font-bold uppercase">
-                          Markdown post
-                        </span>
-                      </header>
-
-                      <div className="markdown-content mt-2 font-mono text-sm leading-relaxed">
-                        <ReactMarkdown>{post.content}</ReactMarkdown>
+                        <div className="neu-border absolute -right-4 -top-4 flex h-10 w-10 items-center justify-center bg-peach">
+                          <Sparkles className="h-5 w-5" strokeWidth={2.5} />
+                        </div>
                       </div>
 
-                      <div className="mt-4 space-y-3 border-t-2 border-black pt-4">
-                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                        {postComments.map((comment: any) => {
-                          const commentAuthor = Array.isArray(comment.profiles)
-                            ? comment.profiles[0]
-                            : comment.profiles;
+                      <p className="mb-3 font-mono text-xs font-bold uppercase tracking-[0.2em]">
+                        The conversation starts here
+                      </p>
+                      <h2 className="text-2xl font-bold sm:text-3xl">
+                        No posts yet. Be the first to start a discussion!
+                      </h2>
+                      <p className="mt-4 max-w-md font-mono text-sm leading-relaxed text-gray-700">
+                        Share an announcement, ask a question, or post an update for your club
+                        community.
+                      </p>
 
-                          return (
-                            <div key={comment.id} className="neu-border bg-cream p-3">
-                              <div className="flex justify-between">
-                                <p className="font-mono text-xs font-bold uppercase">
-                                  {commentAuthor?.full_name || "Unknown User"}
-                                </p>
-                                <p className="font-mono text-[10px] text-gray-500">
-                                  {timeAgo(comment.created_at)}
-                                </p>
-                              </div>
-                              <div className="markdown-content mt-1 font-mono text-sm">
-                                <ReactMarkdown>{comment.content}</ReactMarkdown>
-                              </div>
-                            </div>
-                          );
-                        })}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          editorRef.current?.focusWrite();
+                        }}
+                        className="neu-border mt-7 inline-flex items-center gap-2 bg-black px-5 py-3 font-mono text-xs font-bold uppercase text-cream transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black"
+                      >
+                        <PenLine className="h-4 w-4" aria-hidden="true" />
+                        Start a discussion
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  posts.map((post) => {
+                    const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
+                    const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
+                    const clubMembers = Array.isArray(club?.club_members) ? club.club_members : [];
+                    const authorMembership = clubMembers.find(
+                      (m: { user_id: string; role: string }) => m.user_id === author?.id,
+                    );
+                    const authorRole = (authorMembership?.role ?? "member") as MemberRole;
+                    const postComments = Array.isArray(post.comments) ? post.comments : [];
 
-                        <div className="flex gap-2">
-                          <input
-                            value={newComments[post.id] || ""}
-                            onChange={(event) =>
-                              setNewComments((prev) => ({
-                                ...prev,
-                                [post.id]: event.target.value,
-                              }))
-                            }
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter" && !event.shiftKey) {
-                                event.preventDefault();
-                                if (!user) return alert("Log in first");
+                    return (
+                      <article
+                        id={`post-${post.id}`}
+                        key={post.id}
+                        className="neu-border bg-white p-6"
+                      >
+                        <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-black pb-3">
+                          <div>
+                            <p className="font-display text-lg font-bold flex items-center gap-2">
+                              {author?.full_name || "Unknown User"}
+                              <RoleBadge role={authorRole} />
+                            </p>
+                            <p className="font-mono text-xs flex flex-wrap items-center">
+                              in {club?.name || "Unknown Club"} · {timeAgo(post.created_at)}
+                              <span className="text-gray-500 ml-1">
+                                · {calculateReadTime(post.content)}
+                              </span>
+                            </p>
+                          </div>
+                          {user?.id === author?.id && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="neu-border neu-press flex items-center gap-1 bg-[#FF6B6B] hover:bg-[#FF8787] text-black px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer"
+                                  aria-label="Delete post"
+                                >
+                                  <Trash2 size={10} strokeWidth={2.5} />
+                                  Delete
+                                </button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent className="neu-border bg-white rounded-none p-6">
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle className="font-display text-xl font-bold">
+                                    Delete post?
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription className="font-mono text-sm text-gray-700">
+                                    Are you sure you want to delete this post? This action cannot
+                                    be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+                                  <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
+                                    Cancel
+                                  </AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => deletePostMutation.mutate(post.id)}
+                                    className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
+                                  >
+                                    Confirm
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </header>
 
-                                const content = newComments[post.id];
-                                if (content?.trim()) {
-                                  commentMutation.mutate({ postId: post.id, content });
-                                }
+                        <div className="markdown-content mt-2 font-mono text-sm leading-relaxed">
+                          <ReactMarkdown>{post.content}</ReactMarkdown>
+                        </div>
+
+                        <div className="mt-4 flex gap-2 border-t-2 border-black pt-4">
+                          <a
+                            href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(`${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#1DA1F2] hover:text-white transition-colors"
+                          >
+                            Twitter
+                          </a>
+                          <a
+                            href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#0A66C2] hover:text-white transition-colors"
+                          >
+                            LinkedIn
+                          </a>
+                          <a
+                            href={`https://wa.me/?text=${encodeURIComponent(`Check out this post: ${post.content.substring(0, 50)}... - ${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#25D366] hover:text-white transition-colors"
+                          >
+                            WhatsApp
+                          </a>
+                        </div>
+
+                        <div className="mt-4 space-y-3 border-t-2 border-black pt-4">
+                          <h3 className="mb-4 flex items-center gap-2 font-mono text-xs font-bold uppercase">
+                            <MessageSquareText size={16} /> Comments ({postComments.length})
+                          </h3>
+
+                          <div className="space-y-4 pl-4">
+                            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                            {postComments.map((comment: any) => {
+                              const commentAuthor = Array.isArray(comment.profiles)
+                                ? comment.profiles[0]
+                                : comment.profiles;
+
+                              return (
+                                <div key={comment.id} className="neu-border bg-cream p-3">
+                                  <div className="flex justify-between">
+                                    <p className="font-mono text-xs font-bold uppercase flex items-center gap-1.5">
+                                      {commentAuthor?.full_name || "Unknown User"}
+                                      {(() => {
+                                        const cm = clubMembers.find(
+                                          (m: { user_id: string; role: string }) =>
+                                            m.user_id === commentAuthor?.id,
+                                        );
+                                        return (
+                                          <RoleBadge role={(cm?.role ?? "member") as MemberRole} />
+                                        );
+                                      })()}
+                                    </p>
+                                    <p className="font-mono text-[10px] text-gray-500">
+                                      {timeAgo(comment.created_at)}
+                                    </p>
+                                  </div>
+                                  <div className="markdown-content mt-1 font-mono text-sm">
+                                    <ReactMarkdown>{comment.content}</ReactMarkdown>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <div className="flex gap-2">
+                            <input
+                              value={newComments[post.id] || ""}
+                              onChange={(event) =>
+                                setNewComments((prev) => ({
+                                  ...prev,
+                                  [post.id]: event.target.value,
+                                }))
                               }
-                            }}
-                            placeholder="Reply..."
-                            className="neu-border w-full bg-white px-3 py-2 font-mono text-sm outline-none"
-                          />
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" && !event.shiftKey) {
+                                  event.preventDefault();
+                                  if (!user) return alert("Log in first");
+
+                                  const content = newComments[post.id];
+                                  if (content?.trim()) {
+                                    commentMutation.mutate({ postId: post.id, content });
+                                  }
+                                }
+                              }}
+                              placeholder="Reply..."
+                              className="neu-border w-full bg-white px-3 py-2 font-mono text-sm outline-none"
+                            />
+                          </div>
                         </div>
-                      </div>
-                    </article>
-                  );
-                })
-              )}
-            </div>
-          </section>
+                      </article>
+                    );
+                  })
+                )}
+                {isFetchingNextPage &&
+                  Array.from({ length: 2 }).map((_, i) => (
+                    <div key={`loading-${i}`} className="neu-border bg-white p-6 animate-pulse">
+                      <div className="h-6 w-1/3 rounded bg-gray-200" />
+                      <div className="mt-4 h-4 w-full rounded bg-gray-200" />
+                      <div className="mt-2 h-4 w-5/6 rounded bg-gray-200" />
+                    </div>
+                  ))}
+
+                {!hasNextPage && posts.length > 0 && (
+                  <div className="py-10 text-center font-mono text-sm font-bold text-gray-500 uppercase">
+                    You're all caught up! 🎉
+                  </div>
+                )}
+
+                <div ref={sentinelRef} aria-hidden="true" />
+              </div>
+            </section>
+          </PullToRefresh>
         </SidebarInset>
       </SidebarProvider>
     </SiteShell>

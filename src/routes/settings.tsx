@@ -1,26 +1,141 @@
-import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
+import { useNavigate } from "react-router-dom";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SiteShell } from "@/components/site/SiteShell";
+import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { createClient } from "@/lib/supabase/client";
-import { createFileRoute } from "@tanstack/react-router";
+import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
 import { Camera, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
-export const Route = createFileRoute("/settings")({
-  head: () => ({
-    meta: [
-      { title: "Settings — CampusConnect" },
-      {
-        name: "description",
-        content: "Manage your CampusConnect profile, notifications, and account.",
-      },
-    ],
-  }),
-  component: SettingsPage,
-});
+import { Progress } from "@/components/ui/progress";
+import type { User } from "@supabase/supabase-js";
+import { useQuery } from "@/hooks/useReactQueryReplacement";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { profileSchema, type ProfileFormValues } from "@/lib/schemas";
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage,
+} from "@/components/ui/form";
 
-function SettingsPage() {
-  // TODO: Supabase — load + save profile fields, including avatar upload to storage
+export default function SettingsPage() {
+  const navigate = useNavigate();
+  const supabase = createClient();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) {
+        navigate("/auth", { replace: true });
+      } else {
+        setUser(user);
+      }
+    });
+  }, [navigate, supabase]);
+
+  const {
+    data: profile,
+    isLoading: isProfileLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["profile", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user?.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const form = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      fullName: "",
+      handle: "",
+      collegeEmail: "",
+      bio: "",
+      linkedinUrl: "",
+      phoneNumber: "",
+    },
+  });
+
+  useEffect(() => {
+    if (user) {
+      form.reset({
+        fullName: profile?.full_name || user.user_metadata?.full_name || "",
+        handle: profile?.handle || "",
+        collegeEmail: user.email || "",
+        bio: profile?.bio || "",
+        linkedinUrl: profile?.linkedin_url || "",
+        phoneNumber: profile?.phone_number || "",
+      });
+    }
+  }, [profile, user, form]);
+
+  const onSubmit = async (values: ProfileFormValues) => {
+    setIsSaving(true);
+    try {
+      if (!user) {
+        toast.error("You must be logged in to update your profile.");
+        return;
+      }
+
+      // Update profiles table
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({
+          full_name: values.fullName,
+          handle: values.handle,
+          bio: values.bio || null,
+          linkedin_url: values.linkedinUrl || null,
+          phone_number: values.phoneNumber || null,
+        })
+        .eq("id", user.id);
+
+      if (profileError) throw profileError;
+
+      // Update email if it has changed
+      if (values.collegeEmail !== user.email) {
+        const { error: authError } = await supabase.auth.updateUser({
+          email: values.collegeEmail,
+        });
+        if (authError) throw authError;
+        toast.success("Profile updated! Verification email sent to your new address.");
+      } else {
+        toast.success("Profile updated successfully!");
+      }
+
+      refetch();
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "Failed to update profile.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const currentFullName = form.watch("fullName");
+
+  if (isProfileLoading && !profile) {
+    return (
+      <SiteShell>
+        <div className="flex min-h-screen items-center justify-center bg-cream">
+          <Loader2 className="h-8 w-8 animate-spin text-black" />
+        </div>
+      </SiteShell>
+    );
+  }
+
   return (
     <SiteShell>
       <SidebarProvider>
@@ -33,7 +148,6 @@ function SettingsPage() {
                   <p className="eyebrow font-bold">Account</p>
                   <h1 className="mt-2 text-4xl font-bold md:text-6xl">Settings.</h1>
                 </div>
-
                 <div className="block md:hidden">
                   <SidebarTrigger />
                 </div>
@@ -43,24 +157,166 @@ function SettingsPage() {
           <section className="bg-cream px-4 py-12 md:px-6">
             <div className="mx-auto max-w-4xl space-y-6">
               <Panel title="Profile">
-                <AvatarUpload name="Ada Lovelace" />
-                <UnderlineInput label="Full name" defaultValue="Ada Lovelace" />
-                <UnderlineInput label="Handle" defaultValue="@ada" />
-                <UnderlineInput label="College email" defaultValue="ada@college.edu" />
-                <UnderlineInput
-                  label="Bio"
-                  defaultValue="Systems programming, tea, and long walks."
-                />
+                <AvatarUpload name={currentFullName || "User"} />
+
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="fullName"
+                      render={({ field }) => (
+                        <FormItem className="space-y-1">
+                          <FormLabel required className="eyebrow font-bold">
+                            Full name
+                          </FormLabel>
+                          <FormControl>
+                            <input
+                              {...field}
+                              className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                            />
+                          </FormControl>
+                          <FormMessage className="font-mono text-xs text-destructive" />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="handle"
+                      render={({ field }) => (
+                        <FormItem className="space-y-1">
+                          <FormLabel required className="eyebrow font-bold">
+                            Handle
+                          </FormLabel>
+                          <FormControl>
+                            <input
+                              {...field}
+                              placeholder="username"
+                              className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                            />
+                          </FormControl>
+                          <FormMessage className="font-mono text-xs text-destructive" />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="collegeEmail"
+                      render={({ field }) => (
+                        <FormItem className="space-y-1">
+                          <FormLabel required className="eyebrow font-bold">
+                            College email
+                          </FormLabel>
+                          <FormControl>
+                            <input
+                              {...field}
+                              type="email"
+                              className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                            />
+                          </FormControl>
+                          <FormMessage className="font-mono text-xs text-destructive" />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="phoneNumber"
+                      render={({ field }) => (
+                        <FormItem className="space-y-1">
+                          <FormLabel className="eyebrow font-bold">Phone number</FormLabel>
+                          <FormControl>
+                            <input
+                              {...field}
+                              placeholder="+1 (555) 000-0000"
+                              className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                            />
+                          </FormControl>
+                          <FormMessage className="font-mono text-xs text-destructive" />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="linkedinUrl"
+                      render={({ field }) => (
+                        <FormItem className="space-y-1">
+                          <FormLabel className="eyebrow font-bold">LinkedIn URL</FormLabel>
+                          <FormControl>
+                            <input
+                              {...field}
+                              placeholder="https://linkedin.com/in/username"
+                              className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                            />
+                          </FormControl>
+                          <FormMessage className="font-mono text-xs text-destructive" />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="bio"
+                      render={({ field }) => (
+                        <FormItem className="space-y-1">
+                          <FormLabel className="eyebrow font-bold">Bio</FormLabel>
+                          <FormControl>
+                            <input
+                              {...field}
+                              className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                            />
+                          </FormControl>
+                          <FormMessage className="font-mono text-xs text-destructive" />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="flex justify-end pt-4">
+                      <button
+                        type="submit"
+                        disabled={isSaving || isProfileLoading}
+                        className="neu-border neu-press flex items-center gap-2 bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream disabled:opacity-50"
+                      >
+                        {isSaving ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          "Save changes"
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </Form>
               </Panel>
               <Panel title="Notifications">
                 <Toggle label="Email me about upcoming RSVPs" defaultChecked />
                 <Toggle label="Weekly digest of club activity" defaultChecked />
                 <Toggle label="New certificates" />
               </Panel>
-              <Panel title="Danger zone" tone="bg-peach">
-                <button className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream">
+              <Panel title="Danger zone" tone="bg-red-50">
+                <button
+                  onClick={() => setConfirmOpen(true)}
+                  className="neu-border neu-press bg-[#123a57] px-4 py-2 font-mono text-xs font-bold uppercase text-white"
+                >
                   Delete account
                 </button>
+
+                <ConfirmModal
+                  open={confirmOpen}
+                  title="Delete account?"
+                  description="This action cannot be undone."
+                  confirmText="Delete"
+                  cancelText="Cancel"
+                  onCancel={() => setConfirmOpen(false)}
+                  onConfirm={() => {
+                    console.log("Delete account confirmed");
+                    setConfirmOpen(false);
+                  }}
+                />
               </Panel>
             </div>
           </section>
@@ -87,12 +343,51 @@ function Panel({
   );
 }
 
+function uploadFileWithProgress(
+  supabaseUrl: string,
+  accessToken: string,
+  bucket: string,
+  path: string,
+  file: File,
+  onProgress: (percent: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${supabaseUrl}/storage/v1/object/${bucket}/${path}`);
+    xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
+    xhr.setRequestHeader("x-upsert", "true");
+    xhr.setRequestHeader("Content-Type", file.type);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else {
+        reject(new Error(`Upload failed with status ${xhr.status}`));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error("Upload failed due to a network error"));
+    };
+
+    xhr.send(file);
+  });
+}
+
 function AvatarUpload({ name }: { name: string }) {
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
   const [preview, setPreview] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -112,6 +407,7 @@ function AvatarUpload({ name }: { name: string }) {
       console.log("Loaded avatar:", data?.avatar_url);
       if (isMounted && !error && data?.avatar_url) {
         setPreview(data.avatar_url);
+        setImageError(false);
       }
     }
 
@@ -120,7 +416,7 @@ function AvatarUpload({ name }: { name: string }) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [supabase]);
 
   const initials = name
     .split(" ")
@@ -155,13 +451,15 @@ function AvatarUpload({ name }: { name: string }) {
 
       if (avatarUrl) {
         setPreview(avatarUrl);
+        setImageError(false);
         toast.success("Profile picture updated.");
-        setUploading(false);
       }
     } catch (error) {
       console.error(error);
       toast.error("Failed to upload avatar.");
     } finally {
+      setUploading(false);
+      setUploadProgress(null);
       if (inputRef.current) {
         inputRef.current.value = "";
       }
@@ -178,16 +476,28 @@ function AvatarUpload({ name }: { name: string }) {
       return;
     }
 
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      toast.error("Session expired. Please sign in again.");
+      return;
+    }
+
+    const supabaseUrl = getSupabaseUrl();
     const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
     const filePath = `${user.id}/${crypto.randomUUID()}.${extension}`;
 
-    const { error } = await supabase.storage.from("avatars").upload(filePath, file, {
-      upsert: true,
-    });
-
-    if (error) {
-      throw error;
-    }
+    await uploadFileWithProgress(
+      supabaseUrl,
+      session.access_token,
+      "avatars",
+      filePath,
+      file,
+      setUploadProgress,
+    );
+    setUploadProgress(null);
 
     const {
       data: { publicUrl },
@@ -211,11 +521,14 @@ function AvatarUpload({ name }: { name: string }) {
     <div className="flex flex-col items-center gap-3 border-b-2 border-black pb-6 sm:flex-row sm:items-center sm:gap-5">
       <div className="relative shrink-0">
         <div className="neu-border flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-lime">
-          {preview ? (
+          {preview && !imageError ? (
             <img
               src={preview}
               alt="Profile picture preview"
               className="h-full w-full object-cover"
+              width={96}
+              height={96}
+              loading="lazy"
             />
           ) : (
             <span className="font-display text-2xl font-bold">{initials}</span>
@@ -248,6 +561,12 @@ function AvatarUpload({ name }: { name: string }) {
         <p className="font-mono text-xs text-gray-500">
           JPG, PNG or WEBP. Max 2 MB. Square images look best.
         </p>
+        {uploadProgress !== null && (
+          <div className="mt-2 w-full space-y-1">
+            <Progress value={uploadProgress} className="h-2" />
+            <p className="font-mono text-xs text-gray-500">{uploadProgress}%</p>
+          </div>
+        )}
       </div>
     </div>
   );
