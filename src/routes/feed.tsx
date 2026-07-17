@@ -77,7 +77,8 @@ export default function Feed() {
           id, content, created_at, club_id,
           profiles (id, full_name),
           clubs (id, name, club_members (user_id, role)),
-          comments (id, content, created_at, profiles (id, full_name))
+          comments (id, content, created_at, profiles (id, full_name)),
+          post_reactions (id, emoji, user_id)
           `,
         )
         .is("deleted_at", null)
@@ -121,6 +122,9 @@ export default function Feed() {
       .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => {
         refetchPosts();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "post_reactions" }, () => {
+        refetchPosts();
+      })
       .subscribe();
 
     return () => {
@@ -156,6 +160,34 @@ export default function Feed() {
       if (error) throw error;
 
       setNewComments((prev) => ({ ...prev, [postId]: "" }));
+    },
+    onSuccess: () => refetchPosts(),
+  });
+
+  const reactionMutation = useMutation({
+    mutationFn: async ({
+      postId,
+      emoji,
+      isReacted,
+    }: {
+      postId: string;
+      emoji: string;
+      isReacted: boolean;
+    }) => {
+      if (!user) throw new Error("Must be logged in");
+
+      if (isReacted) {
+        const { error } = await supabase
+          .from("post_reactions")
+          .delete()
+          .match({ post_id: postId, user_id: user.id, emoji });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("post_reactions")
+          .insert({ post_id: postId, user_id: user.id, emoji });
+        if (error) throw error;
+      }
     },
     onSuccess: () => refetchPosts(),
   });
@@ -311,6 +343,38 @@ export default function Feed() {
 
                     <div className="markdown-content mt-2 font-mono text-sm leading-relaxed">
                       <ReactMarkdown>{post.content}</ReactMarkdown>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {["👍", "👏", "🔥"].map((emoji) => {
+                        const postReactions = Array.isArray(post.post_reactions)
+                          ? post.post_reactions
+                          : [];
+                        const reactionCount = postReactions.filter(
+                          (r: { emoji: string; user_id: string }) => r.emoji === emoji,
+                        ).length;
+                        const isReacted = postReactions.some(
+                          (r: { emoji: string; user_id: string }) =>
+                            r.emoji === emoji && r.user_id === user?.id,
+                        );
+
+                        return (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => {
+                              if (!user) return alert("Log in first");
+                              reactionMutation.mutate({ postId: post.id, emoji, isReacted });
+                            }}
+                            className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${
+                              isReacted ? "bg-lime" : "bg-white hover:bg-cream"
+                            }`}
+                          >
+                            <span>{emoji}</span>
+                            {reactionCount > 0 && <span>{reactionCount}</span>}
+                          </button>
+                        );
+                      })}
                     </div>
 
                     <div className="mt-4 flex gap-2 border-t-2 border-black pt-4">
