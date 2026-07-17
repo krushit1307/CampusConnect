@@ -30,7 +30,7 @@ describe("formatDate", () => {
 });
 
 describe("formatEventDateRange", () => {
-  it("shows a same-day start and end time in a single label", () => {
+  it("shows a same-day start and end time", () => {
     const result = formatEventDateRange({
       event_date: "2026-07-11T09:00:00Z",
       start_date: "2026-07-11T09:00:00Z",
@@ -50,7 +50,7 @@ describe("formatEventDateRange", () => {
     expect(result).toMatch(/^July 11, 2026 at .+$/);
   });
 
-  it("returns TBA when there is no usable date", () => {
+  it("returns a fallback label when there is no usable date", () => {
     expect(
       formatEventDateRange({
         event_date: null,
