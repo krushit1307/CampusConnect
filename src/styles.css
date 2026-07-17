@@ -501,7 +501,7 @@
     transition-delay: 0s !important;
   }
 }
-  /* Neubrutalist overrides for React Big Calendar */
+/* Neubrutalist overrides for React Big Calendar */
 .rbc-calendar {
   font-family: var(--font-mono);
   background-color: #ffffff;
