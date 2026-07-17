@@ -37,7 +37,10 @@ const router = createBrowserRouter(
         <Route path=":slug" element={<ClubDetails />} />
       </Route>
 
-      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/dashboard" element={<Dashboard />}>
+        <Route index element={<DashboardOverview />} />
+        <Route path="rsvps" element={<DashboardRsvps />} />
+      </Route>
 
       <Route path="/events">
         <Route index element={<EventsIndex />} />
@@ -53,35 +56,6 @@ const router = createBrowserRouter(
 );
 
 export default function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/certificates" element={<Certificates />} />
-
-          <Route path="/clubs" element={<ClubsLayout />}>
-            <Route index element={<ClubsIndex />} />
-            <Route path=":slug" element={<ClubDetails />} />
-          </Route>
-
-          <Route path="/dashboard" element={<Dashboard />}>
-            <Route index element={<DashboardOverview />} />
-            <Route path="rsvps" element={<DashboardRsvps />} />
-          </Route>
-
-          <Route path="/events">
-            <Route index element={<EventsIndex />} />
-            <Route path=":eventId" element={<EventDetails />} />
-          </Route>
-
-          <Route path="/feed" element={<Feed />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/settings" element={<Settings />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
-  );
+  return <RouterProvider router={router} />;
 }
+
