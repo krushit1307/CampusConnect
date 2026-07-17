@@ -1,3 +1,4 @@
+import { FeedPostSkeleton } from "@/components/FeedPostSkeleton";
 import { useMutation, useQuery, useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import type { User } from "@supabase/supabase-js";
 import { MessageCircle, MessageSquareText, PenLine, Sparkles, Trash2 } from "lucide-react";
@@ -70,18 +71,19 @@ export default function Feed() {
     isLoading,
     isFetching,
     refetch: refetchPosts,
-  } = useInfiniteQuery({
+  } = useQuery({
     queryKey: ["posts"],
     queryFn: async () => {
       const { data } = await supabase
         .from("posts")
         .select(
           `
-          id, content, created_at, club_id,
-          profiles (id, full_name),
-          clubs (id, name, club_members (user_id, role)),
-          comments (id, content, created_at, profiles (id, full_name))
-          `,
+id, content, created_at, club_id,
+profiles (id, full_name),
+clubs (id, name, club_members (user_id, role)),
+comments (id, content, created_at, profiles (id, full_name)),
+post_reactions (id, emoji, user_id)
+`,
         )
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
@@ -89,6 +91,7 @@ export default function Feed() {
       return data || [];
     },
   });
+  const posts = data ?? [];
 
   useEffect(() => {
     const channel = supabase
@@ -119,11 +122,33 @@ export default function Feed() {
         author_id: user.id,
         content: newPost,
       });
+
       if (error) throw error;
 
       setNewPost("");
     },
     onSuccess: () => refetchPosts(),
+  });
+
+  // DELETE POST MUTATION
+  const deletePostMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      const { error } = await supabase
+        .from("posts")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", postId);
+
+      if (error) throw error;
+    },
+
+    onSuccess: () => {
+      toast.success("Post deleted successfully");
+      refetchPosts();
+    },
+
+    onError: () => {
+      toast.error("Failed to delete post");
+    },
   });
 
   const commentMutation = useMutation({
@@ -143,6 +168,41 @@ export default function Feed() {
       toast.error(error.message || "Failed to post comment. Please try again.");
     },
   });
+  const reactionMutation = useMutation({
+    mutationFn: async ({
+      postId,
+      emoji,
+      isReacted,
+    }: {
+      postId: string;
+      emoji: string;
+      isReacted: boolean;
+    }) => {
+      if (!user) throw new Error("Must be logged in");
+
+      if (isReacted) {
+        const { error } = await supabase
+          .from("post_reactions")
+          .delete()
+          .eq("post_id", postId)
+          .eq("user_id", user.id)
+          .eq("emoji", emoji);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("post_reactions").insert({
+          post_id: postId,
+          user_id: user.id,
+          emoji,
+        });
+
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      refetchPosts();
+    },
+  });
 
   const timeAgo = (dateString: string) => {
     const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -160,10 +220,7 @@ export default function Feed() {
 
   return (
     <SiteShell>
-      <PullToRefresh
-        isRefreshing={isLoading || isFetchingNextPage}
-        onRefresh={() => refetchPosts()}
-      >
+      <PullToRefresh isRefreshing={isLoading || isFetching} onRefresh={() => refetchPosts()}>
         <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
           <div className="mx-auto max-w-4xl">
             <p className="eyebrow font-bold">Discussion feed</p>
@@ -219,7 +276,11 @@ export default function Feed() {
             </div>
 
             {isLoading ? (
-              <div className="py-10 text-center font-mono">Loading feed...</div>
+              <div className="space-y-6">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <FeedPostSkeleton key={index} />
+                ))}
+              </div>
             ) : posts.length === 0 ? (
               <div
                 className="neu-border relative overflow-hidden bg-white px-6 py-12 text-center sm:px-10 sm:py-16"

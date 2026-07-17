@@ -1,15 +1,3 @@
-/**
- * Formats a date string into a human-readable format.
- *
- * Converts a valid date string into the format:
- * "Month Day, Year at HH:MM AM/PM".
- * Returns an empty string for empty input and the original
- * string if the provided date is invalid.
- *
- * @param dateString - The date string to format.
- * @returns A formatted date string, the original input if invalid,
- * or an empty string if no value is provided.
- */
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -52,46 +40,29 @@ export const formatDate = (dateString: string): string => {
   return `${formattedDate} at ${formattedTime}`;
 };
 
-export function formatEventDateRange(event: {
-  event_date: string | null;
-  start_date?: string | null;
-  end_date?: string | null;
-}): string {
-  const startValue = event.start_date || event.event_date;
+/**
+ * Formats a date string into a UTC date-only format.
+ *
+ * @param dateString - The date string to format.
+ * @param monthFormat - The month format to use: "short" (default) or "long".
+ * @returns A formatted date-only string, the original input if invalid,
+ * or an empty string if no value is provided.
+ */
+export const formatDateOnly = (
+  dateString: string,
+  monthFormat: "short" | "long" = "short",
+): string => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return dateString;
 
-  if (!startValue) return "TBA";
-
-  if (!event.end_date) {
-    return formatDate(startValue);
-  }
-
-  const startDate = new Date(startValue);
-  const endDate = new Date(event.end_date);
-
-  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-    return formatDate(startValue);
-  }
-
-  const isSameDay = startDate.toDateString() === endDate.toDateString();
-
-  if (!isSameDay) {
-    return `${formatDate(startValue)} – ${formatDate(event.end_date)}`;
-  }
-
-  const dateFormatter = new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    day: "numeric",
+  return date.toLocaleDateString("en-US", {
     year: "numeric",
+    month: monthFormat,
+    day: "numeric",
+    timeZone: "UTC",
   });
-
-  const timeFormatter = new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-
-  return `${dateFormatter.format(startDate)} at ${timeFormatter.format(startDate)} – ${timeFormatter.format(endDate)}`;
-}
+};
 
 export function getGoogleCalendarUrl(event: {
   title: string;
