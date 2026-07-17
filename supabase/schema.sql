@@ -66,9 +66,16 @@ CREATE TABLE events (
   banner_url TEXT,
   event_date TIMESTAMPTZ,
   location TEXT,
+  max_attendees INTEGER,
   created_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE events
+ADD CONSTRAINT check_events_max_attendees
+CHECK (
+  max_attendees IS NULL OR max_attendees > 0
 );
 
 CREATE INDEX idx_events_category ON events(category_id);

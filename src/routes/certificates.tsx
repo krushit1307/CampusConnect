@@ -1,3 +1,4 @@
+import { CertificateCardSkeleton } from "@/components/CertificateCardSkeleton";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
@@ -88,22 +89,14 @@ export default function Certificates() {
       <section className="bg-cream px-4 py-12 md:px-6">
         <div className="mx-auto max-w-7xl">
           {isLoading ? (
-            <div className="font-mono py-10 text-center">Loading certificates...</div>
-          ) : isError ? (
-            <div className="col-span-full">
-              <div className="neu-border bg-white p-8 text-center flex flex-col items-center">
-                <p className="font-mono text-sm text-red-600 mb-4">
-                  Failed to load certificates. Please try again.
-                </p>
-                <button
-                  onClick={() => {
-                    refetch();
-                  }}
-                  className="neu-border neu-press bg-black text-cream hover:bg-lime hover:text-black font-mono text-xs font-bold uppercase py-2.5 px-6 cursor-pointer"
-                >
-                  Retry
-                </button>
-              </div>
+            <>
+              {Array.from({ length: 4 }).map((_, index) => (
+                <CertificateCardSkeleton key={index} />
+              ))}
+            </>
+          ) : certs.length === 0 ? (
+            <div className="col-span-full font-mono py-10 text-gray-500">
+              You don't have any certificates yet. Attend events to earn them!
             </div>
           ) : displayedCerts.length === 0 ? (
             <div className="col-span-full">
