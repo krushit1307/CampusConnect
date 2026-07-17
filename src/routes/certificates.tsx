@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { Award, ArrowRight, Copy, Download, X } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { formatDateOnly } from "@/lib/utils";
 
 export const Route = createFileRoute("/certificates")({
   head: () => ({
@@ -48,10 +49,15 @@ function Certificates() {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
 
-  const { data: certs = [], isLoading } = useQuery({
+  const {
+    data: certs = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ["certificates", user?.id],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("certificates")
         .select(
           `
@@ -61,6 +67,10 @@ function Certificates() {
         )
         .eq("user_id", user?.id)
         .order("issued_at", { ascending: false });
+
+      if (error) {
+        throw new Error(error.message);
+      }
       return data || [];
     },
     enabled: !!user?.id,
@@ -92,6 +102,22 @@ function Certificates() {
         <div className="mx-auto max-w-7xl">
           {isLoading ? (
             <div className="font-mono py-10 text-center">Loading certificates...</div>
+          ) : isError ? (
+            <div className="col-span-full">
+              <div className="neu-border bg-white p-8 text-center flex flex-col items-center">
+                <p className="font-mono text-sm text-red-600 mb-4">
+                  Failed to load certificates. Please try again.
+                </p>
+                <button
+                  onClick={() => {
+                    refetch();
+                  }}
+                  className="neu-border neu-press bg-black text-cream hover:bg-lime hover:text-black font-mono text-xs font-bold uppercase py-2.5 px-6 cursor-pointer"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
           ) : displayedCerts.length === 0 ? (
             <div className="col-span-full">
               <div className="neu-border neu-shadow bg-white p-8 md:p-12 text-center flex flex-col items-center">
@@ -163,13 +189,17 @@ function Certificates() {
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {displayedCerts.map((c, index) => {
                 const event = Array.isArray(c.events) ? c.events[0] : c.events;
-                const club = event && !Array.isArray(event.clubs) ? event.clubs : null;
+                const club = event
+                  ? Array.isArray(event.clubs)
+                    ? event.clubs[0]
+                    : event.clubs
+                  : null;
 
                 return (
                   <article
                     key={c.id}
                     className="neu-border neu-press bg-white p-6 flex flex-col justify-between h-full animate-fade-in-up"
-                    style={{ animationDelay: `${index * 100}ms` }}
+                    style={{ animationDelay: `${Math.min(index, 8) * 100}ms` }}
                   >
                     <div>
                       <div
@@ -187,15 +217,7 @@ function Certificates() {
                         </div>
                         <div className="flex justify-between border-b border-black/10 pb-1">
                           <span className="font-bold uppercase text-black">Issued</span>
-                          <span>
-                            {c.issued_at
-                              ? new Date(c.issued_at).toLocaleDateString("en-US", {
-                                  year: "numeric",
-                                  month: "short",
-                                  day: "numeric",
-                                })
-                              : "N/A"}
-                          </span>
+                          <span>{c.issued_at ? formatDateOnly(c.issued_at, "short") : "N/A"}</span>
                         </div>
                         <div className="flex justify-between pb-1">
                           <span className="font-bold uppercase text-black">Verify ID</span>
@@ -232,14 +254,18 @@ function Certificates() {
               const event = Array.isArray(selectedCert.events)
                 ? selectedCert.events[0]
                 : selectedCert.events;
-              const club = event && !Array.isArray(event.clubs) ? event.clubs : null;
+              const club = event
+                ? Array.isArray(event.clubs)
+                  ? event.clubs[0]
+                  : event.clubs
+                : null;
               return (
                 <div className="flex flex-col max-h-[92vh]">
                   {/* Top Bar */}
                   <div className="bg-black text-cream p-4 flex justify-between items-center border-b-2 border-black flex-shrink-0">
-                    <span className="font-display font-bold text-sm tracking-wider uppercase">
+                    <DialogTitle className="font-display font-bold text-sm tracking-wider uppercase text-cream">
                       Certificate Viewer
-                    </span>
+                    </DialogTitle>
                     <button
                       onClick={() => setIsDialogOpen(false)}
                       className="text-cream hover:text-lime transition-colors cursor-pointer p-1"
@@ -293,11 +319,7 @@ function Certificates() {
                           <p className="font-bold uppercase text-gray-500">Date of Issue</p>
                           <p className="font-bold text-black">
                             {selectedCert.issued_at
-                              ? new Date(selectedCert.issued_at).toLocaleDateString("en-US", {
-                                  year: "numeric",
-                                  month: "long",
-                                  day: "numeric",
-                                })
+                              ? formatDateOnly(selectedCert.issued_at, "long")
                               : "N/A"}
                           </p>
                         </div>
@@ -319,9 +341,13 @@ function Certificates() {
                   {/* Action Buttons */}
                   <div className="bg-cream border-t-2 border-black p-4 flex gap-4 w-full flex-shrink-0">
                     <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(selectedCert.certificate_url);
-                        alert("Verifiable link copied to clipboard!");
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(selectedCert.certificate_url);
+                          alert("Verifiable link copied to clipboard!");
+                        } catch (err) {
+                          console.error("Clipboard copy failed:", err);
+                        }
                       }}
                       className="neu-border neu-press flex-1 bg-white hover:bg-lime hover:text-black py-3 font-mono text-xs font-bold uppercase transition-colors cursor-pointer flex items-center justify-center gap-2"
                     >
@@ -331,7 +357,26 @@ function Certificates() {
                       onClick={async () => {
                         setOpeningId(selectedCert.id);
                         const minDuration = new Promise((resolve) => setTimeout(resolve, 400));
-                        window.open(selectedCert.certificate_url, "_blank");
+                        try {
+                          const response = await fetch(selectedCert.certificate_url);
+                          const blob = await response.blob();
+                          const blobUrl = window.URL.createObjectURL(blob);
+
+                          const link = document.createElement("a");
+                          link.href = blobUrl;
+                          const eventTitle = event?.title || "certificate";
+                          const filename = `${eventTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-certificate.pdf`;
+                          link.download = filename;
+
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          window.URL.revokeObjectURL(blobUrl);
+                        } catch (err) {
+                          console.error("PDF download failed:", err);
+                          // Fallback to opening in new window if fetch fails
+                          window.open(selectedCert.certificate_url, "_blank");
+                        }
                         await minDuration;
                         setOpeningId(null);
                       }}
@@ -339,7 +384,7 @@ function Certificates() {
                       className="neu-border neu-press flex-1 bg-black text-cream hover:bg-lime hover:text-black py-3 font-mono text-xs font-bold uppercase transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
                     >
                       <Download className="h-4 w-4" />{" "}
-                      {openingId === selectedCert.id ? "Loading..." : "Download PDF"}
+                      {openingId === selectedCert.id ? "Downloading..." : "Download PDF"}
                     </button>
                   </div>
                 </div>

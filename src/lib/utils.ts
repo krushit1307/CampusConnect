@@ -27,3 +27,27 @@ export const formatDate = (dateString: string): string => {
 
   return `${formattedDate} at ${formattedTime}`;
 };
+
+/**
+ * Formats a date string into a UTC date-only format.
+ *
+ * @param dateString - The date string to format.
+ * @param monthFormat - The month format to use: "short" (default) or "long".
+ * @returns A formatted date-only string, the original input if invalid,
+ * or an empty string if no value is provided.
+ */
+export const formatDateOnly = (
+  dateString: string,
+  monthFormat: "short" | "long" = "short",
+): string => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return dateString;
+
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: monthFormat,
+    day: "numeric",
+    timeZone: "UTC",
+  });
+};
