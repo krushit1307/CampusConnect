@@ -4,7 +4,10 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Camera, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
+
+import { Progress } from "@/components/ui/progress";
+
 import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { useForm } from "react-hook-form";
@@ -328,6 +331,43 @@ function Panel({
   );
 }
 
+function uploadFileWithProgress(
+  supabaseUrl: string,
+  accessToken: string,
+  bucket: string,
+  path: string,
+  file: File,
+  onProgress: (percent: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${supabaseUrl}/storage/v1/object/${bucket}/${path}`);
+    xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
+    xhr.setRequestHeader("x-upsert", "true");
+    xhr.setRequestHeader("Content-Type", file.type);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else {
+        reject(new Error(`Upload failed with status ${xhr.status}`));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error("Upload failed due to a network error"));
+    };
+
+    xhr.send(file);
+  });
+}
+
 function AvatarUpload({ name }: { name: string }) {
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
@@ -335,6 +375,7 @@ function AvatarUpload({ name }: { name: string }) {
   const [imageError, setImageError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -400,12 +441,13 @@ function AvatarUpload({ name }: { name: string }) {
         setPreview(avatarUrl);
         setImageError(false);
         toast.success("Profile picture updated.");
-        setUploading(false);
       }
     } catch (error) {
       console.error(error);
       toast.error("Failed to upload avatar.");
     } finally {
+      setUploading(false);
+      setUploadProgress(null);
       if (inputRef.current) {
         inputRef.current.value = "";
       }
@@ -422,16 +464,28 @@ function AvatarUpload({ name }: { name: string }) {
       return;
     }
 
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      toast.error("Session expired. Please sign in again.");
+      return;
+    }
+
+    const supabaseUrl = getSupabaseUrl();
     const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
     const filePath = `${user.id}/${crypto.randomUUID()}.${extension}`;
 
-    const { error } = await supabase.storage.from("avatars").upload(filePath, file, {
-      upsert: true,
-    });
-
-    if (error) {
-      throw error;
-    }
+    await uploadFileWithProgress(
+      supabaseUrl,
+      session.access_token,
+      "avatars",
+      filePath,
+      file,
+      setUploadProgress,
+    );
+    setUploadProgress(null);
 
     const {
       data: { publicUrl },
@@ -495,6 +549,12 @@ function AvatarUpload({ name }: { name: string }) {
         <p className="font-mono text-xs text-gray-500">
           JPG, PNG or WEBP. Max 2 MB. Square images look best.
         </p>
+        {uploadProgress !== null && (
+          <div className="mt-2 w-full space-y-1">
+            <Progress value={uploadProgress} className="h-2" />
+            <p className="font-mono text-xs text-gray-500">{uploadProgress}%</p>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,0 +1,27 @@
+name: "02 Unclaim"
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: unclaim-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  unclaim:
+    if: github.event.issue.pull_request == null && contains(github.event.comment.body, '/unclaim')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Process /unclaim command
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { processUnclaim } = await import(`${process.cwd()}/.github/scripts/claim.js`);
+            await processUnclaim({ github, context, core });

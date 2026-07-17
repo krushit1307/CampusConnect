@@ -3,13 +3,12 @@ import type { User } from "@supabase/supabase-js";
 import { MessageCircle, MessageSquareText, PenLine, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-
+import { toast } from "sonner";
 import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { calculateReadTime } from "@/utils/readTime";
 import { PullToRefresh } from "@/components/PullToRefresh";
-import { toast } from "sonner";
 import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
 import {
   AlertDialog,
@@ -70,17 +69,10 @@ export default function Feed() {
     data,
     isLoading,
     isFetching,
-    isFetchingNextPage,
-    hasNextPage,
-    fetchNextPage,
     refetch: refetchPosts,
   } = useInfiniteQuery({
     queryKey: ["posts"],
-    initialPageParam: 0,
-    queryFn: async ({ pageParam = 0 }) => {
-      const from = pageParam * POSTS_PER_PAGE;
-      const to = from + POSTS_PER_PAGE - 1;
-
+    queryFn: async () => {
       const { data } = await supabase
         .from("posts")
         .select(
@@ -92,36 +84,11 @@ export default function Feed() {
           `,
         )
         .is("deleted_at", null)
-        .order("created_at", { ascending: false })
-        .range(from, to);
+        .order("created_at", { ascending: false });
 
-      return {
-        posts: data || [],
-        nextPage: (data || []).length === POSTS_PER_PAGE ? pageParam + 1 : undefined,
-      };
+      return data || [];
     },
-    getNextPageParam: (lastPage) => lastPage.nextPage,
   });
-
-  const posts = data?.pages.flatMap((page) => page.posts) || [];
-
-  const sentinelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!sentinelRef.current) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
-          fetchNextPage();
-        }
-      },
-      { rootMargin: "100px" },
-    );
-
-    observer.observe(sentinelRef.current);
-    return () => observer.disconnect();
-  }, [hasNextPage, isFetchingNextPage]);
 
   useEffect(() => {
     const channel = supabase
@@ -130,6 +97,9 @@ export default function Feed() {
         refetchPosts();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => {
+        refetchPosts();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "post_reactions" }, () => {
         refetchPosts();
       })
       .subscribe();
@@ -171,24 +141,6 @@ export default function Feed() {
     onSuccess: () => refetchPosts(),
   });
 
-  const deletePostMutation = useMutation({
-    mutationFn: async (postId: string) => {
-      if (!user) throw new Error("Must be logged in");
-      const { error } = await supabase
-        .from("posts")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("id", postId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      refetchPosts();
-      toast.success("Post deleted successfully!");
-    },
-    onError: () => {
-      toast.error("Failed to delete post.");
-    },
-  });
-
   const timeAgo = (dateString: string) => {
     const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
     const diff = new Date().getTime() - new Date(dateString).getTime();
@@ -205,7 +157,10 @@ export default function Feed() {
 
   return (
     <SiteShell>
-      <PullToRefresh isRefreshing={isFetching} onRefresh={() => refetchPosts()}>
+      <PullToRefresh
+        isRefreshing={isLoading || isFetchingNextPage}
+        onRefresh={() => refetchPosts()}
+      >
         <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
           <div className="mx-auto max-w-4xl">
             <p className="eyebrow font-bold">Discussion feed</p>
@@ -322,8 +277,8 @@ export default function Feed() {
                 const postComments = Array.isArray(post.comments) ? post.comments : [];
 
                 return (
-                  <article key={post.id} className="neu-border bg-white p-6">
-                    <header className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b-2 border-black pb-3">
+                  <article id={`post-${post.id}`} key={post.id} className="neu-border bg-white p-6">
+                    <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-black pb-3">
                       <div>
                         <p className="font-display text-lg font-bold flex items-center gap-2">
                           {author?.full_name || "Unknown User"}
@@ -378,9 +333,41 @@ export default function Feed() {
                       <ReactMarkdown>{post.content}</ReactMarkdown>
                     </div>
 
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {["👍", "👏", "🔥"].map((emoji) => {
+                        const postReactions = Array.isArray(post.post_reactions)
+                          ? post.post_reactions
+                          : [];
+                        const reactionCount = postReactions.filter(
+                          (r: { emoji: string; user_id: string }) => r.emoji === emoji,
+                        ).length;
+                        const isReacted = postReactions.some(
+                          (r: { emoji: string; user_id: string }) =>
+                            r.emoji === emoji && r.user_id === user?.id,
+                        );
+
+                        return (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => {
+                              if (!user) return alert("Log in first");
+                              reactionMutation.mutate({ postId: post.id, emoji, isReacted });
+                            }}
+                            className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${
+                              isReacted ? "bg-lime" : "bg-white hover:bg-cream"
+                            }`}
+                          >
+                            <span>{emoji}</span>
+                            {reactionCount > 0 && <span>{reactionCount}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+
                     <div className="mt-4 flex gap-2 border-t-2 border-black pt-4">
                       <a
-                        href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
+                        href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(`${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#1DA1F2] hover:text-white transition-colors"
@@ -388,7 +375,7 @@ export default function Feed() {
                         Twitter
                       </a>
                       <a
-                        href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`}
+                        href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#0A66C2] hover:text-white transition-colors"
@@ -396,7 +383,7 @@ export default function Feed() {
                         LinkedIn
                       </a>
                       <a
-                        href={`https://wa.me/?text=${encodeURIComponent(`Check out this post: ${post.content.substring(0, 50)}... - ${window.location.href}`)}`}
+                        href={`https://wa.me/?text=${encodeURIComponent(`Check out this post: ${post.content.substring(0, 50)}... - ${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#25D366] hover:text-white transition-colors"
@@ -473,30 +460,6 @@ export default function Feed() {
                 );
               })
             )}
-
-            {isFetchingNextPage &&
-              Array.from({ length: 2 }).map((_, i) => (
-                <div
-                  key={`next-load-${i}`}
-                  className="neu-border bg-white p-6 animate-pulse h-48 flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="h-6 bg-gray-200 w-1/3 mb-4 rounded neu-border border-gray-300" />
-                    <div className="h-4 bg-gray-200 w-full rounded mb-2" />
-                    <div className="h-4 bg-gray-200 w-full rounded mb-2" />
-                    <div className="h-4 bg-gray-200 w-5/6 rounded" />
-                  </div>
-                  <div className="h-8 bg-gray-200 w-full mt-4 rounded" />
-                </div>
-              ))}
-
-            {!hasNextPage && posts.length > 0 && (
-              <div className="py-10 text-center font-mono text-sm font-bold text-gray-500 uppercase">
-                You're all caught up! 🎉
-              </div>
-            )}
-
-            <div ref={sentinelRef} aria-hidden="true" />
           </div>
         </section>
       </PullToRefresh>

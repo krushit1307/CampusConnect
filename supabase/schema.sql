@@ -160,7 +160,6 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.is_system_admin() TO authenticated;
-
 -- 3. Row Level Security (RLS)
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;

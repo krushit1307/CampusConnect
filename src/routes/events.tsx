@@ -9,6 +9,25 @@ import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { toast } from "sonner";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+interface EventItem {
+  id: string;
+  title: string;
+  description: string | null;
+  event_date: string | null;
+  location: string | null;
+  banner_url?: string | null;
+  clubs: { name: string } | { name: string }[] | null;
+  event_rsvps: { id: string; user_id: string }[] | null;
+  saved_events: { id: string; user_id: string }[] | null;
+}
 
 interface EventItem {
   id: string;
@@ -29,10 +48,24 @@ export default function EventsPage() {
   const [user, setUser] = useState<User | null>(null);
   const [filter, setFilter] = useState("All");
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [sortLoaded, setSortLoaded] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
-  }, [supabase]);
+    const savedSort = sessionStorage.getItem("event-sort-order");
+
+    if (savedSort === "newest" || savedSort === "oldest") {
+      setSortOrder(savedSort);
+    }
+
+    setSortLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!sortLoaded) return;
+
+    sessionStorage.setItem("event-sort-order", sortOrder);
+  }, [sortOrder, sortLoaded]);
 
   const {
     data: queryData,
@@ -203,6 +236,16 @@ export default function EventsPage() {
           return searchStr.includes(filter.toLowerCase());
         });
 
+  const sortedEvents = [...filteredEvents].sort((a, b) => {
+    if (!a.event_date && !b.event_date) return 0;
+    if (!a.event_date) return 1;
+    if (!b.event_date) return -1;
+
+    const dateA = new Date(a.event_date).getTime();
+    const dateB = new Date(b.event_date).getTime();
+
+    return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
+  });
   return (
     <SiteShell>
       <PullToRefresh isRefreshing={isFetching} onRefresh={() => refetch()}>
@@ -247,6 +290,7 @@ export default function EventsPage() {
                   >
                     List
                   </button>
+
                   <button
                     type="button"
                     onClick={() => setViewMode("calendar")}
@@ -259,6 +303,21 @@ export default function EventsPage() {
                     Calendar
                   </button>
                 </div>
+
+                <Select
+                  value={sortOrder}
+                  onValueChange={(value) => setSortOrder(value as "newest" | "oldest")}
+                >
+                  <SelectTrigger className="neu-border w-44 bg-white font-mono text-xs">
+                    <SelectValue placeholder="Sort by date" />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value="newest">Newest First</SelectItem>
+                    <SelectItem value="oldest">Oldest First</SelectItem>
+                  </SelectContent>
+                </Select>
+
                 <CreateEventDialog user={user} />
               </div>
             </div>
@@ -269,7 +328,7 @@ export default function EventsPage() {
             <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
               {isLoading
                 ? Array.from({ length: 4 }).map((_, i) => <EventCardSkeleton key={i} />)
-                : filteredEvents.map((e, index) => (
+                : sortedEvents.map((e, index) => (
                     <EventCard
                       key={e.id}
                       event={e}
@@ -293,7 +352,7 @@ export default function EventsPage() {
                   </div>
                 }
               >
-                <EventsCalendar events={filteredEvents} />
+                <EventsCalendar events={sortedEvents} />
               </Suspense>
             </div>
           )}

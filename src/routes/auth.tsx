@@ -23,6 +23,14 @@ export default function AuthPage() {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
     const fullName = formData.get("fullName") as string;
+    const confirmPassword = formData.get("confirmPassword") as string;
+
+    if (mode === "signup" && password !== confirmPassword) {
+      setError("Passwords do not match.");
+      toast.error("Passwords do not match.");
+      setLoading(false);
+      return;
+    }
 
     try {
       if (mode === "signup") {
@@ -128,6 +136,7 @@ export default function AuthPage() {
                   type="text"
                   name="fullName"
                   placeholder="Ada Lovelace"
+                  autoComplete="name"
                   required
                 />
               )}
@@ -137,6 +146,7 @@ export default function AuthPage() {
                 type="email"
                 name="email"
                 placeholder="you@college.edu"
+                autoComplete="email"
                 required
               />
 
@@ -145,8 +155,20 @@ export default function AuthPage() {
                 type="password"
                 name="password"
                 placeholder="********"
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
                 required
               />
+
+              {mode === "signup" && (
+                <Field
+                  label="Confirm password"
+                  type="password"
+                  name="confirmPassword"
+                  placeholder="********"
+                  autoComplete="new-password"
+                  required
+                />
+              )}
 
               {mode === "signin" && (
                 <p className="text-right">
@@ -206,6 +228,7 @@ function Field({
   name,
   placeholder,
   required,
+  autoComplete,
   rightElement,
 }: {
   label: string;
@@ -213,6 +236,7 @@ function Field({
   name: string;
   placeholder: string;
   required?: boolean;
+  autoComplete?: string;
   rightElement?: React.ReactNode;
 }) {
   return (
@@ -232,6 +256,7 @@ function Field({
             name={name}
             placeholder={placeholder}
             required={required}
+            autoComplete={autoComplete}
             className="w-full bg-transparent px-1 py-2 font-mono text-sm outline-none"
           />
         ) : (
@@ -240,6 +265,7 @@ function Field({
             name={name}
             placeholder={placeholder}
             required={required}
+            autoComplete={autoComplete}
             className="w-full bg-transparent px-1 py-2 font-mono text-sm outline-none"
           />
         )}
