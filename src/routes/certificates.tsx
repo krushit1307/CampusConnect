@@ -1,3 +1,4 @@
+import { CertificateCardSkeleton } from "@/components/CertificateCardSkeleton";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
@@ -48,7 +49,11 @@ export default function Certificates() {
       <section className="px-4 py-12 md:px-6">
         <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2">
           {isLoading ? (
-            <div className="col-span-full font-mono py-10">Loading certificates...</div>
+            <>
+              {Array.from({ length: 4 }).map((_, index) => (
+                <CertificateCardSkeleton key={index} />
+              ))}
+            </>
           ) : certs.length === 0 ? (
             <div className="col-span-full font-mono py-10 text-gray-500">
               You don't have any certificates yet. Attend events to earn them!
