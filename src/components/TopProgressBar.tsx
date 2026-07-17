@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigation, useLocation } from "react-router-dom";
 
 export default function TopProgressBar() {
@@ -6,6 +6,9 @@ export default function TopProgressBar() {
   const location = useLocation();
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(false);
+
+  const isFirstMount = useRef(true);
+  const wasLoadingRef = useRef(false);
 
   const isNavigationLoading = navigation.state === "loading";
 
@@ -15,6 +18,7 @@ export default function TopProgressBar() {
     if (isNavigationLoading) {
       setVisible(true);
       setProgress(10);
+      wasLoadingRef.current = true;
       interval = setInterval(() => {
         setProgress((prev) => {
           if (prev >= 80) {
@@ -25,12 +29,13 @@ export default function TopProgressBar() {
           return prev + (80 - prev) * 0.15;
         });
       }, 100);
-    } else {
+    } else if (visible) {
       // Completed loading
       setProgress(100);
       const timeout = setTimeout(() => {
         setVisible(false);
         setProgress(0);
+        wasLoadingRef.current = false;
       }, 300); // Allow fade out animation to finish
       return () => clearTimeout(timeout);
     }
@@ -38,12 +43,20 @@ export default function TopProgressBar() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isNavigationLoading]);
+  }, [isNavigationLoading, visible]);
 
   // 2. Fallback: Simulate loading progress during standard navigation/pathname changes
   useEffect(() => {
-    // If the router is already handling an async load, don't interrupt it
-    if (isNavigationLoading) return;
+    // Skip fallback on first mount
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
+
+    // Skip if the router is currently loading or just completed an async load
+    if (isNavigationLoading || wasLoadingRef.current) {
+      return;
+    }
 
     setVisible(true);
     setProgress(30);
@@ -66,7 +79,7 @@ export default function TopProgressBar() {
       clearTimeout(step3);
       clearTimeout(fade);
     };
-  }, [location.pathname]);
+  }, [location.pathname, isNavigationLoading]);
 
   if (!visible) return null;
 
