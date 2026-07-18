@@ -59,7 +59,8 @@ serve(async (req) => {
       .from("posts")
       .select("id, content, created_at, clubs(name)")
       .gte("created_at", sevenDaysAgoStr)
-      .is("deleted_at", null);
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false });
 
     if (postsError) throw new Error(`Failed to fetch posts: ${postsError.message}`);
 
@@ -87,7 +88,16 @@ serve(async (req) => {
 
     const emailList = (subscribers as SubscriberEmail[]).map((sub) => sub.email);
 
-    // 4. Construct Email Template
+    // Helper to escape HTML to prevent XSS
+    const escapeHtml = (unsafe: string) => {
+      return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    };
+
     let htmlContent = `<h2>Your CampusConnect Weekly Digest</h2>`;
     htmlContent += `<p>Here's what you missed this week!</p>`;
 
@@ -99,7 +109,7 @@ serve(async (req) => {
             ? event.clubs[0].name
             : event.clubs.name
           : "Unknown Club";
-        htmlContent += `<li><strong>${event.title}</strong> by ${clubName} (Date: ${new Date(event.event_date).toLocaleString()})</li>`;
+        htmlContent += `<li><strong>${escapeHtml(event.title)}</strong> by ${escapeHtml(clubName)} (Date: ${new Date(event.event_date).toLocaleString()})</li>`;
       }
       htmlContent += `</ul>`;
     }
@@ -116,7 +126,7 @@ serve(async (req) => {
           : "Unknown Club";
         const preview =
           post.content.length > 50 ? post.content.substring(0, 50) + "..." : post.content;
-        htmlContent += `<li><strong>${clubName}</strong>: "${preview}"</li>`;
+        htmlContent += `<li><strong>${escapeHtml(clubName)}</strong>: "${escapeHtml(preview)}"</li>`;
       }
       if (newPosts.length > 5) {
         htmlContent += `<li><em>...and ${newPosts.length - 5} more posts!</em></li>`;
@@ -138,26 +148,33 @@ serve(async (req) => {
     };
 
     if (!resendApiKey) {
-      console.log("Mocking digest dispatch. Would have sent to:", emailList.length, "users.");
-      return new Response(
-        JSON.stringify({
-          message: "Mock digest emails sent successfully.",
-          count: emailList.length,
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      // Missing API key is an error in production unless MOCK_EMAIL is explicitly set
+      if (Deno.env.get("MOCK_EMAIL") === "true") {
+        console.log("Mocking digest dispatch. Would have sent to:", emailList.length, "users.");
+        return new Response(
+          JSON.stringify({
+            message: "Mock digest emails sent successfully.",
+            count: emailList.length,
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+      throw new Error("Missing RESEND_API_KEY environment variable.");
     }
 
     // Send the email (assuming chunking isn't strictly necessary for < 50 users right now,
     // or Resend supports up to 50 bcc. If it exceeds 50, we should chunk it in production)
     const chunkSize = 50;
     const results = [];
+    const failedChunks = [];
 
     for (let i = 0; i < emailList.length; i += chunkSize) {
       const chunk = emailList.slice(i, i + chunkSize);
+      // Use Idempotency key per chunk and week to prevent duplicates
+      const idempotencyKey = `digest-${sevenDaysAgoStr.substring(0, 10)}-chunk-${i / chunkSize}`;
       const chunkBody = { ...emailBody, bcc: chunk };
 
       const res = await fetch("https://api.resend.com/emails", {
@@ -165,6 +182,7 @@ serve(async (req) => {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${resendApiKey}`,
+          "Idempotency-Key": idempotencyKey,
         },
         body: JSON.stringify(chunkBody),
       });
@@ -172,9 +190,24 @@ serve(async (req) => {
       const resData = await res.json();
       if (!res.ok) {
         console.error(`Resend Error for chunk ${i}:`, resData);
+        failedChunks.push({ chunkIndex: i, error: resData });
       } else {
         results.push(resData);
       }
+    }
+
+    if (failedChunks.length > 0) {
+      return new Response(
+        JSON.stringify({
+          error: "Failed to dispatch one or more digest chunks",
+          failedChunks,
+          chunks_sent: results.length,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     return new Response(

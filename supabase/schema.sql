@@ -468,6 +468,7 @@ USING (
 ALTER PUBLICATION supabase_realtime ADD TABLE posts;
 ALTER PUBLICATION supabase_realtime ADD TABLE comments;
 ALTER PUBLICATION supabase_realtime ADD TABLE event_rsvps;
+ALTER PUBLICATION supabase_realtime ADD TABLE saved_events;
 
 -- Backfill any missing profiles for existing authenticated users
 INSERT INTO public.profiles (id, full_name, avatar_url)

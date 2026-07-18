@@ -14,7 +14,8 @@ BEGIN
     p.full_name::TEXT
   FROM auth.users u
   JOIN public.profiles p ON u.id = p.id
-  WHERE (p.notification_preferences->>'digest')::BOOLEAN = true;
+  WHERE (p.notification_preferences->>'digest')::BOOLEAN = true
+    AND p.role = 'student';
 END;
 $$;
 
