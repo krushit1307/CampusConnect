@@ -18,6 +18,7 @@ interface Event {
   clubs: { name: string } | { name: string }[] | null;
   event_rsvps: { id: string; user_id: string }[] | null;
   saved_events?: { id: string; user_id: string }[] | null;
+  attendee_count?: number;
 }
 
 interface EventCardProps {
@@ -58,8 +59,9 @@ export function EventCard({
   const [ticketOpen, setTicketOpen] = useState(false);
 
   const handleCopyLink = async () => {
+    const shareUrl = `${window.location.origin}${window.location.pathname}#event-${event.id}`;
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(shareUrl);
       toast.success("Event link copied to clipboard!");
     } catch (error) {
       toast.error("Failed to copy link.");
@@ -158,7 +160,7 @@ export function EventCard({
         </div>
         <div>
           <dt className="font-mono text-xs font-bold uppercase">Attendees</dt>
-          <dd className="mt-1 text-sm">{rsvps.length} RSVP&apos;d</dd>
+          <dd className="mt-1 text-sm">{event.attendee_count ?? 0} RSVP&apos;d</dd>
         </div>
       </dl>
 

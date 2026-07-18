@@ -2,7 +2,7 @@ import { FeedPostSkeleton } from "@/components/FeedPostSkeleton";
 import { useMutation, useQuery, useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import type { User } from "@supabase/supabase-js";
 import { MessageCircle, MessageSquareText, PenLine, Sparkles, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { RoleBadge } from "@/components/RoleBadge";
@@ -70,10 +70,16 @@ export default function Feed() {
     data,
     isLoading,
     isFetching,
+    isFetchingNextPage,
+    fetchNextPage,
+    hasNextPage,
     refetch: refetchPosts,
-  } = useQuery({
+  } = useInfiniteQuery({
     queryKey: ["posts"],
-    queryFn: async () => {
+    queryFn: async ({ pageParam = 0 }) => {
+      const from = pageParam * POSTS_PER_PAGE;
+      const to = from + POSTS_PER_PAGE - 1;
+
       const { data } = await supabase
         .from("posts")
         .select(
@@ -86,12 +92,32 @@ post_reactions (id, emoji, user_id)
 `,
         )
         .is("deleted_at", null)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .range(from, to);
 
       return data || [];
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.length === POSTS_PER_PAGE ? allPages.length : undefined;
+    },
   });
-  const posts = data ?? [];
+  const posts = data?.pages.flat() ?? [];
+
+  const observer = useRef<IntersectionObserver | null>(null);
+  const lastPostElementRef = useCallback(
+    (node: HTMLElement | null) => {
+      if (isLoading || isFetchingNextPage) return;
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasNextPage) {
+          fetchNextPage();
+        }
+      });
+      if (node) observer.current.observe(node);
+    },
+    [isLoading, isFetchingNextPage, fetchNextPage, hasNextPage],
+  );
 
   useEffect(() => {
     const channel = supabase
@@ -330,199 +356,211 @@ post_reactions (id, emoji, user_id)
                 </div>
               </div>
             ) : (
-              posts.map((post) => {
-                const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
-                const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
-                const clubMembers = Array.isArray(club?.club_members) ? club.club_members : [];
-                const authorMembership = clubMembers.find(
-                  (m: { user_id: string; role: string }) => m.user_id === author?.id,
-                );
-                const authorRole = (authorMembership?.role ?? "member") as MemberRole;
-                const postComments = Array.isArray(post.comments) ? post.comments : [];
+              <>
+                {posts.map((post, index) => {
+                  const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
+                  const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
+                  const clubMembers = Array.isArray(club?.club_members) ? club.club_members : [];
+                  const authorMembership = clubMembers.find(
+                    (m: { user_id: string; role: string }) => m.user_id === author?.id,
+                  );
+                  const authorRole = (authorMembership?.role ?? "member") as MemberRole;
+                  const postComments = Array.isArray(post.comments) ? post.comments : [];
 
-                return (
-                  <article id={`post-${post.id}`} key={post.id} className="neu-border bg-white p-6">
-                    <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-black pb-3">
-                      <div>
-                        <p className="font-display text-lg font-bold flex items-center gap-2">
-                          {author?.full_name || "Unknown User"}
-                          <RoleBadge role={authorRole} />
-                        </p>
-                        <p className="font-mono text-xs flex flex-wrap items-center">
-                          in {club?.name || "Unknown Club"} · {timeAgo(post.created_at)}
-                          <span className="text-gray-500 ml-1">
-                            · {calculateReadTime(post.content)}
-                          </span>
-                        </p>
-                      </div>
-                      {user?.id === author?.id && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <button
-                              type="button"
-                              className="neu-border neu-press flex items-center gap-1 bg-[#FF6B6B] hover:bg-[#FF8787] text-black px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer"
-                              aria-label="Delete post"
-                            >
-                              <Trash2 size={10} strokeWidth={2.5} />
-                              Delete
-                            </button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent className="neu-border bg-white rounded-none p-6">
-                            <AlertDialogHeader>
-                              <AlertDialogTitle className="font-display text-xl font-bold">
-                                Delete post?
-                              </AlertDialogTitle>
-                              <AlertDialogDescription className="font-mono text-sm text-gray-700">
-                                Are you sure you want to delete this post? This action cannot be
-                                undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
-                              <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
-                                Cancel
-                              </AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => deletePostMutation.mutate(post.id)}
-                                className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
+                  return (
+                    <article
+                      ref={index === posts.length - 1 ? lastPostElementRef : null}
+                      id={`post-${post.id}`}
+                      key={post.id}
+                      className="neu-border bg-white p-6"
+                    >
+                      <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-black pb-3">
+                        <div>
+                          <p className="font-display text-lg font-bold flex items-center gap-2">
+                            {author?.full_name || "Unknown User"}
+                            <RoleBadge role={authorRole} />
+                          </p>
+                          <p className="font-mono text-xs flex flex-wrap items-center">
+                            in {club?.name || "Unknown Club"} · {timeAgo(post.created_at)}
+                            <span className="text-gray-500 ml-1">
+                              · {calculateReadTime(post.content)}
+                            </span>
+                          </p>
+                        </div>
+                        {user?.id === author?.id && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <button
+                                type="button"
+                                className="neu-border neu-press flex items-center gap-1 bg-[#FF6B6B] hover:bg-[#FF8787] text-black px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer"
+                                aria-label="Delete post"
                               >
-                                Confirm
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      )}
-                    </header>
+                                <Trash2 size={10} strokeWidth={2.5} />
+                                Delete
+                              </button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="neu-border bg-white rounded-none p-6">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle className="font-display text-xl font-bold">
+                                  Delete post?
+                                </AlertDialogTitle>
+                                <AlertDialogDescription className="font-mono text-sm text-gray-700">
+                                  Are you sure you want to delete this post? This action cannot be
+                                  undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+                                <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
+                                  Cancel
+                                </AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => deletePostMutation.mutate(post.id)}
+                                  className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
+                                >
+                                  Confirm
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </header>
 
-                    <div className="markdown-content mt-2 font-mono text-sm leading-relaxed">
-                      <ReactMarkdown>{post.content}</ReactMarkdown>
-                    </div>
+                      <div className="markdown-content mt-2 font-mono text-sm leading-relaxed">
+                        <ReactMarkdown>{post.content}</ReactMarkdown>
+                      </div>
 
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {["👍", "👏", "🔥"].map((emoji) => {
-                        const postReactions = Array.isArray(post.post_reactions)
-                          ? post.post_reactions
-                          : [];
-                        const reactionCount = postReactions.filter(
-                          (r: { emoji: string; user_id: string }) => r.emoji === emoji,
-                        ).length;
-                        const isReacted = postReactions.some(
-                          (r: { emoji: string; user_id: string }) =>
-                            r.emoji === emoji && r.user_id === user?.id,
-                        );
-
-                        return (
-                          <button
-                            key={emoji}
-                            type="button"
-                            onClick={() => {
-                              if (!user) return alert("Log in first");
-                              reactionMutation.mutate({ postId: post.id, emoji, isReacted });
-                            }}
-                            className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${
-                              isReacted ? "bg-lime" : "bg-white hover:bg-cream"
-                            }`}
-                          >
-                            <span>{emoji}</span>
-                            {reactionCount > 0 && <span>{reactionCount}</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="mt-4 flex gap-2 border-t-2 border-black pt-4">
-                      <a
-                        href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(`${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#1DA1F2] hover:text-white transition-colors"
-                      >
-                        Twitter
-                      </a>
-                      <a
-                        href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#0A66C2] hover:text-white transition-colors"
-                      >
-                        LinkedIn
-                      </a>
-                      <a
-                        href={`https://wa.me/?text=${encodeURIComponent(`Check out this post: ${post.content.substring(0, 50)}... - ${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#25D366] hover:text-white transition-colors"
-                      >
-                        WhatsApp
-                      </a>
-                    </div>
-
-                    <div className="mt-4 space-y-3 border-t-2 border-black pt-4">
-                      <h3 className="mb-4 flex items-center gap-2 font-mono text-xs font-bold uppercase">
-                        <MessageSquareText size={16} /> Comments ({postComments.length})
-                      </h3>
-
-                      <div className="space-y-4 pl-4">
-                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                        {postComments.map((comment: any) => {
-                          const commentAuthor = Array.isArray(comment.profiles)
-                            ? comment.profiles[0]
-                            : comment.profiles;
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {["👍", "👏", "🔥"].map((emoji) => {
+                          const postReactions = Array.isArray(post.post_reactions)
+                            ? post.post_reactions
+                            : [];
+                          const reactionCount = postReactions.filter(
+                            (r: { emoji: string; user_id: string }) => r.emoji === emoji,
+                          ).length;
+                          const isReacted = postReactions.some(
+                            (r: { emoji: string; user_id: string }) =>
+                              r.emoji === emoji && r.user_id === user?.id,
+                          );
 
                           return (
-                            <div key={comment.id} className="neu-border bg-cream p-3">
-                              <div className="flex justify-between">
-                                <p className="font-mono text-xs font-bold uppercase flex items-center gap-1.5">
-                                  {commentAuthor?.full_name || "Unknown User"}
-                                  {(() => {
-                                    const cm = clubMembers.find(
-                                      (m: { user_id: string; role: string }) =>
-                                        m.user_id === commentAuthor?.id,
-                                    );
-                                    return (
-                                      <RoleBadge role={(cm?.role ?? "member") as MemberRole} />
-                                    );
-                                  })()}
-                                </p>
-                                <p className="font-mono text-[10px] text-gray-500">
-                                  {timeAgo(comment.created_at)}
-                                </p>
-                              </div>
-                              <div className="markdown-content mt-1 font-mono text-sm">
-                                <ReactMarkdown>{comment.content}</ReactMarkdown>
-                              </div>
-                            </div>
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() => {
+                                if (!user) return alert("Log in first");
+                                reactionMutation.mutate({ postId: post.id, emoji, isReacted });
+                              }}
+                              className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${
+                                isReacted ? "bg-lime" : "bg-white hover:bg-cream"
+                              }`}
+                            >
+                              <span>{emoji}</span>
+                              {reactionCount > 0 && <span>{reactionCount}</span>}
+                            </button>
                           );
                         })}
                       </div>
 
-                      <div className="flex gap-2">
-                        <input
-                          value={newComments[post.id] || ""}
-                          onChange={(event) =>
-                            setNewComments((prev) => ({
-                              ...prev,
-                              [post.id]: event.target.value,
-                            }))
-                          }
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" && !event.shiftKey) {
-                              event.preventDefault();
-                              if (!user) return alert("Log in first");
-
-                              const content = newComments[post.id];
-                              if (content?.trim()) {
-                                commentMutation.mutate({ postId: post.id, content });
-                              }
-                            }
-                          }}
-                          placeholder="Reply..."
-                          className="neu-border w-full bg-white px-3 py-2 font-mono text-sm outline-none"
-                        />
+                      <div className="mt-4 flex gap-2 border-t-2 border-black pt-4">
+                        <a
+                          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(`${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#1DA1F2] hover:text-white transition-colors"
+                        >
+                          Twitter
+                        </a>
+                        <a
+                          href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#0A66C2] hover:text-white transition-colors"
+                        >
+                          LinkedIn
+                        </a>
+                        <a
+                          href={`https://wa.me/?text=${encodeURIComponent(`Check out this post: ${post.content.substring(0, 50)}... - ${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#25D366] hover:text-white transition-colors"
+                        >
+                          WhatsApp
+                        </a>
                       </div>
-                    </div>
-                  </article>
-                );
-              })
+
+                      <div className="mt-4 space-y-3 border-t-2 border-black pt-4">
+                        <h3 className="mb-4 flex items-center gap-2 font-mono text-xs font-bold uppercase">
+                          <MessageSquareText size={16} /> Comments ({postComments.length})
+                        </h3>
+
+                        <div className="space-y-4 pl-4">
+                          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                          {postComments.map((comment: any) => {
+                            const commentAuthor = Array.isArray(comment.profiles)
+                              ? comment.profiles[0]
+                              : comment.profiles;
+
+                            return (
+                              <div key={comment.id} className="neu-border bg-cream p-3">
+                                <div className="flex justify-between">
+                                  <p className="font-mono text-xs font-bold uppercase flex items-center gap-1.5">
+                                    {commentAuthor?.full_name || "Unknown User"}
+                                    {(() => {
+                                      const cm = clubMembers.find(
+                                        (m: { user_id: string; role: string }) =>
+                                          m.user_id === commentAuthor?.id,
+                                      );
+                                      return (
+                                        <RoleBadge role={(cm?.role ?? "member") as MemberRole} />
+                                      );
+                                    })()}
+                                  </p>
+                                  <p className="font-mono text-[10px] text-gray-500">
+                                    {timeAgo(comment.created_at)}
+                                  </p>
+                                </div>
+                                <div className="markdown-content mt-1 font-mono text-sm">
+                                  <ReactMarkdown>{comment.content}</ReactMarkdown>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div className="flex gap-2">
+                          <input
+                            value={newComments[post.id] || ""}
+                            onChange={(event) =>
+                              setNewComments((prev) => ({
+                                ...prev,
+                                [post.id]: event.target.value,
+                              }))
+                            }
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" && !event.shiftKey) {
+                                event.preventDefault();
+                                if (!user) return alert("Log in first");
+
+                                const content = newComments[post.id];
+                                if (content?.trim()) {
+                                  commentMutation.mutate({ postId: post.id, content });
+                                }
+                              }
+                            }}
+                            placeholder="Reply..."
+                            className="neu-border w-full bg-white px-3 py-2 font-mono text-sm outline-none"
+                          />
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+                {isFetchingNextPage && (
+                  <div className="py-4 text-center">
+                    <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" />
+                  </div>
+                )}
+              </>
             )}
           </div>
         </section>

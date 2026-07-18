@@ -197,29 +197,6 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.is_system_admin() TO authenticated;
-
--- Helper function: check if user is club admin
-CREATE OR REPLACE FUNCTION public.is_club_admin(club_id UUID, user_id UUID)
-RETURNS BOOLEAN
-LANGUAGE plpgsql
-SECURITY DEFINER
-STABLE
-SET search_path = public
-AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1
-    FROM public.club_members
-    WHERE club_members.club_id = is_club_admin.club_id
-      AND club_members.user_id = is_club_admin.user_id
-      AND club_members.role = 'admin'::member_role
-      AND club_members.status = 'approved'::join_status
-  );
-END;
-$$;
-
-GRANT EXECUTE ON FUNCTION public.is_club_admin(UUID, UUID) TO authenticated;
-
 -- 3. Row Level Security (RLS)
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
@@ -330,6 +307,48 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- Enforce RSVP capacity limits
+CREATE OR REPLACE FUNCTION public.check_event_capacity()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_max_attendees INTEGER;
+  v_current_count INTEGER;
+BEGIN
+  -- Fetch the max_attendees for the event being RSVP'd to.
+  -- If max_attendees is NULL, the event has unlimited capacity.
+  SELECT max_attendees
+  INTO v_max_attendees
+  FROM public.events
+  WHERE id = NEW.event_id;
+
+  -- Only enforce capacity if a limit is set
+  IF v_max_attendees IS NOT NULL THEN
+    -- Count existing RSVPs for this event
+    SELECT COUNT(*)
+    INTO v_current_count
+    FROM public.event_rsvps
+    WHERE event_id = NEW.event_id;
+
+    -- Raise an exception if at or over capacity
+    IF v_current_count >= v_max_attendees THEN
+      RAISE EXCEPTION 'Event has reached its maximum capacity of % attendees.', v_max_attendees
+        USING ERRCODE = 'P0001';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER before_rsvp_insert
+BEFORE INSERT ON public.event_rsvps
+FOR EACH ROW
+EXECUTE FUNCTION public.check_event_capacity();
 
 -- Auto-notify RSVP'd attendees on event cancellation
 CREATE OR REPLACE FUNCTION public.handle_event_cancellation()
