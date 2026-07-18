@@ -58,8 +58,9 @@ export function EventCard({
   const [ticketOpen, setTicketOpen] = useState(false);
 
   const handleCopyLink = async () => {
+    const shareUrl = `${window.location.origin}${window.location.pathname}#event-${event.id}`;
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(shareUrl);
       toast.success("Event link copied to clipboard!");
     } catch (error) {
       toast.error("Failed to copy link.");
