@@ -239,35 +239,6 @@ export default function EventsPage() {
     },
   });
 
-  const toggleBookmark = useMutation({
-    mutationFn: async ({ eventId, isSaved }: { eventId: string; isSaved: boolean }) => {
-      if (!user) throw new Error("Must be logged in");
-      if (eventId.startsWith("mock-")) {
-        console.log(`[CampusConnect] Mock Bookmark toggled for event: ${eventId}`);
-        return;
-      }
-      const { error } = isSaved
-        ? await supabase
-            .from("saved_events")
-            .delete()
-            .match({ event_id: eventId, user_id: user.id })
-        : await supabase.from("saved_events").insert({ event_id: eventId, user_id: user.id });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-    },
-    onSuccess: (_data, variables) => {
-      toast.success(variables.isSaved ? "Removed from saved events!" : "Saved to bookmarks!");
-      if (!variables.eventId.startsWith("mock-")) {
-        refetch();
-      }
-    },
-    onError: () => {
-      toast.error("Failed to update bookmark.");
-    },
-  });
-
   const handleRsvpToggle = async (eventId: string, hasRsvpd: boolean) => {
     const originalEvents = [...events];
 

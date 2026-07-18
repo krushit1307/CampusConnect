@@ -1,4 +1,5 @@
-import { formatDate, getGoogleCalendarUrl } from "@/lib/utils";
+import { formatDate, getGoogleCalendarUrl, formatEventDateRange } from "@/lib/utils";
+import { Link } from "react-router-dom";
 import { FormEvent, useState } from "react";
 import { Calendar, Check, Share2, X, Link as LinkIcon, Bookmark } from "lucide-react";
 import { toast } from "sonner";
@@ -105,17 +106,6 @@ export function EventCard({
       return;
     }
     onBookmarkToggle?.(event.id, isSaved);
-  };
-
-  const savedEventsList = Array.isArray(event.saved_events) ? event.saved_events : [];
-  const isSaved = user ? savedEventsList.some((se) => se.user_id === user.id) : false;
-
-  const handleBookmarkClick = () => {
-    if (!user) {
-      toast.error("Please log in to bookmark events");
-      return;
-    }
-    onBookmarkToggle(event.id, isSaved);
   };
 
   return (
