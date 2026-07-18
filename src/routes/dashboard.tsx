@@ -48,10 +48,10 @@ export default function Dashboard() {
     enabled: !!user?.id,
   });
 
-  const { data: userClubs = [] } = useQuery({
+  const { data: userClubs = [], isError: userClubsError } = useQuery({
     queryKey: ["userClubs", user?.id],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("club_members")
         .select(
           `
@@ -63,15 +63,16 @@ export default function Dashboard() {
         )
         .eq("user_id", user?.id)
         .eq("status", "approved");
+      if (error) throw error;
       return data || [];
     },
     enabled: !!user?.id,
   });
 
-  const { data: upcomingEvents = [] } = useQuery({
+  const { data: upcomingEvents = [], isError: upcomingEventsError } = useQuery({
     queryKey: ["upcomingEvents", user?.id],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("events")
         .select(
           `
@@ -84,16 +85,18 @@ export default function Dashboard() {
         )
         .eq("event_rsvps.user_id", user?.id)
         .gte("event_date", new Date().toISOString())
+        .order("event_date", { ascending: true })
         .limit(3);
+      if (error) throw error;
       return data || [];
     },
     enabled: !!user?.id,
   });
 
-  const { data: savedEvents = [] } = useQuery({
+  const { data: savedEvents = [], isError: savedEventsError } = useQuery({
     queryKey: ["savedEvents", user?.id],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("saved_events")
         .select(
           `
@@ -110,6 +113,7 @@ export default function Dashboard() {
         )
         .eq("user_id", user?.id)
         .order("saved_at", { ascending: false });
+      if (error) throw error;
       return data || [];
     },
     enabled: !!user?.id,
@@ -176,7 +180,9 @@ export default function Dashboard() {
       <section className="bg-cream px-4 py-10 md:px-6">
         <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-3">
           <Widget title="Upcoming events" cta={{ label: "All events", to: "/events" }}>
-            {upcomingEvents.length === 0 ? (
+            {upcomingEventsError ? (
+              <p className="py-4 font-mono text-sm text-red-500">Failed to load upcoming events.</p>
+            ) : upcomingEvents.length === 0 ? (
               <p className="py-4 font-mono text-sm text-gray-500">No upcoming events yet.</p>
             ) : (
               <ul className="divide-y-2 divide-black">
@@ -198,13 +204,9 @@ export default function Dashboard() {
                         <p className="truncate font-display text-lg font-bold">{e?.title}</p>
                         <p className="font-mono text-xs">{c?.name}</p>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="neu-border shrink-0 bg-white px-3 py-1 font-mono text-xs font-bold uppercase"
-                      >
+                      <span className="neu-border shrink-0 bg-white px-3 py-1 font-mono text-xs font-bold uppercase">
                         RSVP'd
-                      </Button>
+                      </span>
                     </li>
                   );
                 })}
@@ -212,7 +214,9 @@ export default function Dashboard() {
             )}
           </Widget>
           <Widget title="Saved events" cta={{ label: "Explore", to: "/events" }}>
-            {savedEvents.length === 0 ? (
+            {savedEventsError ? (
+              <p className="py-4 font-mono text-sm text-red-500">Failed to load saved events.</p>
+            ) : savedEvents.length === 0 ? (
               <p className="py-4 font-mono text-sm text-gray-500">No saved events yet.</p>
             ) : (
               <ul className="divide-y-2 divide-black">
@@ -244,7 +248,9 @@ export default function Dashboard() {
             )}
           </Widget>
           <Widget title="Your clubs" cta={{ label: "Directory", to: "/clubs" }}>
-            {userClubs.length === 0 ? (
+            {userClubsError ? (
+              <p className="font-mono text-sm text-red-500">Failed to load clubs.</p>
+            ) : userClubs.length === 0 ? (
               <p className="font-mono text-sm text-gray-500">You haven't joined any clubs yet.</p>
             ) : (
               <ul className="space-y-3">
@@ -257,9 +263,7 @@ export default function Dashboard() {
                     >
                       <div>
                         <p className="font-display font-bold">
-                          <Link to={`/clubs/${club?.slug || ""}`}>
-                            {club?.name}
-                          </Link>
+                          <Link to={`/clubs/${club?.slug || ""}`}>{club?.name}</Link>
                         </p>
                         <p className="font-mono text-xs">Active</p>
                       </div>

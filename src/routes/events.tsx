@@ -22,6 +22,8 @@ interface EventItem {
   title: string;
   description: string | null;
   event_date: string | null;
+  start_date: string | null;
+  end_date: string | null;
   location: string | null;
   banner_url?: string | null;
   clubs: { name: string } | { name: string }[] | null;
@@ -130,7 +132,13 @@ export default function EventsPage() {
     },
   });
 
-  const events = queryData || [];
+  const [events, setEvents] = useState<EventItem[]>([]);
+
+  useEffect(() => {
+    if (queryData) {
+      setEvents(queryData);
+    }
+  }, [queryData]);
 
   useEffect(() => {
     const channel = supabase
@@ -140,9 +148,6 @@ export default function EventsPage() {
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
         refetch();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["events"] });
       })
       .subscribe();
 
@@ -179,50 +184,17 @@ export default function EventsPage() {
         throw error;
       }
     },
-    onMutate: async ({ eventId, hasRsvpd }) => {
-      await queryClient.cancelQueries({ queryKey: ["events"] });
-
-      const previousEvents = queryClient.getQueryData<EventItem[]>(["events"]);
-
-      if (previousEvents) {
-        queryClient.setQueryData<EventItem[]>(
-          ["events"],
-          previousEvents.map((e) => {
-            if (e.id === eventId) {
-              const rsvpsList = Array.isArray(e.event_rsvps) ? e.event_rsvps : [];
-              if (hasRsvpd) {
-                return {
-                  ...e,
-                  event_rsvps: rsvpsList.filter((r) => r.user_id !== (user?.id || "")),
-                };
-              } else {
-                return {
-                  ...e,
-                  event_rsvps: [...rsvpsList, { id: "temp-rsvp-id", user_id: user?.id || "" }],
-                };
-              }
-            }
-            return e;
-          }),
-        );
-      }
-
-      return { previousEvents };
-    },
-    onError: (_err, _newVariables, context) => {
-      if (context?.previousEvents) {
-        queryClient.setQueryData(["events"], context.previousEvents);
-      }
-      toast.error("Failed to update RSVP.");
-    },
     onSuccess: (_data, variables) => {
       toast.success(
         variables.hasRsvpd ? "RSVP cancelled successfully!" : "RSVP registered successfully!",
       );
       if (!variables.eventId.startsWith("mock-")) {
-        queryClient.invalidateQueries({ queryKey: ["events"] });
-        queryClient.invalidateQueries({ queryKey: ["upcomingEvents"] });
+        refetch();
+        window.dispatchEvent(new CustomEvent("refetchEvents"));
       }
+    },
+    onError: () => {
+      toast.error("Failed to update RSVP.");
     },
   });
 
@@ -244,49 +216,76 @@ export default function EventsPage() {
         throw new Error(error.message);
       }
     },
-    onMutate: async ({ eventId, isSaved }) => {
-      await queryClient.cancelQueries({ queryKey: ["events"] });
-
-      const previousEvents = queryClient.getQueryData<EventItem[]>(["events"]);
-
-      if (previousEvents) {
-        queryClient.setQueryData<EventItem[]>(
-          ["events"],
-          previousEvents.map((e) => {
-            if (e.id === eventId) {
-              const savedList = Array.isArray(e.saved_events) ? e.saved_events : [];
-              if (isSaved) {
-                return {
-                  ...e,
-                  saved_events: savedList.filter((s) => s.user_id !== (user?.id || "")),
-                };
-              } else {
-                return {
-                  ...e,
-                  saved_events: [...savedList, { id: "temp-id", user_id: user?.id || "" }],
-                };
-              }
-            }
-            return e;
-          }),
-        );
-      }
-
-      return { previousEvents };
-    },
-    onError: (_err, _newVariables, context) => {
-      if (context?.previousEvents) {
-        queryClient.setQueryData(["events"], context.previousEvents);
-      }
-      toast.error("Failed to update bookmark.");
-    },
     onSuccess: (_data, variables) => {
       toast.success(variables.isSaved ? "Removed from saved events!" : "Saved to bookmarks!");
       if (!variables.eventId.startsWith("mock-")) {
-        queryClient.invalidateQueries({ queryKey: ["events"] });
+        refetch();
       }
     },
+    onError: () => {
+      toast.error("Failed to update bookmark.");
+    },
   });
+
+  const handleRsvpToggle = async (eventId: string, hasRsvpd: boolean) => {
+    const originalEvents = [...events];
+
+    setEvents((prevEvents) =>
+      prevEvents.map((e) => {
+        if (e.id === eventId) {
+          const rsvpsList = Array.isArray(e.event_rsvps) ? e.event_rsvps : [];
+          if (hasRsvpd) {
+            return {
+              ...e,
+              event_rsvps: rsvpsList.filter((r) => r.user_id !== (user?.id || "")),
+            };
+          } else {
+            return {
+              ...e,
+              event_rsvps: [...rsvpsList, { id: "temp-rsvp-id", user_id: user?.id || "" }],
+            };
+          }
+        }
+        return e;
+      }),
+    );
+
+    try {
+      await toggleRsvp.mutateAsync({ eventId, hasRsvpd });
+    } catch {
+      setEvents(originalEvents);
+    }
+  };
+
+  const handleBookmarkToggle = async (eventId: string, isSaved: boolean) => {
+    const originalEvents = [...events];
+
+    setEvents((prevEvents) =>
+      prevEvents.map((e) => {
+        if (e.id === eventId) {
+          const savedList = Array.isArray(e.saved_events) ? e.saved_events : [];
+          if (isSaved) {
+            return {
+              ...e,
+              saved_events: savedList.filter((s) => s.user_id !== (user?.id || "")),
+            };
+          } else {
+            return {
+              ...e,
+              saved_events: [...savedList, { id: "temp-id", user_id: user?.id || "" }],
+            };
+          }
+        }
+        return e;
+      }),
+    );
+
+    try {
+      await toggleBookmark.mutateAsync({ eventId, isSaved });
+    } catch {
+      setEvents(originalEvents);
+    }
+  };
 
   const colors = ["bg-lime", "bg-sky", "bg-peach", "bg-lavender"];
 
@@ -396,10 +395,10 @@ export default function EventsPage() {
                       event={e}
                       index={index}
                       user={user}
-                      onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
+                      onRsvpToggle={(eventId, hasRsvpd) => handleRsvpToggle(eventId, hasRsvpd)}
                       isRsvpPending={toggleRsvp.isPending}
                       onBookmarkToggle={(eventId, isSaved) =>
-                        toggleBookmark.mutate({ eventId, isSaved })
+                        handleBookmarkToggle(eventId, isSaved)
                       }
                       isBookmarkPending={toggleBookmark.isPending}
                     />

@@ -1,13 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { parse } from "https://deno.land/std@0.168.0/encoding/csv.ts";
 
 // ---------------------------------------------------------------------------
 // CORS headers – allow the Supabase dashboard and any campus frontend
 // ---------------------------------------------------------------------------
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 // ---------------------------------------------------------------------------
@@ -25,30 +25,33 @@ function normaliseEmail(raw: string): string | null {
  * Supports files that have an optional header row containing the word "email".
  * Every other column in each row is ignored.
  *
- * Expected formats (any of these work):
- *   email
- *   alice@uni.edu
- *   bob@uni.edu
- *
- *   alice@uni.edu,Full Name,Other
- *   bob@uni.edu,Full Name,Other
+ * Enforces a maximum limit of 1000 rows.
  */
 function parseEmailsFromCsv(csvText: string): string[] {
-  const lines = csvText
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
+  let rows: string[][];
+  try {
+    rows = parse(csvText) as string[][];
+  } catch (_err) {
+    // Fallback to basic regex-split if CSV parsing fails on malformed input
+    const lines = csvText.split(/\r?\n/).filter(Boolean);
+    rows = lines.map((line) => line.split(","));
+  }
 
-  if (lines.length === 0) return [];
+  if (rows.length === 0) return [];
+
+  // Enforce a row-count limit to avoid excessive memory usage
+  if (rows.length > 1000) {
+    throw new Error("CSV file exceeds maximum limit of 1000 rows.");
+  }
 
   const emails: string[] = [];
 
-  for (const line of lines) {
-    const cols = line.split(",");
-    const firstCol = cols[0].trim().toLowerCase();
+  for (const row of rows) {
+    if (!row || row.length === 0) continue;
+    const firstCol = row[0].trim().toLowerCase();
 
     // Skip header row (contains literal "email")
-    if (firstCol === "email") continue;
+    if (firstCol === "email" || !firstCol) continue;
 
     // The first column is treated as the email
     emails.push(firstCol);
@@ -76,6 +79,7 @@ function parseEmailsFromCsv(csvText: string): string[] {
  *   "skipped"  : number,   // duplicates or already members
  *   "failed"   : string[], // emails that could not be resolved to a profile
  *   "invalid"  : string[], // rows that were not valid email addresses
+ *   "invalidCount": number, // count of invalid emails
  * }
  */
 serve(async (req: Request) => {
@@ -91,18 +95,30 @@ serve(async (req: Request) => {
     });
   }
 
+  // Enforce upload size limit using Content-Length header to prevent large payloads
+  const contentLengthHeader = req.headers.get("content-length");
+  if (contentLengthHeader) {
+    const contentLength = parseInt(contentLengthHeader, 10);
+    if (contentLength > 2 * 1024 * 1024) {
+      return new Response(
+        JSON.stringify({ error: "Payload too large. Maximum CSV size is 2MB." }),
+        {
+          status: 413,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+  }
+
   // -------------------------------------------------------------------------
   // 1. Auth – verify the calling user
   // -------------------------------------------------------------------------
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {
-    return new Response(
-      JSON.stringify({ error: "Missing Authorization header" }),
-      {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+    return new Response(JSON.stringify({ error: "Missing Authorization header" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   // Service-role client for privileged inserts
@@ -147,18 +163,12 @@ serve(async (req: Request) => {
       );
     }
 
-    csvText =
-      typeof csvFile === "string"
-        ? csvFile
-        : await (csvFile as File).text();
+    csvText = typeof csvFile === "string" ? csvFile : await (csvFile as File).text();
   } catch (_err) {
-    return new Response(
-      JSON.stringify({ error: "Failed to parse multipart form-data." }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+    return new Response(JSON.stringify({ error: "Failed to parse multipart form-data." }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -186,9 +196,7 @@ serve(async (req: Request) => {
   }
 
   const isClubAdmin =
-    !memberError &&
-    membership?.role === "admin" &&
-    membership?.status === "approved";
+    !memberError && membership?.role === "admin" && membership?.status === "approved";
   const isCreator = club.created_by === user.id;
 
   // Check system_admin role in profiles table
@@ -215,16 +223,21 @@ serve(async (req: Request) => {
   // -------------------------------------------------------------------------
   // 4. Parse CSV → list of raw emails
   // -------------------------------------------------------------------------
-  const rawEmails = parseEmailsFromCsv(csvText!);
+  let rawEmails: string[];
+  try {
+    rawEmails = parseEmailsFromCsv(csvText!);
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message || "Failed to parse CSV." }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
   if (rawEmails.length === 0) {
-    return new Response(
-      JSON.stringify({ error: "CSV file contained no email addresses." }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+    return new Response(JSON.stringify({ error: "CSV file contained no email addresses." }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   // Validate format
@@ -242,66 +255,123 @@ serve(async (req: Request) => {
 
   // -------------------------------------------------------------------------
   // 5. Resolve emails → profile UUIDs
-  //    auth.users is not directly queryable via JS client, so we match on
-  //    profiles joined with auth.users via Supabase RPC or by checking
-  //    profiles directly (assumes email is stored via auth trigger).
-  //    We query auth.users using the admin API available to service role.
+  //    Fetch auth users in one paginated pass rather than calling listUsers()
+  //    in a loop per email.
   // -------------------------------------------------------------------------
   const failed: string[] = [];
   const resolvedUsers: { user_id: string; email: string }[] = [];
 
-  // Batch lookup – Supabase admin API allows listing users filtered by email
-  for (const email of validEmails) {
-    const { data: adminData, error: adminErr } =
-      await supabase.auth.admin.listUsers();
+  const allUsers: any[] = [];
+  let page = 1;
+  const perPage = 1000;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data: adminData, error: adminErr } = await supabase.auth.admin.listUsers({
+      page,
+      perPage,
+    });
 
     if (adminErr) {
-      // If admin API fails, fall back to profiles table (if email column exists)
-      failed.push(email);
-      continue;
+      console.error(`Admin listUsers API error: ${adminErr.message}`);
+      return new Response(
+        JSON.stringify({ error: "Internal server error: failed to retrieve user directory." }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
-    const matched = adminData.users.find(
-      (u) => u.email?.toLowerCase() === email,
-    );
+    const pageUsers = adminData?.users || [];
+    allUsers.push(...pageUsers);
 
-    if (matched) {
-      resolvedUsers.push({ user_id: matched.id, email });
+    if (pageUsers.length < perPage) {
+      hasMore = false;
+    } else {
+      page++;
+    }
+  }
+
+  const emailToUserMap = new Map<string, string>();
+  for (const u of allUsers) {
+    if (u.email) {
+      emailToUserMap.set(u.email.toLowerCase(), u.id);
+    }
+  }
+
+  const pendingResolved: { user_id: string; email: string }[] = [];
+  for (const email of validEmails) {
+    const userId = emailToUserMap.get(email);
+    if (userId) {
+      pendingResolved.push({ user_id: userId, email });
     } else {
       failed.push(email);
     }
   }
 
+  // Verify that profile records exist for the resolved user IDs to avoid foreign key errors on insert
+  if (pendingResolved.length > 0) {
+    const userIds = pendingResolved.map((u) => u.user_id);
+    const { data: existingProfiles, error: profileErr } = await supabase
+      .from("profiles")
+      .select("id")
+      .in("id", userIds);
+
+    if (profileErr) {
+      console.error(`Failed to verify profiles: ${profileErr.message}`);
+      return new Response(
+        JSON.stringify({ error: "Internal server error: failed to verify student profiles." }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const existingProfileIds = new Set((existingProfiles || []).map((p: any) => p.id));
+    for (const u of pendingResolved) {
+      if (existingProfileIds.has(u.user_id)) {
+        resolvedUsers.push(u);
+      } else {
+        failed.push(u.email);
+      }
+    }
+  }
+
   // -------------------------------------------------------------------------
-  // 6. Insert into club_members as pending
-  //    ON CONFLICT DO NOTHING handles duplicates gracefully
+  // 6. Bulk Insert/Upsert into club_members as pending
+  //    onConflict + ignoreDuplicates: true handles existing memberships gracefully
   // -------------------------------------------------------------------------
   let invited = 0;
   let skipped = 0;
 
-  for (const { user_id, email } of resolvedUsers) {
-    const { error: insertErr, status } = await supabase
-      .from("club_members")
-      .insert({
-        club_id: clubId,
-        user_id,
-        role: "member",
-        status: "pending",
-      })
-      .select()
-      .single();
+  if (resolvedUsers.length > 0) {
+    const inserts = resolvedUsers.map(({ user_id }) => ({
+      club_id: clubId,
+      user_id,
+      role: "member" as const,
+      status: "pending" as const,
+    }));
 
-    if (insertErr) {
-      // 23505 = unique_violation (already a member or pending)
-      if (insertErr.code === "23505" || status === 409) {
-        skipped++;
-      } else {
-        console.error(`Failed to insert member ${email}:`, insertErr.message);
-        failed.push(email);
-      }
-    } else {
-      invited++;
+    const { data: insertedData, error: bulkInsertErr } = await supabase
+      .from("club_members")
+      .upsert(inserts, { onConflict: "club_id,user_id", ignoreDuplicates: true })
+      .select("user_id");
+
+    if (bulkInsertErr) {
+      console.error(`Failed to bulk insert members. Error code: ${bulkInsertErr.code}`);
+      return new Response(
+        JSON.stringify({ error: "Failed to invite members due to a database error." }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
+
+    invited = insertedData?.length ?? 0;
+    skipped = resolvedUsers.length - invited;
   }
 
   // -------------------------------------------------------------------------
