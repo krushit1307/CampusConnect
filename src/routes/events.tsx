@@ -171,6 +171,19 @@ export default function EventsPage() {
   }, [supabase, refetch]);
 
   useEffect(() => {
+    const channel = supabase
+      .channel("realtime_saved_events")
+      .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
+        refetch();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, refetch]);
+
+  useEffect(() => {
     const handleRefetch = () => refetch();
     window.addEventListener("refetchEvents", handleRefetch);
     return () => window.removeEventListener("refetchEvents", handleRefetch);
@@ -303,8 +316,8 @@ export default function EventsPage() {
 
   const filteredEvents =
     filter === "All"
-      ? events
-      : events.filter((e) => {
+      ? localEvents
+      : localEvents.filter((e) => {
           const searchStr = `${e.title} ${e.description}`.toLowerCase();
           return searchStr.includes(filter.toLowerCase());
         });
