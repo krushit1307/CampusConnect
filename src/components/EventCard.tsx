@@ -63,7 +63,7 @@ export function EventCard({
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      toast.success("Event link copied to clipboard!");
+      toast.success("Link copied!");
     } catch (error) {
       toast.error("Failed to copy link.");
     }
@@ -75,10 +75,10 @@ export function EventCard({
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
-      toast.success("Link copied to clipboard!");
+      toast.success("Link copied!");
       window.setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      toast.error("Failed to copy link");
+      toast.error("Failed to copy link.");
     }
   };
 

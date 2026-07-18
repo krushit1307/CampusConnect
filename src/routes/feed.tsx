@@ -553,6 +553,22 @@ export default function Feed() {
                         >
                           WhatsApp
                         </a>
+
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const shareUrl = `${window.location.origin}${window.location.pathname}#post-${post.id}`;
+                              await navigator.clipboard.writeText(shareUrl);
+                              toast.success("Link copied!");
+                            } catch (err) {
+                              toast.error("Failed to copy link.");
+                            }
+                          }}
+                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-lime hover:text-black cursor-pointer"
+                        >
+                          Copy Link
+                        </button>
                       </div>
 
                       <div className="mt-4 space-y-3 border-t-2 border-black pt-4">
