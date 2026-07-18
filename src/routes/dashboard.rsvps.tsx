@@ -46,6 +46,10 @@ export default function DashboardRsvps() {
             event_rsvps (
               id,
               user_id
+            ),
+            saved_events (
+              id,
+              user_id
             )
           )
         `,
@@ -159,6 +163,10 @@ export default function DashboardRsvps() {
               user={user}
               onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
               isRsvpPending={toggleRsvp.isPending}
+              onBookmarkToggle={() => {
+                toast.error("Bookmarking from RSVPs tab is not supported yet.");
+              }}
+              isBookmarkPending={false}
             />
           ))}
         </div>
