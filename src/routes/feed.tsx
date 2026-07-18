@@ -25,6 +25,46 @@ import {
 
 type MemberRole = "admin" | "organizer" | "member" | "alumni";
 
+interface Profile {
+  id: string;
+  full_name: string | null;
+}
+
+interface ClubMember {
+  user_id: string;
+  role: MemberRole;
+}
+
+interface Club {
+  id: string;
+  name: string;
+  club_members: ClubMember[] | ClubMember | null;
+}
+
+interface Comment {
+  id: string;
+  content: string;
+  created_at: string;
+  deleted_at: string | null;
+  profiles: Profile[] | Profile | null;
+}
+
+interface PostReaction {
+  emoji: string;
+  user_id: string;
+}
+
+interface Post {
+  id: string;
+  content: string;
+  created_at: string;
+  club_id: string;
+  profiles: Profile[] | Profile | null;
+  clubs: Club[] | Club | null;
+  comments: Comment[] | null;
+  post_reactions: PostReaction[] | null;
+}
+
 const POSTS_PER_PAGE = 10;
 
 export default function Feed() {
@@ -75,35 +115,41 @@ export default function Feed() {
     fetchNextPage,
     hasNextPage,
     refetch: refetchPosts,
-  } = useInfiniteQuery({
+  } = useInfiniteQuery<{ posts: Post[]; nextPage?: number }>({
     queryKey: ["posts"],
+    initialPageParam: 0,
     queryFn: async ({ pageParam = 0 }) => {
       const from = pageParam * POSTS_PER_PAGE;
       const to = from + POSTS_PER_PAGE - 1;
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("posts")
         .select(
           `
-id, content, created_at, club_id,
-profiles (id, full_name),
-clubs (id, name, club_members (user_id, role)),
-comments (id, content, created_at, profiles (id, full_name)),
-post_reactions (id, emoji, user_id)
-`,
+        id, content, created_at, club_id,
+        profiles (id, full_name),
+        clubs (id, name, club_members (user_id, role)),
+        comments (id, content, created_at, deleted_at, profiles (id, full_name)),
+        post_reactions (emoji, user_id)
+      `,
         )
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .range(from, to);
 
-      return data || [];
+      if (error) throw error;
+
+      const posts = (data ?? []) as unknown as Post[];
+
+      return {
+        posts,
+        nextPage: posts.length === POSTS_PER_PAGE ? pageParam + 1 : undefined,
+      };
     },
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) => {
-      return lastPage.length === POSTS_PER_PAGE ? allPages.length : undefined;
-    },
+    getNextPageParam: (lastPage) => lastPage.nextPage,
   });
-  const posts = data?.pages.flat() ?? [];
+
+  const posts = data?.pages.flatMap((page) => page.posts) ?? [];
 
   const postsRef = useRef(posts);
   const userRef = useRef(user);
@@ -120,7 +166,6 @@ post_reactions (id, emoji, user_id)
     setShowNewPostsBanner(false);
     refetchPosts();
   }, [refetchPosts]);
-
   const observer = useRef<IntersectionObserver | null>(null);
   const lastPostElementRef = useCallback(
     (node: HTMLElement | null) => {
@@ -135,6 +180,10 @@ post_reactions (id, emoji, user_id)
     },
     [isLoading, isFetchingNextPage, fetchNextPage, hasNextPage],
   );
+
+  useEffect(() => {
+    return () => observer.current?.disconnect();
+  }, []);
 
   useEffect(() => {
     const channel = supabase
@@ -179,26 +228,8 @@ post_reactions (id, emoji, user_id)
       setNewPost("");
     },
     onSuccess: () => refetchPosts(),
-  });
-
-  // DELETE POST MUTATION
-  const deletePostMutation = useMutation({
-    mutationFn: async (postId: string) => {
-      const { error } = await supabase
-        .from("posts")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("id", postId);
-
-      if (error) throw error;
-    },
-
-    onSuccess: () => {
-      toast.success("Post deleted successfully");
-      refetchPosts();
-    },
-
-    onError: () => {
-      toast.error("Failed to delete post");
+    onError: (error) => {
+      toast.error(error.message || "Failed to publish post.");
     },
   });
 
@@ -219,6 +250,7 @@ post_reactions (id, emoji, user_id)
       toast.error(error.message || "Failed to post comment. Please try again.");
     },
   });
+
   const reactionMutation = useMutation({
     mutationFn: async ({
       postId,
@@ -250,8 +282,27 @@ post_reactions (id, emoji, user_id)
         if (error) throw error;
       }
     },
+    onSuccess: () => refetchPosts(),
+  });
+
+  const deletePostMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      if (!user) throw new Error("Must be logged in");
+      const { error } = await supabase
+        .from("posts")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", postId);
+      if (error) throw error;
+    },
     onSuccess: () => {
       refetchPosts();
+      toast.success("Post deleted successfully!");
+    },
+    onError: () => {
+      toast.error("Failed to delete post.");
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to react to post.");
     },
   });
 
@@ -409,24 +460,33 @@ post_reactions (id, emoji, user_id)
               </div>
             ) : (
               <>
-                {posts.map((post, index) => {
+                {posts.map((post: Post, index: number) => {
                   const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
                   const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
-                  const clubMembers = Array.isArray(club?.club_members) ? club.club_members : [];
-                  const authorMembership = clubMembers.find(
-                    (m: { user_id: string; role: string }) => m.user_id === author?.id,
-                  );
+                  const clubMembers: ClubMember[] = Array.isArray(club?.club_members)
+                    ? club.club_members
+                    : club?.club_members
+                      ? [club.club_members]
+                      : [];
+
+                  const authorMembership = clubMembers.find((m) => m.user_id === author?.id);
+
                   const authorRole = (authorMembership?.role ?? "member") as MemberRole;
-                  const postComments = Array.isArray(post.comments) ? post.comments : [];
+
+                  const postComments: Comment[] = Array.isArray(post.comments)
+                    ? post.comments.filter((c) => !c.deleted_at)
+                    : [];
+
+                  const isLastPost = index === posts.length - 1;
 
                   return (
                     <article
-                      ref={index === posts.length - 1 ? lastPostElementRef : null}
                       id={`post-${post.id}`}
                       key={post.id}
+                      ref={isLastPost ? lastPostElementRef : undefined}
                       className="neu-border bg-white p-6"
                     >
-                      <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-black pb-3">
+                      <header className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b-2 border-black pb-3">
                         <div>
                           <p className="font-display text-lg font-bold flex items-center gap-2">
                             {author?.full_name || "Unknown User"}
@@ -483,15 +543,14 @@ post_reactions (id, emoji, user_id)
 
                       <div className="mt-4 flex flex-wrap gap-2">
                         {["👍", "👏", "🔥"].map((emoji) => {
-                          const postReactions = Array.isArray(post.post_reactions)
+                          const postReactions: PostReaction[] = Array.isArray(post.post_reactions)
                             ? post.post_reactions
                             : [];
                           const reactionCount = postReactions.filter(
-                            (r: { emoji: string; user_id: string }) => r.emoji === emoji,
+                            (r) => r.emoji === emoji,
                           ).length;
                           const isReacted = postReactions.some(
-                            (r: { emoji: string; user_id: string }) =>
-                              r.emoji === emoji && r.user_id === user?.id,
+                            (r) => r.emoji === emoji && r.user_id === user?.id,
                           );
 
                           return (
@@ -515,26 +574,34 @@ post_reactions (id, emoji, user_id)
 
                       <div className="mt-4 flex gap-2 border-t-2 border-black pt-4">
                         <a
-                          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(`${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
+                          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(
+                            `${window.location.origin}${window.location.pathname}#post-${post.id}`,
+                          )}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#1DA1F2] hover:text-white transition-colors"
+                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#1DA1F2] hover:text-white"
                         >
                           Twitter
                         </a>
+
                         <a
-                          href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
+                          href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(
+                            `${window.location.origin}${window.location.pathname}#post-${post.id}`,
+                          )}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#0A66C2] hover:text-white transition-colors"
+                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#0A66C2] hover:text-white"
                         >
                           LinkedIn
                         </a>
+
                         <a
-                          href={`https://wa.me/?text=${encodeURIComponent(`Check out this post: ${post.content.substring(0, 50)}... - ${window.location.origin}${window.location.pathname}#post-${post.id}`)}`}
+                          href={`https://wa.me/?text=${encodeURIComponent(
+                            `Check out this post: ${post.content.substring(0, 50)}... - ${window.location.origin}${window.location.pathname}#post-${post.id}`,
+                          )}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#25D366] hover:text-white transition-colors"
+                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#25D366] hover:text-white"
                         >
                           WhatsApp
                         </a>
@@ -546,26 +613,25 @@ post_reactions (id, emoji, user_id)
                         </h3>
 
                         <div className="space-y-4 pl-4">
-                          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                          {postComments.map((comment: any) => {
+                          {postComments.map((comment) => {
                             const commentAuthor = Array.isArray(comment.profiles)
                               ? comment.profiles[0]
                               : comment.profiles;
+
+                            const commentAuthorMembership = clubMembers.find(
+                              (m) => m.user_id === commentAuthor?.id,
+                            );
 
                             return (
                               <div key={comment.id} className="neu-border bg-cream p-3">
                                 <div className="flex justify-between">
                                   <p className="font-mono text-xs font-bold uppercase flex items-center gap-1.5">
                                     {commentAuthor?.full_name || "Unknown User"}
-                                    {(() => {
-                                      const cm = clubMembers.find(
-                                        (m: { user_id: string; role: string }) =>
-                                          m.user_id === commentAuthor?.id,
-                                      );
-                                      return (
-                                        <RoleBadge role={(cm?.role ?? "member") as MemberRole} />
-                                      );
-                                    })()}
+                                    <RoleBadge
+                                      role={
+                                        (commentAuthorMembership?.role ?? "member") as MemberRole
+                                      }
+                                    />
                                   </p>
                                   <p className="font-mono text-[10px] text-gray-500">
                                     {timeAgo(comment.created_at)}
@@ -607,12 +673,22 @@ post_reactions (id, emoji, user_id)
                     </article>
                   );
                 })}
-                {isFetchingNextPage && (
-                  <div className="py-4 text-center">
-                    <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" />
-                  </div>
-                )}
               </>
+            )}
+
+            {isFetchingNextPage &&
+              Array.from({ length: 2 }).map((_, i) => (
+                <div key={`loading-${i}`} className="neu-border bg-white p-6 animate-pulse">
+                  <div className="h-6 w-1/3 rounded bg-gray-200" />
+                  <div className="mt-4 h-4 w-full rounded bg-gray-200" />
+                  <div className="mt-2 h-4 w-5/6 rounded bg-gray-200" />
+                </div>
+              ))}
+
+            {!hasNextPage && posts.length > 0 && (
+              <div className="py-10 text-center font-mono text-sm font-bold text-gray-500 uppercase">
+                You're all caught up! 🎉
+              </div>
             )}
           </div>
         </section>
