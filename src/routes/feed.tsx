@@ -276,9 +276,6 @@ export default function Feed() {
     onError: () => {
       toast.error("Failed to delete post.");
     },
-    onError: (error) => {
-      toast.error(error.message || "Failed to react to post.");
-    },
   });
 
   const timeAgo = (dateString: string) => {
