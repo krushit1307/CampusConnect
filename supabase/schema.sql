@@ -374,6 +374,38 @@ CREATE OR REPLACE TRIGGER on_event_canceled
   WHEN (NEW.status = 'canceled' AND OLD.status IS DISTINCT FROM 'canceled')
   EXECUTE PROCEDURE public.handle_event_cancellation();
 
+-- Comment rate limiter trigger function and trigger
+CREATE OR REPLACE FUNCTION public.check_comment_rate_limit()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_comment_count INTEGER;
+BEGIN
+  -- Count comments created by the currently authenticated user in the past 60 seconds
+  SELECT COUNT(*)
+  INTO v_comment_count
+  FROM public.comments
+  WHERE author_id = auth.uid()
+    AND created_at >= NOW() - INTERVAL '1 minute';
+
+  -- Abort insert if count is >= 5
+  IF v_comment_count >= 5 THEN
+    RAISE EXCEPTION 'Comment rate limit exceeded. You can only post 5 comments per minute.'
+      USING ERRCODE = 'P0001';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER before_comment_insert
+BEFORE INSERT ON public.comments
+FOR EACH ROW
+EXECUTE FUNCTION public.check_comment_rate_limit();
+
 -- ------------------------------------------------------------
 -- 5. Storage Buckets & Policies
 -- ------------------------------------------------------------
