@@ -17,7 +17,7 @@ DROP FUNCTION IF EXISTS validate_event_date() CASCADE;
 CREATE OR REPLACE FUNCTION validate_event_date()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF NEW.event_date IS NOT NULL AND NEW.event_date <= NOW() THEN
+    IF NEW.event_date IS NOT NULL AND NEW.event_date <= statement_timestamp() THEN
         RAISE EXCEPTION 'Event date must be in the future.';
     END IF;
     RETURN NEW;
