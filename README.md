@@ -235,6 +235,9 @@ Instead of connecting to a remote Supabase instance, you can spin up the full Su
 
 We welcome contributions! Please see our [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to get started. This is an **ECSoC 2026** project, so we are actively looking for contributors. Check out issues labeled `good first issue` to begin!
 
+> [!NOTE]
+> **Automated Assignments**: We use a bot to manage issue assignments. Simply comment `/claim` on an issue to assign it to yourself. You have a **30-hour** window to submit a Pull Request before the issue is automatically unassigned.
+
 > [!IMPORTANT]
 > **Code Formatting**: Before committing and pushing your code, you **MUST** run `npm run lint` locally. This will automatically format your files and prevent our CI (GitHub Actions) from failing due to Prettier or ESLint errors. Pull Requests with failing CI checks will not be merged.
 

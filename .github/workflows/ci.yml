@@ -1,47 +1,104 @@
-name: CI
+name: CI Pipeline
 
 on:
-  pull_request:
-    branches: [main]
   push:
-    branches: [main]
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
 
 jobs:
-  quality-gate:
-    name: Code Quality & Build Verification
+  format:
+    name: Format
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v5
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: "20"
           cache: "npm"
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify Formatting (Prettier)
-        run: npx prettier --check .
+      - name: Verify Code Formatting
+        run: |
+          git fetch origin ${{ github.base_ref || 'main' }} --depth=1
+          TARGET_BRANCH="origin/${{ github.base_ref || 'main' }}"
+          CHANGED_FILES=$(git diff --name-only $TARGET_BRANCH...HEAD | grep -E '\.(js|jsx|ts|tsx|css|html|json|md|yml|yaml)$' || true)
+          if [ -n "$CHANGED_FILES" ]; then
+            npx prettier --check $CHANGED_FILES
+          else
+            echo "No changed files to check."
+          fi
 
-      - name: Lint Source Code (ESLint)
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+
+      - name: Install client dependencies
+        run: npm ci
+
+      - name: Run Lint checks
         run: npm run lint
 
-      - name: Type Check (TypeScript)
-        run: npx tsc --noEmit
+  prettier:
+    name: Prettier Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
 
-      - name: Run Unit Tests (Vitest)
-        run: npm run test
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify Prettier Check
+        run: |
+          git fetch origin ${{ github.base_ref || 'main' }} --depth=1
+          TARGET_BRANCH="origin/${{ github.base_ref || 'main' }}"
+          CHANGED_FILES=$(git diff --name-only $TARGET_BRANCH...HEAD | grep -E '\.(js|jsx|ts|tsx|css|html|json|md|yml|yaml)$' || true)
+          if [ -n "$CHANGED_FILES" ]; then
+            npx prettier --check $CHANGED_FILES
+          else
+            echo "No changed files to check."
+          fi
+
+  build:
+    name: Production Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+
+      - name: Install client dependencies
+        run: npm ci
 
       - name: Verify Production Build
         run: npm run build

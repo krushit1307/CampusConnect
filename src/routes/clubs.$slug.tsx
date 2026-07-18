@@ -7,11 +7,22 @@ import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 // Small building block for the skeleton below. Deliberately a plain div
 // (not the shared ui/skeleton component) to keep this change self-contained.
 function Bone({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse rounded-none bg-black/10 ${className}`} />;
+}
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }
 
 // Mimics the club header + events/members layout below while data is fetched
@@ -25,6 +36,24 @@ function ClubProfileSkeleton() {
           <Bone className="mt-3 h-12 w-2/3 max-w-md md:h-16" />
           <Bone className="mt-4 h-4 w-full max-w-xl" />
           <Bone className="mt-2 h-4 w-2/3 max-w-md" />
+
+          {/* Members list skeleton loader */}
+          <div className="mt-8 max-w-2xl">
+            <Bone className="h-6 w-24 mb-3" />
+            <Bone className="h-4 w-32 mb-2" />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="neu-border bg-white flex items-center gap-3 p-3">
+                  <Bone className="h-10 w-10 rounded-full shrink-0" />
+                  <div className="flex-1">
+                    <Bone className="h-4 w-2/3" />
+                  </div>
+                  <Bone className="h-4 w-12" />
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="mt-6 flex flex-wrap gap-3">
             <Bone className="h-9 w-32" />
             <Bone className="h-9 w-24" />
@@ -32,8 +61,8 @@ function ClubProfileSkeleton() {
         </div>
       </section>
       <section className="px-4 py-12 md:px-6">
-        <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-3">
-          <div className="neu-border bg-white p-6 lg:col-span-2">
+        <div className="mx-auto max-w-6xl">
+          <div className="neu-border bg-white p-6">
             <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold">Upcoming events</h2>
             <div className="divide-y-2 divide-black">
               {[0, 1, 2].map((i) => (
@@ -41,14 +70,6 @@ function ClubProfileSkeleton() {
                   <Bone className="h-9 w-14" />
                   <Bone className="h-5 w-1/2" />
                 </div>
-              ))}
-            </div>
-          </div>
-          <div className="neu-border bg-white p-6">
-            <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold">Members</h2>
-            <div className="grid grid-cols-2 gap-2">
-              {[0, 1, 2, 3, 4, 5].map((i) => (
-                <Bone key={i} className="h-9" />
               ))}
             </div>
           </div>
@@ -62,6 +83,7 @@ export default function ClubProfile() {
   const { slug } = useParams();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -79,7 +101,7 @@ export default function ClubProfile() {
         .select(
           `
           id, name, slug, description,
-          club_members (id, role, status, user_id, profiles (full_name)),
+          club_members (id, role, status, user_id, profiles (full_name, avatar_url)),
           events (id, title, event_date)
         `,
         )
@@ -116,8 +138,14 @@ export default function ClubProfile() {
     : [];
   const memberList = members.map((m) => {
     const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
-    return { name: profile?.full_name || "Unknown User", role: m.role as "admin" | "member" };
+    return {
+      name: profile?.full_name || "Unknown User",
+      role: m.role as "admin" | "member" | "organizer" | "alumni",
+      avatarUrl: profile?.avatar_url || null,
+    };
   });
+
+  const displayedMembers = isExpanded ? memberList : memberList.slice(0, 10);
 
   const events = Array.isArray(club.events) ? club.events : [];
   const membership =
@@ -134,6 +162,54 @@ export default function ClubProfile() {
           <div className="markdown-content mt-4 max-w-2xl font-mono text-sm md:text-base leading-relaxed">
             <ReactMarkdown>{club.description || ""}</ReactMarkdown>
           </div>
+
+          {/* Members section below the description */}
+          <div className="mt-8 max-w-2xl">
+            <h3 className="font-display text-lg font-bold">Members</h3>
+            <p className="font-mono text-xs text-gray-500 mt-1 mb-3">
+              {memberList.length} members total
+            </p>
+            {memberList.length === 0 ? (
+              <p className="font-mono text-sm text-gray-500">No members yet.</p>
+            ) : (
+              <>
+                <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {displayedMembers.map((m, i) => (
+                    <li
+                      key={i}
+                      className="neu-border bg-white flex items-center gap-3 p-3 font-mono text-sm"
+                    >
+                      <Avatar className="h-10 w-10 border-2 border-black rounded-full">
+                        <AvatarImage
+                          src={m.avatarUrl || undefined}
+                          alt={m.name}
+                          className="rounded-full"
+                        />
+                        <AvatarFallback className="rounded-full bg-[#bce3f2] text-black font-bold">
+                          {getInitials(m.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold truncate" title={m.name}>
+                          {m.name}
+                        </p>
+                      </div>
+                      <RoleBadge role={m.role} />
+                    </li>
+                  ))}
+                </ul>
+                {memberList.length > 10 && (
+                  <button
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="neu-border neu-press mt-4 bg-cream px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-black hover:text-cream transition-colors"
+                  >
+                    {isExpanded ? "View less" : "View all"}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+
           <div className="mt-6 flex flex-wrap gap-3">
             <button
               onClick={() => {
@@ -156,8 +232,8 @@ export default function ClubProfile() {
         </div>
       </section>
       <section className="px-4 py-12 md:px-6">
-        <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-3">
-          <div className="neu-border bg-white p-6 lg:col-span-2">
+        <div className="mx-auto max-w-6xl">
+          <div className="neu-border bg-white p-6">
             <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold">Upcoming events</h2>
             {events.length === 0 ? (
               <p className="font-mono text-sm">No upcoming events.</p>
@@ -173,28 +249,6 @@ export default function ClubProfile() {
                         : "TBA"}
                     </div>
                     <p className="flex-1 font-display font-bold">{e.title}</p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <div className="neu-border bg-white p-6">
-            <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold">
-              Members · {members.length}
-            </h2>
-            {memberList.length === 0 ? (
-              <p className="font-mono text-sm">No members yet.</p>
-            ) : (
-              <ul className="space-y-2 font-mono text-sm">
-                {memberList.map((m, i) => (
-                  <li
-                    key={i}
-                    className="neu-border bg-cream flex items-center justify-between gap-2 p-2"
-                  >
-                    <span className="truncate" title={m.name}>
-                      {m.name}
-                    </span>
-                    <RoleBadge role={m.role} />
                   </li>
                 ))}
               </ul>
