@@ -106,6 +106,7 @@ export default function ClubProfile() {
         `,
         )
         .eq("slug", slug)
+        .eq("status", "approved")
         .single();
       return data;
     },

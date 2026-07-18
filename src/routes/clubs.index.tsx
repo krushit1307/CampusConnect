@@ -42,6 +42,7 @@ export default function ClubsIndex() {
         const { data, count } = await supabase
           .from("clubs")
           .select(`id, name, slug, description, member_count`, { count: "exact" })
+          .eq("status", "approved")
           .range(from, to);
 
         return {
