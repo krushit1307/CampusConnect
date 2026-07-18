@@ -24,6 +24,7 @@ permissions:
   checks: read
   actions: read
   contents: write
+  workflows: write
 
 concurrency:
   group: pr-status-monitor-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.event.check_run.pull_requests[0].number || github.run_id }}
