@@ -14,6 +14,7 @@ export default function EventsPage() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const [filter, setFilter] = useState("All");
+  const [localEvents, setLocalEvents] = useState<any[]>([]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -33,7 +34,8 @@ export default function EventsPage() {
           `
           id, title, description, event_date, location, banner_url,
           clubs (name),
-          event_rsvps (id, user_id)
+          event_rsvps (id, user_id),
+          saved_events (id, user_id)
         `,
         )
         .order("event_date", { ascending: true });
@@ -78,12 +80,29 @@ export default function EventsPage() {
     },
   });
 
-  const events = queryData || [];
+  useEffect(() => {
+    if (queryData) {
+      setLocalEvents(queryData);
+    }
+  }, [queryData]);
 
   useEffect(() => {
     const channel = supabase
       .channel("realtime_rsvps")
       .on("postgres_changes", { event: "*", schema: "public", table: "event_rsvps" }, () => {
+        refetch();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, refetch]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("realtime_saved_events")
+      .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
         refetch();
       })
       .subscribe();
@@ -129,12 +148,89 @@ export default function EventsPage() {
     },
   });
 
+  const toggleBookmark = useMutation({
+    mutationFn: async ({ eventId, isSaved }: { eventId: string; isSaved: boolean }) => {
+      if (!user) throw new Error("Must be logged in");
+      if (eventId.startsWith("mock-")) {
+        console.log(`[CampusConnect] Mock Bookmark toggled for event: ${eventId}`);
+        return;
+      }
+      const { error } = isSaved
+        ? await supabase
+            .from("saved_events")
+            .delete()
+            .match({ event_id: eventId, user_id: user.id })
+        : await supabase.from("saved_events").insert({ event_id: eventId, user_id: user.id });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+    },
+    onSuccess: (_data, variables) => {
+      toast.success(variables.isSaved ? "Removed from saved events!" : "Saved to bookmarks!");
+      if (!variables.eventId.startsWith("mock-")) {
+        refetch();
+      }
+    },
+    onError: () => {
+      toast.error("Failed to update bookmark.");
+    },
+  });
+
+  const handleRsvpToggle = async (eventId: string, hasRsvpd: boolean) => {
+    const originalEvents = [...localEvents];
+
+    setLocalEvents((prevEvents) =>
+      prevEvents.map((e) => {
+        if (e.id === eventId) {
+          const rsvpsList = Array.isArray(e.event_rsvps) ? e.event_rsvps : [];
+          if (hasRsvpd) {
+            return { ...e, event_rsvps: rsvpsList.filter((r: any) => r.user_id !== user?.id) };
+          } else {
+            return { ...e, event_rsvps: [...rsvpsList, { id: "temp", user_id: user?.id }] };
+          }
+        }
+        return e;
+      })
+    );
+
+    try {
+      await toggleRsvp.mutateAsync({ eventId, hasRsvpd });
+    } catch {
+      setLocalEvents(originalEvents);
+    }
+  };
+
+  const handleBookmarkToggle = async (eventId: string, isSaved: boolean) => {
+    const originalEvents = [...localEvents];
+
+    setLocalEvents((prevEvents) =>
+      prevEvents.map((e) => {
+        if (e.id === eventId) {
+          const savedList = Array.isArray(e.saved_events) ? e.saved_events : [];
+          if (isSaved) {
+            return { ...e, saved_events: savedList.filter((s: any) => s.user_id !== user?.id) };
+          } else {
+            return { ...e, saved_events: [...savedList, { id: "temp", user_id: user?.id }] };
+          }
+        }
+        return e;
+      })
+    );
+
+    try {
+      await toggleBookmark.mutateAsync({ eventId, isSaved });
+    } catch {
+      setLocalEvents(originalEvents);
+    }
+  };
+
   const colors = ["bg-lime", "bg-sky", "bg-peach", "bg-lavender"];
 
   const filteredEvents =
     filter === "All"
-      ? events
-      : events.filter((e) => {
+      ? localEvents
+      : localEvents.filter((e) => {
           const searchStr = `${e.title} ${e.description}`.toLowerCase();
           return searchStr.includes(filter.toLowerCase());
         });
@@ -182,8 +278,10 @@ export default function EventsPage() {
                     event={e}
                     index={index}
                     user={user}
-                    onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
+                    onRsvpToggle={handleRsvpToggle}
                     isRsvpPending={toggleRsvp.isPending}
+                    onBookmarkToggle={handleBookmarkToggle}
+                    isBookmarkPending={toggleBookmark.isPending}
                   />
                 ))}
           </div>

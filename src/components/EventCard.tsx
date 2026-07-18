@@ -1,6 +1,6 @@
 import { formatDate, getGoogleCalendarUrl } from "@/lib/utils";
 import { FormEvent, useState } from "react";
-import { Calendar, Check, Share2, X, Link as LinkIcon } from "lucide-react";
+import { Calendar, Check, Share2, X, Link as LinkIcon, Bookmark } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ interface Event {
   banner_url?: string | null;
   clubs: { name: string } | { name: string }[] | null;
   event_rsvps: { id: string; user_id: string }[] | null;
+  saved_events?: { id: string; user_id: string }[] | null;
 }
 
 interface EventCardProps {
@@ -23,12 +24,18 @@ interface EventCardProps {
   user: { id: string } | null;
   onRsvpToggle: (eventId: string, hasRsvpd: boolean) => void;
   isRsvpPending: boolean;
+  onBookmarkToggle?: (eventId: string, isSaved: boolean) => void;
+  isBookmarkPending?: boolean;
 }
 
-export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: EventCardProps) {
+export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending, onBookmarkToggle, isBookmarkPending }: EventCardProps) {
   const club = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs;
   const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
   const hasRsvpd = user ? rsvps.some((rsvp) => rsvp.user_id === user.id) : false;
+  
+  const savedList = Array.isArray(event.saved_events) ? event.saved_events : [];
+  const isSaved = user ? savedList.some((s) => s.user_id === user.id) : false;
+
   const colors = ["bg-lime", "bg-sky", "bg-peach", "bg-lavender"];
   const googleCalendarUrl = getGoogleCalendarUrl({
     title: event.title,
@@ -82,6 +89,14 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
     }
 
     setIsFormOpen(true);
+  };
+
+  const handleBookmarkClick = () => {
+    if (!user) {
+      toast.error("Please log in to save events");
+      return;
+    }
+    onBookmarkToggle?.(event.id, isSaved);
   };
 
   const handleSubmit = (formEvent: FormEvent<HTMLFormElement>) => {
@@ -255,6 +270,23 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+
+          <button
+            type="button"
+            onClick={handleBookmarkClick}
+            disabled={isBookmarkPending}
+            className={`neu-border grid h-9 w-9 shrink-0 place-items-center transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
+              isSaved ? "bg-black text-white" : "bg-white text-black"
+            }`}
+            aria-label={isSaved ? "Remove bookmark" : "Bookmark event"}
+          >
+            <Bookmark
+              aria-hidden="true"
+              size={18}
+              strokeWidth={isSaved ? 3 : 2}
+              className={isSaved ? "fill-white" : ""}
+            />
+          </button>
 
           {hasRsvpd && googleCalendarUrl && (
             <a
