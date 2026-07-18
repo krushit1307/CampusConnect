@@ -200,91 +200,90 @@ export default function EventDetailsPage() {
         </div>
       </nav>
 
-      {/* Banner / Hero image */}
-      <section className="border-b-2 border-black bg-peach/30 px-4 py-8 md:px-6 md:py-12">
-        <div className="mx-auto max-w-4xl">
-          {event.banner_url ? (
+      {/* Hero Section */}
+      <section className="relative w-full border-b-2 border-black bg-peach/30 overflow-hidden">
+        {event.banner_url ? (
+          <div className="absolute inset-0">
             <img
               src={event.banner_url}
               alt={event.title}
-              className="neu-border h-48 w-full object-cover md:h-80"
-              width={896}
-              height={320}
+              className="h-full w-full object-cover"
               loading="lazy"
             />
-          ) : (
-            <div className="neu-border flex h-48 w-full items-center justify-center bg-peach md:h-80">
-              <span className="font-display text-2xl font-black uppercase text-black/50">
-                {event.title}
-              </span>
-            </div>
+            <div className="absolute inset-0 bg-black/50" />
+          </div>
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-peach via-pink-200 to-lime/40" />
+        )}
+
+        <div className="relative mx-auto max-w-4xl px-4 py-16 md:px-6 md:py-24 flex flex-col justify-end min-h-[50vh] md:min-h-[60vh]">
+          <div className="mb-4">
+            <span className="neu-border bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider text-black inline-block">
+              Event Details
+            </span>
+          </div>
+
+          <h1
+            className={`text-4xl md:text-6xl font-black tracking-tight ${event.banner_url ? "text-white" : "text-black"}`}
+          >
+            {event.title}
+          </h1>
+
+          {club && (
+            <p
+              className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"}`}
+            >
+              Organized by:{" "}
+              <Link to={`/clubs/${club.slug}`} className="underline hover:opacity-80">
+                {club.name}
+              </Link>
+            </p>
           )}
+
+          <div
+            className={`mt-8 flex flex-wrap gap-4 sm:gap-8 font-mono text-sm font-bold ${event.banner_url ? "text-white" : "text-black"}`}
+          >
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              <span>{event.event_date ? formatDate(event.event_date) : "TBA"}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <MapPin className="h-5 w-5" />
+              <span>{event.location || "TBA"}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              <span>{rsvps.length} RSVP&apos;d</span>
+            </div>
+          </div>
+
+          <div className="mt-8 hidden md:flex items-center gap-4">
+            <button
+              onClick={handleRsvpClick}
+              disabled={toggleRsvp.isPending}
+              className={`neu-border px-8 py-4 font-mono text-base font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
+                hasRsvpd ? "bg-lime text-black" : "bg-black text-cream"
+              }`}
+            >
+              {toggleRsvp.isPending ? "Updating..." : hasRsvpd ? "RSVP'd ✓" : "RSVP NOW"}
+            </button>
+            <span
+              className={`font-mono text-sm font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
+            >
+              {rsvps.length} people going
+            </span>
+          </div>
         </div>
       </section>
 
       {/* Details Container */}
       <section className="bg-cream px-4 py-12 md:px-6">
         <div className="mx-auto max-w-4xl neu-border bg-white p-6 md:p-8">
-          {/* Eyebrow */}
-          <span className="neu-border bg-cream px-2 py-1 font-mono text-[10px] font-bold uppercase">
-            Event Details
-          </span>
-
-          {/* Title */}
-          <h1 className="mt-4 text-3xl font-black md:text-5xl">{event.title}</h1>
-
-          {/* Organizer / Club link */}
-          {club && (
-            <p className="mt-3 font-mono text-sm font-bold">
-              Organized by:{" "}
-              <Link to={`/clubs/${club.slug}`} className="underline hover:text-black/70">
-                {club.name}
-              </Link>
-            </p>
-          )}
-
-          {/* Meta Data Grid */}
-          <div className="mt-8 grid gap-6 border-y-2 border-black py-6 sm:grid-cols-3">
-            <div className="flex gap-3">
-              <Calendar className="mt-1 h-5 w-5 shrink-0 text-black/60" />
-              <div>
-                <dt className="font-mono text-xs font-bold uppercase text-black/50">
-                  Date &amp; Time
-                </dt>
-                <dd className="mt-1 text-sm font-bold">
-                  {event.event_date ? formatDate(event.event_date) : "TBA"}
-                </dd>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <MapPin className="mt-1 h-5 w-5 shrink-0 text-black/60" />
-              <div>
-                <dt className="font-mono text-xs font-bold uppercase text-black/50">Venue</dt>
-                <dd className="mt-1 text-sm font-bold">{event.location || "TBA"}</dd>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <Users className="mt-1 h-5 w-5 shrink-0 text-black/60" />
-              <div>
-                <dt className="font-mono text-xs font-bold uppercase text-black/50">Attendees</dt>
-                <dd className="mt-1 text-sm font-bold">{rsvps.length} RSVP&apos;d</dd>
-              </div>
-            </div>
-          </div>
+          {/* Metadata moved to hero section */}
 
           {/* Action buttons (RSVP / Copy Link) */}
           <div className="mt-8 flex flex-wrap items-center gap-4 border-b-2 border-black pb-8">
-            <button
-              onClick={handleRsvpClick}
-              disabled={toggleRsvp.isPending}
-              className={`neu-border px-6 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
-                hasRsvpd ? "bg-lime text-black" : "bg-black text-cream"
-              }`}
-            >
-              {toggleRsvp.isPending ? "Updating..." : hasRsvpd ? "RSVP'd ✓" : "RSVP →"}
-            </button>
+            {/* Primary RSVP moved to hero section */}
 
             <TooltipProvider>
               <Tooltip>
@@ -371,6 +370,24 @@ export default function EventDetailsPage() {
           </div>
         </div>
       </section>
+
+      {/* Sticky Mobile RSVP Bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between border-t-2 border-black bg-white p-4 pb-6 shadow-lg md:hidden">
+        <div className="flex flex-col">
+          <span className="font-mono text-xs font-bold text-black/60 uppercase">
+            {rsvps.length} going
+          </span>
+        </div>
+        <button
+          onClick={handleRsvpClick}
+          disabled={toggleRsvp.isPending}
+          className={`neu-border px-6 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
+            hasRsvpd ? "bg-lime text-black" : "bg-black text-cream"
+          }`}
+        >
+          {toggleRsvp.isPending ? "Updating..." : hasRsvpd ? "RSVP'd ✓" : "RSVP NOW"}
+        </button>
+      </div>
 
       {/* RSVP Cancel Confirmation Modal */}
       <ConfirmModal
