@@ -74,6 +74,22 @@ export default function ClubsIndex() {
 
   return (
     <SiteShell>
+      <style>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(16px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fade-in-up {
+          opacity: 0;
+          animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+      `}</style>
       <section className="border-b-2 border-black bg-lavender px-4 py-14 md:px-6">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="flex-1">
@@ -145,28 +161,33 @@ export default function ClubsIndex() {
               filteredClubs.map((c, index) => {
                 const members = c.member_count ?? 0;
                 return (
-                  <Link
+                  <div
                     key={c.slug}
-                    to={`/clubs/${c.slug}`}
-                    className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000]"
+                    className="animate-fade-in-up"
+                    style={{ animationDelay: `${index * 75}ms` }}
                   >
-                    <div
-                      className={`neu-border ${colors[index % colors.length]} mb-4 inline-block px-3 py-1 font-mono text-xs font-bold uppercase`}
+                    <Link
+                      to={`/clubs/${c.slug}`}
+                      className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000] h-full"
                     >
-                      Club
-                    </div>
-                    <h2 className="text-2xl font-bold">{c.name}</h2>
-                    <div className="my-3 border-t-2 border-black" />
-                    <div className="flex items-center justify-between font-mono text-xs">
-                      <span>{members} members</span>
-                      <span className="font-bold uppercase flex items-center gap-1">
-                        View{" "}
-                        <span className="transition-transform duration-300 group-hover:translate-x-1">
-                          →
+                      <div
+                        className={`neu-border ${colors[index % colors.length]} mb-4 inline-block px-3 py-1 font-mono text-xs font-bold uppercase`}
+                      >
+                        Club
+                      </div>
+                      <h2 className="text-2xl font-bold">{c.name}</h2>
+                      <div className="my-3 border-t-2 border-black" />
+                      <div className="flex items-center justify-between font-mono text-xs">
+                        <span>{members} members</span>
+                        <span className="font-bold uppercase flex items-center gap-1">
+                          View{" "}
+                          <span className="transition-transform duration-300 group-hover:translate-x-1">
+                            →
+                          </span>
                         </span>
-                      </span>
-                    </div>
-                  </Link>
+                      </div>
+                    </Link>
+                  </div>
                 );
               })
             )}
