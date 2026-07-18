@@ -7,7 +7,16 @@ CREATE TABLE password_reset_logs(
 
 ALTER TABLE password_reset_logs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Restrict access to system admins only" 
+-- 1. Allow the backend server to create new logs (Append-only)
+CREATE POLICY "Allow backend to insert logs" 
 ON password_reset_logs
+FOR INSERT 
 TO service_role
-USING (true);
+WITH CHECK (true);
+
+-- 2. Allow human system admins to read the logs
+CREATE POLICY "Allow admins to read logs" 
+ON password_reset_logs
+FOR SELECT 
+TO authenticated
+USING (public.is_system_admin());
