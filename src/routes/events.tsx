@@ -27,6 +27,7 @@ interface EventItem {
   clubs: { name: string } | { name: string }[] | null;
   event_rsvps: { id: string; user_id: string }[] | null;
   saved_events: { id: string; user_id: string }[] | null;
+  attendee_count?: number;
 }
 
 interface EventItem {
@@ -39,6 +40,7 @@ interface EventItem {
   clubs: { name: string } | { name: string }[] | null;
   event_rsvps: { id: string; user_id: string }[] | null;
   saved_events: { id: string; user_id: string }[] | null;
+  attendee_count?: number;
 }
 
 const EventsCalendar = lazy(() => import("@/components/events/EventsCalendar"));
@@ -76,13 +78,14 @@ export default function EventsPage() {
     queryKey: ["events", user?.id ?? "anonymous"],
     queryFn: async () => {
       const { data } = await supabase
-        .from("events")
+        .from("club_analytics_view")
         .select(
           `
           id, title, description, event_date, start_date, end_date, location, banner_url,
           clubs (name),
           event_rsvps (id, user_id),
-          saved_events (id, user_id)
+          saved_events (id, user_id),
+          attendee_count
         `,
         )
         .order("event_date", { ascending: true });
@@ -103,6 +106,7 @@ export default function EventsPage() {
             clubs: { name: "Tech Club" },
             event_rsvps: [{ id: "rsvp-1", user_id: "user-1" }],
             saved_events: [],
+            attendee_count: 1,
           },
           {
             id: "mock-2",
@@ -117,6 +121,7 @@ export default function EventsPage() {
             clubs: { name: "Art & Design" },
             event_rsvps: [],
             saved_events: [],
+            attendee_count: 0,
           },
           {
             id: "mock-3",
@@ -134,6 +139,7 @@ export default function EventsPage() {
               { id: "rsvp-3", user_id: "user-3" },
             ],
             saved_events: [],
+            attendee_count: 2,
           },
         ];
       }

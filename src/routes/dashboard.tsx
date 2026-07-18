@@ -88,6 +88,18 @@ export default function Dashboard() {
             >
               My RSVPs
             </NavLink>
+            <NavLink
+              to="/dashboard/bookmarks"
+              className={({ isActive }) =>
+                `neu-border px-5 py-2 font-mono text-sm font-bold uppercase transition-all ${
+                  isActive
+                    ? "bg-black text-cream dark:bg-cream dark:text-black"
+                    : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
+                }`
+              }
+            >
+              My Bookmarks
+            </NavLink>
           </div>
         </div>
       </section>

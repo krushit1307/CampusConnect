@@ -166,9 +166,31 @@ jobs:
                 if (currentLabelNames.includes(label)) {
                   try {
                     await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: label });
+                    const idx = currentLabelNames.indexOf(label);
+                    if (idx > -1) currentLabelNames.splice(idx, 1);
                   } catch (e) { console.log(`Could not remove label "${label}": ${e.message}`); }
                 }
               };
+
+              // ─── Enforce exactly one target label (Fail-safe) ──────────────────
+              const targetLabels = ['good-ui', 'good-backend', 'good-pr', 'good-issue'];
+              const foundTargetLabels = targetLabels.filter(label => currentLabelNames.includes(label));
+              if (foundTargetLabels.length > 1) {
+                const priority = ['good-ui', 'good-backend', 'good-pr', 'good-issue'];
+                let labelToKeep = null;
+                for (const p of priority) {
+                  if (foundTargetLabels.includes(p)) {
+                    labelToKeep = p;
+                    break;
+                  }
+                }
+                for (const label of foundTargetLabels) {
+                  if (label !== labelToKeep) {
+                    console.log(`PR #${prNumber}: Removing duplicate/conflicting target label "${label}"`);
+                    await removeLabel(label);
+                  }
+                }
+              }
 
               // ─── 6a. MERGE CONFLICT CHECK (highest priority) ──────────────────
               // mergeable: null means GitHub is still computing — retry up to 3x

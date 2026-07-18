@@ -90,6 +90,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
           slug: values.slug.trim(),
           description: values.description.trim(),
           created_by: user.id,
+          status: "pending",
         })
         .select("id")
         .single();
@@ -112,7 +113,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
       }
     },
     onSuccess: () => {
-      toast.success("Club created successfully!");
+      toast.success("Club submitted for administrator review.");
       window.dispatchEvent(new Event("refetchClubs"));
       form.reset(defaultValues);
       setOpen(false);
@@ -150,7 +151,8 @@ export function CreateClubDialog({ user }: { user: User | null }) {
         <DialogHeader>
           <DialogTitle>Create a new club</DialogTitle>
           <DialogDescription>
-            Start a new club or student chapter. Fill in the details below.
+            Submit a new club or student chapter. An administrator will review it before it appears
+            publicly.
           </DialogDescription>
         </DialogHeader>
 
@@ -208,7 +210,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
 
             <DialogFooter className="pt-2">
               <Button type="submit" disabled={createClub.isPending} className="w-full sm:w-auto">
-                {createClub.isPending ? "Creating..." : "Create Club"}
+                {createClub.isPending ? "Submitting..." : "Submit Club"}
               </Button>
             </DialogFooter>
           </form>
