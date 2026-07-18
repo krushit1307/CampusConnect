@@ -1,6 +1,7 @@
-import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
-import { useState } from "react";
-import { Calendar, Check, Share2, Bookmark, Link as LinkIcon } from "lucide-react";
+import { formatDate, getGoogleCalendarUrl, formatEventDateRange } from "@/lib/utils";
+import { Link } from "react-router-dom";
+import { FormEvent, useState } from "react";
+import { Calendar, Check, Share2, X, Link as LinkIcon, Bookmark } from "lucide-react";
 import { toast } from "sonner";
 import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,7 @@ interface Event {
   banner_url?: string | null;
   clubs: { name: string } | { name: string }[] | null;
   event_rsvps: { id: string; user_id: string }[] | null;
-  saved_events?: { id: string; user_id: string }[] | null;
+  saved_events: { id: string; user_id: string }[] | null;
 }
 
 interface EventCardProps {
@@ -28,8 +29,8 @@ interface EventCardProps {
   user: { id: string } | null;
   onRsvpToggle: (eventId: string, hasRsvpd: boolean) => void;
   isRsvpPending: boolean;
-  onBookmarkToggle?: (eventId: string, isSaved: boolean) => void;
-  isBookmarkPending?: boolean;
+  onBookmarkToggle: (eventId: string, isSaved: boolean) => void;
+  isBookmarkPending: boolean;
 }
 
 export function EventCard({
@@ -63,7 +64,7 @@ export function EventCard({
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      toast.success("Event link copied to clipboard!");
+      toast.success("Link copied!");
     } catch (error) {
       toast.error("Failed to copy link.");
     }
@@ -75,10 +76,10 @@ export function EventCard({
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
-      toast.success("Link copied to clipboard!");
+      toast.success("Link copied!");
       window.setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      toast.error("Failed to copy link");
+      toast.error("Failed to copy link.");
     }
   };
 
@@ -113,19 +114,19 @@ export function EventCard({
       className={`neu-border p-5 relative ${colors[index % colors.length]}`}
     >
       <div className="flex items-start justify-between gap-3">
-        <EventDateBadge eventDate={event.event_date} />
-        <div className="flex items-center gap-2">
-          {onBookmarkToggle && (
-            <button
-              type="button"
-              onClick={handleBookmarkClick}
-              disabled={isBookmarkPending}
-              className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white"
-              aria-label={isSaved ? "Unsave event" : "Save event"}
-            >
-              <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
-            </button>
-          )}
+        <p className="font-mono text-xs font-bold uppercase tracking-wider pr-10">
+          {event.event_date ? formatDate(event.event_date).split(" at ")[0].toUpperCase() : "TBA"}
+        </p>
+        <div className="flex gap-2 relative z-10">
+          <button
+            type="button"
+            onClick={handleBookmarkClick}
+            disabled={isBookmarkPending}
+            className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label={isSaved ? "Unsave event" : "Save event"}
+          >
+            <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
+          </button>
           <button
             type="button"
             onClick={handleShare}

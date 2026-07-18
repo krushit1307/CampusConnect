@@ -86,8 +86,7 @@ export default function EventsPage() {
           id, title, description, event_date, start_date, end_date, location, banner_url,
           clubs (name),
           event_rsvps (id, user_id),
-          saved_events (id, user_id),
-          attendee_count
+          saved_events (id, user_id)
         `,
         )
         .order("event_date", { ascending: true });
@@ -108,7 +107,6 @@ export default function EventsPage() {
             clubs: { name: "Tech Club" },
             event_rsvps: [{ id: "rsvp-1", user_id: "user-1" }],
             saved_events: [],
-            attendee_count: 1,
           },
           {
             id: "mock-2",
@@ -123,7 +121,6 @@ export default function EventsPage() {
             clubs: { name: "Art & Design" },
             event_rsvps: [],
             saved_events: [],
-            attendee_count: 0,
           },
           {
             id: "mock-3",
@@ -141,7 +138,6 @@ export default function EventsPage() {
               { id: "rsvp-3", user_id: "user-3" },
             ],
             saved_events: [],
-            attendee_count: 2,
           },
         ];
       }
@@ -164,6 +160,19 @@ export default function EventsPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "event_rsvps" }, () => {
         refetch();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
+        refetch();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, refetch]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("realtime_saved_events")
       .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
         refetch();
       })
@@ -236,9 +245,7 @@ export default function EventsPage() {
     },
     onSuccess: (_data, variables) => {
       toast.success(variables.isSaved ? "Removed from saved events!" : "Saved to bookmarks!");
-      if (!variables.eventId.startsWith("mock-")) {
-        refetch();
-      }
+      refetch();
     },
     onError: () => {
       toast.error("Failed to update bookmark.");
@@ -309,8 +316,8 @@ export default function EventsPage() {
 
   const filteredEvents =
     filter === "All"
-      ? events
-      : events.filter((e) => {
+      ? localEvents
+      : localEvents.filter((e) => {
           const searchStr = `${e.title} ${e.description}`.toLowerCase();
           return searchStr.includes(filter.toLowerCase());
         });
