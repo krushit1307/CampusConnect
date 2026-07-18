@@ -33,7 +33,8 @@ export default function EventsPage() {
           `
           id, title, description, event_date, location, banner_url,
           clubs (name),
-          event_rsvps (id, user_id)
+          event_rsvps (id, user_id),
+          saved_events (id, user_id)
         `,
         )
         .order("event_date", { ascending: true });
@@ -49,6 +50,7 @@ export default function EventsPage() {
             location: "Main Auditorium",
             clubs: { name: "Tech Club" },
             event_rsvps: [{ id: "rsvp-1", user_id: "user-1" }],
+            saved_events: [],
           },
           {
             id: "mock-2",
@@ -58,6 +60,7 @@ export default function EventsPage() {
             location: "Art Studio 3",
             clubs: { name: "Art & Design" },
             event_rsvps: [],
+            saved_events: [],
           },
           {
             id: "mock-3",
@@ -70,6 +73,7 @@ export default function EventsPage() {
               { id: "rsvp-2", user_id: "user-2" },
               { id: "rsvp-3", user_id: "user-3" },
             ],
+            saved_events: [],
           },
         ];
       }
@@ -82,8 +86,11 @@ export default function EventsPage() {
 
   useEffect(() => {
     const channel = supabase
-      .channel("realtime_rsvps")
+      .channel("realtime_changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "event_rsvps" }, () => {
+        refetch();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
         refetch();
       })
       .subscribe();
@@ -124,8 +131,35 @@ export default function EventsPage() {
     onSuccess: () => {
       refetch();
     },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to update RSVP. Please try again.");
+    onError: () => {
+      toast.error("Failed to update RSVP.");
+    },
+  });
+
+  const toggleBookmark = useMutation({
+    mutationFn: async ({ eventId, isSaved }: { eventId: string; isSaved: boolean }) => {
+      if (!user) throw new Error("Must be logged in");
+      if (eventId.startsWith("mock-")) {
+        console.log(`[CampusConnect] Mock Bookmark toggled for event: ${eventId}`);
+        return;
+      }
+      const { error } = isSaved
+        ? await supabase
+            .from("saved_events")
+            .delete()
+            .match({ event_id: eventId, user_id: user.id })
+        : await supabase.from("saved_events").insert({ event_id: eventId, user_id: user.id });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+    },
+    onSuccess: (_data, variables) => {
+      toast.success(variables.isSaved ? "Removed from saved events!" : "Saved to bookmarks!");
+      refetch();
+    },
+    onError: () => {
+      toast.error("Failed to update bookmark.");
     },
   });
 
@@ -184,6 +218,10 @@ export default function EventsPage() {
                     user={user}
                     onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
                     isRsvpPending={toggleRsvp.isPending}
+                    onBookmarkToggle={(eventId, isSaved) =>
+                      toggleBookmark.mutate({ eventId, isSaved })
+                    }
+                    isBookmarkPending={toggleBookmark.isPending}
                   />
                 ))}
           </div>

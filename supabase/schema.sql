@@ -96,6 +96,14 @@ CREATE TABLE certificates (
   issued_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE saved_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID REFERENCES events(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  saved_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(event_id, user_id)
+);
+
 -- 3. Row Level Security (RLS)
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
@@ -106,6 +114,7 @@ ALTER TABLE event_rsvps ENABLE ROW LEVEL SECURITY;
 ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE certificates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE saved_events ENABLE ROW LEVEL SECURITY;
 
 -- profiles: users can read all, update only their own row
 CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT USING (true);
@@ -176,6 +185,11 @@ CREATE POLICY "Authors can delete own comments." ON comments FOR DELETE USING (a
 -- certificates: users can read only their own
 CREATE POLICY "Users can read own certificates." ON certificates FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Service role can insert certificates." ON certificates FOR INSERT WITH CHECK (true); -- Usually handled by edge functions / server
+
+-- saved_events: users can manage their own saved events/bookmarks
+CREATE POLICY "Users can read own saved events." ON saved_events FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can save events." ON saved_events FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can unsave events." ON saved_events FOR DELETE USING (auth.uid() = user_id);
 
 -- 4. Triggers
 -- Auto-create profile on signup
@@ -286,3 +300,9 @@ USING (
 ALTER PUBLICATION supabase_realtime ADD TABLE posts;
 ALTER PUBLICATION supabase_realtime ADD TABLE comments;
 ALTER PUBLICATION supabase_realtime ADD TABLE event_rsvps;
+
+-- Backfill any missing profiles for existing authenticated users
+INSERT INTO public.profiles (id, full_name, avatar_url)
+SELECT id, raw_user_meta_data->>'full_name', raw_user_meta_data->>'avatar_url'
+FROM auth.users
+ON CONFLICT (id) DO NOTHING;

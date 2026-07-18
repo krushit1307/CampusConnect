@@ -1,6 +1,6 @@
 import { formatDate, getGoogleCalendarUrl } from "@/lib/utils";
 import { FormEvent, useState } from "react";
-import { Calendar, Check, Share2, X, Link as LinkIcon } from "lucide-react";
+import { Calendar, Check, Share2, X, Link as LinkIcon, Bookmark } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ interface Event {
   banner_url?: string | null;
   clubs: { name: string } | { name: string }[] | null;
   event_rsvps: { id: string; user_id: string }[] | null;
+  saved_events: { id: string; user_id: string }[] | null;
 }
 
 interface EventCardProps {
@@ -23,9 +24,19 @@ interface EventCardProps {
   user: { id: string } | null;
   onRsvpToggle: (eventId: string, hasRsvpd: boolean) => void;
   isRsvpPending: boolean;
+  onBookmarkToggle: (eventId: string, isSaved: boolean) => void;
+  isBookmarkPending: boolean;
 }
 
-export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: EventCardProps) {
+export function EventCard({
+  event,
+  index,
+  user,
+  onRsvpToggle,
+  isRsvpPending,
+  onBookmarkToggle,
+  isBookmarkPending,
+}: EventCardProps) {
   const club = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs;
   const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
   const hasRsvpd = user ? rsvps.some((rsvp) => rsvp.user_id === user.id) : false;
@@ -98,24 +109,49 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
   };
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  const savedEventsList = Array.isArray(event.saved_events) ? event.saved_events : [];
+  const isSaved = user ? savedEventsList.some((se) => se.user_id === user.id) : false;
+
+  const handleBookmarkClick = () => {
+    if (!user) {
+      toast.error("Please log in to bookmark events");
+      return;
+    }
+    onBookmarkToggle(event.id, isSaved);
+  };
+
   return (
-    <article id={`event-${event.id}`} className={`neu-border p-5 ${colors[index % colors.length]}`}>
+    <article
+      id={`event-${event.id}`}
+      className={`neu-border p-5 relative ${colors[index % colors.length]}`}
+    >
       <div className="flex items-start justify-between gap-3">
-        <p className="font-mono text-xs font-bold uppercase tracking-wider">
+        <p className="font-mono text-xs font-bold uppercase tracking-wider pr-10">
           {event.event_date ? formatDate(event.event_date).split(" at ")[0].toUpperCase() : "TBA"}
         </p>
-        <button
-          type="button"
-          onClick={handleShare}
-          aria-label="Copy event link"
-          className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white"
-        >
-          {copied ? (
-            <Check aria-hidden="true" size={14} strokeWidth={3} />
-          ) : (
-            <Share2 aria-hidden="true" size={14} strokeWidth={3} />
-          )}
-        </button>
+        <div className="flex gap-2 relative z-10">
+          <button
+            type="button"
+            onClick={handleBookmarkClick}
+            disabled={isBookmarkPending}
+            className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label={isSaved ? "Unsave event" : "Save event"}
+          >
+            <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
+          </button>
+          <button
+            type="button"
+            onClick={handleShare}
+            aria-label="Copy event link"
+            className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white"
+          >
+            {copied ? (
+              <Check aria-hidden="true" size={14} strokeWidth={3} />
+            ) : (
+              <Share2 aria-hidden="true" size={14} strokeWidth={3} />
+            )}
+          </button>
+        </div>
       </div>
 
       <p className="mt-3 font-mono text-xs font-bold uppercase">Event</p>
