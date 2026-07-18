@@ -46,6 +46,9 @@ export default function Dashboard() {
       </SiteShell>
     );
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+
   return (
     <SiteShell>
       <section className="border-b-2 border-black bg-lime px-4 py-10 md:px-6">
@@ -56,7 +59,7 @@ export default function Dashboard() {
             <>
               <p className="eyebrow font-bold break-all">Signed in as {user.email}</p>
               <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-5xl">
-                Good morning, {profile?.full_name?.split(" ")[0] || "there"}.
+                {greeting}, {profile?.full_name?.split(" ")[0] || "there"}.
               </h1>
             </>
           )}
@@ -87,6 +90,18 @@ export default function Dashboard() {
               }
             >
               My RSVPs
+            </NavLink>
+            <NavLink
+              to="/dashboard/bookmarks"
+              className={({ isActive }) =>
+                `neu-border px-5 py-2 font-mono text-sm font-bold uppercase transition-all ${
+                  isActive
+                    ? "bg-black text-cream dark:bg-cream dark:text-black"
+                    : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
+                }`
+              }
+            >
+              My Bookmarks
             </NavLink>
           </div>
         </div>

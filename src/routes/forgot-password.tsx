@@ -19,10 +19,15 @@ export default function ForgotPasswordPage() {
     const email = formData.get("email") as string;
 
     try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+      const { error } = await supabase.functions.invoke("request-password-reset", {
+        body: {
+          email,
+          redirectTo: `${window.location.origin}/reset-password`,
+        },
       });
-      if (resetError) throw resetError;
+
+      if (error) throw error;
+
       // Always show the same success state, whether or not the email exists,
       // so we don't leak which addresses have an account.
       setSubmitted(true);

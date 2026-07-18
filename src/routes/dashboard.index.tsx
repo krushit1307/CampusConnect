@@ -78,16 +78,21 @@ export default function DashboardOverview() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("saved_events")
-        .select(`
+        .select(
+          `
           id,
           events (
             id,
             title,
             event_date,
-            clubs ( name )
+            clubs (
+              name
+            )
           )
-        `)
-        .eq("user_id", user?.id);
+        `,
+        )
+        .eq("user_id", user?.id)
+        .order("saved_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -100,11 +105,7 @@ export default function DashboardOverview() {
 
   return (
     <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-3">
-      <Widget
-        title="Upcoming events"
-        cta={{ label: "All events", to: "/events" }}
-        className="lg:col-span-2"
-      >
+      <Widget title="Upcoming events" cta={{ label: "All events", to: "/events" }}>
         {upcomingEvents.length === 0 ? (
           <p className="py-4 font-mono text-sm text-gray-500">No upcoming events yet.</p>
         ) : (
@@ -142,7 +143,7 @@ export default function DashboardOverview() {
           <p className="py-4 font-mono text-sm text-gray-500">No saved events yet.</p>
         ) : (
           <ul className="divide-y-2 divide-black">
-            {savedEvents.map((item: any, i: number) => {
+            {savedEvents.map((item: DashboardSavedEvent, i) => {
               const rawEvent = item.events;
               if (!rawEvent) return null;
               const e = Array.isArray(rawEvent) ? rawEvent[0] : rawEvent;
@@ -169,6 +170,7 @@ export default function DashboardOverview() {
           </ul>
         )}
       </Widget>
+
       <Widget title="Your clubs" cta={{ label: "Directory", to: "/clubs" }}>
         {userClubs.length === 0 ? (
           <p className="font-mono text-sm text-gray-500">You haven't joined any clubs yet.</p>
@@ -196,6 +198,7 @@ export default function DashboardOverview() {
           </ul>
         )}
       </Widget>
+
       <Widget title="Recent activity" className="lg:col-span-3">
         <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
           <li className="flex items-start gap-2">

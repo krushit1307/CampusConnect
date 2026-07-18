@@ -1,0 +1,193 @@
+import { EXPECTED_REPOSITORY } from "./constants.js";
+import { formatError, hasMarker, logError, logInfo, logWarning } from "./utils.js";
+
+export function getRepoFromContext(context) {
+  return `${context.repo.owner}/${context.repo.repo}`;
+}
+
+export function isExpectedRepository(context) {
+  if (!EXPECTED_REPOSITORY) return true;
+  return getRepoFromContext(context).toLowerCase() === EXPECTED_REPOSITORY.toLowerCase();
+}
+
+export async function safeCall(core, operationName, fn, fallback = null) {
+  try {
+    return await fn();
+  } catch (error) {
+    logError(core, `${operationName} failed`, error);
+    return fallback;
+  }
+}
+
+export async function getIssue(github, context, core, issueNumber) {
+  const result = await safeCall(
+    core,
+    "issues.get",
+    () =>
+      github.rest.issues.get({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: issueNumber,
+      }),
+    null,
+  );
+  return result?.data || null;
+}
+
+export async function createComment(github, context, core, issueNumber, body) {
+  return safeCall(
+    core,
+    "issues.createComment",
+    () =>
+      github.rest.issues.createComment({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: issueNumber,
+        body,
+      }),
+    null,
+  );
+}
+
+export async function listComments(github, context, core, issueNumber) {
+  const comments = await safeCall(
+    core,
+    "issues.listComments",
+    () =>
+      github.paginate(github.rest.issues.listComments, {
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: issueNumber,
+        per_page: 100,
+      }),
+    [],
+  );
+  return comments || [];
+}
+
+export async function findCommentByMarker(github, context, core, issueNumber, marker) {
+  const comments = await listComments(github, context, core, issueNumber);
+  return comments.find((comment) => hasMarker(comment.body, marker)) || null;
+}
+
+export async function createOrUpdateMarkerComment(
+  github,
+  context,
+  core,
+  issueNumber,
+  marker,
+  body,
+) {
+  const existing = await findCommentByMarker(github, context, core, issueNumber, marker);
+  if (!existing) return createComment(github, context, core, issueNumber, body);
+  return safeCall(
+    core,
+    "issues.updateComment",
+    () =>
+      github.rest.issues.updateComment({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        comment_id: existing.id,
+        body,
+      }),
+    null,
+  );
+}
+
+export async function addAssignee(github, context, core, issueNumber, assignee) {
+  return safeCall(
+    core,
+    "issues.addAssignees",
+    () =>
+      github.rest.issues.addAssignees({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: issueNumber,
+        assignees: [assignee],
+      }),
+    null,
+  );
+}
+
+export async function removeAssignee(github, context, core, issueNumber, assignee) {
+  return safeCall(
+    core,
+    "issues.removeAssignees",
+    () =>
+      github.rest.issues.removeAssignees({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: issueNumber,
+        assignees: [assignee],
+      }),
+    null,
+  );
+}
+
+export async function listOpenAssignedIssuesForUser(github, context, core, username) {
+  const records = await safeCall(
+    core,
+    "issues.listForRepo",
+    () =>
+      github.paginate(github.rest.issues.listForRepo, {
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        state: "open",
+        assignee: username,
+        per_page: 100,
+      }),
+    [],
+  );
+  return (records || []).filter((item) => !item.pull_request);
+}
+
+export async function listOpenAssignedIssues(github, context, core) {
+  const records = await safeCall(
+    core,
+    "issues.listForRepo(open)",
+    () =>
+      github.paginate(github.rest.issues.listForRepo, {
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        state: "open",
+        per_page: 100,
+      }),
+    [],
+  );
+  return (records || []).filter((item) => !item.pull_request && (item.assignees || []).length > 0);
+}
+
+export async function getCollaboratorPermission(github, context, core, username) {
+  const result = await safeCall(
+    core,
+    "repos.getCollaboratorPermissionLevel",
+    () =>
+      github.rest.repos.getCollaboratorPermissionLevel({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        username,
+      }),
+    null,
+  );
+  return result?.data?.permission || "none";
+}
+
+export function isIssueUnavailable(issue, context, core) {
+  if (!issue) return true;
+  if (issue.state !== "open") return true;
+  if (issue.locked) return true;
+  if (context.payload?.repository?.archived) return true;
+  return false;
+}
+
+export function summarizeCheckStates(checkRuns = []) {
+  const failed = checkRuns.filter((c) => c.status === "completed" && c.conclusion === "failure");
+  const pending = checkRuns.filter((c) => c.status !== "completed");
+  return {
+    failedCount: failed.length,
+    pendingCount: pending.length,
+    failedNames: failed.map((c) => c.name),
+  };
+}
+
+export { logInfo, logWarning, logError, formatError };

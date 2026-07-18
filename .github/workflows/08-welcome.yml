@@ -1,0 +1,27 @@
+name: "08 First Contributor Welcome"
+
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  pull-requests: write
+  issues: write
+  contents: read
+
+concurrency:
+  group: welcome-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Welcome first-time contributor
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { processFirstContributorWelcome } = await import(`${process.cwd()}/.github/scripts/pr.js`);
+            await processFirstContributorWelcome({ github, context, core });
