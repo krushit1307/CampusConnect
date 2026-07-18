@@ -7,7 +7,7 @@ import {
 
 // Layout
 import Layout from "./components/Layout";
-
+import { ErrorBoundary, RouteErrorBoundary } from "./components/ErrorBoundary";
 // Pages
 import Index from "./routes/index";
 import Auth from "./routes/auth";
@@ -29,7 +29,7 @@ import PendingClubsAdmin from "./routes/admin.clubs.pending";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
-    <Route element={<Layout />}>
+    <Route element={<Layout />} errorElement={<RouteErrorBoundary />}>
       <Route path="/" element={<Index />} />
       <Route path="/auth" element={<Auth />} />
       <Route path="/certificates" element={<Certificates />} />
@@ -60,5 +60,9 @@ const router = createBrowserRouter(
 );
 
 export default function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <ErrorBoundary>
+      <RouterProvider router={router} />
+    </ErrorBoundary>
+  );
 }
