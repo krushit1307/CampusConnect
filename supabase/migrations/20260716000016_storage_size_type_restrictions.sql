@@ -1,17 +1,30 @@
--- Upgrading storage policies for avatar and banner uploads
--- Enforces: Max size <= 2MB and allowed extensions (png, jpg, jpeg, webp)
+-- ============================================================
+-- Migration: 20260716000016_storage_size_type_restrictions.sql
+-- Description:
+-- Updates storage insert policy to enforce image type and size
+-- restrictions for the avatars and banners buckets.
+-- ============================================================
 
-CREATE POLICY "Allow authenticated users to upload avatars and banners"
-ON storage.objects
-FOR INSERT
-TO authenticated
-WITH CHECK (
-    -- Restrict to specific buckets
-    (bucket_id IN ('avatars', 'banners')) 
-    AND
-    -- Enforce file extension types (case-insensitive)
-    (lower(storage.extension(name)) IN ('png', 'jpg', 'jpeg', 'webp'))
-    AND
-    -- Enforce max file size of 2MB (2097152 bytes)
-    ((metadata->>'size')::int <= 2097152)
+-- ------------------------------------------------------------
+-- Drop existing insert policy
+-- ------------------------------------------------------------
+DROP POLICY IF EXISTS "Users can upload" ON storage.objects;
+
+-- ------------------------------------------------------------
+-- Create updated insert policy
+-- ------------------------------------------------------------
+CREATE POLICY "Users can upload" ON storage.objects FOR INSERT WITH CHECK (
+  auth.role() = 'authenticated' 
+  AND (storage.foldername(name))[1] = auth.uid()::text
+  AND (
+    bucket_id NOT IN ('avatars', 'club-banners', 'event-banners')
+    OR (
+      LOWER(storage.extension(name)) IN ('png', 'jpg', 'jpeg', 'webp')
+      AND (metadata->>'size')::int <= 2097152
+    )
+  )
 );
+
+-- ------------------------------------------------------------
+-- End of migration
+-- ------------------------------------------------------------

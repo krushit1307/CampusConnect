@@ -11,6 +11,8 @@ import { ArrowLeft, Calendar, Check, Link as LinkIcon, MapPin, Share2, Users } f
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { EventCard } from "@/components/EventCard";
+import { EventCardSkeleton } from "@/components/EventCardSkeleton";
 
 export default function EventDetailsPage() {
   const { eventId = "" } = useParams();
@@ -35,6 +37,7 @@ export default function EventDetailsPage() {
         .select(
           `
           id, title, description, event_date, start_date, end_date, location, banner_url,
+          club_id, category_id,
           clubs (name, slug),
           event_rsvps (id, user_id)
         `,
@@ -71,6 +74,18 @@ export default function EventDetailsPage() {
                   ? "Art Studio 3"
                   : "Student Center",
             banner_url: null as string | null,
+            club_id:
+              eventId === "mock-1"
+                ? "mock-club-tech"
+                : eventId === "mock-2"
+                  ? "mock-club-art"
+                  : "mock-club-music",
+            category_id:
+              eventId === "mock-1"
+                ? "mock-category-hackathon"
+                : eventId === "mock-2"
+                  ? "mock-category-workshop"
+                  : "mock-category-social",
             clubs: [
               {
                 name:
@@ -96,6 +111,116 @@ export default function EventDetailsPage() {
     },
   });
 
+  const {
+    data: similarEvents = [],
+    isLoading: isSimilarLoading,
+    refetch: refetchSimilar,
+  } = useQuery({
+    queryKey: ["similar-events", eventId, event?.club_id, event?.category_id],
+    queryFn: async () => {
+      if (!event) return [];
+
+      // Local development fallback for mock events
+      if (import.meta.env.DEV && eventId.startsWith("mock-")) {
+        const mockEvents = [
+          {
+            id: "mock-1",
+            title: "Hackathon 2024",
+            description: "Annual college hackathon. Build something awesome in 24 hours!",
+            event_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            start_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            end_date: new Date(
+              Date.now() + 7 * 24 * 60 * 60 * 1000 + 4 * 60 * 60 * 1000,
+            ).toISOString(),
+            location: "Main Auditorium",
+            clubs: { name: "Tech Club" },
+            event_rsvps: [{ id: "rsvp-1", user_id: "user-1" }],
+            saved_events: [],
+          },
+          {
+            id: "mock-2",
+            title: "Watercolor Workshop",
+            description: "Learn the basics of watercolor painting.",
+            event_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+            start_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+            end_date: new Date(
+              Date.now() + 3 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
+            ).toISOString(),
+            location: "Art Studio 3",
+            clubs: { name: "Art & Design" },
+            event_rsvps: [],
+            saved_events: [],
+          },
+          {
+            id: "mock-3",
+            title: "Open Mic Night",
+            description: "Showcase your talent or just come to enjoy the performances.",
+            event_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+            start_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+            end_date: new Date(
+              Date.now() + 14 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000,
+            ).toISOString(),
+            location: "Student Center",
+            clubs: { name: "Music Society" },
+            event_rsvps: [],
+            saved_events: [],
+          },
+          {
+            id: "mock-4",
+            title: "AI & Future Seminar",
+            description: "A deep dive discussion on how AI is changing our future.",
+            event_date: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+            start_date: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+            end_date: new Date(
+              Date.now() + 5 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
+            ).toISOString(),
+            location: "Seminar Hall B",
+            clubs: { name: "Tech Club" },
+            event_rsvps: [],
+            saved_events: [],
+          },
+        ];
+        return mockEvents.filter((e) => e.id !== eventId).slice(0, 3);
+      }
+
+      let query = supabase
+        .from("events")
+        .select(
+          `
+          id, title, description, event_date, start_date, end_date, location, banner_url,
+          clubs (name),
+          event_rsvps (id, user_id),
+          saved_events (id, user_id)
+        `,
+        )
+        .neq("id", event.id);
+
+      const conditions = [];
+      if (event.category_id) {
+        conditions.push(`category_id.eq.${event.category_id}`);
+      }
+      if (event.club_id) {
+        conditions.push(`club_id.eq.${event.club_id}`);
+      }
+
+      if (conditions.length === 0) {
+        return [];
+      }
+
+      if (conditions.length === 1) {
+        const [field, value] = conditions[0].split(".eq.");
+        query = query.eq(field, value);
+      } else {
+        query = query.or(conditions.join(","));
+      }
+
+      const { data, error } = await query.limit(3);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!event,
+  });
+
   const toggleRsvp = useMutation({
     mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
       if (!user) throw new Error("Please log in to RSVP");
@@ -119,9 +244,38 @@ export default function EventDetailsPage() {
     },
     onSuccess: () => {
       refetch();
+      refetchSimilar();
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to update RSVP. Please try again.");
+    },
+  });
+
+  const toggleBookmark = useMutation({
+    mutationFn: async ({ eventId, isSaved }: { eventId: string; isSaved: boolean }) => {
+      if (!user) throw new Error("Must be logged in");
+      if (eventId.startsWith("mock-")) {
+        console.log(`[CampusConnect] Mock Bookmark toggled for event: ${eventId}`);
+        return;
+      }
+      const { error } = isSaved
+        ? await supabase
+            .from("saved_events")
+            .delete()
+            .match({ event_id: eventId, user_id: user.id })
+        : await supabase.from("saved_events").insert({ event_id: eventId, user_id: user.id });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+    },
+    onSuccess: (_data, variables) => {
+      toast.success(variables.isSaved ? "Removed from saved events!" : "Saved to bookmarks!");
+      refetch();
+      refetchSimilar();
+    },
+    onError: () => {
+      toast.error("Failed to update bookmark.");
     },
   });
 
@@ -375,6 +529,35 @@ export default function EventDetailsPage() {
           </div>
         </div>
       </section>
+
+      {/* Similar Events Section */}
+      {(isSimilarLoading || similarEvents.length > 0) && (
+        <section className="border-t-2 border-black bg-cream px-4 pb-20 pt-12 md:px-6">
+          <div className="mx-auto max-w-7xl">
+            <h2 className="font-display text-2xl font-black uppercase tracking-tight mb-8">
+              Similar Events
+            </h2>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {isSimilarLoading
+                ? Array.from({ length: 3 }).map((_, i) => <EventCardSkeleton key={i} />)
+                : similarEvents.map((similarEvent, index) => (
+                    <EventCard
+                      key={similarEvent.id}
+                      event={similarEvent}
+                      index={index}
+                      user={user}
+                      onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
+                      isRsvpPending={toggleRsvp.isPending}
+                      onBookmarkToggle={(eventId, isSaved) =>
+                        toggleBookmark.mutate({ eventId, isSaved })
+                      }
+                      isBookmarkPending={toggleBookmark.isPending}
+                    />
+                  ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* RSVP Cancel Confirmation Modal */}
       <ConfirmModal
