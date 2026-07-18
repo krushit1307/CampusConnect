@@ -37,7 +37,8 @@ CREATE TABLE clubs (
   logo_url TEXT,
   created_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT check_clubs_slug_format CHECK (slug ~ '^[a-z0-9-]+$')
 );
 
 CREATE TABLE club_members (
