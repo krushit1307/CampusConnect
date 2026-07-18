@@ -277,7 +277,15 @@ CREATE POLICY "Club members can insert comments." ON comments FOR INSERT WITH CH
   EXISTS (SELECT 1 FROM clubs WHERE id = (SELECT club_id FROM posts WHERE id = comments.post_id) AND created_by = auth.uid())
 );
 CREATE POLICY "Authors can update own comments." ON comments FOR UPDATE USING (auth.uid() = author_id);
-CREATE POLICY "Authors can delete own comments." ON comments FOR DELETE USING (auth.uid() = author_id);
+CREATE POLICY "Authors or club admins can delete comments." ON comments FOR DELETE USING (
+  auth.uid() = author_id OR
+  public.is_club_admin((SELECT club_id FROM posts WHERE id = comments.post_id), auth.uid()) OR
+  EXISTS (
+    SELECT 1 FROM clubs
+    WHERE id = (SELECT club_id FROM posts WHERE id = comments.post_id)
+      AND created_by = auth.uid()
+  )
+);
 
 -- certificates: users can read only their own
 CREATE POLICY "Users can read own certificates." ON certificates FOR SELECT USING (auth.uid() = user_id);
