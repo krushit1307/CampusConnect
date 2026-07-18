@@ -5,12 +5,13 @@ import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
-import { formatDate, getGoogleCalendarUrl } from "@/lib/utils";
+import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
 import { toast } from "sonner";
 import { ArrowLeft, Calendar, Check, Link as LinkIcon, MapPin, Share2, Users } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { OptimizedImage } from "@/components/media/OptimizedImage";
 
 export default function EventDetailsPage() {
   const { eventId = "" } = useParams();
@@ -31,12 +32,13 @@ export default function EventDetailsPage() {
     queryKey: ["event", eventId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("events")
+        .from("club_analytics_view")
         .select(
           `
-          id, title, description, event_date, location, banner_url,
+          id, title, description, event_date, start_date, end_date, location, banner_url,
           clubs (name, slug),
-          event_rsvps (id, user_id)
+          event_rsvps (id, user_id),
+          attendee_count
         `,
         )
         .eq("id", eventId)
@@ -60,6 +62,10 @@ export default function EventDetailsPage() {
                   ? "Learn the basics of watercolor painting with live demonstrations."
                   : "Showcase your music talent or just come to enjoy the acoustic performances.",
             event_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            start_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            end_date: new Date(
+              Date.now() + 7 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
+            ).toISOString(),
             location:
               eventId === "mock-1"
                 ? "Main Auditorium"
@@ -84,6 +90,7 @@ export default function EventDetailsPage() {
               },
             ],
             event_rsvps: eventId === "mock-1" ? [{ id: "rsvp-1", user_id: "user-1" }] : [],
+            attendee_count: eventId === "mock-1" ? 1 : 0,
           };
         }
         throw error;
@@ -155,6 +162,8 @@ export default function EventDetailsPage() {
     title: event.title,
     description: event.description || "",
     event_date: event.event_date || "",
+    start_date: event.start_date,
+    end_date: event.end_date,
     location: event.location || "",
   });
 
@@ -204,13 +213,22 @@ export default function EventDetailsPage() {
       <section className="border-b-2 border-black bg-peach/30 px-4 py-8 md:px-6 md:py-12">
         <div className="mx-auto max-w-4xl">
           {event.banner_url ? (
-            <img
+            <OptimizedImage
               src={event.banner_url}
-              alt={event.title}
+              alt={`${event.title} event banner`}
               className="neu-border h-48 w-full object-cover md:h-80"
               width={896}
               height={320}
-              loading="lazy"
+              responsiveWidths={[448, 672, 896, 1344]}
+              sizes="(max-width: 768px) calc(100vw - 2rem), 896px"
+              priority
+              fallback={
+                <div className="neu-border flex h-48 w-full items-center justify-center bg-peach md:h-80">
+                  <span className="font-display text-2xl font-black uppercase text-black/50">
+                    {event.title}
+                  </span>
+                </div>
+              }
             />
           ) : (
             <div className="neu-border flex h-48 w-full items-center justify-center bg-peach md:h-80">
@@ -251,9 +269,7 @@ export default function EventDetailsPage() {
                 <dt className="font-mono text-xs font-bold uppercase text-black/50">
                   Date &amp; Time
                 </dt>
-                <dd className="mt-1 text-sm font-bold">
-                  {event.event_date ? formatDate(event.event_date) : "TBA"}
-                </dd>
+                <dd className="mt-1 text-sm font-bold">{formatEventDateRange(event)}</dd>
               </div>
             </div>
 
@@ -269,7 +285,7 @@ export default function EventDetailsPage() {
               <Users className="mt-1 h-5 w-5 shrink-0 text-black/60" />
               <div>
                 <dt className="font-mono text-xs font-bold uppercase text-black/50">Attendees</dt>
-                <dd className="mt-1 text-sm font-bold">{rsvps.length} RSVP&apos;d</dd>
+                <dd className="mt-1 text-sm font-bold">{event.attendee_count ?? 0} RSVP&apos;d</dd>
               </div>
             </div>
           </div>
