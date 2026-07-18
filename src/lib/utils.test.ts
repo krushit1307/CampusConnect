@@ -57,6 +57,6 @@ describe("formatEventDateRange", () => {
         start_date: null,
         end_date: null,
       }),
-    ).toBe("TBA");
+    ).toBe("Date TBA");
   });
 });

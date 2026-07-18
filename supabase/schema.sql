@@ -69,6 +69,7 @@ CREATE TABLE events (
   latitude DOUBLE PRECISION,
   longitude DOUBLE PRECISION,
   max_attendees INTEGER,
+  status TEXT NOT NULL DEFAULT 'scheduled',
   created_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -81,6 +82,7 @@ CHECK (
 );
 
 CREATE INDEX idx_events_category ON events(category_id);
+CREATE INDEX idx_events_start_date ON events(start_date);
 
 ALTER TABLE events
 ADD CONSTRAINT events_latitude_valid
@@ -106,6 +108,9 @@ ON event_rsvps(event_id);
 
 CREATE INDEX idx_event_rsvps_user_id
 ON event_rsvps(user_id);
+
+CREATE INDEX idx_notifications_user_id
+ON notifications(user_id);
 
 CREATE INDEX idx_posts_club_id
 ON posts(club_id);
@@ -138,7 +143,8 @@ CREATE TABLE comments (
   author_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE certificates (
@@ -155,6 +161,17 @@ CREATE TABLE saved_events (
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   saved_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(event_id, user_id)
+);
+
+CREATE TABLE notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  type TEXT NOT NULL DEFAULT 'event',
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  link TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Helper function: check if user is system admin
@@ -183,27 +200,41 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.is_system_admin() TO authenticated;
 
--- Helper function: check if user is club admin
-CREATE OR REPLACE FUNCTION public.is_club_admin(club_id UUID, user_id UUID)
-RETURNS BOOLEAN
-LANGUAGE plpgsql
-SECURITY DEFINER
+-- Retrieve upcoming events for feed timeline
+CREATE OR REPLACE FUNCTION public.get_upcoming_events_feed(user_uuid UUID)
+RETURNS TABLE (
+  title TEXT,
+  date TIMESTAMPTZ,
+  location TEXT,
+  rsvp_count BIGINT,
+  is_bookmarked BOOLEAN
+)
+LANGUAGE sql
 STABLE
+SECURITY DEFINER
 SET search_path = public
 AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1
-    FROM public.club_members
-    WHERE club_members.club_id = is_club_admin.club_id
-      AND club_members.user_id = is_club_admin.user_id
-      AND club_members.role = 'admin'::member_role
-      AND club_members.status = 'approved'::join_status
-  );
-END;
+  SELECT 
+    e.title,
+    e.start_date AS date,
+    e.location,
+    COALESCE((
+      SELECT COUNT(*) 
+      FROM public.event_rsvps r 
+      WHERE r.event_id = e.id
+    ), 0)::BIGINT AS rsvp_count,
+    COALESCE(EXISTS(
+      SELECT 1 
+      FROM public.saved_events s 
+      WHERE s.event_id = e.id AND s.user_id = user_uuid
+    ), false) AS is_bookmarked
+  FROM public.events e
+  WHERE e.start_date >= NOW()
+    AND e.status != 'canceled'
+  ORDER BY e.start_date ASC;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.is_club_admin(UUID, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_upcoming_events_feed(UUID) TO authenticated;
 
 -- 3. Row Level Security (RLS)
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
@@ -216,6 +247,7 @@ ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE certificates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saved_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
 -- profiles: users can read all, update only their own row
 CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT USING (true);
@@ -295,6 +327,11 @@ CREATE POLICY "Users can read own saved events." ON saved_events FOR SELECT USIN
 CREATE POLICY "Users can save events." ON saved_events FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can unsave events." ON saved_events FOR DELETE USING (auth.uid() = user_id);
 
+-- notifications: users can read, update, and delete their own notifications
+CREATE POLICY "Users can view their own notifications" ON notifications FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can update their own notifications" ON notifications FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own notifications" ON notifications FOR DELETE USING (auth.uid() = user_id);
+
 -- 4. Triggers
 -- Auto-create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -309,6 +346,103 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- Enforce RSVP capacity limits
+CREATE OR REPLACE FUNCTION public.check_event_capacity()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_max_attendees INTEGER;
+  v_current_count INTEGER;
+BEGIN
+  -- Fetch the max_attendees for the event being RSVP'd to.
+  -- If max_attendees is NULL, the event has unlimited capacity.
+  SELECT max_attendees
+  INTO v_max_attendees
+  FROM public.events
+  WHERE id = NEW.event_id;
+
+  -- Only enforce capacity if a limit is set
+  IF v_max_attendees IS NOT NULL THEN
+    -- Count existing RSVPs for this event
+    SELECT COUNT(*)
+    INTO v_current_count
+    FROM public.event_rsvps
+    WHERE event_id = NEW.event_id;
+
+    -- Raise an exception if at or over capacity
+    IF v_current_count >= v_max_attendees THEN
+      RAISE EXCEPTION 'Event has reached its maximum capacity of % attendees.', v_max_attendees
+        USING ERRCODE = 'P0001';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER before_rsvp_insert
+BEFORE INSERT ON public.event_rsvps
+FOR EACH ROW
+EXECUTE FUNCTION public.check_event_capacity();
+
+-- Auto-notify RSVP'd attendees on event cancellation
+CREATE OR REPLACE FUNCTION public.handle_event_cancellation()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.notifications (user_id, type, title, message, link)
+  SELECT 
+    rsvp.user_id,
+    'event',
+    'Event Canceled',
+    'Event ' || NEW.title || ' has been canceled by the organizer.',
+    '/events/' || NEW.id
+  FROM public.event_rsvps rsvp
+  WHERE rsvp.event_id = NEW.id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+CREATE OR REPLACE TRIGGER on_event_canceled
+  AFTER UPDATE ON public.events
+  FOR EACH ROW
+  WHEN (NEW.status = 'canceled' AND OLD.status IS DISTINCT FROM 'canceled')
+  EXECUTE PROCEDURE public.handle_event_cancellation();
+
+-- Comment rate limiter trigger function and trigger
+CREATE OR REPLACE FUNCTION public.check_comment_rate_limit()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_comment_count INTEGER;
+BEGIN
+  -- Count comments created by the currently authenticated user in the past 60 seconds
+  SELECT COUNT(*)
+  INTO v_comment_count
+  FROM public.comments
+  WHERE author_id = auth.uid()
+    AND created_at >= NOW() - INTERVAL '1 minute';
+
+  -- Abort insert if count is >= 5
+  IF v_comment_count >= 5 THEN
+    RAISE EXCEPTION 'Comment rate limit exceeded. You can only post 5 comments per minute.'
+      USING ERRCODE = 'P0001';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER before_comment_insert
+BEFORE INSERT ON public.comments
+FOR EACH ROW
+EXECUTE FUNCTION public.check_comment_rate_limit();
 
 -- ------------------------------------------------------------
 -- 5. Storage Buckets & Policies
@@ -404,6 +538,7 @@ USING (
 ALTER PUBLICATION supabase_realtime ADD TABLE posts;
 ALTER PUBLICATION supabase_realtime ADD TABLE comments;
 ALTER PUBLICATION supabase_realtime ADD TABLE event_rsvps;
+ALTER PUBLICATION supabase_realtime ADD TABLE saved_events;
 
 -- Backfill any missing profiles for existing authenticated users
 INSERT INTO public.profiles (id, full_name, avatar_url)

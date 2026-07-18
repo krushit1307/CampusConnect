@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useMutation } from "@/hooks/useReactQueryReplacement";
-import { Plus } from "lucide-react";
+import { Plus, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 
@@ -32,6 +32,7 @@ import {
 const defaultValues: EventFormValues = {
   title: "",
   description: "",
+  location: "",
   startDate: "",
   endDate: "",
 };
@@ -46,6 +47,12 @@ export function CreateEventDialog({ user }: { user: User | null }) {
     mode: "onBlur",
   });
 
+  const watchedLocation = useWatch({ control: form.control, name: "location" });
+  const showMapPreview =
+    watchedLocation &&
+    watchedLocation.trim().length > 0 &&
+    watchedLocation.trim().toLowerCase() !== "online";
+
   const createEvent = useMutation({
     mutationFn: async (values: EventFormValues) => {
       if (!user) {
@@ -58,6 +65,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
       const { error } = await supabase.from("events").insert({
         title: values.title.trim(),
         description: values.description.trim(),
+        location: values.location?.trim() || null,
         start_date: startDateIso,
         end_date: endDateIso,
         // Kept in sync with start_date so existing views that still
@@ -141,6 +149,47 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="location"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Location</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder='e.g. "Main Auditorium, IIT Bombay" or "28.7041,77.1025" or "Online"'
+                      {...field}
+                    />
+                  </FormControl>
+                  <p className="text-xs text-black/50 mt-1">
+                    Enter a venue name, address, or coordinates (lat,lng)
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {showMapPreview && (
+              <div className="rounded overflow-hidden border-2 border-black">
+                <iframe
+                  className="w-full"
+                  height="180"
+                  loading="lazy"
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(watchedLocation)}&output=embed`}
+                  title="Location preview"
+                />
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(watchedLocation)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1 bg-white py-1.5 font-mono text-xs font-bold underline hover:bg-cream"
+                >
+                  <MapPin size={12} />
+                  Open in Google Maps ↗
+                </a>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField

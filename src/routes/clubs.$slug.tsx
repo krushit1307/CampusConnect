@@ -106,6 +106,7 @@ export default function ClubProfile() {
         `,
         )
         .eq("slug", slug)
+        .eq("status", "approved")
         .single();
       return data;
     },
@@ -225,7 +226,10 @@ export default function ClubProfile() {
                   : "Member ✓"
                 : "Join club"}
             </button>
-            <button className="neu-border neu-press bg-cream px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider">
+            <button
+              onClick={() => toast.info("Follow feature coming soon!")}
+              className="neu-border neu-press bg-cream px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider"
+            >
               Follow
             </button>
           </div>
