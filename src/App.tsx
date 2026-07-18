@@ -18,6 +18,7 @@ import ClubsLayout from "./routes/clubs";
 import Dashboard from "./routes/dashboard";
 import DashboardOverview from "./routes/dashboard.index";
 import DashboardRsvps from "./routes/dashboard.rsvps";
+import DashboardBookmarks from "./routes/dashboard.bookmarks";
 import EventsIndex from "./routes/events";
 import EventDetails from "./routes/events.$eventId";
 import Feed from "./routes/feed";
@@ -40,6 +41,7 @@ const router = createBrowserRouter(
       <Route path="/dashboard" element={<Dashboard />}>
         <Route index element={<DashboardOverview />} />
         <Route path="rsvps" element={<DashboardRsvps />} />
+        <Route path="bookmarks" element={<DashboardBookmarks />} />
       </Route>
 
       <Route path="/events">
