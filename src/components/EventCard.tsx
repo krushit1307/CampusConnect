@@ -58,6 +58,7 @@ export function EventCard({
 
   const [copied, setCopied] = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const handleCopyLink = async () => {
     try {
@@ -79,6 +80,20 @@ export function EventCard({
     } catch (err) {
       toast.error("Failed to copy link");
     }
+  };
+
+  const handleRsvpClick = () => {
+    if (!user) {
+      toast.error("Please log in to RSVP");
+      return;
+    }
+
+    if (hasRsvpd) {
+      setConfirmOpen(true);
+      return;
+    }
+
+    onRsvpToggle(event.id, false);
   };
 
   const savedEventsList = Array.isArray(event.saved_events) ? event.saved_events : [];

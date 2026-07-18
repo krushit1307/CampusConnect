@@ -154,6 +154,9 @@ post_reactions (id, emoji, user_id)
       setNewPost("");
     },
     onSuccess: () => refetchPosts(),
+    onError: (error) => {
+      toast.error(error.message || "Failed to publish post.");
+    },
   });
 
   // DELETE POST MUTATION
@@ -227,6 +230,9 @@ post_reactions (id, emoji, user_id)
     },
     onSuccess: () => {
       refetchPosts();
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to react to post.");
     },
   });
 

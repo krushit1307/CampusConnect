@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { createClient } from "@/lib/supabase/client";
-import { ThemeProvider } from "@/components/ThemeToggle";
+import { ThemeProvider } from "@/components/theme-provider";
 import TopProgressBar from "@/components/TopProgressBar";
 
 export default function Layout() {
