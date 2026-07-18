@@ -16,6 +16,7 @@ function createGithub(issueFactory) {
     comments: [],
     assignees: {},
     issues: {},
+    pulls: [],
   };
   return {
     state,
@@ -65,6 +66,9 @@ function createGithub(issueFactory) {
       pulls: {
         async get({ pull_number }) {
           return { data: { number: pull_number } };
+        },
+        async list() {
+          return { data: state.pulls };
         },
       },
     },
@@ -314,4 +318,29 @@ test("expiration: reminder and expiration paths", async () => {
   };
   await processClaimExpiration({ github, context, core: createCore() });
   assert.equal(github.state.assignees[50], undefined);
+});
+
+test("expiration: skipped if user has an open linked PR", async () => {
+  process.env.GITHUB_REPOSITORY = "org/repo";
+  const oldDate = new Date(Date.now() - 35 * 60 * 60 * 1000).toISOString();
+  const github = createGithub((number, state) =>
+    issueFactory(number, state, {
+      body: `<!-- cc:metadata:start -->\n{"assignedAt":"${oldDate}","lastActivityAt":"${oldDate}"}\n<!-- cc:metadata:end -->`,
+    }),
+  );
+  github.state.assignees[50] = "assigned-user";
+  github.state.pulls = [
+    {
+      number: 55,
+      user: { login: "assigned-user" },
+      body: "Closes #50",
+    },
+  ];
+  const context = {
+    eventName: "schedule",
+    repo: { owner: "org", repo: "repo" },
+    payload: {},
+  };
+  await processClaimExpiration({ github, context, core: createCore() });
+  assert.equal(github.state.assignees[50], "assigned-user");
 });

@@ -8,12 +8,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-import { formatDate } from "@/lib/utils";
+import { formatEventDateRange } from "@/lib/utils";
 
 interface Event {
   id: string;
   title: string;
   event_date: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
   location: string | null;
 }
 
@@ -45,9 +47,7 @@ export function TicketDialog({ open, onOpenChange, event, rsvpId }: TicketDialog
           <div className="w-full space-y-2 text-center">
             <h3 className="text-lg font-bold">{event.title}</h3>
 
-            <p className="text-sm text-muted-foreground">
-              {event.event_date ? formatDate(event.event_date) : "Date TBA"}
-            </p>
+            <p className="text-sm text-muted-foreground">{formatEventDateRange(event)}</p>
 
             <p className="text-sm text-muted-foreground">{event.location ?? "Location TBA"}</p>
 
