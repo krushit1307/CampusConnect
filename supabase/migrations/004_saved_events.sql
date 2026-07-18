@@ -8,6 +8,8 @@ CREATE TABLE saved_events (
 
 ALTER TABLE saved_events ENABLE ROW LEVEL SECURITY;
 
+ALTER PUBLICATION supabase_realtime ADD TABLE saved_events;
+
 CREATE POLICY "Users can read own saved events." ON saved_events 
   FOR SELECT USING (auth.uid() = user_id);
 

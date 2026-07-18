@@ -41,7 +41,7 @@ export default function ClubsIndex() {
 
         const { data, count } = await supabase
           .from("clubs")
-          .select(`id, name, slug, description, club_members (id)`, { count: "exact" })
+          .select(`id, name, slug, description, member_count`, { count: "exact" })
           .eq("status", "approved")
           .range(from, to);
 
@@ -143,7 +143,7 @@ export default function ClubsIndex() {
               </div>
             ) : (
               filteredClubs.map((c, index) => {
-                const members = Array.isArray(c.club_members) ? c.club_members.length : 0;
+                const members = c.member_count ?? 0;
                 return (
                   <Link
                     key={c.slug}

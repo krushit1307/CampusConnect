@@ -46,6 +46,9 @@ export default function Dashboard() {
       </SiteShell>
     );
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+
   return (
     <SiteShell>
       <section className="border-b-2 border-black bg-lime px-4 py-10 md:px-6">
@@ -56,7 +59,7 @@ export default function Dashboard() {
             <>
               <p className="eyebrow font-bold break-all">Signed in as {user.email}</p>
               <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-5xl">
-                Good morning, {profile?.full_name?.split(" ")[0] || "there"}.
+                {greeting}, {profile?.full_name?.split(" ")[0] || "there"}.
               </h1>
             </>
           )}

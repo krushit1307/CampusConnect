@@ -68,10 +68,10 @@ export default function EventDetailsPage() {
             ).toISOString(),
             location:
               eventId === "mock-1"
-                ? "Main Auditorium"
+                ? "Main Auditorium, Thapar Institute of Engineering and Technology, Patiala, Punjab"
                 : eventId === "mock-2"
-                  ? "Art Studio 3"
-                  : "Student Center",
+                  ? "Art Block, Jawaharlal Nehru University, New Delhi"
+                  : "Student Activity Centre, IIT Bombay, Powai, Mumbai",
             banner_url: null as string | null,
             clubs: [
               {
@@ -352,6 +352,28 @@ export default function EventDetailsPage() {
               </p>
             )}
           </div>
+
+          {/* Map Embed */}
+          {event.location && event.location.toLowerCase() !== "online" && (
+            <div className="mt-8">
+              <h2 className="font-display text-xl font-bold uppercase tracking-tight">Location</h2>
+              <iframe
+                className="neu-border mt-4 w-full"
+                height="300"
+                loading="lazy"
+                src={`https://maps.google.com/maps?q=${encodeURIComponent(event.location)}&output=embed`}
+                title="Event location map"
+              />
+              <a
+                href={`https://www.google.com/maps/search/?q=${encodeURIComponent(event.location)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-block font-mono text-xs font-bold underline"
+              >
+                View larger map ↗
+              </a>
+            </div>
+          )}
 
           {/* Social Share Buttons */}
           <div className="mt-10 border-t-2 border-black pt-6">
