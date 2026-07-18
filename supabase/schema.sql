@@ -131,6 +131,7 @@ CREATE TABLE posts (
   club_id UUID REFERENCES clubs(id) ON DELETE CASCADE,
   author_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
+  pinned BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   deleted_at TIMESTAMPTZ
@@ -372,6 +373,37 @@ CREATE OR REPLACE TRIGGER on_event_canceled
   FOR EACH ROW
   WHEN (NEW.status = 'canceled' AND OLD.status IS DISTINCT FROM 'canceled')
   EXECUTE PROCEDURE public.handle_event_cancellation();
+
+-- Prevent non-admins from pinning discussion posts
+CREATE OR REPLACE FUNCTION public.check_post_pin_permission()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.pinned = TRUE THEN
+    -- Verify the user is an admin of the corresponding club or the club owner
+    IF NOT (
+      public.is_club_admin(NEW.club_id, auth.uid()) OR
+      EXISTS (
+        SELECT 1 FROM public.clubs
+        WHERE id = NEW.club_id AND created_by = auth.uid()
+      )
+    ) THEN
+      RAISE EXCEPTION 'Only club administrators can pin posts.'
+        USING ERRCODE = 'P0001';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE TRIGGER before_post_pin_check
+BEFORE INSERT OR UPDATE ON public.posts
+FOR EACH ROW
+EXECUTE FUNCTION public.check_post_pin_permission();
 
 -- ------------------------------------------------------------
 -- 5. Storage Buckets & Policies
