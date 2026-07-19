@@ -58,6 +58,11 @@ export default function ClubsIndex() {
   const allClubs = data?.pages.flatMap((page) => page.clubs) || [];
   const totalActiveCount = data?.pages[0]?.totalCount || allClubs.length;
 
+  // Deriving the Top 3 Trending Clubs based on member_count
+  const trendingClubs = [...allClubs]
+    .sort((a, b) => (b.member_count ?? 0) - (a.member_count ?? 0))
+    .slice(0, 3);
+
   useEffect(() => {
     const handleRefetch = () => refetch();
     window.addEventListener("refetchClubs", handleRefetch);
@@ -127,6 +132,56 @@ export default function ClubsIndex() {
 
       <section className="bg-cream px-4 py-12 md:px-6">
         <div className="mx-auto max-w-7xl">
+          {/* Dynamic Popular/Trending Clubs Container */}
+          {!isLoading && allClubs.length > 0 && !search && (
+            <div className="mb-14 animate-fade-in-up">
+              <h2 className="mb-6 font-mono text-xs font-black uppercase tracking-widest text-gray-600 flex items-center gap-2">
+                <span>🔥</span> POPULAR / TRENDING CLUBS
+              </h2>
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {trendingClubs.map((c) => {
+                  const members = c.member_count ?? 0;
+                  return (
+                    <Link
+                      key={`trending-${c.slug}`}
+                      to={`/clubs/${c.slug}`}
+                      className="neu-border group relative block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000] flex flex-col justify-between"
+                    >
+                      <span className="absolute -right-2 -top-3 neu-border bg-yellow text-black px-2.5 py-0.5 font-mono text-[10px] font-black uppercase tracking-wider shadow-[2px_2px_0_0_#000] rotate-2">
+                        ✨ Trending
+                      </span>
+                      <div>
+                        <div className="neu-border bg-black mb-4 inline-block px-3 py-1 font-mono text-xs font-bold uppercase text-white">
+                          Top Tier
+                        </div>
+                        <h3 className="text-2xl font-bold text-black">{c.name}</h3>
+                        <p className="my-3 font-mono text-xs text-gray-600 line-clamp-2">
+                          {c.description || "No description provided."}
+                        </p>
+                      </div>
+                      <div>
+                        <div className="my-3 border-t-2 border-black" />
+                        <div className="flex items-center justify-between font-mono text-xs">
+                          <span className="font-bold flex items-center gap-1.5">
+                            <UsersRound size={14} /> {members} members
+                          </span>
+                          <span className="font-bold uppercase flex items-center gap-1">
+                            Explore{" "}
+                            <span className="transition-transform duration-300 group-hover:translate-x-1">
+                              →
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+              <div className="my-10 border-b-4 border-dashed border-black/20" />
+            </div>
+          )}
+
+          {/* Main Directory List */}
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {isLoading ? (
               // Initial Page Loader Skeletons
