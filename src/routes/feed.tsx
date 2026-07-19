@@ -95,6 +95,16 @@ export default function Feed() {
     enabled: !!user?.id,
   });
 
+  const { data: userProfile } = useQuery({
+    queryKey: ["userProfile", user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
   const [selectedClubId, setSelectedClubId] = useState("");
 
   useEffect(() => {
@@ -303,6 +313,21 @@ export default function Feed() {
     },
   });
 
+  const deleteCommentMutation = useMutation({
+    mutationFn: async (commentId: string) => {
+      if (!user) throw new Error("Must be logged in");
+      const { error } = await supabase.from("comments").delete().eq("id", commentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchPosts();
+      toast.success("Comment deleted successfully!");
+    },
+    onError: () => {
+      toast.error("Failed to delete comment.");
+    },
+  });
+
   const timeAgo = (dateString: string) => {
     const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
     const diff = new Date().getTime() - new Date(dateString).getTime();
@@ -496,7 +521,7 @@ export default function Feed() {
                             </span>
                           </p>
                         </div>
-                        {user?.id === author?.id && (
+                        {(user?.id === author?.id || userProfile?.role === "system_admin") && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <button
@@ -646,9 +671,48 @@ export default function Feed() {
                                       }
                                     />
                                   </p>
-                                  <p className="font-mono text-[10px] text-gray-500">
-                                    {timeAgo(comment.created_at)}
-                                  </p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-mono text-[10px] text-gray-500">
+                                      {timeAgo(comment.created_at)}
+                                    </p>
+                                    {(user?.id === commentAuthor?.id ||
+                                      userProfile?.role === "system_admin") && (
+                                      <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                          <button
+                                            type="button"
+                                            className="text-[#FF6B6B] hover:text-[#FF8787] uppercase font-bold font-mono text-[10px]"
+                                            aria-label="Delete comment"
+                                          >
+                                            Delete
+                                          </button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent className="neu-border bg-white rounded-none p-6">
+                                          <AlertDialogHeader>
+                                            <AlertDialogTitle className="font-display text-xl font-bold">
+                                              Delete comment?
+                                            </AlertDialogTitle>
+                                            <AlertDialogDescription className="font-mono text-sm text-gray-700">
+                                              Are you sure you want to delete this comment?
+                                            </AlertDialogDescription>
+                                          </AlertDialogHeader>
+                                          <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+                                            <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
+                                              Cancel
+                                            </AlertDialogCancel>
+                                            <AlertDialogAction
+                                              onClick={() =>
+                                                deleteCommentMutation.mutate(comment.id)
+                                              }
+                                              className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
+                                            >
+                                              Confirm
+                                            </AlertDialogAction>
+                                          </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                      </AlertDialog>
+                                    )}
+                                  </div>
                                 </div>
                                 <div className="markdown-content mt-1 font-mono text-sm">
                                   <ReactMarkdown>{comment.content}</ReactMarkdown>
