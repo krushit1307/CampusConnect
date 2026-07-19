@@ -518,7 +518,8 @@ export default function EventsPage() {
                   <p className="text-3xl">🔍</p>
                   <h3 className="mt-2 font-mono text-lg font-bold uppercase">No Events Found</h3>
                   <p className="mt-1 font-mono text-xs text-neutral-600">
-                    No events matched {searchQuery ? `"${searchQuery}"` : filter}. Try clearing your filters or searching for another term.
+                    No events matched {searchQuery ? `"${searchQuery}"` : filter}. Try clearing your
+                    filters or searching for another term.
                   </p>
                   <button
                     onClick={() => {
@@ -560,7 +561,8 @@ export default function EventsPage() {
                       <div className="flex justify-between items-center font-mono text-xs font-bold uppercase">
                         <span>Feed Progress</span>
                         <span>
-                          {events.length} of {totalCount} events loaded ({Math.min(100, Math.round((events.length / totalCount) * 100))}%)
+                          {events.length} of {totalCount} events loaded (
+                          {Math.min(100, Math.round((events.length / totalCount) * 100))}%)
                         </span>
                       </div>
                       <div className="w-full h-3 bg-white neu-border overflow-hidden p-0.5">
