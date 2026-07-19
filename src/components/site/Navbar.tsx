@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { ThemeToggle } from "../ThemeToggle";
@@ -33,6 +33,60 @@ export function Navbar() {
 
   const [user, setUser] = useState<User | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      const focusTimeout = setTimeout(() => {
+        const firstLink = navRef.current?.querySelector("a");
+        if (firstLink) {
+          (firstLink as HTMLElement).focus();
+        }
+      }, 0);
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          setMobileMenuOpen(false);
+          hamburgerRef.current?.focus();
+          return;
+        }
+
+        if (e.key === "Tab") {
+          const hamburger = hamburgerRef.current;
+          const nav = navRef.current;
+          if (!hamburger || !nav) return;
+
+          const focusableLinks = Array.from(
+            nav.querySelectorAll("a, button, [tabindex='0']"),
+          ) as HTMLElement[];
+
+          if (focusableLinks.length === 0) return;
+
+          const firstLink = focusableLinks[0];
+          const lastLink = focusableLinks[focusableLinks.length - 1];
+
+          if (document.activeElement === hamburger && e.shiftKey) {
+            e.preventDefault();
+            lastLink.focus();
+          } else if (document.activeElement === lastLink && !e.shiftKey) {
+            e.preventDefault();
+            hamburger.focus();
+          } else if (document.activeElement === firstLink && e.shiftKey) {
+            e.preventDefault();
+            hamburger.focus();
+          }
+        }
+      };
+
+      document.addEventListener("keydown", handleKeyDown);
+      return () => {
+        clearTimeout(focusTimeout);
+        document.removeEventListener("keydown", handleKeyDown);
+      };
+    }
+  }, [mobileMenuOpen]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -151,10 +205,12 @@ export function Navbar() {
 
           {/* Mobile menu */}
           <button
+            ref={hamburgerRef}
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="neu-border flex h-8 w-8 shrink-0 items-center justify-center bg-white p-1 text-black transition-colors hover:bg-lime dark:bg-black dark:text-cream md:hidden"
             aria-label="Toggle navigation menu"
             aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-navigation"
           >
             {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
@@ -163,7 +219,13 @@ export function Navbar() {
 
       {/* Mobile Navigation */}
       {mobileMenuOpen && (
-        <nav className="border-t-2 border-black bg-cream p-4 dark:border-cream dark:bg-black md:hidden">
+        <nav
+          ref={navRef}
+          id="mobile-navigation"
+          role="dialog"
+          aria-modal="true"
+          className="border-t-2 border-black bg-cream p-4 dark:border-cream dark:bg-black md:hidden"
+        >
           <div className="flex flex-col gap-2">
             {links.map((link) => {
               const isActive = currentPath === link.to || currentPath.startsWith(link.to + "/");

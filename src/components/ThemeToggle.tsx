@@ -4,6 +4,7 @@ import { useTheme } from "./theme-provider";
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
+
   function cycleTheme() {
     if (theme === "light") {
       setTheme("dark");
@@ -13,6 +14,7 @@ export function ThemeToggle() {
       setTheme("light");
     }
   }
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>

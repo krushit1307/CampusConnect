@@ -40,10 +40,12 @@ const EventsCalendar = lazy(() => import("@/components/events/EventsCalendar"));
 export default function EventsPage() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
-  const [filter, setFilter] = useState("All");
+  const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [sortLoaded, setSortLoaded] = useState(false);
+  const [hidePastEvents, setHidePastEvents] = useState(false);
+  const [hidePastLoaded, setHidePastLoaded] = useState(false);
 
   useEffect(() => {
     const savedSort = sessionStorage.getItem("event-sort-order");
@@ -53,6 +55,12 @@ export default function EventsPage() {
     }
 
     setSortLoaded(true);
+
+    const savedHidePast = sessionStorage.getItem("hide-past-events");
+    if (savedHidePast === "true") {
+      setHidePastEvents(true);
+    }
+    setHidePastLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -111,10 +119,10 @@ export default function EventsPage() {
             id: "mock-2",
             title: "Watercolor Workshop",
             description: "Learn the basics of watercolor painting.",
-            event_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-            start_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+            event_date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+            start_date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
             end_date: new Date(
-              Date.now() + 3 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
+              Date.now() - 3 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
             ).toISOString(),
             location: "Art Studio 3",
             clubs: { name: "Art & Design" },
