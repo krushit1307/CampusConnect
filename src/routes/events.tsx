@@ -22,11 +22,27 @@ interface EventItem {
   title: string;
   description: string | null;
   event_date: string | null;
+  start_date: string | null;
+  end_date: string | null;
   location: string | null;
   banner_url?: string | null;
   clubs: { name: string } | { name: string }[] | null;
   event_rsvps: { id: string; user_id: string }[] | null;
   saved_events: { id: string; user_id: string }[] | null;
+  attendee_count?: number;
+}
+
+interface EventItem {
+  id: string;
+  title: string;
+  description: string | null;
+  event_date: string | null;
+  location: string | null;
+  banner_url?: string | null;
+  clubs: { name: string } | { name: string }[] | null;
+  event_rsvps: { id: string; user_id: string }[] | null;
+  saved_events: { id: string; user_id: string }[] | null;
+  attendee_count?: number;
 }
 
 const EventsCalendar = lazy(() => import("@/components/events/EventsCalendar"));
@@ -34,10 +50,12 @@ const EventsCalendar = lazy(() => import("@/components/events/EventsCalendar"));
 export default function EventsPage() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
-  const [filter, setFilter] = useState("All");
+  const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [sortLoaded, setSortLoaded] = useState(false);
+  const [hidePastEvents, setHidePastEvents] = useState(false);
+  const [hidePastLoaded, setHidePastLoaded] = useState(false);
 
   useEffect(() => {
     const savedSort = sessionStorage.getItem("event-sort-order");
@@ -47,6 +65,12 @@ export default function EventsPage() {
     }
 
     setSortLoaded(true);
+
+    const savedHidePast = sessionStorage.getItem("hide-past-events");
+    if (savedHidePast === "true") {
+      setHidePastEvents(true);
+    }
+    setHidePastLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -54,6 +78,11 @@ export default function EventsPage() {
 
     sessionStorage.setItem("event-sort-order", sortOrder);
   }, [sortOrder, sortLoaded]);
+
+  useEffect(() => {
+    if (!hidePastLoaded) return;
+    sessionStorage.setItem("hide-past-events", hidePastEvents.toString());
+  }, [hidePastEvents, hidePastLoaded]);
 
   const {
     data: queryData,
@@ -64,7 +93,7 @@ export default function EventsPage() {
     queryKey: ["events", user?.id ?? "anonymous"],
     queryFn: async () => {
       const { data } = await supabase
-        .from("events")
+        .from("club_analytics_view")
         .select(
           `
           id, title, description, event_date, start_date, end_date, location, banner_url,
@@ -96,10 +125,10 @@ export default function EventsPage() {
             id: "mock-2",
             title: "Watercolor Workshop",
             description: "Learn the basics of watercolor painting.",
-            event_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-            start_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+            event_date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+            start_date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
             end_date: new Date(
-              Date.now() + 3 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
+              Date.now() - 3 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
             ).toISOString(),
             location: "Art Studio 3",
             clubs: { name: "Art & Design" },
@@ -130,7 +159,13 @@ export default function EventsPage() {
     },
   });
 
-  const events = queryData || [];
+  const [events, setEvents] = useState<EventItem[]>([]);
+
+  useEffect(() => {
+    if (queryData) {
+      setEvents(queryData);
+    }
+  }, [queryData]);
 
   useEffect(() => {
     const channel = supabase
@@ -138,6 +173,19 @@ export default function EventsPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "event_rsvps" }, () => {
         refetch();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
+        refetch();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, refetch]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("realtime_saved_events")
       .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
         refetch();
       })
@@ -180,7 +228,10 @@ export default function EventsPage() {
       toast.success(
         variables.hasRsvpd ? "RSVP cancelled successfully!" : "RSVP registered successfully!",
       );
-      refetch();
+      if (!variables.eventId.startsWith("mock-")) {
+        refetch();
+        window.dispatchEvent(new CustomEvent("refetchEvents"));
+      }
     },
     onError: () => {
       toast.error("Failed to update RSVP.");
@@ -214,14 +265,88 @@ export default function EventsPage() {
     },
   });
 
+  const handleRsvpToggle = async (eventId: string, hasRsvpd: boolean) => {
+    const originalEvents = [...events];
+
+    setEvents((prevEvents) =>
+      prevEvents.map((e) => {
+        if (e.id === eventId) {
+          const rsvpsList = Array.isArray(e.event_rsvps) ? e.event_rsvps : [];
+          if (hasRsvpd) {
+            return {
+              ...e,
+              event_rsvps: rsvpsList.filter((r) => r.user_id !== (user?.id || "")),
+            };
+          } else {
+            return {
+              ...e,
+              event_rsvps: [...rsvpsList, { id: "temp-rsvp-id", user_id: user?.id || "" }],
+            };
+          }
+        }
+        return e;
+      }),
+    );
+
+    try {
+      await toggleRsvp.mutateAsync({ eventId, hasRsvpd });
+    } catch {
+      setEvents(originalEvents);
+    }
+  };
+
+  const handleBookmarkToggle = async (eventId: string, isSaved: boolean) => {
+    const originalEvents = [...events];
+
+    setEvents((prevEvents) =>
+      prevEvents.map((e) => {
+        if (e.id === eventId) {
+          const savedList = Array.isArray(e.saved_events) ? e.saved_events : [];
+          if (isSaved) {
+            return {
+              ...e,
+              saved_events: savedList.filter((s) => s.user_id !== (user?.id || "")),
+            };
+          } else {
+            return {
+              ...e,
+              saved_events: [...savedList, { id: "temp-id", user_id: user?.id || "" }],
+            };
+          }
+        }
+        return e;
+      }),
+    );
+
+    try {
+      await toggleBookmark.mutateAsync({ eventId, isSaved });
+    } catch {
+      setEvents(originalEvents);
+    }
+  };
+
   const colors = ["bg-lime", "bg-sky", "bg-peach", "bg-lavender"];
 
+  const now = new Date();
+  const timeFilteredEvents = hidePastEvents
+    ? events.filter((e) => {
+        // Use end_date if available, fallback to event_date
+        const dateToCheck = e.end_date
+          ? new Date(e.end_date)
+          : e.event_date
+            ? new Date(e.event_date)
+            : null;
+        if (!dateToCheck) return true;
+        return dateToCheck > now;
+      })
+    : events;
+
   const filteredEvents =
-    filter === "All"
-      ? events
-      : events.filter((e) => {
+    activeCategories.length === 0
+      ? timeFilteredEvents
+      : timeFilteredEvents.filter((e) => {
           const searchStr = `${e.title} ${e.description}`.toLowerCase();
-          return searchStr.includes(filter.toLowerCase());
+          return activeCategories.some((cat) => searchStr.includes(cat.toLowerCase()));
         });
 
   const sortedEvents = [...filteredEvents].sort((a, b) => {
@@ -246,23 +371,53 @@ export default function EventsPage() {
               </h1>
             </div>
             <div className="flex flex-col items-end gap-3 w-full md:w-auto">
-              <div className="flex flex-wrap items-center gap-2">
-                {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t, i) => (
-                  <button
-                    key={t}
-                    onClick={() => setFilter(t)}
-                    className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase ${filter === t ? "bg-black text-cream" : "bg-white"}`}
-                  >
-                    {t}
-                  </button>
-                ))}
-                {filter !== "All" && (
-                  <button
-                    onClick={() => setFilter("All")}
-                    className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream"
-                  >
-                    Clear All
-                  </button>
+              <div className="flex flex-col gap-2 w-full md:w-auto items-end">
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="neu-border flex cursor-pointer select-none items-center gap-2 bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-white md:mr-2">
+                    <input
+                      type="checkbox"
+                      checked={hidePastEvents}
+                      onChange={(e) => setHidePastEvents(e.target.checked)}
+                      className="h-4 w-4 accent-black cursor-pointer"
+                    />
+                    Hide Past Events
+                  </label>
+                  {["Workshop", "Talk", "Hackathon", "Social"].map((t) => (
+                    <button
+                      key={t}
+                      onClick={() =>
+                        setActiveCategories((prev) =>
+                          prev.includes(t) ? prev.filter((c) => c !== t) : [...prev, t],
+                        )
+                      }
+                      className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase ${
+                        activeCategories.includes(t) ? "bg-black text-cream" : "bg-white"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+                {activeCategories.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {activeCategories.map((cat) => (
+                      <span
+                        key={cat}
+                        className="neu-border flex items-center gap-1 bg-black text-cream px-3 py-1 font-mono text-xs font-bold uppercase"
+                      >
+                        {cat}
+                        <button
+                          onClick={() =>
+                            setActiveCategories((prev) => prev.filter((c) => c !== cat))
+                          }
+                          className="ml-1 leading-none hover:opacity-70"
+                          aria-label={`Remove ${cat} filter`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
               <div className="flex items-center gap-2 w-full md:w-auto justify-end">
@@ -322,10 +477,10 @@ export default function EventsPage() {
                       event={e}
                       index={index}
                       user={user}
-                      onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
+                      onRsvpToggle={(eventId, hasRsvpd) => handleRsvpToggle(eventId, hasRsvpd)}
                       isRsvpPending={toggleRsvp.isPending}
                       onBookmarkToggle={(eventId, isSaved) =>
-                        toggleBookmark.mutate({ eventId, isSaved })
+                        handleBookmarkToggle(eventId, isSaved)
                       }
                       isBookmarkPending={toggleBookmark.isPending}
                     />

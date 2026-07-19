@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
 
 import { Progress } from "@/components/ui/progress";
+import { OptimizedImage } from "@/components/media/OptimizedImage";
 
 import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
@@ -22,12 +23,47 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
+const FONT_SIZE_KEY = "campusconnect-font-size";
+
+// Apply persisted font size immediately on module load
+const _initFontSize = localStorage.getItem(FONT_SIZE_KEY);
+if (_initFontSize) {
+  document.documentElement.style.setProperty("--font-size-base", `${_initFontSize}px`);
+  document.documentElement.style.fontSize = `${_initFontSize}px`;
+}
+const FONT_SIZE_MIN = 12;
+const FONT_SIZE_MAX = 24;
+const FONT_SIZE_DEFAULT = 16;
+const FONT_SIZE_STEP = 1;
+
+function useFontSize() {
+  const [fontSize, setFontSizeState] = useState<number>(() => {
+    const stored = localStorage.getItem(FONT_SIZE_KEY);
+    return stored ? parseInt(stored, 10) : FONT_SIZE_DEFAULT;
+  });
+
+  useEffect(() => {
+    document.documentElement.style.setProperty("--font-size-base", `${fontSize}px`);
+    document.documentElement.style.fontSize = `${fontSize}px`;
+    localStorage.setItem(FONT_SIZE_KEY, String(fontSize));
+  }, [fontSize]);
+
+  const increment = () => setFontSizeState((s) => Math.min(s + FONT_SIZE_STEP, FONT_SIZE_MAX));
+  const decrement = () => setFontSizeState((s) => Math.max(s - FONT_SIZE_STEP, FONT_SIZE_MIN));
+  const reset = () => setFontSizeState(FONT_SIZE_DEFAULT);
+
+  return { fontSize, increment, decrement, reset };
+}
+
 export default function SettingsPage() {
   const navigate = useNavigate();
   const supabase = createClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [borderThickness, setBorderThickness] = useState(2);
+  const [borderRadius, setBorderRadius] = useState(0);
+  const { fontSize, increment, decrement, reset } = useFontSize();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -37,6 +73,22 @@ export default function SettingsPage() {
         setUser(user);
       }
     });
+
+    // Load appearance settings from localStorage
+    const savedThickness = localStorage.getItem("border-thickness");
+    const savedRadius = localStorage.getItem("border-radius");
+
+    if (savedThickness) {
+      const thickness = parseInt(savedThickness, 10);
+      setBorderThickness(thickness);
+      document.documentElement.style.setProperty("--border-thickness", `${thickness}px`);
+    }
+
+    if (savedRadius) {
+      const radius = parseInt(savedRadius, 10);
+      setBorderRadius(radius);
+      document.documentElement.style.setProperty("--border-radius", `${radius}px`);
+    }
   }, [navigate, supabase]);
 
   const {
@@ -125,6 +177,20 @@ export default function SettingsPage() {
   };
 
   const currentFullName = form.watch("fullName");
+
+  const handleBorderThicknessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    setBorderThickness(value);
+    document.documentElement.style.setProperty("--border-thickness", `${value}px`);
+    localStorage.setItem("border-thickness", String(value));
+  };
+
+  const handleBorderRadiusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    setBorderRadius(value);
+    document.documentElement.style.setProperty("--border-radius", `${value}px`);
+    localStorage.setItem("border-radius", String(value));
+  };
 
   if (isProfileLoading && !profile) {
     return (
@@ -281,6 +347,67 @@ export default function SettingsPage() {
                 </div>
               </form>
             </Form>
+          </Panel>
+          <Panel title="Appearance">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="eyebrow font-bold">Border Thickness: {borderThickness}px</label>
+                <input
+                  type="range"
+                  min="1"
+                  max="8"
+                  value={borderThickness}
+                  onChange={handleBorderThicknessChange}
+                  className="w-full cursor-pointer accent-black"
+                />
+                <p className="font-mono text-xs text-gray-500">
+                  Controls the width of borders throughout the app (1px - 8px)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="eyebrow font-bold">Border Radius: {borderRadius}px</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="32"
+                  value={borderRadius}
+                  onChange={handleBorderRadiusChange}
+                  className="w-full cursor-pointer accent-black"
+                />
+                <p className="font-mono text-xs text-gray-500">
+                  Controls the roundness of corners (0px - 32px)
+                </p>
+              </div>
+            </div>
+          </Panel>
+          <Panel title="Text Size">
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={decrement}
+                aria-label="Decrease font size"
+                className="neu-border neu-press flex h-9 w-9 items-center justify-center bg-white font-mono text-lg font-bold"
+              >
+                −
+              </button>
+              <span className="font-mono text-sm font-bold">{fontSize}px</span>
+              <button
+                type="button"
+                onClick={increment}
+                aria-label="Increase font size"
+                className="neu-border neu-press flex h-9 w-9 items-center justify-center bg-white font-mono text-lg font-bold"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                onClick={reset}
+                className="neu-border neu-press px-3 py-1 font-mono text-xs font-bold uppercase"
+              >
+                Reset
+              </button>
+            </div>
           </Panel>
           <Panel title="Notifications">
             <Toggle label="Email me about upcoming RSVPs" defaultChecked />
@@ -510,13 +637,17 @@ function AvatarUpload({ name }: { name: string }) {
       <div className="relative shrink-0">
         <div className="neu-border flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-lime">
           {preview && !imageError ? (
-            <img
+            <OptimizedImage
               src={preview}
               alt="Profile picture preview"
               className="h-full w-full object-cover"
               width={96}
               height={96}
-              loading="lazy"
+              quality={80}
+              responsiveWidths={[96, 192]}
+              sizes="96px"
+              onError={() => setImageError(true)}
+              fallback={<span className="font-display text-2xl font-bold">{initials}</span>}
             />
           ) : (
             <span className="font-display text-2xl font-bold">{initials}</span>

@@ -21,14 +21,14 @@ export const COMMANDS = Object.freeze({
 });
 
 export const LIMITS = Object.freeze({
-  maxActiveAssignedIssues: 5,
+  maxActiveAssignedIssues: 10,
   guidanceCooldownHours: 12,
 });
 
 export const TIMERS = Object.freeze({
-  reminder12Hours: 12,
-  reminder18Hours: 18,
-  expirationHours: 30,
+  reminder12Hours: 96,
+  reminder18Hours: 120,
+  expirationHours: 144,
 });
 
 export const IGNORE_BOTS = Object.freeze([
