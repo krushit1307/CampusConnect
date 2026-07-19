@@ -23,6 +23,38 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
+const FONT_SIZE_KEY = "campusconnect-font-size";
+
+// Apply persisted font size immediately on module load
+const _initFontSize = localStorage.getItem(FONT_SIZE_KEY);
+if (_initFontSize) {
+  document.documentElement.style.setProperty("--font-size-base", `${_initFontSize}px`);
+  document.documentElement.style.fontSize = `${_initFontSize}px`;
+}
+const FONT_SIZE_MIN = 12;
+const FONT_SIZE_MAX = 24;
+const FONT_SIZE_DEFAULT = 16;
+const FONT_SIZE_STEP = 1;
+
+function useFontSize() {
+  const [fontSize, setFontSizeState] = useState<number>(() => {
+    const stored = localStorage.getItem(FONT_SIZE_KEY);
+    return stored ? parseInt(stored, 10) : FONT_SIZE_DEFAULT;
+  });
+
+  useEffect(() => {
+    document.documentElement.style.setProperty("--font-size-base", `${fontSize}px`);
+    document.documentElement.style.fontSize = `${fontSize}px`;
+    localStorage.setItem(FONT_SIZE_KEY, String(fontSize));
+  }, [fontSize]);
+
+  const increment = () => setFontSizeState((s) => Math.min(s + FONT_SIZE_STEP, FONT_SIZE_MAX));
+  const decrement = () => setFontSizeState((s) => Math.max(s - FONT_SIZE_STEP, FONT_SIZE_MIN));
+  const reset = () => setFontSizeState(FONT_SIZE_DEFAULT);
+
+  return { fontSize, increment, decrement, reset };
+}
+
 export default function SettingsPage() {
   const navigate = useNavigate();
   const supabase = createClient();
@@ -31,6 +63,7 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [borderThickness, setBorderThickness] = useState(2);
   const [borderRadius, setBorderRadius] = useState(0);
+  const { fontSize, increment, decrement, reset } = useFontSize();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -346,6 +379,34 @@ export default function SettingsPage() {
                   Controls the roundness of corners (0px - 32px)
                 </p>
               </div>
+            </div>
+          </Panel>
+          <Panel title="Text Size">
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={decrement}
+                aria-label="Decrease font size"
+                className="neu-border neu-press flex h-9 w-9 items-center justify-center bg-white font-mono text-lg font-bold"
+              >
+                −
+              </button>
+              <span className="font-mono text-sm font-bold">{fontSize}px</span>
+              <button
+                type="button"
+                onClick={increment}
+                aria-label="Increase font size"
+                className="neu-border neu-press flex h-9 w-9 items-center justify-center bg-white font-mono text-lg font-bold"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                onClick={reset}
+                className="neu-border neu-press px-3 py-1 font-mono text-xs font-bold uppercase"
+              >
+                Reset
+              </button>
             </div>
           </Panel>
           <Panel title="Notifications">

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import { calculateReadTime } from "@/utils/readTime";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
@@ -357,8 +358,16 @@ export default function Feed() {
         <section className="bg-cream px-4 py-12 md:px-6">
           <div className="mx-auto max-w-4xl space-y-6">
             <div className="space-y-3">
-              <MarkdownEditor ref={editorRef} value={newPost} onChange={setNewPost} />
-
+              <MarkdownEditor
+                ref={editorRef}
+                value={newPost}
+                onChange={(value) => {
+                  setNewPost(value.slice(0, 500));
+                }}
+              />
+              <p className={cn("flex justify-end", newPost.length >= 500 && "text-red-500")}>
+                {newPost.length}/500
+              </p>
               <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
                 <select
                   value={selectedClubId}

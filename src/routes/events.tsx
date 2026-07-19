@@ -50,7 +50,7 @@ const EventsCalendar = lazy(() => import("@/components/events/EventsCalendar"));
 export default function EventsPage() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
-  const [filter, setFilter] = useState("All");
+  const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [sortLoaded, setSortLoaded] = useState(false);
@@ -342,11 +342,11 @@ export default function EventsPage() {
     : events;
 
   const filteredEvents =
-    filter === "All"
+    activeCategories.length === 0
       ? timeFilteredEvents
       : timeFilteredEvents.filter((e) => {
           const searchStr = `${e.title} ${e.description}`.toLowerCase();
-          return searchStr.includes(filter.toLowerCase());
+          return activeCategories.some((cat) => searchStr.includes(cat.toLowerCase()));
         });
 
   const sortedEvents = [...filteredEvents].sort((a, b) => {
@@ -371,32 +371,53 @@ export default function EventsPage() {
               </h1>
             </div>
             <div className="flex flex-col items-end gap-3 w-full md:w-auto">
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="neu-border flex cursor-pointer select-none items-center gap-2 bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-white md:mr-2">
-                  <input
-                    type="checkbox"
-                    checked={hidePastEvents}
-                    onChange={(e) => setHidePastEvents(e.target.checked)}
-                    className="h-4 w-4 accent-black cursor-pointer"
-                  />
-                  Hide Past Events
-                </label>
-                {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t, i) => (
-                  <button
-                    key={t}
-                    onClick={() => setFilter(t)}
-                    className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase ${filter === t ? "bg-black text-cream" : "bg-white"}`}
-                  >
-                    {t}
-                  </button>
-                ))}
-                {filter !== "All" && (
-                  <button
-                    onClick={() => setFilter("All")}
-                    className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream"
-                  >
-                    Clear All
-                  </button>
+              <div className="flex flex-col gap-2 w-full md:w-auto items-end">
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="neu-border flex cursor-pointer select-none items-center gap-2 bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-white md:mr-2">
+                    <input
+                      type="checkbox"
+                      checked={hidePastEvents}
+                      onChange={(e) => setHidePastEvents(e.target.checked)}
+                      className="h-4 w-4 accent-black cursor-pointer"
+                    />
+                    Hide Past Events
+                  </label>
+                  {["Workshop", "Talk", "Hackathon", "Social"].map((t) => (
+                    <button
+                      key={t}
+                      onClick={() =>
+                        setActiveCategories((prev) =>
+                          prev.includes(t) ? prev.filter((c) => c !== t) : [...prev, t],
+                        )
+                      }
+                      className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase ${
+                        activeCategories.includes(t) ? "bg-black text-cream" : "bg-white"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+                {activeCategories.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {activeCategories.map((cat) => (
+                      <span
+                        key={cat}
+                        className="neu-border flex items-center gap-1 bg-black text-cream px-3 py-1 font-mono text-xs font-bold uppercase"
+                      >
+                        {cat}
+                        <button
+                          onClick={() =>
+                            setActiveCategories((prev) => prev.filter((c) => c !== cat))
+                          }
+                          className="ml-1 leading-none hover:opacity-70"
+                          aria-label={`Remove ${cat} filter`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
               <div className="flex items-center gap-2 w-full md:w-auto justify-end">

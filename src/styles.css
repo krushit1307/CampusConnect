@@ -57,6 +57,7 @@
 }
 
 :root {
+  --font-size-base: 16px;
   --radius: 0px;
   --cream: #f3f1e4;
   --lime: #dff25c;
