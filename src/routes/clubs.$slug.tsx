@@ -84,6 +84,7 @@ export default function ClubProfile() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -101,7 +102,7 @@ export default function ClubProfile() {
         .select(
           `
           id, name, slug, description,
-          club_members (id, role, status, user_id, profiles (full_name, avatar_url)),
+          club_members (id, role, status, user_id, profiles (full_name, avatar_url, handle)),
           events (id, title, event_date)
         `,
         )
@@ -141,12 +142,18 @@ export default function ClubProfile() {
     const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
     return {
       name: profile?.full_name || "Unknown User",
+      handle: profile?.handle || "",
       role: m.role as "admin" | "member" | "organizer" | "alumni",
       avatarUrl: profile?.avatar_url || null,
     };
   });
 
-  const displayedMembers = isExpanded ? memberList : memberList.slice(0, 10);
+  const filteredMembers = memberList.filter((m) => {
+    const query = searchQuery.toLowerCase();
+    return m.name.toLowerCase().includes(query) || m.handle.toLowerCase().includes(query);
+  });
+
+  const displayedMembers = isExpanded ? filteredMembers : filteredMembers.slice(0, 10);
 
   const events = Array.isArray(club.events) ? club.events : [];
   const membership =
@@ -174,38 +181,59 @@ export default function ClubProfile() {
               <p className="font-mono text-sm text-gray-500">No members yet.</p>
             ) : (
               <>
-                <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {displayedMembers.map((m, i) => (
-                    <li
-                      key={i}
-                      className="neu-border bg-white flex items-center gap-3 p-3 font-mono text-sm"
-                    >
-                      <Avatar className="h-10 w-10 border-2 border-black rounded-full">
-                        <AvatarImage
-                          src={m.avatarUrl || undefined}
-                          alt={m.name}
-                          className="rounded-full"
-                        />
-                        <AvatarFallback className="rounded-full bg-[#bce3f2] text-black font-bold">
-                          {getInitials(m.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold truncate" title={m.name}>
-                          {m.name}
-                        </p>
-                      </div>
-                      <RoleBadge role={m.role} />
-                    </li>
-                  ))}
-                </ul>
-                {memberList.length > 10 && (
-                  <button
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    className="neu-border neu-press mt-4 bg-cream px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-black hover:text-cream transition-colors"
-                  >
-                    {isExpanded ? "View less" : "View all"}
-                  </button>
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    placeholder="Search members by name or handle..."
+                    aria-label="Search members by name or handle"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full border-2 border-black bg-white px-3 py-2 font-mono text-sm outline-none focus:bg-lime/10"
+                  />
+                </div>
+                {filteredMembers.length === 0 ? (
+                  <p className="font-mono text-sm text-gray-500">No members match your search.</p>
+                ) : (
+                  <>
+                    <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {displayedMembers.map((m, i) => (
+                        <li
+                          key={i}
+                          className="neu-border bg-white flex items-center gap-3 p-3 font-mono text-sm"
+                        >
+                          <Avatar className="h-10 w-10 border-2 border-black rounded-full">
+                            <AvatarImage
+                              src={m.avatarUrl || undefined}
+                              alt={m.name}
+                              className="rounded-full"
+                            />
+                            <AvatarFallback className="rounded-full bg-[#bce3f2] text-black font-bold">
+                              {getInitials(m.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold truncate" title={m.name}>
+                              {m.name}
+                            </p>
+                            {m.handle && (
+                              <p className="text-xs text-gray-500 truncate" title={`@${m.handle}`}>
+                                @{m.handle}
+                              </p>
+                            )}
+                          </div>
+                          <RoleBadge role={m.role} />
+                        </li>
+                      ))}
+                    </ul>
+                    {filteredMembers.length > 10 && (
+                      <button
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        className="neu-border neu-press mt-4 bg-cream px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-black hover:text-cream transition-colors"
+                      >
+                        {isExpanded ? "View less" : "View all"}
+                      </button>
+                    )}
+                  </>
                 )}
               </>
             )}
