@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { useMutation } from "@/hooks/useReactQueryReplacement";
+import { Plus, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
+import { eventFormSchema, TITLE_MAX_LENGTH, type EventFormValues } from "@/lib/eventUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,29 +29,15 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
-const TITLE_MAX_LENGTH = 100;
+// Define an extended interface locally to handle the extra location field safely
+interface LocalEventFormValues extends EventFormValues {
+  location?: string;
+}
 
-const eventFormSchema = z
-  .object({
-    title: z
-      .string()
-      .trim()
-      .min(1, "Title is required.")
-      .max(TITLE_MAX_LENGTH, `Title must be ${TITLE_MAX_LENGTH} characters or fewer.`),
-    description: z.string().trim().min(1, "Description is required."),
-    startDate: z.string().min(1, "Start date is required."),
-    endDate: z.string().min(1, "End date is required."),
-  })
-  .refine((data) => new Date(data.endDate) > new Date(data.startDate), {
-    message: "End date must be after the start date.",
-    path: ["endDate"],
-  });
-
-type EventFormValues = z.infer<typeof eventFormSchema>;
-
-const defaultValues: EventFormValues = {
+const defaultValues: LocalEventFormValues = {
   title: "",
   description: "",
+  location: "",
   startDate: "",
   endDate: "",
 };
@@ -59,16 +45,29 @@ const defaultValues: EventFormValues = {
 export function CreateEventDialog({ user }: { user: User | null }) {
   const [open, setOpen] = useState(false);
   const supabase = createClient();
-  const queryClient = useQueryClient();
 
-  const form = useForm<EventFormValues>({
+  const form = useForm<LocalEventFormValues>({
     resolver: zodResolver(eventFormSchema),
     defaultValues,
     mode: "onBlur",
   });
 
+  // Watch values via form.watch to keep TypeScript quiet about schema property limits
+  const watchedLocation = form.watch("location");
+  const watchedDescription = form.watch("description");
+
+  const currentDescription = watchedDescription || "";
+
+  const showMapPreview =
+    watchedLocation &&
+    watchedLocation.trim().length > 0 &&
+    watchedLocation.trim().toLowerCase() !== "online";
+
+  const MAX_DESC_LENGTH = 150;
+  const isNearLimit = MAX_DESC_LENGTH - currentDescription.length <= 10;
+
   const createEvent = useMutation({
-    mutationFn: async (values: EventFormValues) => {
+    mutationFn: async (values: LocalEventFormValues) => {
       if (!user) {
         throw new Error("You must be logged in to create an event.");
       }
@@ -79,10 +78,9 @@ export function CreateEventDialog({ user }: { user: User | null }) {
       const { error } = await supabase.from("events").insert({
         title: values.title.trim(),
         description: values.description.trim(),
+        location: values.location?.trim() || null,
         start_date: startDateIso,
         end_date: endDateIso,
-        // Kept in sync with start_date so existing views that still
-        // read event_date (e.g. EventCard, event ordering) keep working.
         event_date: startDateIso,
         created_by: user.id,
       });
@@ -93,8 +91,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
     },
     onSuccess: () => {
       toast.success("Event created!");
-      queryClient.invalidateQueries({ queryKey: ["events"] });
-      queryClient.invalidateQueries({ queryKey: ["upcomingEvents"] });
+      window.dispatchEvent(new Event("refetchEvents"));
       form.reset(defaultValues);
       setOpen(false);
     },
@@ -104,7 +101,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
     },
   });
 
-  const onSubmit = (values: EventFormValues) => {
+  const onSubmit = (values: LocalEventFormValues) => {
     createEvent.mutate(values);
   };
 
@@ -140,7 +137,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Title</FormLabel>
+                  <FormLabel required>Title</FormLabel>
                   <FormControl>
                     <Input placeholder="Hackathon 2026" maxLength={TITLE_MAX_LENGTH} {...field} />
                   </FormControl>
@@ -154,14 +151,69 @@ export function CreateEventDialog({ user }: { user: User | null }) {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel required>Description</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="What's this event about?" rows={4} {...field} />
+                    <Textarea
+                      placeholder="What's this event about?"
+                      rows={4}
+                      maxLength={MAX_DESC_LENGTH}
+                      {...field}
+                    />
                   </FormControl>
+
+                  <div
+                    className={`text-xs text-right mt-1 font-mono transition-colors ${
+                      isNearLimit ? "text-red-500 font-bold" : "text-black/50"
+                    }`}
+                  >
+                    {currentDescription.length} / {MAX_DESC_LENGTH} characters
+                  </div>
+
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="location"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Location</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder='e.g. "Main Auditorium, IIT Bombay" or "28.7041,77.1025" or "Online"'
+                      {...field}
+                    />
+                  </FormControl>
+                  <p className="text-xs text-black/50 mt-1">
+                    Enter a venue name, address, or coordinates (lat,lng)
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {showMapPreview && (
+              <div className="rounded overflow-hidden border-2 border-black">
+                <iframe
+                  className="w-full"
+                  height="180"
+                  loading="lazy"
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(watchedLocation || "")}&output=embed`}
+                  title="Location preview"
+                />
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(watchedLocation || "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1 bg-white py-1.5 font-mono text-xs font-bold underline hover:bg-cream"
+                >
+                  <MapPin size={12} />
+                  Open in Google Maps ↗
+                </a>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField
@@ -169,7 +221,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                 name="startDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Start date</FormLabel>
+                    <FormLabel required>Start date</FormLabel>
                     <FormControl>
                       <Input type="datetime-local" {...field} />
                     </FormControl>
@@ -183,7 +235,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                 name="endDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>End date</FormLabel>
+                    <FormLabel required>End date</FormLabel>
                     <FormControl>
                       <Input type="datetime-local" {...field} />
                     </FormControl>

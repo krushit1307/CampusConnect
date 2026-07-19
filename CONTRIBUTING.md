@@ -7,7 +7,7 @@ Welcome to **CampusConnect**! We are thrilled to have you here. This project is 
 Before you begin, make sure you have the following installed:
 
 - **Node.js** (v18 or higher recommended)
-- **Bun** (`curl -fsSL https://bun.sh/install | bash`)
+- **npm** (included with Node.js)
 - **Supabase CLI** (if you need to run or test backend migrations locally)
 - Basic familiarity with **React, TypeScript, and Tailwind CSS**
 
@@ -65,23 +65,45 @@ Before you begin, make sure you have the following installed:
 - **Add Screenshots:** If your change affects the UI, please include before/after screenshots in the PR description.
 - **Pass CI:** Ensure your code passes all checks (build and lint) in GitHub Actions.
 
-## 💅 Code Style
+## 💅 Code Style & Formatting (CRITICAL)
 
-This project uses **ESLint** and **Prettier**. Please run the lint command before committing your code to ensure it matches the project's style guidelines:
+This project uses **ESLint** and **Prettier** to maintain code quality. **Failing to format your code will cause your Pull Request CI checks to fail!**
+
+Before committing any code, you **MUST** run the auto-fix linter command to format your files:
 
 ```bash
-bun run lint
+npm run lint
 ```
 
-_(Optionally configure your editor to format on save)._
+This command will automatically fix spacing, missing quotes, and other formatting issues. If it reports any remaining errors that cannot be auto-fixed, you must resolve them manually before pushing.
+
+_(Highly Recommended: Configure your code editor to "Format on Save" using the Prettier extension)._
+
+## Edge Function Authentication
+
+Custom Supabase Edge Functions should use the shared authentication middleware located at:
+
+`supabase/functions/shared/auth-middleware.ts`
+
+Example:
+
+```ts
+import { verifyAuth } from "../shared/auth-middleware.ts";
+
+const user = await verifyAuth(req, supabase);
+```
+
+The middleware validates the Bearer JWT and returns the authenticated user. Invalid or missing tokens should result in an HTTP 401 response.
 
 ## 🙋 How to Claim an Issue
 
-To prevent duplicate work:
+This repository uses an automated bot to assign issues to contributors!
 
-1. Find an issue you want to work on (look for the `good-first-issue` label if you're new!).
-2. Leave a comment saying: **"I'd like to work on this!"**
-3. **Wait for a maintainer to assign you** to the issue before starting your work.
+1. Find an unassigned issue you want to work on (look for the `good-first-issue` label if you're new!).
+2. Leave a comment on the issue saying exactly: `/claim`.
+3. The bot will automatically assign the issue to you. You can only have a maximum of 10 active issues at a time.
+4. **Time Limit:** You have **6 days** to open a Pull Request. If you need more time, simply leave a comment updating your progress. If there's no activity within 6 days, the bot will automatically unassign you so others can take a turn.
+5. If you change your mind and no longer want to work on the issue, comment `/unclaim` to release it.
 
 ## 🏷️ Issue Labels Guide
 
@@ -94,6 +116,7 @@ To prevent duplicate work:
 Got questions? Need help? Join the discussion!
 
 <!-- TODO: Replace with the actual Discord/Slack invite link -->
+
 **👉 Join the ECSoC Project Discord / Slack Here** _(link coming soon)_
 
 Thank you for contributing! 🚀

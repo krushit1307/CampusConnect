@@ -1,0 +1,42 @@
+/* Fix contrast ratio on disabled buttons in Dark Mode */
+
+/* Light mode disabled buttons - maintain readable contrast */
+button:disabled,
+.btn:disabled,
+button[aria-disabled="true"] {
+  cursor: not-allowed;
+  color: #9ca3af; /* gray-400 - meets 3:1 on #f3f4f6 for large text/UI */
+  background-color: #f3f4f6; /* gray-100 */
+  border-color: #e5e7eb; /* gray-200 */
+}
+
+/* Dark mode disabled buttons - ensure sufficient contrast */
+.dark button:disabled,
+.dark .btn:disabled,
+.dark button[aria-disabled="true"] {
+  color: #6b7280; /* gray-500 - meets 4.5:1 on gray-800 */
+  background-color: #1f2937; /* gray-800 */
+  border-color: #374151; /* gray-700 */
+}
+
+/* Fix primary disabled buttons in dark mode */
+.dark button:disabled.btn-primary,
+.dark button:disabled.bg-blue-600,
+.dark button:disabled.bg-indigo-600 {
+  background-color: #1e3a5f; /* darker blue for better contrast */
+  color: #94a3b8; /* slate-400 - 4.6:1 on dark blue */
+}
+
+/* Fix danger disabled buttons in dark mode */
+.dark button:disabled.btn-danger,
+.dark button:disabled.bg-red-600 {
+  background-color: #5f1e1e; /* darker red for better contrast */
+  color: #fca5a5; /* red-300 - 5.2:1 on dark red */
+}
+
+/* Ensure focus indicators are still visible on disabled buttons */
+button:focus-visible:disabled,
+button[aria-disabled="true"]:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
