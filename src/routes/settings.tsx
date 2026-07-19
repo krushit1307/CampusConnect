@@ -29,6 +29,8 @@ export default function SettingsPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [borderThickness, setBorderThickness] = useState(2);
+  const [borderRadius, setBorderRadius] = useState(0);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -38,6 +40,22 @@ export default function SettingsPage() {
         setUser(user);
       }
     });
+
+    // Load appearance settings from localStorage
+    const savedThickness = localStorage.getItem("border-thickness");
+    const savedRadius = localStorage.getItem("border-radius");
+
+    if (savedThickness) {
+      const thickness = parseInt(savedThickness, 10);
+      setBorderThickness(thickness);
+      document.documentElement.style.setProperty("--border-thickness", `${thickness}px`);
+    }
+
+    if (savedRadius) {
+      const radius = parseInt(savedRadius, 10);
+      setBorderRadius(radius);
+      document.documentElement.style.setProperty("--border-radius", `${radius}px`);
+    }
   }, [navigate, supabase]);
 
   const {
@@ -126,6 +144,20 @@ export default function SettingsPage() {
   };
 
   const currentFullName = form.watch("fullName");
+
+  const handleBorderThicknessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    setBorderThickness(value);
+    document.documentElement.style.setProperty("--border-thickness", `${value}px`);
+    localStorage.setItem("border-thickness", String(value));
+  };
+
+  const handleBorderRadiusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    setBorderRadius(value);
+    document.documentElement.style.setProperty("--border-radius", `${value}px`);
+    localStorage.setItem("border-radius", String(value));
+  };
 
   if (isProfileLoading && !profile) {
     return (
@@ -282,6 +314,39 @@ export default function SettingsPage() {
                 </div>
               </form>
             </Form>
+          </Panel>
+          <Panel title="Appearance">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="eyebrow font-bold">Border Thickness: {borderThickness}px</label>
+                <input
+                  type="range"
+                  min="1"
+                  max="8"
+                  value={borderThickness}
+                  onChange={handleBorderThicknessChange}
+                  className="w-full cursor-pointer accent-black"
+                />
+                <p className="font-mono text-xs text-gray-500">
+                  Controls the width of borders throughout the app (1px - 8px)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="eyebrow font-bold">Border Radius: {borderRadius}px</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="32"
+                  value={borderRadius}
+                  onChange={handleBorderRadiusChange}
+                  className="w-full cursor-pointer accent-black"
+                />
+                <p className="font-mono text-xs text-gray-500">
+                  Controls the roundness of corners (0px - 32px)
+                </p>
+              </div>
+            </div>
           </Panel>
           <Panel title="Notifications">
             <Toggle label="Email me about upcoming RSVPs" defaultChecked />

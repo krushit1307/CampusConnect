@@ -96,6 +96,8 @@
   --sidebar-accent-foreground: #000000;
   --sidebar-border: #000000;
   --sidebar-ring: #000000;
+  --border-thickness: 2px;
+  --border-radius: 0px;
 }
 
 .dark {
