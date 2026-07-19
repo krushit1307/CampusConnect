@@ -727,7 +727,7 @@ export default function Feed() {
                           })}
                         </div>
 
-                        <div className="flex gap-2">
+                        <div className="sticky bottom-0 -mx-4 mt-2 flex gap-2 border-t-2 border-black bg-cream px-4 py-2 md:static md:mx-0 md:border-t-0 md:bg-transparent md:px-0 md:py-0">
                           <input
                             value={newComments[post.id] || ""}
                             onChange={(event) =>
