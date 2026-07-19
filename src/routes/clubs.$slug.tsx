@@ -150,10 +150,7 @@ export default function ClubProfile() {
 
   const filteredMembers = memberList.filter((m) => {
     const query = searchQuery.toLowerCase();
-    return (
-      m.name.toLowerCase().includes(query) ||
-      m.handle.toLowerCase().includes(query)
-    );
+    return m.name.toLowerCase().includes(query) || m.handle.toLowerCase().includes(query);
   });
 
   const displayedMembers = isExpanded ? filteredMembers : filteredMembers.slice(0, 10);
@@ -188,6 +185,7 @@ export default function ClubProfile() {
                   <input
                     type="text"
                     placeholder="Search members by name or handle..."
+                    aria-label="Search members by name or handle"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full border-2 border-black bg-white px-3 py-2 font-mono text-sm outline-none focus:bg-lime/10"
