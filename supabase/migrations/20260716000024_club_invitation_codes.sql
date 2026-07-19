@@ -1,5 +1,5 @@
 -- Create club invite codes table
-CREATE TABLE public.club_invite_codes (
+CREATE TABLE IF NOT EXISTS public.club_invite_codes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   club_id UUID NOT NULL
@@ -20,12 +20,14 @@ ALTER TABLE public.club_invite_codes
 ENABLE ROW LEVEL SECURITY;
 
 -- Anyone can view invite codes for now
+DROP POLICY IF EXISTS "Club invite codes are viewable by everyone." ON public.club_invite_codes;
 CREATE POLICY "Club invite codes are viewable by everyone."
 ON public.club_invite_codes
 FOR SELECT
 USING (true);
 
 -- Club admins can create invite codes
+DROP POLICY IF EXISTS "Club admins can create invite codes." ON public.club_invite_codes;
 CREATE POLICY "Club admins can create invite codes."
 ON public.club_invite_codes
 FOR INSERT
@@ -48,6 +50,7 @@ WITH CHECK (
 );
 
 -- Club admins can update invite codes
+DROP POLICY IF EXISTS "Club admins can update invite codes." ON public.club_invite_codes;
 CREATE POLICY "Club admins can update invite codes."
 ON public.club_invite_codes
 FOR UPDATE
@@ -70,6 +73,7 @@ USING (
 );
 
 -- Club admins can delete invite codes
+DROP POLICY IF EXISTS "Club admins can delete invite codes." ON public.club_invite_codes;
 CREATE POLICY "Club admins can delete invite codes."
 ON public.club_invite_codes
 FOR DELETE

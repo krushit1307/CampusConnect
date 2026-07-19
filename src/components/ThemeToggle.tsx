@@ -1,5 +1,4 @@
 import { Moon, Settings2, Sun } from "lucide-react";
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 type Theme = "light" | "dark" | "system";
@@ -77,6 +76,7 @@ export function useTheme() {
 
   return context;
 }
+import { useTheme } from "./theme-provider";
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();

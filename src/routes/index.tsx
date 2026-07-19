@@ -132,7 +132,72 @@ function SectionEyebrow({ children }: { children: React.ReactNode }) {
   );
 }
 
+interface FAQItem {
+  category: string;
+  question: string;
+  answer: string;
+}
+
+const FAQ_ITEMS: FAQItem[] = [
+  {
+    category: "General",
+    question: "What is CampusConnect?",
+    answer:
+      "CampusConnect is a unified, open-source platform designed to streamline student club management, event planning, and digital check-ins for student communities.",
+  },
+  {
+    category: "General",
+    question: "Is CampusConnect free to use?",
+    answer:
+      "Yes! CampusConnect is 100% open-source and free for student communities. You can host your own instance or use the managed cloud version.",
+  },
+  {
+    category: "Clubs",
+    question: "How do I create a new club?",
+    answer:
+      "Registered students can request to create a new club from the Clubs Directory. Once approved by a system administrator, you can start customizing your page.",
+  },
+  {
+    category: "Clubs",
+    question: "How do I manage my club members?",
+    answer:
+      "Club admins can approve join requests, assign roles (member, admin), and view full member profiles directly from the club settings.",
+  },
+  {
+    category: "Events",
+    question: "How do I RSVP for an event?",
+    answer:
+      "Simply explore the active events feed, select the event you're interested in, and click the 'RSVP' button.",
+  },
+  {
+    category: "Events",
+    question: "How does the check-in system work?",
+    answer:
+      "When you RSVP, a custom ticket with a QR code is generated. Club organizers can scan your QR code at the door using any mobile device to check you in instantly.",
+  },
+  {
+    category: "Security",
+    question: "Is my student data secure?",
+    answer:
+      "Absolutely. CampusConnect is built with Supabase authentication and strict Row-Level Security (RLS) database policies to protect user and admin data.",
+  },
+  {
+    category: "Security",
+    question: "Who can see my personal profile details?",
+    answer:
+      "Only authorized members of your verified student community can see your profile page. You can customize your preferences at any time in your Settings.",
+  },
+];
+
 export default function Landing() {
+  const [activeCategory, setActiveCategory] = useState("All");
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  const filteredFAQs =
+    activeCategory === "All"
+      ? FAQ_ITEMS
+      : FAQ_ITEMS.filter((faq) => faq.category === activeCategory);
+
   return (
     <SiteShell>
       {/* HERO — PR 207 Image-backed with overlay */}
@@ -539,6 +604,96 @@ export default function Landing() {
                 </article>
               </ScrollReveal>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ SECTION */}
+      <section className="bg-gray-50 border-t-2 border-gray-200 px-4 py-20 md:px-6">
+        <div className="mx-auto max-w-4xl">
+          <div className="mb-12 text-center">
+            <SectionEyebrow>Frequently Asked Questions</SectionEyebrow>
+            <h2 className="mt-2 text-4xl font-bold text-[#123a57] md:text-5xl">
+              Answers to your questions.
+            </h2>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-2 mb-8">
+            {["All", "General", "Clubs", "Events", "Security"].map((category) => (
+              <button
+                key={category}
+                onClick={() => {
+                  setActiveCategory(category);
+                  setOpenIndex(null);
+                }}
+                className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase transition-all duration-200 active:scale-95 cursor-pointer ${
+                  activeCategory === category
+                    ? "bg-black text-[#fef8eb] shadow-none translate-x-[2px] translate-y-[2px]"
+                    : "bg-white text-black hover:bg-gray-100 shadow-[2px_2px_0_0_#000000]"
+                }`}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+
+          <div className="space-y-4">
+            {filteredFAQs.map((faq, idx) => {
+              const isOpen = openIndex === idx;
+              return (
+                <div
+                  key={idx}
+                  className="neu-border bg-white transition-all duration-300 overflow-hidden shadow-[4px_4px_0_0_#000000] hover:shadow-[6px_6px_0_0_#123a57] hover:border-[#123a57]"
+                >
+                  <button
+                    onClick={() => setOpenIndex(isOpen ? null : idx)}
+                    className="w-full flex items-center justify-between p-5 text-left font-mono font-bold text-[#123a57] hover:bg-gray-50/50 cursor-pointer"
+                  >
+                    <span className="text-base md:text-lg">{faq.question}</span>
+                    <span className="ml-4 shrink-0 transition-transform duration-300">
+                      {isOpen ? (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={2.5}
+                          stroke="currentColor"
+                          className="w-5 h-5"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
+                        </svg>
+                      ) : (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={2.5}
+                          stroke="currentColor"
+                          className="w-5 h-5"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 4.5v15m7.5-7.5h-15"
+                          />
+                        </svg>
+                      )}
+                    </span>
+                  </button>
+                  <div
+                    className="transition-all duration-300 ease-in-out overflow-hidden"
+                    style={{
+                      maxHeight: isOpen ? "300px" : "0px",
+                      opacity: isOpen ? 1 : 0,
+                    }}
+                  >
+                    <div className="p-5 pt-0 font-mono text-sm leading-relaxed text-gray-700 border-t border-dashed border-gray-200 mt-2">
+                      {faq.answer}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>

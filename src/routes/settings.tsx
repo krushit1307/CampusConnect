@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
 
 import { Progress } from "@/components/ui/progress";
+import { OptimizedImage } from "@/components/media/OptimizedImage";
 
 import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
@@ -510,13 +511,17 @@ function AvatarUpload({ name }: { name: string }) {
       <div className="relative shrink-0">
         <div className="neu-border flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-lime">
           {preview && !imageError ? (
-            <img
+            <OptimizedImage
               src={preview}
               alt="Profile picture preview"
               className="h-full w-full object-cover"
               width={96}
               height={96}
-              loading="lazy"
+              quality={80}
+              responsiveWidths={[96, 192]}
+              sizes="96px"
+              onError={() => setImageError(true)}
+              fallback={<span className="font-display text-2xl font-bold">{initials}</span>}
             />
           ) : (
             <span className="font-display text-2xl font-bold">{initials}</span>

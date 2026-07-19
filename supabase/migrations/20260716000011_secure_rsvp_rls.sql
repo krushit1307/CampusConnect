@@ -5,6 +5,7 @@ ON event_rsvps;
 
 -- Users can update their own RSVP
 -- (trigger below prevents checked_in changes)
+DROP POLICY IF EXISTS "Users can update their own RSVPs." ON event_rsvps;
 CREATE POLICY "Users can update their own RSVPs."
 ON event_rsvps
 FOR UPDATE
@@ -17,6 +18,7 @@ WITH CHECK (
 
 
 -- Club admins and club creators can update RSVP check-in
+DROP POLICY IF EXISTS "Club admins can update RSVP check in." ON event_rsvps;
 CREATE POLICY "Club admins can update RSVP check in."
 ON event_rsvps
 FOR UPDATE
