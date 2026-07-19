@@ -16,12 +16,7 @@ import {
   MapPinOff,
   Users,
 } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
