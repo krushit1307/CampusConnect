@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS public.notifications (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Create index for faster notification lookups by user
+-- Create index IF NOT EXISTS for faster notification lookups by user
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON public.notifications(user_id);
 
 -- 3. Enable RLS on notifications table

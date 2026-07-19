@@ -60,7 +60,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
--- Create the trigger
-CREATE OR REPLACE TRIGGER on_club_member_change
+-- 4. Create trigger
+DROP TRIGGER IF EXISTS update_club_member_count ON public.club_members;
+CREATE TRIGGER update_club_member_count
   AFTER INSERT OR UPDATE OR DELETE ON public.club_members
   FOR EACH ROW EXECUTE FUNCTION public.handle_club_member_change();

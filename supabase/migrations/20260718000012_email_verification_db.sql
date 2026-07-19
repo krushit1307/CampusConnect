@@ -1,4 +1,4 @@
-CREATE TABLE email_verifications(
+CREATE TABLE IF NOT EXISTS email_verifications(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT NOT NULL,
     token_hash TEXT NOT NULL,

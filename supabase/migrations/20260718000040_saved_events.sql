@@ -27,4 +27,16 @@ CREATE POLICY "Users can delete their own saved events"
   USING (auth.uid() = user_id);
 
 -- Add to publication for realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE saved_events;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND tablename = 'saved_events'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime
+      ADD TABLE saved_events;
+  END IF;
+END
+$$;
