@@ -1,9 +1,7 @@
-name: Triage New Issues and PRs
+name: Triage New Issues
 
 on:
   issues:
-    types: [opened]
-  pull_request_target:
     types: [opened]
 
 permissions:
