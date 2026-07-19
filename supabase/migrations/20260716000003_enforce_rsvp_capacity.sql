@@ -39,7 +39,8 @@ BEGIN
 END;
 $$;
 
--- Step 2: Bind the trigger to run BEFORE INSERT on event_rsvps
+-- Step 2: Bind the trigger to run BEFORE INSERT-- 2. Create the trigger
+DROP TRIGGER IF EXISTS before_rsvp_insert ON public.event_rsvps;
 CREATE TRIGGER before_rsvp_insert
 BEFORE INSERT ON public.event_rsvps
 FOR EACH ROW

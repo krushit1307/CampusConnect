@@ -4,6 +4,7 @@ import {
   isEndAfterStart,
   isPastDate,
   formatEventDateRange,
+  parseCoordinates,
   TITLE_MAX_LENGTH,
 } from "./eventUtils";
 
@@ -165,5 +166,56 @@ describe("formatEventDateRange", () => {
     const result = formatEventDateRange("2026-07-11T09:00:00Z", "2026-07-11T11:00:00Z");
     expect(result).toContain(" at ");
     expect(result).toContain(" – ");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseCoordinates
+// ---------------------------------------------------------------------------
+describe("parseCoordinates", () => {
+  it("identifies valid coordinates", () => {
+    const result = parseCoordinates("28.7041, 77.1025");
+    expect(result.isCoordinates).toBe(true);
+    expect(result.isValid).toBe(true);
+    expect(result.lat).toBe(28.7041);
+    expect(result.lng).toBe(77.1025);
+  });
+
+  it("identifies negative coordinates", () => {
+    const result = parseCoordinates("-33.8688, 151.2093");
+    expect(result.isCoordinates).toBe(true);
+    expect(result.isValid).toBe(true);
+    expect(result.lat).toBe(-33.8688);
+    expect(result.lng).toBe(151.2093);
+  });
+
+  it("identifies invalid latitude (out of bounds)", () => {
+    const result = parseCoordinates("95.1234, 77.1025");
+    expect(result.isCoordinates).toBe(true);
+    expect(result.isValid).toBe(false);
+  });
+
+  it("identifies invalid longitude (out of bounds)", () => {
+    const result = parseCoordinates("28.7041, -195.1234");
+    expect(result.isCoordinates).toBe(true);
+    expect(result.isValid).toBe(false);
+  });
+
+  it("identifies coordinate-like inputs with alphabetic chars as coordinates and invalid", () => {
+    const result = parseCoordinates("28.7041, abc");
+    expect(result.isCoordinates).toBe(true);
+    expect(result.isValid).toBe(false);
+  });
+
+  it("treats plain address strings as not coordinates (and valid)", () => {
+    const result = parseCoordinates("Main Auditorium, IIT Bombay");
+    expect(result.isCoordinates).toBe(false);
+    expect(result.isValid).toBe(true);
+  });
+
+  it("treats online event string as not coordinates (and valid)", () => {
+    const result = parseCoordinates("online");
+    expect(result.isCoordinates).toBe(false);
+    expect(result.isValid).toBe(true);
   });
 });

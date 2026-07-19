@@ -12,6 +12,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_cascade_post_soft_delete ON public.posts;
 CREATE TRIGGER trigger_cascade_post_soft_delete
 AFTER UPDATE OF deleted_at
 ON posts

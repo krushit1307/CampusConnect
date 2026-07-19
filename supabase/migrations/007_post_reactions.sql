@@ -1,4 +1,4 @@
-CREATE TABLE post_reactions (
+CREATE TABLE IF NOT EXISTS post_reactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,

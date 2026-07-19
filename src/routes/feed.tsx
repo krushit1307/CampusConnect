@@ -1,7 +1,7 @@
 import { FeedPostSkeleton } from "@/components/FeedPostSkeleton";
 import { useMutation, useQuery, useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import type { User } from "@supabase/supabase-js";
-import { MessageCircle, MessageSquareText, PenLine, Sparkles, Trash2 } from "lucide-react";
+import { Link2, MessageCircle, MessageSquareText, PenLine, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
@@ -92,6 +92,16 @@ export default function Feed() {
         .eq("status", "approved");
 
       return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: userProfile } = useQuery({
+    queryKey: ["userProfile", user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+      return data;
     },
     enabled: !!user?.id,
   });
@@ -304,6 +314,21 @@ export default function Feed() {
     },
   });
 
+  const deleteCommentMutation = useMutation({
+    mutationFn: async (commentId: string) => {
+      if (!user) throw new Error("Must be logged in");
+      const { error } = await supabase.from("comments").delete().eq("id", commentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchPosts();
+      toast.success("Comment deleted successfully!");
+    },
+    onError: () => {
+      toast.error("Failed to delete comment.");
+    },
+  });
+
   const timeAgo = (dateString: string) => {
     const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
     const diff = new Date().getTime() - new Date(dateString).getTime();
@@ -403,7 +428,7 @@ export default function Feed() {
                 style={{
                   animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards",
                 }}
-                className="neu-border flex w-full items-center justify-center gap-2 bg-[#FFD93D] hover:bg-[#FFD93D]/90 py-3 text-center font-display text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_#000] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_#000] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[4px_4px_0_0_#000] cursor-pointer"
+                className="neu-border flex w-full items-center justify-center gap-2 bg-[#FFD93D] hover:bg-[#FFD93D]/90 py-3 text-center font-display text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0_0_#000] active:translate-x-0 active:translate-y-0 active:shadow-[4px_4px_0_0_#000] cursor-pointer"
               >
                 <Sparkles size={16} className="animate-pulse" />
                 New posts available (Refresh)
@@ -483,6 +508,8 @@ export default function Feed() {
                     ? post.comments.filter((c) => !c.deleted_at)
                     : [];
 
+                  const shareUrl = `${window.location.origin}/feed?postId=${post.id}`;
+
                   const isLastPost = index === posts.length - 1;
 
                   return (
@@ -505,7 +532,7 @@ export default function Feed() {
                             </span>
                           </p>
                         </div>
-                        {user?.id === author?.id && (
+                        {(user?.id === author?.id || userProfile?.role === "system_admin") && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <button
@@ -580,9 +607,8 @@ export default function Feed() {
 
                       <div className="mt-4 flex gap-2 border-t-2 border-black pt-4">
                         <a
-                          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(
-                            `${window.location.origin}${window.location.pathname}#post-${post.id}`,
-                          )}`}
+                          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`}
+
                           target="_blank"
                           rel="noopener noreferrer"
                           className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#1DA1F2] hover:text-white"
@@ -591,9 +617,8 @@ export default function Feed() {
                         </a>
 
                         <a
-                          href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(
-                            `${window.location.origin}${window.location.pathname}#post-${post.id}`,
-                          )}`}
+                          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`}
+
                           target="_blank"
                           rel="noopener noreferrer"
                           className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#0A66C2] hover:text-white"
@@ -603,7 +628,7 @@ export default function Feed() {
 
                         <a
                           href={`https://wa.me/?text=${encodeURIComponent(
-                            `Check out this post: ${post.content.substring(0, 50)}... - ${window.location.origin}${window.location.pathname}#post-${post.id}`,
+                            `Check out this post: ${post.content.substring(0, 50)}... - ${shareUrl}`,
                           )}`}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -615,16 +640,12 @@ export default function Feed() {
                         <button
                           type="button"
                           onClick={async () => {
-                            try {
-                              const shareUrl = `${window.location.origin}${window.location.pathname}#post-${post.id}`;
-                              await navigator.clipboard.writeText(shareUrl);
-                              toast.success("Link copied!");
-                            } catch (err) {
-                              toast.error("Failed to copy link.");
-                            }
+                            await navigator.clipboard.writeText(shareUrl);
+                            toast.success("Link copied!");
                           }}
-                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-lime hover:text-black cursor-pointer"
+                          className="neu-border inline-flex items-center gap-2 px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-gray-200"
                         >
+                          <Link2 size={14} />
                           Copy Link
                         </button>
                       </div>
@@ -655,9 +676,48 @@ export default function Feed() {
                                       }
                                     />
                                   </p>
-                                  <p className="font-mono text-[10px] text-gray-500">
-                                    {timeAgo(comment.created_at)}
-                                  </p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-mono text-[10px] text-gray-500">
+                                      {timeAgo(comment.created_at)}
+                                    </p>
+                                    {(user?.id === commentAuthor?.id ||
+                                      userProfile?.role === "system_admin") && (
+                                      <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                          <button
+                                            type="button"
+                                            className="text-[#FF6B6B] hover:text-[#FF8787] uppercase font-bold font-mono text-[10px]"
+                                            aria-label="Delete comment"
+                                          >
+                                            Delete
+                                          </button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent className="neu-border bg-white rounded-none p-6">
+                                          <AlertDialogHeader>
+                                            <AlertDialogTitle className="font-display text-xl font-bold">
+                                              Delete comment?
+                                            </AlertDialogTitle>
+                                            <AlertDialogDescription className="font-mono text-sm text-gray-700">
+                                              Are you sure you want to delete this comment?
+                                            </AlertDialogDescription>
+                                          </AlertDialogHeader>
+                                          <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+                                            <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
+                                              Cancel
+                                            </AlertDialogCancel>
+                                            <AlertDialogAction
+                                              onClick={() =>
+                                                deleteCommentMutation.mutate(comment.id)
+                                              }
+                                              className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
+                                            >
+                                              Confirm
+                                            </AlertDialogAction>
+                                          </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                      </AlertDialog>
+                                    )}
+                                  </div>
                                 </div>
                                 <div className="markdown-content mt-1 font-mono text-sm">
                                   <ReactMarkdown>{comment.content}</ReactMarkdown>

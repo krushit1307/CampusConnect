@@ -63,6 +63,7 @@ ALTER TABLE event_feedbacks ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can read event feedback."
 ON event_feedbacks;
 
+DROP POLICY IF EXISTS "Users can read event feedback." ON event_feedbacks;
 CREATE POLICY "Users can read event feedback."
 ON event_feedbacks
 FOR SELECT
@@ -71,6 +72,7 @@ USING (true);
 DROP POLICY IF EXISTS "Checked-in users can leave feedback."
 ON event_feedbacks;
 
+DROP POLICY IF EXISTS "Checked-in users can leave feedback." ON event_feedbacks;
 CREATE POLICY "Checked-in users can leave feedback."
 ON event_feedbacks
 FOR INSERT
@@ -88,6 +90,7 @@ WITH CHECK (
 DROP POLICY IF EXISTS "Users can update own feedback."
 ON event_feedbacks;
 
+DROP POLICY IF EXISTS "Users can update own feedback." ON event_feedbacks;
 CREATE POLICY "Users can update own feedback."
 ON event_feedbacks
 FOR UPDATE
@@ -115,6 +118,7 @@ WITH CHECK (
 DROP POLICY IF EXISTS "Users can delete own feedback."
 ON event_feedbacks;
 
+DROP POLICY IF EXISTS "Users can delete own feedback." ON event_feedbacks;
 CREATE POLICY "Users can delete own feedback."
 ON event_feedbacks
 FOR DELETE

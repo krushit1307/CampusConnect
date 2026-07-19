@@ -3,6 +3,7 @@
 
 DROP POLICY IF EXISTS "Authors can delete own comments." ON public.comments;
 
+DROP POLICY IF EXISTS "Authors or club admins can delete comments." ON public.comments;
 CREATE POLICY "Authors or club admins can delete comments." ON public.comments
 FOR DELETE
 USING (

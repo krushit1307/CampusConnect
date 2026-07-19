@@ -63,6 +63,7 @@ DROP POLICY IF EXISTS "System admins can update event categories."  ON public.ev
 DROP POLICY IF EXISTS "System admins can delete event categories."  ON public.event_categories;
 
 -- INSERT: only system admins may create new categories
+DROP POLICY IF EXISTS "System admins can insert event categories." ON public.event_categories;
 CREATE POLICY "System admins can insert event categories."
 ON public.event_categories
 FOR INSERT
@@ -70,6 +71,7 @@ TO authenticated
 WITH CHECK (public.is_system_admin());
 
 -- UPDATE: only system admins may edit existing categories
+DROP POLICY IF EXISTS "System admins can update event categories." ON public.event_categories;
 CREATE POLICY "System admins can update event categories."
 ON public.event_categories
 FOR UPDATE
@@ -78,6 +80,7 @@ USING (public.is_system_admin())
 WITH CHECK (public.is_system_admin());
 
 -- DELETE: only system admins may remove categories
+DROP POLICY IF EXISTS "System admins can delete event categories." ON public.event_categories;
 CREATE POLICY "System admins can delete event categories."
 ON public.event_categories
 FOR DELETE
