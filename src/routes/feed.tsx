@@ -32,6 +32,46 @@ import { calculateReadTime } from "@/utils/readTime";
 
 type MemberRole = "admin" | "organizer" | "member" | "alumni";
 
+interface Profile {
+  id: string;
+  full_name: string | null;
+}
+
+interface ClubMember {
+  user_id: string;
+  role: MemberRole;
+}
+
+interface Club {
+  id: string;
+  name: string;
+  club_members: ClubMember[] | ClubMember | null;
+}
+
+interface Comment {
+  id: string;
+  content: string;
+  created_at: string;
+  deleted_at: string | null;
+  profiles: Profile[] | Profile | null;
+}
+
+interface PostReaction {
+  emoji: string;
+  user_id: string;
+}
+
+interface Post {
+  id: string;
+  content: string;
+  created_at: string;
+  club_id: string;
+  profiles: Profile[] | Profile | null;
+  clubs: Club[] | Club | null;
+  comments: Comment[] | null;
+  post_reactions: PostReaction[] | null;
+}
+
 const POSTS_PER_PAGE = 10;
 
 export default function Feed() {
@@ -41,6 +81,7 @@ export default function Feed() {
   const editorRef = useRef<MarkdownEditorRef>(null);
   const [newComments, setNewComments] = useState<Record<string, string>>({});
   const [selectedClubId, setSelectedClubId] = useState("");
+  const [showNewPostsBanner, setShowNewPostsBanner] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -62,6 +103,18 @@ export default function Feed() {
     enabled: !!user?.id,
   });
 
+  const { data: userProfile } = useQuery({
+    queryKey: ["userProfile", user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const [selectedClubId, setSelectedClubId] = useState("");
+
   useEffect(() => {
     if (userClubs.length > 0 && !selectedClubId) {
       const firstClub = Array.isArray(userClubs[0].clubs)
@@ -82,13 +135,14 @@ export default function Feed() {
     fetchNextPage,
     hasNextPage,
     refetch: refetchPosts,
-  } = useInfiniteQuery({
+  } = useInfiniteQuery<{ posts: Post[]; nextPage?: number }>({
     queryKey: ["posts"],
+    initialPageParam: 0,
     queryFn: async ({ pageParam = 0 }) => {
       const from = pageParam * POSTS_PER_PAGE;
       const to = from + POSTS_PER_PAGE - 1;
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("posts")
         .select(
           `
@@ -101,21 +155,48 @@ export default function Feed() {
             comments (id, content, created_at, profiles (id, full_name)),
             post_reactions (id, emoji, user_id)
           `,
+        id, content, created_at, club_id,
+        profiles (id, full_name),
+        clubs (id, name, club_members (user_id, role)),
+        comments (id, content, created_at, deleted_at, profiles (id, full_name)),
+        post_reactions (emoji, user_id)
+      `,
         )
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .range(from, to);
 
-      return data || [];
+      if (error) throw error;
+
+      const posts = (data ?? []) as unknown as Post[];
+
+      return {
+        posts,
+        nextPage: posts.length === POSTS_PER_PAGE ? pageParam + 1 : undefined,
+      };
     },
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) => {
-      return lastPage.length === POSTS_PER_PAGE ? allPages.length : undefined;
-    },
+    getNextPageParam: (lastPage) => lastPage.nextPage,
   });
 
   const posts = data?.pages.flat() ?? [];
 
+  const posts = data?.pages.flatMap((page) => page.posts) ?? [];
+
+  const postsRef = useRef(posts);
+  const userRef = useRef(user);
+
+  useEffect(() => {
+    postsRef.current = posts;
+  }, [posts]);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  const handleRefetch = useCallback(() => {
+    setShowNewPostsBanner(false);
+    refetchPosts();
+  }, [refetchPosts]);
   const observer = useRef<IntersectionObserver | null>(null);
 
   const lastPostElementRef = useCallback(
@@ -138,6 +219,10 @@ export default function Feed() {
     },
     [isLoading, isFetchingNextPage, fetchNextPage, hasNextPage],
   );
+
+  useEffect(() => {
+    return () => observer.current?.disconnect();
+  }, []);
 
   useEffect(() => {
     const channel = supabase
@@ -163,6 +248,23 @@ export default function Feed() {
           refetchPosts();
         },
       )
+      .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, (payload) => {
+        if (payload.eventType === "INSERT") {
+          const isOwnPost = payload.new && payload.new.author_id === userRef.current?.id;
+          const alreadyExists = postsRef.current.some((p) => p.id === payload.new.id);
+          if (!isOwnPost && !alreadyExists) {
+            setShowNewPostsBanner(true);
+            return;
+          }
+        }
+        refetchPosts();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => {
+        refetchPosts();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "post_reactions" }, () => {
+        refetchPosts();
+      })
       .subscribe();
 
     return () => {
@@ -214,6 +316,8 @@ export default function Feed() {
 
     onError: () => {
       toast.error("Failed to delete post");
+    onError: (error) => {
+      toast.error(error.message || "Failed to publish post.");
     },
   });
 
@@ -292,8 +396,39 @@ export default function Feed() {
       }
     },
 
+    onSuccess: () => refetchPosts(),
+  });
+
+  const deletePostMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      if (!user) throw new Error("Must be logged in");
+      const { error } = await supabase
+        .from("posts")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", postId);
+      if (error) throw error;
+    },
     onSuccess: () => {
       refetchPosts();
+      toast.success("Post deleted successfully!");
+    },
+    onError: () => {
+      toast.error("Failed to delete post.");
+    },
+  });
+
+  const deleteCommentMutation = useMutation({
+    mutationFn: async (commentId: string) => {
+      if (!user) throw new Error("Must be logged in");
+      const { error } = await supabase.from("comments").delete().eq("id", commentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchPosts();
+      toast.success("Comment deleted successfully!");
+    },
+    onError: () => {
+      toast.error("Failed to delete comment.");
     },
   });
 
@@ -337,6 +472,7 @@ export default function Feed() {
         isRefreshing={isLoading || isFetching}
         onRefresh={() => refetchPosts()}
       >
+      <PullToRefresh isRefreshing={isLoading || isFetching} onRefresh={handleRefetch}>
         <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
           <div className="mx-auto max-w-4xl">
             <p className="eyebrow font-bold">
@@ -428,6 +564,33 @@ export default function Feed() {
                 </p>
               )}
             </div>
+
+            <style>{`
+              @keyframes slideDown {
+                from {
+                  opacity: 0;
+                  transform: translateY(-10px);
+                }
+                to {
+                  opacity: 1;
+                  transform: translateY(0);
+                }
+              }
+            `}</style>
+
+            {showNewPostsBanner && (
+              <button
+                type="button"
+                onClick={handleRefetch}
+                style={{
+                  animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+                }}
+                className="neu-border flex w-full items-center justify-center gap-2 bg-[#FFD93D] hover:bg-[#FFD93D]/90 py-3 text-center font-display text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_#000] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_#000] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[4px_4px_0_0_#000] cursor-pointer"
+              >
+                <Sparkles size={16} className="animate-pulse" />
+                New posts available (Refresh)
+              </button>
+            )}
 
             {isLoading ? (
               <div className="space-y-6">
@@ -546,11 +709,33 @@ export default function Feed() {
                           ? lastPostElementRef
                           : null
                       }
+                {posts.map((post: Post, index: number) => {
+                  const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
+                  const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
+                  const clubMembers: ClubMember[] = Array.isArray(club?.club_members)
+                    ? club.club_members
+                    : club?.club_members
+                      ? [club.club_members]
+                      : [];
+
+                  const authorMembership = clubMembers.find((m) => m.user_id === author?.id);
+
+                  const authorRole = (authorMembership?.role ?? "member") as MemberRole;
+
+                  const postComments: Comment[] = Array.isArray(post.comments)
+                    ? post.comments.filter((c) => !c.deleted_at)
+                    : [];
+
+                  const isLastPost = index === posts.length - 1;
+
+                  return (
+                    <article
                       id={`post-${post.id}`}
                       key={post.id}
+                      ref={isLastPost ? lastPostElementRef : undefined}
                       className="neu-border bg-white p-6"
                     >
-                      <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-black pb-3">
+                      <header className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b-2 border-black pb-3">
                         <div>
                           <p className="flex items-center gap-2 font-display text-lg font-bold">
                             {author?.full_name ||
@@ -580,6 +765,7 @@ export default function Feed() {
                         </div>
 
                         {user?.id === author?.id && (
+                        {(user?.id === author?.id || userProfile?.role === "system_admin") && (
                           <AlertDialog>
                             <AlertDialogTrigger
                               asChild
@@ -704,6 +890,34 @@ export default function Feed() {
                             );
                           },
                         )}
+                        {["👍", "👏", "🔥"].map((emoji) => {
+                          const postReactions: PostReaction[] = Array.isArray(post.post_reactions)
+                            ? post.post_reactions
+                            : [];
+                          const reactionCount = postReactions.filter(
+                            (r) => r.emoji === emoji,
+                          ).length;
+                          const isReacted = postReactions.some(
+                            (r) => r.emoji === emoji && r.user_id === user?.id,
+                          );
+
+                          return (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() => {
+                                if (!user) return alert("Log in first");
+                                reactionMutation.mutate({ postId: post.id, emoji, isReacted });
+                              }}
+                              className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${
+                                isReacted ? "bg-lime" : "bg-white hover:bg-cream"
+                              }`}
+                            >
+                              <span>{emoji}</span>
+                              {reactionCount > 0 && <span>{reactionCount}</span>}
+                            </button>
+                          );
+                        })}
                       </div>
 
                       <div className="mt-4 flex gap-2 border-t-2 border-black pt-4">
@@ -735,6 +949,7 @@ export default function Feed() {
                               0,
                               50,
                             )}... - ${window.location.origin}${window.location.pathname}#post-${post.id}`,
+                            `Check out this post: ${post.content.substring(0, 50)}... - ${window.location.origin}${window.location.pathname}#post-${post.id}`,
                           )}`}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -742,6 +957,22 @@ export default function Feed() {
                         >
                           WhatsApp
                         </a>
+
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const shareUrl = `${window.location.origin}${window.location.pathname}#post-${post.id}`;
+                              await navigator.clipboard.writeText(shareUrl);
+                              toast.success("Link copied!");
+                            } catch (err) {
+                              toast.error("Failed to copy link.");
+                            }
+                          }}
+                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-lime hover:text-black cursor-pointer"
+                        >
+                          Copy Link
+                        </button>
                       </div>
 
                       <div className="mt-4 space-y-3 border-t-2 border-black pt-4">
@@ -806,6 +1037,71 @@ export default function Feed() {
                                       {comment.content}
                                     </ReactMarkdown>
                                   </div>
+                          {postComments.map((comment) => {
+                            const commentAuthor = Array.isArray(comment.profiles)
+                              ? comment.profiles[0]
+                              : comment.profiles;
+
+                            const commentAuthorMembership = clubMembers.find(
+                              (m) => m.user_id === commentAuthor?.id,
+                            );
+
+                            return (
+                              <div key={comment.id} className="neu-border bg-cream p-3">
+                                <div className="flex justify-between">
+                                  <p className="font-mono text-xs font-bold uppercase flex items-center gap-1.5">
+                                    {commentAuthor?.full_name || "Unknown User"}
+                                    <RoleBadge
+                                      role={
+                                        (commentAuthorMembership?.role ?? "member") as MemberRole
+                                      }
+                                    />
+                                  </p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-mono text-[10px] text-gray-500">
+                                      {timeAgo(comment.created_at)}
+                                    </p>
+                                    {(user?.id === commentAuthor?.id ||
+                                      userProfile?.role === "system_admin") && (
+                                      <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                          <button
+                                            type="button"
+                                            className="text-[#FF6B6B] hover:text-[#FF8787] uppercase font-bold font-mono text-[10px]"
+                                            aria-label="Delete comment"
+                                          >
+                                            Delete
+                                          </button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent className="neu-border bg-white rounded-none p-6">
+                                          <AlertDialogHeader>
+                                            <AlertDialogTitle className="font-display text-xl font-bold">
+                                              Delete comment?
+                                            </AlertDialogTitle>
+                                            <AlertDialogDescription className="font-mono text-sm text-gray-700">
+                                              Are you sure you want to delete this comment?
+                                            </AlertDialogDescription>
+                                          </AlertDialogHeader>
+                                          <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+                                            <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
+                                              Cancel
+                                            </AlertDialogCancel>
+                                            <AlertDialogAction
+                                              onClick={() =>
+                                                deleteCommentMutation.mutate(comment.id)
+                                              }
+                                              className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
+                                            >
+                                              Confirm
+                                            </AlertDialogAction>
+                                          </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                      </AlertDialog>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="markdown-content mt-1 font-mono text-sm">
+                                  <ReactMarkdown>{comment.content}</ReactMarkdown>
                                 </div>
                               );
                             },
@@ -870,6 +1166,21 @@ export default function Feed() {
                   </div>
                 )}
               </>
+            )}
+
+            {isFetchingNextPage &&
+              Array.from({ length: 2 }).map((_, i) => (
+                <div key={`loading-${i}`} className="neu-border bg-white p-6 animate-pulse">
+                  <div className="h-6 w-1/3 rounded bg-gray-200" />
+                  <div className="mt-4 h-4 w-full rounded bg-gray-200" />
+                  <div className="mt-2 h-4 w-5/6 rounded bg-gray-200" />
+                </div>
+              ))}
+
+            {!hasNextPage && posts.length > 0 && (
+              <div className="py-10 text-center font-mono text-sm font-bold text-gray-500 uppercase">
+                You're all caught up! 🎉
+              </div>
             )}
           </div>
         </section>

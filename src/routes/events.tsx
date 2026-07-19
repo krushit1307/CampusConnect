@@ -22,6 +22,8 @@ interface EventItem {
   title: string;
   description: string | null;
   event_date: string | null;
+  start_date: string | null;
+  end_date: string | null;
   location: string | null;
   banner_url?: string | null;
   clubs: { name: string } | { name: string }[] | null;
@@ -84,8 +86,7 @@ export default function EventsPage() {
           id, title, description, event_date, start_date, end_date, location, banner_url,
           clubs (name),
           event_rsvps (id, user_id),
-          saved_events (id, user_id),
-          attendee_count
+          saved_events (id, user_id)
         `,
         )
         .order("event_date", { ascending: true });
@@ -106,7 +107,6 @@ export default function EventsPage() {
             clubs: { name: "Tech Club" },
             event_rsvps: [{ id: "rsvp-1", user_id: "user-1" }],
             saved_events: [],
-            attendee_count: 1,
           },
           {
             id: "mock-2",
@@ -121,7 +121,6 @@ export default function EventsPage() {
             clubs: { name: "Art & Design" },
             event_rsvps: [],
             saved_events: [],
-            attendee_count: 0,
           },
           {
             id: "mock-3",
@@ -139,7 +138,6 @@ export default function EventsPage() {
               { id: "rsvp-3", user_id: "user-3" },
             ],
             saved_events: [],
-            attendee_count: 2,
           },
         ];
       }
@@ -148,7 +146,13 @@ export default function EventsPage() {
     },
   });
 
-  const events = queryData || [];
+  const [events, setEvents] = useState<EventItem[]>([]);
+
+  useEffect(() => {
+    if (queryData) {
+      setEvents(queryData);
+    }
+  }, [queryData]);
 
   useEffect(() => {
     const channel = supabase
@@ -156,6 +160,19 @@ export default function EventsPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "event_rsvps" }, () => {
         refetch();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
+        refetch();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, refetch]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("realtime_saved_events")
       .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
         refetch();
       })
@@ -198,7 +215,10 @@ export default function EventsPage() {
       toast.success(
         variables.hasRsvpd ? "RSVP cancelled successfully!" : "RSVP registered successfully!",
       );
-      refetch();
+      if (!variables.eventId.startsWith("mock-")) {
+        refetch();
+        window.dispatchEvent(new CustomEvent("refetchEvents"));
+      }
     },
     onError: () => {
       toast.error("Failed to update RSVP.");
@@ -232,12 +252,72 @@ export default function EventsPage() {
     },
   });
 
+  const handleRsvpToggle = async (eventId: string, hasRsvpd: boolean) => {
+    const originalEvents = [...events];
+
+    setEvents((prevEvents) =>
+      prevEvents.map((e) => {
+        if (e.id === eventId) {
+          const rsvpsList = Array.isArray(e.event_rsvps) ? e.event_rsvps : [];
+          if (hasRsvpd) {
+            return {
+              ...e,
+              event_rsvps: rsvpsList.filter((r) => r.user_id !== (user?.id || "")),
+            };
+          } else {
+            return {
+              ...e,
+              event_rsvps: [...rsvpsList, { id: "temp-rsvp-id", user_id: user?.id || "" }],
+            };
+          }
+        }
+        return e;
+      }),
+    );
+
+    try {
+      await toggleRsvp.mutateAsync({ eventId, hasRsvpd });
+    } catch {
+      setEvents(originalEvents);
+    }
+  };
+
+  const handleBookmarkToggle = async (eventId: string, isSaved: boolean) => {
+    const originalEvents = [...events];
+
+    setEvents((prevEvents) =>
+      prevEvents.map((e) => {
+        if (e.id === eventId) {
+          const savedList = Array.isArray(e.saved_events) ? e.saved_events : [];
+          if (isSaved) {
+            return {
+              ...e,
+              saved_events: savedList.filter((s) => s.user_id !== (user?.id || "")),
+            };
+          } else {
+            return {
+              ...e,
+              saved_events: [...savedList, { id: "temp-id", user_id: user?.id || "" }],
+            };
+          }
+        }
+        return e;
+      }),
+    );
+
+    try {
+      await toggleBookmark.mutateAsync({ eventId, isSaved });
+    } catch {
+      setEvents(originalEvents);
+    }
+  };
+
   const colors = ["bg-lime", "bg-sky", "bg-peach", "bg-lavender"];
 
   const filteredEvents =
     filter === "All"
-      ? events
-      : events.filter((e) => {
+      ? localEvents
+      : localEvents.filter((e) => {
           const searchStr = `${e.title} ${e.description}`.toLowerCase();
           return searchStr.includes(filter.toLowerCase());
         });
@@ -340,10 +420,10 @@ export default function EventsPage() {
                       event={e}
                       index={index}
                       user={user}
-                      onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
+                      onRsvpToggle={(eventId, hasRsvpd) => handleRsvpToggle(eventId, hasRsvpd)}
                       isRsvpPending={toggleRsvp.isPending}
                       onBookmarkToggle={(eventId, isSaved) =>
-                        toggleBookmark.mutate({ eventId, isSaved })
+                        handleBookmarkToggle(eventId, isSaved)
                       }
                       isBookmarkPending={toggleBookmark.isPending}
                     />

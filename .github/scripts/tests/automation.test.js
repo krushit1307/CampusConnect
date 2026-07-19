@@ -6,6 +6,7 @@ import { processManualAssignment } from "../assignment.js";
 import { processPrValidation, processPrMerged, processFirstContributorWelcome } from "../pr.js";
 import { processIssueLifecycle } from "../lifecycle.js";
 import { processClaimExpiration } from "../expiration.js";
+import { processActivityReminder } from "../activity-reminder.js";
 
 function createCore() {
   return { info() {}, warning() {}, error() {} };
@@ -343,4 +344,70 @@ test("expiration: skipped if user has an open linked PR", async () => {
   };
   await processClaimExpiration({ github, context, core: createCore() });
   assert.equal(github.state.assignees[50], "assigned-user");
+});
+
+test("activity reminder: warns for inactive PR and issue", async () => {
+  const commentsCreated = [];
+  const github = {
+    rest: {
+      issues: {
+        listForRepo: () => {},
+        listComments: () => {},
+        createComment: async ({ issue_number, body }) => {
+          commentsCreated.push({ issue_number, body });
+          return { data: {} };
+        },
+      },
+      pulls: {
+        listReviews: async () => {
+          return { data: [] }; // No admin reviews
+        },
+      },
+    },
+    async paginate(apiMethod, args) {
+      if (apiMethod === this.rest.issues.listForRepo) {
+        // Return 1 open PR and 1 open issue
+        return [
+          {
+            number: 101,
+            pull_request: {},
+            created_at: new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString(), // 20 hours ago
+            labels: [{ name: "ECSoC26" }],
+            assignees: [],
+          },
+          {
+            number: 102,
+            created_at: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString(), // 30 hours ago
+            labels: [{ name: "good-issue" }],
+            assignees: [],
+          },
+        ];
+      }
+      if (apiMethod === this.rest.issues.listComments) {
+        // No comments yet
+        return [];
+      }
+      return [];
+    },
+  };
+
+  const context = {
+    repo: { owner: "org", repo: "repo" },
+  };
+
+  await processActivityReminder({ github, context, core: createCore() });
+
+  // Both should get warnings:
+  // PR 101 should get first response warning (since it has been 20 hours and is ECSoC26 PR)
+  // Issue 102 should get issue inaction warning (since it has been 30 hours with no action)
+  assert.ok(
+    commentsCreated.some(
+      (c) => c.issue_number === 101 && c.body.includes("cc:pr-first-response-warning"),
+    ),
+  );
+  assert.ok(
+    commentsCreated.some(
+      (c) => c.issue_number === 102 && c.body.includes("cc:issue-inaction-warning"),
+    ),
+  );
 });

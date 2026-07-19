@@ -62,3 +62,31 @@ export function formatEventDateRange(startIso: string, endIso: string, timeZone 
 
   return `${dateFmt.format(start)} at ${timeFmt.format(start)} – ${timeFmt.format(end)}`;
 }
+
+export function parseCoordinates(locationStr: string): {
+  isCoordinates: boolean;
+  isValid: boolean;
+  lat?: number;
+  lng?: number;
+} {
+  const trimmed = locationStr.trim();
+  const parts = trimmed.split(",");
+
+  if (parts.length === 2) {
+    const latStr = parts[0].trim();
+    const lngStr = parts[1].trim();
+
+    // Check if at least one part is numeric, indicating coordinates were intended
+    const numericRegex = /^-?\d+(\.\d+)?$/;
+    if (numericRegex.test(latStr) || numericRegex.test(lngStr)) {
+      const lat = parseFloat(latStr);
+      const lng = parseFloat(lngStr);
+
+      if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        return { isCoordinates: true, isValid: false };
+      }
+      return { isCoordinates: true, isValid: true, lat, lng };
+    }
+  }
+  return { isCoordinates: false, isValid: true };
+}

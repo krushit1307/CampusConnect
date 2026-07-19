@@ -30,7 +30,7 @@ BEGIN
     IF OLD.club_id != NEW.club_id THEN
       IF OLD.status = 'approved' THEN
         UPDATE public.clubs
-        SET member_count = member_count - 1
+        SET member_count = GREATEST(member_count - 1, 0)
         WHERE id = OLD.club_id;
       END IF;
       IF NEW.status = 'approved' THEN
@@ -45,22 +45,23 @@ BEGIN
         WHERE id = NEW.club_id;
       ELSIF OLD.status = 'approved' AND NEW.status = 'pending' THEN
         UPDATE public.clubs
-        SET member_count = member_count - 1
+        SET member_count = GREATEST(member_count - 1, 0)
         WHERE id = NEW.club_id;
       END IF;
     END IF;
   ELSIF TG_OP = 'DELETE' THEN
     IF OLD.status = 'approved' THEN
       UPDATE public.clubs
-      SET member_count = member_count - 1
+      SET member_count = GREATEST(member_count - 1, 0)
       WHERE id = OLD.club_id;
     END IF;
   END IF;
   RETURN NULL;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
--- Create the trigger
-CREATE OR REPLACE TRIGGER on_club_member_change
+-- 4. Create trigger
+DROP TRIGGER IF EXISTS update_club_member_count ON public.club_members;
+CREATE TRIGGER update_club_member_count
   AFTER INSERT OR UPDATE OR DELETE ON public.club_members
   FOR EACH ROW EXECUTE FUNCTION public.handle_club_member_change();

@@ -324,7 +324,7 @@ export default function Certificates() {
                       onClick={async () => {
                         try {
                           await navigator.clipboard.writeText(selectedCert.certificate_url);
-                          alert("Verifiable link copied to clipboard!");
+                          toast.success("Verifiable link copied to clipboard!");
                         } catch (err) {
                           console.error("Clipboard copy failed:", err);
                         }

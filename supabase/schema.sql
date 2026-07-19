@@ -37,7 +37,8 @@ CREATE TABLE clubs (
   logo_url TEXT,
   created_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT check_clubs_slug_format CHECK (slug ~ '^[a-z0-9-]+$')
 );
 
 CREATE TABLE club_members (
@@ -82,6 +83,7 @@ CHECK (
 );
 
 CREATE INDEX idx_events_category ON events(category_id);
+CREATE INDEX idx_events_start_date ON events(start_date);
 
 ALTER TABLE events
 ADD CONSTRAINT events_latitude_valid
@@ -131,18 +133,19 @@ CREATE TABLE posts (
   club_id UUID REFERENCES clubs(id) ON DELETE CASCADE,
   author_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
+  pinned BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE comments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
-  author_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  content TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+    author_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE certificates (
@@ -197,6 +200,43 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.is_system_admin() TO authenticated;
+
+-- Retrieve upcoming events for feed timeline
+CREATE OR REPLACE FUNCTION public.get_upcoming_events_feed(user_uuid UUID)
+RETURNS TABLE (
+  title TEXT,
+  date TIMESTAMPTZ,
+  location TEXT,
+  rsvp_count BIGINT,
+  is_bookmarked BOOLEAN
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT 
+    e.title,
+    e.start_date AS date,
+    e.location,
+    COALESCE((
+      SELECT COUNT(*) 
+      FROM public.event_rsvps r 
+      WHERE r.event_id = e.id
+    ), 0)::BIGINT AS rsvp_count,
+    COALESCE(EXISTS(
+      SELECT 1 
+      FROM public.saved_events s 
+      WHERE s.event_id = e.id AND s.user_id = user_uuid
+    ), false) AS is_bookmarked
+  FROM public.events e
+  WHERE e.start_date >= NOW()
+    AND e.status != 'canceled'
+  ORDER BY e.start_date ASC;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_upcoming_events_feed(UUID) TO authenticated;
+
 -- 3. Row Level Security (RLS)
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
@@ -277,7 +317,15 @@ CREATE POLICY "Club members can insert comments." ON comments FOR INSERT WITH CH
   EXISTS (SELECT 1 FROM clubs WHERE id = (SELECT club_id FROM posts WHERE id = comments.post_id) AND created_by = auth.uid())
 );
 CREATE POLICY "Authors can update own comments." ON comments FOR UPDATE USING (auth.uid() = author_id);
-CREATE POLICY "Authors can delete own comments." ON comments FOR DELETE USING (auth.uid() = author_id);
+CREATE POLICY "Authors or club admins can delete comments." ON comments FOR DELETE USING (
+  auth.uid() = author_id OR
+  public.is_club_admin((SELECT club_id FROM posts WHERE id = comments.post_id), auth.uid()) OR
+  EXISTS (
+    SELECT 1 FROM clubs
+    WHERE id = (SELECT club_id FROM posts WHERE id = comments.post_id)
+      AND created_by = auth.uid()
+  )
+);
 
 -- certificates: users can read only their own
 CREATE POLICY "Users can read own certificates." ON certificates FOR SELECT USING (auth.uid() = user_id);
@@ -373,6 +421,69 @@ CREATE OR REPLACE TRIGGER on_event_canceled
   WHEN (NEW.status = 'canceled' AND OLD.status IS DISTINCT FROM 'canceled')
   EXECUTE PROCEDURE public.handle_event_cancellation();
 
+-- Prevent non-admins from pinning discussion posts
+CREATE OR REPLACE FUNCTION public.check_post_pin_permission()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.pinned = TRUE THEN
+    -- Verify the user is an admin of the corresponding club or the club owner
+    IF NOT (
+      public.is_club_admin(NEW.club_id, auth.uid()) OR
+      EXISTS (
+        SELECT 1 FROM public.clubs
+        WHERE id = NEW.club_id AND created_by = auth.uid()
+      )
+    ) THEN
+      RAISE EXCEPTION 'Only club administrators can pin posts.'
+        USING ERRCODE = 'P0001';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE TRIGGER before_post_pin_check
+BEFORE INSERT OR UPDATE ON public.posts
+FOR EACH ROW
+EXECUTE FUNCTION public.check_post_pin_permission();
+
+-- Comment rate limiter trigger function and trigger
+CREATE OR REPLACE FUNCTION public.check_comment_rate_limit()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_comment_count INTEGER;
+BEGIN
+  -- Count comments created by the currently authenticated user in the past 60 seconds
+  SELECT COUNT(*)
+  INTO v_comment_count
+  FROM public.comments
+  WHERE author_id = auth.uid()
+    AND created_at >= NOW() - INTERVAL '1 minute';
+
+  -- Abort insert if count is >= 5
+  IF v_comment_count >= 5 THEN
+    RAISE EXCEPTION 'Comment rate limit exceeded. You can only post 5 comments per minute.'
+      USING ERRCODE = 'P0001';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER before_comment_insert
+BEFORE INSERT ON public.comments
+FOR EACH ROW
+EXECUTE FUNCTION public.check_comment_rate_limit();
+
 -- ------------------------------------------------------------
 -- 5. Storage Buckets & Policies
 -- ------------------------------------------------------------
@@ -467,6 +578,7 @@ USING (
 ALTER PUBLICATION supabase_realtime ADD TABLE posts;
 ALTER PUBLICATION supabase_realtime ADD TABLE comments;
 ALTER PUBLICATION supabase_realtime ADD TABLE event_rsvps;
+ALTER PUBLICATION supabase_realtime ADD TABLE saved_events;
 
 -- Backfill any missing profiles for existing authenticated users
 INSERT INTO public.profiles (id, full_name, avatar_url)

@@ -15,6 +15,7 @@ DROP POLICY IF EXISTS "Users can update own profile." ON public.profiles;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 -- 1. Add an RLS policy that allows SELECT for all authenticated users
+DROP POLICY IF EXISTS "Allow SELECT for all authenticated users" ON public.profiles;
 CREATE POLICY "Allow SELECT for all authenticated users" 
 ON public.profiles 
 FOR SELECT 
@@ -22,6 +23,7 @@ TO authenticated
 USING (true);
 
 -- 2. Add an RLS policy that allows UPDATE only if auth.uid() = id (preventing role escalation)
+DROP POLICY IF EXISTS "Allow UPDATE only if auth.uid() = id" ON public.profiles;
 CREATE POLICY "Allow UPDATE only if auth.uid() = id" 
 ON public.profiles 
 FOR UPDATE 

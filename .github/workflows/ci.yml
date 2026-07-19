@@ -102,3 +102,22 @@ jobs:
 
       - name: Verify Production Build
         run: npm run build
+
+  db-migrations:
+    name: Verify Database Migrations
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase
+        run: supabase start
+
+      - name: Verify database migrations
+        run: supabase db reset

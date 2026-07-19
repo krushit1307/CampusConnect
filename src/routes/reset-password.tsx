@@ -10,6 +10,7 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [password, setPassword] = useState("");
   const [checkingLink, setCheckingLink] = useState(true);
   const [linkValid, setLinkValid] = useState(false);
   const navigate = useNavigate();
@@ -141,6 +142,30 @@ export default function ResetPasswordPage() {
                     </Button>
                   }
                 />
+                <div>
+                  <Field
+                    label="New password"
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    placeholder="********"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    rightElement={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="flex items-center justify-center p-1 text-black hover:scale-105 transition-transform outline-none"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </Button>
+                    }
+                  />
+                  <PasswordStrengthMeter password={password} />
+                </div>
                 <Field
                   label="Confirm new password"
                   type={showPassword ? "text" : "password"}
@@ -152,6 +177,8 @@ export default function ResetPasswordPage() {
                   type="submit"
                   disabled={loading}
                   className="neu-border neu-press w-full bg-auth-text px-4 py-3 font-mono text-sm font-bold uppercase tracking-wider text-auth-bg disabled:opacity-50"
+                  disabled={loading || getPasswordStrength(password) === "weak"}
+                  className="neu-border neu-press w-full bg-black px-4 py-3 font-mono text-sm font-bold uppercase tracking-wider text-cream disabled:opacity-50"
                 >
                   {loading ? "Updating..." : "Update password"}
                 </Button>
@@ -164,6 +191,54 @@ export default function ResetPasswordPage() {
   );
 }
 
+type PasswordStrength = "weak" | "medium" | "strong";
+
+function getPasswordStrength(value: string): PasswordStrength {
+  let score = 0;
+  if (value.length >= 8) score++;
+  if (/[a-zA-Z]/.test(value)) score++;
+  if (/[0-9]/.test(value)) score++;
+  if (/[^a-zA-Z0-9]/.test(value)) score++;
+
+  if (score <= 1) return "weak";
+  if (score <= 3) return "medium";
+  return "strong";
+}
+
+function PasswordStrengthMeter({ password }: { password: string }) {
+  if (!password) return null;
+
+  const strength = getPasswordStrength(password);
+  const activeSegments = strength === "weak" ? 1 : strength === "medium" ? 2 : 3;
+  const colorClass =
+    strength === "weak"
+      ? "bg-destructive"
+      : strength === "medium"
+        ? "bg-orange-500"
+        : "bg-green-600";
+  const label = strength === "weak" ? "Weak" : strength === "medium" ? "Medium" : "Strong";
+  const labelColorClass =
+    strength === "weak"
+      ? "text-destructive"
+      : strength === "medium"
+        ? "text-orange-600"
+        : "text-green-700";
+
+  return (
+    <div className="mt-2">
+      <div className="flex gap-1">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className={`h-1.5 flex-1 border border-black ${i < activeSegments ? colorClass : "bg-transparent"}`}
+          />
+        ))}
+      </div>
+      <p className={`mt-1 font-mono text-xs font-bold uppercase ${labelColorClass}`}>{label}</p>
+    </div>
+  );
+}
+
 function Field({
   label,
   type,
@@ -171,6 +246,8 @@ function Field({
   placeholder,
   required,
   rightElement,
+  value,
+  onChange,
 }: {
   label: string;
   type: string;
@@ -178,6 +255,8 @@ function Field({
   placeholder: string;
   required?: boolean;
   rightElement?: React.ReactNode;
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
   return (
     <label className="block text-auth-text">
@@ -196,6 +275,9 @@ function Field({
           placeholder={placeholder}
           required={required}
           className="w-full bg-transparent px-1 py-2 font-mono text-sm text-auth-text placeholder:text-auth-placeholder outline-none"
+          value={value}
+          onChange={onChange}
+          className="w-full bg-transparent px-1 py-2 font-mono text-sm outline-none"
         />
         {rightElement && (
           <div className="absolute right-2 flex items-center justify-center">{rightElement}</div>
