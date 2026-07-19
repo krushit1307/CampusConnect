@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
-import { clubFormSchema, type ClubFormValues } from "@/lib/clubUtils";
+import { clubFormSchema, MAX_DESCRIPTION_LENGTH, type ClubFormValues } from "@/lib/clubUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
@@ -90,6 +90,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
           slug: values.slug.trim(),
           description: values.description.trim(),
           created_by: user.id,
+          status: "pending",
         })
         .select("id")
         .single();
@@ -112,7 +113,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
       }
     },
     onSuccess: () => {
-      toast.success("Club created successfully!");
+      toast.success("Club submitted for administrator review.");
       window.dispatchEvent(new Event("refetchClubs"));
       form.reset(defaultValues);
       setOpen(false);
@@ -150,7 +151,8 @@ export function CreateClubDialog({ user }: { user: User | null }) {
         <DialogHeader>
           <DialogTitle>Create a new club</DialogTitle>
           <DialogDescription>
-            Start a new club or student chapter. Fill in the details below.
+            Submit a new club or student chapter. An administrator will review it before it appears
+            publicly.
           </DialogDescription>
         </DialogHeader>
 
@@ -189,26 +191,41 @@ export function CreateClubDialog({ user }: { user: User | null }) {
             <FormField
               control={form.control}
               name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel required>Club Description (Markdown)</FormLabel>
-                  <FormControl>
-                    <MarkdownEditor
-                      value={field.value}
-                      onChange={field.onChange}
-                      placeholder="Write about your club, its goals, meeting schedules, etc. (Markdown supported!)"
-                      rows={6}
-                      minHeightClass="min-h-36"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              render={({ field }) => {
+                const currentLength = field.value?.length ?? 0;
+                const isNearLimit = currentLength >= MAX_DESCRIPTION_LENGTH - 10;
+
+                return (
+                  <FormItem>
+                    <FormLabel required>Club Description (Markdown)</FormLabel>
+
+                    <FormControl>
+                      <MarkdownEditor
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Write about your club..."
+                        rows={6}
+                        minHeightClass="min-h-36"
+                      />
+                    </FormControl>
+
+                    <div
+                      className={`mt-1 text-right text-xs ${
+                        isNearLimit ? "text-red-500" : "text-muted-foreground"
+                      }`}
+                    >
+                      {currentLength}/{MAX_DESCRIPTION_LENGTH}
+                    </div>
+
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
 
             <DialogFooter className="pt-2">
               <Button type="submit" disabled={createClub.isPending} className="w-full sm:w-auto">
-                {createClub.isPending ? "Creating..." : "Create Club"}
+                {createClub.isPending ? "Submitting..." : "Submit Club"}
               </Button>
             </DialogFooter>
           </form>
