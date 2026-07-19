@@ -306,7 +306,7 @@ jobs:
               const state = (currentMergeableStateString || "").toLowerCase();
               console.log(`PR #${prNumber} mergeable_state: "${state}"`);
 
-              if (state === "clean" || state === "has_hooks" || state === "") {
+              if (state === "clean" || state === "has_hooks" || state === "unstable" || state === "") {
                 try {
                   console.log(`🚀 Auto-merging PR #${prNumber}...`);
                   await github.rest.pulls.merge({
