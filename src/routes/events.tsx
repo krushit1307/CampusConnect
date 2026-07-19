@@ -54,6 +54,8 @@ export default function EventsPage() {
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [sortLoaded, setSortLoaded] = useState(false);
+  const [hidePastEvents, setHidePastEvents] = useState(false);
+  const [hidePastLoaded, setHidePastLoaded] = useState(false);
 
   useEffect(() => {
     const savedSort = sessionStorage.getItem("event-sort-order");
@@ -63,6 +65,12 @@ export default function EventsPage() {
     }
 
     setSortLoaded(true);
+
+    const savedHidePast = sessionStorage.getItem("hide-past-events");
+    if (savedHidePast === "true") {
+      setHidePastEvents(true);
+    }
+    setHidePastLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -70,6 +78,11 @@ export default function EventsPage() {
 
     sessionStorage.setItem("event-sort-order", sortOrder);
   }, [sortOrder, sortLoaded]);
+
+  useEffect(() => {
+    if (!hidePastLoaded) return;
+    sessionStorage.setItem("hide-past-events", hidePastEvents.toString());
+  }, [hidePastEvents, hidePastLoaded]);
 
   const {
     data: queryData,
@@ -112,10 +125,10 @@ export default function EventsPage() {
             id: "mock-2",
             title: "Watercolor Workshop",
             description: "Learn the basics of watercolor painting.",
-            event_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-            start_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+            event_date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+            start_date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
             end_date: new Date(
-              Date.now() + 3 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
+              Date.now() - 3 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
             ).toISOString(),
             location: "Art Studio 3",
             clubs: { name: "Art & Design" },
@@ -314,10 +327,24 @@ export default function EventsPage() {
 
   const colors = ["bg-lime", "bg-sky", "bg-peach", "bg-lavender"];
 
+  const now = new Date();
+  const timeFilteredEvents = hidePastEvents
+    ? events.filter((e) => {
+        // Use end_date if available, fallback to event_date
+        const dateToCheck = e.end_date
+          ? new Date(e.end_date)
+          : e.event_date
+            ? new Date(e.event_date)
+            : null;
+        if (!dateToCheck) return true;
+        return dateToCheck > now;
+      })
+    : events;
+
   const filteredEvents =
     filter === "All"
-      ? localEvents
-      : localEvents.filter((e) => {
+      ? timeFilteredEvents
+      : timeFilteredEvents.filter((e) => {
           const searchStr = `${e.title} ${e.description}`.toLowerCase();
           return searchStr.includes(filter.toLowerCase());
         });
@@ -345,6 +372,15 @@ export default function EventsPage() {
             </div>
             <div className="flex flex-col items-end gap-3 w-full md:w-auto">
               <div className="flex flex-wrap items-center gap-2">
+                <label className="neu-border flex cursor-pointer select-none items-center gap-2 bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-white md:mr-2">
+                  <input
+                    type="checkbox"
+                    checked={hidePastEvents}
+                    onChange={(e) => setHidePastEvents(e.target.checked)}
+                    className="h-4 w-4 accent-black cursor-pointer"
+                  />
+                  Hide Past Events
+                </label>
                 {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t, i) => (
                   <button
                     key={t}
