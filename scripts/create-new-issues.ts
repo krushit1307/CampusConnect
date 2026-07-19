@@ -1,9 +1,13 @@
+const isEnvFileMissing = () => !fs.existsSync(envPath);
+const isGitHubRepoMissing = () => !GITHUB_REPO;
+const isValidGitHubToken = (token: string) =>
+  token !== "your_personal_access_token" && token !== null;
 import fs from "fs";
 import path from "path";
 
 // 1. Setup and Authentication
 const envPath = path.resolve(process.cwd(), ".env.local");
-if (!fs.existsSync(envPath)) {
+if (isEnvFileMissing()) {
   console.error("❌ .env.local file not found.");
   process.exit(1);
 }
@@ -15,12 +19,12 @@ const githubRepoMatch = envContent.match(/GITHUB_REPO=(.*)/);
 const GITHUB_TOKEN = githubTokenMatch ? githubTokenMatch[1].trim() : null;
 const GITHUB_REPO = githubRepoMatch ? githubRepoMatch[1].trim() : null;
 
-if (!GITHUB_TOKEN || GITHUB_TOKEN === "your_personal_access_token") {
+if (!isGitHubTokenValid()) {
   console.error("❌ Valid GITHUB_TOKEN not found in .env.local.");
   process.exit(1);
 }
 
-if (!GITHUB_REPO) {
+if (isGitHubRepoMissing()) {
   console.error("❌ GITHUB_REPO not found in .env.local.");
   process.exit(1);
 }
@@ -34,7 +38,11 @@ const headers = {
 };
 
 // 2. Helper for API Requests
-async function githubRequest(endpoint: string, method: string = "GET", body?: unknown) {
+async function githubRequest(
+  endpoint: string,
+  method: string = "GET",
+  body?: unknown,
+) {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     method,
     headers: {
@@ -46,7 +54,9 @@ async function githubRequest(endpoint: string, method: string = "GET", body?: un
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`❌ GitHub API Error (${response.status}) on ${endpoint}: ${errorText}`);
+    console.error(
+      `❌ GitHub API Error (${response.status}) on ${endpoint}: ${errorText}`,
+    );
     return null;
   }
 
@@ -165,7 +175,9 @@ async function createNewIssues() {
   // First fetch existing to avoid exact duplicates
   console.log("⏳ Checking existing issues to prevent duplicates...");
   const existingIssues = await githubRequest("/issues?state=all&per_page=100");
-  const existingTitles = new Set((existingIssues || []).map((i: { title: string }) => i.title));
+  const existingTitles = new Set(
+    (existingIssues || []).map((i: { title: string }) => i.title),
+  );
 
   let createdCount = 0;
   for (const issue of newIssues) {
