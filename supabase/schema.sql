@@ -11,6 +11,7 @@ CREATE TABLE profiles (
   avatar_url TEXT,
   college TEXT,
   bio TEXT,
+  skills TEXT[] DEFAULT '{}'::TEXT[],
   role user_role DEFAULT 'student'::user_role,
   notification_preferences JSONB NOT NULL DEFAULT '{"rsvps": true, "digest": true, "certs": true}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -28,6 +29,8 @@ CHECK (
   AND jsonb_typeof(notification_preferences->'digest') = 'boolean'
   AND jsonb_typeof(notification_preferences->'certs') = 'boolean'
 );
+
+CREATE INDEX IF NOT EXISTS idx_profiles_skills ON public.profiles USING gin (skills);
 
 CREATE OR REPLACE FUNCTION public.is_valid_social_links(links jsonb)
 RETURNS boolean
