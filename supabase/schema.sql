@@ -135,6 +135,7 @@ CREATE TABLE posts (
   author_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   pinned BOOLEAN NOT NULL DEFAULT FALSE,
+  like_count INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   deleted_at TIMESTAMPTZ
@@ -511,6 +512,38 @@ CREATE TRIGGER before_comment_insert
 BEFORE INSERT ON public.comments
 FOR EACH ROW
 EXECUTE FUNCTION public.check_comment_rate_limit();
+
+-- Post like count trigger on post_reactions
+CREATE OR REPLACE FUNCTION public.update_post_like_count()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    UPDATE posts
+    SET like_count = (SELECT COUNT(*) FROM post_reactions WHERE post_id = NEW.post_id)
+    WHERE id = NEW.post_id;
+    RETURN NEW;
+  ELSIF TG_OP = 'DELETE' THEN
+    UPDATE posts
+    SET like_count = (SELECT COUNT(*) FROM post_reactions WHERE post_id = OLD.post_id)
+    WHERE id = OLD.post_id;
+    RETURN OLD;
+  END IF;
+END;
+$$;
+
+CREATE TRIGGER trg_post_reactions_insert
+AFTER INSERT ON post_reactions
+FOR EACH ROW
+EXECUTE FUNCTION public.update_post_like_count();
+
+CREATE TRIGGER trg_post_reactions_delete
+AFTER DELETE ON post_reactions
+FOR EACH ROW
+EXECUTE FUNCTION public.update_post_like_count();
 
 -- ------------------------------------------------------------
 -- 5. Storage Buckets & Policies

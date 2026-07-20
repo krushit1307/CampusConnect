@@ -61,6 +61,7 @@ interface Post {
   content: string;
   created_at: string;
   club_id: string;
+  like_count: number;
   profiles: Profile[] | Profile | null;
   clubs: Club[] | Club | null;
   comments: Comment[] | null;
@@ -138,7 +139,7 @@ export default function Feed() {
         .from("posts")
         .select(
           `
-        id, content, created_at, club_id,
+        id, content, created_at, club_id, like_count,
         profiles (id, first_name, last_name),
         clubs (id, name, club_members (user_id, role)),
         comments (id, content, created_at, deleted_at, profiles (id, first_name, last_name)),
@@ -578,7 +579,7 @@ export default function Feed() {
                         <ReactMarkdown>{post.content}</ReactMarkdown>
                       </div>
 
-                      <div className="mt-4 flex flex-wrap gap-2">
+                      <div className="mt-4 flex flex-wrap items-center gap-2">
                         {["👍", "👏", "🔥"].map((emoji) => {
                           const postReactions: PostReaction[] = Array.isArray(post.post_reactions)
                             ? post.post_reactions
@@ -607,6 +608,11 @@ export default function Feed() {
                             </button>
                           );
                         })}
+                        {post.like_count > 0 && (
+                          <span className="font-mono text-xs text-gray-500">
+                            {post.like_count} total
+                          </span>
+                        )}
                       </div>
 
                       <div className="mt-4 flex gap-2 border-t-2 border-black pt-4">
