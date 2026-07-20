@@ -71,6 +71,7 @@ export default function EventsPage() {
 
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filter, setFilter] = useState("All");
 
   const {
     data: queryData,
@@ -379,15 +380,6 @@ export default function EventsPage() {
   };
 
   const colors = ["bg-lime", "bg-sky", "bg-peach", "bg-lavender"];
-
-
-  const filteredEvents =
-    filter === "All"
-      ? events
-      : events.filter((e: EventItem) => {
-          const searchStr = `${e.title || ""} ${e.description || ""}`.toLowerCase();
-          return searchStr.includes(filter.toLowerCase());
-        });
 
   const filteredEvents = events.filter((e: EventItem) => {
     const matchesFilter =
