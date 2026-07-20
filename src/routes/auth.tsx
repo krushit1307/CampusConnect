@@ -93,7 +93,7 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-cream px-4 py-16">
+    <div className="relative flex min-h-screen items-center justify-center bg-purple-300 px-4 py-16">
       <Sparkle className="absolute left-8 top-8" size={20} />
       <Sparkle className="absolute right-8 top-8" size={20} />
       <Sparkle className="absolute bottom-8 left-8" size={16} />
@@ -101,9 +101,9 @@ export default function AuthPage() {
 
       <div className="w-full max-w-md">
         <div className="mb-6 flex items-center justify-between">
-          <Link to="/" className="font-display text-2xl font-bold">
+          <Link to="/" className="font-display text-2xl font-bold text-black">
             CAMPUS
-            <span className="bg-black px-1 text-cream">CONNECT</span>
+            <span className="bg-black px-1 text-white">CONNECT</span>
           </Link>
 
           <Link
@@ -117,11 +117,11 @@ export default function AuthPage() {
 
         <div className="neu-border bg-white p-8">
           <div key={mode} className="auth-mode-transition">
-            <p className="eyebrow mb-2 font-bold">
+            <p className="eyebrow mb-2 font-bold text-black">
               {mode === "signin" ? "Welcome back" : "Get started"}
             </p>
 
-            <h1 className="mb-6 text-3xl font-bold">
+            <h1 className="mb-6 text-3xl font-bold text-blue-900">
               {mode === "signin" ? "Sign in to CampusConnect" : "Create your account"}
             </h1>
 
@@ -129,7 +129,7 @@ export default function AuthPage() {
               <div className="mb-4 bg-red-100 p-2 font-mono text-sm text-red-700">{error}</div>
             )}
 
-            <form onSubmit={onSubmit} className="space-y-4">
+            <form onSubmit={onSubmit} className="space-y-4 text-red-900">
               {mode === "signup" && (
                 <Field
                   label="Full name"
@@ -171,7 +171,7 @@ export default function AuthPage() {
               )}
 
               {mode === "signin" && (
-                <p className="text-right">
+                <p className="text-right text-blue-600">
                   <Link
                     to="/forgot-password"
                     className="font-mono text-xs font-bold underline underline-offset-2"
@@ -181,14 +181,18 @@ export default function AuthPage() {
                 </p>
               )}
 
-              <Button type="submit" disabled={loading} className="w-full">
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-blue-600 text-white hover:bg-blue-400"
+              >
                 {loading ? "Loading..." : mode === "signin" ? "Sign in" : "Create account"}
               </Button>
             </form>
 
             <div className="my-6 flex items-center gap-3">
               <div className="h-[2px] flex-1 bg-black" />
-              <span className="eyebrow font-bold">or</span>
+              <span className="eyebrow font-bold text-black">or</span>
               <div className="h-[2px] flex-1 bg-black" />
             </div>
 
@@ -201,7 +205,7 @@ export default function AuthPage() {
               Continue with Google
             </Button>
 
-            <p className="mt-6 text-center font-mono text-xs">
+            <p className="mt-6 text-center font-mono text-xs text-black">
               {mode === "signin" ? "New here?" : "Already have an account?"}{" "}
               <Button
                 type="button"
@@ -210,7 +214,7 @@ export default function AuthPage() {
                   setMode(mode === "signin" ? "signup" : "signin");
                   setError(null);
                 }}
-                className="h-auto p-0 font-bold underline"
+                className="h-auto p-0 font-bold underline text-blue-600"
               >
                 {mode === "signin" ? "Create an account" : "Sign in"}
               </Button>

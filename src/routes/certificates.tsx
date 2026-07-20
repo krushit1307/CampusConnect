@@ -86,7 +86,7 @@ export default function Certificates() {
         }
       `}</style>
 
-      <section className="bg-cream px-4 py-12 md:px-6">
+      <section className="bg-amber-300 px-4 py-12 md:px-6">
         <div className="mx-auto max-w-7xl">
           {isLoading ? (
             <>
@@ -95,7 +95,7 @@ export default function Certificates() {
               ))}
             </>
           ) : certs.length === 0 ? (
-            <div className="col-span-full font-mono py-10 text-gray-500">
+            <div className="col-span-full font-mono py-10 text-neutral-600">
               You don't have any certificates yet. Attend events to earn them!
             </div>
           ) : displayedCerts.length === 0 ? (

@@ -184,7 +184,7 @@ export default function DashboardBookmarks() {
           </p>
           <Link
             to="/events"
-            className="neu-border neu-press mt-6 inline-flex bg-black px-5 py-3 font-mono text-xs font-bold uppercase tracking-wider text-cream"
+            className="neu-border neu-press mt-6 inline-flex bg-black px-5 py-3 font-mono text-xs font-bold uppercase tracking-wider text-black"
           >
             Explore events →
           </Link>
