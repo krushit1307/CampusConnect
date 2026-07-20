@@ -28,7 +28,8 @@ type MemberRole = "admin" | "organizer" | "member" | "alumni";
 
 interface Profile {
   id: string;
-  full_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
 }
 
 interface ClubMember {
@@ -138,9 +139,9 @@ export default function Feed() {
         .select(
           `
         id, content, created_at, club_id,
-        profiles (id, full_name),
+        profiles (id, first_name, last_name),
         clubs (id, name, club_members (user_id, role)),
-        comments (id, content, created_at, deleted_at, profiles (id, full_name)),
+        comments (id, content, created_at, deleted_at, profiles (id, first_name, last_name)),
         post_reactions (emoji, user_id)
       `,
         )
@@ -522,7 +523,10 @@ export default function Feed() {
                       <header className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b-2 border-black pb-3">
                         <div>
                           <p className="font-display text-lg font-bold flex items-center gap-2">
-                            {author?.full_name || "Unknown User"}
+                            {author
+                              ? `${author.first_name || ""} ${author.last_name || ""}`.trim() ||
+                                "Unknown User"
+                              : "Unknown User"}
                             <RoleBadge role={authorRole} />
                           </p>
                           <p className="font-mono text-xs flex flex-wrap items-center">
@@ -669,7 +673,10 @@ export default function Feed() {
                               <div key={comment.id} className="neu-border bg-cream p-3">
                                 <div className="flex justify-between">
                                   <p className="font-mono text-xs font-bold uppercase flex items-center gap-1.5">
-                                    {commentAuthor?.full_name || "Unknown User"}
+                                    {commentAuthor
+                                      ? `${commentAuthor.first_name || ""} ${commentAuthor.last_name || ""}`.trim() ||
+                                        "Unknown User"
+                                      : "Unknown User"}
                                     <RoleBadge
                                       role={
                                         (commentAuthorMembership?.role ?? "member") as MemberRole

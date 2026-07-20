@@ -59,7 +59,7 @@ export default function Dashboard() {
             <>
               <p className="eyebrow font-bold break-all">Signed in as {user.email}</p>
               <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-5xl">
-                {greeting}, {profile?.full_name?.split(" ")[0] || "there"}.
+                {greeting}, {profile?.first_name || "there"}.
               </h1>
             </>
           )}

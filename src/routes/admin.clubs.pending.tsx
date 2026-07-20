@@ -40,11 +40,11 @@ export default function PendingClubsAdmin() {
       new Set((clubRows || []).map((club) => club.created_by).filter(Boolean)),
     ) as string[];
 
-    let profiles: { id: string; full_name: string | null }[] = [];
+    let profiles: { id: string; first_name: string | null; last_name: string | null }[] = [];
     if (creatorIds.length > 0) {
       const { data: profileRows, error: profileError } = await supabase
         .from("profiles")
-        .select("id, full_name")
+        .select("id, first_name, last_name")
         .in("id", creatorIds);
 
       if (profileError) throw new Error(profileError.message);

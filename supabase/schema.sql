@@ -6,7 +6,8 @@ CREATE TYPE join_status AS ENUM ('pending', 'approved');
 -- 2. Create tables
 CREATE TABLE profiles (
   id UUID REFERENCES auth.users(id) PRIMARY KEY,
-  full_name TEXT,
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
   avatar_url TEXT,
   college TEXT,
   bio TEXT,
@@ -345,9 +346,36 @@ CREATE POLICY "Users can delete their own notifications" ON notifications FOR DE
 -- Auto-create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
+DECLARE
+  v_full_name TEXT;
+  v_first_name TEXT;
+  v_last_name TEXT;
 BEGIN
-  INSERT INTO public.profiles (id, full_name, avatar_url)
-  VALUES (new.id, new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'avatar_url');
+  v_full_name := new.raw_user_meta_data->>'full_name';
+  v_first_name := new.raw_user_meta_data->>'first_name';
+  v_last_name := new.raw_user_meta_data->>'last_name';
+
+  -- Prefer first_name/last_name from metadata; fall back to splitting full_name
+  IF v_first_name IS NULL OR v_first_name = '' THEN
+    IF v_full_name IS NOT NULL AND v_full_name != '' THEN
+      IF POSITION(' ' IN v_full_name) > 0 THEN
+        v_first_name := SUBSTRING(v_full_name FROM 1 FOR POSITION(' ' IN v_full_name) - 1);
+        v_last_name := SUBSTRING(v_full_name FROM POSITION(' ' IN v_full_name) + 1);
+      ELSE
+        v_first_name := v_full_name;
+      END IF;
+    ELSE
+      v_first_name := 'User';
+      v_last_name := '';
+    END IF;
+  END IF;
+
+  IF v_last_name IS NULL THEN
+    v_last_name := '';
+  END IF;
+
+  INSERT INTO public.profiles (id, first_name, last_name, avatar_url)
+  VALUES (new.id, v_first_name, v_last_name, new.raw_user_meta_data->>'avatar_url');
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -581,7 +609,26 @@ ALTER PUBLICATION supabase_realtime ADD TABLE event_rsvps;
 ALTER PUBLICATION supabase_realtime ADD TABLE saved_events;
 
 -- Backfill any missing profiles for existing authenticated users
-INSERT INTO public.profiles (id, full_name, avatar_url)
-SELECT id, raw_user_meta_data->>'full_name', raw_user_meta_data->>'avatar_url'
+INSERT INTO public.profiles (id, first_name, last_name, avatar_url)
+SELECT
+  id,
+  COALESCE(
+    raw_user_meta_data->>'first_name',
+    CASE
+      WHEN raw_user_meta_data->>'full_name' IS NOT NULL AND raw_user_meta_data->>'full_name' != ''
+      THEN SUBSTRING(raw_user_meta_data->>'full_name' FROM 1 FOR POSITION(' ' IN raw_user_meta_data->>'full_name') - 1)
+      ELSE 'User'
+    END
+  ),
+  COALESCE(
+    raw_user_meta_data->>'last_name',
+    CASE
+      WHEN raw_user_meta_data->>'full_name' IS NOT NULL AND raw_user_meta_data->>'full_name' != ''
+        AND POSITION(' ' IN raw_user_meta_data->>'full_name') > 0
+      THEN SUBSTRING(raw_user_meta_data->>'full_name' FROM POSITION(' ' IN raw_user_meta_data->>'full_name') + 1)
+      ELSE ''
+    END
+  ),
+  raw_user_meta_data->>'avatar_url'
 FROM auth.users
 ON CONFLICT (id) DO NOTHING;

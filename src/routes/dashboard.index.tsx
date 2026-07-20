@@ -204,7 +204,7 @@ export default function DashboardOverview() {
                 New Account Checklist
               </div>
               <h2 className="text-3xl font-display font-black text-black tracking-tight md:text-4xl mb-2">
-                Welcome to CampusConnect, {profile?.full_name?.split(" ")[0] || "Student"}! 🎓
+                Welcome to CampusConnect, {profile?.first_name || "Student"}!
               </h2>
               <p className="text-sm font-mono text-gray-800 leading-relaxed max-w-xl">
                 Complete your profile details below to connect with peer groups, customize your

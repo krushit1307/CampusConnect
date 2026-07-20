@@ -102,7 +102,7 @@ export default function ClubProfile() {
         .select(
           `
           id, name, slug, description,
-          club_members (id, role, status, user_id, profiles (full_name, avatar_url, handle)),
+          club_members (id, role, status, user_id, profiles (first_name, last_name, avatar_url, handle)),
           events (id, title, event_date)
         `,
         )
@@ -141,7 +141,9 @@ export default function ClubProfile() {
   const memberList = members.map((m) => {
     const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
     return {
-      name: profile?.full_name || "Unknown User",
+      name: profile
+        ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Unknown User"
+        : "Unknown User",
       handle: profile?.handle || "",
       role: m.role as "admin" | "member" | "organizer" | "alumni",
       avatarUrl: profile?.avatar_url || null,

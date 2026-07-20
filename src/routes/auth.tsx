@@ -22,7 +22,8 @@ export default function AuthPage() {
     const formData = new FormData(e.currentTarget);
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
-    const fullName = formData.get("fullName") as string;
+    const firstName = formData.get("firstName") as string;
+    const lastName = formData.get("lastName") as string;
     const confirmPassword = formData.get("confirmPassword") as string;
 
     if (mode === "signup" && password !== confirmPassword) {
@@ -39,7 +40,9 @@ export default function AuthPage() {
           password,
           options: {
             data: {
-              full_name: fullName,
+              first_name: firstName,
+              last_name: lastName,
+              full_name: `${firstName} ${lastName}`.trim(),
             },
           },
         });
@@ -131,14 +134,24 @@ export default function AuthPage() {
 
             <form onSubmit={onSubmit} className="space-y-4">
               {mode === "signup" && (
-                <Field
-                  label="Full name"
-                  type="text"
-                  name="fullName"
-                  placeholder="Ada Lovelace"
-                  autoComplete="name"
-                  required
-                />
+                <div className="grid grid-cols-2 gap-3">
+                  <Field
+                    label="First name"
+                    type="text"
+                    name="firstName"
+                    placeholder="Ada"
+                    autoComplete="given-name"
+                    required
+                  />
+                  <Field
+                    label="Last name"
+                    type="text"
+                    name="lastName"
+                    placeholder="Lovelace"
+                    autoComplete="family-name"
+                    required
+                  />
+                </div>
               )}
 
               <Field

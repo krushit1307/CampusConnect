@@ -118,7 +118,8 @@ export default function SettingsPage() {
     resolver: zodResolver(profileSchema),
     defaultValues: {
       avatarTheme: "",
-      fullName: "",
+      firstName: "",
+      lastName: "",
       handle: "",
       collegeEmail: "",
       bio: "",
@@ -131,7 +132,8 @@ export default function SettingsPage() {
     if (user) {
       form.reset({
         avatarTheme: (profile?.avatar_theme as AvatarThemeId) || "",
-        fullName: profile?.full_name || user.user_metadata?.full_name || "",
+        firstName: profile?.first_name || user.user_metadata?.first_name || "",
+        lastName: profile?.last_name || user.user_metadata?.last_name || "",
         handle: profile?.handle || "",
         collegeEmail: user.email || "",
         bio: profile?.bio || "",
@@ -154,7 +156,8 @@ export default function SettingsPage() {
         .from("profiles")
         .update({
           avatar_theme: values.avatarTheme || null,
-          full_name: values.fullName,
+          first_name: values.firstName,
+          last_name: values.lastName,
           handle: values.handle,
           bio: values.bio || null,
           linkedin_url: values.linkedinUrl || null,
@@ -184,7 +187,8 @@ export default function SettingsPage() {
     }
   };
 
-  const currentFullName = form.watch("fullName");
+  const currentFirstName = form.watch("firstName");
+  const currentLastName = form.watch("lastName");
   const currentAvatarTheme = form.watch("avatarTheme");
 
   const handleBorderThicknessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -222,7 +226,10 @@ export default function SettingsPage() {
       <section className="px-4 py-12 md:px-6">
         <div className="mx-auto max-w-4xl space-y-6">
           <Panel title="Profile">
-            <AvatarUpload name={currentFullName || "User"} avatarTheme={currentAvatarTheme} />
+            <AvatarUpload
+              name={`${currentFirstName || "User"} ${currentLastName || ""}`.trim()}
+              avatarTheme={currentAvatarTheme}
+            />
 
             <AvatarThemePicker
               selected={currentAvatarTheme}
@@ -231,24 +238,44 @@ export default function SettingsPage() {
 
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="fullName"
-                  render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel required className="eyebrow font-bold">
-                        Full name
-                      </FormLabel>
-                      <FormControl>
-                        <input
-                          {...field}
-                          className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
-                        />
-                      </FormControl>
-                      <FormMessage className="font-mono text-xs text-destructive" />
-                    </FormItem>
-                  )}
-                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1">
+                        <FormLabel required className="eyebrow font-bold">
+                          First name
+                        </FormLabel>
+                        <FormControl>
+                          <input
+                            {...field}
+                            className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                          />
+                        </FormControl>
+                        <FormMessage className="font-mono text-xs text-destructive" />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1">
+                        <FormLabel required className="eyebrow font-bold">
+                          Last name
+                        </FormLabel>
+                        <FormControl>
+                          <input
+                            {...field}
+                            className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                          />
+                        </FormControl>
+                        <FormMessage className="font-mono text-xs text-destructive" />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 <FormField
                   control={form.control}

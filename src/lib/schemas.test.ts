@@ -3,7 +3,8 @@ import { profileSchema, AVATAR_THEMES } from "./schemas";
 
 describe("profileSchema", () => {
   const validPayload = {
-    fullName: "Ada Lovelace",
+    firstName: "Ada",
+    lastName: "Lovelace",
     handle: "ada_lovelace",
     collegeEmail: "ada@college.edu",
     bio: "Systems programming, tea, and long walks.",
@@ -16,24 +17,16 @@ describe("profileSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  describe("fullName validation", () => {
-    it("accepts a name with 2 characters", () => {
-      const result = profileSchema.safeParse({ ...validPayload, fullName: "Ab" });
-      expect(result.success).toBe(true);
-    });
-
-    it("rejects a name with less than 2 characters", () => {
-      const result = profileSchema.safeParse({ ...validPayload, fullName: "A" });
+  describe("firstName validation", () => {
+    it("rejects an empty first name", () => {
+      const result = profileSchema.safeParse({ ...validPayload, firstName: "" });
       expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.flatten().fieldErrors.fullName).toContain(
-          "Full name must be at least 2 characters long.",
-        );
-      }
     });
+  });
 
-    it("rejects an empty name", () => {
-      const result = profileSchema.safeParse({ ...validPayload, fullName: "" });
+  describe("lastName validation", () => {
+    it("rejects an empty last name", () => {
+      const result = profileSchema.safeParse({ ...validPayload, lastName: "" });
       expect(result.success).toBe(false);
     });
   });
