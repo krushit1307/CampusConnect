@@ -2,6 +2,7 @@
 CREATE TYPE user_role AS ENUM ('student', 'club_admin', 'system_admin');
 CREATE TYPE member_role AS ENUM ('member', 'admin');
 CREATE TYPE join_status AS ENUM ('pending', 'approved');
+CREATE TYPE club_visibility AS ENUM ('public', 'private');
 
 -- 2. Create tables
 CREATE TABLE profiles (
@@ -36,6 +37,7 @@ CREATE TABLE clubs (
   banner_url TEXT,
   logo_url TEXT,
   github_repo_url TEXT,
+  visibility club_visibility DEFAULT 'public'::club_visibility,
   created_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),

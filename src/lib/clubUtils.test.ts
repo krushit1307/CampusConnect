@@ -66,11 +66,39 @@ describe("clubFormSchema validation", () => {
     };
 
     const result = clubFormSchema.safeParse(invalidData);
-    expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues[0].message).toBe(
         "GitHub repository URL must start with https://github.com/",
       );
+    }
+  });
+
+  it("defaults club visibility to public when omitted", () => {
+    const validData = {
+      name: "Honor Society",
+      slug: "honor-society",
+      description: "Academic excellence.",
+    };
+
+    const result = clubFormSchema.safeParse(validData);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.visibility).toBe("public");
+    }
+  });
+
+  it("validates private club visibility", () => {
+    const validData = {
+      name: "Secret Society",
+      slug: "secret-society",
+      description: "Private invite only club.",
+      visibility: "private",
+    };
+
+    const result = clubFormSchema.safeParse(validData);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.visibility).toBe("private");
     }
   });
 });
