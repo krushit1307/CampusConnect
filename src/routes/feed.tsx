@@ -86,6 +86,9 @@ export default function Feed() {
   const [newComments, setNewComments] = useState<Record<string, string>>({});
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showNewPostsBanner, setShowNewPostsBanner] = useState(false);
+  // Tracks a per-post, per-emoji "burst" nonce so the spring animation
+  // replays on every like AND unlike toggle (key-remount trick).
+  const [reactionBursts, setReactionBursts] = useState<Record<string, number>>({});
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
@@ -646,6 +649,8 @@ export default function Feed() {
                           const isReacted = postReactions.some(
                             (r) => r.emoji === emoji && r.user_id === user?.id,
                           );
+                          const burstKey = `${post.id}-${emoji}`;
+                          const burstNonce = reactionBursts[burstKey] ?? 0;
 
                           return (
                             <button
@@ -653,13 +658,26 @@ export default function Feed() {
                               type="button"
                               onClick={() => {
                                 if (!user) return alert("Log in first");
+                                // Bump the burst nonce so the emoji <span> remounts
+                                // and the spring keyframe animation replays.
+                                setReactionBursts((prev) => ({
+                                  ...prev,
+                                  [burstKey]: (prev[burstKey] ?? 0) + 1,
+                                }));
                                 reactionMutation.mutate({ postId: post.id, emoji, isReacted });
                               }}
                               className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${
                                 isReacted ? "bg-lime" : "bg-white hover:bg-cream"
                               }`}
                             >
-                              <span>{emoji}</span>
+                              {/* key includes burstNonce so React remounts the span
+                                   on every click, retriggering the CSS animation. */}
+                              <span
+                                key={`${burstKey}-${burstNonce}`}
+                                className="reaction-burst inline-flex items-center"
+                              >
+                                {emoji}
+                              </span>
                               {reactionCount > 0 && <span>{reactionCount}</span>}
                             </button>
                           );
