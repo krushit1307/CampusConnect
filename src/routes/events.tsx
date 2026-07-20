@@ -512,32 +512,6 @@ export default function EventsPage() {
           </div>
         </section>
 
-        <section className="bg-blue-900 px-4 py-12 md:px-6">
-          {viewMode === "list" ? (
-            <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3 ">
-              {isLoading
-                ? Array.from({ length: 4 }).map((_, i) => <EventCardSkeleton key={i} />)
-                : sortedEvents.map((e, index) => (
-                    <EventCard
-                      key={e.id}
-                      event={e}
-                      index={index}
-                      user={user}
-                      onRsvpToggle={(eventId, hasRsvpd) => handleRsvpToggle(eventId, hasRsvpd)}
-                      isRsvpPending={toggleRsvp.isPending}
-                      onBookmarkToggle={(eventId, isSaved) =>
-                        handleBookmarkToggle(eventId, isSaved)
-                      }
-                      isBookmarkPending={toggleBookmark.isPending}
-                    />
-                  ))}
-            </div>
-          ) : (
-            // Grid/Card View
-            <div>{/* Your grid view here */}</div>
-          )}
-        </section>
-
         <section className="bg-cream px-4 py-12 md:px-6">
           {viewMode === "list" ? (
             <>

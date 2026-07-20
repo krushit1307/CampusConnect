@@ -11,9 +11,11 @@ import {
   ArrowLeft,
   Calendar,
   Check,
+  Download,
   Link as LinkIcon,
   MapPin,
   MapPinOff,
+  Share2,
   Users,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -21,6 +23,31 @@ import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { parseCoordinates } from "@/lib/eventUtils";
+
+function rsvpRowsToCsv(rows: { name: string; email: string; rsvp_date: string; status: string }[]) {
+  const headers = ["User Name", "Email", "RSVP Date", "Status"];
+  const escape = (val: string) => {
+    const str = String(val ?? "");
+    return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+  };
+  const lines = [headers.join(",")];
+  for (const r of rows) {
+    lines.push([r.name, r.email, r.rsvp_date, r.status].map(escape).join(","));
+  }
+  return lines.join("\n");
+}
+
+function downloadCsv(csvContent: string, filename: string) {
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
 
 export default function EventDetailsPage() {
   const { eventId = "" } = useParams();
@@ -44,7 +71,7 @@ export default function EventDetailsPage() {
         .from("club_analytics_view")
         .select(
           `
-          id, title, description, event_date, start_date, end_date, location, banner_url,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by,
           clubs (name, slug),
           event_rsvps (id, user_id),
           attendee_count
@@ -136,6 +163,37 @@ export default function EventDetailsPage() {
       toast.error(error.message || "Failed to update RSVP. Please try again.");
     },
   });
+
+  const exportCsv = useMutation({
+    mutationFn: async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const { data, error } = await supabase.functions.invoke("export-event-rsvps", {
+        body: { eventId: event!.id },
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+      return data as {
+        rows: { name: string; email: string; rsvp_date: string; status: string }[];
+      };
+    },
+    onSuccess: (data) => {
+      const csv = rsvpRowsToCsv(data.rows);
+      const safeTitle = (event?.title ?? "event").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+      downloadCsv(csv, `${safeTitle}-rsvps.csv`);
+      toast.success("RSVP list exported.");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to export RSVP list.");
+    },
+  });
+
+  const isOrganizer = user && event?.created_by === user.id;
 
   if (isLoading) {
     return <SkeletonEventDetails />;
@@ -332,6 +390,18 @@ export default function EventDetailsPage() {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+
+            {isOrganizer && (
+              <Button
+                onClick={() => exportCsv.mutate()}
+                disabled={exportCsv.isPending}
+                variant="outline"
+                className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                {exportCsv.isPending ? "Exporting..." : "Export CSV"}
+              </Button>
+            )}
 
             {hasRsvpd && googleCalendarUrl && (
               <a
