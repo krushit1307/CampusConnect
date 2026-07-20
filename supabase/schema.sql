@@ -37,6 +37,7 @@ CREATE TABLE clubs (
   banner_url TEXT,
   logo_url TEXT,
   created_by UUID REFERENCES profiles(id),
+  visibility TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('public', 'private')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   CONSTRAINT check_clubs_slug_format CHECK (slug ~ '^[a-z0-9-]+$')
@@ -203,6 +204,27 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.is_system_admin() TO authenticated;
 
+-- Helper function: check if user is an approved member of a club
+CREATE OR REPLACE FUNCTION public.is_club_member(club_id UUID, user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1
+    FROM public.club_members
+    WHERE club_members.club_id = is_club_member.club_id
+      AND club_members.user_id = is_club_member.user_id
+      AND club_members.status = 'approved'::join_status
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_club_member(UUID, UUID) TO authenticated;
+
 -- Retrieve upcoming events for feed timeline
 CREATE OR REPLACE FUNCTION public.get_upcoming_events_feed(user_uuid UUID)
 RETURNS TABLE (
@@ -257,8 +279,12 @@ CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT
 CREATE POLICY "Users can insert their own profile." ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE POLICY "Users can update own profile." ON profiles FOR UPDATE USING (auth.uid() = id);
 
--- clubs: public read, only club admins/creators can update
-CREATE POLICY "Clubs are viewable by everyone." ON clubs FOR SELECT USING (true);
+-- clubs: public clubs visible to everyone, private clubs visible only to approved members and the creator
+CREATE POLICY "Clubs are viewable by everyone." ON clubs FOR SELECT USING (
+  visibility = 'public'
+  OR public.is_club_member(id, auth.uid())
+  OR auth.uid() = created_by
+);
 CREATE POLICY "Users can create clubs." ON clubs FOR INSERT WITH CHECK (auth.uid() = created_by);
 CREATE POLICY "Club admins can update clubs." ON clubs FOR UPDATE USING (
   auth.uid() = created_by OR 
@@ -280,8 +306,18 @@ CREATE POLICY "System admins can insert event categories." ON event_categories F
 CREATE POLICY "System admins can update event categories." ON event_categories FOR UPDATE TO authenticated USING (public.is_system_admin()) WITH CHECK (public.is_system_admin());
 CREATE POLICY "System admins can delete event categories." ON event_categories FOR DELETE TO authenticated USING (public.is_system_admin());
 
--- events: public read, only club admins can create/edit
-CREATE POLICY "Events are viewable by everyone." ON events FOR SELECT USING (true);
+-- events: public read for public clubs, private club events visible only to approved members and the creator
+CREATE POLICY "Events are viewable by everyone." ON events FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM clubs
+    WHERE clubs.id = events.club_id
+      AND (
+        clubs.visibility = 'public'
+        OR public.is_club_member(clubs.id, auth.uid())
+        OR auth.uid() = clubs.created_by
+      )
+  )
+);
 CREATE POLICY "Club admins can insert events." ON events FOR INSERT WITH CHECK (
   public.is_club_admin(club_id, auth.uid()) OR
   EXISTS (SELECT 1 FROM clubs WHERE id = events.club_id AND created_by = auth.uid())
