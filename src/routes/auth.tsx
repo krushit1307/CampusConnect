@@ -146,7 +146,7 @@ export default function AuthPage() {
                 type="email"
                 name="email"
                 placeholder="you@college.edu"
-                autoComplete="email"
+                autoComplete={mode === "signup" ? "email" : "username"}
                 required
               />
 
