@@ -4,8 +4,8 @@ BEGIN;
 -- Enable pgTAP extension if not already enabled
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
--- Plan the tests (we have 4 tests)
-SELECT plan(4);
+-- Plan the tests (we have 5 tests)
+SELECT plan(5);
 
 -- Grant privileges to authenticated role so that table-level permissions do not interfere with RLS testing
 GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated, anon;
@@ -34,7 +34,7 @@ INSERT INTO public.clubs (id, name, slug, description, created_by)
 VALUES ('90000000-0000-0000-0000-000000000013', 'Verification Test Club', 'verification-test-club', 'A club for testing verification', '90000000-0000-0000-0000-000000000011');
 
 -- ==========================================
--- Test 3: Club admin (creator) cannot set is_verified to TRUE
+-- Test 3: Club admin (creator) cannot set is_verified to TRUE via UPDATE
 -- ==========================================
 
 SET local role authenticated;
@@ -44,13 +44,13 @@ SELECT throws_ok(
   $$UPDATE public.clubs SET is_verified = true WHERE id = '90000000-0000-0000-0000-000000000013'$$,
   'P0001',
   'Only system admins can change club verification status.',
-  'Club admin cannot set is_verified to true'
+  'Club admin cannot set is_verified to true via UPDATE'
 );
 
 RESET role;
 
 -- ==========================================
--- Test 4: System admin can set is_verified to TRUE
+-- Test 4: System admin can set is_verified to TRUE via UPDATE
 -- ==========================================
 
 SET local role authenticated;
@@ -58,7 +58,23 @@ SELECT set_config('request.jwt.claim.sub', '90000000-0000-0000-0000-000000000012
 
 SELECT lives_ok(
   $$UPDATE public.clubs SET is_verified = true WHERE id = '90000000-0000-0000-0000-000000000013'$$,
-  'System admin can set is_verified to true'
+  'System admin can set is_verified to true via UPDATE'
+);
+
+RESET role;
+
+-- ==========================================
+-- Test 5: Club admin cannot INSERT a new club with is_verified = true
+-- ==========================================
+
+SET local role authenticated;
+SELECT set_config('request.jwt.claim.sub', '90000000-0000-0000-0000-000000000011', true);
+
+SELECT throws_ok(
+  $$INSERT INTO public.clubs (name, slug, created_by, is_verified) VALUES ('Sneaky Club', 'sneaky-club', '90000000-0000-0000-0000-000000000011', true)$$,
+  'P0001',
+  'Only system admins can set club verification status.',
+  'Club admin cannot insert a club with is_verified = true'
 );
 
 RESET role;
