@@ -59,7 +59,7 @@ EXECUTE FUNCTION public.assign_default_club_role();
 ALTER TABLE club_members ALTER COLUMN role_id SET NOT NULL;
 
 
-CREATE OR REPLACE FUNCTION public.is_club_admin(check_club_id UUID, check_user_id UUID)
+CREATE OR REPLACE FUNCTION public.is_club_admin(club_id UUID, user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
 SECURITY DEFINER
@@ -70,8 +70,8 @@ AS $$
     SELECT 1 
     FROM club_members cm
     JOIN club_roles cr ON cm.role_id = cr.id
-    WHERE cm.club_id = check_club_id 
-      AND cm.user_id = check_user_id 
+    WHERE cm.club_id = $1 
+      AND cm.user_id = $2 
       AND cr.permissions_level >= 100
       AND cm.status = 'approved'
   );
