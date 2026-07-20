@@ -448,13 +448,20 @@ export default function EventsPage() {
 
               {/* Filter Tags */}
               <div className="flex flex-wrap items-center gap-2">
-                {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t) => (
+                <label className="neu-border flex cursor-pointer select-none items-center gap-2 bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-white md:mr-2 text-black">
+                  <input
+                    type="checkbox"
+                    checked={hidePastEvents}
+                    onChange={(e) => setHidePastEvents(e.target.checked)}
+                    className="h-4 w-4 accent-black cursor-pointer text-black"
+                  />
+                  Hide Past Events
+                </label>
+                {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t, i) => (
                   <button
                     key={t}
                     onClick={() => setFilter(t)}
-                    className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-all cursor-pointer ${
-                      filter === t ? "bg-black text-cream" : "bg-white hover:bg-cream"
-                    }`}
+                    className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase ${filter === t ? "bg-black text-cream" : "bg-white text-black"}`}
                   >
                     {t}
                   </button>
@@ -471,7 +478,6 @@ export default function EventsPage() {
                   </button>
                 )}
               </div>
-
               <div className="flex items-center gap-2 w-full md:w-auto justify-end">
                 <div className="neu-border flex bg-white p-0.5">
                   <button
@@ -503,7 +509,7 @@ export default function EventsPage() {
                   value={sortOrder}
                   onValueChange={(value) => setSortOrder(value as "newest" | "oldest")}
                 >
-                  <SelectTrigger className="neu-border w-44 bg-white font-mono text-xs">
+                  <SelectTrigger className="neu-border w-44 bg-white font-mono text-xs text-black">
                     <SelectValue placeholder="Sort by date" />
                   </SelectTrigger>
 
@@ -517,6 +523,32 @@ export default function EventsPage() {
               </div>
             </div>
           </div>
+        </section>
+
+        <section className="bg-blue-900 px-4 py-12 md:px-6">
+          {viewMode === "list" ? (
+            <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3 ">
+              {isLoading
+                ? Array.from({ length: 4 }).map((_, i) => <EventCardSkeleton key={i} />)
+                : sortedEvents.map((e, index) => (
+                    <EventCard
+                      key={e.id}
+                      event={e}
+                      index={index}
+                      user={user}
+                      onRsvpToggle={(eventId, hasRsvpd) => handleRsvpToggle(eventId, hasRsvpd)}
+                      isRsvpPending={toggleRsvp.isPending}
+                      onBookmarkToggle={(eventId, isSaved) =>
+                        handleBookmarkToggle(eventId, isSaved)
+                      }
+                      isBookmarkPending={toggleBookmark.isPending}
+                    />
+                  ))}
+            </div>
+          ) : (
+            // Grid/Card View
+            <div>{/* Your grid view here */}</div>
+          )}
         </section>
 
         <section className="bg-cream px-4 py-12 md:px-6">

@@ -94,12 +94,12 @@ export default function ResetPasswordPage() {
       <Sparkle className="absolute bottom-8 left-8" size={16} />
       <Sparkle className="absolute bottom-8 right-8" size={16} />
       <div className="w-full max-w-md">
-        <Link to="/" className="mb-6 inline-block font-display text-2xl font-bold">
-          CAMPUS<span className="bg-black px-1 text-cream">CONNECT</span>
+        <Link to="/" className="mb-6 inline-block font-display text-2xl font-bold text-black">
+          CAMPUS<span className="bg-black px-1 text-amber-300">CONNECT</span>
         </Link>
         <div className="neu-border bg-white p-8">
-          <p className="eyebrow mb-2 font-bold">Reset password</p>
-          <h1 className="mb-6 text-3xl font-bold">Choose a new password</h1>
+          <p className="eyebrow mb-2 font-bold text-black">Reset password</p>
+          <h1 className="mb-6 text-3xl font-bold text-indigo-900">Choose a new password</h1>
 
           {checkingLink ? (
             <p className="font-mono text-sm text-gray-600">Checking your reset link...</p>
@@ -110,7 +110,7 @@ export default function ResetPasswordPage() {
               </div>
               <Link
                 to="/forgot-password"
-                className="inline-block font-mono text-xs font-bold underline underline-offset-2"
+                className="inline-block font-mono text-xs font-bold underline underline-offset-2 text-black"
               >
                 Request a new link
               </Link>

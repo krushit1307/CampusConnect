@@ -346,18 +346,18 @@ export default function Feed() {
   return (
     <SiteShell>
       <PullToRefresh isRefreshing={isLoading || isFetching} onRefresh={handleRefetch}>
-        <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
+        <section className="border-b-2 border-black bg-lime px-4 py-14 md:px-6">
           <div className="mx-auto max-w-4xl">
-            <p className="eyebrow font-bold">Discussion feed</p>
-            <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">
+            <p className="eyebrow font-bold text-teal-900">Discussion feed</p>
+            <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl text-teal-900">
               What clubs are talking about.
             </h1>
           </div>
         </section>
 
-        <section className="bg-cream px-4 py-12 md:px-6">
+        <section className="bg-blue-800 px-4 py-12 md:px-6">
           <div className="mx-auto max-w-4xl space-y-6">
-            <div className="space-y-3">
+            <div className="space-y-3 text-black">
               <MarkdownEditor
                 ref={editorRef}
                 value={newPost}
@@ -368,7 +368,7 @@ export default function Feed() {
               <p className={cn("flex justify-end", newPost.length >= 500 && "text-red-500")}>
                 {newPost.length}/500
               </p>
-              <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between text-black">
                 <select
                   value={selectedClubId}
                   onChange={(event) => setSelectedClubId(event.target.value)}
@@ -402,7 +402,7 @@ export default function Feed() {
               </div>
 
               {postMutation.isError && (
-                <p className="neu-border bg-peach p-3 font-mono text-xs" role="alert">
+                <p className="neu-border bg-peach p-3 font-mono text-xs text-black" role="alert">
                   Could not publish the post. Please try again.
                 </p>
               )}
@@ -443,7 +443,7 @@ export default function Feed() {
               </div>
             ) : posts.length === 0 ? (
               <div
-                className="neu-border relative overflow-hidden bg-white px-6 py-12 text-center sm:px-10 sm:py-16"
+                className="neu-border relative overflow-hidden bg-lime-100 px-6 py-12 text-center sm:px-10 sm:py-16"
                 role="status"
                 aria-live="polite"
               >
@@ -466,10 +466,10 @@ export default function Feed() {
                     </div>
                   </div>
 
-                  <p className="mb-3 font-mono text-xs font-bold uppercase tracking-[0.2em]">
+                  <p className="mb-3 font-mono text-xs font-bold uppercase tracking-[0.2em] text-black">
                     The conversation starts here
                   </p>
-                  <h2 className="text-2xl font-bold sm:text-3xl">
+                  <h2 className="text-2xl sm:text-3xl text-gray-400">
                     No posts yet. Be the first to start a discussion!
                   </h2>
                   <p className="mt-4 max-w-md font-mono text-sm leading-relaxed text-gray-700">
