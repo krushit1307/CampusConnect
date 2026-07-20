@@ -118,8 +118,7 @@ export default function SettingsPage() {
     resolver: zodResolver(profileSchema),
     defaultValues: {
       avatarTheme: "",
-      firstName: "",
-      lastName: "",
+      fullName: "",
       handle: "",
       collegeEmail: "",
       bio: "",
@@ -132,8 +131,7 @@ export default function SettingsPage() {
     if (user) {
       form.reset({
         avatarTheme: (profile?.avatar_theme as AvatarThemeId) || "",
-        firstName: profile?.first_name || user.user_metadata?.first_name || "",
-        lastName: profile?.last_name || user.user_metadata?.last_name || "",
+        fullName: profile?.full_name || user.user_metadata?.full_name || "",
         handle: profile?.handle || "",
         collegeEmail: user.email || "",
         bio: profile?.bio || "",
@@ -156,8 +154,7 @@ export default function SettingsPage() {
         .from("profiles")
         .update({
           avatar_theme: values.avatarTheme || null,
-          first_name: values.firstName,
-          last_name: values.lastName,
+          full_name: values.fullName,
           handle: values.handle,
           bio: values.bio || null,
           linkedin_url: values.linkedinUrl || null,
@@ -187,8 +184,7 @@ export default function SettingsPage() {
     }
   };
 
-  const currentFirstName = form.watch("firstName");
-  const currentLastName = form.watch("lastName");
+  const currentFullName = form.watch("fullName");
   const currentAvatarTheme = form.watch("avatarTheme");
 
   const handleBorderThicknessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -219,17 +215,16 @@ export default function SettingsPage() {
     <SiteShell>
       <section className="border-b-2 border-black px-4 py-14 md:px-6">
         <div className="mx-auto max-w-4xl">
-          <p className="eyebrow font-bold">Account</p>
-          <h1 className="mt-2 text-4xl font-bold text-[#123a57] md:text-6xl">Settings.</h1>
+          <p className="eyebrow font-bold text-black">Account</p>
+          <h1 className="mt-2 text-4xl font-bold text-[#123a57] md:text-6xl text-black">
+            Settings.
+          </h1>
         </div>
       </section>
       <section className="px-4 py-12 md:px-6">
-        <div className="mx-auto max-w-4xl space-y-6">
+        <div className="mx-auto max-w-4xl space-y-6 text-indigo-900">
           <Panel title="Profile">
-            <AvatarUpload
-              name={`${currentFirstName || "User"} ${currentLastName || ""}`.trim()}
-              avatarTheme={currentAvatarTheme}
-            />
+            <AvatarUpload name={currentFullName || "User"} avatarTheme={currentAvatarTheme} />
 
             <AvatarThemePicker
               selected={currentAvatarTheme}
@@ -238,51 +233,31 @@ export default function SettingsPage() {
 
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="firstName"
-                    render={({ field }) => (
-                      <FormItem className="space-y-1">
-                        <FormLabel required className="eyebrow font-bold">
-                          First name
-                        </FormLabel>
-                        <FormControl>
-                          <input
-                            {...field}
-                            className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
-                          />
-                        </FormControl>
-                        <FormMessage className="font-mono text-xs text-destructive" />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="lastName"
-                    render={({ field }) => (
-                      <FormItem className="space-y-1">
-                        <FormLabel required className="eyebrow font-bold">
-                          Last name
-                        </FormLabel>
-                        <FormControl>
-                          <input
-                            {...field}
-                            className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
-                          />
-                        </FormControl>
-                        <FormMessage className="font-mono text-xs text-destructive" />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                <FormField
+                  control={form.control}
+                  name="fullName"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel required className="eyebrow font-bold text-black">
+                        Full name
+                      </FormLabel>
+                      <FormControl>
+                        <input
+                          {...field}
+                          className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                        />
+                      </FormControl>
+                      <FormMessage className="font-mono text-xs text-destructive" />
+                    </FormItem>
+                  )}
+                />
 
                 <FormField
                   control={form.control}
                   name="handle"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <FormLabel required className="eyebrow font-bold">
+                      <FormLabel required className="eyebrow font-bold text-black">
                         Handle
                       </FormLabel>
                       <FormControl>
@@ -302,7 +277,7 @@ export default function SettingsPage() {
                   name="collegeEmail"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <FormLabel required className="eyebrow font-bold">
+                      <FormLabel required className="eyebrow font-bold text-black">
                         College email
                       </FormLabel>
                       <FormControl>
@@ -322,7 +297,7 @@ export default function SettingsPage() {
                   name="phoneNumber"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <FormLabel className="eyebrow font-bold">Phone number</FormLabel>
+                      <FormLabel className="eyebrow font-bold text-black">Phone number</FormLabel>
                       <FormControl>
                         <input
                           {...field}
@@ -340,7 +315,7 @@ export default function SettingsPage() {
                   name="linkedinUrl"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <FormLabel className="eyebrow font-bold">LinkedIn URL</FormLabel>
+                      <FormLabel className="eyebrow font-bold text-black">LinkedIn URL</FormLabel>
                       <FormControl>
                         <input
                           {...field}
@@ -358,7 +333,7 @@ export default function SettingsPage() {
                   name="bio"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <FormLabel className="eyebrow font-bold">Bio</FormLabel>
+                      <FormLabel className="eyebrow font-bold text-black">Bio</FormLabel>
                       <FormControl>
                         <input
                           {...field}
@@ -432,7 +407,7 @@ export default function SettingsPage() {
               >
                 −
               </button>
-              <span className="font-mono text-sm font-bold">{fontSize}px</span>
+              <span className="font-mono text-sm font-bold text-black">{fontSize}px</span>
               <button
                 type="button"
                 onClick={increment}
@@ -444,7 +419,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={reset}
-                className="neu-border neu-press px-3 py-1 font-mono text-xs font-bold uppercase"
+                className="neu-border neu-press px-3 py-1 font-mono text-xs font-bold uppercase text-black"
               >
                 Reset
               </button>
@@ -766,7 +741,7 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
         />
       </div>
       <div className="text-center sm:text-left">
-        <p className="eyebrow font-bold">Profile picture</p>
+        <p className="eyebrow font-bold text-black">Profile picture</p>
         <p className="font-mono text-xs text-gray-500">
           JPG, PNG or WEBP. Max 2 MB. Square images look best.
         </p>

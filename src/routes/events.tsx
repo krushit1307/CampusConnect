@@ -9,7 +9,7 @@ import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { toast } from "sonner";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Search, Calendar } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -41,6 +41,7 @@ export default function EventsPage() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const [activeCategories, setActiveCategories] = useState<string[]>([]);
+  const [filter, setFilter] = useState<string>("All");
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [sortLoaded, setSortLoaded] = useState(false);
@@ -237,19 +238,6 @@ export default function EventsPage() {
   }, [supabase, refetch]);
 
   useEffect(() => {
-    const channel = supabase
-      .channel("realtime_saved_events")
-      .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
-        refetch();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [supabase, refetch]);
-
-  useEffect(() => {
     const handleRefetch = () => refetch();
     window.addEventListener("refetchEvents", handleRefetch);
     return () => window.removeEventListener("refetchEvents", handleRefetch);
@@ -267,7 +255,7 @@ export default function EventsPage() {
         data: { session },
       } = await supabase.auth.getSession();
 
-      const { data, error } = await supabase.functions.invoke("toggle-rsvp", {
+      const { error } = await supabase.functions.invoke("toggle-rsvp", {
         body: { eventId, hasRsvpd },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
@@ -447,13 +435,20 @@ export default function EventsPage() {
 
               {/* Filter Tags */}
               <div className="flex flex-wrap items-center gap-2">
-                {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t) => (
+                <label className="neu-border flex cursor-pointer select-none items-center gap-2 bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-white md:mr-2 text-black">
+                  <input
+                    type="checkbox"
+                    checked={hidePastEvents}
+                    onChange={(e) => setHidePastEvents(e.target.checked)}
+                    className="h-4 w-4 accent-black cursor-pointer text-black"
+                  />
+                  Hide Past Events
+                </label>
+                {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t, i) => (
                   <button
                     key={t}
                     onClick={() => setFilter(t)}
-                    className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-all cursor-pointer ${
-                      filter === t ? "bg-black text-cream" : "bg-white hover:bg-cream"
-                    }`}
+                    className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase ${filter === t ? "bg-black text-cream" : "bg-white text-black"}`}
                   >
                     {t}
                   </button>
@@ -470,7 +465,6 @@ export default function EventsPage() {
                   </button>
                 )}
               </div>
-
               <div className="flex items-center gap-2 w-full md:w-auto justify-end">
                 <div className="neu-border flex bg-white p-0.5">
                   <button
@@ -502,7 +496,7 @@ export default function EventsPage() {
                   value={sortOrder}
                   onValueChange={(value) => setSortOrder(value as "newest" | "oldest")}
                 >
-                  <SelectTrigger className="neu-border w-44 bg-white font-mono text-xs">
+                  <SelectTrigger className="neu-border w-44 bg-white font-mono text-xs text-black">
                     <SelectValue placeholder="Sort by date" />
                   </SelectTrigger>
 
@@ -518,47 +512,89 @@ export default function EventsPage() {
           </div>
         </section>
 
+        <section className="bg-blue-900 px-4 py-12 md:px-6">
+          {viewMode === "list" ? (
+            <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3 ">
+              {isLoading
+                ? Array.from({ length: 4 }).map((_, i) => <EventCardSkeleton key={i} />)
+                : sortedEvents.map((e, index) => (
+                    <EventCard
+                      key={e.id}
+                      event={e}
+                      index={index}
+                      user={user}
+                      onRsvpToggle={(eventId, hasRsvpd) => handleRsvpToggle(eventId, hasRsvpd)}
+                      isRsvpPending={toggleRsvp.isPending}
+                      onBookmarkToggle={(eventId, isSaved) =>
+                        handleBookmarkToggle(eventId, isSaved)
+                      }
+                      isBookmarkPending={toggleBookmark.isPending}
+                    />
+                  ))}
+            </div>
+          ) : (
+            // Grid/Card View
+            <div>{/* Your grid view here */}</div>
+          )}
+        </section>
+
         <section className="bg-cream px-4 py-12 md:px-6">
           {viewMode === "list" ? (
             <>
-              {!isLoading && sortedEvents.length === 0 ? (
-                <div className="mx-auto max-w-md text-center neu-border bg-white p-8">
-                  <p className="text-3xl">🔍</p>
-                  <h3 className="mt-2 font-mono text-lg font-bold uppercase">No Events Found</h3>
-                  <p className="mt-1 font-mono text-xs text-neutral-600">
-                    No events matched {searchQuery ? `"${searchQuery}"` : filter}. Try clearing your
-                    filters or searching for another term.
-                  </p>
-                  <button
-                    onClick={() => {
-                      setFilter("All");
-                      setSearchQuery("");
-                    }}
-                    className="mt-4 neu-border bg-yellow px-5 py-2 font-mono text-xs font-bold uppercase transition-all hover:bg-black hover:text-white cursor-pointer"
-                  >
-                    Reset Filters
-                  </button>
-                </div>
-              ) : (
-                <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {isLoading
-                    ? Array.from({ length: 4 }).map((_, i) => <EventCardSkeleton key={i} />)
-                    : sortedEvents.map((e, index) => (
-                        <EventCard
-                          key={e.id}
-                          event={e}
-                          index={index}
-                          user={user}
-                          onRsvpToggle={(eventId, hasRsvpd) => handleRsvpToggle(eventId, hasRsvpd)}
-                          isRsvpPending={toggleRsvp.isPending}
-                          onBookmarkToggle={(eventId, isSaved) =>
-                            handleBookmarkToggle(eventId, isSaved)
-                          }
-                          isBookmarkPending={toggleBookmark.isPending}
-                        />
-                      ))}
-                </div>
-              )}
+              <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {isLoading ? (
+                  Array.from({ length: 4 }).map((_, i) => <EventCardSkeleton key={i} />)
+                ) : sortedEvents.length === 0 && filter !== "All" ? (
+                  <div className="col-span-full mx-auto max-w-md text-center neu-border bg-white p-8 animate-in fade-in-0 zoom-in-95 duration-300">
+                    <Calendar className="mx-auto h-10 w-10 text-neutral-500" aria-hidden="true" />
+                    <h3 className="mt-3 font-mono text-lg font-bold uppercase">
+                      No {filter} events found.
+                    </h3>
+                    <p className="mt-1 font-mono text-xs text-neutral-600">
+                      Try a different category, or clear the filter to see everything.
+                    </p>
+                    <button
+                      onClick={() => setFilter("All")}
+                      className="mt-4 neu-border bg-yellow px-5 py-2 font-mono text-xs font-bold uppercase transition-all hover:bg-black hover:text-white cursor-pointer"
+                    >
+                      Clear filter
+                    </button>
+                  </div>
+                ) : sortedEvents.length === 0 ? (
+                  <div className="col-span-full mx-auto max-w-md text-center neu-border bg-white p-8">
+                    <p className="text-3xl">🔍</p>
+                    <h3 className="mt-2 font-mono text-lg font-bold uppercase">No Events Found</h3>
+                    <p className="mt-1 font-mono text-xs text-neutral-600">
+                      No events matched "{searchQuery}". Try clearing your filters or searching for
+                      another term.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setFilter("All");
+                        setSearchQuery("");
+                      }}
+                      className="mt-4 neu-border bg-yellow px-5 py-2 font-mono text-xs font-bold uppercase transition-all hover:bg-black hover:text-white cursor-pointer"
+                    >
+                      Reset Filters
+                    </button>
+                  </div>
+                ) : (
+                  sortedEvents.map((e, index) => (
+                    <EventCard
+                      key={e.id}
+                      event={e}
+                      index={index}
+                      user={user}
+                      onRsvpToggle={(eventId, hasRsvpd) => handleRsvpToggle(eventId, hasRsvpd)}
+                      isRsvpPending={toggleRsvp.isPending}
+                      onBookmarkToggle={(eventId, isSaved) =>
+                        handleBookmarkToggle(eventId, isSaved)
+                      }
+                      isBookmarkPending={toggleBookmark.isPending}
+                    />
+                  ))
+                )}
+              </div>
 
               {/* Load More Pagination & Feed Progress Bar */}
               {!isLoading && (

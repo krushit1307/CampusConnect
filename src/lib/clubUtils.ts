@@ -14,6 +14,16 @@ export const clubFormSchema = z.object({
     .trim()
     .min(1, "Description is required.")
     .max(MAX_DESCRIPTION_LENGTH, `Description cannot exceed ${MAX_DESCRIPTION_LENGTH} characters.`),
+  github_repo_url: z
+    .string()
+    .trim()
+    .refine(
+      (val) => !val || val.startsWith("https://github.com/"),
+      "GitHub repository URL must start with https://github.com/",
+    )
+    .transform((val) => (val === "" ? null : val))
+    .nullable()
+    .optional(),
 });
 
 export type ClubFormValues = z.infer<typeof clubFormSchema>;
