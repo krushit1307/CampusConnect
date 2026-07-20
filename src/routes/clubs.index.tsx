@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { Plus, UsersRound, X } from "lucide-react";
+import { UsersRound, X } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { CreateClubDialog } from "@/components/CreateClubDialog";
 
@@ -41,8 +41,7 @@ export default function ClubsIndex() {
 
         const { data, count } = await supabase
           .from("clubs")
-          .select(`id, name, slug, description, member_count`, { count: "exact" })
-          .eq("status", "approved")
+          .select(`id, name, slug, description`, { count: "exact" })
           .range(from, to);
 
         return {
@@ -59,9 +58,7 @@ export default function ClubsIndex() {
   const totalActiveCount = data?.pages[0]?.totalCount || allClubs.length;
 
   // Deriving the Top 3 Trending Clubs based on member_count
-  const trendingClubs = [...allClubs]
-    .sort((a, b) => (b.member_count ?? 0) - (a.member_count ?? 0))
-    .slice(0, 3);
+  const trendingClubs = [...allClubs].slice(0, 3);
 
   useEffect(() => {
     const handleRefetch = () => refetch();
@@ -93,6 +90,25 @@ export default function ClubsIndex() {
         .animate-fade-in-up {
           opacity: 0;
           animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes zoomIn {
+          from {
+            opacity: 0;
+            transform: scale(0.85);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        .club-logo-badge {
+          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                      box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+          animation: zoomIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .group:hover .club-logo-badge {
+          transform: scale(1.08);
+          box-shadow: 4px 4px 0 0 #000;
         }
       `}</style>
       <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
@@ -140,7 +156,6 @@ export default function ClubsIndex() {
               </h2>
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {trendingClubs.map((c) => {
-                  const members = c.member_count ?? 0;
                   return (
                     <Link
                       key={`trending-${c.slug}`}
@@ -163,7 +178,7 @@ export default function ClubsIndex() {
                         <div className="my-3 border-t-2 border-black" />
                         <div className="flex items-center justify-between font-mono text-xs">
                           <span className="font-bold flex items-center gap-1.5">
-                            <UsersRound size={14} /> {members} members
+                            <UsersRound size={14} /> Members
                           </span>
                           <span className="font-bold uppercase flex items-center gap-1">
                             Explore{" "}
@@ -213,38 +228,39 @@ export default function ClubsIndex() {
                 </div>
               </div>
             ) : (
-              filteredClubs.map((c, index) => {
-                const members = c.member_count ?? 0;
-                return (
-                  <div
-                    key={c.slug}
-                    className="animate-fade-in-up"
-                    style={{ animationDelay: `${index * 75}ms` }}
-                  >
-                    <Link
-                      to={`/clubs/${c.slug}`}
-                      className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000] h-full"
+              filteredClubs
+                .filter((c) => search || !trendingClubs.find((t) => t.slug === c.slug))
+                .map((c, index) => {
+                  return (
+                    <div
+                      key={c.slug}
+                      className="animate-fade-in-up"
+                      style={{ animationDelay: `${index * 75}ms` }}
                     >
-                      <div
-                        className={`neu-border ${colors[index % colors.length]} mb-4 inline-block px-3 py-1 font-mono text-xs font-bold uppercase`}
+                      <Link
+                        to={`/clubs/${c.slug}`}
+                        className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000] h-full"
                       >
-                        Club
-                      </div>
-                      <h2 className="text-2xl font-bold">{c.name}</h2>
-                      <div className="my-3 border-t-2 border-black" />
-                      <div className="flex items-center justify-between font-mono text-xs">
-                        <span>{members} members</span>
-                        <span className="font-bold uppercase flex items-center gap-1">
-                          View{" "}
-                          <span className="transition-transform duration-300 group-hover:translate-x-1">
-                            →
+                        <div
+                          className={`club-logo-badge neu-border ${colors[index % colors.length]} mb-4 inline-block px-3 py-1 font-mono text-xs font-bold uppercase`}
+                        >
+                          Club
+                        </div>
+                        <h2 className="text-2xl font-bold">{c.name}</h2>
+                        <div className="my-3 border-t-2 border-black" />
+                        <div className="flex items-center justify-between font-mono text-xs">
+                          <span>Members</span>
+                          <span className="font-bold uppercase flex items-center gap-1">
+                            View{" "}
+                            <span className="transition-transform duration-300 group-hover:translate-x-1">
+                              →
+                            </span>
                           </span>
-                        </span>
-                      </div>
-                    </Link>
-                  </div>
-                );
-              })
+                        </div>
+                      </Link>
+                    </div>
+                  );
+                })
             )}
 
             {/* Next Page Fetching Skeleton Additions */}
