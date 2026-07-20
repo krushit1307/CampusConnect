@@ -13,7 +13,12 @@ import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { profileSchema, type ProfileFormValues } from "@/lib/schemas";
+import {
+  profileSchema,
+  AVATAR_THEMES,
+  type ProfileFormValues,
+  type AvatarThemeId,
+} from "@/lib/schemas";
 import {
   Form,
   FormField,
@@ -61,6 +66,8 @@ export default function SettingsPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [borderThickness, setBorderThickness] = useState(2);
+  const [borderRadius, setBorderRadius] = useState(0);
   const { fontSize, increment, decrement, reset } = useFontSize();
 
   useEffect(() => {
@@ -71,6 +78,22 @@ export default function SettingsPage() {
         setUser(user);
       }
     });
+
+    // Load appearance settings from localStorage
+    const savedThickness = localStorage.getItem("border-thickness");
+    const savedRadius = localStorage.getItem("border-radius");
+
+    if (savedThickness) {
+      const thickness = parseInt(savedThickness, 10);
+      setBorderThickness(thickness);
+      document.documentElement.style.setProperty("--border-thickness", `${thickness}px`);
+    }
+
+    if (savedRadius) {
+      const radius = parseInt(savedRadius, 10);
+      setBorderRadius(radius);
+      document.documentElement.style.setProperty("--border-radius", `${radius}px`);
+    }
   }, [navigate, supabase]);
 
   const {
@@ -94,6 +117,7 @@ export default function SettingsPage() {
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
+      avatarTheme: "",
       fullName: "",
       handle: "",
       collegeEmail: "",
@@ -106,6 +130,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (user) {
       form.reset({
+        avatarTheme: (profile?.avatar_theme as AvatarThemeId) || "",
         fullName: profile?.full_name || user.user_metadata?.full_name || "",
         handle: profile?.handle || "",
         collegeEmail: user.email || "",
@@ -128,6 +153,7 @@ export default function SettingsPage() {
       const { error: profileError } = await supabase
         .from("profiles")
         .update({
+          avatar_theme: values.avatarTheme || null,
           full_name: values.fullName,
           handle: values.handle,
           bio: values.bio || null,
@@ -159,6 +185,21 @@ export default function SettingsPage() {
   };
 
   const currentFullName = form.watch("fullName");
+  const currentAvatarTheme = form.watch("avatarTheme");
+
+  const handleBorderThicknessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    setBorderThickness(value);
+    document.documentElement.style.setProperty("--border-thickness", `${value}px`);
+    localStorage.setItem("border-thickness", String(value));
+  };
+
+  const handleBorderRadiusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    setBorderRadius(value);
+    document.documentElement.style.setProperty("--border-radius", `${value}px`);
+    localStorage.setItem("border-radius", String(value));
+  };
 
   if (isProfileLoading && !profile) {
     return (
@@ -183,7 +224,12 @@ export default function SettingsPage() {
       <section className="px-4 py-12 md:px-6">
         <div className="mx-auto max-w-4xl space-y-6 text-indigo-900">
           <Panel title="Profile">
-            <AvatarUpload name={currentFullName || "User"} />
+            <AvatarUpload name={currentFullName || "User"} avatarTheme={currentAvatarTheme} />
+
+            <AvatarThemePicker
+              selected={currentAvatarTheme}
+              onSelect={(id) => form.setValue("avatarTheme", id, { shouldDirty: true })}
+            />
 
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -318,6 +364,39 @@ export default function SettingsPage() {
               </form>
             </Form>
           </Panel>
+          <Panel title="Appearance">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="eyebrow font-bold">Border Thickness: {borderThickness}px</label>
+                <input
+                  type="range"
+                  min="1"
+                  max="8"
+                  value={borderThickness}
+                  onChange={handleBorderThicknessChange}
+                  className="w-full cursor-pointer accent-black"
+                />
+                <p className="font-mono text-xs text-gray-500">
+                  Controls the width of borders throughout the app (1px - 8px)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="eyebrow font-bold">Border Radius: {borderRadius}px</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="32"
+                  value={borderRadius}
+                  onChange={handleBorderRadiusChange}
+                  className="w-full cursor-pointer accent-black"
+                />
+                <p className="font-mono text-xs text-gray-500">
+                  Controls the roundness of corners (0px - 32px)
+                </p>
+              </div>
+            </div>
+          </Panel>
           <Panel title="Text Size">
             <div className="flex items-center gap-4">
               <button
@@ -432,7 +511,48 @@ function uploadFileWithProgress(
   });
 }
 
-function AvatarUpload({ name }: { name: string }) {
+// Renders the 5 predefined gradient swatches. Clicking one updates the form
+// state immediately (so AvatarUpload's preview reflects it right away), and
+// the value is persisted to Supabase along with the rest of the profile
+// fields when the user hits "Save changes".
+function AvatarThemePicker({
+  selected,
+  onSelect,
+}: {
+  selected?: AvatarThemeId | "";
+  onSelect: (id: AvatarThemeId) => void;
+}) {
+  return (
+    <div className="space-y-2 border-b-2 border-black pb-6">
+      <p className="eyebrow font-bold">Avatar theme</p>
+      <p className="font-mono text-xs text-gray-500">
+        Pick a gradient background to use when you don&apos;t have a custom photo.
+      </p>
+      <div className="flex flex-wrap gap-3 pt-1">
+        {AVATAR_THEMES.map((theme) => {
+          const isSelected = selected === theme.id;
+          return (
+            <button
+              key={theme.id}
+              type="button"
+              onClick={() => onSelect(theme.id)}
+              aria-label={`${theme.label} gradient`}
+              aria-pressed={isSelected}
+              title={theme.label}
+              className={`h-10 w-10 rounded-full border-2 border-black transition-transform ${theme.gradient} ${
+                isSelected
+                  ? "scale-110 ring-4 ring-black ring-offset-2 ring-offset-white"
+                  : "hover:scale-105"
+              }`}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: AvatarThemeId | "" }) {
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
   const [preview, setPreview] = useState<string | null>(null);
@@ -477,6 +597,12 @@ function AvatarUpload({ name }: { name: string }) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
+  // Only fall back to a gradient when there's no uploaded photo to show.
+  // A real photo always takes priority over the theme.
+  const showGradient = (!preview || imageError) && !!avatarTheme;
+  const gradientClass = AVATAR_THEMES.find((theme) => theme.id === avatarTheme)?.gradient;
+  const backgroundClass = showGradient && gradientClass ? gradientClass : "bg-lime";
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -572,7 +698,9 @@ function AvatarUpload({ name }: { name: string }) {
   return (
     <div className="flex flex-col items-center gap-3 border-b-2 border-black pb-6 sm:flex-row sm:items-center sm:gap-5">
       <div className="relative shrink-0">
-        <div className="neu-border flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-lime">
+        <div
+          className={`neu-border flex h-24 w-24 items-center justify-center overflow-hidden rounded-full ${backgroundClass}`}
+        >
           {preview && !imageError ? (
             <OptimizedImage
               src={preview}
@@ -587,7 +715,7 @@ function AvatarUpload({ name }: { name: string }) {
               fallback={<span className="font-display text-2xl font-bold">{initials}</span>}
             />
           ) : (
-            <span className="font-display text-2xl font-bold">{initials}</span>
+            <span className="font-display text-2xl font-bold text-black">{initials}</span>
           )}
         </div>
         <button

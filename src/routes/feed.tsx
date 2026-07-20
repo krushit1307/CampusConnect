@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import { calculateReadTime } from "@/utils/readTime";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
@@ -357,8 +358,16 @@ export default function Feed() {
         <section className="bg-blue-800 px-4 py-12 md:px-6">
           <div className="mx-auto max-w-4xl space-y-6">
             <div className="space-y-3 text-black">
-              <MarkdownEditor ref={editorRef} value={newPost} onChange={setNewPost} />
-
+              <MarkdownEditor
+                ref={editorRef}
+                value={newPost}
+                onChange={(value) => {
+                  setNewPost(value.slice(0, 500));
+                }}
+              />
+              <p className={cn("flex justify-end", newPost.length >= 500 && "text-red-500")}>
+                {newPost.length}/500
+              </p>
               <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between text-black">
                 <select
                   value={selectedClubId}
@@ -718,7 +727,7 @@ export default function Feed() {
                           })}
                         </div>
 
-                        <div className="flex gap-2">
+                        <div className="sticky bottom-0 -mx-4 mt-2 flex gap-2 border-t-2 border-black bg-cream px-4 py-2 md:static md:mx-0 md:border-t-0 md:bg-transparent md:px-0 md:py-0">
                           <input
                             value={newComments[post.id] || ""}
                             onChange={(event) =>
