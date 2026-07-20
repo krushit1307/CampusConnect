@@ -101,8 +101,8 @@ This repository uses an automated bot to assign issues to contributors!
 
 1. Find an unassigned issue you want to work on (look for the `good-first-issue` label if you're new!).
 2. Leave a comment on the issue saying exactly: `/claim`.
-3. The bot will automatically assign the issue to you. You can only have a maximum of 10 active issues at a time.
-4. **Time Limit:** You have **6 days** to open a Pull Request. If you need more time, simply leave a comment updating your progress. If there's no activity within 6 days, the bot will automatically unassign you so others can take a turn.
+3. The bot will automatically assign the issue to you. You can only have a maximum of 7 active issues at a time.
+4. **Time Limit:** You have **3 days** to open a Pull Request. If you need more time, simply leave a comment updating your progress. If there's no activity within 3 days, the bot will automatically unassign you so others can take a turn.
 5. If you change your mind and no longer want to work on the issue, comment `/unclaim` to release it.
 
 ## 🏷️ Issue Labels Guide
