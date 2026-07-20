@@ -21,8 +21,9 @@ export const clubFormSchema = z.object({
       (val) => !val || val.startsWith("https://github.com/"),
       "GitHub repository URL must start with https://github.com/",
     )
-    .optional()
-    .or(z.literal("")),
+    .transform((val) => (val === "" ? null : val))
+    .nullable()
+    .optional(),
 });
 
 export type ClubFormValues = z.infer<typeof clubFormSchema>;

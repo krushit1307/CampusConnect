@@ -25,7 +25,7 @@ describe("clubFormSchema validation", () => {
     expect(result.success).toBe(true);
   });
 
-  it("validates a club with empty string github_repo_url", () => {
+  it("validates a club with empty string github_repo_url and transforms it to null", () => {
     const validData = {
       name: "Art Club",
       slug: "art-club",
@@ -35,6 +35,9 @@ describe("clubFormSchema validation", () => {
 
     const result = clubFormSchema.safeParse(validData);
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.github_repo_url).toBeNull();
+    }
   });
 
   it("rejects github_repo_url that does not start with https://github.com/", () => {
