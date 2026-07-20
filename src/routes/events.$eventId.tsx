@@ -381,7 +381,7 @@ export default function EventDetailsPage() {
 
           {/* Description */}
           <div className="mt-8">
-            <h2 className="font-display text-xl font-bold uppercase tracking-tight">
+            <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
               About the Event
             </h2>
             {event.description ? (
@@ -398,7 +398,9 @@ export default function EventDetailsPage() {
           {/* Map Embed */}
           {event.location && event.location.toLowerCase() !== "online" && (
             <div className="mt-8">
-              <h2 className="font-display text-xl font-bold uppercase tracking-tight">Location</h2>
+              <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
+                Location
+              </h2>
               {!coordsCheck.isValid ? (
                 <div className="neu-border mt-4 flex items-start gap-4 bg-peach/20 p-5">
                   <div className="shrink-0 rounded-none border-2 border-black bg-white p-2 text-[#e53935]">
@@ -416,7 +418,7 @@ export default function EventDetailsPage() {
                       href={`https://www.google.com/maps/search/?q=${encodeURIComponent(event.location)}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 font-mono text-xs font-bold underline hover:no-underline"
+                      className="inline-flex items-center gap-1 font-mono text-xs font-bold underline hover:no-underline text-black"
                     >
                       Search location on Google Maps anyway ↗
                     </a>
@@ -435,7 +437,7 @@ export default function EventDetailsPage() {
                     href={`https://www.google.com/maps/search/?q=${encodeURIComponent(event.location)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-2 inline-block font-mono text-xs font-bold underline"
+                    className="mt-2 inline-block font-mono text-xs font-bold underline text-blue-500"
                   >
                     View larger map ↗
                   </a>
@@ -446,7 +448,7 @@ export default function EventDetailsPage() {
 
           {/* Social Share Buttons */}
           <div className="mt-10 border-t-2 border-black pt-6">
-            <h3 className="font-mono text-xs font-bold uppercase text-black/50">
+            <h3 className="font-mono text-xs font-bold uppercase text-blue-900">
               Share with Friends
             </h3>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -454,7 +456,7 @@ export default function EventDetailsPage() {
                 href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#1DA1F2] hover:text-white"
+                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-[#1DA1F2] hover:text-white transition-colors text-black"
               >
                 Twitter
               </a>
@@ -462,7 +464,7 @@ export default function EventDetailsPage() {
                 href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#0A66C2] hover:text-white"
+                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-[#0A66C2] hover:text-white transition-colors text-black"
               >
                 LinkedIn
               </a>
@@ -470,7 +472,8 @@ export default function EventDetailsPage() {
                 href={`https://wa.me/?text=${encodeURIComponent(`Check out this event: ${event.title} - ${window.location.href}`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#25D366] hover:text-white"
+
+                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-[#25D366] hover:text-white transition-colors text-black"
               >
                 WhatsApp
               </a>
