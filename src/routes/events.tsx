@@ -71,7 +71,6 @@ export default function EventsPage() {
   }, [sortOrder, sortLoaded]);
 
   const [totalCount, setTotalCount] = useState<number | null>(null);
-  const [filter, setFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
 
   const {
