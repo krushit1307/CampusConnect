@@ -95,15 +95,11 @@ export default function ClubsIndex() {
           animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       `}</style>
-      <section className="border-b-2 border-black bg-orange-600 px-4 py-14 md:px-6">
+      <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="flex-1">
-            <p className="eyebrow font-bold text-red-900">
-              Club directory · {totalActiveCount} active
-            </p>
-            <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl text-red-900">
-              Find your people.
-            </h1>
+            <p className="eyebrow font-bold">Club directory · {totalActiveCount} active</p>
+            <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">Find your people.</h1>
             <div className="relative mt-6 max-w-xl">
               <input
                 ref={inputRef}
@@ -134,7 +130,7 @@ export default function ClubsIndex() {
         </div>
       </section>
 
-      <section className="bg-blue-800 px-4 py-12 md:px-6">
+      <section className="bg-cream px-4 py-12 md:px-6">
         <div className="mx-auto max-w-7xl">
           {/* Dynamic Popular/Trending Clubs Container */}
           {!isLoading && allClubs.length > 0 && !search && (
@@ -202,14 +198,12 @@ export default function ClubsIndex() {
                 </div>
               ))
             ) : allClubs.length === 0 ? (
-              <div className="neu-border col-span-full mx-auto flex w-full max-w-2xl flex-col items-center bg-orange-300 px-6 py-12 text-center md:px-12 md:py-16">
-                <div className="neu-border mb-6 flex h-20 w-20 items-center justify-center bg-black md:h-24 md:w-24">
+              <div className="neu-border col-span-full mx-auto flex w-full max-w-2xl flex-col items-center bg-white px-6 py-12 text-center md:px-12 md:py-16">
+                <div className="neu-border mb-6 flex h-20 w-20 items-center justify-center bg-lime md:h-24 md:w-24">
                   <UsersRound className="h-10 w-10 md:h-12 md:w-12" aria-hidden="true" />
                 </div>
                 <p className="eyebrow font-bold text-black">Your campus community starts here</p>
-                <h2 className="mt-2 text-3xl font-bold md:text-4xl text-blue-900">
-                  No clubs found
-                </h2>
+                <h2 className="mt-2 text-3xl font-bold md:text-4xl">No clubs found</h2>
                 <p className="mt-3 max-w-md font-mono text-sm leading-6 text-gray-700">
                   There are no clubs in the directory yet. Create the first club and bring students
                   with shared interests together.
