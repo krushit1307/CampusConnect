@@ -60,8 +60,8 @@ export function MaintenancePage({ onRetry }: MaintenancePageProps) {
             Under Maintenance
           </h1>
           <p className="mx-auto max-w-xs font-mono text-xs leading-relaxed text-gray-700 sm:max-w-sm sm:text-sm">
-            We couldn't reach CampusConnect's servers. We're on it — this
-            usually clears up in a few minutes. Sit tight and try again shortly.
+            We couldn't reach CampusConnect's servers. We're on it — this usually clears up in a few
+            minutes. Sit tight and try again shortly.
           </p>
         </div>
 
@@ -82,8 +82,9 @@ export function MaintenancePage({ onRetry }: MaintenancePageProps) {
             </span>
           </button>
 
-          /** Add support email here. */
-            href="" 
+          {/* Add support email here. */}
+          <a
+            href=""
             className="neu-border bg-white text-black hover:bg-gray-50 font-mono font-bold uppercase tracking-wider px-6 py-3 shadow-[4px_4px_0_0_#000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_#000] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[0px_0px_0_0_#000]"
           >
             <span className="inline-flex items-center gap-2">
@@ -93,7 +94,7 @@ export function MaintenancePage({ onRetry }: MaintenancePageProps) {
           </a>
         </div>
 
-        
+        <a
           href="https://github.com/krushit1307/CampusConnect/issues"
           target="_blank"
           rel="noopener noreferrer"
