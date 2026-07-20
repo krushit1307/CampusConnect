@@ -391,7 +391,6 @@ export default function EventDetailsPage() {
               </Tooltip>
             </TooltipProvider>
 
-
             {isOrganizer && (
               <Button
                 onClick={() => exportCsv.mutate()}
