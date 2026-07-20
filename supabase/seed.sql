@@ -224,55 +224,40 @@ VALUES (
 ON CONFLICT (id) DO NOTHING;
 
 -- 6. Event RSVPs
-INSERT INTO
-    event_rsvps (
-        id,
-        event_id,
-        user_id,
-        checked_in
-    )
-VALUES (
-        'f0000000-0000-0000-0000-000000000001',
-        'e0000000-0000-0000-0000-000000000001',
-        'd0000000-0000-0000-0000-000000000002',
-        false
-    )
+INSERT INTO event_rsvps (id, event_id, user_id, checked_in)
+VALUES
+(
+  'f0000000-0000-0000-0000-000000000001',
+  'e0000000-0000-0000-0000-000000000001',
+  'd0000000-0000-0000-0000-000000000002',
+  false
+)
 ON CONFLICT (id) DO NOTHING;
 
 -- 7. Dummy Feed Posts
-INSERT INTO
-    posts (
-        id,
-        club_id,
-        author_id,
-        content
-    )
-VALUES (
-        'a0000000-0000-0000-0000-000000000001',
-        'c0000000-0000-0000-0000-000000000001',
-        'd0000000-0000-0000-0000-000000000001',
-        'Welcome to the Tech Club! Looking forward to hacking together at our annual hackathon next week.'
-    ),
-    (
-        'a0000000-0000-0000-0000-000000000002',
-        'c0000000-0000-0000-0000-000000000002',
-        'd0000000-0000-0000-0000-000000000002',
-        'Check out this weeks palette recommendations for watercolor painting! Feel free to share your works here.'
-    )
+INSERT INTO posts (id, club_id, author_id, content)
+VALUES
+(
+  'a0000000-0000-0000-0000-000000000001',
+  'c0000000-0000-0000-0000-000000000001',
+  'd0000000-0000-0000-0000-000000000001',
+  'Welcome to the Tech Club! Looking forward to hacking together at our annual hackathon next week.'
+),
+(
+  'a0000000-0000-0000-0000-000000000002',
+  'c0000000-0000-0000-0000-000000000002',
+  'd0000000-0000-0000-0000-000000000002',
+  'Check out this weeks palette recommendations for watercolor painting! Feel free to share your works here.'
+)
 ON CONFLICT (id) DO NOTHING;
 
 -- 8. Post Comments
-INSERT INTO
-    comments (
-        id,
-        post_id,
-        author_id,
-        content
-    )
-VALUES (
-        'cc000000-0000-0000-0000-000000000001',
-        'a0000000-0000-0000-0000-000000000001',
-        'd0000000-0000-0000-0000-000000000002',
-        'Super excited! Cant wait to see what teams build.'
-    )
+INSERT INTO comments (id, post_id, author_id, content)
+VALUES
+(
+  'cc000000-0000-0000-0000-000000000001',
+  'a0000000-0000-0000-0000-000000000001',
+  'd0000000-0000-0000-0000-000000000002',
+  'Super excited! Cant wait to see what teams build.'
+)
 ON CONFLICT (id) DO NOTHING;

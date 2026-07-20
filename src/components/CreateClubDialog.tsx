@@ -147,10 +147,10 @@ export function CreateClubDialog({ user }: { user: User | null }) {
           Create a Club
         </button>
       </DialogTrigger>
-      <DialogContent className="neu-border neu-shadow bg-cream sm:max-w-2xl">
+      <DialogContent className="neu-border neu-shadow bg-violet-500 sm:max-w-2xl text-black">
         <DialogHeader>
-          <DialogTitle>Create a new club</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-blue-900">Create a new club</DialogTitle>
+          <DialogDescription className="text-black">
             Submit a new club or student chapter. An administrator will review it before it appears
             publicly.
           </DialogDescription>
@@ -164,8 +164,10 @@ export function CreateClubDialog({ user }: { user: User | null }) {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Club Name</FormLabel>
-                    <FormControl>
+                    <FormLabel required className="text-red-900">
+                      Club Name
+                    </FormLabel>
+                    <FormControl className="text-black">
                       <Input placeholder="AI Research Group" {...field} />
                     </FormControl>
                     <FormMessage />
@@ -178,8 +180,10 @@ export function CreateClubDialog({ user }: { user: User | null }) {
                 name="slug"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Web Address Slug</FormLabel>
-                    <FormControl>
+                    <FormLabel required className="text-red-900">
+                      Web Address Slug
+                    </FormLabel>
+                    <FormControl className="text-black">
                       <Input placeholder="ai-research-group" {...field} />
                     </FormControl>
                     <FormMessage />
@@ -196,8 +200,10 @@ export function CreateClubDialog({ user }: { user: User | null }) {
                 const isNearLimit = currentLength >= MAX_DESCRIPTION_LENGTH - 10;
 
                 return (
-                  <FormItem>
-                    <FormLabel required>Club Description (Markdown)</FormLabel>
+                  <FormItem className="text-black">
+                    <FormLabel required className="text-red-900">
+                      Club Description (Markdown)
+                    </FormLabel>
 
                     <FormControl>
                       <MarkdownEditor
@@ -211,7 +217,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
 
                     <div
                       className={`mt-1 text-right text-xs ${
-                        isNearLimit ? "text-red-500" : "text-muted-foreground"
+                        isNearLimit ? "text-red-500" : "text-black"
                       }`}
                     >
                       {currentLength}/{MAX_DESCRIPTION_LENGTH}

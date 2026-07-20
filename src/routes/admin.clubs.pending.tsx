@@ -127,7 +127,7 @@ export default function PendingClubsAdmin() {
         <section className="bg-cream px-4 py-20 md:px-6">
           <div className="neu-border neu-shadow mx-auto max-w-2xl bg-white p-8 text-center">
             <ShieldAlert className="mx-auto h-12 w-12" aria-hidden="true" />
-            <h1 className="mt-4 text-3xl font-bold">Admin access required</h1>
+            <h1 className="mt-4 text-3xl font-bold text-black">Admin access required</h1>
             <p className="mt-3 font-mono text-sm leading-6 text-gray-700">
               Only system administrators can review club registrations.
             </p>
@@ -147,8 +147,10 @@ export default function PendingClubsAdmin() {
     <SiteShell>
       <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
         <div className="mx-auto max-w-7xl">
-          <p className="eyebrow font-bold">System administration</p>
-          <h1 className="mt-2 text-4xl font-bold md:text-6xl">Pending club registrations</h1>
+          <p className="eyebrow font-bold text-black">System administration</p>
+          <h1 className="mt-2 text-4xl font-bold md:text-6xl text-gray-600">
+            Pending club registrations
+          </h1>
           <p className="mt-4 max-w-2xl font-mono text-sm leading-6 text-gray-800">
             Review newly submitted campus clubs before they appear in the public directory.
           </p>
@@ -166,7 +168,7 @@ export default function PendingClubsAdmin() {
           ) : clubs.length === 0 ? (
             <div className="neu-border neu-shadow mx-auto max-w-2xl bg-white p-10 text-center">
               <Check className="mx-auto h-12 w-12" aria-hidden="true" />
-              <h2 className="mt-4 text-3xl font-bold">Queue cleared</h2>
+              <h2 className="mt-4 text-3xl font-bold text-black">Queue cleared</h2>
               <p className="mt-3 font-mono text-sm text-gray-700">
                 There are no pending club registrations to review.
               </p>
@@ -195,7 +197,7 @@ export default function PendingClubsAdmin() {
 
                     <dl className="mt-5 grid gap-2 border-y-2 border-black py-4 font-mono text-xs">
                       <div className="flex justify-between gap-4">
-                        <dt className="font-bold uppercase">Submitted by</dt>
+                        <dt className="font-bold uppercase text-black">Submitted by</dt>
                         <dd className="text-right">{club.submitterName}</dd>
                       </div>
                       <div className="flex justify-between gap-4">
@@ -221,15 +223,16 @@ export default function PendingClubsAdmin() {
                         }}
                         className="neu-border neu-press inline-flex items-center justify-center gap-2 bg-white px-5 py-3 font-mono text-xs font-bold uppercase disabled:cursor-wait disabled:opacity-50"
                       >
-                        <X className="h-4 w-4" /> Reject
+                        <X className="h-4 w-4 text-black" /> Reject
                       </button>
                       <button
                         type="button"
                         disabled={isBusy}
                         onClick={() => void moderateClub(club.id, "approved")}
-                        className="neu-border neu-press inline-flex items-center justify-center gap-2 bg-lime px-5 py-3 font-mono text-xs font-bold uppercase disabled:cursor-wait disabled:opacity-50"
+                        className="neu-border neu-press inline-flex items-center justify-center gap-2 bg-lime px-5 py-3 font-mono text-xs font-bold uppercase disabled:cursor-wait disabled:opacity-50 text-gray-600"
                       >
-                        <Check className="h-4 w-4" /> {isBusy ? "Updating..." : "Approve"}
+                        <Check className="h-4 w-4 text-gray-600" />{" "}
+                        {isBusy ? "Updating..." : "Approve"}
                       </button>
                     </div>
                   </article>

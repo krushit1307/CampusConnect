@@ -64,6 +64,20 @@ export function CreateEventDialog({ user }: { user: User | null }) {
         throw new Error("You must be logged in to create an event.");
       }
 
+      const { data: myClub, error: clubError } = await supabase
+        .from("clubs")
+        .select("id")
+        .eq("created_by", user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (clubError) {
+        throw new Error(clubError.message);
+      }
+      if (!myClub) {
+        throw new Error("You need to create or administer a club before creating an event.");
+      }
+
       const startDateIso = new Date(values.startDate).toISOString();
       const endDateIso = new Date(values.endDate).toISOString();
 
@@ -73,10 +87,9 @@ export function CreateEventDialog({ user }: { user: User | null }) {
         location: values.location?.trim() || null,
         start_date: startDateIso,
         end_date: endDateIso,
-        // Kept in sync with start_date so existing views that still
-        // read event_date (e.g. EventCard, event ordering) keep working.
         event_date: startDateIso,
         created_by: user.id,
+        club_id: myClub.id,
       });
 
       if (error) {
@@ -152,16 +165,18 @@ export function CreateEventDialog({ user }: { user: User | null }) {
       <DialogTrigger asChild>
         <button
           type="button"
-          className="neu-border neu-press flex items-center gap-2 bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream"
+          className="neu-border neu-press flex items-center gap-2 bg-teal-500 px-4 py-2 font-mono text-xs font-bold uppercase text-black"
         >
           <Plus className="h-4 w-4" />
           Create event
         </button>
       </DialogTrigger>
-      <DialogContent className="neu-border neu-shadow bg-cream sm:max-w-md">
+      <DialogContent className="neu-border neu-shadow bg-violet-500 sm:max-w-md text-black">
         <DialogHeader>
-          <DialogTitle>Create a new event</DialogTitle>
-          <DialogDescription>Fill in the details below. All fields are required.</DialogDescription>
+          <DialogTitle className="text-blue-900">Create a new event</DialogTitle>
+          <DialogDescription className="text-black">
+            Fill in the details below. All fields are required.
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -171,8 +186,10 @@ export function CreateEventDialog({ user }: { user: User | null }) {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel required>Title</FormLabel>
-                  <FormControl>
+                  <FormLabel required className="text-red-800">
+                    Title
+                  </FormLabel>
+                  <FormControl className="text-black">
                     <Input placeholder="Hackathon 2026" maxLength={TITLE_MAX_LENGTH} {...field} />
                   </FormControl>
                   <FormMessage />
@@ -185,8 +202,10 @@ export function CreateEventDialog({ user }: { user: User | null }) {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel required>Description</FormLabel>
-                  <FormControl>
+                  <FormLabel required className="text-red-800">
+                    Description
+                  </FormLabel>
+                  <FormControl className="text-black">
                     <Textarea placeholder="What's this event about?" rows={4} {...field} />
                   </FormControl>
                   <FormMessage />
@@ -199,8 +218,8 @@ export function CreateEventDialog({ user }: { user: User | null }) {
               name="location"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Location</FormLabel>
-                  <FormControl>
+                  <FormLabel className="text-red-800">Location</FormLabel>
+                  <FormControl className="text-black">
                     <Input
                       placeholder='e.g. "Main Auditorium, IIT Bombay" or "28.7041,77.1025" or "Online"'
                       {...field}

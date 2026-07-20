@@ -8,6 +8,7 @@ import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Github } from "lucide-react";
 
 // Small building block for the skeleton below. Deliberately a plain div
 // (not the shared ui/skeleton component) to keep this change self-contained.
@@ -63,7 +64,9 @@ function ClubProfileSkeleton() {
       <section className="px-4 py-12 md:px-6">
         <div className="mx-auto max-w-6xl">
           <div className="neu-border bg-white p-6">
-            <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold">Upcoming events</h2>
+            <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold text-indigo-900">
+              Upcoming events
+            </h2>
             <div className="divide-y-2 divide-black">
               {[0, 1, 2].map((i) => (
                 <div key={i} className="flex items-center gap-4 py-4">
@@ -101,7 +104,7 @@ export default function ClubProfile() {
         .from("clubs")
         .select(
           `
-          id, name, slug, description,
+          id, name, slug, description, github_repo_url,
           club_members (id, role, status, user_id, profiles (full_name, avatar_url, handle)),
           events (id, title, event_date)
         `,
@@ -131,7 +134,7 @@ export default function ClubProfile() {
   if (!club)
     return (
       <SiteShell>
-        <div className="p-10 font-mono">Club not found.</div>
+        <div className="p-10 font-mono text-gray-700">Club not found.</div>
       </SiteShell>
     );
 
@@ -165,7 +168,7 @@ export default function ClubProfile() {
     <SiteShell>
       <section className="border-b-2 border-black px-4 py-14 md:px-6">
         <div className="mx-auto max-w-6xl">
-          <p className="eyebrow font-bold">Club</p>
+          <p className="eyebrow font-bold text-blue-900">Club</p>
           <h1 className="mt-2 text-5xl font-bold text-[#123a57] md:text-7xl">{club.name}</h1>
           <div className="markdown-content mt-4 max-w-2xl font-mono text-sm md:text-base leading-relaxed">
             <ReactMarkdown>{club.description || ""}</ReactMarkdown>
@@ -173,12 +176,12 @@ export default function ClubProfile() {
 
           {/* Members section below the description */}
           <div className="mt-8 max-w-2xl">
-            <h3 className="font-display text-lg font-bold">Members</h3>
-            <p className="font-mono text-xs text-gray-500 mt-1 mb-3">
+            <h3 className="font-display text-lg font-bold text-blue-900">Members</h3>
+            <p className="font-mono text-xs text-black mt-1 mb-3">
               {memberList.length} members total
             </p>
             {memberList.length === 0 ? (
-              <p className="font-mono text-sm text-gray-500">No members yet.</p>
+              <p className="font-mono text-sm text-black">No members yet.</p>
             ) : (
               <>
                 <div className="mb-4">
@@ -192,7 +195,7 @@ export default function ClubProfile() {
                   />
                 </div>
                 {filteredMembers.length === 0 ? (
-                  <p className="font-mono text-sm text-gray-500">No members match your search.</p>
+                  <p className="font-mono text-sm text-gray-700">No members match your search.</p>
                 ) : (
                   <>
                     <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -260,15 +263,28 @@ export default function ClubProfile() {
             >
               Follow
             </button>
+            {club.github_repo_url && (
+              <a
+                href={club.github_repo_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="neu-border neu-press inline-flex items-center gap-2 bg-white px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-lime/20"
+              >
+                <Github className="h-4 w-4" />
+                GitHub Repo
+              </a>
+            )}
           </div>
         </div>
       </section>
       <section className="px-4 py-12 md:px-6">
         <div className="mx-auto max-w-6xl">
           <div className="neu-border bg-white p-6">
-            <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold">Upcoming events</h2>
+            <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold text-black">
+              Upcoming events
+            </h2>
             {events.length === 0 ? (
-              <p className="font-mono text-sm">No upcoming events.</p>
+              <p className="font-mono text-sm text-black">No upcoming events.</p>
             ) : (
               <ul className="divide-y-2 divide-black">
                 {events.map((e) => (
