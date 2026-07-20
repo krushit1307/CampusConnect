@@ -35,10 +35,12 @@ CREATE TABLE clubs (
   description TEXT,
   banner_url TEXT,
   logo_url TEXT,
+  github_repo_url TEXT,
   created_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  CONSTRAINT check_clubs_slug_format CHECK (slug ~ '^[a-z0-9-]+$')
+  CONSTRAINT check_clubs_slug_format CHECK (slug ~ '^[a-z0-9-]+$'),
+  CONSTRAINT check_clubs_github_repo_url CHECK (github_repo_url IS NULL OR github_repo_url LIKE 'https://github.com/%')
 );
 
 CREATE TABLE club_members (
@@ -340,7 +342,6 @@ CREATE POLICY "Users can unsave events." ON saved_events FOR DELETE USING (auth.
 CREATE POLICY "Users can view their own notifications" ON notifications FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can update their own notifications" ON notifications FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own notifications" ON notifications FOR DELETE USING (auth.uid() = user_id);
-
 -- 4. Triggers
 -- Auto-create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()

@@ -1,7 +1,10 @@
 {
   "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM"],
     "allowJs": true,
-    "lib": ["deno.window"],
+    "skipLibCheck": true,
     "strict": true
   }
 }

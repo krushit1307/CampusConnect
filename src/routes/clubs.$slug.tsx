@@ -8,6 +8,7 @@ import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Github } from "lucide-react";
 
 // Small building block for the skeleton below. Deliberately a plain div
 // (not the shared ui/skeleton component) to keep this change self-contained.
@@ -101,7 +102,7 @@ export default function ClubProfile() {
         .from("clubs")
         .select(
           `
-          id, name, slug, description,
+          id, name, slug, description, github_repo_url,
           club_members (id, role, status, user_id, profiles (full_name, avatar_url, handle)),
           events (id, title, event_date)
         `,
@@ -260,6 +261,17 @@ export default function ClubProfile() {
             >
               Follow
             </button>
+            {club.github_repo_url && (
+              <a
+                href={club.github_repo_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="neu-border neu-press inline-flex items-center gap-2 bg-white px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-lime/20"
+              >
+                <Github className="h-4 w-4" />
+                GitHub Repo
+              </a>
+            )}
           </div>
         </div>
       </section>
