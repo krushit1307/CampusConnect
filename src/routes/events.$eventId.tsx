@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   Calendar,
   Check,
+  Copy,
   Download,
   Link as LinkIcon,
   MapPin,
@@ -54,6 +55,7 @@ export default function EventDetailsPage() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const [copied, setCopied] = useState(false);
+  const [idCopied, setIdCopied] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
@@ -260,6 +262,17 @@ export default function EventDetailsPage() {
     }
   };
 
+  const handleCopyEventId = async () => {
+    try {
+      await navigator.clipboard.writeText(event.id);
+      setIdCopied(true);
+      toast.success("Event ID copied to clipboard!");
+      setTimeout(() => setIdCopied(false), 2000);
+    } catch {
+      toast.error("Failed to copy event ID.");
+    }
+  };
+
   const handleConfirmCancel = () => {
     toggleRsvp.mutate({ eventId: event.id, hasRsvpd: true });
     setConfirmOpen(false);
@@ -311,11 +324,31 @@ export default function EventDetailsPage() {
             </span>
           </div>
 
-          <h1
-            className={`text-4xl font-black tracking-tight md:text-6xl ${event.banner_url ? "text-white" : "text-black"}`}
-          >
-            {event.title}
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1
+              className={`text-4xl font-black tracking-tight md:text-6xl ${event.banner_url ? "text-white" : "text-black"}`}
+            >
+              {event.title}
+            </h1>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={handleCopyEventId}
+                    variant="outline"
+                    size="icon"
+                    className="neu-border h-8 w-8 shrink-0 bg-white text-black transition-all duration-300 hover:scale-105 active:scale-95"
+                    aria-label="Copy Event ID"
+                  >
+                    {idCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Copy Event ID</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
 
           {club && (
             <p

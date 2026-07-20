@@ -27,7 +27,12 @@
   justify-content: center;
   background-color: var(--neu-yellow);
   padding: 24px;
-  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family:
+    "Inter",
+    "Segoe UI",
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 
 .maintenance-card {
@@ -39,7 +44,9 @@
   padding: 48px 40px;
   text-align: center;
   position: relative;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .maintenance-card:hover {
@@ -100,8 +107,15 @@
 }
 
 @keyframes pulse-blink {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.8); }
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
 }
 
 .status-text {
@@ -131,7 +145,7 @@
 .error-details code {
   display: block;
   margin-top: 12px;
-  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-family: "SF Mono", "Fira Code", monospace;
   font-size: 0.8rem;
   color: #cc0000;
   background-color: var(--neu-white);
