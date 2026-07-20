@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import MaintenancePage from "./components/MaintenancePage";
 import {
   createBrowserRouter,
   RouterProvider,
@@ -29,6 +30,86 @@ import ForgotPassword from "./routes/forgot-password";
 import ResetPassword from "./routes/reset-password";
 import Settings from "./routes/settings";
 import PendingClubsAdmin from "./routes/admin.clubs.pending";
+
+const HEALTH_CHECK_URL =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_HEALTH_URL) ||
+  (typeof process !== "undefined" && process.env?.REACT_APP_API_HEALTH_URL) ||
+  "/api/health";
+
+const HEALTH_CHECK_TIMEOUT = 8000; // 8 seconds
+
+interface HealthStatus {
+  ok: boolean;
+  error?: string;
+}
+
+async function checkDatabaseHealth(): Promise<HealthStatus> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT);
+
+    const response = await fetch(HEALTH_CHECK_URL, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+      cache: "no-store",
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: `Server responded with status ${response.status} (${response.statusText})`,
+      };
+    }
+
+    const data = await response.json().catch(() => null);
+    if (data && typeof data === "object" && "status" in data && data.status !== "ok") {
+      return {
+        ok: false,
+        error: `API health status: ${data.status}`,
+      };
+    }
+
+    return { ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown connection error";
+    return {
+      ok: false,
+      error: `Connection failed: ${message}`,
+    };
+  }
+}
+
+function LoadingScreen() {
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#ffde00",
+        fontFamily: "Inter, system-ui, sans-serif",
+        fontWeight: 800,
+        fontSize: "1.25rem",
+        color: "#0a0a0a",
+      }}
+    >
+      <div
+        style={{
+          border: "4px solid #0a0a0a",
+          padding: "24px 40px",
+          backgroundColor: "#ffffff",
+          boxShadow: "8px 8px 0px 0px #0a0a0a",
+        }}
+      >
+        CHECKING SYSTEM STATUS...
+      </div>
+    </div>
+  );
+}
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -101,50 +182,30 @@ async function checkDatabaseConnection(): Promise<boolean> {
 }
 
 export default function App() {
-  const [dbStatus, setDbStatus] = useState<DbStatus>("checking");
+  const [dbStatus, setDbStatus] = useState<HealthStatus | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [retryCount, setRetryCount] = useState(0);
 
-  useEffect(() => {
-    let cancelled = false;
-    let retryTimer: ReturnType<typeof setTimeout>;
-
-    const runCheck = async () => {
-      const isOnline = await checkDatabaseConnection();
-      if (cancelled) return;
-
-      setDbStatus(isOnline ? "online" : "offline");
-
-      // Keep polling in the background so the app recovers automatically
-      // once the outage clears, without the user needing to refresh.
-      if (!isOnline) {
-        retryTimer = setTimeout(runCheck, DB_RETRY_INTERVAL_MS);
-      }
-    };
-
-    runCheck();
-
-    return () => {
-      cancelled = true;
-      clearTimeout(retryTimer);
-    };
+  const performHealthCheck = useCallback(async () => {
+    setIsLoading(true);
+    const result = await checkDatabaseHealth();
+    setDbStatus(result);
+    setIsLoading(false);
   }, []);
 
-  if (dbStatus === "checking") {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-cream">
-        <div className="neu-border bg-white px-6 py-4 font-mono text-sm font-bold uppercase shadow-[4px_4px_0_0_#000]">
-          Loading CampusConnect…
-        </div>
-      </main>
-    );
+  useEffect(() => {
+    performHealthCheck();
+  }, [performHealthCheck, retryCount]);
+
+  if (isLoading) {
+    return <LoadingScreen />;
   }
 
-  if (dbStatus === "offline") {
+  if (dbStatus && !dbStatus.ok) {
     return (
       <MaintenancePage
-        onRetry={async () => {
-          const isOnline = await checkDatabaseConnection();
-          setDbStatus(isOnline ? "online" : "offline");
-        }}
+        onRetry={() => setRetryCount((prev) => prev + 1)}
+        errorDetails={dbStatus.error}
       />
     );
   }

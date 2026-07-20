@@ -1,110 +1,132 @@
-import { useState } from "react";
-import { Mail, RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
+import "./MaintenancePage.css";
 
-interface MaintenancePageProps {
-  /** Called when the user clicks "Try Again". Should re-run the DB health check. */
-  onRetry?: () => void | Promise<void>;
+export interface MaintenancePageProps {
+  onRetry?: () => void;
+  errorDetails?: string;
 }
 
-export function MaintenancePage({ onRetry }: MaintenancePageProps) {
-  const [isRetrying, setIsRetrying] = useState(false);
+export default function MaintenancePage({ onRetry, errorDetails }: MaintenancePageProps) {
+  const [dots, setDots] = useState("");
 
-  const handleRetry = async () => {
-    if (!onRetry || isRetrying) return;
-    setIsRetrying(true);
-    try {
-      await onRetry();
-    } finally {
-      setIsRetrying(false);
+  useEffect(() => {
+    // Honor prefers-reduced-motion: skip animation if user requests reduced motion
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (mediaQuery.matches) {
+      setDots("...");
+      return undefined;
+    }
+
+    const interval = setInterval(() => {
+      setDots((prev) => (prev.length >= 3 ? "" : prev + "."));
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleRetry = () => {
+    if (onRetry) {
+      onRetry();
+    } else {
+      window.location.reload();
     }
   };
 
   return (
-    <main
-      role="alert"
-      aria-live="polite"
-      className="relative flex min-h-screen items-center justify-center overflow-hidden bg-cream px-4 py-16 sm:px-6"
-    >
-      {/* Dotted Grid Background */}
-      <div
-        className="pointer-events-none absolute inset-0 z-0 opacity-20"
-        style={{
-          backgroundImage: `radial-gradient(circle at 1px 1px, black 2.5px, transparent 0)`,
-          backgroundSize: "24px 24px",
-        }}
-      />
-
-      {/* Floating Neobrutalist Background Shapes */}
-      <div className="absolute -left-12 top-10 h-32 w-32 rotate-12 border-4 border-black bg-sky shadow-[6px_6px_0_0_#000] sm:h-44 sm:w-44" />
-      <div className="absolute -right-10 bottom-12 h-28 w-28 -rotate-12 border-4 border-black bg-lime shadow-[6px_6px_0_0_#000] sm:h-40 sm:w-40" />
-
-      <section className="relative z-10 mx-auto flex w-full max-w-lg flex-col items-center text-center border-4 border-black bg-white p-6 shadow-[10px_10px_0_0_#000] sm:p-10">
-        {/* Mascot */}
-        <div className="relative mb-2 flex flex-col items-center">
-          <div className="neu-border relative mb-3 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase shadow-[3px_3px_0_0_#000]">
-            brb, fixing stuff
-            <div className="absolute -bottom-2 left-1/2 h-0 w-0 -translate-x-1/2 border-x-4 border-t-8 border-x-transparent border-t-black" />
-          </div>
-          <div className="neu-border flex h-24 w-28 flex-col items-center justify-center bg-peach p-2 shadow-[4px_4px_0_0_#000]">
-            <div className="flex gap-4">
-              <div className="h-3 w-3 rounded-full bg-black" />
-              <div className="h-3 w-3 rounded-full bg-black" />
-            </div>
-            <div className="mt-3 font-mono text-xl font-bold leading-none">(-_-) zzz</div>
-          </div>
-        </div>
-
-        {/* Copy */}
-        <div className="mt-6 flex flex-col items-center gap-2">
-          <h1 className="font-display text-2xl font-black leading-snug text-black sm:text-3xl">
-            Under Maintenance
-          </h1>
-          <p className="mx-auto max-w-xs font-mono text-xs leading-relaxed text-gray-700 sm:max-w-sm sm:text-sm">
-            We couldn't reach CampusConnect's servers. We're on it — this usually clears up in a few
-            minutes. Sit tight and try again shortly.
-          </p>
-        </div>
-
-        {/* Actions */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={handleRetry}
-            disabled={isRetrying}
-            className="neu-border bg-lime text-black hover:bg-lime/90 font-mono font-bold uppercase tracking-wider px-6 py-3 shadow-[4px_4px_0_0_#000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_#000] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[0px_0px_0_0_#000] disabled:cursor-not-allowed disabled:opacity-60"
+    <div className="maintenance-container">
+      <div className="maintenance-card">
+        <div className="maintenance-icon" aria-hidden="true">
+          <svg
+            width="64"
+            height="64"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           >
-            <span className="inline-flex items-center gap-2">
-              <RefreshCw
-                aria-hidden="true"
-                className={`h-4 w-4 ${isRetrying ? "animate-spin" : ""}`}
-              />
-              {isRetrying ? "Checking..." : "Try Again"}
-            </span>
+            <path d="M12 2v4" />
+            <path d="m5 5 2.8 2.8" />
+            <path d="m19 5-2.8 2.8" />
+            <path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
+            <path d="M12 18v2" />
+            <path d="m17 17-2.8-2.8" />
+            <path d="m7 17 2.8-2.8" />
+            <path d="M12 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" />
+            <line x1="18" y1="6" x2="6" y2="18" strokeWidth="3" />
+          </svg>
+        </div>
+
+        <h1 className="maintenance-title">Under Maintenance</h1>
+        <p className="maintenance-subtitle">
+          We&apos;re fixing things up behind the scenes
+          {dots}
+        </p>
+
+        <div className="maintenance-status-box">
+          <span className="status-indicator" />
+          <span className="status-text">Database connection unavailable</span>
+        </div>
+
+        {errorDetails && (
+          <details className="error-details">
+            <summary>Technical Details</summary>
+            <code>{errorDetails}</code>
+          </details>
+        )}
+
+        <div className="maintenance-actions">
+          <button type="button" className="neu-btn neu-btn-primary" onClick={handleRetry}>
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+            >
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+              <path d="M16 21h5v-5" />
+            </svg>
+            Retry Connection
           </button>
 
-          {/* Add support email here. */}
           <a
-            href=""
-            className="neu-border bg-white text-black hover:bg-gray-50 font-mono font-bold uppercase tracking-wider px-6 py-3 shadow-[4px_4px_0_0_#000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_#000] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[0px_0px_0_0_#000]"
+            href="mailto:support@campusconnect.edu"
+            className="neu-btn neu-btn-secondary"
+            target="_blank"
+            rel="noopener noreferrer"
           >
-            <span className="inline-flex items-center gap-2">
-              <Mail aria-hidden="true" className="h-4 w-4" />
-              Contact Support
-            </span>
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+            >
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+              <polyline points="22,6 12,13 2,6" />
+            </svg>
+            Contact Support
           </a>
         </div>
 
-        <a
-          href="https://github.com/krushit1307/CampusConnect/issues"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-4 font-mono text-xs font-bold uppercase text-gray-600 underline underline-offset-4 hover:text-black"
-        >
-          Report a problem on GitHub
-        </a>
-      </section>
-    </main>
+        <div className="maintenance-links">
+          <a href="https://status.campusconnect.edu" target="_blank" rel="noopener noreferrer">
+            System Status →
+          </a>
+          <a href="https://twitter.com/CampusConnect" target="_blank" rel="noopener noreferrer">
+            Updates on X →
+          </a>
+        </div>
+      </div>
+
+      <div className="maintenance-footer">
+        <p>CampusConnect Team • {new Date().getFullYear()}</p>
+      </div>
+    </div>
   );
 }
-
-export default MaintenancePage;
