@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS event_categories (
 ALTER TABLE event_categories ENABLE ROW LEVEL SECURITY;
 
 -- Allow public read access to event categories
+DROP POLICY IF EXISTS "Event categories are viewable by everyone." ON event_categories;
 CREATE POLICY "Event categories are viewable by everyone." 
 ON event_categories FOR SELECT 
 USING (true);

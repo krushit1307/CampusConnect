@@ -71,7 +71,7 @@ export function NotFoundPage() {
           {/* Cute Lost Mascot */}
           <div className="relative mb-2 flex flex-col items-center">
             {/* Speech Bubble */}
-            <div className="neu-border relative mb-3 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase shadow-[3px_3px_0_0_#000]">
+            <div className="neu-border relative mb-3 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase shadow-[3px_3px_0_0_#000] text-black">
               Where are we?
               <div className="absolute -bottom-2 left-1/2 h-0 w-0 -translate-x-1/2 border-x-4 border-t-8 border-x-transparent border-t-black" />
             </div>
