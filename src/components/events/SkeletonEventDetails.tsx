@@ -31,7 +31,7 @@ export function SkeletonEventDetails() {
 
             {/* Meta Grid (Date, Venue, Attendees) */}
             <div className="mt-8 grid gap-6 border-y-2 border-black/10 py-6 sm:grid-cols-3">
-              <div className="space-y-2">
+              <div className="space-y-2 text-black">
                 <Skeleton className="h-3 w-24 bg-black/10" />
                 <Skeleton className="h-5 w-32 bg-black/10" />
               </div>
