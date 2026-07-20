@@ -18,11 +18,8 @@ CREATE POLICY "Club admins can view attendance logs." ON event_attendance_logs F
   EXISTS (
     SELECT 1 FROM event_rsvps er
     JOIN events e ON e.id = er.event_id
-    JOIN club_members cm ON cm.club_id = e.club_id
     WHERE er.id = event_attendance_logs.rsvp_id 
-      AND cm.user_id = auth.uid() 
-      AND cm.role = 'admin' 
-      AND cm.status = 'approved'
+      AND public.is_club_admin(e.club_id, auth.uid())
   )
 );
 
