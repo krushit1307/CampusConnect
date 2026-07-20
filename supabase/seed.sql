@@ -146,6 +146,7 @@ VALUES (
         'd0000000-0000-0000-0000-000000000002',
         '90000000-0000-0000-0000-000000000002',
         'approved'
+    )
 ON CONFLICT (id) DO NOTHING;
 
 -- 5. Dummy Events
