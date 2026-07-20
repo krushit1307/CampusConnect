@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { profileSchema } from "./schemas";
+import { profileSchema, AVATAR_THEMES } from "./schemas";
 
 describe("profileSchema", () => {
   const validPayload = {
@@ -168,6 +168,27 @@ describe("profileSchema", () => {
 
     it("rejects phone numbers that are too short", () => {
       const result = profileSchema.safeParse({ ...validPayload, phoneNumber: "1234567" });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("avatarTheme validation", () => {
+    it("accepts empty or missing avatarTheme", () => {
+      const result1 = profileSchema.safeParse({ ...validPayload, avatarTheme: "" });
+      const result2 = profileSchema.safeParse({ ...validPayload, avatarTheme: undefined });
+      expect(result1.success).toBe(true);
+      expect(result2.success).toBe(true);
+    });
+
+    it("accepts each predefined gradient id", () => {
+      for (const theme of AVATAR_THEMES) {
+        const result = profileSchema.safeParse({ ...validPayload, avatarTheme: theme.id });
+        expect(result.success).toBe(true);
+      }
+    });
+
+    it("rejects a gradient id that isn't one of the predefined themes", () => {
+      const result = profileSchema.safeParse({ ...validPayload, avatarTheme: "galaxy" });
       expect(result.success).toBe(false);
     });
   });
