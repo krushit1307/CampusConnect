@@ -4,20 +4,29 @@ CREATE TABLE club_roles (
   title TEXT NOT NULL,
   permissions_level INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(club_id, title)
+  UNIQUE(club_id, title),
+  UNIQUE(id, club_id) 
 );
 
+-- Add performance index
 CREATE INDEX idx_club_roles_club_id ON club_roles(club_id);
 
+-- Enable RLS
 ALTER TABLE club_roles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Anyone can read club roles." ON club_roles FOR SELECT USING (true);
 
 
 ALTER TABLE club_members
-ADD COLUMN role_id UUID REFERENCES club_roles(id) ON DELETE SET NULL;
+ADD COLUMN role_id UUID;
+
+-- NEW: Composite foreign key enforcing that the role belongs to the correct club
+ALTER TABLE club_members
+ADD CONSTRAINT fk_club_members_role 
+FOREIGN KEY (role_id, club_id) 
+REFERENCES club_roles(id, club_id) 
+ON DELETE SET NULL;
 
 
--- We will use permission level 100 for Admins and 10 for Members
 INSERT INTO club_roles (club_id, title, permissions_level)
 SELECT id, 'Admin', 100 FROM clubs;
 
@@ -42,7 +51,7 @@ WHERE cm.club_id = cr.club_id
   AND cm.role::text = 'member';
 
 
--- Remove the default constraint first, otherwise the column drop will fail
+-- Remove the default constraint first
 ALTER TABLE club_members ALTER COLUMN role DROP DEFAULT;
 
 -- Drop the old column safely
