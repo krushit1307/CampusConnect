@@ -35,3 +35,7 @@ dist-ssr
 scripts/create-frontend-issues.ts
 scripts/create-backend-issues.ts
 scripts/remove-assignees.ts
+
+# Playwright
+playwright-report/
+test-results/
