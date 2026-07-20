@@ -1,14 +1,21 @@
 import { FeedPostSkeleton } from "@/components/FeedPostSkeleton";
 import { useMutation, useQuery, useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import type { User } from "@supabase/supabase-js";
-import { Link2, MessageCircle, MessageSquareText, PenLine, Sparkles, Trash2 } from "lucide-react";
+import {
+  Link2,
+  MessageCircle,
+  MessageSquareText,
+  PenLine,
+  Pin,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
-import { cn } from "@/lib/utils";
 import { calculateReadTime } from "@/utils/readTime";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
@@ -60,6 +67,7 @@ interface Post {
   content: string;
   created_at: string;
   club_id: string;
+  pinned: boolean;
   profiles: Profile[] | Profile | null;
   clubs: Club[] | Club | null;
   comments: Comment[] | null;
@@ -137,7 +145,7 @@ export default function Feed() {
         .from("posts")
         .select(
           `
-        id, content, created_at, club_id,
+        id, content, created_at, club_id, pinned,
         profiles (id, full_name),
         clubs (id, name, club_members (user_id, role)),
         comments (id, content, created_at, deleted_at, profiles (id, full_name)),
@@ -160,7 +168,8 @@ export default function Feed() {
     getNextPageParam: (lastPage) => lastPage.nextPage,
   });
 
-  const posts = data?.pages.flatMap((page) => page.posts) ?? [];
+  const allPosts = data?.pages.flatMap((page) => page.posts) ?? [];
+  const posts = [...allPosts].sort((a, b) => Number(b.pinned) - Number(a.pinned));
 
   const postsRef = useRef(posts);
   const userRef = useRef(user);
@@ -314,6 +323,16 @@ export default function Feed() {
     },
   });
 
+  const pinMutation = useMutation({
+    mutationFn: async ({ postId, pinned }: { postId: string; pinned: boolean }) => {
+      if (!user) throw new Error("Must be logged in");
+      const { error } = await supabase.from("posts").update({ pinned }).eq("id", postId);
+      if (error) throw error;
+    },
+    onSuccess: () => refetchPosts(),
+    onError: (error) => toast.error(error.message || "Failed to update pin."),
+  });
+
   const deleteCommentMutation = useMutation({
     mutationFn: async (commentId: string) => {
       if (!user) throw new Error("Must be logged in");
@@ -346,29 +365,21 @@ export default function Feed() {
   return (
     <SiteShell>
       <PullToRefresh isRefreshing={isLoading || isFetching} onRefresh={handleRefetch}>
-        <section className="border-b-2 border-black bg-lime px-4 py-14 md:px-6">
+        <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
           <div className="mx-auto max-w-4xl">
-            <p className="eyebrow font-bold text-teal-900">Discussion feed</p>
-            <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl text-teal-900">
+            <p className="eyebrow font-bold">Discussion feed</p>
+            <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">
               What clubs are talking about.
             </h1>
           </div>
         </section>
 
-        <section className="bg-blue-800 px-4 py-12 md:px-6">
+        <section className="bg-cream px-4 py-12 md:px-6">
           <div className="mx-auto max-w-4xl space-y-6">
-            <div className="space-y-3 text-black">
-              <MarkdownEditor
-                ref={editorRef}
-                value={newPost}
-                onChange={(value) => {
-                  setNewPost(value.slice(0, 500));
-                }}
-              />
-              <p className={cn("flex justify-end", newPost.length >= 500 && "text-red-500")}>
-                {newPost.length}/500
-              </p>
-              <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between text-black">
+            <div className="space-y-3">
+              <MarkdownEditor ref={editorRef} value={newPost} onChange={setNewPost} />
+
+              <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
                 <select
                   value={selectedClubId}
                   onChange={(event) => setSelectedClubId(event.target.value)}
@@ -402,7 +413,7 @@ export default function Feed() {
               </div>
 
               {postMutation.isError && (
-                <p className="neu-border bg-peach p-3 font-mono text-xs text-black" role="alert">
+                <p className="neu-border bg-peach p-3 font-mono text-xs" role="alert">
                   Could not publish the post. Please try again.
                 </p>
               )}
@@ -428,7 +439,7 @@ export default function Feed() {
                 style={{
                   animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards",
                 }}
-                className="neu-border flex w-full items-center justify-center gap-2 bg-[#FFD93D] hover:bg-[#FFD93D]/90 py-3 text-center font-display text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0_0_#000] active:translate-x-0 active:translate-y-0 active:shadow-[4px_4px_0_0_#000] cursor-pointer"
+                className="neu-border flex w-full items-center justify-center gap-2 bg-[#FFD93D] hover:bg-[#FFD93D]/90 py-3 text-center font-display text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_#000] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_#000] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[4px_4px_0_0_#000] cursor-pointer"
               >
                 <Sparkles size={16} className="animate-pulse" />
                 New posts available (Refresh)
@@ -443,7 +454,7 @@ export default function Feed() {
               </div>
             ) : posts.length === 0 ? (
               <div
-                className="neu-border relative overflow-hidden bg-lime-100 px-6 py-12 text-center sm:px-10 sm:py-16"
+                className="neu-border relative overflow-hidden bg-white px-6 py-12 text-center sm:px-10 sm:py-16"
                 role="status"
                 aria-live="polite"
               >
@@ -466,10 +477,10 @@ export default function Feed() {
                     </div>
                   </div>
 
-                  <p className="mb-3 font-mono text-xs font-bold uppercase tracking-[0.2em] text-black">
+                  <p className="mb-3 font-mono text-xs font-bold uppercase tracking-[0.2em]">
                     The conversation starts here
                   </p>
-                  <h2 className="text-2xl sm:text-3xl text-gray-400">
+                  <h2 className="text-2xl font-bold sm:text-3xl">
                     No posts yet. Be the first to start a discussion!
                   </h2>
                   <p className="mt-4 max-w-md font-mono text-sm leading-relaxed text-gray-700">
@@ -508,8 +519,6 @@ export default function Feed() {
                     ? post.comments.filter((c) => !c.deleted_at)
                     : [];
 
-                  const shareUrl = `${window.location.origin}/feed?postId=${post.id}`;
-
                   const isLastPost = index === posts.length - 1;
 
                   return (
@@ -517,8 +526,16 @@ export default function Feed() {
                       id={`post-${post.id}`}
                       key={post.id}
                       ref={isLastPost ? lastPostElementRef : undefined}
-                      className="neu-border bg-white p-6"
+                      className={`neu-border p-6 ${
+                        post.pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
+                      }`}
                     >
+                      {post.pinned && (
+                        <div className="mb-3 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#B45309]">
+                          <Pin size={12} className="fill-[#B45309]" />
+                          Pinned
+                        </div>
+                      )}
                       <header className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b-2 border-black pb-3">
                         <div>
                           <p className="font-display text-lg font-bold flex items-center gap-2">
@@ -532,42 +549,68 @@ export default function Feed() {
                             </span>
                           </p>
                         </div>
-                        {(user?.id === author?.id || userProfile?.role === "system_admin") && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const isClubAdmin =
+                              clubMembers.some(
+                                (m) => m.user_id === user?.id && m.role === "admin",
+                              ) || userProfile?.role === "system_admin";
+                            return isClubAdmin ? (
                               <button
                                 type="button"
-                                className="neu-border neu-press flex items-center gap-1 bg-[#FF6B6B] hover:bg-[#FF8787] text-black px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer"
-                                aria-label="Delete post"
+                                onClick={() =>
+                                  pinMutation.mutate({ postId: post.id, pinned: !post.pinned })
+                                }
+                                disabled={pinMutation.isPending}
+                                className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${
+                                  post.pinned
+                                    ? "bg-[#FDE68A] hover:bg-[#FCD34D] text-black"
+                                    : "bg-white hover:bg-cream text-black"
+                                }`}
+                                aria-label={post.pinned ? "Unpin post" : "Pin post"}
                               >
-                                <Trash2 size={10} strokeWidth={2.5} />
-                                Delete
+                                <Pin size={10} strokeWidth={2.5} />
+                                {post.pinned ? "Unpin" : "Pin"}
                               </button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent className="neu-border bg-white rounded-none p-6">
-                              <AlertDialogHeader>
-                                <AlertDialogTitle className="font-display text-xl font-bold">
-                                  Delete post?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription className="font-mono text-sm text-gray-700">
-                                  Are you sure you want to delete this post? This action cannot be
-                                  undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
-                                <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
-                                  Cancel
-                                </AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => deletePostMutation.mutate(post.id)}
-                                  className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
+                            ) : null;
+                          })()}
+                          {(user?.id === author?.id || userProfile?.role === "system_admin") && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="neu-border neu-press flex items-center gap-1 bg-[#FF6B6B] hover:bg-[#FF8787] text-black px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer"
+                                  aria-label="Delete post"
                                 >
-                                  Confirm
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        )}
+                                  <Trash2 size={10} strokeWidth={2.5} />
+                                  Delete
+                                </button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent className="neu-border bg-white rounded-none p-6">
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle className="font-display text-xl font-bold">
+                                    Delete post?
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription className="font-mono text-sm text-gray-700">
+                                    Are you sure you want to delete this post? This action cannot be
+                                    undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+                                  <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
+                                    Cancel
+                                  </AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => deletePostMutation.mutate(post.id)}
+                                    className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
+                                  >
+                                    Confirm
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </div>
                       </header>
 
                       <div className="markdown-content mt-2 font-mono text-sm leading-relaxed">
@@ -607,8 +650,9 @@ export default function Feed() {
 
                       <div className="mt-4 flex gap-2 border-t-2 border-black pt-4">
                         <a
-                          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`}
-
+                          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(
+                            `${window.location.origin}${window.location.pathname}#post-${post.id}`,
+                          )}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#1DA1F2] hover:text-white"
@@ -617,8 +661,9 @@ export default function Feed() {
                         </a>
 
                         <a
-                          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`}
-
+                          href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(
+                            `${window.location.origin}${window.location.pathname}#post-${post.id}`,
+                          )}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#0A66C2] hover:text-white"
@@ -628,7 +673,7 @@ export default function Feed() {
 
                         <a
                           href={`https://wa.me/?text=${encodeURIComponent(
-                            `Check out this post: ${post.content.substring(0, 50)}... - ${shareUrl}`,
+                            `Check out this post: ${post.content.substring(0, 50)}... - ${window.location.origin}${window.location.pathname}#post-${post.id}`,
                           )}`}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -640,12 +685,16 @@ export default function Feed() {
                         <button
                           type="button"
                           onClick={async () => {
-                            await navigator.clipboard.writeText(shareUrl);
-                            toast.success("Link copied!");
+                            try {
+                              const shareUrl = `${window.location.origin}${window.location.pathname}#post-${post.id}`;
+                              await navigator.clipboard.writeText(shareUrl);
+                              toast.success("Link copied!");
+                            } catch (err) {
+                              toast.error("Failed to copy link.");
+                            }
                           }}
-                          className="neu-border inline-flex items-center gap-2 px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-gray-200"
+                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-lime hover:text-black cursor-pointer"
                         >
-                          <Link2 size={14} />
                           Copy Link
                         </button>
                       </div>
@@ -727,7 +776,7 @@ export default function Feed() {
                           })}
                         </div>
 
-                        <div className="sticky bottom-0 -mx-4 mt-2 flex gap-2 border-t-2 border-black bg-cream px-4 py-2 md:static md:mx-0 md:border-t-0 md:bg-transparent md:px-0 md:py-0">
+                        <div className="flex gap-2">
                           <input
                             value={newComments[post.id] || ""}
                             onChange={(event) =>
