@@ -29,6 +29,22 @@ CHECK (
   AND jsonb_typeof(notification_preferences->'certs') = 'boolean'
 );
 
+CREATE OR REPLACE FUNCTION public.is_valid_social_links(links jsonb)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT 
+    links IS NULL OR (
+      jsonb_typeof(links) = 'object'
+      AND NOT EXISTS (
+        SELECT 1 
+        FROM jsonb_each_text(links) 
+        WHERE value NOT LIKE 'http://%' AND value NOT LIKE 'https://%'
+      )
+    );
+$$;
+
 CREATE TABLE clubs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
@@ -38,11 +54,13 @@ CREATE TABLE clubs (
   logo_url TEXT,
   github_repo_url TEXT,
   visibility club_visibility DEFAULT 'public'::club_visibility,
+  social_links JSONB DEFAULT '{}'::jsonb,
   created_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   CONSTRAINT check_clubs_slug_format CHECK (slug ~ '^[a-z0-9-]+$'),
-  CONSTRAINT check_clubs_github_repo_url CHECK (github_repo_url IS NULL OR github_repo_url LIKE 'https://github.com/%')
+  CONSTRAINT check_clubs_github_repo_url CHECK (github_repo_url IS NULL OR github_repo_url LIKE 'https://github.com/%'),
+  CONSTRAINT check_clubs_social_links_valid CHECK (public.is_valid_social_links(social_links))
 );
 
 CREATE TABLE club_members (

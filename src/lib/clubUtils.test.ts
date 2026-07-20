@@ -101,4 +101,41 @@ describe("clubFormSchema validation", () => {
       expect(result.data.visibility).toBe("private");
     }
   });
+
+  it("validates valid social_links object", () => {
+    const validData = {
+      name: "Social Club",
+      slug: "social-club",
+      description: "Connected across all socials.",
+      social_links: {
+        instagram: "https://instagram.com/socialclub",
+        linkedin: "https://linkedin.com/company/socialclub",
+        discord: "https://discord.gg/socialclub",
+      },
+    };
+
+    const result = clubFormSchema.safeParse(validData);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.social_links).toEqual({
+        instagram: "https://instagram.com/socialclub",
+        linkedin: "https://linkedin.com/company/socialclub",
+        discord: "https://discord.gg/socialclub",
+      });
+    }
+  });
+
+  it("rejects invalid social_links URLs", () => {
+    const invalidData = {
+      name: "Social Club",
+      slug: "social-club",
+      description: "Connected across all socials.",
+      social_links: {
+        instagram: "not-a-valid-url",
+      },
+    };
+
+    const result = clubFormSchema.safeParse(invalidData);
+    expect(result.success).toBe(false);
+  });
 });
