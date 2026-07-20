@@ -64,6 +64,20 @@ export function CreateEventDialog({ user }: { user: User | null }) {
         throw new Error("You must be logged in to create an event.");
       }
 
+      const { data: myClub, error: clubError } = await supabase
+        .from("clubs")
+        .select("id")
+        .eq("created_by", user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (clubError) {
+        throw new Error(clubError.message);
+      }
+      if (!myClub) {
+        throw new Error("You need to create or administer a club before creating an event.");
+      }
+
       const startDateIso = new Date(values.startDate).toISOString();
       const endDateIso = new Date(values.endDate).toISOString();
 
@@ -73,10 +87,9 @@ export function CreateEventDialog({ user }: { user: User | null }) {
         location: values.location?.trim() || null,
         start_date: startDateIso,
         end_date: endDateIso,
-        // Kept in sync with start_date so existing views that still
-        // read event_date (e.g. EventCard, event ordering) keep working.
         event_date: startDateIso,
         created_by: user.id,
+        club_id: myClub.id,
       });
 
       if (error) {

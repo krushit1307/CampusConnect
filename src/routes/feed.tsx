@@ -3,6 +3,7 @@ import { useMutation, useQuery, useInfiniteQuery } from "@/hooks/useReactQueryRe
 import type { User } from "@supabase/supabase-js";
 import {
   Link2,
+  ArrowUp,
   MessageCircle,
   MessageSquareText,
   PenLine,
@@ -18,6 +19,7 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { calculateReadTime } from "@/utils/readTime";
 import { PullToRefresh } from "@/components/PullToRefresh";
+
 import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
 import {
   AlertDialog,
@@ -82,8 +84,8 @@ export default function Feed() {
   const [newPost, setNewPost] = useState("");
   const editorRef = useRef<MarkdownEditorRef>(null);
   const [newComments, setNewComments] = useState<Record<string, string>>({});
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const [showNewPostsBanner, setShowNewPostsBanner] = useState(false);
-
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
@@ -231,7 +233,17 @@ export default function Feed() {
       supabase.removeChannel(channel);
     };
   }, [supabase, refetchPosts]);
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+    };
 
+    window.addEventListener("scroll", handleScroll);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
   const postMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Must be logged in");
@@ -360,6 +372,12 @@ export default function Feed() {
 
     const minutes = Math.floor(diff / (1000 * 60));
     return rtf.format(-Math.max(1, minutes), "minute");
+  };
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   };
 
   return (
@@ -824,6 +842,17 @@ export default function Feed() {
           </div>
         </section>
       </PullToRefresh>
+
+      {showScrollTop && (
+        <button
+          type="button"
+          onClick={scrollToTop}
+          aria-label="Scroll to top"
+          className="fixed bottom-6 right-6 z-50 neu-border bg-black p-3 text-cream transition-transform hover:-translate-y-1"
+        >
+          <ArrowUp size={20} />
+        </button>
+      )}
     </SiteShell>
   );
 }

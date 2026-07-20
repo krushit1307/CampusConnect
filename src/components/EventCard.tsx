@@ -1,4 +1,4 @@
-import { formatDate, getGoogleCalendarUrl, formatEventDateRange } from "@/lib/utils";
+import { formatDate, formatEventDateRange, getCountdown, getGoogleCalendarUrl } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { FormEvent, useState } from "react";
 import { Calendar, Check, Share2, X, Link as LinkIcon, Bookmark } from "lucide-react";
@@ -56,6 +56,7 @@ export function EventCard({
     end_date: event.end_date,
     location: event.location,
   });
+  const countdown = event.event_date ? getCountdown(event.event_date) : "TBA";
 
   const [copied, setCopied] = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
@@ -114,9 +115,22 @@ export function EventCard({
       className={`neu-border p-5 relative ${colors[index % colors.length]}`}
     >
       <div className="flex items-start justify-between gap-3">
-        <p className="font-mono text-xs font-bold uppercase tracking-wider pr-10 text-red-900">
-          {event.event_date ? formatDate(event.event_date).split(" at ")[0].toUpperCase() : "TBA"}
-        </p>
+        <div className="flex flex-col">
+          <p className="font-mono text-xs font-bold uppercase tracking-wider pr-10 text-red-900">
+            {event.event_date ? formatDate(event.event_date).split(" at ")[0].toUpperCase() : "TBA"}
+          </p>
+
+          {event.event_date && (
+            <span
+              className={`mt-2 inline-flex min-h-[24px] items-center rounded-full px-2 py-1 text-[11px] font-bold ${
+                countdown === "Ended" ? "bg-gray-100 text-gray-600" : "bg-peach text-orange-700"
+              }`}
+            >
+              {countdown}
+            </span>
+          )}
+        </div>
+
         <div className="flex gap-2 relative z-10">
           <button
             type="button"
@@ -127,6 +141,7 @@ export function EventCard({
           >
             <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
           </button>
+
           <button
             type="button"
             onClick={handleShare}
