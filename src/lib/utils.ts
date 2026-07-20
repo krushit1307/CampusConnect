@@ -12,6 +12,7 @@
  */
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { differenceInDays, isToday, isTomorrow } from "date-fns";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -51,6 +52,40 @@ export const formatDate = (dateString: string): string => {
 
   return `${formattedDate} at ${formattedTime}`;
 };
+export function getCountdown(dateStr: string): string {
+  const eventDate = new Date(dateStr);
+
+  if (isNaN(eventDate.getTime())) {
+    return "";
+  }
+
+  const today = new Date();
+
+  if (isToday(eventDate)) {
+    return "Today!";
+  }
+
+  if (isTomorrow(eventDate)) {
+    return "Tomorrow";
+  }
+
+  today.setHours(0, 0, 0, 0);
+  eventDate.setHours(0, 0, 0, 0);
+
+  const days = differenceInDays(eventDate, today);
+
+  if (days < 0) {
+    return "Ended";
+  }
+
+  if (days < 30) {
+    return `In ${days} day${days > 1 ? "s" : ""}`;
+  }
+
+  const months = Math.floor(days / 30);
+
+  return `In ${months} month${months > 1 ? "s" : ""}`;
+}
 
 export function getGoogleCalendarUrl(event: {
   title: string;

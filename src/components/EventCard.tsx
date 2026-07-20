@@ -1,4 +1,4 @@
-import { formatDate, getGoogleCalendarUrl } from "@/lib/utils";
+import { formatDate, getGoogleCalendarUrl, getCountdown } from "@/lib/utils";
 import { FormEvent, useState } from "react";
 import { Calendar, Check, Share2, X, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -36,6 +36,7 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
     event_date: event.event_date,
     location: event.location,
   });
+  const countdown = event.event_date ? getCountdown(event.event_date) : "TBA";
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [studentId, setStudentId] = useState("");
@@ -101,9 +102,21 @@ export function EventCard({ event, index, user, onRsvpToggle, isRsvpPending }: E
   return (
     <article id={`event-${event.id}`} className={`neu-border p-5 ${colors[index % colors.length]}`}>
       <div className="flex items-start justify-between gap-3">
-        <p className="font-mono text-xs font-bold uppercase tracking-wider">
-          {event.event_date ? formatDate(event.event_date).split(" at ")[0].toUpperCase() : "TBA"}
-        </p>
+        <div className="flex flex-col">
+          <p className="font-mono text-xs font-bold uppercase tracking-wider">
+            {event.event_date ? formatDate(event.event_date).split(" at ")[0].toUpperCase() : "TBA"}
+          </p>
+
+          {event.event_date && (
+            <span
+              className={`mt-2 inline-flex min-h-[24px] items-center rounded-full px-2 py-1 text-[11px] font-bold ${
+                countdown === "Ended" ? "bg-gray-100 text-gray-600" : "bg-peach text-orange-700"
+              }`}
+            >
+              {countdown}
+            </span>
+          )}
+        </div>
         <button
           type="button"
           onClick={handleShare}
