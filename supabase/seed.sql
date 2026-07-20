@@ -48,47 +48,6 @@ VALUES (
         NOW(),
         NOW()
     )
-=======
-INSERT INTO auth.users (
-  instance_id,
-  id,
-  aud,
-  role,
-  email,
-  encrypted_password,
-  email_confirmed_at,
-  raw_app_meta_data,
-  raw_user_meta_data,
-  created_at,
-  updated_at
-) VALUES 
-(
-  '00000000-0000-0000-0000-000000000000',
-  'd0000000-0000-0000-0000-000000000001',
-  'authenticated',
-  'authenticated',
-  'admin@campusconnect.com',
-  crypt('password123', gen_salt('bf')),
-  NOW(),
-  '{"provider": "email", "providers": ["email"]}',
-  '{"full_name": "Admin User", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=Admin"}',
-  NOW(),
-  NOW()
-),
-(
-  '00000000-0000-0000-0000-000000000000',
-  'd0000000-0000-0000-0000-000000000002',
-  'authenticated',
-  'authenticated',
-  'student@campusconnect.com',
-  crypt('password123', gen_salt('bf')),
-  NOW(),
-  '{"provider": "email", "providers": ["email"]}',
-  '{"full_name": "John Doe", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=John"}',
-  NOW(),
-  NOW()
-)
->>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
 ON CONFLICT (id) DO NOTHING;
 
 -- 2. Update profiles details (triggers automatically created them on auth.users insert)
@@ -278,54 +237,40 @@ VALUES (
 ON CONFLICT (id) DO NOTHING;
 
 -- 6. Event RSVPs
-INSERT INTO
-    event_rsvps (
-        id,
-        event_id,
-        user_id,
-        checked_in
-    )
-VALUES (
-        'f0000000-0000-0000-0000-000000000001',
-        'e0000000-0000-0000-0000-000000000001',
-        'd0000000-0000-0000-0000-000000000002',
-        false
-    )
+INSERT INTO event_rsvps (id, event_id, user_id, checked_in)
+VALUES
+(
+  'f0000000-0000-0000-0000-000000000001',
+  'e0000000-0000-0000-0000-000000000001',
+  'd0000000-0000-0000-0000-000000000002',
+  false
+)
 ON CONFLICT (id) DO NOTHING;
 
 -- 7. Dummy Feed Posts
-INSERT INTO
-    posts (
-        id,
-        club_id,
-        author_id,
-        content
-    )
-VALUES (
-        'a0000000-0000-0000-0000-000000000001',
-        'c0000000-0000-0000-0000-000000000001',
-        'd0000000-0000-0000-0000-000000000001',
-        'Welcome to the Tech Club! Looking forward to hacking together at our annual hackathon next week.'
-    ),
-    (
-        'a0000000-0000-0000-0000-000000000002',
-        'c0000000-0000-0000-0000-000000000002',
-        'd0000000-0000-0000-0000-000000000002',
-        'Check out this weeks palette recommendations for watercolor painting! Feel free to share your works here.'
-    )
+INSERT INTO posts (id, club_id, author_id, content)
+VALUES
+(
+  'a0000000-0000-0000-0000-000000000001',
+  'c0000000-0000-0000-0000-000000000001',
+  'd0000000-0000-0000-0000-000000000001',
+  'Welcome to the Tech Club! Looking forward to hacking together at our annual hackathon next week.'
+),
+(
+  'a0000000-0000-0000-0000-000000000002',
+  'c0000000-0000-0000-0000-000000000002',
+  'd0000000-0000-0000-0000-000000000002',
+  'Check out this weeks palette recommendations for watercolor painting! Feel free to share your works here.'
+)
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO
-    comments (
-        id,
-        post_id,
-        author_id,
-        content
-    )
-VALUES (
-        'cc000000-0000-0000-0000-000000000001',
-        'a0000000-0000-0000-0000-000000000001',
-        'd0000000-0000-0000-0000-000000000002',
-        'Super excited! Cant wait to see what teams build.'
-    )
+-- 8. Post Comments
+INSERT INTO comments (id, post_id, author_id, content)
+VALUES
+(
+  'cc000000-0000-0000-0000-000000000001',
+  'a0000000-0000-0000-0000-000000000001',
+  'd0000000-0000-0000-0000-000000000002',
+  'Super excited! Cant wait to see what teams build.'
+)
 ON CONFLICT (id) DO NOTHING;
