@@ -1,13 +1,14 @@
 import { FeedPostSkeleton } from "@/components/FeedPostSkeleton";
 import { useMutation, useQuery, useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import type { User } from "@supabase/supabase-js";
-import { MessageCircle, MessageSquareText, PenLine, Sparkles, Trash2 } from "lucide-react";
+import { Link2, MessageCircle, MessageSquareText, PenLine, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import { calculateReadTime } from "@/utils/readTime";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
@@ -357,8 +358,16 @@ export default function Feed() {
         <section className="bg-cream px-4 py-12 md:px-6">
           <div className="mx-auto max-w-4xl space-y-6">
             <div className="space-y-3">
-              <MarkdownEditor ref={editorRef} value={newPost} onChange={setNewPost} />
-
+              <MarkdownEditor
+                ref={editorRef}
+                value={newPost}
+                onChange={(value) => {
+                  setNewPost(value.slice(0, 500));
+                }}
+              />
+              <p className={cn("flex justify-end", newPost.length >= 500 && "text-red-500")}>
+                {newPost.length}/500
+              </p>
               <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
                 <select
                   value={selectedClubId}
@@ -419,7 +428,7 @@ export default function Feed() {
                 style={{
                   animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards",
                 }}
-                className="neu-border flex w-full items-center justify-center gap-2 bg-[#FFD93D] hover:bg-[#FFD93D]/90 py-3 text-center font-display text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_#000] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_#000] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[4px_4px_0_0_#000] cursor-pointer"
+                className="neu-border flex w-full items-center justify-center gap-2 bg-[#FFD93D] hover:bg-[#FFD93D]/90 py-3 text-center font-display text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0_0_#000] active:translate-x-0 active:translate-y-0 active:shadow-[4px_4px_0_0_#000] cursor-pointer"
               >
                 <Sparkles size={16} className="animate-pulse" />
                 New posts available (Refresh)
@@ -498,6 +507,8 @@ export default function Feed() {
                   const postComments: Comment[] = Array.isArray(post.comments)
                     ? post.comments.filter((c) => !c.deleted_at)
                     : [];
+
+                  const shareUrl = `${window.location.origin}/feed?postId=${post.id}`;
 
                   const isLastPost = index === posts.length - 1;
 
@@ -596,9 +607,8 @@ export default function Feed() {
 
                       <div className="mt-4 flex gap-2 border-t-2 border-black pt-4">
                         <a
-                          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(
-                            `${window.location.origin}${window.location.pathname}#post-${post.id}`,
-                          )}`}
+                          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`}
+
                           target="_blank"
                           rel="noopener noreferrer"
                           className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#1DA1F2] hover:text-white"
@@ -607,9 +617,8 @@ export default function Feed() {
                         </a>
 
                         <a
-                          href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(
-                            `${window.location.origin}${window.location.pathname}#post-${post.id}`,
-                          )}`}
+                          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`}
+
                           target="_blank"
                           rel="noopener noreferrer"
                           className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#0A66C2] hover:text-white"
@@ -619,7 +628,7 @@ export default function Feed() {
 
                         <a
                           href={`https://wa.me/?text=${encodeURIComponent(
-                            `Check out this post: ${post.content.substring(0, 50)}... - ${window.location.origin}${window.location.pathname}#post-${post.id}`,
+                            `Check out this post: ${post.content.substring(0, 50)}... - ${shareUrl}`,
                           )}`}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -631,16 +640,12 @@ export default function Feed() {
                         <button
                           type="button"
                           onClick={async () => {
-                            try {
-                              const shareUrl = `${window.location.origin}${window.location.pathname}#post-${post.id}`;
-                              await navigator.clipboard.writeText(shareUrl);
-                              toast.success("Link copied!");
-                            } catch (err) {
-                              toast.error("Failed to copy link.");
-                            }
+                            await navigator.clipboard.writeText(shareUrl);
+                            toast.success("Link copied!");
                           }}
-                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-lime hover:text-black cursor-pointer"
+                          className="neu-border inline-flex items-center gap-2 px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-gray-200"
                         >
+                          <Link2 size={14} />
                           Copy Link
                         </button>
                       </div>
@@ -722,7 +727,7 @@ export default function Feed() {
                           })}
                         </div>
 
-                        <div className="flex gap-2">
+                        <div className="sticky bottom-0 -mx-4 mt-2 flex gap-2 border-t-2 border-black bg-cream px-4 py-2 md:static md:mx-0 md:border-t-0 md:bg-transparent md:px-0 md:py-0">
                           <input
                             value={newComments[post.id] || ""}
                             onChange={(event) =>

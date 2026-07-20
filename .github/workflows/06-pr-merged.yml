@@ -129,4 +129,3 @@ jobs:
         with:
           pull-request-number: ${{ steps.create-pr.outputs.pull-request-number }}
           merge-method: merge
-
