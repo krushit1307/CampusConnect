@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import MaintenancePage from "./components/MaintenancePage";
+
 import {
   createBrowserRouter,
   RouterProvider,
@@ -10,6 +10,8 @@ import {
 // Layout
 import Layout from "./components/Layout";
 import { ErrorBoundary, RouteErrorBoundary } from "./components/ErrorBoundary";
+import MaintenancePage from "./components/MaintenancePage";
+import { createClient } from "./lib/supabase/client";
 // Pages
 import Index from "./routes/index";
 import Auth from "./routes/auth";
@@ -140,6 +142,44 @@ const router = createBrowserRouter(
     </Route>,
   ),
 );
+
+const DB_HEALTH_CHECK_TIMEOUT_MS = 8000;
+const DB_RETRY_INTERVAL_MS = 15000;
+
+type DbStatus = "checking" | "online" | "offline";
+
+/**
+ * Pings Supabase with a cheap, RLS-open HEAD request. Returns false if the
+ * client throws (bad config, connection refused, DNS failure, etc.) or if
+ * the request doesn't resolve within the timeout.
+ */
+async function checkDatabaseConnection(): Promise<boolean> {
+  try {
+    const supabase = createClient();
+
+    const healthCheck = supabase.from("profiles").select("id", { count: "exact", head: true });
+
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error("Database health check timed out")),
+        DB_HEALTH_CHECK_TIMEOUT_MS,
+      ),
+    );
+
+    type HealthCheckResult = Awaited<typeof healthCheck>;
+    const { error } = (await Promise.race([healthCheck, timeout])) as HealthCheckResult;
+
+    if (error) {
+      console.error("Database health check returned an error:", error.message);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error("Database client threw while checking connection:", err);
+    return false;
+  }
+}
 
 export default function App() {
   const [dbStatus, setDbStatus] = useState<HealthStatus | null>(null);

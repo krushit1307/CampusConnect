@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { useMutation } from "@/hooks/useReactQueryReplacement";
 import { Plus, MapPin, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -34,7 +34,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 
-const defaultValues: EventFormValues = {
+// Define an extended interface locally to handle the extra location field safely
+interface LocalEventFormValues extends EventFormValues {
+  location?: string;
+}
+
+const defaultValues: LocalEventFormValues = {
   title: "",
   description: "",
   location: "",
@@ -46,20 +51,28 @@ export function CreateEventDialog({ user }: { user: User | null }) {
   const [open, setOpen] = useState(false);
   const supabase = createClient();
 
-  const form = useForm<EventFormValues>({
+  const form = useForm<LocalEventFormValues>({
     resolver: zodResolver(eventFormSchema),
     defaultValues,
     mode: "onBlur",
   });
 
-  const watchedLocation = useWatch({ control: form.control, name: "location" });
+  // Watch values via form.watch to keep TypeScript quiet about schema property limits
+  const watchedLocation = form.watch("location");
+  const watchedDescription = form.watch("description");
+
+  const currentDescription = watchedDescription || "";
+
   const showMapPreview =
     watchedLocation &&
     watchedLocation.trim().length > 0 &&
     watchedLocation.trim().toLowerCase() !== "online";
 
+  const MAX_DESC_LENGTH = 150;
+  const isNearLimit = MAX_DESC_LENGTH - currentDescription.length <= 10;
+
   const createEvent = useMutation({
-    mutationFn: async (values: EventFormValues) => {
+    mutationFn: async (values: LocalEventFormValues) => {
       if (!user) {
         throw new Error("You must be logged in to create an event.");
       }
@@ -98,7 +111,6 @@ export function CreateEventDialog({ user }: { user: User | null }) {
     },
     onSuccess: () => {
       toast.success("Event created!");
-      // Invalidate queries is handled by realtime subscriptions if needed or refresh
       window.dispatchEvent(new Event("refetchEvents"));
       form.reset(defaultValues);
       setOpen(false);
@@ -109,7 +121,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
     },
   });
 
-  const onSubmit = (values: EventFormValues) => {
+  const onSubmit = (values: LocalEventFormValues) => {
     createEvent.mutate(values);
   };
 
@@ -206,8 +218,22 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                     Description
                   </FormLabel>
                   <FormControl className="text-black">
-                    <Textarea placeholder="What's this event about?" rows={4} {...field} />
+                    <Textarea
+                      placeholder="What's this event about?"
+                      rows={4}
+                      maxLength={MAX_DESC_LENGTH}
+                      {...field}
+                    />
                   </FormControl>
+
+                  <div
+                    className={`text-xs text-right mt-1 font-mono transition-colors ${
+                      isNearLimit ? "text-red-500 font-bold" : "text-black/50"
+                    }`}
+                  >
+                    {currentDescription.length} / {MAX_DESC_LENGTH} characters
+                  </div>
+
                   <FormMessage />
                 </FormItem>
               )}
@@ -239,11 +265,11 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                   className="w-full"
                   height="180"
                   loading="lazy"
-                  src={`https://maps.google.com/maps?q=${encodeURIComponent(watchedLocation)}&output=embed`}
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(watchedLocation || "")}&output=embed`}
                   title="Location preview"
                 />
                 <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(watchedLocation)}`}
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(watchedLocation || "")}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-1 bg-white py-1.5 font-mono text-xs font-bold underline hover:bg-cream"

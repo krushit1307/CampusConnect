@@ -2,6 +2,7 @@
 CREATE TYPE user_role AS ENUM ('student', 'club_admin', 'system_admin');
 CREATE TYPE member_role AS ENUM ('member', 'admin');
 CREATE TYPE join_status AS ENUM ('pending', 'approved');
+CREATE TYPE club_visibility AS ENUM ('public', 'private');
 
 -- 2. Create tables
 CREATE TABLE profiles (
@@ -11,6 +12,7 @@ CREATE TABLE profiles (
   avatar_url TEXT,
   college TEXT,
   bio TEXT,
+  skills TEXT[] DEFAULT '{}'::TEXT[],
   role user_role DEFAULT 'student'::user_role,
   notification_preferences JSONB NOT NULL DEFAULT '{"rsvps": true, "digest": true, "certs": true}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -29,6 +31,24 @@ CHECK (
   AND jsonb_typeof(notification_preferences->'certs') = 'boolean'
 );
 
+CREATE INDEX IF NOT EXISTS idx_profiles_skills ON public.profiles USING gin (skills);
+
+CREATE OR REPLACE FUNCTION public.is_valid_social_links(links jsonb)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT 
+    links IS NULL OR (
+      jsonb_typeof(links) = 'object'
+      AND NOT EXISTS (
+        SELECT 1 
+        FROM jsonb_each_text(links) 
+        WHERE value NOT LIKE 'http://%' AND value NOT LIKE 'https://%'
+      )
+    );
+$$;
+
 CREATE TABLE clubs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
@@ -37,12 +57,15 @@ CREATE TABLE clubs (
   banner_url TEXT,
   logo_url TEXT,
   github_repo_url TEXT,
+  visibility club_visibility DEFAULT 'public'::club_visibility,
+  social_links JSONB DEFAULT '{}'::jsonb,
   created_by UUID REFERENCES profiles(id),
   visibility TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('public', 'private')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   CONSTRAINT check_clubs_slug_format CHECK (slug ~ '^[a-z0-9-]+$'),
-  CONSTRAINT check_clubs_github_repo_url CHECK (github_repo_url IS NULL OR github_repo_url LIKE 'https://github.com/%')
+  CONSTRAINT check_clubs_github_repo_url CHECK (github_repo_url IS NULL OR github_repo_url LIKE 'https://github.com/%'),
+  CONSTRAINT check_clubs_social_links_valid CHECK (public.is_valid_social_links(social_links))
 );
 
 CREATE TABLE club_members (
@@ -176,7 +199,16 @@ CREATE TABLE notifications (
   title TEXT NOT NULL,
   message TEXT NOT NULL,
   is_read BOOLEAN NOT NULL DEFAULT FALSE,
-  link TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  action TEXT NOT NULL,
+  target_table TEXT NOT NULL,
+  record_id UUID,
+  details JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -275,6 +307,9 @@ ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE certificates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saved_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "System admins can view audit logs" ON audit_logs FOR SELECT TO authenticated USING (public.is_system_admin());
 
 -- profiles: users can read all, update only their own row
 CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT USING (true);
