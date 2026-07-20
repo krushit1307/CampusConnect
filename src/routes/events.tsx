@@ -40,7 +40,7 @@ const EventsCalendar = lazy(() => import("@/components/events/EventsCalendar"));
 export default function EventsPage() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
-  const [activeCategories, setActiveCategories] = useState<string[]>([]);
+  const [filter, setFilter] = useState("All");
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [sortLoaded, setSortLoaded] = useState(false);
