@@ -156,7 +156,8 @@ export default function ResetPasswordPage() {
                 <Button
                   type="submit"
                   disabled={loading || getPasswordStrength(password) === "weak"}
-                  className="neu-border neu-press w-full bg-black px-4 py-3 font-mono text-sm font-bold uppercase tracking-wider text-cream disabled:opacity-50"
+                  variant="primary"
+                  className="w-full"
                 >
                   {loading ? "Updating..." : "Update password"}
                 </Button>
