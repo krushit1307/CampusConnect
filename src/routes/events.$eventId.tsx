@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
+import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
@@ -54,6 +55,7 @@ export default function EventDetailsPage() {
   const { eventId = "" } = useParams();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
+  const emailVerified = useEmailVerification();
   const [copied, setCopied] = useState(false);
   const [idCopied, setIdCopied] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -289,6 +291,10 @@ export default function EventDetailsPage() {
       toast.error("Please log in to RSVP");
       return;
     }
+    if (!emailVerified) {
+      toast.error("Please verify your email to RSVP");
+      return;
+    }
     if (hasRsvpd) {
       setConfirmOpen(true);
       return;
@@ -445,7 +451,11 @@ export default function EventDetailsPage() {
                 <button
                   onClick={() => {
                     if (!user) {
-                      toast.error("Please log in to join waitlist");
+                      toast.error("Please log in to join the waitlist");
+                      return;
+                    }
+                    if (!emailVerified) {
+                      toast.error("Please verify your email to join the waitlist");
                       return;
                     }
                     toggleWaitlist.mutate({ isOnWaitlist });

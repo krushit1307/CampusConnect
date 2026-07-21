@@ -20,6 +20,7 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { calculateReadTime } from "@/utils/readTime";
 import { PullToRefresh } from "@/components/PullToRefresh";
+import { useEmailVerification } from "@/hooks/useEmailVerification";
 
 import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
 import {
@@ -83,6 +84,7 @@ const POSTS_PER_PAGE = 10;
 export default function Feed() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
+  const emailVerified = useEmailVerification();
   const [newPost, setNewPost] = useState("");
   const editorRef = useRef<MarkdownEditorRef>(null);
   const [newComments, setNewComments] = useState<Record<string, string>>({});
@@ -474,11 +476,17 @@ export default function Feed() {
                   type="button"
                   onClick={() => {
                     if (!user) return alert("Log in first");
+                    if (!emailVerified) return alert("Please verify your email to post");
                     if (!selectedClubId) return alert("Join or select a club first");
                     if (newPost.trim()) postMutation.mutate();
                   }}
-                  disabled={!newPost.trim() || !selectedClubId || postMutation.isPending}
-                  className="neu-border neu-press bg-black px-5 py-2 font-mono text-xs font-bold uppercase text-cream disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={
+                    !newPost.trim() || !selectedClubId || postMutation.isPending || !emailVerified
+                  }
+                  title={!emailVerified ? "Please verify your email to post" : ""}
+                  className={`neu-border neu-press px-5 py-2 font-mono text-xs font-bold uppercase disabled:cursor-not-allowed disabled:opacity-50 ${
+                    emailVerified ? "bg-black text-cream" : "bg-gray-400 text-gray-700"
+                  }`}
                 >
                   {postMutation.isPending ? "Posting…" : "Post Markdown"}
                 </button>
@@ -746,6 +754,8 @@ export default function Feed() {
                               type="button"
                               onClick={() => {
                                 if (!user) return alert("Log in first");
+                                if (!emailVerified)
+                                  return alert("Please verify your email to react");
                                 // Bump the burst nonce so the emoji <span> remounts
                                 // and the spring keyframe animation replays.
                                 setReactionBursts((prev) => ({
@@ -1005,6 +1015,8 @@ export default function Feed() {
                               if (event.key === "Enter" && !event.shiftKey) {
                                 event.preventDefault();
                                 if (!user) return alert("Log in first");
+                                if (!emailVerified)
+                                  return alert("Please verify your email to comment");
 
                                 const content = newComments[post.id];
                                 if (content?.trim()) {

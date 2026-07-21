@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useEmailVerification } from "./hooks/useEmailVerification";
 
 import {
   createBrowserRouter,
@@ -210,8 +211,16 @@ export default function App() {
     );
   }
 
+  const emailVerified = useEmailVerification();
+
   return (
     <ErrorBoundary>
+      {!emailVerified && (
+        <div className="bg-yellow-100 border border-yellow-300 text-yellow-900 px-4 py-3 text-center">
+          📧 Please verify your email address to unlock posting, commenting, and RSVP features.
+          Check your inbox for the verification email.
+        </div>
+      )}
       <RouterProvider router={router} />
     </ErrorBoundary>
   );
