@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Sparkle } from "@/components/site/Sparkle";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { PasswordStrengthMeter, getPasswordStrength } from "@/components/ui/password-strength";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -11,6 +12,7 @@ export default function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [password, setPassword] = useState("");
   const navigate = useNavigate();
   const supabase = createClient();
 
@@ -170,7 +172,11 @@ export default function AuthPage() {
                 placeholder="********"
                 autoComplete={mode === "signup" ? "new-password" : "current-password"}
                 required
+                value={mode === "signup" ? password : undefined}
+                onChange={mode === "signup" ? (e) => setPassword(e.target.value) : undefined}
               />
+
+              {mode === "signup" && password && <PasswordStrengthMeter password={password} />}
 
               {mode === "signup" && (
                 <Field
@@ -196,7 +202,9 @@ export default function AuthPage() {
 
               <Button
                 type="submit"
-                disabled={loading}
+                disabled={
+                  loading || (mode === "signup" && getPasswordStrength(password) === "weak")
+                }
                 className="w-full bg-blue-600 text-white hover:bg-blue-400"
               >
                 {loading ? "Loading..." : mode === "signin" ? "Sign in" : "Create account"}
@@ -226,6 +234,7 @@ export default function AuthPage() {
                 onClick={() => {
                   setMode(mode === "signin" ? "signup" : "signin");
                   setError(null);
+                  setPassword("");
                 }}
                 className="h-auto p-0 font-bold underline text-blue-600"
               >
@@ -247,6 +256,8 @@ function Field({
   required,
   autoComplete,
   rightElement,
+  value,
+  onChange,
 }: {
   label: string;
   type: string;
@@ -255,6 +266,8 @@ function Field({
   required?: boolean;
   autoComplete?: string;
   rightElement?: React.ReactNode;
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
   return (
     <label className="block">
@@ -274,6 +287,8 @@ function Field({
             placeholder={placeholder}
             required={required}
             autoComplete={autoComplete}
+            value={value}
+            onChange={onChange}
             className="w-full bg-transparent px-1 py-2 font-mono text-sm outline-none"
           />
         ) : (
