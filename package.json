@@ -51,6 +51,7 @@
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.110.0",
     "@tailwindcss/vite": "^4.2.1",
+    "@types/react-easy-crop": "^1.16.0",
     "@uiw/react-md-editor": "^4.1.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
