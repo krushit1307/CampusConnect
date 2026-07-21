@@ -226,8 +226,9 @@ serve(async (req: Request) => {
   let rawEmails: string[];
   try {
     rawEmails = parseEmailsFromCsv(csvText!);
-  } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message || "Failed to parse CSV." }), {
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : "Failed to parse CSV.";
+    return new Response(JSON.stringify({ error: errorMessage }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -261,7 +262,7 @@ serve(async (req: Request) => {
   const failed: string[] = [];
   const resolvedUsers: { user_id: string; email: string }[] = [];
 
-  const allUsers: any[] = [];
+  const allUsers: { id: string; email?: string }[] = [];
   let page = 1;
   const perPage = 1000;
   let hasMore = true;
@@ -329,7 +330,7 @@ serve(async (req: Request) => {
       );
     }
 
-    const existingProfileIds = new Set((existingProfiles || []).map((p: any) => p.id));
+    const existingProfileIds = new Set((existingProfiles || []).map((p: { id: string }) => p.id));
     for (const u of pendingResolved) {
       if (existingProfileIds.has(u.user_id)) {
         resolvedUsers.push(u);
