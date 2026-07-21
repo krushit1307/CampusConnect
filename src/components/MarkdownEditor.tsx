@@ -1,7 +1,7 @@
 import { forwardRef, useImperativeHandle, useRef, useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import MDEditor from "@uiw/react-md-editor";
+import MDEditor, { type RefMDEditor } from "@uiw/react-md-editor";
 import "@uiw/react-md-editor/markdown-editor.css";
 import { useTheme } from "@/components/theme-provider";
 import {
@@ -75,7 +75,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
     },
     ref,
   ) => {
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const mdEditorRef = useRef<RefMDEditor>(null);
     const [mode, setMode] = useState<"write" | "preview">("write");
 
     const { theme } = useTheme();
@@ -101,8 +101,9 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
       focusWrite: () => {
         setMode("write");
         requestAnimationFrame(() => {
-          textareaRef.current?.focus();
-          textareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+          const textarea = mdEditorRef.current?.textarea;
+          textarea?.focus();
+          textarea?.scrollIntoView({ behavior: "smooth", block: "center" });
         });
       },
     }));
@@ -113,7 +114,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
       placeholder = "text",
       linePrefix,
     }: ToolbarAction) => {
-      const textarea = textareaRef.current;
+      const textarea = mdEditorRef.current?.textarea;
       if (!textarea) return;
 
       const start = textarea.selectionStart;
@@ -183,22 +184,20 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
 
         {mode === "write" ? (
           <MDEditor
+            ref={mdEditorRef}
             value={value}
             onChange={(val) => onChange(val || "")}
             preview="edit"
             hideToolbar={true}
             height="auto"
             style={{ minHeight: "200px" }}
-            textareaProps={
-              {
-                ref: textareaRef,
-                id: id,
-                placeholder: placeholder,
-                rows: rows,
-                className: `${minHeightClass} w-full resize-y bg-white p-4 font-mono text-sm outline-none placeholder:text-gray-500 focus:bg-cream/40`,
-                "aria-label": "Content in Markdown",
-              } as unknown as React.TextareaHTMLAttributes<HTMLTextAreaElement>
-            }
+            textareaProps={{
+              id: id,
+              placeholder: placeholder,
+              rows: rows,
+              className: `${minHeightClass} w-full resize-y bg-white p-4 font-mono text-sm outline-none placeholder:text-gray-500 focus:bg-cream/40`,
+              "aria-label": "Content in Markdown",
+            }}
           />
         ) : (
           <div className={`${minHeightClass} bg-white dark:bg-black p-4`} aria-live="polite">
