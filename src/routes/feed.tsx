@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
@@ -93,6 +94,7 @@ export default function Feed() {
   // Tracks a per-post, per-emoji "burst" nonce so the spring animation
   // replays on every like AND unlike toggle (key-remount trick).
   const [reactionBursts, setReactionBursts] = useState<Record<string, number>>({});
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
@@ -280,6 +282,20 @@ export default function Feed() {
       window.removeEventListener("scroll", handleScroll);
     };
   }, []);
+
+  useEffect(() => {
+    if (!lightboxSrc) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setLightboxSrc(null);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [lightboxSrc]);
   const postMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Must be logged in");
@@ -723,7 +739,22 @@ export default function Feed() {
                       </header>
 
                       <div className="markdown-content mt-2 font-mono text-sm leading-relaxed">
-                        <ReactMarkdown>{post.content}</ReactMarkdown>
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            img: ({ src, alt }) => (
+                              <img
+                                src={src}
+                                alt={alt || ""}
+                                onClick={() => typeof src === "string" && setLightboxSrc(src)}
+                                className="max-h-64 cursor-zoom-in rounded-none neu-border"
+                                loading="lazy"
+                              />
+                            ),
+                          }}
+                        >
+                          {post.content}
+                        </ReactMarkdown>
                       </div>
 
                       <div className="mt-4 flex flex-wrap gap-2">
@@ -915,7 +946,9 @@ export default function Feed() {
                                       </div>
                                     </div>
                                     <div className="markdown-content mt-1 font-mono text-sm">
-                                      <ReactMarkdown>{commentNode.content}</ReactMarkdown>
+                                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                        {commentNode.content}
+                                      </ReactMarkdown>
                                     </div>
                                     <div className="mt-2 flex gap-2">
                                       <button
@@ -1050,6 +1083,31 @@ export default function Feed() {
         >
           <ArrowUp size={20} />
         </button>
+      )}
+
+      {lightboxSrc && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Image preview"
+          onClick={() => setLightboxSrc(null)}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 sm:p-8"
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxSrc(null)}
+            aria-label="Close image preview"
+            className="absolute right-4 top-4 neu-border bg-white px-3 py-1 font-mono text-xs font-bold uppercase hover:bg-cream"
+          >
+            Close
+          </button>
+          <img
+            src={lightboxSrc}
+            alt=""
+            onClick={(event) => event.stopPropagation()}
+            className="max-h-full max-w-full cursor-default object-contain"
+          />
+        </div>
       )}
     </SiteShell>
   );

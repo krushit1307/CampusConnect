@@ -476,7 +476,10 @@ export function CreateClubDialog({ user }: { user: User | null }) {
                 aspect={1}
                 onCropChange={setCrop}
                 onZoomChange={setZoom}
-                onCropComplete={(_, croppedPixels) => setCroppedAreaPixels(croppedPixels)}
+                onCropComplete={(
+                  _,
+                  croppedPixels: { width: number; height: number; x: number; y: number },
+                ) => setCroppedAreaPixels(croppedPixels)}
               />
             )}
           </div>
