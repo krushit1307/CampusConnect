@@ -1,4 +1,4 @@
--- Create the club analytics view
+-- Create the club analytics database view
 CREATE OR REPLACE VIEW club_analytics AS
 SELECT 
     c.id AS club_id,
