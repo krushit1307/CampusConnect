@@ -117,7 +117,7 @@ jobs:
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.109.0
 
       - name: Copy CI Supabase config
         run: cp supabase/config.ci.toml supabase/config.toml
