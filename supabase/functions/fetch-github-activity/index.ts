@@ -8,7 +8,7 @@ const corsHeaders = {
 const CACHE_DURATION_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 // In-memory cache as a fast L1 cache
-const memoryCache = new Map<string, { data: any; timestamp: number }>();
+const memoryCache = new Map<string, { data: unknown; timestamp: number }>();
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -25,7 +25,7 @@ serve(async (req) => {
       });
     }
 
-    const match = github_repo_url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+    const match = github_repo_url.match(/github\.com\/([^/]+)\/([^/]+)/);
     if (!match) {
       return new Response(JSON.stringify({ error: "Invalid GitHub repository URL" }), {
         status: 400,
@@ -57,7 +57,7 @@ serve(async (req) => {
       kv = await Deno.openKv();
       const kvCached = await kv.get(["github_activity", owner, repo]);
       if (kvCached.value) {
-        const { data, timestamp } = kvCached.value as { data: any; timestamp: number };
+        const { data, timestamp } = kvCached.value as { data: unknown; timestamp: number };
         if (now - timestamp < CACHE_DURATION_MS) {
           // Restore to memory cache
           memoryCache.set(cacheKey, { data, timestamp });
@@ -103,14 +103,14 @@ serve(async (req) => {
     if (prsRes.ok) prs = await prsRes.json();
 
     const activityData = {
-      commits: commits.map((c: any) => ({
+      commits: commits.map((c: { sha: string; commit: { message: string; author?: { name: string; date: string }; committer?: { name: string } }; html_url: string }) => ({
         sha: c.sha,
         message: c.commit.message,
         author: c.commit.author?.name || c.commit.committer?.name || "Unknown",
         date: c.commit.author?.date,
         url: c.html_url,
       })),
-      pull_requests: prs.map((pr: any) => ({
+      pull_requests: prs.map((pr: { id: number; title: string; state: string; user?: { login: string }; created_at: string; html_url: string }) => ({
         id: pr.id,
         title: pr.title,
         state: pr.state,
