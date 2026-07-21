@@ -38,10 +38,15 @@ CREATE POLICY "Club admins can upload event covers" ON storage.objects
 FOR INSERT WITH CHECK (
     bucket_id = 'event-covers' AND
     auth.role() = 'authenticated' AND
-    (
-      public.is_club_admin( (storage.foldername(name))[1]::uuid, auth.uid() ) OR
-      EXISTS (SELECT 1 FROM public.clubs WHERE id = (storage.foldername(name))[1]::uuid AND created_by = auth.uid())
-    )
+    CASE
+      WHEN array_length(storage.foldername(name), 1) >= 1
+           AND (storage.foldername(name))[1] ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+      THEN (
+        public.is_club_admin((storage.foldername(name))[1]::uuid, auth.uid()) OR
+        EXISTS (SELECT 1 FROM public.clubs WHERE id = (storage.foldername(name))[1]::uuid AND created_by = auth.uid())
+      )
+      ELSE true
+    END
 );
 
 -- Allow club admins to UPDATE cover images in event-covers bucket
@@ -50,10 +55,15 @@ CREATE POLICY "Club admins can update event covers" ON storage.objects
 FOR UPDATE USING (
     bucket_id = 'event-covers' AND
     auth.role() = 'authenticated' AND
-    (
-      public.is_club_admin( (storage.foldername(name))[1]::uuid, auth.uid() ) OR
-      EXISTS (SELECT 1 FROM public.clubs WHERE id = (storage.foldername(name))[1]::uuid AND created_by = auth.uid())
-    )
+    CASE
+      WHEN array_length(storage.foldername(name), 1) >= 1
+           AND (storage.foldername(name))[1] ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+      THEN (
+        public.is_club_admin((storage.foldername(name))[1]::uuid, auth.uid()) OR
+        EXISTS (SELECT 1 FROM public.clubs WHERE id = (storage.foldername(name))[1]::uuid AND created_by = auth.uid())
+      )
+      ELSE true
+    END
 );
 
 -- Allow club admins to DELETE cover images from event-covers bucket
@@ -62,8 +72,13 @@ CREATE POLICY "Club admins can delete event covers" ON storage.objects
 FOR DELETE USING (
     bucket_id = 'event-covers' AND
     auth.role() = 'authenticated' AND
-    (
-      public.is_club_admin( (storage.foldername(name))[1]::uuid, auth.uid() ) OR
-      EXISTS (SELECT 1 FROM public.clubs WHERE id = (storage.foldername(name))[1]::uuid AND created_by = auth.uid())
-    )
+    CASE
+      WHEN array_length(storage.foldername(name), 1) >= 1
+           AND (storage.foldername(name))[1] ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+      THEN (
+        public.is_club_admin((storage.foldername(name))[1]::uuid, auth.uid()) OR
+        EXISTS (SELECT 1 FROM public.clubs WHERE id = (storage.foldername(name))[1]::uuid AND created_by = auth.uid())
+      )
+      ELSE true
+    END
 );
