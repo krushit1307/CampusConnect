@@ -266,9 +266,7 @@ export default function EventDetailsPage() {
     : [];
   const isOnWaitlist = user ? waitlist.some((w) => w.user_id === user.id) : false;
   const waitlistPosition =
-    user && isOnWaitlist
-      ? waitlist.findIndex((w) => w.user_id === user.id) + 1
-      : 0;
+    user && isOnWaitlist ? waitlist.findIndex((w) => w.user_id === user.id) + 1 : 0;
 
   const club = event.clubs ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
   const coordsCheck = event.location
@@ -323,8 +321,10 @@ export default function EventDetailsPage() {
     setConfirmOpen(false);
   };
 
-  const attendeeCount = ((event as Record<string, unknown>).attendee_count as number) ?? rsvps.length;
-  const maxAttendees = (event as Record<string, unknown>).max_attendees as number | null | undefined;
+  const attendeeCount =
+    ((event as Record<string, unknown>).attendee_count as number) ?? rsvps.length;
+  const maxAttendees = (event as Record<string, unknown>).max_attendees as
+    number | null | undefined;
   const isAtCapacity =
     maxAttendees !== null &&
     maxAttendees !== undefined &&
@@ -460,7 +460,9 @@ export default function EventDetailsPage() {
                       : "Join Waitlist"}
                 </button>
                 {isOnWaitlist && waitlistPosition > 0 && (
-                  <span className={`font-mono text-xs font-bold ${event.banner_url ? "text-white" : "text-black"}`}>
+                  <span
+                    className={`font-mono text-xs font-bold ${event.banner_url ? "text-white" : "text-black"}`}
+                  >
                     You are #{waitlistPosition} on the waitlist
                   </span>
                 )}
