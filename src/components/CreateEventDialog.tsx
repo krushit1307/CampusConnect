@@ -70,6 +70,8 @@ export function CreateEventDialog({ user }: { user: User | null }) {
 
   const MAX_DESC_LENGTH = 150;
   const isNearLimit = MAX_DESC_LENGTH - currentDescription.length <= 10;
+  const isDescEmpty = currentDescription.trim().length === 0;
+  const isDescOverLimit = currentDescription.length > MAX_DESC_LENGTH;
 
   const createEvent = useMutation({
     mutationFn: async (values: LocalEventFormValues) => {
@@ -358,7 +360,11 @@ export function CreateEventDialog({ user }: { user: User | null }) {
             </div>
 
             <DialogFooter className="pt-2">
-              <Button type="submit" disabled={createEvent.isPending} className="w-full sm:w-auto">
+              <Button
+                type="submit"
+                disabled={createEvent.isPending || isDescEmpty || isDescOverLimit}
+                className="w-full sm:w-auto"
+              >
                 {createEvent.isPending ? "Creating..." : "Create event"}
               </Button>
             </DialogFooter>

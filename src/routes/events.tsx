@@ -2,7 +2,7 @@ import { formatDate } from "../lib/utils";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useEffect, useState, useRef, lazy, Suspense } from "react";
 import { User } from "@supabase/supabase-js";
 import { EventCard } from "@/components/EventCard";
 import { CreateEventDialog } from "@/components/CreateEventDialog";
@@ -47,6 +47,7 @@ export default function EventsPage() {
   const [sortLoaded, setSortLoaded] = useState(false);
   const [hidePastEvents, setHidePastEvents] = useState(false);
   const [hidePastLoaded, setHidePastLoaded] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
     const savedSort = sessionStorage.getItem("event-sort-order");
@@ -71,7 +72,18 @@ export default function EventsPage() {
   }, [sortOrder, sortLoaded]);
 
   const [totalCount, setTotalCount] = useState<number | null>(null);
+
+  const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(searchInput);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const {
     data: queryData,
@@ -158,6 +170,27 @@ export default function EventsPage() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+
+      const isTyping =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target.isContentEditable;
+
+      if (event.key === "/" && !isTyping) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   useEffect(() => {
     if (queryData) {
@@ -248,7 +281,6 @@ export default function EventsPage() {
       if (!user) throw new Error("Must be logged in");
       if (eventId.startsWith("mock-")) {
         // Skip database call for mock event cards in development
-        console.log(`[CampusConnect] Mock RSVP toggled for event: ${eventId}`);
         return;
       }
       const {
@@ -265,10 +297,27 @@ export default function EventsPage() {
         throw error;
       }
     },
-    onSuccess: (_data, variables) => {
-      toast.success(
-        variables.hasRsvpd ? "RSVP cancelled successfully!" : "RSVP registered successfully!",
-      );
+    onSuccess: async (_data, variables) => {
+      if (!variables.hasRsvpd && user && !variables.eventId.startsWith("mock-")) {
+        // User just joined (hasRsvpd was false before the toggle) — check if this was their first ever RSVP
+        const { count } = await supabase
+          .from("event_rsvps")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id);
+
+        if (count === 1) {
+          setShowConfetti(true);
+          window.setTimeout(() => setShowConfetti(false), 3000);
+          toast.success("🎉 You RSVPd to your first event! See it in your Dashboard.");
+        } else {
+          toast.success("RSVP registered successfully!");
+        }
+      } else {
+        toast.success(
+          variables.hasRsvpd ? "RSVP cancelled successfully!" : "RSVP registered successfully!",
+        );
+      }
+
       if (!variables.eventId.startsWith("mock-")) {
         refetch();
         window.dispatchEvent(new CustomEvent("refetchEvents"));
@@ -283,7 +332,6 @@ export default function EventsPage() {
     mutationFn: async ({ eventId, isSaved }: { eventId: string; isSaved: boolean }) => {
       if (!user) throw new Error("Must be logged in");
       if (eventId.startsWith("mock-")) {
-        console.log(`[CampusConnect] Mock Bookmark toggled for event: ${eventId}`);
         return;
       }
       const { error } = isSaved
@@ -306,7 +354,43 @@ export default function EventsPage() {
     },
   });
 
+  const eventsOverlap = (
+    aStart: string | null,
+    aEnd: string | null,
+    bStart: string | null,
+    bEnd: string | null,
+  ) => {
+    if (!aStart || !aEnd || !bStart || !bEnd) return false;
+    const aStartTime = new Date(aStart).getTime();
+    const aEndTime = new Date(aEnd).getTime();
+    const bStartTime = new Date(bStart).getTime();
+    const bEndTime = new Date(bEnd).getTime();
+    return aStartTime < bEndTime && aEndTime > bStartTime;
+  };
+
   const handleRsvpToggle = async (eventId: string, hasRsvpd: boolean) => {
+    // Overlap warning: only check when joining (not leaving), and only if we
+    // have start/end times for the target event.
+    if (!hasRsvpd && user) {
+      const targetEvent = events.find((e) => e.id === eventId);
+
+      if (targetEvent?.start_date && targetEvent?.end_date) {
+        const overlapping = events.find((e) => {
+          if (e.id === eventId) return false;
+          const rsvps = Array.isArray(e.event_rsvps) ? e.event_rsvps : [];
+          const isRsvpd = rsvps.some((r) => r.user_id === user.id);
+          return (
+            isRsvpd &&
+            eventsOverlap(targetEvent.start_date, targetEvent.end_date, e.start_date, e.end_date)
+          );
+        });
+
+        if (overlapping) {
+          toast(`Note: This event overlaps with ${overlapping.title} on your schedule!`);
+        }
+      }
+    }
+
     const originalEvents = [...events];
 
     setEvents((prevEvents) =>
@@ -395,6 +479,13 @@ export default function EventsPage() {
 
   return (
     <SiteShell>
+      {showConfetti && (
+        <div className="confetti-container" aria-hidden="true">
+          {Array.from({ length: 30 }).map((_, i) => (
+            <span key={i} className="confetti-piece" style={{ "--i": i } as React.CSSProperties} />
+          ))}
+        </div>
+      )}
       <PullToRefresh isRefreshing={isFetching} onRefresh={() => refetch()}>
         <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
           <div className="mx-auto flex max-w-7xl flex-col gap-6 md:flex-row md:items-end md:justify-between">
@@ -416,21 +507,29 @@ export default function EventsPage() {
               {/* Search Bar */}
               <div className="relative w-full md:w-80">
                 <input
+                  ref={searchInputRef}
                   type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
                   placeholder="Search events by name, location..."
                   className="neu-border w-full bg-white pl-9 pr-8 py-2 font-mono text-xs focus:outline-none placeholder:text-neutral-500"
                 />
                 <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-neutral-500 pointer-events-none" />
-                {searchQuery && (
+                {searchInput && (
                   <button
-                    onClick={() => setSearchQuery("")}
+                    onClick={() => {
+                      setSearchInput("");
+                      setSearchQuery("");
+                      searchInputRef.current?.focus();
+                    }}
                     className="absolute right-2.5 top-1.5 font-mono text-sm font-bold text-neutral-500 hover:text-black cursor-pointer"
                   >
                     ×
                   </button>
                 )}
+              </div>
+              <div className="sr-only" aria-live="polite">
+                {sortedEvents.length} event{sortedEvents.length !== 1 ? "s" : ""} found
               </div>
 
               {/* Filter Tags */}
@@ -457,6 +556,7 @@ export default function EventsPage() {
                   <button
                     onClick={() => {
                       setFilter("All");
+                      setSearchInput("");
                       setSearchQuery("");
                     }}
                     className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream cursor-pointer"
@@ -545,6 +645,7 @@ export default function EventsPage() {
                     <button
                       onClick={() => {
                         setFilter("All");
+                        setSearchInput("");
                         setSearchQuery("");
                       }}
                       className="mt-4 neu-border bg-yellow px-5 py-2 font-mono text-xs font-bold uppercase transition-all hover:bg-black hover:text-white cursor-pointer"
