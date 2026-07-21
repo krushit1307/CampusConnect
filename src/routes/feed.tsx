@@ -764,8 +764,7 @@ export default function Feed() {
                         </a>
 
                         <a
-                          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`}
-
+                          href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#0A66C2] hover:text-white"
@@ -787,8 +786,12 @@ export default function Feed() {
                         <button
                           type="button"
                           onClick={async () => {
-                            await navigator.clipboard.writeText(shareUrl);
-                            toast.success("Link copied!");
+                            try {
+                              await navigator.clipboard.writeText(shareUrl);
+                              toast.success("Link copied!");
+                            } catch (err) {
+                              toast.error("Failed to copy link.");
+                            }
                           }}
                           className="neu-border inline-flex items-center gap-2 px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-gray-200"
                         >

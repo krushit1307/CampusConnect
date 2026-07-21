@@ -8,20 +8,28 @@ export default function GlobalSearch() {
 
   const debouncedSearch = useDebounce(searchTerm, 300);
 
-  const fetchSearchResults = async (query: string) => {
-    // Mock Supabase fetch call
-    console.log(`Fetching results for: ${query}`);
-    // Simulate setting results
-    // setResults(data);
-  };
-
   useEffect(() => {
+    let ignore = false;
+
+    const fetchSearchResults = async (query: string) => {
+      // Mock Supabase fetch call
+      console.log(`Fetching results for: ${query}`);
+      // Simulate setting results
+      if (!ignore) {
+        // setResults(data);
+      }
+    };
+
     if (!debouncedSearch.trim()) {
       setResults([]);
       return;
     }
 
     fetchSearchResults(debouncedSearch);
+
+    return () => {
+      ignore = true;
+    };
   }, [debouncedSearch]);
 
   return (
