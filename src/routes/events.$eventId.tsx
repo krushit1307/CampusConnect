@@ -87,6 +87,10 @@ export default function EventDetailsPage() {
         if (import.meta.env.DEV && eventId.startsWith("mock-")) {
           return {
             id: eventId,
+            // Mock data has no real owner; use a placeholder so this branch's
+            // type matches the real Supabase row (which always has
+            // created_by) instead of silently omitting the field.
+            created_by: "mock-user-1",
             title:
               eventId === "mock-1"
                 ? "Hackathon 2024"

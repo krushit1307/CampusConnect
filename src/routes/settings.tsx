@@ -143,7 +143,8 @@ export default function SettingsPage() {
     resolver: zodResolver(profileSchema),
     defaultValues: {
       avatarTheme: "",
-      fullName: "",
+      firstName: "",
+      lastName: "",
       handle: "",
       collegeEmail: "",
       bio: "",
@@ -154,9 +155,16 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (user) {
+      // Auth metadata (from OAuth sign-up, etc.) may only ever have a single
+      // full_name string. If the profile row hasn't been saved with split
+      // first/last names yet, fall back to a best-effort split of that.
+      const [metaFirstName = "", ...metaRest] = (user.user_metadata?.full_name || "").split(" ");
+      const metaLastName = metaRest.join(" ");
+
       form.reset({
         avatarTheme: (profile?.avatar_theme as AvatarThemeId) || "",
-        fullName: profile?.full_name || user.user_metadata?.full_name || "",
+        firstName: profile?.first_name || metaFirstName,
+        lastName: profile?.last_name || metaLastName,
         handle: profile?.handle || "",
         collegeEmail: user.email || "",
         bio: profile?.bio || "",
@@ -184,7 +192,8 @@ export default function SettingsPage() {
         .from("profiles")
         .update({
           avatar_theme: values.avatarTheme || null,
-          full_name: values.fullName,
+          first_name: values.firstName,
+          last_name: values.lastName,
           handle: values.handle,
           bio: values.bio || null,
           linkedin_url: values.linkedinUrl || null,
@@ -215,7 +224,9 @@ export default function SettingsPage() {
     }
   };
 
-  const currentFullName = form.watch("fullName");
+  const currentFirstName = form.watch("firstName");
+  const currentLastName = form.watch("lastName");
+  const currentFullName = `${currentFirstName} ${currentLastName}`.trim();
   const currentAvatarTheme = form.watch("avatarTheme");
 
   const handleBorderThicknessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -264,24 +275,45 @@ export default function SettingsPage() {
 
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="fullName"
-                  render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel required className="eyebrow font-bold text-black">
-                        Full name
-                      </FormLabel>
-                      <FormControl>
-                        <input
-                          {...field}
-                          className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
-                        />
-                      </FormControl>
-                      <FormMessage className="font-mono text-xs text-destructive" />
-                    </FormItem>
-                  )}
-                />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1">
+                        <FormLabel required className="eyebrow font-bold text-black">
+                          First name
+                        </FormLabel>
+                        <FormControl>
+                          <input
+                            {...field}
+                            className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                          />
+                        </FormControl>
+                        <FormMessage className="font-mono text-xs text-destructive" />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1">
+                        <FormLabel required className="eyebrow font-bold text-black">
+                          Last name
+                        </FormLabel>
+                        <FormControl>
+                          <input
+                            {...field}
+                            className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                          />
+                        </FormControl>
+                        <FormMessage className="font-mono text-xs text-destructive" />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 <FormField
                   control={form.control}

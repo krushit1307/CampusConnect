@@ -55,6 +55,9 @@ jobs:
       - name: Run Lint checks
         run: npm run lint
 
+      - name: Run Type Check
+        run: npm run typecheck
+
   prettier:
     name: Prettier Check
     runs-on: ubuntu-latest
