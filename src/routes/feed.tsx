@@ -608,8 +608,6 @@ export default function Feed() {
                     ? post.comments.filter((c) => !c.deleted_at)
                     : [];
 
-
-
                   return (
                     <article
                       id={`post-${post.id}`}
