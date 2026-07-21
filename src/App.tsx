@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import Directory from "./routes/Directory";
 
 import {
   createBrowserRouter,
@@ -31,6 +32,7 @@ import ResetPassword from "./routes/reset-password";
 import Settings from "./routes/settings";
 import PendingClubsAdmin from "./routes/admin.clubs.pending";
 import MessagesRoute from "./routes/messages";
+import { NotFoundPage } from "./components/NotFoundPage";
 
 const HEALTH_CHECK_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_HEALTH_URL) ||
@@ -141,6 +143,8 @@ const router = createBrowserRouter(
       <Route path="/settings" element={<Settings />} />
       <Route path="/messages" element={<MessagesRoute />} />
       <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
+      <Route path="/directory" element={<Directory />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Route>,
   ),
 );

@@ -220,11 +220,7 @@ export function EventCard({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                onClick={handleCopyLink}
-                variant="outline"
-                className="neu-border neu-press bg-white hover:bg-cream h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
-              >
+              <Button onClick={handleCopyLink} variant="outline" size="sm">
                 <LinkIcon className="h-4 w-4 mr-2" />
                 Copy Link
               </Button>
@@ -247,12 +243,7 @@ export function EventCard({
           </a>
         )}
         {hasRsvpd && myRsvp && (
-          <Button
-            type="button"
-            onClick={() => setTicketOpen(true)}
-            variant="outline"
-            className="neu-border neu-press bg-white hover:bg-cream h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 text-black"
-          >
+          <Button type="button" onClick={() => setTicketOpen(true)} variant="outline" size="sm">
             View Ticket
           </Button>
         )}
