@@ -47,6 +47,7 @@ export default function EventsPage() {
   const [sortLoaded, setSortLoaded] = useState(false);
   const [hidePastEvents, setHidePastEvents] = useState(false);
   const [hidePastLoaded, setHidePastLoaded] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
     const savedSort = sessionStorage.getItem("event-sort-order");
@@ -265,10 +266,27 @@ export default function EventsPage() {
         throw error;
       }
     },
-    onSuccess: (_data, variables) => {
-      toast.success(
-        variables.hasRsvpd ? "RSVP cancelled successfully!" : "RSVP registered successfully!",
-      );
+    onSuccess: async (_data, variables) => {
+      if (!variables.hasRsvpd && user && !variables.eventId.startsWith("mock-")) {
+        // User just joined (hasRsvpd was false before the toggle) — check if this was their first ever RSVP
+        const { count } = await supabase
+          .from("event_rsvps")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id);
+
+        if (count === 1) {
+          setShowConfetti(true);
+          window.setTimeout(() => setShowConfetti(false), 3000);
+          toast.success("🎉 You RSVPd to your first event! See it in your Dashboard.");
+        } else {
+          toast.success("RSVP registered successfully!");
+        }
+      } else {
+        toast.success(
+          variables.hasRsvpd ? "RSVP cancelled successfully!" : "RSVP registered successfully!",
+        );
+      }
+
       if (!variables.eventId.startsWith("mock-")) {
         refetch();
         window.dispatchEvent(new CustomEvent("refetchEvents"));
@@ -395,6 +413,13 @@ export default function EventsPage() {
 
   return (
     <SiteShell>
+      {showConfetti && (
+        <div className="confetti-container" aria-hidden="true">
+          {Array.from({ length: 30 }).map((_, i) => (
+            <span key={i} className="confetti-piece" style={{ "--i": i } as React.CSSProperties} />
+          ))}
+        </div>
+      )}
       <PullToRefresh isRefreshing={isFetching} onRefresh={() => refetch()}>
         <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
           <div className="mx-auto flex max-w-7xl flex-col gap-6 md:flex-row md:items-end md:justify-between">
