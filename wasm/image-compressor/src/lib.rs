@@ -1,6 +1,7 @@
 use wasm_bindgen::prelude::*;
 use image::{
     imageops::FilterType,
+    ImageEncoder,
 };
 use std::io::Cursor;
 
@@ -23,14 +24,19 @@ pub fn compress_image(
 
     let mut output = Cursor::new(Vec::new());
 
-    let mut encoder =
+    let encoder =
         image::codecs::jpeg::JpegEncoder::new_with_quality(
             &mut output,
             quality,
         );
 
     encoder
-        .encode_image(&resized)
+        .write_image(
+            resized.as_bytes(),
+            resized.width(),
+            resized.height(),
+            resized.color(),
+        )
         .unwrap();
 
     output.into_inner()
