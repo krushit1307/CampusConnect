@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS bug_reports (
         REFERENCES profiles(id)
         ON DELETE CASCADE,
 
-    description TEXT NOT NULL,
+    description TEXT NOT NULL
+        CHECK (length(trim(description)) > 0 AND length(description) <= 2000),
 
     screenshot_url TEXT,
 
@@ -100,8 +101,14 @@ WITH CHECK (
 -- Storage: bug-screenshots bucket
 -- ------------------------------------------------------------
 
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('bug-screenshots', 'bug-screenshots', true)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+    'bug-screenshots',
+    'bug-screenshots',
+    true,
+    5242880, -- 5 MB
+    ARRAY['image/jpeg', 'image/png', 'image/webp']
+)
 ON CONFLICT DO NOTHING;
 
 -- Authenticated users can upload screenshots to their own folder

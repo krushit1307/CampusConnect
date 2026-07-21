@@ -49,30 +49,44 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("You must be logged in to report a bug.");
 
-      let screenshotUrl: string | null = null;
+      let uploadedPath: string | null = null;
 
-      if (screenshot) {
-        const ext = screenshot.name.split(".").pop()?.toLowerCase() ?? "png";
-        const filePath = `${user.id}/${crypto.randomUUID()}.${ext}`;
+      try {
+        let screenshotUrl: string | null = null;
 
-        const { error: uploadError } = await supabase.storage
-          .from("bug-screenshots")
-          .upload(filePath, screenshot, { contentType: screenshot.type });
-        if (uploadError) throw new Error(uploadError.message);
+        if (screenshot) {
+          const ext = screenshot.name.split(".").pop()?.toLowerCase() ?? "png";
+          const filePath = `${user.id}/${crypto.randomUUID()}.${ext}`;
+          uploadedPath = filePath;
 
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from("bug-screenshots").getPublicUrl(filePath);
+          const { error: uploadError } = await supabase.storage
+            .from("bug-screenshots")
+            .upload(filePath, screenshot, { contentType: screenshot.type });
+          if (uploadError) throw new Error(uploadError.message);
 
-        screenshotUrl = publicUrl;
+          const {
+            data: { publicUrl },
+          } = supabase.storage.from("bug-screenshots").getPublicUrl(filePath);
+
+          screenshotUrl = publicUrl;
+        }
+
+        const { error: insertError } = await supabase.from("bug_reports").insert({
+          user_id: user.id,
+          description: description.trim(),
+          screenshot_url: screenshotUrl,
+        });
+        if (insertError) throw new Error(insertError.message);
+      } catch (err) {
+        // Best-effort cleanup: remove orphaned screenshot on failure
+        if (uploadedPath) {
+          await supabase.storage
+            .from("bug-screenshots")
+            .remove([uploadedPath])
+            .catch(() => {});
+        }
+        throw err;
       }
-
-      const { error: insertError } = await supabase.from("bug_reports").insert({
-        user_id: user.id,
-        description: description.trim(),
-        screenshot_url: screenshotUrl,
-      });
-      if (insertError) throw new Error(insertError.message);
     },
     onSuccess: () => {
       toast.success("Bug report submitted. Thank you!");
@@ -105,9 +119,13 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
       return;
     }
 
-    setScreenshot(file);
-    const dataUrl = await readFileAsDataUrl(file);
-    setPreviewDataUrl(dataUrl);
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      setScreenshot(file);
+      setPreviewDataUrl(dataUrl);
+    } catch {
+      toast.error("Failed to read screenshot. Please try again.");
+    }
   }
 
   function removeScreenshot() {
@@ -174,6 +192,7 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
                 />
                 <button
                   type="button"
+                  aria-label="Remove screenshot"
                   onClick={removeScreenshot}
                   className="absolute -right-2 -top-2 rounded-full bg-black p-1 text-white hover:bg-red-600"
                 >
