@@ -1,8 +1,6 @@
 import { FeedPostSkeleton } from "@/components/FeedPostSkeleton";
 import { useMutation, useQuery, useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import type { User } from "@supabase/supabase-js";
- feat/trending-clubs-carousel
-import { Link2, MessageCircle, MessageSquareText, PenLine, Sparkles, Trash2 } from "lucide-react";
 import {
   Link2,
   ArrowUp,
@@ -14,7 +12,6 @@ import {
   Trash2,
   Flame,
 } from "lucide-react";
- main
 import { useEffect, useRef, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
@@ -610,15 +607,8 @@ export default function Feed() {
                   const postComments: Comment[] = Array.isArray(post.comments)
                     ? post.comments.filter((c) => !c.deleted_at)
                     : [];
- feat/trending-clubs-carousel
 
                   const shareUrl = `${window.location.origin}/feed?postId=${post.id}`;
-
-                  const isLastPost = index === posts.length - 1;
-
-
-                  const shareUrl = `${window.location.origin}/feed?postId=${post.id}`;
- main
                   return (
                     <article
                       id={`post-${post.id}`}
@@ -773,12 +763,7 @@ export default function Feed() {
                         </a>
 
                         <a
- feat/trending-clubs-carousel
-                          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`}
-
-
                           href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`}
- main
                           target="_blank"
                           rel="noopener noreferrer"
                           className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#0A66C2] hover:text-white"
@@ -800,17 +785,12 @@ export default function Feed() {
                         <button
                           type="button"
                           onClick={async () => {
- feat/trending-clubs-carousel
-                            await navigator.clipboard.writeText(shareUrl);
-                            toast.success("Link copied!");
-
                             try {
                               await navigator.clipboard.writeText(shareUrl);
                               toast.success("Link copied!");
                             } catch (err) {
                               toast.error("Failed to copy link.");
                             }
-main
                           }}
                           className="neu-border inline-flex items-center gap-2 px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-gray-200"
                         >
