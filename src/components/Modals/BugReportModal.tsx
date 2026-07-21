@@ -109,6 +109,8 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
 
   const canSubmit = description.trim().length > 0 && !submitReport.isPending;
 
+  const isBlobUrl = (url: string | null): url is string => url !== null && url.startsWith("blob:");
+
   return (
     <Dialog
       open={open}
@@ -156,7 +158,7 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
           <div className="space-y-2">
             <Label className="text-red-900">Screenshot (optional)</Label>
 
-            {previewUrl ? (
+            {previewUrl && isBlobUrl(previewUrl) ? (
               <div className="relative inline-block">
                 <img
                   src={previewUrl}

@@ -45,11 +45,11 @@ const issueKeywords = ["cypress", "seo", "date/time formatter", "vercel analytic
 
 function determineLabel(title: string) {
   const lowerTitle = title.toLowerCase();
-  
-  if (backendKeywords.some(kw => lowerTitle.includes(kw))) return "good-backend";
-  if (prKeywords.some(kw => lowerTitle.includes(kw))) return "good-pr";
-  if (issueKeywords.some(kw => lowerTitle.includes(kw))) return "good-issue";
-  
+
+  if (backendKeywords.some((kw) => lowerTitle.includes(kw))) return "good-backend";
+  if (prKeywords.some((kw) => lowerTitle.includes(kw))) return "good-pr";
+  if (issueKeywords.some((kw) => lowerTitle.includes(kw))) return "good-issue";
+
   return "good-ui";
 }
 
@@ -60,13 +60,13 @@ async function addLabels() {
   for (const num of issueNumbers) {
     const issue = await githubRequest(`/issues/${num}`);
     if (issue) {
-      const currentLabels = issue.labels.map((l: any) => l.name);
+      const currentLabels = issue.labels.map((l: { name?: string }) => l.name);
       const labelToAdd = determineLabel(issue.title);
-      
+
       // Ensure we haven't already added one of the four
       const fourLabels = ["good-issue", "good-pr", "good-ui", "good-backend"];
       const hasOneOfFour = currentLabels.some((l: string) => fourLabels.includes(l));
-      
+
       if (!hasOneOfFour) {
         currentLabels.push(labelToAdd);
         await githubRequest(`/issues/${num}`, "PATCH", { labels: currentLabels });
