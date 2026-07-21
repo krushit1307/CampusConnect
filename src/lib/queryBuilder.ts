@@ -90,7 +90,7 @@ function buildWhereClause(node: FilterTree, params: unknown[]): string {
       case "is_not_null":
         return `${safeField} IS NOT NULL`;
       default:
-        throw new Error(`Unsupported SQL operator: ${String(node.operator)}`);
+        throw new Error("Unsupported SQL operator");
     }
   }
 
