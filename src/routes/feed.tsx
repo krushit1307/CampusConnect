@@ -607,11 +607,7 @@ export default function Feed() {
                   const postComments: Comment[] = Array.isArray(post.comments)
                     ? post.comments.filter((c) => !c.deleted_at)
                     : [];
-
- feat/search-debounce
                   const shareUrl = `${window.location.origin}/feed?postId=${post.id}`;
-
- main
                   return (
                     <article
                       id={`post-${post.id}`}
