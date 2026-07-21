@@ -453,15 +453,12 @@ export default function EventsPage() {
                     {t}
                   </button>
                 ))}
-                {(filter !== "All" || searchQuery) && (
+                {filter !== "All" && (
                   <button
-                    onClick={() => {
-                      setFilter("All");
-                      setSearchQuery("");
-                    }}
+                    onClick={() => setFilter("All")}
                     className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream cursor-pointer"
                   >
-                    Clear Filters
+                    Clear All
                   </button>
                 )}
               </div>
