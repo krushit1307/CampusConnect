@@ -119,8 +119,11 @@ jobs:
         with:
           version: latest
 
+      - name: Copy CI Supabase config
+        run: cp supabase/config.ci.toml supabase/config.toml
+
       - name: Start local Supabase
-        run: supabase start --config supabase/config.ci.toml
+        run: supabase start
 
       - name: Verify database migrations
         run: supabase db reset
