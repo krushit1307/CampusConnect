@@ -35,7 +35,7 @@ pub fn compress_image(
             resized.as_bytes(),
             resized.width(),
             resized.height(),
-            resized.color().into(),
+            resized.color(),
         )
         .unwrap();
 
