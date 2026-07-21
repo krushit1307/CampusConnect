@@ -70,13 +70,13 @@ export default function EventDetailsPage() {
     queryKey: ["event", eventId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("club_analytics_view")
+        .from("events")
         .select(
           `
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, max_attendees,
           clubs (name, slug),
           event_rsvps (id, user_id),
-          attendee_count
+          event_waitlist (id, user_id, created_at)
         `,
         )
         .eq("id", eventId)
@@ -111,6 +111,7 @@ export default function EventDetailsPage() {
                   ? "Art Block, Jawaharlal Nehru University, New Delhi"
                   : "Student Activity Centre, IIT Bombay, Powai, Mumbai",
             banner_url: null as string | null,
+            max_attendees: eventId === "mock-1" ? 1 : null,
             clubs: [
               {
                 name:
@@ -128,12 +129,43 @@ export default function EventDetailsPage() {
               },
             ],
             event_rsvps: eventId === "mock-1" ? [{ id: "rsvp-1", user_id: "user-1" }] : [],
+            event_waitlist: [] as { id: string; user_id: string; created_at: string }[],
             attendee_count: eventId === "mock-1" ? 1 : 0,
           };
         }
         throw error;
       }
       return data;
+    },
+  });
+
+  const toggleWaitlist = useMutation({
+    mutationFn: async ({ isOnWaitlist }: { isOnWaitlist: boolean }) => {
+      if (!user) throw new Error("Please log in to join waitlist");
+      if (eventId.startsWith("mock-")) {
+        console.log(`[CampusConnect] Mock waitlist toggled for event: ${eventId}`);
+        return;
+      }
+
+      if (isOnWaitlist) {
+        const { error } = await supabase
+          .from("event_waitlist")
+          .delete()
+          .eq("event_id", eventId)
+          .eq("user_id", user.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("event_waitlist")
+          .insert({ event_id: eventId, user_id: user.id });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      refetch();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update waitlist status. Please try again.");
     },
   });
 
@@ -225,6 +257,17 @@ export default function EventDetailsPage() {
 
   const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
   const hasRsvpd = user ? rsvps.some((r) => r.user_id === user.id) : false;
+
+  const rawWaitlist = (event as Record<string, unknown>).event_waitlist;
+  const waitlist = Array.isArray(rawWaitlist)
+    ? [...(rawWaitlist as { id: string; user_id: string; created_at?: string }[])].sort(
+        (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime(),
+      )
+    : [];
+  const isOnWaitlist = user ? waitlist.some((w) => w.user_id === user.id) : false;
+  const waitlistPosition =
+    user && isOnWaitlist ? waitlist.findIndex((w) => w.user_id === user.id) + 1 : 0;
+
   const club = event.clubs ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
   const coordsCheck = event.location
     ? parseCoordinates(event.location)
@@ -278,7 +321,15 @@ export default function EventDetailsPage() {
     setConfirmOpen(false);
   };
 
-  const attendeeCount = event.attendee_count ?? rsvps.length;
+  const attendeeCount =
+    ((event as Record<string, unknown>).attendee_count as number) ?? rsvps.length;
+  const maxAttendees = (event as Record<string, unknown>).max_attendees as
+    number | null | undefined;
+  const isAtCapacity =
+    maxAttendees !== null &&
+    maxAttendees !== undefined &&
+    maxAttendees > 0 &&
+    attendeeCount >= maxAttendees;
 
   return (
     <SiteShell>
@@ -379,19 +430,57 @@ export default function EventDetailsPage() {
           </div>
 
           <div className="mt-8 hidden items-center gap-4 md:flex">
-            <button
-              onClick={handleRsvpClick}
-              disabled={toggleRsvp.isPending}
-              className={`neu-border px-8 py-4 font-mono text-base font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
-                hasRsvpd ? "bg-lime text-black" : "bg-black text-cream"
-              }`}
-            >
-              {toggleRsvp.isPending ? "Updating..." : hasRsvpd ? "RSVP'd ✓" : "RSVP NOW"}
-            </button>
+            {hasRsvpd ? (
+              <button
+                onClick={handleRsvpClick}
+                disabled={toggleRsvp.isPending}
+                className="neu-border bg-lime px-8 py-4 font-mono text-base font-bold uppercase tracking-wider text-black transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
+              </button>
+            ) : isAtCapacity ? (
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={() => {
+                    if (!user) {
+                      toast.error("Please log in to join waitlist");
+                      return;
+                    }
+                    toggleWaitlist.mutate({ isOnWaitlist });
+                  }}
+                  disabled={toggleWaitlist.isPending}
+                  className={`neu-border px-8 py-4 font-mono text-base font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
+                    isOnWaitlist ? "bg-amber-300 text-black" : "bg-black text-cream"
+                  }`}
+                >
+                  {toggleWaitlist.isPending
+                    ? "Updating..."
+                    : isOnWaitlist
+                      ? "On Waitlist ✓"
+                      : "Join Waitlist"}
+                </button>
+                {isOnWaitlist && waitlistPosition > 0 && (
+                  <span
+                    className={`font-mono text-xs font-bold ${event.banner_url ? "text-white" : "text-black"}`}
+                  >
+                    You are #{waitlistPosition} on the waitlist
+                  </span>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={handleRsvpClick}
+                disabled={toggleRsvp.isPending}
+                className="neu-border bg-black px-8 py-4 font-mono text-base font-bold uppercase tracking-wider text-cream transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
+              </button>
+            )}
             <span
               className={`font-mono text-sm font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
             >
-              {attendeeCount} people going
+              {attendeeCount} {maxAttendees ? `/ ${maxAttendees}` : ""} people going
+              {isAtCapacity && !hasRsvpd && " (At Capacity)"}
             </span>
           </div>
         </div>
@@ -556,18 +645,51 @@ export default function EventDetailsPage() {
       <div className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between border-t-2 border-black bg-white p-4 pb-6 shadow-lg md:hidden">
         <div className="flex flex-col">
           <span className="font-mono text-xs font-bold uppercase text-black/60">
-            {attendeeCount} going
+            {attendeeCount} {maxAttendees ? `/ ${maxAttendees}` : ""} going
           </span>
+          {isOnWaitlist && waitlistPosition > 0 && (
+            <span className="font-mono text-[10px] font-bold text-amber-700">
+              Waitlist position: #{waitlistPosition}
+            </span>
+          )}
         </div>
-        <button
-          onClick={handleRsvpClick}
-          disabled={toggleRsvp.isPending}
-          className={`neu-border px-6 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
-            hasRsvpd ? "bg-lime text-black" : "bg-black text-cream"
-          }`}
-        >
-          {toggleRsvp.isPending ? "Updating..." : hasRsvpd ? "RSVP'd ✓" : "RSVP NOW"}
-        </button>
+        {hasRsvpd ? (
+          <button
+            onClick={handleRsvpClick}
+            disabled={toggleRsvp.isPending}
+            className="neu-border bg-lime px-6 py-3 font-mono text-sm font-bold uppercase tracking-wider text-black transition-all duration-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
+          </button>
+        ) : isAtCapacity ? (
+          <button
+            onClick={() => {
+              if (!user) {
+                toast.error("Please log in to join waitlist");
+                return;
+              }
+              toggleWaitlist.mutate({ isOnWaitlist });
+            }}
+            disabled={toggleWaitlist.isPending}
+            className={`neu-border px-6 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
+              isOnWaitlist ? "bg-amber-300 text-black" : "bg-black text-cream"
+            }`}
+          >
+            {toggleWaitlist.isPending
+              ? "Updating..."
+              : isOnWaitlist
+                ? "On Waitlist ✓"
+                : "Join Waitlist"}
+          </button>
+        ) : (
+          <button
+            onClick={handleRsvpClick}
+            disabled={toggleRsvp.isPending}
+            className="neu-border bg-black px-6 py-3 font-mono text-sm font-bold uppercase tracking-wider text-cream transition-all duration-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
+          </button>
+        )}
       </div>
 
       {/* RSVP Cancel Confirmation Modal */}
