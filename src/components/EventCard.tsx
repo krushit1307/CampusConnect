@@ -61,6 +61,7 @@ export function EventCard({
   const [copied, setCopied] = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   const handleCopyLink = async () => {
     try {
@@ -108,6 +109,13 @@ export function EventCard({
     }
     onBookmarkToggle?.(event.id, isSaved);
   };
+
+  const shouldTruncate = !!event.description && event.description.length > 220;
+
+  const displayedDescription =
+    shouldTruncate && !isDescriptionExpanded
+      ? `${event.description!.slice(0, 180)}...`
+      : event.description;
 
   return (
     <article
@@ -166,7 +174,23 @@ export function EventCard({
       <p className="mt-1 font-mono text-sm font-bold text-blue-900">{club?.name}</p>
 
       {event.description ? (
-        <p className="mt-4 text-sm leading-6 text-gray-800">{event.description}</p>
+        <div
+          className={`mt-4 overflow-hidden transition-all duration-300 ease-in-out ${
+            isDescriptionExpanded ? "max-h-250" : "max-h-40"
+          }`}
+        >
+          <p className="text-sm leading-6 text-gray-800 inline">{displayedDescription}</p>
+
+          {shouldTruncate && (
+            <button
+              type="button"
+              onClick={() => setIsDescriptionExpanded((prev) => !prev)}
+              className="ml-1 inline font-semibold text-violet-700 hover:text-violet-900 transition-colors"
+            >
+              {isDescriptionExpanded ? "Read less" : "Read more"}
+            </button>
+          )}
+        </div>
       ) : null}
 
       <dl className="mt-5 grid gap-4 sm:grid-cols-3">
