@@ -21,6 +21,15 @@ const MAX_DESCRIPTION_LENGTH = 2000;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 interface BugReportModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -29,7 +38,7 @@ interface BugReportModalProps {
 export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
   const [description, setDescription] = useState("");
   const [screenshot, setScreenshot] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
 
@@ -79,11 +88,11 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
   function resetForm() {
     setDescription("");
     setScreenshot(null);
-    setPreviewUrl(null);
+    setPreviewDataUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -97,19 +106,17 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
     }
 
     setScreenshot(file);
-    setPreviewUrl(URL.createObjectURL(file));
+    const dataUrl = await readFileAsDataUrl(file);
+    setPreviewDataUrl(dataUrl);
   }
 
   function removeScreenshot() {
     setScreenshot(null);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(null);
+    setPreviewDataUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   const canSubmit = description.trim().length > 0 && !submitReport.isPending;
-
-  const isBlobUrl = (url: string | null): url is string => url !== null && url.startsWith("blob:");
 
   return (
     <Dialog
@@ -158,10 +165,10 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
           <div className="space-y-2">
             <Label className="text-red-900">Screenshot (optional)</Label>
 
-            {previewUrl && isBlobUrl(previewUrl) ? (
+            {previewDataUrl ? (
               <div className="relative inline-block">
                 <img
-                  src={previewUrl}
+                  src={previewDataUrl}
                   alt="Screenshot preview"
                   className="max-h-40 rounded-md border-2 border-black object-contain"
                 />
