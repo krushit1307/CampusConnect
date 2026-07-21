@@ -2,7 +2,7 @@ import { formatDate } from "../lib/utils";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useEffect, useState, useRef, lazy, Suspense } from "react";
 import { User } from "@supabase/supabase-js";
 import { EventCard } from "@/components/EventCard";
 import { CreateEventDialog } from "@/components/CreateEventDialog";
@@ -72,7 +72,18 @@ export default function EventsPage() {
   }, [sortOrder, sortLoaded]);
 
   const [totalCount, setTotalCount] = useState<number | null>(null);
+
+  const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(searchInput);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const {
     data: queryData,
@@ -159,6 +170,27 @@ export default function EventsPage() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+
+      const isTyping =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target.isContentEditable;
+
+      if (event.key === "/" && !isTyping) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   useEffect(() => {
     if (queryData) {
@@ -441,21 +473,29 @@ export default function EventsPage() {
               {/* Search Bar */}
               <div className="relative w-full md:w-80">
                 <input
+                  ref={searchInputRef}
                   type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
                   placeholder="Search events by name, location..."
                   className="neu-border w-full bg-white pl-9 pr-8 py-2 font-mono text-xs focus:outline-none placeholder:text-neutral-500"
                 />
                 <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-neutral-500 pointer-events-none" />
-                {searchQuery && (
+                {searchInput && (
                   <button
-                    onClick={() => setSearchQuery("")}
+                    onClick={() => {
+                      setSearchInput("");
+                      setSearchQuery("");
+                      searchInputRef.current?.focus();
+                    }}
                     className="absolute right-2.5 top-1.5 font-mono text-sm font-bold text-neutral-500 hover:text-black cursor-pointer"
                   >
                     ×
                   </button>
                 )}
+              </div>
+              <div className="sr-only" aria-live="polite">
+                {sortedEvents.length} event{sortedEvents.length !== 1 ? "s" : ""} found
               </div>
 
               {/* Filter Tags */}
@@ -478,12 +518,16 @@ export default function EventsPage() {
                     {t}
                   </button>
                 ))}
-                {filter !== "All" && (
+                {(filter !== "All" || searchQuery) && (
                   <button
-                    onClick={() => setFilter("All")}
+                    onClick={() => {
+                      setFilter("All");
+                      setSearchInput("");
+                      setSearchQuery("");
+                    }}
                     className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream cursor-pointer"
                   >
-                    Clear All
+                    Clear Filters
                   </button>
                 )}
               </div>
@@ -567,6 +611,7 @@ export default function EventsPage() {
                     <button
                       onClick={() => {
                         setFilter("All");
+                        setSearchInput("");
                         setSearchQuery("");
                       }}
                       className="mt-4 neu-border bg-yellow px-5 py-2 font-mono text-xs font-bold uppercase transition-all hover:bg-black hover:text-white cursor-pointer"
