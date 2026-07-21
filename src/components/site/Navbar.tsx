@@ -20,6 +20,7 @@ const links = [
   { to: "/feed", label: "Feed" },
   { to: "/certificates", label: "Certificates" },
   { to: "/dashboard", label: "Dashboard" },
+  { to: "/messages", label: "Messages" },
 ] as const;
 
 export function Navbar() {
@@ -171,6 +172,11 @@ export function Navbar() {
                   {/* Dashboard */}
                   <DropdownMenuItem asChild>
                     <Link to="/dashboard">Dashboard</Link>
+                  </DropdownMenuItem>
+
+                  {/* Messages */}
+                  <DropdownMenuItem asChild>
+                    <Link to="/messages">Messages</Link>
                   </DropdownMenuItem>
 
                   {/* Settings */}

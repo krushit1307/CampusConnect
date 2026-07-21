@@ -13,6 +13,7 @@ import {
   FileText,
   Link2,
 } from "lucide-react";
+import TrendingCarousel from "@/components/Clubs/TrendingCarousel";
 
 interface SavedEventDetails {
   id: string;
@@ -57,6 +58,19 @@ export default function DashboardOverview() {
   });
 
   const [animateIn, setAnimateIn] = useState(false);
+
+  const { data: trendingClubs = [] } = useQuery({
+    queryKey: ["trendingClubs"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clubs")
+        .select("*")
+        .order("member_count", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   useEffect(() => {
     if (!dismissed) {
@@ -292,6 +306,10 @@ export default function DashboardOverview() {
           </div>
         </div>
       )}
+
+      <div className="lg:col-span-3">
+        <TrendingCarousel clubs={trendingClubs} />
+      </div>
 
       <Widget title="Upcoming events" cta={{ label: "All events", to: "/events" }}>
         {upcomingEvents.length === 0 ? (

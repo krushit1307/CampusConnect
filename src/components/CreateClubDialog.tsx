@@ -7,7 +7,12 @@ import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
-import { clubFormSchema, MAX_DESCRIPTION_LENGTH, type ClubFormValues } from "@/lib/clubUtils";
+import {
+  clubFormSchema,
+  MAX_DESCRIPTION_LENGTH,
+  type ClubFormValues,
+  type ClubFormInput,
+} from "@/lib/clubUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
@@ -29,10 +34,11 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
-const defaultValues: ClubFormValues = {
+const defaultValues: ClubFormInput = {
   name: "",
   slug: "",
   description: "",
+  visibility: "public",
 };
 
 const generateSlug = (text: string) => {
@@ -48,7 +54,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
   const [open, setOpen] = useState(false);
   const supabase = createClient();
 
-  const form = useForm<ClubFormValues>({
+  const form = useForm<ClubFormInput>({
     resolver: zodResolver(clubFormSchema),
     defaultValues,
     mode: "onBlur",
@@ -124,8 +130,9 @@ export function CreateClubDialog({ user }: { user: User | null }) {
     },
   });
 
-  const onSubmit = (values: ClubFormValues) => {
-    createClub.mutate(values);
+  const onSubmit = (values: ClubFormInput) => {
+    const parsed = clubFormSchema.parse(values);
+    createClub.mutate(parsed);
   };
 
   return (
