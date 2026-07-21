@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { ThemeToggle } from "../ThemeToggle";
+import { usePresence } from "@/hooks/usePresence";
 import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
 import {
   DropdownMenu,
@@ -30,6 +31,7 @@ export function Navbar() {
   const supabase = createClient();
 
   const [user, setUser] = useState<User | null>(null);
+  const onlineUsers = usePresence(user?.id);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const hamburgerRef = useRef<HTMLButtonElement>(null);
@@ -147,11 +149,13 @@ export function Navbar() {
         {/* Actions */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="hidden rounded-full border border-black bg-lime px-2 py-1 text-xs font-mono font-bold md:flex dark:border-cream dark:text-black">
+              🟢 {onlineUsers} online
+            </div>
+
             <ThemeToggle />
 
-            {/* Notification dropdown placed smoothly next to ThemeToggle if user is logged in */}
             {user && <NavbarNotificationDropdown />}
-
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

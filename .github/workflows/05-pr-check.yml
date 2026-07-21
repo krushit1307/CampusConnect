@@ -1,0 +1,188 @@
+name: "05 PR Validation"
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  pull-requests: write
+  issues: write
+  contents: read
+  checks: read
+
+jobs:
+  pr-validation:
+    name: Validate PR via Bot
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pr-check-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Validate PR
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { processPrValidation } = await import(`${process.cwd()}/.github/scripts/pr.js`);
+            await processPrValidation({ github, context, core });
+
+  sync-labels-and-assignees:
+    name: Sync Issue Data to PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync labels and assignees from Issue to PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pull_request = context.payload.pull_request;
+            const pr_number = pull_request.number;
+            const author = pull_request.user.login;
+            const title = (pull_request.title || "").toLowerCase();
+            const body = pull_request.body || '';
+
+            // 1. Auto-assign the PR to the author if opened by a contributor (not the repo owner)
+            if (author !== owner) {
+              try {
+                await github.rest.issues.addAssignees({
+                  owner,
+                  repo,
+                  issue_number: pr_number,
+                  assignees: [author]
+                });
+              } catch (error) {
+                console.log(`Could not assign ${author} (they might be a bot or a non-collaborator). Continuing...`);
+              }
+            }
+
+            // 2. Determine initial default label for the PR
+            const initialLabels = ['ECSoC26'];
+            const content = title + " " + body.toLowerCase();
+            if (content.includes('ui') || content.includes('frontend') || content.includes('design') || content.includes('css')) {
+              initialLabels.push('good-ui');
+            } else if (content.includes('backend') || content.includes('api') || content.includes('server') || content.includes('database')) {
+              initialLabels.push('good-backend');
+            } else {
+              initialLabels.push('good-pr');
+            }
+
+            // 3. Find linked issues
+            const regex = /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#(\d+)/gi;
+            let match;
+            const issueNumbers = new Set();
+            while ((match = regex.exec(body)) !== null) {
+              issueNumbers.add(parseInt(match[1], 10));
+            }
+
+            const labelsToAdd = new Set(initialLabels);
+            const assigneesToAdd = new Set();
+
+            for (const issue_number of issueNumbers) {
+              console.log(`Fetching data for issue #${issue_number}`);
+              try {
+                const { data: issue } = await github.rest.issues.get({
+                  owner,
+                  repo,
+                  issue_number
+                });
+                
+                if (issue.labels) {
+                  issue.labels.forEach(label => labelsToAdd.add(label.name));
+                }
+                
+                if (issue.assignees) {
+                  issue.assignees.forEach(assignee => assigneesToAdd.add(assignee.login));
+                }
+              } catch (error) {
+                console.error(`Could not fetch issue #${issue_number}: ${error.message}`);
+              }
+            }
+
+            // 4. Resolve target labels conflict (exactly one of 'good-ui', 'good-backend', 'good-pr', 'good-issue')
+            const targetLabels = ['good-ui', 'good-backend', 'good-pr', 'good-issue'];
+            const foundTargetLabels = targetLabels.filter(label => labelsToAdd.has(label));
+
+            let labelToKeep = null;
+            if (foundTargetLabels.length > 0) {
+              // Priority list: good-ui > good-backend > good-pr > good-issue
+              const priority = ['good-ui', 'good-backend', 'good-pr', 'good-issue'];
+              for (const p of priority) {
+                if (foundTargetLabels.includes(p)) {
+                  labelToKeep = p;
+                  break;
+                }
+              }
+
+              // Remove the other target labels from labelsToAdd set
+              targetLabels.forEach(label => {
+                if (label !== labelToKeep) {
+                  labelsToAdd.delete(label);
+                }
+              });
+            }
+
+            // 5. Get current labels on the PR to prevent duplicates and cleanup existing extra labels
+            let currentLabelNames = [];
+            try {
+              const { data: currentLabels } = await github.rest.issues.listLabelsOnIssue({
+                owner,
+                repo,
+                issue_number: pr_number
+              });
+              currentLabelNames = currentLabels.map(l => l.name);
+            } catch (error) {
+              console.error(`Could not fetch current labels for PR #${pr_number}: ${error.message}`);
+            }
+
+            // If there are any target labels currently on the PR that are NOT the labelToKeep, remove them
+            if (labelToKeep) {
+              for (const label of targetLabels) {
+                if (label !== labelToKeep && currentLabelNames.includes(label)) {
+                  console.log(`Removing duplicate/conflicting target label "${label}" from PR #${pr_number}`);
+                  try {
+                    await github.rest.issues.removeLabel({
+                      owner,
+                      repo,
+                      issue_number: pr_number,
+                      name: label
+                    });
+                    // Update currentLabelNames list
+                    currentLabelNames = currentLabelNames.filter(l => l !== label);
+                  } catch (e) {
+                    console.error(`Could not remove label "${label}": ${e.message}`);
+                  }
+                }
+              }
+            }
+
+            // 6. Add the new labels that are not already present
+            const labelsToActuallyAdd = Array.from(labelsToAdd).filter(label => !currentLabelNames.includes(label));
+            if (labelsToActuallyAdd.length > 0) {
+              console.log(`Adding labels: ${labelsToActuallyAdd.join(', ')}`);
+              try {
+                await github.rest.issues.addLabels({
+                  owner,
+                  repo,
+                  issue_number: pr_number,
+                  labels: labelsToActuallyAdd
+                });
+              } catch (error) {
+                console.error(`Could not add labels: ${error.message}`);
+              }
+            }
+
+            // 7. Add assignees
+            if (assigneesToAdd.size > 0) {
+              console.log(`Adding assignees: ${Array.from(assigneesToAdd).join(', ')}`);
+              try {
+                await github.rest.issues.addAssignees({
+                  owner,
+                  repo,
+                  issue_number: pr_number,
+                  assignees: Array.from(assigneesToAdd)
+                });
+              } catch (error) {
+                console.log(`Could not add assignees (they might already be assigned or are not collaborators): ${error.message}`);
+              }
+            }
