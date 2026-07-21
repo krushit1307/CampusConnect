@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { Plus, UsersRound, X } from "lucide-react";
+import { UsersRound, X } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { CreateClubDialog } from "@/components/CreateClubDialog";
 
@@ -41,8 +41,7 @@ export default function ClubsIndex() {
 
         const { data, count } = await supabase
           .from("clubs")
-          .select(`id, name, slug, description, member_count`, { count: "exact" })
-          .eq("status", "approved")
+          .select(`id, name, slug, description`, { count: "exact" })
           .range(from, to);
 
         return {
@@ -57,6 +56,9 @@ export default function ClubsIndex() {
   // Flatten the nested page arrays from useInfiniteQuery into a single list
   const allClubs = data?.pages.flatMap((page) => page.clubs) || [];
   const totalActiveCount = data?.pages[0]?.totalCount || allClubs.length;
+
+  // Deriving the Top 3 Trending Clubs based on member_count
+  const trendingClubs = [...allClubs].slice(0, 3);
 
   useEffect(() => {
     const handleRefetch = () => refetch();
@@ -89,8 +91,27 @@ export default function ClubsIndex() {
           opacity: 0;
           animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
+        @keyframes zoomIn {
+          from {
+            opacity: 0;
+            transform: scale(0.85);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        .club-logo-badge {
+          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                      box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+          animation: zoomIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .group:hover .club-logo-badge {
+          transform: scale(1.08);
+          box-shadow: 4px 4px 0 0 #000;
+        }
       `}</style>
-      <section className="border-b-2 border-black bg-lavender px-4 py-14 md:px-6">
+      <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="flex-1">
             <p className="eyebrow font-bold">Club directory · {totalActiveCount} active</p>
@@ -101,7 +122,7 @@ export default function ClubsIndex() {
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search clubs by name or interest..."
-                className="neu-border w-full bg-white px-4 py-3 pr-10 font-mono text-sm outline-none"
+                className="neu-border w-full bg-white px-4 py-3 pr-10 font-mono text-sm outline-none text-black"
               />
               {searchInput && (
                 <button
@@ -127,6 +148,55 @@ export default function ClubsIndex() {
 
       <section className="bg-cream px-4 py-12 md:px-6">
         <div className="mx-auto max-w-7xl">
+          {/* Dynamic Popular/Trending Clubs Container */}
+          {!isLoading && allClubs.length > 0 && !search && (
+            <div className="mb-14 animate-fade-in-up">
+              <h2 className="mb-6 font-mono text-xs font-black uppercase tracking-widest text-gray-600 flex items-center gap-2">
+                <span>🔥</span> POPULAR / TRENDING CLUBS
+              </h2>
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {trendingClubs.map((c) => {
+                  return (
+                    <Link
+                      key={`trending-${c.slug}`}
+                      to={`/clubs/${c.slug}`}
+                      className="neu-border group relative block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000] flex flex-col justify-between"
+                    >
+                      <span className="absolute -right-2 -top-3 neu-border bg-yellow text-black px-2.5 py-0.5 font-mono text-[10px] font-black uppercase tracking-wider shadow-[2px_2px_0_0_#000] rotate-2">
+                        ✨ Trending
+                      </span>
+                      <div>
+                        <div className="neu-border bg-black mb-4 inline-block px-3 py-1 font-mono text-xs font-bold uppercase text-white">
+                          Top Tier
+                        </div>
+                        <h3 className="text-2xl font-bold text-black">{c.name}</h3>
+                        <p className="my-3 font-mono text-xs text-gray-600 line-clamp-2">
+                          {c.description || "No description provided."}
+                        </p>
+                      </div>
+                      <div>
+                        <div className="my-3 border-t-2 border-black" />
+                        <div className="flex items-center justify-between font-mono text-xs">
+                          <span className="font-bold flex items-center gap-1.5">
+                            <UsersRound size={14} /> Members
+                          </span>
+                          <span className="font-bold uppercase flex items-center gap-1">
+                            Explore{" "}
+                            <span className="transition-transform duration-300 group-hover:translate-x-1">
+                              →
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+              <div className="my-10 border-b-4 border-dashed border-black/20" />
+            </div>
+          )}
+
+          {/* Main Directory List */}
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {isLoading ? (
               // Initial Page Loader Skeletons
@@ -147,7 +217,7 @@ export default function ClubsIndex() {
                 <div className="neu-border mb-6 flex h-20 w-20 items-center justify-center bg-lime md:h-24 md:w-24">
                   <UsersRound className="h-10 w-10 md:h-12 md:w-12" aria-hidden="true" />
                 </div>
-                <p className="eyebrow font-bold">Your campus community starts here</p>
+                <p className="eyebrow font-bold text-black">Your campus community starts here</p>
                 <h2 className="mt-2 text-3xl font-bold md:text-4xl">No clubs found</h2>
                 <p className="mt-3 max-w-md font-mono text-sm leading-6 text-gray-700">
                   There are no clubs in the directory yet. Create the first club and bring students
@@ -158,38 +228,39 @@ export default function ClubsIndex() {
                 </div>
               </div>
             ) : (
-              filteredClubs.map((c, index) => {
-                const members = c.member_count ?? 0;
-                return (
-                  <div
-                    key={c.slug}
-                    className="animate-fade-in-up"
-                    style={{ animationDelay: `${index * 75}ms` }}
-                  >
-                    <Link
-                      to={`/clubs/${c.slug}`}
-                      className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000] h-full"
+              filteredClubs
+                .filter((c) => search || !trendingClubs.find((t) => t.slug === c.slug))
+                .map((c, index) => {
+                  return (
+                    <div
+                      key={c.slug}
+                      className="animate-fade-in-up"
+                      style={{ animationDelay: `${index * 75}ms` }}
                     >
-                      <div
-                        className={`neu-border ${colors[index % colors.length]} mb-4 inline-block px-3 py-1 font-mono text-xs font-bold uppercase`}
+                      <Link
+                        to={`/clubs/${c.slug}`}
+                        className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000] h-full"
                       >
-                        Club
-                      </div>
-                      <h2 className="text-2xl font-bold">{c.name}</h2>
-                      <div className="my-3 border-t-2 border-black" />
-                      <div className="flex items-center justify-between font-mono text-xs">
-                        <span>{members} members</span>
-                        <span className="font-bold uppercase flex items-center gap-1">
-                          View{" "}
-                          <span className="transition-transform duration-300 group-hover:translate-x-1">
-                            →
+                        <div
+                          className={`club-logo-badge neu-border ${colors[index % colors.length]} mb-4 inline-block px-3 py-1 font-mono text-xs font-bold uppercase`}
+                        >
+                          Club
+                        </div>
+                        <h2 className="text-2xl font-bold">{c.name}</h2>
+                        <div className="my-3 border-t-2 border-black" />
+                        <div className="flex items-center justify-between font-mono text-xs">
+                          <span>Members</span>
+                          <span className="font-bold uppercase flex items-center gap-1">
+                            View{" "}
+                            <span className="transition-transform duration-300 group-hover:translate-x-1">
+                              →
+                            </span>
                           </span>
-                        </span>
-                      </div>
-                    </Link>
-                  </div>
-                );
-              })
+                        </div>
+                      </Link>
+                    </div>
+                  );
+                })
             )}
 
             {/* Next Page Fetching Skeleton Additions */}

@@ -10,6 +10,7 @@ export const eventFormSchema = z
       .min(1, "Title is required.")
       .max(TITLE_MAX_LENGTH, `Title must be ${TITLE_MAX_LENGTH} characters or fewer.`),
     description: z.string().trim().min(1, "Description is required."),
+    location: z.string().trim().optional(),
     startDate: z.string().min(1, "Start date is required."),
     endDate: z.string().min(1, "End date is required."),
   })

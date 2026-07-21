@@ -12,10 +12,13 @@ export interface PendingClubRegistration {
 
 export function mergeClubSubmitters(
   clubs: Omit<PendingClubRegistration, "submitterName">[],
-  profiles: { id: string; full_name: string | null }[],
+  profiles: { id: string; first_name: string | null; last_name: string | null }[],
 ): PendingClubRegistration[] {
   const namesById = new Map(
-    profiles.map((profile) => [profile.id, profile.full_name?.trim() || "Unknown user"]),
+    profiles.map((profile) => [
+      profile.id,
+      `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Unknown user",
+    ]),
   );
 
   return clubs.map((club) => ({
