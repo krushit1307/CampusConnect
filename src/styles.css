@@ -727,7 +727,7 @@
   --animate-wiggle: wiggle 3s ease-in-out infinite;
   --animate-subtle-bounce: subtle-bounce 2s ease-in-out infinite;
 
-  `@keyframes` wiggle {
+  @keyframes wiggle {
     0%,
     100% {
       transform: translateY(0) rotate(0deg);
@@ -737,7 +737,7 @@
     }
   }
 
-  `@keyframes` subtle-bounce {
+  @keyframes subtle-bounce {
     0%,
     100% {
       transform: translateY(0);

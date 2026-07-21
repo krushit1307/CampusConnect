@@ -95,7 +95,7 @@ export const NotFoundPage: React.FC = () => {
         </div>
 
         {/* Subtle Bouncing Heading Text Section */}
-        <h1 className="text-4xl sm:text-5xl font-black uppercase tracking-tight mb-4 animate-subtleBounce border-b-4 border-black pb-4 inline-block">
+        <h1 className="mb-4 inline-block animate-subtle-bounce border-b-4 border-black pb-4 text-4xl font-black uppercase tracking-tight sm:text-5xl">
           Page Not Found
         </h1>
 
