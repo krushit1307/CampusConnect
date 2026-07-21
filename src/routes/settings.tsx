@@ -379,7 +379,7 @@ export default function SettingsPage() {
                 {/* ── Skills Tags Editor ── */}
                 <div className="space-y-2 pt-2">
                   <p className="eyebrow font-bold text-black">Skills</p>
-                  <p className="font-mono text-xs text-gray-500">
+                  <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
                     Add skills to power matchmaking — press Enter or click{" "}
                     <span className="font-bold">+</span> to add.
                   </p>
@@ -458,7 +458,7 @@ export default function SettingsPage() {
                   onChange={handleBorderThicknessChange}
                   className="w-full cursor-pointer accent-black"
                 />
-                <p className="font-mono text-xs text-gray-500">
+                <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
                   Controls the width of borders throughout the app (1px - 8px)
                 </p>
               </div>
@@ -473,7 +473,7 @@ export default function SettingsPage() {
                   onChange={handleBorderRadiusChange}
                   className="w-full cursor-pointer accent-black"
                 />
-                <p className="font-mono text-xs text-gray-500">
+                <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
                   Controls the roundness of corners (0px - 32px)
                 </p>
               </div>
@@ -607,7 +607,7 @@ function AvatarThemePicker({
   return (
     <div className="space-y-2 border-b-2 border-black pb-6">
       <p className="eyebrow font-bold">Avatar theme</p>
-      <p className="font-mono text-xs text-gray-500">
+      <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
         Pick a gradient background to use when you don&apos;t have a custom photo.
       </p>
       <div className="flex flex-wrap gap-3 pt-1">
@@ -824,13 +824,13 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
       </div>
       <div className="text-center sm:text-left">
         <p className="eyebrow font-bold text-black">Profile picture</p>
-        <p className="font-mono text-xs text-gray-500">
+        <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
           JPG, PNG or WEBP. Max 2 MB. Square images look best.
         </p>
         {uploadProgress !== null && (
           <div className="mt-2 w-full space-y-1">
             <Progress value={uploadProgress} className="h-2" />
-            <p className="font-mono text-xs text-gray-500">{uploadProgress}%</p>
+            <p className="font-mono text-xs text-gray-500 dark:text-gray-300">{uploadProgress}%</p>
           </div>
         )}
       </div>

@@ -220,7 +220,7 @@ export default function DashboardOverview() {
               <span className="font-display text-4xl font-black text-black my-1">
                 {Math.round((completedCount / steps.length) * 100)}%
               </span>
-              <span className="font-mono text-xs text-gray-500 font-medium">
+              <span className="font-mono text-sm text-gray-500 dark:text-gray-300">
                 {completedCount} of {steps.length} completed
               </span>
               {/* Small progress bar */}
@@ -276,7 +276,9 @@ export default function DashboardOverview() {
                     <h3 className="font-display font-bold text-base text-black mb-1">
                       {step.label}
                     </h3>
-                    <p className="font-mono text-xs text-gray-500 leading-snug">{step.hint}</p>
+                    <p className="font-mono text-sm text-gray-500 dark:text-gray-300">
+                      {step.hint}
+                    </p>
                   </div>
                   <div className="mt-4 flex items-center justify-end font-mono text-[10px] font-bold uppercase group">
                     <span className="underline group-hover:no-underline transition-all">
@@ -293,7 +295,9 @@ export default function DashboardOverview() {
 
       <Widget title="Upcoming events" cta={{ label: "All events", to: "/events" }}>
         {upcomingEvents.length === 0 ? (
-          <p className="py-4 font-mono text-sm text-gray-500">No upcoming events yet.</p>
+          <p className="py-4 font-mono text-sm text-gray-500 dark:text-gray-300">
+            No upcoming events yet.
+          </p>
         ) : (
           <ul className="divide-y-2 divide-black">
             {upcomingEvents.map((r, i) => {
@@ -326,7 +330,9 @@ export default function DashboardOverview() {
 
       <Widget title="Saved events" cta={{ label: "Explore", to: "/events" }}>
         {savedEvents.length === 0 ? (
-          <p className="py-4 font-mono text-sm text-gray-500">No saved events yet.</p>
+          <p className="py-4 font-mono text-sm text-gray-500 dark:text-gray-300">
+            No saved events yet.
+          </p>
         ) : (
           <ul className="divide-y-2 divide-black">
             {savedEvents.map((item: DashboardSavedEvent, i) => {
@@ -359,7 +365,9 @@ export default function DashboardOverview() {
 
       <Widget title="Your clubs" cta={{ label: "Directory", to: "/clubs" }}>
         {userClubs.length === 0 ? (
-          <p className="font-mono text-sm text-gray-500">You haven't joined any clubs yet.</p>
+          <p className="font-mono text-sm text-gray-500 dark:text-gray-300">
+            You haven't joined any clubs yet.
+          </p>
         ) : (
           <ul className="space-y-3">
             {userClubs.map((c) => {

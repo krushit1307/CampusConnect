@@ -132,7 +132,7 @@ export default function ClubsIndex() {
                     setSearch("");
                     inputRef.current?.focus();
                   }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black dark:text-gray-300 dark:hover:text-white"
                   aria-label="Clear search"
                 >
                   <X size={18} />

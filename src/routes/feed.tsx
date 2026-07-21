@@ -631,7 +631,7 @@ export default function Feed() {
                           </p>
                           <p className="font-mono text-xs flex flex-wrap items-center">
                             in {club?.name || "Unknown Club"} · {timeAgo(post.created_at)}
-                            <span className="text-gray-500 ml-1">
+                            <span className="text-gray-500 dark:text-gray-300 ml-1">
                               · {calculateReadTime(post.content)}
                             </span>
                           </p>
@@ -828,7 +828,7 @@ export default function Feed() {
                                     />
                                   </p>
                                   <div className="flex items-center gap-2">
-                                    <p className="font-mono text-[10px] text-gray-500">
+                                    <p className="font-mono text-[10px] text-gray-500 dark:text-gray-300">
                                       {timeAgo(comment.created_at)}
                                     </p>
                                     {(user?.id === commentAuthor?.id ||
@@ -919,7 +919,7 @@ export default function Feed() {
               ))}
 
             {!hasNextPage && posts.length > 0 && (
-              <div className="py-10 text-center font-mono text-sm font-bold text-gray-500 uppercase">
+              <div className="py-10 text-center font-mono text-sm font-bold text-gray-500 dark:text-gray-300 uppercase">
                 You're all caught up! 🎉
               </div>
             )}

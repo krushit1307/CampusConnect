@@ -149,7 +149,7 @@ export default function DashboardRsvps() {
         </div>
       ) : displayedEvents.length === 0 ? (
         <div className="neu-border bg-white p-8 text-center dark:bg-[#1a1a1a]">
-          <p className="font-mono text-sm text-gray-500 dark:text-gray-400">
+          <p className="font-mono text-sm text-gray-500 dark:text-gray-300">
             No {activeTab} RSVPs found.
           </p>
         </div>
