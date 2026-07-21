@@ -205,7 +205,8 @@ export default function AuthPage() {
                 disabled={
                   loading || (mode === "signup" && getPasswordStrength(password) === "weak")
                 }
-                className="w-full bg-blue-600 text-white hover:bg-blue-400"
+                variant="primary"
+                className="w-full"
               >
                 {loading ? "Loading..." : mode === "signin" ? "Sign in" : "Create account"}
               </Button>

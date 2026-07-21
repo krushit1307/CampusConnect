@@ -434,16 +434,17 @@ export default function EventDetailsPage() {
 
           <div className="mt-8 hidden items-center gap-4 md:flex">
             {hasRsvpd ? (
-              <button
+              <Button
                 onClick={handleRsvpClick}
                 disabled={toggleRsvp.isPending}
-                className="neu-border bg-lime px-8 py-4 font-mono text-base font-bold uppercase tracking-wider text-black transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                variant="secondary"
+                size="lg"
               >
                 {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
-              </button>
+              </Button>
             ) : isAtCapacity ? (
               <div className="flex flex-col gap-1">
-                <button
+                <Button
                   onClick={() => {
                     if (!user) {
                       toast.error("Please log in to join waitlist");
@@ -452,16 +453,15 @@ export default function EventDetailsPage() {
                     toggleWaitlist.mutate({ isOnWaitlist });
                   }}
                   disabled={toggleWaitlist.isPending}
-                  className={`neu-border px-8 py-4 font-mono text-base font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
-                    isOnWaitlist ? "bg-amber-300 text-black" : "bg-black text-cream"
-                  }`}
+                  variant={isOnWaitlist ? "secondary" : "primary"}
+                  size="lg"
                 >
                   {toggleWaitlist.isPending
                     ? "Updating..."
                     : isOnWaitlist
                       ? "On Waitlist ✓"
                       : "Join Waitlist"}
-                </button>
+                </Button>
                 {isOnWaitlist && waitlistPosition > 0 && (
                   <span
                     className={`font-mono text-xs font-bold ${event.banner_url ? "text-white" : "text-black"}`}
@@ -471,13 +471,14 @@ export default function EventDetailsPage() {
                 )}
               </div>
             ) : (
-              <button
+              <Button
                 onClick={handleRsvpClick}
                 disabled={toggleRsvp.isPending}
-                className="neu-border bg-black px-8 py-4 font-mono text-base font-bold uppercase tracking-wider text-cream transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                variant="primary"
+                size="lg"
               >
                 {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
-              </button>
+              </Button>
             )}
             <span
               className={`font-mono text-sm font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
@@ -668,15 +669,11 @@ export default function EventDetailsPage() {
           )}
         </div>
         {hasRsvpd ? (
-          <button
-            onClick={handleRsvpClick}
-            disabled={toggleRsvp.isPending}
-            className="neu-border bg-lime px-6 py-3 font-mono text-sm font-bold uppercase tracking-wider text-black transition-all duration-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Button onClick={handleRsvpClick} disabled={toggleRsvp.isPending} variant="secondary">
             {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
-          </button>
+          </Button>
         ) : isAtCapacity ? (
-          <button
+          <Button
             onClick={() => {
               if (!user) {
                 toast.error("Please log in to join waitlist");
@@ -685,24 +682,18 @@ export default function EventDetailsPage() {
               toggleWaitlist.mutate({ isOnWaitlist });
             }}
             disabled={toggleWaitlist.isPending}
-            className={`neu-border px-6 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
-              isOnWaitlist ? "bg-amber-300 text-black" : "bg-black text-cream"
-            }`}
+            variant={isOnWaitlist ? "secondary" : "primary"}
           >
             {toggleWaitlist.isPending
               ? "Updating..."
               : isOnWaitlist
                 ? "On Waitlist ✓"
                 : "Join Waitlist"}
-          </button>
+          </Button>
         ) : (
-          <button
-            onClick={handleRsvpClick}
-            disabled={toggleRsvp.isPending}
-            className="neu-border bg-black px-6 py-3 font-mono text-sm font-bold uppercase tracking-wider text-cream transition-all duration-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Button onClick={handleRsvpClick} disabled={toggleRsvp.isPending} variant="primary">
             {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
-          </button>
+          </Button>
         )}
       </div>
 
