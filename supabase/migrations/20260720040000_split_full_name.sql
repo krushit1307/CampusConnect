@@ -36,3 +36,80 @@ DROP COLUMN IF EXISTS full_name;
 ALTER TABLE profiles
 ALTER COLUMN first_name SET NOT NULL,
 ALTER COLUMN last_name SET NOT NULL;
+
+-- 5. Update public.handle_new_user() trigger function to populate first_name & last_name
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+DECLARE
+  v_full_name TEXT;
+  v_first_name TEXT;
+  v_last_name TEXT;
+BEGIN
+  v_full_name := new.raw_user_meta_data->>'full_name';
+  v_first_name := new.raw_user_meta_data->>'first_name';
+  v_last_name := new.raw_user_meta_data->>'last_name';
+
+  -- Prefer first_name/last_name from metadata; fall back to splitting full_name
+  IF v_first_name IS NULL OR v_first_name = '' THEN
+    IF v_full_name IS NOT NULL AND v_full_name != '' THEN
+      IF POSITION(' ' IN v_full_name) > 0 THEN
+        v_first_name := SUBSTRING(v_full_name FROM 1 FOR POSITION(' ' IN v_full_name) - 1);
+        v_last_name := SUBSTRING(v_full_name FROM POSITION(' ' IN v_full_name) + 1);
+      ELSE
+        v_first_name := v_full_name;
+      END IF;
+    ELSE
+      v_first_name := 'User';
+      v_last_name := '';
+    END IF;
+  END IF;
+
+  IF v_last_name IS NULL THEN
+    v_last_name := '';
+  END IF;
+
+  INSERT INTO public.profiles (id, first_name, last_name, avatar_url)
+  VALUES (new.id, v_first_name, v_last_name, new.raw_user_meta_data->>'avatar_url');
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 6. Update get_event_member_emails RPC function to concatenate first_name and last_name
+CREATE OR REPLACE FUNCTION get_event_member_emails(p_event_id UUID)
+RETURNS TABLE (email TEXT, full_name TEXT) 
+SECURITY DEFINER
+SET search_path = public
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    u.email::TEXT,
+    TRIM(CONCAT(p.first_name, ' ', p.last_name))::TEXT AS full_name
+  FROM auth.users u
+  JOIN public.profiles p ON u.id = p.id
+  JOIN public.club_members cm ON cm.user_id = u.id
+  JOIN public.events e ON e.club_id = cm.club_id
+  WHERE e.id = p_event_id
+    AND cm.status = 'approved';
+END;
+$$;
+
+-- 7. Update get_digest_subscribers RPC function to concatenate first_name and last_name
+CREATE OR REPLACE FUNCTION get_digest_subscribers()
+RETURNS TABLE (email TEXT, full_name TEXT) 
+SECURITY DEFINER
+SET search_path = public
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    u.email::TEXT,
+    TRIM(CONCAT(p.first_name, ' ', p.last_name))::TEXT AS full_name
+  FROM auth.users u
+  JOIN public.profiles p ON u.id = p.id
+  WHERE (p.notification_preferences->>'digest')::BOOLEAN = true
+    AND p.role = 'student';
+END;
+$$;

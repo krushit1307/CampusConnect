@@ -28,7 +28,7 @@ VALUES (
         ),
         NOW(),
         '{"provider": "email", "providers": ["email"]}',
-        '{"full_name": "Admin User", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=Admin"}',
+        '{"full_name": "Admin User", "first_name": "Admin", "last_name": "User", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=Admin"}',
         NOW(),
         NOW()
     ),
@@ -44,7 +44,7 @@ VALUES (
         ),
         NOW(),
         '{"provider": "email", "providers": ["email"]}',
-        '{"full_name": "John Doe", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=John"}',
+        '{"full_name": "John Doe", "first_name": "John", "last_name": "Doe", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=John"}',
         NOW(),
         NOW()
     )
