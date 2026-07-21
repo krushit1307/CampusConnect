@@ -356,7 +356,43 @@ export default function EventsPage() {
     },
   });
 
+  const eventsOverlap = (
+    aStart: string | null,
+    aEnd: string | null,
+    bStart: string | null,
+    bEnd: string | null,
+  ) => {
+    if (!aStart || !aEnd || !bStart || !bEnd) return false;
+    const aStartTime = new Date(aStart).getTime();
+    const aEndTime = new Date(aEnd).getTime();
+    const bStartTime = new Date(bStart).getTime();
+    const bEndTime = new Date(bEnd).getTime();
+    return aStartTime < bEndTime && aEndTime > bStartTime;
+  };
+
   const handleRsvpToggle = async (eventId: string, hasRsvpd: boolean) => {
+    // Overlap warning: only check when joining (not leaving), and only if we
+    // have start/end times for the target event.
+    if (!hasRsvpd && user) {
+      const targetEvent = events.find((e) => e.id === eventId);
+
+      if (targetEvent?.start_date && targetEvent?.end_date) {
+        const overlapping = events.find((e) => {
+          if (e.id === eventId) return false;
+          const rsvps = Array.isArray(e.event_rsvps) ? e.event_rsvps : [];
+          const isRsvpd = rsvps.some((r) => r.user_id === user.id);
+          return (
+            isRsvpd &&
+            eventsOverlap(targetEvent.start_date, targetEvent.end_date, e.start_date, e.end_date)
+          );
+        });
+
+        if (overlapping) {
+          toast(`Note: This event overlaps with ${overlapping.title} on your schedule!`);
+        }
+      }
+    }
+
     const originalEvents = [...events];
 
     setEvents((prevEvents) =>
