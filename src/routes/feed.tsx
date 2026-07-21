@@ -10,6 +10,7 @@ import {
   Pin,
   Sparkles,
   Trash2,
+  Flame,
 } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
@@ -120,6 +121,7 @@ export default function Feed() {
   });
 
   const [selectedClubId, setSelectedClubId] = useState("");
+  const [feedMode, setFeedMode] = useState<"latest" | "trending">("latest");
 
   useEffect(() => {
     if (userClubs.length > 0 && !selectedClubId) {
@@ -175,6 +177,34 @@ export default function Feed() {
 
   const allPosts = data?.pages.flatMap((page) => page.posts) ?? [];
   const posts = [...allPosts].sort((a, b) => Number(b.pinned) - Number(a.pinned));
+
+  // Trending posts — fetched lazily only when the Trending tab is active
+  const { data: trendingData, isLoading: isTrendingLoading } = useQuery<Post[]>({
+    queryKey: ["trendingPosts"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("trending_posts")
+        .select(
+          `
+          id, content, created_at, club_id, pinned,
+          profiles (id, full_name),
+          clubs (id, name, club_members (user_id, role)),
+          comments (id, content, created_at, deleted_at, profiles (id, full_name)),
+          post_reactions (emoji, user_id)
+        `,
+        )
+        .is("deleted_at", null)
+        .order("hotness_score", { ascending: false })
+        .limit(30);
+      if (error) throw error;
+      return (data ?? []) as unknown as Post[];
+    },
+    enabled: feedMode === "trending",
+  });
+
+  const trendingPosts: Post[] = trendingData ?? [];
+  const activePosts = feedMode === "latest" ? posts : trendingPosts;
+  const isActiveFeedLoading = feedMode === "latest" ? isLoading : isTrendingLoading;
 
   const postsRef = useRef(posts);
   const userRef = useRef(user);
@@ -453,7 +483,44 @@ export default function Feed() {
               }
             `}</style>
 
-            {showNewPostsBanner && (
+            {/* ── Feed mode tabs ── */}
+            <div
+              role="tablist"
+              aria-label="Feed mode"
+              className="flex gap-2 border-b-2 border-black pb-4 dark:border-cream"
+            >
+              <button
+                role="tab"
+                type="button"
+                id="tab-latest"
+                aria-selected={feedMode === "latest"}
+                onClick={() => setFeedMode("latest")}
+                className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${
+                  feedMode === "latest"
+                    ? "bg-black text-cream dark:bg-cream dark:text-black"
+                    : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
+                }`}
+              >
+                Latest
+              </button>
+              <button
+                role="tab"
+                type="button"
+                id="tab-trending"
+                aria-selected={feedMode === "trending"}
+                onClick={() => setFeedMode("trending")}
+                className={`neu-border inline-flex items-center gap-1.5 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${
+                  feedMode === "trending"
+                    ? "bg-black text-cream dark:bg-cream dark:text-black"
+                    : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
+                }`}
+              >
+                <Flame className="h-3.5 w-3.5" />
+                Trending
+              </button>
+            </div>
+
+            {showNewPostsBanner && feedMode === "latest" && (
               <button
                 type="button"
                 onClick={handleRefetch}
@@ -467,13 +534,13 @@ export default function Feed() {
               </button>
             )}
 
-            {isLoading ? (
+            {isActiveFeedLoading ? (
               <div className="space-y-6">
                 {Array.from({ length: 5 }).map((_, index) => (
                   <FeedPostSkeleton key={index} />
                 ))}
               </div>
-            ) : posts.length === 0 ? (
+            ) : activePosts.length === 0 ? (
               <div
                 className="neu-border relative overflow-hidden bg-white px-6 py-12 text-center sm:px-10 sm:py-16"
                 role="status"
@@ -523,7 +590,8 @@ export default function Feed() {
               </div>
             ) : (
               <>
-                {posts.map((post: Post, index: number) => {
+                {activePosts.map((post: Post, index: number) => {
+                  const isLastPost = feedMode === "latest" && index === posts.length - 1;
                   const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
                   const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
                   const clubMembers: ClubMember[] = Array.isArray(club?.club_members)
@@ -539,8 +607,6 @@ export default function Feed() {
                   const postComments: Comment[] = Array.isArray(post.comments)
                     ? post.comments.filter((c) => !c.deleted_at)
                     : [];
-
-                  const isLastPost = index === posts.length - 1;
 
                   return (
                     <article
