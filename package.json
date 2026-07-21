@@ -14,6 +14,8 @@
     "test": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",
     "test:e2e": "playwright test",
+    "test:cypress": "cypress run",
+    "test:cypress:open": "cypress open",
     "prepare": "husky",
     "github:update-labels": "npx tsx scripts/update-labels.ts",
     "github:create-new-issues": "npx tsx scripts/create-new-issues.ts",
