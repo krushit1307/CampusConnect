@@ -528,7 +528,6 @@ export default function SettingsPage() {
               cancelText="Cancel"
               onCancel={() => setConfirmOpen(false)}
               onConfirm={() => {
-                console.log("Delete account confirmed");
                 setConfirmOpen(false);
               }}
             />
@@ -658,7 +657,6 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
         .eq("id", user.id)
         .single();
 
-      console.log("Loaded avatar:", data?.avatar_url);
       if (isMounted && !error && data?.avatar_url) {
         setPreview(data.avatar_url);
         setImageError(false);
@@ -707,7 +705,6 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
 
     try {
       const avatarUrl = await uploadAvatar(file);
-      console.log("Avatar URL:", avatarUrl);
 
       if (avatarUrl) {
         setPreview(avatarUrl);

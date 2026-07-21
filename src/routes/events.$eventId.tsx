@@ -143,7 +143,6 @@ export default function EventDetailsPage() {
     mutationFn: async ({ isOnWaitlist }: { isOnWaitlist: boolean }) => {
       if (!user) throw new Error("Please log in to join waitlist");
       if (eventId.startsWith("mock-")) {
-        console.log(`[CampusConnect] Mock waitlist toggled for event: ${eventId}`);
         return;
       }
 
@@ -173,7 +172,6 @@ export default function EventDetailsPage() {
     mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
       if (!user) throw new Error("Please log in to RSVP");
       if (eventId.startsWith("mock-")) {
-        console.log(`[CampusConnect] Mock RSVP toggled for event: ${eventId}`);
         return;
       }
 
