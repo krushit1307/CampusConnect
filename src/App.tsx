@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import Directory from "./routes/Directory";
 
 import {
   createBrowserRouter,
@@ -141,6 +142,7 @@ const router = createBrowserRouter(
       <Route path="/settings" element={<Settings />} />
       <Route path="/messages" element={<MessagesRoute />} />
       <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
+      <Route path="/directory" element={<Directory />} />
     </Route>,
   ),
 );

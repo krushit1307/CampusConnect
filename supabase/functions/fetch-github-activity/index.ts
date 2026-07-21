@@ -103,21 +103,40 @@ serve(async (req) => {
     if (prsRes.ok) prs = await prsRes.json();
 
     const activityData = {
-      commits: commits.map((c: { sha: string; commit: { message: string; author?: { name: string; date: string }; committer?: { name: string } }; html_url: string }) => ({
-        sha: c.sha,
-        message: c.commit.message,
-        author: c.commit.author?.name || c.commit.committer?.name || "Unknown",
-        date: c.commit.author?.date,
-        url: c.html_url,
-      })),
-      pull_requests: prs.map((pr: { id: number; title: string; state: string; user?: { login: string }; created_at: string; html_url: string }) => ({
-        id: pr.id,
-        title: pr.title,
-        state: pr.state,
-        user: pr.user?.login || "Unknown",
-        created_at: pr.created_at,
-        url: pr.html_url,
-      })),
+      commits: commits.map(
+        (c: {
+          sha: string;
+          commit: {
+            message: string;
+            author?: { name: string; date: string };
+            committer?: { name: string };
+          };
+          html_url: string;
+        }) => ({
+          sha: c.sha,
+          message: c.commit.message,
+          author: c.commit.author?.name || c.commit.committer?.name || "Unknown",
+          date: c.commit.author?.date,
+          url: c.html_url,
+        }),
+      ),
+      pull_requests: prs.map(
+        (pr: {
+          id: number;
+          title: string;
+          state: string;
+          user?: { login: string };
+          created_at: string;
+          html_url: string;
+        }) => ({
+          id: pr.id,
+          title: pr.title,
+          state: pr.state,
+          user: pr.user?.login || "Unknown",
+          created_at: pr.created_at,
+          url: pr.html_url,
+        }),
+      ),
     };
 
     // Update in-memory cache
