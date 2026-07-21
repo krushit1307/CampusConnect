@@ -6,6 +6,7 @@ import { processManualAssignment } from "../assignment.js";
 import { processPrValidation, processPrMerged, processFirstContributorWelcome } from "../pr.js";
 import { processIssueLifecycle } from "../lifecycle.js";
 import { processClaimExpiration } from "../expiration.js";
+import { processActivityReminder } from "../activity-reminder.js";
 
 function createCore() {
   return { info() {}, warning() {}, error() {} };
@@ -16,6 +17,7 @@ function createGithub(issueFactory) {
     comments: [],
     assignees: {},
     issues: {},
+    pulls: [],
   };
   return {
     state,
@@ -66,13 +68,16 @@ function createGithub(issueFactory) {
         async get({ pull_number }) {
           return { data: { number: pull_number } };
         },
+        async list() {
+          return { data: state.pulls };
+        },
       },
     },
     async paginate(apiMethod, args) {
       if (apiMethod === this.rest.issues.listComments)
         return this.rest.issues.listComments(args).then((r) => r.data);
       if (args.assignee) {
-        return new Array(args.assignee === "busy-user" ? 5 : 1).fill(0).map((_, i) => ({
+        return new Array(args.assignee === "busy-user" ? 10 : 1).fill(0).map((_, i) => ({
           number: i + 1,
           title: `Issue ${i + 1}`,
         }));
@@ -149,7 +154,7 @@ test("claim: already assigned", async () => {
   assert.ok(github.state.comments.some((c) => c.body.includes("already working on this one")));
 });
 
-test("claim: max 5 active issues", async () => {
+test("claim: max 10 active issues", async () => {
   process.env.GITHUB_REPOSITORY = "org/repo";
   const github = createGithub(issueFactory);
   const context = baseContext();
@@ -160,7 +165,7 @@ test("claim: max 5 active issues", async () => {
     author_association: "CONTRIBUTOR",
   };
   await processClaim({ github, context, core: createCore() });
-  assert.ok(github.state.comments.some((c) => c.body.includes("the max is **5**")));
+  assert.ok(github.state.comments.some((c) => c.body.includes("the max is **10**")));
 });
 
 test("unclaim: unauthorized unclaim", async () => {
@@ -300,7 +305,7 @@ test("issue lifecycle close clears metadata and preserves assignees", async () =
 
 test("expiration: reminder and expiration paths", async () => {
   process.env.GITHUB_REPOSITORY = "org/repo";
-  const oldDate = new Date(Date.now() - 35 * 60 * 60 * 1000).toISOString();
+  const oldDate = new Date(Date.now() - 150 * 60 * 60 * 1000).toISOString();
   const github = createGithub((number, state) =>
     issueFactory(number, state, {
       body: `<!-- cc:metadata:start -->\n{"assignedAt":"${oldDate}","lastActivityAt":"${oldDate}"}\n<!-- cc:metadata:end -->`,
@@ -314,4 +319,95 @@ test("expiration: reminder and expiration paths", async () => {
   };
   await processClaimExpiration({ github, context, core: createCore() });
   assert.equal(github.state.assignees[50], undefined);
+});
+
+test("expiration: skipped if user has an open linked PR", async () => {
+  process.env.GITHUB_REPOSITORY = "org/repo";
+  const oldDate = new Date(Date.now() - 150 * 60 * 60 * 1000).toISOString();
+  const github = createGithub((number, state) =>
+    issueFactory(number, state, {
+      body: `<!-- cc:metadata:start -->\n{"assignedAt":"${oldDate}","lastActivityAt":"${oldDate}"}\n<!-- cc:metadata:end -->`,
+    }),
+  );
+  github.state.assignees[50] = "assigned-user";
+  github.state.pulls = [
+    {
+      number: 55,
+      user: { login: "assigned-user" },
+      body: "Closes #50",
+    },
+  ];
+  const context = {
+    eventName: "schedule",
+    repo: { owner: "org", repo: "repo" },
+    payload: {},
+  };
+  await processClaimExpiration({ github, context, core: createCore() });
+  assert.equal(github.state.assignees[50], "assigned-user");
+});
+
+test("activity reminder: warns for inactive PR and issue", async () => {
+  const commentsCreated = [];
+  const github = {
+    rest: {
+      issues: {
+        listForRepo: () => {},
+        listComments: () => {},
+        createComment: async ({ issue_number, body }) => {
+          commentsCreated.push({ issue_number, body });
+          return { data: {} };
+        },
+      },
+      pulls: {
+        listReviews: async () => {
+          return { data: [] }; // No admin reviews
+        },
+      },
+    },
+    async paginate(apiMethod, args) {
+      if (apiMethod === this.rest.issues.listForRepo) {
+        // Return 1 open PR and 1 open issue
+        return [
+          {
+            number: 101,
+            pull_request: {},
+            created_at: new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString(), // 20 hours ago
+            labels: [{ name: "ECSoC26" }],
+            assignees: [],
+          },
+          {
+            number: 102,
+            created_at: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString(), // 30 hours ago
+            labels: [{ name: "good-issue" }],
+            assignees: [],
+          },
+        ];
+      }
+      if (apiMethod === this.rest.issues.listComments) {
+        // No comments yet
+        return [];
+      }
+      return [];
+    },
+  };
+
+  const context = {
+    repo: { owner: "org", repo: "repo" },
+  };
+
+  await processActivityReminder({ github, context, core: createCore() });
+
+  // Both should get warnings:
+  // PR 101 should get first response warning (since it has been 20 hours and is ECSoC26 PR)
+  // Issue 102 should get issue inaction warning (since it has been 30 hours with no action)
+  assert.ok(
+    commentsCreated.some(
+      (c) => c.issue_number === 101 && c.body.includes("cc:pr-first-response-warning"),
+    ),
+  );
+  assert.ok(
+    commentsCreated.some(
+      (c) => c.issue_number === 102 && c.body.includes("cc:issue-inaction-warning"),
+    ),
+  );
 });
