@@ -1,7 +1,7 @@
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useEffect, useState, useRef, lazy, Suspense } from "react";
 import { User } from "@supabase/supabase-js";
 import { EventCard } from "@/components/EventCard";
 import { CreateEventDialog } from "@/components/CreateEventDialog";
@@ -16,6 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+const PAGE_SIZE = 20;
 
 interface EventItem {
   id: string;
@@ -99,6 +101,7 @@ export default function EventsPage() {
           event_rsvps(id,user_id),
           saved_events(id,user_id)
         `,
+          { count: "exact" },
         )
         .order("event_date", {
           ascending: true,
@@ -219,8 +222,16 @@ export default function EventsPage() {
     const second = new Date(b.event_date).getTime();
     return sortOrder === "newest" ? second - first : first - second;
   });
+
   return (
     <SiteShell>
+      {showConfetti && (
+        <div className="confetti-container" aria-hidden="true">
+          {Array.from({ length: 30 }).map((_, i) => (
+            <span key={i} className="confetti-piece" style={{ "--i": i } as React.CSSProperties} />
+          ))}
+        </div>
+      )}
       <PullToRefresh isRefreshing={isFetching} onRefresh={() => refetch()}>
         <section
           className="
@@ -484,8 +495,67 @@ export default function EventsPage() {
                       }
                       isBookmarkPending={toggleBookmark.isPending}
                     />
-                  ))}
-            </div>
+                  ))
+                )}
+              </div>
+
+              {/* Load More Pagination & Feed Progress Bar */}
+              {!isLoading && (
+                <div className="mt-12 text-center flex flex-col items-center justify-center gap-4">
+                  {/* Visual Progress Bar */}
+                  {totalCount !== null && totalCount > 0 && (
+                    <div className="w-full max-w-md space-y-1.5">
+                      <div className="flex justify-between items-center font-mono text-xs font-bold uppercase">
+                        <span>Feed Progress</span>
+                        <span>
+                          {events.length} of {totalCount} events loaded (
+                          {Math.min(100, Math.round((events.length / totalCount) * 100))}%)
+                        </span>
+                      </div>
+                      <div className="w-full h-3 bg-white neu-border overflow-hidden p-0.5">
+                        <div
+                          className="h-full bg-yellow border border-black transition-all duration-300"
+                          style={{
+                            width: `${Math.min(100, Math.round((events.length / totalCount) * 100))}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {hasMore ? (
+                    <button
+                      type="button"
+                      onClick={handleLoadMore}
+                      disabled={isLoadingMore}
+                      className="neu-border bg-yellow px-10 py-3.5 font-mono text-sm font-bold uppercase transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2.5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                    >
+                      {isLoadingMore ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Loading Next 20 Events...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Load More Events</span>
+                          {totalCount !== null && totalCount > events.length && (
+                            <span className="rounded bg-black px-2 py-0.5 text-xs text-yellow font-mono font-bold">
+                              {totalCount - events.length} remaining
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    events.length > 0 && (
+                      <div className="neu-border bg-white px-6 py-3 font-mono text-xs font-bold uppercase tracking-wider text-black flex items-center gap-2">
+                        <span>✨ All {events.length} events loaded from database</span>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+            </>
           ) : (
             <EventsCalendar events={sortedEvents} />
           )}

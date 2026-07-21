@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { ThemeToggle } from "../ThemeToggle";
 import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
-
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -13,7 +12,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-
 import { Menu, X } from "lucide-react";
 
 const links = [
@@ -22,13 +20,13 @@ const links = [
   { to: "/feed", label: "Feed" },
   { to: "/certificates", label: "Certificates" },
   { to: "/dashboard", label: "Dashboard" },
+  { to: "/messages", label: "Messages" },
 ] as const;
 
 export function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
-
   const supabase = createClient();
 
   const [user, setUser] = useState<User | null>(null);
@@ -151,6 +149,7 @@ export function Navbar() {
           <div className="flex items-center gap-1.5 sm:gap-2">
             <ThemeToggle />
 
+            {/* Notification dropdown placed smoothly next to ThemeToggle if user is logged in */}
             {user && <NavbarNotificationDropdown />}
 
             {user ? (
@@ -168,7 +167,6 @@ export function Navbar() {
                 <DropdownMenuContent align="end" className="w-56">
                   {/* Email */}
                   <DropdownMenuLabel className="break-all text-xs">{user.email}</DropdownMenuLabel>
-
                   <DropdownMenuSeparator />
 
                   {/* Dashboard */}
@@ -176,11 +174,15 @@ export function Navbar() {
                     <Link to="/dashboard">Dashboard</Link>
                   </DropdownMenuItem>
 
+                  {/* Messages */}
+                  <DropdownMenuItem asChild>
+                    <Link to="/messages">Messages</Link>
+                  </DropdownMenuItem>
+
                   {/* Settings */}
                   <DropdownMenuItem asChild>
                     <Link to="/settings">Settings</Link>
                   </DropdownMenuItem>
-
                   <DropdownMenuSeparator />
 
                   {/* Sign Out */}
@@ -203,7 +205,7 @@ export function Navbar() {
             )}
           </div>
 
-          {/* Mobile menu */}
+          {/* Mobile menu toggle button */}
           <button
             ref={hamburgerRef}
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
