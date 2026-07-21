@@ -1,353 +1,55 @@
 name: PR Verification (Safe Merge Check)
 
 on:
-  pull_request_target:
-    types: [opened, synchronize, reopened, ready_for_review]
-  check_run:
-    types: [completed]
-  workflow_run:
-    workflows: ["CI Pipeline", "CodeQL Security Analysis"]
-    types: [completed]
+  pull_request_review:
+    types: [submitted]
 
 permissions:
   pull-requests: write
   issues: write
-  contents: write
-  checks: read
 
 jobs:
-  auto-merge:
-    name: Check CI and Merge PR
+  verify-pr:
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for Checks to Register
-        if: github.event_name == 'pull_request_target'
-        run: |
-          echo "Waiting 30 seconds for checks to start..."
-          sleep 30
-
-      - name: Evaluate and Merge PRs
+      - name: Verify PR Safety
         uses: actions/github-script@v7
         with:
           script: |
-            const { owner, repo } = context.repo;
+            const review = context.payload.review;
+            const pr = context.payload.pull_request;
+            const repoOwner = context.repo.owner;
 
-            async function getPRsForCommit(sha) {
-              let allOpenPrs = [];
-              let page = 1;
-              while (true) {
-                const { data: openPrs } = await github.rest.pulls.list({ owner, repo, state: 'open', per_page: 100, page });
-                allOpenPrs = allOpenPrs.concat(openPrs);
-                if (openPrs.length < 100) break;
-                page++;
-              }
-              return allOpenPrs.filter(pr => pr.head.sha === sha);
+            // 1. Check if the review is from CodeRabbit (typically 'coderabbitai[bot]')
+            const reviewerName = review.user.login.toLowerCase();
+            if (!reviewerName.includes('coderabbit')) {
+              console.log(`Review is from ${reviewerName}, not CodeRabbit. Skipping.`);
+              return;
             }
 
-            async function createOrUpdateComment(prNumber, body, marker) {
-              const { data: comments } = await github.rest.issues.listComments({
-                owner, repo, issue_number: prNumber
-              });
-              const existingComment = comments.find(c => c.body.includes(marker));
-              const fullBody = `${body}\n\n${marker}`;
-              
-              if (existingComment) {
-                // If it already says the exact same thing, don't update to avoid spamming notification
-                if (existingComment.body !== fullBody) {
-                  await github.rest.issues.updateComment({
-                    owner, repo, comment_id: existingComment.id, body: fullBody
-                  });
-                }
-              } else {
-                await github.rest.issues.createComment({
-                  owner, repo, issue_number: prNumber, body: fullBody
-                });
-              }
+            // 2. We only proceed if CodeRabbit actually approves the PR
+            if (review.state.toLowerCase() !== 'approved') {
+              console.log(`CodeRabbit did not approve. State is: ${review.state}`);
+              return;
             }
 
-            let prsToProcess = [];
+            // 3. Fetch the latest PR details to check for merge conflicts
+            const { data: pullRequest } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number
+            });
 
-            if (context.eventName === 'pull_request_target') {
-              prsToProcess = [context.payload.pull_request];
-            } else if (context.eventName === 'check_run') {
-              prsToProcess = await getPRsForCommit(context.payload.check_run.head_sha);
-            } else if (context.eventName === 'workflow_run') {
-              prsToProcess = await getPRsForCommit(context.payload.workflow_run.head_sha);
+            // mergeable can be true, false, or null (if GitHub is still calculating)
+            if (pullRequest.mergeable === false) {
+              console.log("PR has merge conflicts. Cannot be marked safe.");
+              return;
             }
 
-            for (const pr of prsToProcess) {
-              const prNumber = pr.number;
-              const headSha = pr.head.sha;
-
-              console.log(`\n🔍 Evaluating PR #${prNumber} (SHA: ${headSha})...`);
-
-              const { data: fullPr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
-              const targetUser = fullPr.user.login;
-              const failureMarker = `<!-- pr-status-failure-marker -->`;
-
-              // 1. Check Merge Conflicts
-              let mergeableState = null;
-              for (let attempt = 1; attempt <= 3; attempt++) {
-                const { data: checkPr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
-                mergeableState = checkPr.mergeable;
-                if (mergeableState !== null) break;
-                await new Promise(r => setTimeout(r, 5000));
-              }
-
-              if (mergeableState === false) {
-                console.log(`⚠️ PR #${prNumber} has merge conflicts.`);
-                await setLabel(prNumber, "Red");
-                await createOrUpdateComment(prNumber, `@${targetUser} ⚠️ This PR has **merge conflicts**. Please resolve them so CI can proceed.`, failureMarker);
-                continue;
-              }
-
-              // 2. Check CI/CD Checks
-              const { data: checkRuns } = await github.rest.checks.listForRef({
-                owner, repo, ref: headSha, per_page: 100
-              });
-
-              // Filter out this action itself and any unrelated checks (like Vercel)
-              const relevantChecks = checkRuns.check_runs.filter(c => {
-                const name = c.name.toLowerCase();
-                return !name.includes("pr verification") &&
-                       !name.includes("check ci and merge pr") &&
-                       !name.includes("vercel");
-              });
-
-              if (relevantChecks.length === 0) {
-                console.log(`PR #${prNumber}: No checks found yet.`);
-                continue;
-              }
-
-              let hasFailed = false;
-              let isPending = false;
-              let failedNamesList = [];
-
-              for (const check of relevantChecks) {
-                const conclusion = check.conclusion;
-                const status = check.status;
-
-                if (conclusion === 'failure' || conclusion === 'cancelled' || conclusion === 'timed_out' || conclusion === 'action_required') {
-                  hasFailed = true;
-                  failedNamesList.push(check.name);
-                }
-                if (status !== 'completed') {
-                  isPending = true;
-                }
-              }
-
-              if (hasFailed) {
-                console.log(`❌ PR #${prNumber} has failed CI checks.`);
-                await setLabel(prNumber, "Red");
-                const failedNames = failedNamesList.map(n => `**${n}**`).join(", ");
-                await createOrUpdateComment(prNumber, `@${targetUser} ❌ CI checks failing: ${failedNames}. Please fix and push again.`, failureMarker);
-                continue;
-              }
-
-              if (isPending) {
-                console.log(`⏳ PR #${prNumber} still has pending CI checks.`);
-                continue;
-              }
-
-              // Both successful
-              console.log(`✅ PR #${prNumber} has no conflicts and CI is passing!`);
-              await setLabel(prNumber, "Blue");
-
-              // Re-check mergeability right before merge just to be absolutely sure
-              const { data: mergeCheckPr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
-              if (mergeCheckPr.mergeable === true) {
-                try {
-                  await github.rest.pulls.merge({
-                    owner, repo, pull_number: prNumber, merge_method: 'squash'
-                  });
-                  console.log(`✅ Auto-merged PR #${prNumber}`);
-                  await github.rest.issues.createComment({
-                    owner, repo, issue_number: prNumber,
-                    body: `🤖 **AI Triage Assistant:**\n\n✅ CI/CD pipelines passed and no merge conflicts found! PR automatically merged.`
-                  });
-                } catch (e) {
-                  console.error(`Failed to merge PR #${prNumber}: ${e.message}`);
-                }
-              } else {
-                 console.log(`⚠️ PR #${prNumber} is no longer mergeable at the moment.`);
-              }
-            }
-
-            async function setLabel(prNumber, labelToAdd) {
-              const labelToRemove = labelToAdd === "Blue" ? "Red" : "Blue";
-              const { data: currentLabels } = await github.rest.issues.listLabelsOnIssue({
-                owner, repo, issue_number: prNumber
-              });
-              const names = currentLabels.map(l => l.name);
-
-              if (names.includes(labelToRemove)) {
-                try {
-                  await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: labelToRemove });
-                } catch(e) {}
-              }
-              if (!names.includes(labelToAdd)) {
-                await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels: [labelToAdd] });
-              }
-            }
-
-  sync-labels-and-assignees:
-    if: github.event_name == 'pull_request_target'
-    name: Sync Issue Data to PR
-    runs-on: ubuntu-latest
-    steps:
-      - name: Sync labels and assignees from Issue to PR
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-            const pull_request = context.payload.pull_request;
-            if (!pull_request) return;
-            const pr_number = pull_request.number;
-            const author = pull_request.user.login;
-            const title = (pull_request.title || "").toLowerCase();
-            const body = pull_request.body || '';
-
-            // 1. Auto-assign the PR to the author if opened by a contributor (not the repo owner)
-            if (author !== owner) {
-              try {
-                await github.rest.issues.addAssignees({
-                  owner,
-                  repo,
-                  issue_number: pr_number,
-                  assignees: [author]
-                });
-              } catch (error) {
-                console.log(`Could not assign ${author} (they might be a bot or a non-collaborator). Continuing...`);
-              }
-            }
-
-            // 2. Determine initial default label for the PR
-            const initialLabels = ['ECSoC26'];
-            const content = title + " " + body.toLowerCase();
-            if (content.includes('ui') || content.includes('frontend') || content.includes('design') || content.includes('css')) {
-              initialLabels.push('good-ui');
-            } else if (content.includes('backend') || content.includes('api') || content.includes('server') || content.includes('database')) {
-              initialLabels.push('good-backend');
-            } else {
-              initialLabels.push('good-pr');
-            }
-
-            // 3. Find linked issues
-            const regex = /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#(\d+)/gi;
-            let match;
-            const issueNumbers = new Set();
-            while ((match = regex.exec(body)) !== null) {
-              issueNumbers.add(parseInt(match[1], 10));
-            }
-
-            const labelsToAdd = new Set(initialLabels);
-            const assigneesToAdd = new Set();
-
-            for (const issue_number of issueNumbers) {
-              console.log(`Fetching data for issue #${issue_number}`);
-              try {
-                const { data: issue } = await github.rest.issues.get({
-                  owner,
-                  repo,
-                  issue_number
-                });
-                
-                if (issue.labels) {
-                  issue.labels.forEach(label => labelsToAdd.add(label.name));
-                }
-                
-                if (issue.assignees) {
-                  issue.assignees.forEach(assignee => assigneesToAdd.add(assignee.login));
-                }
-              } catch (error) {
-                console.error(`Could not fetch issue #${issue_number}: ${error.message}`);
-              }
-            }
-
-            // 4. Resolve target labels conflict (exactly one of 'good-ui', 'good-backend', 'good-pr', 'good-issue')
-            const targetLabels = ['good-ui', 'good-backend', 'good-pr', 'good-issue'];
-            const foundTargetLabels = targetLabels.filter(label => labelsToAdd.has(label));
-
-            let labelToKeep = null;
-            if (foundTargetLabels.length > 0) {
-              // Priority list: good-ui > good-backend > good-pr > good-issue
-              const priority = ['good-ui', 'good-backend', 'good-pr', 'good-issue'];
-              for (const p of priority) {
-                if (foundTargetLabels.includes(p)) {
-                  labelToKeep = p;
-                  break;
-                }
-              }
-
-              // Remove the other target labels from labelsToAdd set
-              targetLabels.forEach(label => {
-                if (label !== labelToKeep) {
-                  labelsToAdd.delete(label);
-                }
-              });
-            }
-
-            // 5. Get current labels on the PR to prevent duplicates and cleanup existing extra labels
-            let currentLabelNames = [];
-            try {
-              const { data: currentLabels } = await github.rest.issues.listLabelsOnIssue({
-                owner,
-                repo,
-                issue_number: pr_number
-              });
-              currentLabelNames = currentLabels.map(l => l.name);
-            } catch (error) {
-              console.error(`Could not fetch current labels for PR #${pr_number}: ${error.message}`);
-            }
-
-            // If there are any target labels currently on the PR that are NOT the labelToKeep, remove them
-            if (labelToKeep) {
-              for (const label of targetLabels) {
-                if (label !== labelToKeep && currentLabelNames.includes(label)) {
-                  console.log(`Removing duplicate/conflicting target label "${label}" from PR #${pr_number}`);
-                  try {
-                    await github.rest.issues.removeLabel({
-                      owner,
-                      repo,
-                      issue_number: pr_number,
-                      name: label
-                    });
-                    // Update currentLabelNames list
-                    currentLabelNames = currentLabelNames.filter(l => l !== label);
-                  } catch (e) {
-                    console.error(`Could not remove label "${label}": ${e.message}`);
-                  }
-                }
-              }
-            }
-
-            // 6. Add the new labels that are not already present
-            const labelsToActuallyAdd = Array.from(labelsToAdd).filter(label => !currentLabelNames.includes(label));
-            if (labelsToActuallyAdd.length > 0) {
-              console.log(`Adding labels: ${labelsToActuallyAdd.join(', ')}`);
-              try {
-                await github.rest.issues.addLabels({
-                  owner,
-                  repo,
-                  issue_number: pr_number,
-                  labels: labelsToActuallyAdd
-                });
-              } catch (error) {
-                console.error(`Could not add labels: ${error.message}`);
-              }
-            }
-
-            // 7. Add assignees
-            if (assigneesToAdd.size > 0) {
-              console.log(`Adding assignees: ${Array.from(assigneesToAdd).join(', ')}`);
-              try {
-                await github.rest.issues.addAssignees({
-                  owner,
-                  repo,
-                  issue_number: pr_number,
-                  assignees: Array.from(assigneesToAdd)
-                });
-              } catch (error) {
-                console.log(`Could not add assignees (they might already be assigned or are not collaborators): ${error.message}`);
-              }
-            }
+            // 4. Everything is good! Notify the maintainer.
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body: `🤖 **AI Triage Assistant:**\n\nCodeRabbit has successfully reviewed and approved this PR, and there are zero Git merge conflicts.\n\n@${repoOwner}, assuming all your automated tests (CI) have passed, this is ready for your final review and merge!`
+            });
