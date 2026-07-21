@@ -9,7 +9,7 @@ import {
 } from "./helpers.js";
 import { clearAssignmentMetadata, readMetadata, updateIssueMetadata } from "./metadata.js";
 import { isActivitySignal } from "./regex.js";
-import { hasMarker, hoursSince, nowIso } from "./utils.js";
+import { hasMarker, hoursSince, nowIso, extractLinkedIssueNumbers } from "./utils.js";
 
 function hasLinkedPrActivity(commentsList, assignee) {
   return commentsList.some((comment) => {
@@ -25,6 +25,31 @@ export async function processClaimExpiration({ github, context, core }) {
     if (!issue || issue.state !== "open" || issue.locked) continue;
     const assignee = issue.assignees?.[0]?.login;
     if (!assignee) continue;
+
+    // Check if there are any open PRs from the assignee linking to this issue
+    const pullsResponse = await github.rest.pulls.list({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      state: "open",
+      per_page: 100,
+    });
+    const openPulls = pullsResponse?.data || [];
+    const hasLinkedOpenPr = openPulls.some((pr) => {
+      if (pr.user?.login !== assignee) return false;
+      const linked = extractLinkedIssueNumbers(pr.body || "");
+      return linked.includes(issue.number);
+    });
+
+    if (hasLinkedOpenPr) {
+      // User has an open PR linked to this issue, reset lastActivityAt to now so it doesn't expire
+      await updateIssueMetadata(github, context, core, issue, (draft) => {
+        draft.lastActivityAt = nowIso();
+        draft.reminder12SentAt = null;
+        draft.reminder18SentAt = null;
+        return draft;
+      });
+      continue;
+    }
 
     const metadata = readMetadata(issue.body);
     const issueComments = await listComments(github, context, core, issue.number);

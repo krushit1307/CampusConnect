@@ -10,6 +10,7 @@ export const eventFormSchema = z
       .min(1, "Title is required.")
       .max(TITLE_MAX_LENGTH, `Title must be ${TITLE_MAX_LENGTH} characters or fewer.`),
     description: z.string().trim().min(1, "Description is required."),
+    location: z.string().trim().optional(),
     startDate: z.string().min(1, "Start date is required."),
     endDate: z.string().min(1, "End date is required."),
   })
@@ -61,4 +62,32 @@ export function formatEventDateRange(startIso: string, endIso: string, timeZone 
   });
 
   return `${dateFmt.format(start)} at ${timeFmt.format(start)} – ${timeFmt.format(end)}`;
+}
+
+export function parseCoordinates(locationStr: string): {
+  isCoordinates: boolean;
+  isValid: boolean;
+  lat?: number;
+  lng?: number;
+} {
+  const trimmed = locationStr.trim();
+  const parts = trimmed.split(",");
+
+  if (parts.length === 2) {
+    const latStr = parts[0].trim();
+    const lngStr = parts[1].trim();
+
+    // Check if at least one part is numeric, indicating coordinates were intended
+    const numericRegex = /^-?\d+(\.\d+)?$/;
+    if (numericRegex.test(latStr) || numericRegex.test(lngStr)) {
+      const lat = parseFloat(latStr);
+      const lng = parseFloat(lngStr);
+
+      if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        return { isCoordinates: true, isValid: false };
+      }
+      return { isCoordinates: true, isValid: true, lat, lng };
+    }
+  }
+  return { isCoordinates: false, isValid: true };
 }

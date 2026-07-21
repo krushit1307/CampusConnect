@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatDate } from "./utils";
+import { formatDate, formatEventDateRange } from "./utils";
 
 describe("formatDate", () => {
   it("returns empty string for empty input", () => {
@@ -26,5 +26,37 @@ describe("formatDate", () => {
     const result = formatDate("2024-01-01T00:00:00");
     expect(result).toMatch(/January 1, 2024 at/);
     expect(result).toMatch(/12:00 AM/);
+  });
+});
+
+describe("formatEventDateRange", () => {
+  it("shows a same-day start and end time", () => {
+    const result = formatEventDateRange({
+      event_date: "2026-07-11T09:00:00Z",
+      start_date: "2026-07-11T09:00:00Z",
+      end_date: "2026-07-11T11:00:00Z",
+    });
+
+    expect(result).toMatch(/^July 11, 2026 at .+ – .+$/);
+  });
+
+  it("falls back to the legacy event date when no end date exists", () => {
+    const result = formatEventDateRange({
+      event_date: "2026-07-11T09:00:00Z",
+      start_date: null,
+      end_date: null,
+    });
+
+    expect(result).toMatch(/^July 11, 2026 at .+$/);
+  });
+
+  it("returns a fallback label when there is no usable date", () => {
+    expect(
+      formatEventDateRange({
+        event_date: null,
+        start_date: null,
+        end_date: null,
+      }),
+    ).toBe("Date TBA");
   });
 });

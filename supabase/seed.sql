@@ -28,7 +28,7 @@ VALUES (
         ),
         NOW(),
         '{"provider": "email", "providers": ["email"]}',
-        '{"full_name": "Admin User", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=Admin"}',
+        '{"full_name": "Admin User", "first_name": "Admin", "last_name": "User", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=Admin"}',
         NOW(),
         NOW()
     ),
@@ -44,7 +44,7 @@ VALUES (
         ),
         NOW(),
         '{"provider": "email", "providers": ["email"]}',
-        '{"full_name": "John Doe", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=John"}',
+        '{"full_name": "John Doe", "first_name": "John", "last_name": "Doe", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=John"}',
         NOW(),
         NOW()
     )
@@ -105,34 +105,46 @@ VALUES (
     )
 ON CONFLICT (id) DO NOTHING;
 
+-- 3.5 Dummy Club Roles
+INSERT INTO
+    club_roles (id, club_id, title, permissions_level)
+VALUES
+    ('90000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', 'Admin', 100),
+    ('90000000-0000-0000-0000-000000000002', 'c0000000-0000-0000-0000-000000000001', 'Member', 10),
+    ('90000000-0000-0000-0000-000000000003', 'c0000000-0000-0000-0000-000000000002', 'Admin', 100),
+    ('90000000-0000-0000-0000-000000000004', 'c0000000-0000-0000-0000-000000000002', 'Member', 10),
+    ('90000000-0000-0000-0000-000000000005', 'c0000000-0000-0000-0000-000000000003', 'Admin', 100),
+    ('90000000-0000-0000-0000-000000000006', 'c0000000-0000-0000-0000-000000000003', 'Member', 10)
+ON CONFLICT (id) DO NOTHING;
+
 -- 4. Club Memberships
 INSERT INTO
     club_members (
         id,
         club_id,
         user_id,
-        role,
+        role_id,
         status
     )
 VALUES (
         'b0000000-0000-0000-0000-000000000001',
         'c0000000-0000-0000-0000-000000000001',
         'd0000000-0000-0000-0000-000000000001',
-        'admin',
+        '90000000-0000-0000-0000-000000000001',
         'approved'
     ),
     (
         'b0000000-0000-0000-0000-000000000002',
         'c0000000-0000-0000-0000-000000000002',
         'd0000000-0000-0000-0000-000000000002',
-        'admin',
+        '90000000-0000-0000-0000-000000000003',
         'approved'
     ),
     (
         'b0000000-0000-0000-0000-000000000003',
         'c0000000-0000-0000-0000-000000000001',
         'd0000000-0000-0000-0000-000000000002',
-        'member',
+        '90000000-0000-0000-0000-000000000002',
         'approved'
     )
 ON CONFLICT (id) DO NOTHING;
@@ -212,55 +224,40 @@ VALUES (
 ON CONFLICT (id) DO NOTHING;
 
 -- 6. Event RSVPs
-INSERT INTO
-    event_rsvps (
-        id,
-        event_id,
-        user_id,
-        checked_in
-    )
-VALUES (
-        'f0000000-0000-0000-0000-000000000001',
-        'e0000000-0000-0000-0000-000000000001',
-        'd0000000-0000-0000-0000-000000000002',
-        false
-    )
+INSERT INTO event_rsvps (id, event_id, user_id, checked_in)
+VALUES
+(
+  'f0000000-0000-0000-0000-000000000001',
+  'e0000000-0000-0000-0000-000000000001',
+  'd0000000-0000-0000-0000-000000000002',
+  false
+)
 ON CONFLICT (id) DO NOTHING;
 
 -- 7. Dummy Feed Posts
-INSERT INTO
-    posts (
-        id,
-        club_id,
-        author_id,
-        content
-    )
-VALUES (
-        'a0000000-0000-0000-0000-000000000001',
-        'c0000000-0000-0000-0000-000000000001',
-        'd0000000-0000-0000-0000-000000000001',
-        'Welcome to the Tech Club! Looking forward to hacking together at our annual hackathon next week.'
-    ),
-    (
-        'a0000000-0000-0000-0000-000000000002',
-        'c0000000-0000-0000-0000-000000000002',
-        'd0000000-0000-0000-0000-000000000002',
-        'Check out this weeks palette recommendations for watercolor painting! Feel free to share your works here.'
-    )
+INSERT INTO posts (id, club_id, author_id, content)
+VALUES
+(
+  'a0000000-0000-0000-0000-000000000001',
+  'c0000000-0000-0000-0000-000000000001',
+  'd0000000-0000-0000-0000-000000000001',
+  'Welcome to the Tech Club! Looking forward to hacking together at our annual hackathon next week.'
+),
+(
+  'a0000000-0000-0000-0000-000000000002',
+  'c0000000-0000-0000-0000-000000000002',
+  'd0000000-0000-0000-0000-000000000002',
+  'Check out this weeks palette recommendations for watercolor painting! Feel free to share your works here.'
+)
 ON CONFLICT (id) DO NOTHING;
 
 -- 8. Post Comments
-INSERT INTO
-    comments (
-        id,
-        post_id,
-        author_id,
-        content
-    )
-VALUES (
-        'cc000000-0000-0000-0000-000000000001',
-        'a0000000-0000-0000-0000-000000000001',
-        'd0000000-0000-0000-0000-000000000002',
-        'Super excited! Cant wait to see what teams build.'
-    )
+INSERT INTO comments (id, post_id, author_id, content)
+VALUES
+(
+  'cc000000-0000-0000-0000-000000000001',
+  'a0000000-0000-0000-0000-000000000001',
+  'd0000000-0000-0000-0000-000000000002',
+  'Super excited! Cant wait to see what teams build.'
+)
 ON CONFLICT (id) DO NOTHING;

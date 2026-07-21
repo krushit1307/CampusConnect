@@ -79,14 +79,30 @@ This command will automatically fix spacing, missing quotes, and other formattin
 
 _(Highly Recommended: Configure your code editor to "Format on Save" using the Prettier extension)._
 
+## Edge Function Authentication
+
+Custom Supabase Edge Functions should use the shared authentication middleware located at:
+
+`supabase/functions/shared/auth-middleware.ts`
+
+Example:
+
+```ts
+import { verifyAuth } from "../shared/auth-middleware.ts";
+
+const user = await verifyAuth(req, supabase);
+```
+
+The middleware validates the Bearer JWT and returns the authenticated user. Invalid or missing tokens should result in an HTTP 401 response.
+
 ## 🙋 How to Claim an Issue
 
 This repository uses an automated bot to assign issues to contributors!
 
 1. Find an unassigned issue you want to work on (look for the `good-first-issue` label if you're new!).
 2. Leave a comment on the issue saying exactly: `/claim`.
-3. The bot will automatically assign the issue to you. You can only have a maximum of 4 active issues at a time.
-4. **Time Limit:** You have **30 hours** to open a Pull Request. If you need more time, simply leave a comment updating your progress. If there's no activity within 30 hours, the bot will automatically unassign you so others can take a turn.
+3. The bot will automatically assign the issue to you. You can only have a maximum of 7 active issues at a time.
+4. **Time Limit:** You have **3 days** to open a Pull Request. If you need more time, simply leave a comment updating your progress. If there's no activity within 3 days, the bot will automatically unassign you so others can take a turn.
 5. If you change your mind and no longer want to work on the issue, comment `/unclaim` to release it.
 
 ## 🏷️ Issue Labels Guide

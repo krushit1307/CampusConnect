@@ -6,6 +6,13 @@ on:
   workflow_run:
     workflows: ["CI Pipeline", "05 PR Validation", "PR Verification (Safe Merge Check)"]
     types: [completed]
+  check_run:
+    types: [completed]
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "*/10 * * * *"
   workflow_dispatch:
     inputs:
       pr_number:
@@ -18,10 +25,10 @@ permissions:
   issues: write
   checks: read
   actions: read
-  contents: read
+  contents: write
 
 concurrency:
-  group: pr-status-monitor-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.run_id }}
+  group: pr-status-monitor-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.event.check_run.pull_requests[0].number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -39,8 +46,22 @@ jobs:
       - name: Evaluate all checks and label PR
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.GH_PAT }}
           script: |
             const { owner, repo } = context.repo;
+
+            // Helper to find open PRs for a specific commit SHA
+            async function getPRsForCommit(sha) {
+              let page = 1;
+              let allOpenPrs = [];
+              while (true) {
+                const { data: openPrs } = await github.rest.pulls.list({ owner, repo, state: 'open', per_page: 100, page });
+                allOpenPrs = allOpenPrs.concat(openPrs);
+                if (openPrs.length < 100) break;
+                page++;
+              }
+              return allOpenPrs.filter(pr => pr.head.sha === sha);
+            }
 
             // ─── Resolve which PRs to process ──────────────────────────────────
             let prsToProcess = [];
@@ -50,24 +71,36 @@ jobs:
               const pr = context.payload.pull_request;
               // Re-fetch to get the mergeable field (payload may not have it)
               const { data: fullPr } = await github.rest.pulls.get({ owner, repo, pull_number: pr.number });
-              prsToProcess = [{ number: fullPr.number, headSha: fullPr.head.sha, assignees: fullPr.assignees, author: fullPr.user.login, mergeable: fullPr.mergeable }];
+              prsToProcess = [{ number: fullPr.number, headSha: fullPr.head.sha, assignees: fullPr.assignees, author: fullPr.user.login, mergeable: fullPr.mergeable, mergeable_state: fullPr.mergeable_state }];
             } else if (context.eventName === 'workflow_run') {
-              const prs = context.payload.workflow_run.pull_requests;
-              if (prs && prs.length > 0) {
-                const pr = prs[0];
+              const sha = context.payload.workflow_run.head_sha;
+              const matchingPrs = await getPRsForCommit(sha);
+              if (matchingPrs.length > 0) {
+                const pr = matchingPrs[0];
                 const { data: fullPr } = await github.rest.pulls.get({ owner, repo, pull_number: pr.number });
-                prsToProcess = [{ number: fullPr.number, headSha: fullPr.head.sha, assignees: fullPr.assignees, author: fullPr.user.login, mergeable: fullPr.mergeable }];
+                prsToProcess = [{ number: fullPr.number, headSha: fullPr.head.sha, assignees: fullPr.assignees, author: fullPr.user.login, mergeable: fullPr.mergeable, mergeable_state: fullPr.mergeable_state }];
               } else {
-                console.log("No pull requests associated with this workflow run. Exiting.");
+                console.log(`No open pull requests found for workflow_run head SHA: ${sha}. Exiting.`);
+                return;
+              }
+            } else if (context.eventName === 'check_run') {
+              const sha = context.payload.check_run.head_sha;
+              const matchingPrs = await getPRsForCommit(sha);
+              if (matchingPrs.length > 0) {
+                const pr = matchingPrs[0];
+                const { data: fullPr } = await github.rest.pulls.get({ owner, repo, pull_number: pr.number });
+                prsToProcess = [{ number: fullPr.number, headSha: fullPr.head.sha, assignees: fullPr.assignees, author: fullPr.user.login, mergeable: fullPr.mergeable, mergeable_state: fullPr.mergeable_state }];
+              } else {
+                console.log(`No open pull requests found for check_run head SHA: ${sha}. Exiting.`);
                 return;
               }
             } else {
-              // Triggered manually via workflow_dispatch
+              // Triggered manually via workflow_dispatch or push to main
               const inputPrNumber = context.payload.inputs?.pr_number;
               if (inputPrNumber && inputPrNumber.trim() !== '') {
                 // Specific PR number was provided
                 const { data: prData } = await github.rest.pulls.get({ owner, repo, pull_number: parseInt(inputPrNumber) });
-                prsToProcess = [{ number: prData.number, headSha: prData.head.sha, assignees: prData.assignees, author: prData.user.login, mergeable: prData.mergeable }];
+                prsToProcess = [{ number: prData.number, headSha: prData.head.sha, assignees: prData.assignees, author: prData.user.login, mergeable: prData.mergeable, mergeable_state: prData.mergeable_state }];
               } else {
                 // No PR number provided — fetch ALL open PRs
                 // Must use pulls.get() per PR to get the mergeable field
@@ -83,10 +116,10 @@ jobs:
                 for (const p of listedPRs) {
                   try {
                     const { data: fullPr } = await github.rest.pulls.get({ owner, repo, pull_number: p.number });
-                    prsToProcess.push({ number: fullPr.number, headSha: fullPr.head.sha, assignees: fullPr.assignees, author: fullPr.user.login, mergeable: fullPr.mergeable });
+                    prsToProcess.push({ number: fullPr.number, headSha: fullPr.head.sha, assignees: fullPr.assignees, author: fullPr.user.login, mergeable: fullPr.mergeable, mergeable_state: fullPr.mergeable_state });
                   } catch(e) {
                     console.error(`Could not fetch full data for PR #${p.number}: ${e.message}`);
-                    prsToProcess.push({ number: p.number, headSha: p.head.sha, assignees: p.assignees, author: p.user.login, mergeable: null });
+                    prsToProcess.push({ number: p.number, headSha: p.head.sha, assignees: p.assignees, author: p.user.login, mergeable: null, mergeable_state: null });
                   }
                 }
                 console.log(`Loaded full details for ${prsToProcess.length} PRs.`);
@@ -94,7 +127,7 @@ jobs:
             }
 
             // ─── Helper function: evaluate + label a single PR ──────────────────
-            async function evaluatePR({ number: prNumber, headSha, assignees, author, mergeable }) {
+            async function evaluatePR({ number: prNumber, headSha, assignees, author, mergeable, mergeable_state }) {
               console.log(`\n🔍 Evaluating PR #${prNumber} (SHA: ${headSha})...`);
 
               // ─── 1. Fetch ALL check runs for this commit ──────────────────────
@@ -163,13 +196,36 @@ jobs:
                 if (currentLabelNames.includes(label)) {
                   try {
                     await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: label });
+                    const idx = currentLabelNames.indexOf(label);
+                    if (idx > -1) currentLabelNames.splice(idx, 1);
                   } catch (e) { console.log(`Could not remove label "${label}": ${e.message}`); }
                 }
               };
 
+              // ─── Enforce exactly one target label (Fail-safe) ──────────────────
+              const targetLabels = ['good-ui', 'good-backend', 'good-pr', 'good-issue'];
+              const foundTargetLabels = targetLabels.filter(label => currentLabelNames.includes(label));
+              if (foundTargetLabels.length > 1) {
+                const priority = ['good-ui', 'good-backend', 'good-pr', 'good-issue'];
+                let labelToKeep = null;
+                for (const p of priority) {
+                  if (foundTargetLabels.includes(p)) {
+                    labelToKeep = p;
+                    break;
+                  }
+                }
+                for (const label of foundTargetLabels) {
+                  if (label !== labelToKeep) {
+                    console.log(`PR #${prNumber}: Removing duplicate/conflicting target label "${label}"`);
+                    await removeLabel(label);
+                  }
+                }
+              }
+
               // ─── 6a. MERGE CONFLICT CHECK (highest priority) ──────────────────
               // mergeable: null means GitHub is still computing — retry up to 3x
               let mergeableState = mergeable;
+              let currentMergeableStateString = mergeable_state;
               if (mergeableState === null) {
                 for (let attempt = 1; attempt <= 3; attempt++) {
                   console.log(`PR #${prNumber}: mergeable is null, retrying (${attempt}/3) after 10s...`);
@@ -177,6 +233,7 @@ jobs:
                   try {
                     const { data: freshPr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
                     mergeableState = freshPr.mergeable;
+                    currentMergeableStateString = freshPr.mergeable_state;
                     if (mergeableState !== null) break;
                   } catch(e) { console.error(`Retry fetch failed: ${e.message}`); }
                 }
@@ -245,11 +302,58 @@ jobs:
               // ─── 8. SUCCESS PATH ───────────────────────────────────────────────
               await removeLabel("Red");
               await addLabel("Blue");
-              await github.rest.issues.createComment({
-                owner, repo, issue_number: prNumber,
-                body: `@${targetUser} ✅ All CI checks passed! This PR is ready for review.`
-              });
-              console.log(`✅ PR #${prNumber} labeled "Blue" — all checks passed!`);
+
+              const state = (currentMergeableStateString || "").toLowerCase();
+              console.log(`PR #${prNumber} mergeable_state: "${state}"`);
+
+              if (state === "clean" || state === "has_hooks" || state === "unstable" || state === "") {
+                try {
+                  console.log(`🚀 Auto-merging PR #${prNumber}...`);
+                  await github.rest.pulls.merge({
+                    owner,
+                    repo,
+                    pull_number: prNumber,
+                    merge_method: 'squash'
+                  });
+                  console.log(`✅ PR #${prNumber} successfully auto-merged!`);
+                  await github.rest.issues.createComment({
+                    owner, repo, issue_number: prNumber,
+                    body: `@${targetUser} ✅ All CI checks passed! This PR has been automatically merged.`
+                  });
+                } catch (mergeError) {
+                  console.error(`❌ Failed to auto-merge PR #${prNumber}: ${mergeError.message}`);
+                  await github.rest.issues.createComment({
+                    owner, repo, issue_number: prNumber,
+                    body: `⚠️ **Auto-Merge Failed:** ${mergeError.message}. Please merge manually.`
+                  });
+                }
+              } else if (state === "behind") {
+                try {
+                  console.log(`🔄 PR #${prNumber} is behind main. Automatically updating branch...`);
+                  await github.rest.issues.createComment({
+                    owner, repo, issue_number: prNumber,
+                    body: `@${targetUser} 🔄 This PR is behind the main branch. Automatically updating it with the latest changes from main to run CI again...`
+                  });
+                  await github.rest.pulls.updateBranch({
+                    owner,
+                    repo,
+                    pull_number: prNumber
+                  });
+                  console.log(`✅ PR #${prNumber} branch successfully updated.`);
+                } catch (updateError) {
+                  console.error(`❌ Failed to update branch for PR #${prNumber}: ${updateError.message}`);
+                  await github.rest.issues.createComment({
+                    owner, repo, issue_number: prNumber,
+                    body: `⚠️ **Branch Update Failed:** ${updateError.message}. If this is a fork, please ensure "Allow edits from maintainers" is checked, or manually update your branch with main.`
+                  });
+                }
+              } else {
+                console.log(`PR #${prNumber} is in state "${state}". Skipping auto-merge/update.`);
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: prNumber,
+                  body: `@${targetUser} ✅ All CI checks passed! Status: \`${state}\`. Please review and merge manually.`
+                });
+              }
             }
 
             // ─── Process all PRs sequentially ──────────────────────────────────
