@@ -9,6 +9,17 @@ import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Github } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // Small building block for the skeleton below. Deliberately a plain div
 // (not the shared ui/skeleton component) to keep this change self-contained.
@@ -88,6 +99,7 @@ export default function ClubProfile() {
   const [user, setUser] = useState<User | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -126,7 +138,12 @@ export default function ClubProfile() {
       });
     },
     onSuccess: () => {
+      setIsJoinDialogOpen(false);
+      toast.success("Join request submitted!");
       refetch();
+    },
+    onError: () => {
+      toast.error("Failed to submit join request. Please try again.");
     },
   });
 
@@ -243,20 +260,49 @@ export default function ClubProfile() {
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
-            <button
-              onClick={() => {
-                if (!user) return void toast.error("Please sign in first");
-                joinMutation.mutate();
-              }}
-              disabled={!!membership || joinMutation.isPending}
-              className={`neu-border neu-press px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider ${membership ? "bg-gray-300 cursor-not-allowed" : "bg-black text-cream"}`}
-            >
-              {membership
-                ? membership.status === "pending"
-                  ? "Request Pending"
-                  : "Member ✓"
-                : "Join club"}
-            </button>
+            <AlertDialog open={isJoinDialogOpen} onOpenChange={setIsJoinDialogOpen}>
+              <AlertDialogTrigger asChild>
+                <button
+                  onClick={() => {
+                    if (!user) return void toast.error("Please sign in first");
+                    setIsJoinDialogOpen(true);
+                  }}
+                  disabled={!!membership || joinMutation.isPending}
+                  className={`neu-border neu-press px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider ${membership ? "bg-gray-300 cursor-not-allowed" : "bg-black text-cream"}`}
+                >
+                  {membership
+                    ? membership.status === "pending"
+                      ? "Request Pending"
+                      : "Member ✓"
+                    : "Join club"}
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="neu-border bg-white rounded-none p-6">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="font-display text-xl font-bold">
+                    Submit join request?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="font-mono text-sm text-gray-700">
+                    Do you want to submit a join request?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+                  <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={(e) => {
+                      e.preventDefault();
+                      joinMutation.mutate();
+                    }}
+                    disabled={joinMutation.isPending}
+                    className="neu-border bg-black text-cream hover:bg-cream hover:text-black rounded-none font-mono text-xs font-bold uppercase disabled:opacity-50"
+                  >
+                    {joinMutation.isPending ? "Submitting..." : "Confirm"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <button
               onClick={() => toast.info("Follow feature coming soon!")}
               className="neu-border neu-press bg-cream px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider"
