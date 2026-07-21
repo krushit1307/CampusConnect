@@ -132,7 +132,7 @@ CREATE POLICY "Club admins can insert events." ON public.events FOR INSERT WITH 
   public.has_permission('events.create') 
   OR
   -- Or they are a legacy club admin
-  EXISTS (SELECT 1 FROM club_members WHERE club_id = events.club_id AND user_id = auth.uid() AND role = 'admin' AND status = 'approved') 
+  public.is_club_admin(events.club_id, auth.uid())
   OR
   EXISTS (SELECT 1 FROM clubs WHERE id = events.club_id AND created_by = auth.uid())
 );
