@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.110.0";
 import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
+import { limitRate } from "../shared/rate_limiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,6 +11,12 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  // Rate Limiting: 5 requests per minute per IP
+  const rateLimitResponse = await limitRate(req, "generate-event-certs", { limit: 5, windowMs: 60000 });
+  if (rateLimitResponse) {
+    return rateLimitResponse;
   }
 
   const authHeader = req.headers.get("Authorization");

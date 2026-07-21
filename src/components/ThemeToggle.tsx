@@ -1,6 +1,5 @@
 import { Moon, Settings2, Sun } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-
 import { useTheme } from "./theme-provider";
 
 export function ThemeToggle() {
