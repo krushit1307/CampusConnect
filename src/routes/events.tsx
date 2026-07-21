@@ -281,7 +281,6 @@ export default function EventsPage() {
       if (!user) throw new Error("Must be logged in");
       if (eventId.startsWith("mock-")) {
         // Skip database call for mock event cards in development
-        console.log(`[CampusConnect] Mock RSVP toggled for event: ${eventId}`);
         return;
       }
       const {
@@ -333,7 +332,6 @@ export default function EventsPage() {
     mutationFn: async ({ eventId, isSaved }: { eventId: string; isSaved: boolean }) => {
       if (!user) throw new Error("Must be logged in");
       if (eventId.startsWith("mock-")) {
-        console.log(`[CampusConnect] Mock Bookmark toggled for event: ${eventId}`);
         return;
       }
       const { error } = isSaved

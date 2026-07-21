@@ -87,6 +87,10 @@ export default function EventDetailsPage() {
         if (import.meta.env.DEV && eventId.startsWith("mock-")) {
           return {
             id: eventId,
+            // Mock data has no real owner; use a placeholder so this branch's
+            // type matches the real Supabase row (which always has
+            // created_by) instead of silently omitting the field.
+            created_by: "mock-user-1",
             title:
               eventId === "mock-1"
                 ? "Hackathon 2024"
@@ -143,7 +147,6 @@ export default function EventDetailsPage() {
     mutationFn: async ({ isOnWaitlist }: { isOnWaitlist: boolean }) => {
       if (!user) throw new Error("Please log in to join waitlist");
       if (eventId.startsWith("mock-")) {
-        console.log(`[CampusConnect] Mock waitlist toggled for event: ${eventId}`);
         return;
       }
 
@@ -173,7 +176,6 @@ export default function EventDetailsPage() {
     mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
       if (!user) throw new Error("Please log in to RSVP");
       if (eventId.startsWith("mock-")) {
-        console.log(`[CampusConnect] Mock RSVP toggled for event: ${eventId}`);
         return;
       }
 

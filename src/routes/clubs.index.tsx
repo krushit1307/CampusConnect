@@ -5,11 +5,14 @@ import { useEffect, useRef, useState } from "react";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { UsersRound, X } from "lucide-react";
+import { LayoutGrid, List, UsersRound, X } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { CreateClubDialog } from "@/components/CreateClubDialog";
 
 const ITEMS_PER_PAGE = 12;
+const VIEW_MODE_STORAGE_KEY = "clubs-view-mode";
+
+type ViewMode = "grid" | "list";
 
 export default function ClubsIndex() {
   const supabase = createClient();
@@ -17,6 +20,22 @@ export default function ClubsIndex() {
   const [search, setSearch] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const [user, setUser] = useState<User | null>(null);
+
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [viewModeLoaded, setViewModeLoaded] = useState(false);
+
+  useEffect(() => {
+    const savedViewMode = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    if (savedViewMode === "grid" || savedViewMode === "list") {
+      setViewMode(savedViewMode);
+    }
+    setViewModeLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!viewModeLoaded) return;
+    localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
+  }, [viewMode, viewModeLoaded]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -72,6 +91,10 @@ export default function ClubsIndex() {
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       (c.description || "").toLowerCase().includes(search.toLowerCase()),
+  );
+
+  const directoryClubs = filteredClubs.filter(
+    (c) => search || !trendingClubs.find((t) => t.slug === c.slug),
   );
 
   return (
@@ -196,20 +219,76 @@ export default function ClubsIndex() {
             </div>
           )}
 
+          <div className="mb-6 flex items-center justify-between gap-4">
+            <h2 className="font-mono text-xs font-black uppercase tracking-widest text-gray-600">
+              {search ? `Results for "${search}"` : "All Clubs"}
+            </h2>
+            <div
+              className="neu-border flex bg-white p-0.5"
+              role="group"
+              aria-label="Toggle club layout"
+            >
+              <button
+                type="button"
+                onClick={() => setViewMode("grid")}
+                aria-label="Grid view"
+                aria-pressed={viewMode === "grid"}
+                className={`flex items-center gap-1.5 px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors duration-200 cursor-pointer ${
+                  viewMode === "grid" ? "bg-black text-cream" : "bg-white text-black hover:bg-cream"
+                }`}
+              >
+                <LayoutGrid size={14} /> Grid
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                aria-label="List view"
+                aria-pressed={viewMode === "list"}
+                className={`flex items-center gap-1.5 px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors duration-200 cursor-pointer ${
+                  viewMode === "list" ? "bg-black text-cream" : "bg-white text-black hover:bg-cream"
+                }`}
+              >
+                <List size={14} /> List
+              </button>
+            </div>
+          </div>
+
           {/* Main Directory List */}
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div
+            className={
+              viewMode === "grid"
+                ? "grid gap-6 md:grid-cols-2 lg:grid-cols-3 transition-all duration-300"
+                : "flex flex-col gap-3 transition-all duration-300"
+            }
+          >
             {isLoading ? (
               // Initial Page Loader Skeletons
-              Array.from({ length: 6 }).map((_, i) => (
+              Array.from({ length: viewMode === "grid" ? 6 : 4 }).map((_, i) => (
                 <div
                   key={i}
-                  className="neu-border bg-white p-6 animate-pulse h-48 flex flex-col justify-between"
+                  className={
+                    viewMode === "grid"
+                      ? "neu-border bg-white p-6 animate-pulse h-48 flex flex-col justify-between"
+                      : "neu-border bg-white p-4 animate-pulse h-20 flex items-center gap-4"
+                  }
                 >
-                  <div>
-                    <div className="h-6 bg-gray-200 w-16 mb-4 rounded neu-border border-gray-300" />
-                    <div className="h-8 bg-gray-200 w-3/4 rounded" />
-                  </div>
-                  <div className="h-4 bg-gray-200 w-full mt-4 rounded" />
+                  {viewMode === "grid" ? (
+                    <>
+                      <div>
+                        <div className="h-6 bg-gray-200 w-16 mb-4 rounded neu-border border-gray-300" />
+                        <div className="h-8 bg-gray-200 w-3/4 rounded" />
+                      </div>
+                      <div className="h-4 bg-gray-200 w-full mt-4 rounded" />
+                    </>
+                  ) : (
+                    <>
+                      <div className="h-12 w-12 shrink-0 bg-gray-200 rounded neu-border border-gray-300" />
+                      <div className="flex-1">
+                        <div className="h-5 bg-gray-200 w-1/3 rounded mb-2" />
+                        <div className="h-3 bg-gray-200 w-2/3 rounded" />
+                      </div>
+                    </>
+                  )}
                 </div>
               ))
             ) : allClubs.length === 0 ? (
@@ -227,54 +306,97 @@ export default function ClubsIndex() {
                   <CreateClubDialog user={user} />
                 </div>
               </div>
-            ) : (
-              filteredClubs
-                .filter((c) => search || !trendingClubs.find((t) => t.slug === c.slug))
-                .map((c, index) => {
-                  return (
+            ) : viewMode === "grid" ? (
+              directoryClubs.map((c, index) => (
+                <div
+                  key={`${viewMode}-${c.slug}`}
+                  className="animate-fade-in-up"
+                  style={{ animationDelay: `${index * 75}ms` }}
+                >
+                  <Link
+                    to={`/clubs/${c.slug}`}
+                    className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000] h-full"
+                  >
                     <div
-                      key={c.slug}
-                      className="animate-fade-in-up"
-                      style={{ animationDelay: `${index * 75}ms` }}
+                      className={`club-logo-badge neu-border ${colors[index % colors.length]} mb-4 inline-block px-3 py-1 font-mono text-xs font-bold uppercase`}
                     >
-                      <Link
-                        to={`/clubs/${c.slug}`}
-                        className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000] h-full"
-                      >
-                        <div
-                          className={`club-logo-badge neu-border ${colors[index % colors.length]} mb-4 inline-block px-3 py-1 font-mono text-xs font-bold uppercase`}
-                        >
-                          Club
-                        </div>
-                        <h2 className="text-2xl font-bold">{c.name}</h2>
-                        <div className="my-3 border-t-2 border-black" />
-                        <div className="flex items-center justify-between font-mono text-xs">
-                          <span>Members</span>
-                          <span className="font-bold uppercase flex items-center gap-1">
-                            View{" "}
-                            <span className="transition-transform duration-300 group-hover:translate-x-1">
-                              →
-                            </span>
-                          </span>
-                        </div>
-                      </Link>
+                      Club
                     </div>
-                  );
-                })
+                    <h2 className="text-2xl font-bold">{c.name}</h2>
+                    <div className="my-3 border-t-2 border-black" />
+                    <div className="flex items-center justify-between font-mono text-xs">
+                      <span>Members</span>
+                      <span className="font-bold uppercase flex items-center gap-1">
+                        View{" "}
+                        <span className="transition-transform duration-300 group-hover:translate-x-1">
+                          →
+                        </span>
+                      </span>
+                    </div>
+                  </Link>
+                </div>
+              ))
+            ) : (
+              directoryClubs.map((c, index) => (
+                <div
+                  key={`${viewMode}-${c.slug}`}
+                  className="animate-fade-in-up"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <Link
+                    to={`/clubs/${c.slug}`}
+                    className="neu-border group flex items-center gap-4 bg-white p-4 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000]"
+                  >
+                    <div
+                      className={`club-logo-badge neu-border ${colors[index % colors.length]} flex h-12 w-12 shrink-0 items-center justify-center`}
+                    >
+                      <UsersRound size={18} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h2 className="truncate text-lg font-bold">{c.name}</h2>
+                      <p className="truncate font-mono text-xs text-gray-600">
+                        {c.description || "No description provided."}
+                      </p>
+                    </div>
+                    <span className="hidden shrink-0 items-center gap-1 font-mono text-xs font-bold uppercase sm:flex">
+                      View{" "}
+                      <span className="transition-transform duration-300 group-hover:translate-x-1">
+                        →
+                      </span>
+                    </span>
+                  </Link>
+                </div>
+              ))
             )}
 
             {/* Next Page Fetching Skeleton Additions */}
             {isFetchingNextPage &&
-              Array.from({ length: 3 }).map((_, i) => (
+              Array.from({ length: viewMode === "grid" ? 3 : 2 }).map((_, i) => (
                 <div
                   key={`next-load-${i}`}
-                  className="neu-border bg-white p-6 animate-pulse h-48 flex flex-col justify-between"
+                  className={
+                    viewMode === "grid"
+                      ? "neu-border bg-white p-6 animate-pulse h-48 flex flex-col justify-between"
+                      : "neu-border bg-white p-4 animate-pulse h-20 flex items-center gap-4"
+                  }
                 >
-                  <div>
-                    <div className="h-6 bg-gray-200 w-16 mb-4 rounded neu-border border-gray-300" />
-                    <div className="h-8 bg-gray-200 w-3/4 rounded" />
-                  </div>
-                  <div className="h-4 bg-gray-200 w-full mt-4 rounded" />
+                  {viewMode === "grid" ? (
+                    <>
+                      <div>
+                        <div className="h-6 bg-gray-200 w-16 mb-4 rounded neu-border border-gray-300" />
+                        <div className="h-8 bg-gray-200 w-3/4 rounded" />
+                      </div>
+                      <div className="h-4 bg-gray-200 w-full mt-4 rounded" />
+                    </>
+                  ) : (
+                    <>
+                      <div className="h-12 w-12 shrink-0 bg-gray-200 rounded neu-border border-gray-300" />
+                      <div className="flex-1">
+                        <div className="h-5 bg-gray-200 w-1/3 rounded mb-2" />
+                        <div className="h-3 bg-gray-200 w-2/3 rounded" />
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
           </div>
