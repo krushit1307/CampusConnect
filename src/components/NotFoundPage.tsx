@@ -106,7 +106,7 @@ export const NotFoundPage: React.FC = () => {
 
         {/* Neubrutalist Primary Navigation Button */}
         <Link
-          to="/"
+          to="/dashboard"
           className="inline-block px-8 py-4 bg-[#FF6B6B] border-4 border-black font-black uppercase tracking-wider text-sm transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1"
         >
           Back to Campus Dashboard

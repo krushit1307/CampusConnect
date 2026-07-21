@@ -723,31 +723,27 @@
 }
 
 /* --- Neubrutalist Custom Component Animation System --- */
+@theme {
+  --animate-wiggle: wiggle 3s ease-in-out infinite;
+  --animate-subtle-bounce: subtle-bounce 2s ease-in-out infinite;
 
-@keyframes wiggle {
-  0%,
-  100% {
-    transform: translateY(0) rotate(0deg);
+  `@keyframes` wiggle {
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-6px) rotate(2deg);
+    }
   }
-  50% {
-    transform: translateY(-6px) rotate(2deg);
-  }
-}
 
-@keyframes subtleBounce {
-  0%,
-  100% {
-    transform: translateY(0);
+  `@keyframes` subtle-bounce {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
   }
-  50% {
-    transform: translateY(-4px);
-  }
-}
-
-.animate-wiggle {
-  animation: wiggle 3s ease-in-out infinite;
-}
-
-.animate-subtleBounce {
-  animation: subtleBounce 2s ease-in-out infinite;
 }
