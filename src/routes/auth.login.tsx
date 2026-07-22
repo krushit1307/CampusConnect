@@ -18,9 +18,8 @@ export default function AuthLogin() {
         },
       });
       if (error) throw error;
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Failed to authenticate with provider";
+   } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to authenticate with provider";
       setErrorMsg(message);
       setLoading(false);
     }
