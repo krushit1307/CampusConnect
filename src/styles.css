@@ -1,4 +1,4 @@
-@import "tailwindcss" source(none);
+@import "tailwindcss";
 @import "./styles/disabled-buttons.css";
 @source "../src";
 @import "tw-animate-css";
@@ -720,4 +720,30 @@
 
 *::-webkit-scrollbar-thumb:hover {
   background-color: #1f1f1f;
+}
+
+/* --- Neubrutalist Custom Component Animation System --- */
+@theme {
+  --animate-wiggle: wiggle 3s ease-in-out infinite;
+  --animate-subtle-bounce: subtle-bounce 2s ease-in-out infinite;
+
+  @keyframes wiggle {
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-6px) rotate(2deg);
+    }
+  }
+
+  @keyframes subtle-bounce {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
+  }
 }

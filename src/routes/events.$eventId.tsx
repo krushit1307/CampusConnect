@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { parseCoordinates } from "@/lib/eventUtils";
+import { EventMap } from "@/components/EventMap";
 
 function rsvpRowsToCsv(rows: { name: string; email: string; rsvp_date: string; status: string }[]) {
   const headers = ["User Name", "Email", "RSVP Date", "Status"];
@@ -433,16 +434,17 @@ export default function EventDetailsPage() {
 
           <div className="mt-8 hidden items-center gap-4 md:flex">
             {hasRsvpd ? (
-              <button
+              <Button
                 onClick={handleRsvpClick}
                 disabled={toggleRsvp.isPending}
-                className="neu-border bg-lime px-8 py-4 font-mono text-base font-bold uppercase tracking-wider text-black transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                variant="secondary"
+                size="lg"
               >
                 {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
-              </button>
+              </Button>
             ) : isAtCapacity ? (
               <div className="flex flex-col gap-1">
-                <button
+                <Button
                   onClick={() => {
                     if (!user) {
                       toast.error("Please log in to join waitlist");
@@ -451,16 +453,15 @@ export default function EventDetailsPage() {
                     toggleWaitlist.mutate({ isOnWaitlist });
                   }}
                   disabled={toggleWaitlist.isPending}
-                  className={`neu-border px-8 py-4 font-mono text-base font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
-                    isOnWaitlist ? "bg-amber-300 text-black" : "bg-black text-cream"
-                  }`}
+                  variant={isOnWaitlist ? "secondary" : "primary"}
+                  size="lg"
                 >
                   {toggleWaitlist.isPending
                     ? "Updating..."
                     : isOnWaitlist
                       ? "On Waitlist ✓"
                       : "Join Waitlist"}
-                </button>
+                </Button>
                 {isOnWaitlist && waitlistPosition > 0 && (
                   <span
                     className={`font-mono text-xs font-bold ${event.banner_url ? "text-white" : "text-black"}`}
@@ -470,13 +471,14 @@ export default function EventDetailsPage() {
                 )}
               </div>
             ) : (
-              <button
+              <Button
                 onClick={handleRsvpClick}
                 disabled={toggleRsvp.isPending}
-                className="neu-border bg-black px-8 py-4 font-mono text-base font-bold uppercase tracking-wider text-cream transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                variant="primary"
+                size="lg"
               >
                 {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
-              </button>
+              </Button>
             )}
             <span
               className={`font-mono text-sm font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
@@ -556,13 +558,32 @@ export default function EventDetailsPage() {
             )}
           </div>
 
-          {/* Map Embed */}
+          {/* Interactive Map */}
           {event.location && event.location.toLowerCase() !== "online" && (
             <div className="mt-8">
               <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
                 Location
               </h2>
-              {!coordsCheck.isValid ? (
+              {coordsCheck.isCoordinates &&
+              coordsCheck.isValid &&
+              coordsCheck.lat != null &&
+              coordsCheck.lng != null ? (
+                <>
+                  <EventMap
+                    lat={coordsCheck.lat}
+                    lng={coordsCheck.lng}
+                    locationName={event.location}
+                  />
+                  <a
+                    href={`https://www.google.com/maps/search/?q=${encodeURIComponent(event.location)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-block font-mono text-xs font-bold underline text-blue-500"
+                  >
+                    Open in Google Maps ↗
+                  </a>
+                </>
+              ) : coordsCheck.isCoordinates && !coordsCheck.isValid ? (
                 <div className="neu-border mt-4 flex items-start gap-4 bg-peach/20 p-5">
                   <div className="shrink-0 rounded-none border-2 border-black bg-white p-2 text-[#e53935]">
                     <MapPinOff className="h-6 w-6" />
@@ -586,23 +607,15 @@ export default function EventDetailsPage() {
                   </div>
                 </div>
               ) : (
-                <>
-                  <iframe
-                    className="neu-border mt-4 w-full"
-                    height="300"
-                    loading="lazy"
-                    src={`https://maps.google.com/maps?q=${encodeURIComponent(event.location)}&output=embed`}
-                    title="Event location map"
-                  />
-                  <a
-                    href={`https://www.google.com/maps/search/?q=${encodeURIComponent(event.location)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-block font-mono text-xs font-bold underline text-blue-500"
-                  >
-                    View larger map ↗
-                  </a>
-                </>
+                <a
+                  href={`https://www.google.com/maps/search/?q=${encodeURIComponent(event.location)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="neu-border mt-4 inline-flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                >
+                  <MapPin className="h-4 w-4" />
+                  Open "{event.location}" in Google Maps ↗
+                </a>
               )}
             </div>
           )}
@@ -656,15 +669,11 @@ export default function EventDetailsPage() {
           )}
         </div>
         {hasRsvpd ? (
-          <button
-            onClick={handleRsvpClick}
-            disabled={toggleRsvp.isPending}
-            className="neu-border bg-lime px-6 py-3 font-mono text-sm font-bold uppercase tracking-wider text-black transition-all duration-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Button onClick={handleRsvpClick} disabled={toggleRsvp.isPending} variant="secondary">
             {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
-          </button>
+          </Button>
         ) : isAtCapacity ? (
-          <button
+          <Button
             onClick={() => {
               if (!user) {
                 toast.error("Please log in to join waitlist");
@@ -673,24 +682,18 @@ export default function EventDetailsPage() {
               toggleWaitlist.mutate({ isOnWaitlist });
             }}
             disabled={toggleWaitlist.isPending}
-            className={`neu-border px-6 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
-              isOnWaitlist ? "bg-amber-300 text-black" : "bg-black text-cream"
-            }`}
+            variant={isOnWaitlist ? "secondary" : "primary"}
           >
             {toggleWaitlist.isPending
               ? "Updating..."
               : isOnWaitlist
                 ? "On Waitlist ✓"
                 : "Join Waitlist"}
-          </button>
+          </Button>
         ) : (
-          <button
-            onClick={handleRsvpClick}
-            disabled={toggleRsvp.isPending}
-            className="neu-border bg-black px-6 py-3 font-mono text-sm font-bold uppercase tracking-wider text-cream transition-all duration-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Button onClick={handleRsvpClick} disabled={toggleRsvp.isPending} variant="primary">
             {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
-          </button>
+          </Button>
         )}
       </div>
 
