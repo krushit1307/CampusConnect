@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { LayoutGrid, List, UsersRound, X } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { CreateClubDialog } from "@/components/CreateClubDialog";
-import { ClubCardSkeleton } from "@/components/ui/Skeleton";
+import { ClubCardSkeleton } from "@/components/ui/ClubCardSkeleton";
 
 const ITEMS_PER_PAGE = 12;
 const VIEW_MODE_STORAGE_KEY = "clubs-view-mode";
