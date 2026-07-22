@@ -182,9 +182,9 @@ export default function ClubsIndex() {
                     <Link
                       key={`trending-${c.slug}`}
                       to={`/clubs/${c.slug}`}
-                      className="neu-border group relative block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000] flex flex-col justify-between"
+                      className="neu-border group relative block bg-white p-6 shadow-[4px_4px_0_0_var(--color-ink)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_var(--color-ink)] flex flex-col justify-between"
                     >
-                      <span className="absolute -right-2 -top-3 neu-border bg-yellow text-black px-2.5 py-0.5 font-mono text-[10px] font-black uppercase tracking-wider shadow-[2px_2px_0_0_#000] rotate-2">
+                      <span className="absolute -right-2 -top-3 neu-border bg-yellow text-black px-2.5 py-0.5 font-mono text-[10px] font-black uppercase tracking-wider shadow-[2px_2px_0_0_var(--color-ink)] rotate-2">
                         ✨ Trending
                       </span>
                       <div>
@@ -304,7 +304,7 @@ export default function ClubsIndex() {
                 >
                   <Link
                     to={`/clubs/${c.slug}`}
-                    className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000] h-full"
+                    className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_var(--color-ink)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_var(--color-ink)] h-full"
                   >
                     <div
                       className={`club-logo-badge neu-border ${colors[index % colors.length]} mb-4 inline-block px-3 py-1 font-mono text-xs font-bold uppercase`}
@@ -334,7 +334,7 @@ export default function ClubsIndex() {
                 >
                   <Link
                     to={`/clubs/${c.slug}`}
-                    className="neu-border group flex items-center gap-4 bg-white p-4 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000]"
+                    className="neu-border group flex items-center gap-4 bg-white p-4 shadow-[4px_4px_0_0_var(--color-ink)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_var(--color-ink)]"
                   >
                     <div
                       className={`club-logo-badge neu-border ${colors[index % colors.length]} flex h-12 w-12 shrink-0 items-center justify-center`}

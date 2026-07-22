@@ -142,7 +142,7 @@ export default function Profile() {
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 font-mono text-sm text-black">
               {profile.college && (
                 <div className="flex items-center gap-1.5">
-                  <MapPin size={16} className="text-[#F59E0B]" />
+                  <MapPin size={16} className="text-brand-amber-base" />
                   {profile.college}
                 </div>
               )}
@@ -272,7 +272,7 @@ export default function Profile() {
           {/* Certificates Section */}
           <div className="space-y-6">
             <div className="flex items-center gap-2 border-b-2 border-black pb-2 text-xl font-bold font-display">
-              <Award size={24} className="text-[#F59E0B]" />
+              <Award size={24} className="text-brand-amber-base" />
               <h2>Certificates</h2>
             </div>
             {certificates.length === 0 ? (

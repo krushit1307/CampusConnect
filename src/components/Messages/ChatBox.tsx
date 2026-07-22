@@ -456,7 +456,7 @@ export default function ChatBox() {
   return (
     <div className="mx-auto max-w-6xl p-4">
       {/* Page Header */}
-      <div className="mb-6 border-2 border-black bg-[#ffde00] p-4 text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+      <div className="mb-6 border-2 border-black bg-brand-yellow-bright p-4 text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
         <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
           <div>
             <h1 className="font-display text-2xl font-black uppercase tracking-wider sm:text-3xl">
@@ -486,7 +486,7 @@ export default function ChatBox() {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
         {/* Contacts Sidebar */}
         <div className="flex flex-col border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:bg-black dark:border-cream md:col-span-4">
-          <div className="border-b-2 border-black p-3 dark:border-cream bg-[#f3f4f6] dark:bg-zinc-900">
+          <div className="border-b-2 border-black p-3 dark:border-cream bg-brand-gray-base-100 dark:bg-zinc-900">
             <div className="relative flex items-center">
               <Search className="absolute left-3 h-4 w-4 text-gray-500" />
               <input
