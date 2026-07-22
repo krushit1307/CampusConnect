@@ -19,11 +19,21 @@ export default function AuthLogin() {
       });
       if (error) throw error;
        if (error) throw error;
-  } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to authenticate with provider";
-      setErrorMsg(message);
-      setLoading(false);
-    }
+ try {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+    },
+  });
+
+  if (error) throw error;
+} catch (err: unknown) {
+  const message =
+    err instanceof Error ? err.message : "Failed to authenticate with provider";
+  setErrorMsg(message);
+  setLoading(false);
+}
   };
 
   return (
