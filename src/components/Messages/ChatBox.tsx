@@ -12,8 +12,9 @@ import {
   decryptMessage,
 } from "@/lib/crypto";
 import { toast } from "sonner";
-import { ShieldCheck, Send, Search, Lock, AlertTriangle, RefreshCw } from "lucide-react";
+import { ShieldCheck, Send, Search, Lock, AlertTriangle, RefreshCw, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useWebRTC } from "@/components/VideoCall/WebRTCProvider";
 
 interface Profile {
   id: string;
@@ -35,6 +36,7 @@ interface Message {
 
 export default function ChatBox() {
   const supabase = createClient();
+  const { startCall } = useWebRTC();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [filteredProfiles, setFilteredProfiles] = useState<Profile[]>([]);
@@ -559,9 +561,22 @@ export default function ChatBox() {
                     {activeRecipient.college || "No College Listed"}
                   </p>
                 </div>
-                <div className="flex items-center gap-1.5 border border-black bg-cream px-2 py-0.5 font-mono text-[9px] font-bold uppercase text-black">
-                  <Lock size={10} />
-                  Session Secure
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      if (activeRecipient) {
+                        startCall(activeRecipient.id, activeRecipient.full_name || "Club Member");
+                      }
+                    }}
+                    className="flex items-center gap-1.5 border-2 border-black bg-yellow-300 px-3 py-1 font-mono text-[10px] font-bold uppercase text-black hover:bg-black hover:text-white transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none active:translate-x-0.5 active:translate-y-0.5"
+                  >
+                    <Video size={12} />
+                    Call
+                  </button>
+                  <div className="flex items-center gap-1.5 border border-black bg-cream px-2 py-0.5 font-mono text-[9px] font-bold uppercase text-black">
+                    <Lock size={10} />
+                    Session Secure
+                  </div>
                 </div>
               </div>
 
