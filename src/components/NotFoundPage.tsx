@@ -1,120 +1,117 @@
+import React from "react";
 import { Link } from "react-router-dom";
-import { Home } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
-function GradientCode({ code }: { code: string }) {
+export const NotFoundPage: React.FC = () => {
   return (
-    <svg
-      viewBox="0 0 800 240"
-      className="w-full max-w-[18rem] select-none sm:max-w-md"
-      aria-hidden="true"
-    >
-      {/* Neobrutalist Solid Shadow Text */}
-      <text
-        x="50%"
-        y="50%"
-        textAnchor="middle"
-        dominantBaseline="middle"
-        className="fill-black font-black tracking-tighter"
-        style={{ fontSize: "16rem", transform: "translate(6px, 6px)" }}
-      >
-        {code}
-      </text>
-      {/* Front Outline/Dashed Text */}
-      <text
-        x="50%"
-        y="50%"
-        textAnchor="middle"
-        dominantBaseline="middle"
-        className="fill-lime stroke-black font-black tracking-tighter"
-        style={{ fontSize: "16rem" }}
-        strokeWidth="6"
-        strokeDasharray="24 12"
-      >
-        {code}
-      </text>
-    </svg>
-  );
-}
-
-export function NotFoundPage() {
-  return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-cream px-4 py-16 sm:px-6">
-      {/* Dotted Grid Background */}
-      <div
-        className="pointer-events-none absolute inset-0 z-0 opacity-20"
-        style={{
-          backgroundImage: `radial-gradient(circle at 1px 1px, black 2.5px, transparent 0)`,
-          backgroundSize: "24px 24px",
-        }}
-      />
-
-      {/* Floating Neobrutalist Background Shapes */}
-      <div className="absolute -left-12 top-10 h-32 w-32 rotate-12 border-4 border-black bg-sky shadow-[6px_6px_0_0_#000] sm:h-44 sm:w-44" />
-      <div className="absolute -right-10 bottom-12 h-28 w-28 -rotate-12 border-4 border-black bg-peach shadow-[6px_6px_0_0_#000] sm:h-40 sm:w-40" />
-
-      <section className="relative z-10 mx-auto flex w-full max-w-lg flex-col items-center text-center border-4 border-black bg-white p-6 shadow-[10px_10px_0_0_#000] sm:p-10">
-        {/* Lime Squared Grid Background inside the Card */}
-        <div
-          className="pointer-events-none absolute inset-0 z-0 opacity-25"
-          style={{
-            backgroundImage: `
-              repeating-linear-gradient(0deg, transparent, transparent 19px, var(--lime) 19px, var(--lime) 20px),
-              repeating-linear-gradient(90deg, transparent, transparent 19px, var(--lime) 19px, var(--lime) 20px)
-            `,
-            backgroundSize: "20px 20px, 20px 20px",
-          }}
-        />
-
-        {/* Content Wrapper */}
-        <div className="relative z-10 flex w-full flex-col items-center">
-          {/* Cute Lost Mascot */}
-          <div className="relative mb-2 flex flex-col items-center">
-            {/* Speech Bubble */}
-            <div className="neu-border relative mb-3 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase shadow-[3px_3px_0_0_#000]">
-              Where are we?
-              <div className="absolute -bottom-2 left-1/2 h-0 w-0 -translate-x-1/2 border-x-4 border-t-8 border-x-transparent border-t-black" />
-            </div>
-
-            {/* Mascot Box */}
-            <div className="neu-border flex h-24 w-28 flex-col items-center justify-center bg-peach p-2 shadow-[4px_4px_0_0_#000]">
-              {/* Eyes */}
-              <div className="flex gap-4">
-                <div className="h-3 w-3 rounded-full bg-black animate-pulse" />
-                <div className="h-3 w-3 rounded-full bg-black animate-pulse" />
-              </div>
-              {/* Squiggly Sad Mouth */}
-              <div className="mt-3 font-mono text-xl font-bold leading-none">(﹏)</div>
-            </div>
-          </div>
-
-          {/* Giant dashed SVG code */}
-          <GradientCode code="404" />
-
-          {/* Text Details */}
-          <div className="mt-6 flex flex-col items-center gap-2">
-            <h1 className="font-display text-2xl font-black leading-snug text-black sm:text-3xl">
-              No, no, that's right.
-            </h1>
-            <p className="mx-auto max-w-xs font-mono text-xs leading-relaxed text-gray-700 sm:max-w-sm sm:text-sm">
-              This is a 404 page. And this page exists, no matter what anyone says.
-            </p>
-          </div>
-
-          {/* Navigation Action */}
-          <Button
-            asChild
-            className="neu-border mt-8 bg-lime text-black hover:bg-lime/90 font-mono font-bold uppercase tracking-wider px-6 py-3 h-auto shadow-[4px_4px_0_0_#000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_#000] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[0px_0px_0_0_#000]"
+    <div className="min-h-screen bg-[#FFFDF9] flex flex-col items-center justify-center p-6 text-slate-900 font-sans select-none selection:bg-yellow-300">
+      {/* Neubrutalist Wrapper Container */}
+      <div className="max-w-xl w-full text-center bg-white border-4 border-black p-8 sm:p-12 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none transform transition-transform hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]">
+        {/* Animated Custom SVG Neubrutalist Illustration */}
+        <div className="w-full flex justify-center mb-8 relative">
+          <svg
+            className="w-48 h-48 sm:w-64 sm:h-64 filter drop-shadow-[4px_4px_0px_rgba(0,0,0,1)]"
+            viewBox="0 0 200 200"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            role="img"
+            aria-label="Neubrutalist 404 Illustration representing a broken digital terminal frame"
           >
-            <Link to="/">
-              <Home aria-hidden="true" className="mr-2 h-4 w-4" />
-              Go back home
-            </Link>
-          </Button>
-        </div>
-      </section>
-    </main>
-  );
-}
+            {/* Background Geometric Accent Grid Box */}
+            <rect
+              x="15"
+              y="25"
+              width="150"
+              height="150"
+              fill="#FFDE4D"
+              stroke="black"
+              strokeWidth="4"
+            />
 
-export default NotFoundPage;
+            {/* Terminal Window Top Bar Header */}
+            <rect
+              x="35"
+              y="45"
+              width="130"
+              height="24"
+              fill="#FF6B6B"
+              stroke="black"
+              strokeWidth="4"
+            />
+            <circle cx="50" cy="57" r="5" fill="black" />
+            <circle cx="65" cy="57" r="5" fill="black" />
+
+            {/* Inner Error Code Content Blocks */}
+            <rect
+              x="35"
+              y="65"
+              width="130"
+              height="90"
+              fill="white"
+              stroke="black"
+              strokeWidth="4"
+            />
+
+            {/* Floating '404' Text Block Layer */}
+            <g className="animate-wiggle">
+              <rect
+                x="55"
+                y="85"
+                width="90"
+                height="45"
+                fill="#4D96FF"
+                stroke="black"
+                strokeWidth="4"
+                strokeLinejoin="miter"
+              />
+              <text
+                x="100"
+                y="117"
+                fill="black"
+                fontFamily="Impact, sans-serif"
+                fontSize="32"
+                fontWeight="900"
+                textAnchor="middle"
+              >
+                404
+              </text>
+            </g>
+
+            {/* Cross Geometric Floating Accents */}
+            <path
+              className="animate-[bounce_2.5s_infinite] origin-center"
+              d="M165 60 L175 70 M175 60 L165 70"
+              stroke="black"
+              strokeWidth="4"
+              strokeLinecap="square"
+            />
+            <path
+              className="animate-wiggle origin-center"
+              d="M20 140 L30 150 M30 140 L20 150"
+              stroke="black"
+              strokeWidth="4"
+              strokeLinecap="square"
+            />
+          </svg>
+        </div>
+
+        {/* Subtle Bouncing Heading Text Section */}
+        <h1 className="mb-4 inline-block animate-subtle-bounce border-b-4 border-black pb-4 text-4xl font-black uppercase tracking-tight sm:text-5xl">
+          Page Not Found
+        </h1>
+
+        <p className="text-base sm:text-lg font-bold text-slate-700 max-w-md mx-auto mb-8 leading-relaxed">
+          The campus path you're looking for doesn't exist, was relocated, or is hiding out until
+          finals week is over.
+        </p>
+
+        {/* Neubrutalist Primary Navigation Button */}
+        <Link
+          to="/dashboard"
+          className="inline-block px-8 py-4 bg-[#FF6B6B] border-4 border-black font-black uppercase tracking-wider text-sm transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1"
+        >
+          Back to Campus Dashboard
+        </Link>
+      </div>
+    </div>
+  );
+};

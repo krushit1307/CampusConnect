@@ -37,15 +37,16 @@ export const NavbarNotificationDropdown: React.FC = () => {
   const [notifications, setNotifications] = useState(mockNotifications);
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const filteredNotifications = notifications.filter(
     (n) =>
       n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       n.message.toLowerCase().includes(searchQuery.toLowerCase()),
   );
-
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const toggleDropdown = () => setIsOpen(!isOpen);
 
@@ -59,6 +60,7 @@ export const NavbarNotificationDropdown: React.FC = () => {
         setIsOpen(false);
       }
     };
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
@@ -108,16 +110,15 @@ export const NavbarNotificationDropdown: React.FC = () => {
                 </button>
               )}
             </div>
+
             <div className="relative">
               <Search className="absolute left-2 top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search notifications..."
                 className="pl-7 pr-7 text-xs"
               />
-
               {searchQuery && (
                 <button
                   type="button"

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.110.0";
 import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
+import { limitRate } from "../shared/rate_limiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,6 +11,15 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  // Rate Limiting: 5 requests per minute per IP
+  const rateLimitResponse = await limitRate(req, "generate-event-certs", {
+    limit: 5,
+    windowMs: 60000,
+  });
+  if (rateLimitResponse) {
+    return rateLimitResponse;
   }
 
   const authHeader = req.headers.get("Authorization");
@@ -41,10 +51,12 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const { eventId } = payload;
+    const record = payload.record || payload;
+    const eventId = record.event_id || record.eventId;
+    const userId = record.user_id || record.userId;
 
-    if (!eventId) {
-      return new Response(JSON.stringify({ error: "Missing eventId" }), {
+    if (!eventId || !userId) {
+      return new Response(JSON.stringify({ error: "Missing eventId or userId" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -73,113 +85,90 @@ serve(async (req) => {
 
     const clubName = Array.isArray(event.clubs) ? event.clubs[0]?.name : event.clubs?.name;
 
-    // 2. Fetch all attendees (users who RSVP'd)
-    const { data: attendees, error: attendeesError } = await supabase
-      .from("event_rsvps")
-      .select("user_id, profiles(full_name)")
-      .eq("event_id", eventId);
+    // 2. Fetch specific attendee profile
+    const { data: attendee, error: attendeeError } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", userId)
+      .single();
 
-    if (attendeesError || !attendees) {
-      throw new Error("Failed to fetch attendees");
+    if (attendeeError) {
+      console.warn(`Failed to fetch profile for user ${userId}, using default name`);
     }
 
-    const generatedRecords = [];
+    const fullName = attendee?.full_name || "Student";
 
-    // 3. Batch generate PDFs
-    for (const attendee of attendees) {
-      const userId = attendee.user_id;
-      try {
-        // Using loosely typed profiles based on standard Supabase joins
-        const profileInfo = attendee.profiles as { full_name?: string } | { full_name?: string }[];
-        const fullName = Array.isArray(profileInfo)
-          ? profileInfo[0]?.full_name
-          : profileInfo?.full_name;
+    // 3. Generate PDF
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([600, 400]);
+    const helveticaFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const helveticaNormal = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-        const pdfDoc = await PDFDocument.create();
-        const page = pdfDoc.addPage([600, 400]);
-        const helveticaFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-        const helveticaNormal = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    page.drawText("Certificate of Participation", {
+      x: 100,
+      y: 320,
+      size: 30,
+      font: helveticaFont,
+      color: rgb(0, 0, 0),
+    });
+    page.drawText(`This certifies that`, { x: 230, y: 270, size: 16, font: helveticaNormal });
+    page.drawText(fullName, {
+      x: 200,
+      y: 230,
+      size: 24,
+      font: helveticaFont,
+    });
+    page.drawText(`has successfully participated in`, {
+      x: 190,
+      y: 190,
+      size: 16,
+      font: helveticaNormal,
+    });
+    page.drawText(event.title, { x: 150, y: 150, size: 20, font: helveticaFont });
+    page.drawText(`Organized by ${clubName || "CampusConnect"}`, {
+      x: 200,
+      y: 110,
+      size: 14,
+      font: helveticaNormal,
+    });
 
-        page.drawText("Certificate of Participation", {
-          x: 100,
-          y: 320,
-          size: 30,
-          font: helveticaFont,
-          color: rgb(0, 0, 0),
-        });
-        page.drawText(`This certifies that`, { x: 230, y: 270, size: 16, font: helveticaNormal });
-        page.drawText(fullName || "Student", {
-          x: 200,
-          y: 230,
-          size: 24,
-          font: helveticaFont,
-        });
-        page.drawText(`has successfully participated in`, {
-          x: 190,
-          y: 190,
-          size: 16,
-          font: helveticaNormal,
-        });
-        page.drawText(event.title, { x: 150, y: 150, size: 20, font: helveticaFont });
-        page.drawText(`Organized by ${clubName || "CampusConnect"}`, {
-          x: 200,
-          y: 110,
-          size: 14,
-          font: helveticaNormal,
-        });
+    const dateStr = event.event_date
+      ? new Date(event.event_date).toLocaleDateString()
+      : new Date().toLocaleDateString();
+    page.drawText(`Date: ${dateStr}`, { x: 250, y: 70, size: 12, font: helveticaNormal });
 
-        const dateStr = event.event_date
-          ? new Date(event.event_date).toLocaleDateString()
-          : new Date().toLocaleDateString();
-        page.drawText(`Date: ${dateStr}`, { x: 250, y: 70, size: 12, font: helveticaNormal });
+    const pdfBytes = await pdfDoc.save();
 
-        const pdfBytes = await pdfDoc.save();
+    // Upload to storage
+    const fileName = `${userId}/${eventId}.pdf`;
+    const { error: uploadError } = await supabase.storage
+      .from("certificates")
+      .upload(fileName, pdfBytes, {
+        contentType: "application/pdf",
+        upsert: true,
+      });
 
-        // Upload to storage
-        const fileName = `${userId}/${eventId}.pdf`;
-        const { error: uploadError } = await supabase.storage
-          .from("certificates")
-          .upload(fileName, pdfBytes, {
-            contentType: "application/pdf",
-            upsert: true,
-          });
-
-        if (uploadError) {
-          console.error(`Failed to upload for user ${userId}:`, uploadError);
-          continue;
-        }
-
-        const { data: publicUrlData } = supabase.storage
-          .from("certificates")
-          .getPublicUrl(fileName);
-
-        // Save to database
-        const { data: insertData, error: insertError } = await supabase
-          .from("certificates")
-          .upsert(
-            {
-              event_id: eventId,
-              user_id: userId,
-              certificate_url: publicUrlData.publicUrl,
-            },
-            { onConflict: "event_id,user_id" },
-          )
-          .select()
-          .single();
-
-        if (insertError) {
-          console.error(`Failed to save record for user ${userId}:`, insertError);
-          continue;
-        }
-
-        generatedRecords.push(insertData);
-      } catch (err) {
-        console.error(`Failed to generate certificate for user ${userId}:`, err);
-        continue;
-      }
+    if (uploadError) {
+      throw new Error(`Failed to upload certificate for user ${userId}: ${uploadError.message}`);
     }
 
-    return new Response(JSON.stringify({ success: true, processed: generatedRecords.length }), {
+    const { data: publicUrlData } = supabase.storage.from("certificates").getPublicUrl(fileName);
+
+    // Save to database
+    const { error: insertError } = await supabase.from("certificates").upsert(
+      {
+        event_id: eventId,
+        user_id: userId,
+        certificate_url: publicUrlData.publicUrl,
+      },
+      { onConflict: "event_id,user_id" },
+    );
+
+    if (insertError) {
+      throw new Error(`Failed to save record for user ${userId}: ${insertError.message}`);
+    }
+
+    return new Response(JSON.stringify({ success: true, url: publicUrlData.publicUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

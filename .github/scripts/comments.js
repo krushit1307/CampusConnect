@@ -8,7 +8,7 @@ export const comments = {
       AUTOMATION.claimWelcomeMarker,
       `Hey @${user}, awesome to have you on board for this! 🚀\n\n` +
         `We've officially assigned issue #${issueNumber} to you. Be sure to check out our **CONTRIBUTING.md** before starting, and keep your PR scoped to this issue for an easier review process.\n\n` +
-        `⏳ Try to open a PR within **6 days**. If you need extra time, just drop a quick progress update here and you can keep going.\n\n` +
+        `⏳ Try to open a PR within **3 days**. If you need extra time, just drop a quick progress update here and you can keep going.\n\n` +
         `Can't wait to see your work. Happy coding! ✨`,
     ),
 
@@ -19,7 +19,7 @@ export const comments = {
 
   maxIssueLimitReached: ({ user, activeCount }) =>
     `Hey @${user}, we love the energy! 🌟\n\n` +
-    `You've reached our limit with **${activeCount} active assigned issues** (the max is **10**). This helps ensure everyone gets a chance to contribute.\n\n` +
+    `You've reached our limit with **${activeCount} active assigned issues** (the max is **7**). This helps ensure everyone gets a chance to contribute.\n\n` +
     `Once you finish or release an active issue (using \`${COMMANDS.unclaim}\`), you can definitely claim another one!`,
 
   invalidClaim: ({ user }) =>
@@ -54,7 +54,7 @@ export const comments = {
     withMarker(
       AUTOMATION.assignmentWelcomeMarker,
       `Hi @${assignee}, welcome aboard! 🎉\n\n` +
-        `You are now assigned to issue #${issueNumber}. Please follow **CONTRIBUTING.md**, keep your PR focused on this issue, and aim to open it within **6 days**.\n\n` +
+        `You are now assigned to issue #${issueNumber}. Please follow **CONTRIBUTING.md**, keep your PR focused on this issue, and aim to open it within **3 days**.\n\n` +
         `If anything blocks you along the way, just leave a short update here — we're happy to help. Looking forward to your contribution! 🚀`,
     ),
 
@@ -71,7 +71,7 @@ export const comments = {
     withMarker(
       AUTOMATION.reminder12Marker,
       `Hi @${assignee}, just a friendly check-in! 👋\n\n` +
-        `It's been about **4 days** since this issue was assigned to you. If you're actively working on it, that's great — just leave a short progress update or open a draft PR to keep your claim active.\n\n` +
+        `It's been about **1 day** since this issue was assigned to you. If you're actively working on it, that's great — just leave a short progress update or open a draft PR to keep your claim active.\n\n` +
         `No pressure, we just want to keep things moving smoothly for everyone. 😊`,
     ),
 
@@ -79,7 +79,7 @@ export const comments = {
     withMarker(
       AUTOMATION.reminder18Marker,
       `Hi @${assignee}, another friendly reminder! ⏰\n\n` +
-        `It's been around **5 days** without any activity on this claim. If you're still working on it, please leave a quick update so we can keep it assigned to you.\n\n` +
+        `It's been around **2 days** without any activity on this claim. If you're still working on it, please leave a quick update so we can keep it assigned to you.\n\n` +
         `We'd hate to see you lose your spot — just a small update is all it takes! 💙`,
     ),
 
@@ -87,7 +87,7 @@ export const comments = {
     withMarker(
       AUTOMATION.expiredMarker,
       `Hi @${assignee}, thank you again for your interest in this issue! 🙏\n\n` +
-        `Since there was no activity within the **6-day** claim window, the issue has been released so other contributors can get a chance to work on it.\n\n` +
+        `Since there was no activity within the **3-day** claim window, the issue has been released so other contributors can get a chance to work on it.\n\n` +
         `If it's still available and you'd like to continue, you're more than welcome to claim it again — we'd love to see you back! 😊`,
     ),
 

@@ -55,6 +55,9 @@ jobs:
       - name: Run Lint checks
         run: npm run lint
 
+      - name: Run Type Check
+        run: npm run typecheck
+
   prettier:
     name: Prettier Check
     runs-on: ubuntu-latest
@@ -114,10 +117,17 @@ jobs:
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.109.0
+
+      - name: Copy CI Supabase config
+        run: cp supabase/config.ci.toml supabase/config.toml
 
       - name: Start local Supabase
         run: supabase start
 
       - name: Verify database migrations
         run: supabase db reset
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop || true

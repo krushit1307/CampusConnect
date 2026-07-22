@@ -10,8 +10,17 @@ export const eventFormSchema = z
       .min(1, "Title is required.")
       .max(TITLE_MAX_LENGTH, `Title must be ${TITLE_MAX_LENGTH} characters or fewer.`),
     description: z.string().trim().min(1, "Description is required."),
+    category: z.string().trim().optional(),
+    location: z.string().trim().optional(),
     startDate: z.string().min(1, "Start date is required."),
     endDate: z.string().min(1, "End date is required."),
+    banner: z.union([z.literal(""), z.string().url("Must be a valid URL")]).optional(),
+    capacity: z.coerce
+      .number()
+      .int()
+      .positive("Capacity must be positive")
+      .optional()
+      .or(z.literal("")),
   })
   .refine((data) => new Date(data.endDate) > new Date(data.startDate), {
     message: "End date must be after the start date.",

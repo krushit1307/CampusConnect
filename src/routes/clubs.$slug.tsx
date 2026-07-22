@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
@@ -8,6 +8,26 @@ import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ArrowLeft, Github, Loader2, CheckCircle } from "lucide-react";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // Small building block for the skeleton below. Deliberately a plain div
 // (not the shared ui/skeleton component) to keep this change self-contained.
@@ -63,7 +83,9 @@ function ClubProfileSkeleton() {
       <section className="px-4 py-12 md:px-6">
         <div className="mx-auto max-w-6xl">
           <div className="neu-border bg-white p-6">
-            <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold">Upcoming events</h2>
+            <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold text-indigo-900">
+              Upcoming events
+            </h2>
             <div className="divide-y-2 divide-black">
               {[0, 1, 2].map((i) => (
                 <div key={i} className="flex items-center gap-4 py-4">
@@ -85,6 +107,8 @@ export default function ClubProfile() {
   const [user, setUser] = useState<User | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
+  const [joinSuccess, setJoinSuccess] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -101,7 +125,7 @@ export default function ClubProfile() {
         .from("clubs")
         .select(
           `
-          id, name, slug, description,
+          id, name, slug, description, github_repo_url, visibility,
           club_members (id, role, status, user_id, profiles (full_name, avatar_url, handle)),
           events (id, title, event_date)
         `,
@@ -116,14 +140,47 @@ export default function ClubProfile() {
   const joinMutation = useMutation({
     mutationFn: async () => {
       if (!user || !club) throw new Error("Must be logged in");
-      await supabase.from("club_members").insert({
+      const isPublic = (club as { visibility?: string }).visibility === "public";
+      const { error } = await supabase.from("club_members").insert({
         club_id: club.id,
         user_id: user.id,
-        status: "pending",
+        status: isPublic ? "approved" : "pending",
       });
+      if (error) throw error;
+      return { isPublic };
+    },
+    onSuccess: ({ isPublic }) => {
+      setIsJoinDialogOpen(false);
+      setJoinSuccess(true);
+      toast.success(isPublic ? "You have joined the club!" : "Join request submitted!");
+      if (!isPublic) {
+        // pending: refetch so the row is in state; joinSuccess shows for 2s then
+        // the membership row (status=pending) takes over correctly
+        refetch();
+        setTimeout(() => setJoinSuccess(false), 2000);
+      }
+      // approved: skip refetch — joinSuccess stays true and renders "Member ✓" permanently
+    },
+    onError: () => {
+      toast.error("Failed to submit join request. Please try again.");
+    },
+  });
+
+  const leaveMutation = useMutation({
+    mutationFn: async () => {
+      if (!user || !club) throw new Error("Must be logged in");
+      const { error } = await supabase
+        .from("club_members")
+        .delete()
+        .match({ club_id: club.id, user_id: user.id });
+      if (error) throw error;
     },
     onSuccess: () => {
+      toast.success("You have left the club.");
       refetch();
+    },
+    onError: () => {
+      toast.error("Failed to leave club. Please try again.");
     },
   });
 
@@ -131,7 +188,7 @@ export default function ClubProfile() {
   if (!club)
     return (
       <SiteShell>
-        <div className="p-10 font-mono">Club not found.</div>
+        <div className="p-10 font-mono text-gray-700">Club not found.</div>
       </SiteShell>
     );
 
@@ -165,7 +222,39 @@ export default function ClubProfile() {
     <SiteShell>
       <section className="border-b-2 border-black px-4 py-14 md:px-6">
         <div className="mx-auto max-w-6xl">
-          <p className="eyebrow font-bold">Club</p>
+          {/* Breadcrumb — full on sm+, back-link only on mobile */}
+          <Link
+            to="/clubs"
+            className="mb-4 inline-flex items-center gap-1 font-mono text-xs font-bold uppercase tracking-wider hover:underline sm:hidden"
+          >
+            <ArrowLeft size={12} /> Clubs
+          </Link>
+          <Breadcrumb className="hidden sm:block mb-4">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to="/" className="font-mono text-xs font-bold uppercase">
+                    Home
+                  </Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to="/clubs" className="font-mono text-xs font-bold uppercase">
+                    Clubs
+                  </Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="font-mono text-xs font-bold uppercase">
+                  {club.name}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+          <p className="eyebrow font-bold text-blue-900">Club</p>
           <h1 className="mt-2 text-5xl font-bold text-[#123a57] md:text-7xl">{club.name}</h1>
           <div className="markdown-content mt-4 max-w-2xl font-mono text-sm md:text-base leading-relaxed">
             <ReactMarkdown>{club.description || ""}</ReactMarkdown>
@@ -173,12 +262,12 @@ export default function ClubProfile() {
 
           {/* Members section below the description */}
           <div className="mt-8 max-w-2xl">
-            <h3 className="font-display text-lg font-bold">Members</h3>
-            <p className="font-mono text-xs text-gray-500 mt-1 mb-3">
+            <h3 className="font-display text-lg font-bold text-blue-900">Members</h3>
+            <p className="font-mono text-xs text-black mt-1 mb-3">
               {memberList.length} members total
             </p>
             {memberList.length === 0 ? (
-              <p className="font-mono text-sm text-gray-500">No members yet.</p>
+              <p className="font-mono text-sm text-black">No members yet.</p>
             ) : (
               <>
                 <div className="mb-4">
@@ -192,7 +281,7 @@ export default function ClubProfile() {
                   />
                 </div>
                 {filteredMembers.length === 0 ? (
-                  <p className="font-mono text-sm text-gray-500">No members match your search.</p>
+                  <p className="font-mono text-sm text-gray-700">No members match your search.</p>
                 ) : (
                   <>
                     <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -216,7 +305,10 @@ export default function ClubProfile() {
                               {m.name}
                             </p>
                             {m.handle && (
-                              <p className="text-xs text-gray-500 truncate" title={`@${m.handle}`}>
+                              <p
+                                className="text-xs text-gray-500 dark:text-gray-300 truncate"
+                                title={`@${m.handle}`}
+                              >
                                 @{m.handle}
                               </p>
                             )}
@@ -240,35 +332,104 @@ export default function ClubProfile() {
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
-            <button
-              onClick={() => {
-                if (!user) return void toast.error("Please sign in first");
-                joinMutation.mutate();
-              }}
-              disabled={!!membership || joinMutation.isPending}
-              className={`neu-border neu-press px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider ${membership ? "bg-gray-300 cursor-not-allowed" : "bg-black text-cream"}`}
-            >
-              {membership
-                ? membership.status === "pending"
-                  ? "Request Pending"
-                  : "Member ✓"
-                : "Join club"}
-            </button>
+            {membership?.status === "approved" ? (
+              <button
+                onClick={() => {
+                  if (!user) return void toast.error("Please sign in first");
+                  leaveMutation.mutate();
+                }}
+                disabled={leaveMutation.isPending}
+                className="neu-border neu-press inline-flex items-center gap-2 bg-gray-200 px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-red-100 disabled:opacity-50"
+              >
+                {leaveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Leave Club
+              </button>
+            ) : membership?.status === "pending" ? (
+              <button
+                disabled
+                className="neu-border px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider bg-gray-300 cursor-not-allowed"
+              >
+                Request Pending
+              </button>
+            ) : joinSuccess ? (
+              <button
+                disabled
+                className="neu-border inline-flex items-center gap-2 bg-lime px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider"
+              >
+                <CheckCircle className="h-3.5 w-3.5" />
+                Member ✓
+              </button>
+            ) : (
+              <AlertDialog open={isJoinDialogOpen} onOpenChange={setIsJoinDialogOpen}>
+                <AlertDialogTrigger asChild>
+                  <button
+                    onClick={() => {
+                      if (!user) return void toast.error("Please sign in first");
+                      setIsJoinDialogOpen(true);
+                    }}
+                    className="neu-border neu-press inline-flex items-center gap-2 bg-black px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider text-cream"
+                  >
+                    Join Club
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="neu-border bg-white rounded-none p-6">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="font-display text-xl font-bold">
+                      Submit join request?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="font-mono text-sm text-gray-700">
+                      Do you want to submit a join request?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+                    <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={(e) => {
+                        e.preventDefault();
+                        joinMutation.mutate();
+                      }}
+                      disabled={joinMutation.isPending}
+                      className="neu-border bg-black text-cream hover:bg-cream hover:text-black rounded-none font-mono text-xs font-bold uppercase disabled:opacity-50 inline-flex items-center gap-2"
+                    >
+                      {joinMutation.isPending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : null}
+                      {joinMutation.isPending ? "Submitting..." : "Confirm"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
             <button
               onClick={() => toast.info("Follow feature coming soon!")}
               className="neu-border neu-press bg-cream px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider"
             >
               Follow
             </button>
+            {club.github_repo_url && (
+              <a
+                href={club.github_repo_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="neu-border neu-press inline-flex items-center gap-2 bg-white px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-lime/20"
+              >
+                <Github className="h-4 w-4" />
+                GitHub Repo
+              </a>
+            )}
           </div>
         </div>
       </section>
       <section className="px-4 py-12 md:px-6">
         <div className="mx-auto max-w-6xl">
           <div className="neu-border bg-white p-6">
-            <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold">Upcoming events</h2>
+            <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold text-black">
+              Upcoming events
+            </h2>
             {events.length === 0 ? (
-              <p className="font-mono text-sm">No upcoming events.</p>
+              <p className="font-mono text-sm text-black">No upcoming events.</p>
             ) : (
               <ul className="divide-y-2 divide-black">
                 {events.map((e) => (

@@ -12,7 +12,11 @@ import {
   GraduationCap,
   FileText,
   Link2,
+  Calendar,
+  MessageCircle,
+  Users,
 } from "lucide-react";
+import TrendingCarousel from "@/components/Clubs/TrendingCarousel";
 
 interface SavedEventDetails {
   id: string;
@@ -24,6 +28,54 @@ interface SavedEventDetails {
 interface DashboardSavedEvent {
   id: string;
   events: SavedEventDetails[] | SavedEventDetails | null;
+}
+
+interface ActivityItem {
+  id: string;
+  type: "post" | "rsvp" | "club_join";
+  description: string;
+  created_at: string;
+}
+
+interface ActivityPostRow {
+  id: string;
+  content: string;
+  created_at: string;
+  clubs: { name: string } | { name: string }[] | null;
+}
+
+interface ActivityRsvpRow {
+  id: string;
+  created_at: string;
+  events: { id: string; title: string } | { id: string; title: string }[] | null;
+}
+
+interface ActivityClubMemberRow {
+  id: string;
+  created_at: string;
+  clubs: { name: string } | { name: string }[] | null;
+}
+
+/**
+ * Formats a date string as a short relative time string (e.g. "2 hours ago",
+ * "in 3 days"). Used by the Dashboard's Recent Activity widget (#258).
+ */
+function formatRelativeActivityTime(dateString: string): string {
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "";
+
+  const diffMs = date.getTime() - Date.now();
+  const diffSeconds = Math.round(diffMs / 1000);
+  const diffMinutes = Math.round(diffSeconds / 60);
+  const diffHours = Math.round(diffMinutes / 60);
+  const diffDays = Math.round(diffHours / 24);
+
+  const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+
+  if (Math.abs(diffSeconds) < 60) return rtf.format(diffSeconds, "second");
+  if (Math.abs(diffMinutes) < 60) return rtf.format(diffMinutes, "minute");
+  if (Math.abs(diffHours) < 24) return rtf.format(diffHours, "hour");
+  return rtf.format(diffDays, "day");
 }
 
 export default function DashboardOverview() {
@@ -57,6 +109,19 @@ export default function DashboardOverview() {
   });
 
   const [animateIn, setAnimateIn] = useState(false);
+
+  const { data: trendingClubs = [] } = useQuery({
+    queryKey: ["trendingClubs"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clubs")
+        .select("*")
+        .order("member_count", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   useEffect(() => {
     if (!dismissed) {
@@ -167,6 +232,68 @@ export default function DashboardOverview() {
     enabled: !!user?.id,
   });
 
+  const { data: recentActivity = [], isLoading: isActivityLoading } = useQuery({
+    queryKey: ["recentActivity", user?.id],
+    queryFn: async (): Promise<ActivityItem[]> => {
+      const [postsRes, rsvpsRes, membersRes] = await Promise.all([
+        supabase
+          .from("posts")
+          .select("id, content, created_at, clubs(name)")
+          .eq("author_id", user?.id)
+          .order("created_at", { ascending: false })
+          .limit(5),
+        supabase
+          .from("event_rsvps")
+          .select("id, created_at, events(id, title)")
+          .eq("user_id", user?.id)
+          .order("created_at", { ascending: false })
+          .limit(5),
+        supabase
+          .from("club_members")
+          .select("id, created_at, clubs(name)")
+          .eq("user_id", user?.id)
+          .eq("status", "approved")
+          .order("created_at", { ascending: false })
+          .limit(5),
+      ]);
+
+      const posts: ActivityItem[] = (postsRes.data || []).map((p: ActivityPostRow) => {
+        const club = Array.isArray(p.clubs) ? p.clubs[0] : p.clubs;
+        return {
+          id: `post-${p.id}`,
+          type: "post",
+          description: club?.name ? `You posted in ${club.name}` : "You made a post",
+          created_at: p.created_at,
+        };
+      });
+
+      const rsvps: ActivityItem[] = (rsvpsRes.data || []).map((r: ActivityRsvpRow) => {
+        const event = Array.isArray(r.events) ? r.events[0] : r.events;
+        return {
+          id: `rsvp-${r.id}`,
+          type: "rsvp",
+          description: event?.title ? `You RSVP'd to ${event.title}` : "You RSVP'd to an event",
+          created_at: r.created_at,
+        };
+      });
+
+      const clubJoins: ActivityItem[] = (membersRes.data || []).map((m: ActivityClubMemberRow) => {
+        const club = Array.isArray(m.clubs) ? m.clubs[0] : m.clubs;
+        return {
+          id: `club-${m.id}`,
+          type: "club_join",
+          description: club?.name ? `You joined ${club.name}` : "You joined a club",
+          created_at: m.created_at,
+        };
+      });
+
+      return [...posts, ...rsvps, ...clubJoins]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 5);
+    },
+    enabled: !!user?.id,
+  });
+
   const colors = ["bg-lime", "bg-sky", "bg-peach"];
 
   if (!user) return null;
@@ -204,7 +331,7 @@ export default function DashboardOverview() {
                 New Account Checklist
               </div>
               <h2 className="text-3xl font-display font-black text-black tracking-tight md:text-4xl mb-2">
-                Welcome to CampusConnect, {profile?.full_name?.split(" ")[0] || "Student"}! 🎓
+                Welcome to CampusConnect, {profile?.first_name || "Student"}!
               </h2>
               <p className="text-sm font-mono text-gray-800 leading-relaxed max-w-xl">
                 Complete your profile details below to connect with peer groups, customize your
@@ -220,7 +347,7 @@ export default function DashboardOverview() {
               <span className="font-display text-4xl font-black text-black my-1">
                 {Math.round((completedCount / steps.length) * 100)}%
               </span>
-              <span className="font-mono text-xs text-gray-500 font-medium">
+              <span className="font-mono text-sm text-gray-500 dark:text-gray-300">
                 {completedCount} of {steps.length} completed
               </span>
               {/* Small progress bar */}
@@ -276,7 +403,9 @@ export default function DashboardOverview() {
                     <h3 className="font-display font-bold text-base text-black mb-1">
                       {step.label}
                     </h3>
-                    <p className="font-mono text-xs text-gray-500 leading-snug">{step.hint}</p>
+                    <p className="font-mono text-sm text-gray-500 dark:text-gray-300">
+                      {step.hint}
+                    </p>
                   </div>
                   <div className="mt-4 flex items-center justify-end font-mono text-[10px] font-bold uppercase group">
                     <span className="underline group-hover:no-underline transition-all">
@@ -291,9 +420,15 @@ export default function DashboardOverview() {
         </div>
       )}
 
+      <div className="lg:col-span-3">
+        <TrendingCarousel clubs={trendingClubs} />
+      </div>
+
       <Widget title="Upcoming events" cta={{ label: "All events", to: "/events" }}>
         {upcomingEvents.length === 0 ? (
-          <p className="py-4 font-mono text-sm text-gray-500">No upcoming events yet.</p>
+          <p className="py-4 font-mono text-sm text-gray-500 dark:text-gray-300">
+            No upcoming events yet.
+          </p>
         ) : (
           <ul className="divide-y-2 divide-black">
             {upcomingEvents.map((r, i) => {
@@ -326,7 +461,9 @@ export default function DashboardOverview() {
 
       <Widget title="Saved events" cta={{ label: "Explore", to: "/events" }}>
         {savedEvents.length === 0 ? (
-          <p className="py-4 font-mono text-sm text-gray-500">No saved events yet.</p>
+          <p className="py-4 font-mono text-sm text-gray-500 dark:text-gray-300">
+            No saved events yet.
+          </p>
         ) : (
           <ul className="divide-y-2 divide-black">
             {savedEvents.map((item: DashboardSavedEvent, i) => {
@@ -359,7 +496,9 @@ export default function DashboardOverview() {
 
       <Widget title="Your clubs" cta={{ label: "Directory", to: "/clubs" }}>
         {userClubs.length === 0 ? (
-          <p className="font-mono text-sm text-gray-500">You haven't joined any clubs yet.</p>
+          <p className="font-mono text-sm text-gray-500 dark:text-gray-300">
+            You haven't joined any clubs yet.
+          </p>
         ) : (
           <ul className="space-y-3">
             {userClubs.map((c) => {
@@ -386,12 +525,41 @@ export default function DashboardOverview() {
       </Widget>
 
       <Widget title="Recent activity" className="lg:col-span-3">
-        <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
-          <li className="flex items-start gap-2">
-            <span className="mt-2 inline-block h-2 w-2 shrink-0 bg-black" />
-            No recent activity fetched yet.
-          </li>
-        </ul>
+        {isActivityLoading ? (
+          <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
+            {[1, 2, 3, 4].map((i) => (
+              <li key={i} className="flex animate-pulse items-start gap-2">
+                <span className="mt-1 h-4 w-4 shrink-0 rounded-full bg-black/10" />
+                <span className="h-4 w-full rounded bg-black/10" />
+              </li>
+            ))}
+          </ul>
+        ) : recentActivity.length === 0 ? (
+          <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
+            <li className="flex items-start gap-2">
+              <span className="mt-2 inline-block h-2 w-2 shrink-0 bg-black" />
+              No recent activity yet.
+            </li>
+          </ul>
+        ) : (
+          <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
+            {recentActivity.map((item) => {
+              const Icon =
+                item.type === "rsvp" ? Calendar : item.type === "post" ? MessageCircle : Users;
+              return (
+                <li key={item.id} className="flex items-start gap-2">
+                  <Icon className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    {item.description}
+                    <span className="ml-2 text-black/50">
+                      {formatRelativeActivityTime(item.created_at)}
+                    </span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </Widget>
     </div>
   );

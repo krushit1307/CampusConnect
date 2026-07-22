@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SiteShell } from "@/components/site/SiteShell";
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { Camera, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { Camera, Loader2, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
 
@@ -13,7 +13,12 @@ import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { profileSchema, type ProfileFormValues } from "@/lib/schemas";
+import {
+  profileSchema,
+  AVATAR_THEMES,
+  type ProfileFormValues,
+  type AvatarThemeId,
+} from "@/lib/schemas";
 import {
   Form,
   FormField,
@@ -61,7 +66,34 @@ export default function SettingsPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [borderThickness, setBorderThickness] = useState(2);
+  const [borderRadius, setBorderRadius] = useState(0);
   const { fontSize, increment, decrement, reset } = useFontSize();
+
+  // --- Skills tags state ---
+  const [skills, setSkills] = useState<string[]>([]);
+  const [skillInput, setSkillInput] = useState("");
+  const skillInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAddSkill = () => {
+    const trimmed = skillInput.trim();
+    if (trimmed && !skills.includes(trimmed)) {
+      setSkills((prev) => [...prev, trimmed]);
+    }
+    setSkillInput("");
+    skillInputRef.current?.focus();
+  };
+
+  const handleSkillKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddSkill();
+    }
+  };
+
+  const handleRemoveSkill = (skill: string) => {
+    setSkills((prev) => prev.filter((s) => s !== skill));
+  };
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -71,6 +103,22 @@ export default function SettingsPage() {
         setUser(user);
       }
     });
+
+    // Load appearance settings from localStorage
+    const savedThickness = localStorage.getItem("border-thickness");
+    const savedRadius = localStorage.getItem("border-radius");
+
+    if (savedThickness) {
+      const thickness = parseInt(savedThickness, 10);
+      setBorderThickness(thickness);
+      document.documentElement.style.setProperty("--border-thickness", `${thickness}px`);
+    }
+
+    if (savedRadius) {
+      const radius = parseInt(savedRadius, 10);
+      setBorderRadius(radius);
+      document.documentElement.style.setProperty("--border-radius", `${radius}px`);
+    }
   }, [navigate, supabase]);
 
   const {
@@ -94,7 +142,9 @@ export default function SettingsPage() {
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      fullName: "",
+      avatarTheme: "",
+      firstName: "",
+      lastName: "",
       handle: "",
       collegeEmail: "",
       bio: "",
@@ -105,14 +155,26 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (user) {
+      // Auth metadata (from OAuth sign-up, etc.) may only ever have a single
+      // full_name string. If the profile row hasn't been saved with split
+      // first/last names yet, fall back to a best-effort split of that.
+      const [metaFirstName = "", ...metaRest] = (user.user_metadata?.full_name || "").split(" ");
+      const metaLastName = metaRest.join(" ");
+
       form.reset({
-        fullName: profile?.full_name || user.user_metadata?.full_name || "",
+        avatarTheme: (profile?.avatar_theme as AvatarThemeId) || "",
+        firstName: profile?.first_name || metaFirstName,
+        lastName: profile?.last_name || metaLastName,
         handle: profile?.handle || "",
         collegeEmail: user.email || "",
         bio: profile?.bio || "",
         linkedinUrl: profile?.linkedin_url || "",
         phoneNumber: profile?.phone_number || "",
       });
+      // Hydrate skills from profile (text[])
+      if (Array.isArray(profile?.skills)) {
+        setSkills(profile.skills as string[]);
+      }
     }
   }, [profile, user, form]);
 
@@ -124,15 +186,19 @@ export default function SettingsPage() {
         return;
       }
 
-      // Update profiles table
+      // Update profiles table (including skills text[])
+      const dedupedSkills = [...new Set(skills.map((s) => s.trim()).filter(Boolean))];
       const { error: profileError } = await supabase
         .from("profiles")
         .update({
-          full_name: values.fullName,
+          avatar_theme: values.avatarTheme || null,
+          first_name: values.firstName,
+          last_name: values.lastName,
           handle: values.handle,
           bio: values.bio || null,
           linkedin_url: values.linkedinUrl || null,
           phone_number: values.phoneNumber || null,
+          skills: dedupedSkills,
         })
         .eq("id", user.id);
 
@@ -158,7 +224,24 @@ export default function SettingsPage() {
     }
   };
 
-  const currentFullName = form.watch("fullName");
+  const currentFirstName = form.watch("firstName");
+  const currentLastName = form.watch("lastName");
+  const currentFullName = `${currentFirstName} ${currentLastName}`.trim();
+  const currentAvatarTheme = form.watch("avatarTheme");
+
+  const handleBorderThicknessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    setBorderThickness(value);
+    document.documentElement.style.setProperty("--border-thickness", `${value}px`);
+    localStorage.setItem("border-thickness", String(value));
+  };
+
+  const handleBorderRadiusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    setBorderRadius(value);
+    document.documentElement.style.setProperty("--border-radius", `${value}px`);
+    localStorage.setItem("border-radius", String(value));
+  };
 
   if (isProfileLoading && !profile) {
     return (
@@ -174,42 +257,70 @@ export default function SettingsPage() {
     <SiteShell>
       <section className="border-b-2 border-black px-4 py-14 md:px-6">
         <div className="mx-auto max-w-4xl">
-          <p className="eyebrow font-bold">Account</p>
-          <h1 className="mt-2 text-4xl font-bold text-[#123a57] md:text-6xl">Settings.</h1>
+          <p className="eyebrow font-bold text-black">Account</p>
+          <h1 className="mt-2 text-4xl font-bold text-[#123a57] md:text-6xl text-black">
+            Settings.
+          </h1>
         </div>
       </section>
       <section className="px-4 py-12 md:px-6">
-        <div className="mx-auto max-w-4xl space-y-6">
+        <div className="mx-auto max-w-4xl space-y-6 text-indigo-900">
           <Panel title="Profile">
-            <AvatarUpload name={currentFullName || "User"} />
+            <AvatarUpload name={currentFullName || "User"} avatarTheme={currentAvatarTheme} />
+
+            <AvatarThemePicker
+              selected={currentAvatarTheme}
+              onSelect={(id) => form.setValue("avatarTheme", id, { shouldDirty: true })}
+            />
 
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="fullName"
-                  render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel required className="eyebrow font-bold">
-                        Full name
-                      </FormLabel>
-                      <FormControl>
-                        <input
-                          {...field}
-                          className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
-                        />
-                      </FormControl>
-                      <FormMessage className="font-mono text-xs text-destructive" />
-                    </FormItem>
-                  )}
-                />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1">
+                        <FormLabel required className="eyebrow font-bold text-black">
+                          First name
+                        </FormLabel>
+                        <FormControl>
+                          <input
+                            {...field}
+                            className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                          />
+                        </FormControl>
+                        <FormMessage className="font-mono text-xs text-destructive" />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1">
+                        <FormLabel required className="eyebrow font-bold text-black">
+                          Last name
+                        </FormLabel>
+                        <FormControl>
+                          <input
+                            {...field}
+                            className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                          />
+                        </FormControl>
+                        <FormMessage className="font-mono text-xs text-destructive" />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 <FormField
                   control={form.control}
                   name="handle"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <FormLabel required className="eyebrow font-bold">
+                      <FormLabel required className="eyebrow font-bold text-black">
                         Handle
                       </FormLabel>
                       <FormControl>
@@ -229,7 +340,7 @@ export default function SettingsPage() {
                   name="collegeEmail"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <FormLabel required className="eyebrow font-bold">
+                      <FormLabel required className="eyebrow font-bold text-black">
                         College email
                       </FormLabel>
                       <FormControl>
@@ -249,7 +360,7 @@ export default function SettingsPage() {
                   name="phoneNumber"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <FormLabel className="eyebrow font-bold">Phone number</FormLabel>
+                      <FormLabel className="eyebrow font-bold text-black">Phone number</FormLabel>
                       <FormControl>
                         <input
                           {...field}
@@ -267,7 +378,7 @@ export default function SettingsPage() {
                   name="linkedinUrl"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <FormLabel className="eyebrow font-bold">LinkedIn URL</FormLabel>
+                      <FormLabel className="eyebrow font-bold text-black">LinkedIn URL</FormLabel>
                       <FormControl>
                         <input
                           {...field}
@@ -285,7 +396,7 @@ export default function SettingsPage() {
                   name="bio"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
-                      <FormLabel className="eyebrow font-bold">Bio</FormLabel>
+                      <FormLabel className="eyebrow font-bold text-black">Bio</FormLabel>
                       <FormControl>
                         <input
                           {...field}
@@ -296,6 +407,57 @@ export default function SettingsPage() {
                     </FormItem>
                   )}
                 />
+
+                {/* ── Skills Tags Editor ── */}
+                <div className="space-y-2 pt-2">
+                  <p className="eyebrow font-bold text-black">Skills</p>
+                  <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+                    Add skills to power matchmaking — press Enter or click{" "}
+                    <span className="font-bold">+</span> to add.
+                  </p>
+
+                  {/* Existing skill chips */}
+                  {skills.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {skills.map((skill) => (
+                        <span
+                          key={skill}
+                          className="neu-border inline-flex items-center gap-1 bg-lime px-2.5 py-1 font-mono text-xs font-bold"
+                        >
+                          {skill}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSkill(skill)}
+                            aria-label={`Remove skill ${skill}`}
+                            className="ml-0.5 rounded-none transition-opacity hover:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-black"
+                          >
+                            <X className="h-3 w-3" strokeWidth={2.5} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add skill input row */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={skillInputRef}
+                      value={skillInput}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setSkillInput(e.target.value)}
+                      onKeyDown={handleSkillKeyDown}
+                      placeholder="e.g. React, Python, UI Design…"
+                      className="flex-1 border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddSkill}
+                      aria-label="Add skill"
+                      className="neu-border bg-black p-2 text-cream transition-all hover:scale-105 active:scale-95"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
 
                 <div className="flex justify-end pt-4">
                   <button
@@ -316,6 +478,39 @@ export default function SettingsPage() {
               </form>
             </Form>
           </Panel>
+          <Panel title="Appearance">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="eyebrow font-bold">Border Thickness: {borderThickness}px</label>
+                <input
+                  type="range"
+                  min="1"
+                  max="8"
+                  value={borderThickness}
+                  onChange={handleBorderThicknessChange}
+                  className="w-full cursor-pointer accent-black"
+                />
+                <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+                  Controls the width of borders throughout the app (1px - 8px)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="eyebrow font-bold">Border Radius: {borderRadius}px</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="32"
+                  value={borderRadius}
+                  onChange={handleBorderRadiusChange}
+                  className="w-full cursor-pointer accent-black"
+                />
+                <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+                  Controls the roundness of corners (0px - 32px)
+                </p>
+              </div>
+            </div>
+          </Panel>
           <Panel title="Text Size">
             <div className="flex items-center gap-4">
               <button
@@ -326,7 +521,7 @@ export default function SettingsPage() {
               >
                 −
               </button>
-              <span className="font-mono text-sm font-bold">{fontSize}px</span>
+              <span className="font-mono text-sm font-bold text-black">{fontSize}px</span>
               <button
                 type="button"
                 onClick={increment}
@@ -338,7 +533,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={reset}
-                className="neu-border neu-press px-3 py-1 font-mono text-xs font-bold uppercase"
+                className="neu-border neu-press px-3 py-1 font-mono text-xs font-bold uppercase text-black"
               >
                 Reset
               </button>
@@ -365,7 +560,6 @@ export default function SettingsPage() {
               cancelText="Cancel"
               onCancel={() => setConfirmOpen(false)}
               onConfirm={() => {
-                console.log("Delete account confirmed");
                 setConfirmOpen(false);
               }}
             />
@@ -430,7 +624,48 @@ function uploadFileWithProgress(
   });
 }
 
-function AvatarUpload({ name }: { name: string }) {
+// Renders the 5 predefined gradient swatches. Clicking one updates the form
+// state immediately (so AvatarUpload's preview reflects it right away), and
+// the value is persisted to Supabase along with the rest of the profile
+// fields when the user hits "Save changes".
+function AvatarThemePicker({
+  selected,
+  onSelect,
+}: {
+  selected?: AvatarThemeId | "";
+  onSelect: (id: AvatarThemeId) => void;
+}) {
+  return (
+    <div className="space-y-2 border-b-2 border-black pb-6">
+      <p className="eyebrow font-bold">Avatar theme</p>
+      <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+        Pick a gradient background to use when you don&apos;t have a custom photo.
+      </p>
+      <div className="flex flex-wrap gap-3 pt-1">
+        {AVATAR_THEMES.map((theme) => {
+          const isSelected = selected === theme.id;
+          return (
+            <button
+              key={theme.id}
+              type="button"
+              onClick={() => onSelect(theme.id)}
+              aria-label={`${theme.label} gradient`}
+              aria-pressed={isSelected}
+              title={theme.label}
+              className={`h-10 w-10 rounded-full border-2 border-black transition-transform ${theme.gradient} ${
+                isSelected
+                  ? "scale-110 ring-4 ring-black ring-offset-2 ring-offset-white"
+                  : "hover:scale-105"
+              }`}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: AvatarThemeId | "" }) {
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
   const [preview, setPreview] = useState<string | null>(null);
@@ -454,7 +689,6 @@ function AvatarUpload({ name }: { name: string }) {
         .eq("id", user.id)
         .single();
 
-      console.log("Loaded avatar:", data?.avatar_url);
       if (isMounted && !error && data?.avatar_url) {
         setPreview(data.avatar_url);
         setImageError(false);
@@ -475,6 +709,12 @@ function AvatarUpload({ name }: { name: string }) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
+  // Only fall back to a gradient when there's no uploaded photo to show.
+  // A real photo always takes priority over the theme.
+  const showGradient = (!preview || imageError) && !!avatarTheme;
+  const gradientClass = AVATAR_THEMES.find((theme) => theme.id === avatarTheme)?.gradient;
+  const backgroundClass = showGradient && gradientClass ? gradientClass : "bg-lime";
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -497,7 +737,6 @@ function AvatarUpload({ name }: { name: string }) {
 
     try {
       const avatarUrl = await uploadAvatar(file);
-      console.log("Avatar URL:", avatarUrl);
 
       if (avatarUrl) {
         setPreview(avatarUrl);
@@ -570,7 +809,9 @@ function AvatarUpload({ name }: { name: string }) {
   return (
     <div className="flex flex-col items-center gap-3 border-b-2 border-black pb-6 sm:flex-row sm:items-center sm:gap-5">
       <div className="relative shrink-0">
-        <div className="neu-border flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-lime">
+        <div
+          className={`neu-border flex h-24 w-24 items-center justify-center overflow-hidden rounded-full ${backgroundClass}`}
+        >
           {preview && !imageError ? (
             <OptimizedImage
               src={preview}
@@ -585,7 +826,7 @@ function AvatarUpload({ name }: { name: string }) {
               fallback={<span className="font-display text-2xl font-bold">{initials}</span>}
             />
           ) : (
-            <span className="font-display text-2xl font-bold">{initials}</span>
+            <span className="font-display text-2xl font-bold text-black">{initials}</span>
           )}
         </div>
         <button
@@ -611,14 +852,14 @@ function AvatarUpload({ name }: { name: string }) {
         />
       </div>
       <div className="text-center sm:text-left">
-        <p className="eyebrow font-bold">Profile picture</p>
-        <p className="font-mono text-xs text-gray-500">
+        <p className="eyebrow font-bold text-black">Profile picture</p>
+        <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
           JPG, PNG or WEBP. Max 2 MB. Square images look best.
         </p>
         {uploadProgress !== null && (
           <div className="mt-2 w-full space-y-1">
             <Progress value={uploadProgress} className="h-2" />
-            <p className="font-mono text-xs text-gray-500">{uploadProgress}%</p>
+            <p className="font-mono text-xs text-gray-500 dark:text-gray-300">{uploadProgress}%</p>
           </div>
         )}
       </div>

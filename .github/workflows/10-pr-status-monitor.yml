@@ -12,7 +12,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: "*/10 * * * *"
   workflow_dispatch:
     inputs:
       pr_number:
@@ -126,6 +126,19 @@ jobs:
               }
             }
 
+            async function createOrUpdateComment(prNumber, body, marker) {
+              const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number: prNumber });
+              const existingComment = comments.find(c => c.body.includes(marker));
+              const fullBody = `${body}\n\n${marker}`;
+              if (existingComment) {
+                if (existingComment.body !== fullBody) {
+                  await github.rest.issues.updateComment({ owner, repo, comment_id: existingComment.id, body: fullBody });
+                }
+              } else {
+                await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body: fullBody });
+              }
+            }
+
             // ─── Helper function: evaluate + label a single PR ──────────────────
             async function evaluatePR({ number: prNumber, headSha, assignees, author, mergeable, mergeable_state }) {
               console.log(`\n🔍 Evaluating PR #${prNumber} (SHA: ${headSha})...`);
@@ -146,13 +159,16 @@ jobs:
                 checkPage++;
               }
 
-              // ─── 2. Filter out this workflow itself and Vercel ─────────────────
+              // ─── 2. Filter out this workflow itself, Vercel, and CodeRabbit ────
               const relevantChecks = allCheckRuns.filter((check) => {
                 const name = check.name.toLowerCase();
                 return (
                   !name.includes("vercel") &&
                   !name.includes("pr status monitor") &&
-                  !name.includes("monitor ci checks")
+                  !name.includes("monitor ci checks") &&
+                  !name.includes("coderabbit") &&
+                  !name.includes("pr verification") &&
+                  !name.includes("safe merge check")
                 );
               });
 
@@ -242,10 +258,7 @@ jobs:
               if (mergeableState === false) {
                 await removeLabel("Blue");
                 await addLabel("Red");
-                await github.rest.issues.createComment({
-                  owner, repo, issue_number: prNumber,
-                  body: `@${targetUser} ⚠️ This PR has **merge conflicts**. Please resolve them before it can be merged.`
-                });
+                await createOrUpdateComment(prNumber, `@${targetUser} ⚠️ This PR has **merge conflicts**. Please resolve them before it can be merged.`, `<!-- pr-status-conflict-marker -->`);
                 console.log(`⚠️ PR #${prNumber} labeled "Red" — merge conflicts detected.`);
                 return;
               }
@@ -268,10 +281,7 @@ jobs:
                 if (awaitingApproval.length > 0) {
                   await removeLabel("Blue");
                   await addLabel("Red");
-                  await github.rest.issues.createComment({
-                    owner, repo, issue_number: prNumber,
-                    body: `@${context.repo.owner} ⏳ This PR from @${targetUser} has **${awaitingApproval.length} workflow(s) awaiting your approval** before CI can run. Please approve them in the Actions tab.`
-                  });
+                  await createOrUpdateComment(prNumber, `@${context.repo.owner} ⏳ This PR from @${targetUser} has **${awaitingApproval.length} workflow(s) awaiting your approval** before CI can run. Please approve them in the Actions tab.`, `<!-- pr-status-approval-marker -->`);
                   console.log(`⏳ PR #${prNumber} labeled "Red" — workflows awaiting approval.`);
                   return;
                 }
@@ -291,10 +301,7 @@ jobs:
                 await removeLabel("Blue");
                 await addLabel("Red");
                 const failedNames = failedChecks.map((c) => `**${c.name}**`).join(", ");
-                await github.rest.issues.createComment({
-                  owner, repo, issue_number: prNumber,
-                  body: `@${targetUser} ❌ CI checks failing: ${failedNames}. Please fix and push again.`
-                });
+                await createOrUpdateComment(prNumber, `@${targetUser} ❌ CI checks failing: ${failedNames}. Please fix and push again.`, `<!-- pr-status-failure-marker -->`);
                 console.log(`❌ PR #${prNumber} labeled "Red" — ${failedChecks.length} check(s) failed.`);
                 return;
               }
