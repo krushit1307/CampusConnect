@@ -7,6 +7,7 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
 import { toast } from "sonner";
+import EventSharePanel from "@/components/events/EventSharePanel";
 import {
   ArrowLeft,
   Calendar,
@@ -474,6 +475,7 @@ export default function EventDetailsPage() {
             >
               {event.title}
             </h1>
+            <EventSharePanel title={event.title} />
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
