@@ -46,6 +46,7 @@ export default function EventsPage() {
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
   const [showRecent, setShowRecent] = useState(false);
+  const [showConfetti] = useState(false);
 
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
@@ -463,96 +464,47 @@ export default function EventsPage() {
       md:px-6"
         >
           {viewMode === "list" ? (
-            <div
-              className="
+            <>
+              <div
+                className="
       mx-auto
       grid
       max-w-7xl
       gap-6
       md:grid-cols-2
       lg:grid-cols-3"
-            >
-              {isLoading
-                ? Array.from({ length: 4 }).map((_, i) => <EventCardSkeleton key={i} />)
-                : sortedEvents.map((event, index) => (
-                    <EventCard
-                      key={event.id}
-                      event={event}
-                      index={index}
-                      user={user}
-                      onRsvpToggle={(id, status) =>
-                        toggleRsvp.mutate({
-                          eventId: id,
-                          hasRsvpd: status,
-                        })
-                      }
-                      isRsvpPending={toggleRsvp.isPending}
-                      onBookmarkToggle={(id, status) =>
-                        toggleBookmark.mutate({
-                          eventId: id,
-                          isSaved: status,
-                        })
-                      }
-                      isBookmarkPending={toggleBookmark.isPending}
-                    />
-                  ))
-                )}
+              >
+                {isLoading
+                  ? Array.from({ length: 4 }).map((_, i) => <EventCardSkeleton key={i} />)
+                  : sortedEvents.map((event, index) => (
+                      <EventCard
+                        key={event.id}
+                        event={event}
+                        index={index}
+                        user={user}
+                        onRsvpToggle={(id, status) =>
+                          toggleRsvp.mutate({
+                            eventId: id,
+                            hasRsvpd: status,
+                          })
+                        }
+                        isRsvpPending={toggleRsvp.isPending}
+                        onBookmarkToggle={(id, status) =>
+                          toggleBookmark.mutate({
+                            eventId: id,
+                            isSaved: status,
+                          })
+                        }
+                        isBookmarkPending={toggleBookmark.isPending}
+                      />
+                    ))}
               </div>
 
-              {/* Load More Pagination & Feed Progress Bar */}
-              {!isLoading && (
-                <div className="mt-12 text-center flex flex-col items-center justify-center gap-4">
-                  {/* Visual Progress Bar */}
-                  {totalCount !== null && totalCount > 0 && (
-                    <div className="w-full max-w-md space-y-1.5">
-                      <div className="flex justify-between items-center font-mono text-xs font-bold uppercase">
-                        <span>Feed Progress</span>
-                        <span>
-                          {events.length} of {totalCount} events loaded (
-                          {Math.min(100, Math.round((events.length / totalCount) * 100))}%)
-                        </span>
-                      </div>
-                      <div className="w-full h-3 bg-white neu-border overflow-hidden p-0.5">
-                        <div
-                          className="h-full bg-yellow border border-black transition-all duration-300"
-                          style={{
-                            width: `${Math.min(100, Math.round((events.length / totalCount) * 100))}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {hasMore ? (
-                    <button
-                      type="button"
-                      onClick={handleLoadMore}
-                      disabled={isLoadingMore}
-                      className="neu-border bg-yellow px-10 py-3.5 font-mono text-sm font-bold uppercase transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2.5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-                    >
-                      {isLoadingMore ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>Loading Next 20 Events...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Load More Events</span>
-                          {totalCount !== null && totalCount > events.length && (
-                            <span className="rounded bg-black px-2 py-0.5 text-xs text-yellow font-mono font-bold">
-                              {totalCount - events.length} remaining
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </button>
-                  ) : (
-                    events.length > 0 && (
-                      <div className="neu-border bg-white px-6 py-3 font-mono text-xs font-bold uppercase tracking-wider text-black flex items-center gap-2">
-                        <span>✨ All {events.length} events loaded from database</span>
-                      </div>
-                    )
-                  )}
+              {!isLoading && sortedEvents.length > 0 && (
+                <div className="mt-12 text-center">
+                  <p className="font-mono text-xs font-bold uppercase tracking-wider text-black">
+                    Showing {sortedEvents.length} events
+                  </p>
                 </div>
               )}
             </>
