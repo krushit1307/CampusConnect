@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
@@ -8,7 +8,15 @@ import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Github } from "lucide-react";
+import { ArrowLeft, Github, Loader2, CheckCircle } from "lucide-react";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -100,6 +108,7 @@ export default function ClubProfile() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
+  const [joinSuccess, setJoinSuccess] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -116,7 +125,7 @@ export default function ClubProfile() {
         .from("clubs")
         .select(
           `
-          id, name, slug, description, github_repo_url,
+          id, name, slug, description, github_repo_url, visibility,
           club_members (id, role, status, user_id, profiles (full_name, avatar_url, handle)),
           events (id, title, event_date)
         `,
@@ -131,19 +140,47 @@ export default function ClubProfile() {
   const joinMutation = useMutation({
     mutationFn: async () => {
       if (!user || !club) throw new Error("Must be logged in");
-      await supabase.from("club_members").insert({
+      const isPublic = (club as { visibility?: string }).visibility === "public";
+      const { error } = await supabase.from("club_members").insert({
         club_id: club.id,
         user_id: user.id,
-        status: "pending",
+        status: isPublic ? "approved" : "pending",
       });
+      if (error) throw error;
+      return { isPublic };
     },
-    onSuccess: () => {
+    onSuccess: ({ isPublic }) => {
       setIsJoinDialogOpen(false);
-      toast.success("Join request submitted!");
-      refetch();
+      setJoinSuccess(true);
+      toast.success(isPublic ? "You have joined the club!" : "Join request submitted!");
+      if (!isPublic) {
+        // pending: refetch so the row is in state; joinSuccess shows for 2s then
+        // the membership row (status=pending) takes over correctly
+        refetch();
+        setTimeout(() => setJoinSuccess(false), 2000);
+      }
+      // approved: skip refetch — joinSuccess stays true and renders "Member ✓" permanently
     },
     onError: () => {
       toast.error("Failed to submit join request. Please try again.");
+    },
+  });
+
+  const leaveMutation = useMutation({
+    mutationFn: async () => {
+      if (!user || !club) throw new Error("Must be logged in");
+      const { error } = await supabase
+        .from("club_members")
+        .delete()
+        .match({ club_id: club.id, user_id: user.id });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("You have left the club.");
+      refetch();
+    },
+    onError: () => {
+      toast.error("Failed to leave club. Please try again.");
     },
   });
 
@@ -185,6 +222,38 @@ export default function ClubProfile() {
     <SiteShell>
       <section className="border-b-2 border-black px-4 py-14 md:px-6">
         <div className="mx-auto max-w-6xl">
+          {/* Breadcrumb — full on sm+, back-link only on mobile */}
+          <Link
+            to="/clubs"
+            className="mb-4 inline-flex items-center gap-1 font-mono text-xs font-bold uppercase tracking-wider hover:underline sm:hidden"
+          >
+            <ArrowLeft size={12} /> Clubs
+          </Link>
+          <Breadcrumb className="hidden sm:block mb-4">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to="/" className="font-mono text-xs font-bold uppercase">
+                    Home
+                  </Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to="/clubs" className="font-mono text-xs font-bold uppercase">
+                    Clubs
+                  </Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="font-mono text-xs font-bold uppercase">
+                  {club.name}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
           <p className="eyebrow font-bold text-blue-900">Club</p>
           <h1 className="mt-2 text-5xl font-bold text-[#123a57] md:text-7xl">{club.name}</h1>
           <div className="markdown-content mt-4 max-w-2xl font-mono text-sm md:text-base leading-relaxed">
@@ -263,49 +332,76 @@ export default function ClubProfile() {
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
-            <AlertDialog open={isJoinDialogOpen} onOpenChange={setIsJoinDialogOpen}>
-              <AlertDialogTrigger asChild>
-                <button
-                  onClick={() => {
-                    if (!user) return void toast.error("Please sign in first");
-                    setIsJoinDialogOpen(true);
-                  }}
-                  disabled={!!membership || joinMutation.isPending}
-                  className={`neu-border neu-press px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider ${membership ? "bg-gray-300 cursor-not-allowed" : "bg-black text-cream"}`}
-                >
-                  {membership
-                    ? membership.status === "pending"
-                      ? "Request Pending"
-                      : "Member ✓"
-                    : "Join club"}
-                </button>
-              </AlertDialogTrigger>
-              <AlertDialogContent className="neu-border bg-white rounded-none p-6">
-                <AlertDialogHeader>
-                  <AlertDialogTitle className="font-display text-xl font-bold">
-                    Submit join request?
-                  </AlertDialogTitle>
-                  <AlertDialogDescription className="font-mono text-sm text-gray-700">
-                    Do you want to submit a join request?
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
-                  <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
-                    Cancel
-                  </AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={(e) => {
-                      e.preventDefault();
-                      joinMutation.mutate();
+            {membership?.status === "approved" ? (
+              <button
+                onClick={() => {
+                  if (!user) return void toast.error("Please sign in first");
+                  leaveMutation.mutate();
+                }}
+                disabled={leaveMutation.isPending}
+                className="neu-border neu-press inline-flex items-center gap-2 bg-gray-200 px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-red-100 disabled:opacity-50"
+              >
+                {leaveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Leave Club
+              </button>
+            ) : membership?.status === "pending" ? (
+              <button
+                disabled
+                className="neu-border px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider bg-gray-300 cursor-not-allowed"
+              >
+                Request Pending
+              </button>
+            ) : joinSuccess ? (
+              <button
+                disabled
+                className="neu-border inline-flex items-center gap-2 bg-lime px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider"
+              >
+                <CheckCircle className="h-3.5 w-3.5" />
+                Member ✓
+              </button>
+            ) : (
+              <AlertDialog open={isJoinDialogOpen} onOpenChange={setIsJoinDialogOpen}>
+                <AlertDialogTrigger asChild>
+                  <button
+                    onClick={() => {
+                      if (!user) return void toast.error("Please sign in first");
+                      setIsJoinDialogOpen(true);
                     }}
-                    disabled={joinMutation.isPending}
-                    className="neu-border bg-black text-cream hover:bg-cream hover:text-black rounded-none font-mono text-xs font-bold uppercase disabled:opacity-50"
+                    className="neu-border neu-press inline-flex items-center gap-2 bg-black px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider text-cream"
                   >
-                    {joinMutation.isPending ? "Submitting..." : "Confirm"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                    Join Club
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="neu-border bg-white rounded-none p-6">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="font-display text-xl font-bold">
+                      Submit join request?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="font-mono text-sm text-gray-700">
+                      Do you want to submit a join request?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+                    <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={(e) => {
+                        e.preventDefault();
+                        joinMutation.mutate();
+                      }}
+                      disabled={joinMutation.isPending}
+                      className="neu-border bg-black text-cream hover:bg-cream hover:text-black rounded-none font-mono text-xs font-bold uppercase disabled:opacity-50 inline-flex items-center gap-2"
+                    >
+                      {joinMutation.isPending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : null}
+                      {joinMutation.isPending ? "Submitting..." : "Confirm"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
             <button
               onClick={() => toast.info("Follow feature coming soon!")}
               className="neu-border neu-press bg-cream px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider"

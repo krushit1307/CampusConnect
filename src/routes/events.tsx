@@ -1,4 +1,3 @@
-import { formatDate } from "../lib/utils";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
@@ -25,8 +24,8 @@ interface EventItem {
   title: string;
   description: string | null;
   event_date: string | null;
-  start_date: string | null;
-  end_date: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
   location: string | null;
   banner_url?: string | null;
   clubs: { name: string } | { name: string }[] | null;
@@ -40,48 +39,44 @@ const EventsCalendar = lazy(() => import("@/components/events/EventsCalendar"));
 export default function EventsPage() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
-  const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [filter, setFilter] = useState<string>("All");
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [sortLoaded, setSortLoaded] = useState(false);
   const [hidePastEvents, setHidePastEvents] = useState(false);
-  const [hidePastLoaded, setHidePastLoaded] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
-    const savedSort = sessionStorage.getItem("event-sort-order");
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+  }, [supabase]);
 
+  useEffect(() => {
+    const savedSort = sessionStorage.getItem("event-sort-order");
     if (savedSort === "newest" || savedSort === "oldest") {
       setSortOrder(savedSort);
     }
-
     setSortLoaded(true);
 
     const savedHidePast = sessionStorage.getItem("hide-past-events");
     if (savedHidePast === "true") {
       setHidePastEvents(true);
     }
-    setHidePastLoaded(true);
   }, []);
 
   useEffect(() => {
     if (!sortLoaded) return;
-
     sessionStorage.setItem("event-sort-order", sortOrder);
   }, [sortOrder, sortLoaded]);
 
   const [totalCount, setTotalCount] = useState<number | null>(null);
-
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-
   const searchInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearchQuery(searchInput);
     }, 300);
-
     return () => clearTimeout(timer);
   }, [searchInput]);
 
@@ -111,7 +106,6 @@ export default function EventsPage() {
         setTotalCount(count);
       }
 
-      // Fallback to mock data in development if database is empty
       if (import.meta.env.DEV && (!data || data.length === 0)) {
         return [
           {
@@ -161,7 +155,6 @@ export default function EventsPage() {
           },
         ];
       }
-
       return data;
     },
   });
@@ -170,10 +163,10 @@ export default function EventsPage() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
-
       const isTyping =
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement ||
@@ -184,9 +177,7 @@ export default function EventsPage() {
         searchInputRef.current?.focus();
       }
     };
-
     document.addEventListener("keydown", handleKeyDown);
-
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
@@ -280,7 +271,6 @@ export default function EventsPage() {
     mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
       if (!user) throw new Error("Must be logged in");
       if (eventId.startsWith("mock-")) {
-        // Skip database call for mock event cards in development
         return;
       }
       const {
@@ -299,7 +289,6 @@ export default function EventsPage() {
     },
     onSuccess: async (_data, variables) => {
       if (!variables.hasRsvpd && user && !variables.eventId.startsWith("mock-")) {
-        // User just joined (hasRsvpd was false before the toggle) — check if this was their first ever RSVP
         const { count } = await supabase
           .from("event_rsvps")
           .select("id", { count: "exact", head: true })
@@ -308,7 +297,7 @@ export default function EventsPage() {
         if (count === 1) {
           setShowConfetti(true);
           window.setTimeout(() => setShowConfetti(false), 3000);
-          toast.success("🎉 You RSVPd to your first event! See it in your Dashboard.");
+          toast.success("🎉 You RSVP'd to your first event! See it in your Dashboard.");
         } else {
           toast.success("RSVP registered successfully!");
         }
@@ -369,11 +358,8 @@ export default function EventsPage() {
   };
 
   const handleRsvpToggle = async (eventId: string, hasRsvpd: boolean) => {
-    // Overlap warning: only check when joining (not leaving), and only if we
-    // have start/end times for the target event.
     if (!hasRsvpd && user) {
       const targetEvent = events.find((e) => e.id === eventId);
-
       if (targetEvent?.start_date && targetEvent?.end_date) {
         const overlapping = events.find((e) => {
           if (e.id === eventId) return false;
@@ -381,7 +367,12 @@ export default function EventsPage() {
           const isRsvpd = rsvps.some((r) => r.user_id === user.id);
           return (
             isRsvpd &&
-            eventsOverlap(targetEvent.start_date, targetEvent.end_date, e.start_date, e.end_date)
+            eventsOverlap(
+              targetEvent.start_date ?? null,
+              targetEvent.end_date ?? null,
+              e.start_date ?? null,
+              e.end_date ?? null,
+            )
           );
         });
 
@@ -392,7 +383,6 @@ export default function EventsPage() {
     }
 
     const originalEvents = [...events];
-
     setEvents((prevEvents) =>
       prevEvents.map((e) => {
         if (e.id === eventId) {
@@ -422,7 +412,6 @@ export default function EventsPage() {
 
   const handleBookmarkToggle = async (eventId: string, isSaved: boolean) => {
     const originalEvents = [...events];
-
     setEvents((prevEvents) =>
       prevEvents.map((e) => {
         if (e.id === eventId) {
@@ -450,7 +439,13 @@ export default function EventsPage() {
     }
   };
 
-  const colors = ["bg-lime", "bg-sky", "bg-peach", "bg-lavender"];
+  const filterColors: Record<string, string> = {
+    All: "bg-black text-cream",
+    Workshop: "bg-lime text-black",
+    Talk: "bg-sky text-black",
+    Hackathon: "bg-lavender text-black",
+    Social: "bg-peach text-black",
+  };
 
   const filteredEvents = events.filter((e: EventItem) => {
     const matchesFilter =
@@ -470,10 +465,8 @@ export default function EventsPage() {
     if (!a.event_date && !b.event_date) return 0;
     if (!a.event_date) return 1;
     if (!b.event_date) return -1;
-
     const dateA = new Date(a.event_date).getTime();
     const dateB = new Date(b.event_date).getTime();
-
     return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
   });
 
@@ -499,12 +492,11 @@ export default function EventsPage() {
                 )}
               </div>
               <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">
-                What's on this week.
+                What&apos;s on this week.
               </h1>
             </div>
 
             <div className="flex flex-col items-end gap-3 w-full md:w-auto">
-              {/* Search Bar */}
               <div className="relative w-full md:w-80">
                 <input
                   ref={searchInputRef}
@@ -532,7 +524,6 @@ export default function EventsPage() {
                 {sortedEvents.length} event{sortedEvents.length !== 1 ? "s" : ""} found
               </div>
 
-              {/* Filter Tags */}
               <div className="flex flex-wrap items-center gap-2">
                 <label className="neu-border flex cursor-pointer select-none items-center gap-2 bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-white md:mr-2 text-black">
                   <input
@@ -543,11 +534,16 @@ export default function EventsPage() {
                   />
                   Hide Past Events
                 </label>
-                {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t, i) => (
+                {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t) => (
                   <button
                     key={t}
                     onClick={() => setFilter(t)}
-                    className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase ${filter === t ? "bg-black text-cream" : "bg-white text-black"}`}
+                    aria-pressed={filter === t}
+                    className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors duration-200 ${
+                      filter === t
+                        ? filterColors[t] || "bg-black text-cream"
+                        : "bg-white text-black"
+                    }`}
                   >
                     {t}
                   </button>
@@ -578,7 +574,6 @@ export default function EventsPage() {
                   >
                     List
                   </button>
-
                   <button
                     type="button"
                     onClick={() => setViewMode("calendar")}
@@ -599,13 +594,11 @@ export default function EventsPage() {
                   <SelectTrigger className="neu-border w-44 bg-white font-mono text-xs text-black">
                     <SelectValue placeholder="Sort by date" />
                   </SelectTrigger>
-
                   <SelectContent>
                     <SelectItem value="newest">Newest First</SelectItem>
                     <SelectItem value="oldest">Oldest First</SelectItem>
                   </SelectContent>
                 </Select>
-
                 <CreateEventDialog user={user} />
               </div>
             </div>
@@ -639,8 +632,8 @@ export default function EventsPage() {
                     <p className="text-3xl">🔍</p>
                     <h3 className="mt-2 font-mono text-lg font-bold uppercase">No Events Found</h3>
                     <p className="mt-1 font-mono text-xs text-neutral-600">
-                      No events matched "{searchQuery}". Try clearing your filters or searching for
-                      another term.
+                      No events matched &quot;{searchQuery}&quot;. Try clearing your filters or
+                      searching for another term.
                     </p>
                     <button
                       onClick={() => {
@@ -671,10 +664,8 @@ export default function EventsPage() {
                 )}
               </div>
 
-              {/* Load More Pagination & Feed Progress Bar */}
               {!isLoading && (
                 <div className="mt-12 text-center flex flex-col items-center justify-center gap-4">
-                  {/* Visual Progress Bar */}
                   {totalCount !== null && totalCount > 0 && (
                     <div className="w-full max-w-md space-y-1.5">
                       <div className="flex justify-between items-center font-mono text-xs font-bold uppercase">
