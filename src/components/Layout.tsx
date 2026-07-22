@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ThemeProvider } from "@/components/theme-provider";
 import TopProgressBar from "@/components/TopProgressBar";
 import ShortcutsModal from "@/components/ShortcutsModal";
+import { WebRTCProvider } from "@/components/VideoCall/WebRTCProvider";
 
 // Persistent banner shown while the browser has no network connection.
 function OfflineBanner() {
@@ -99,14 +100,16 @@ export default function Layout() {
   return (
     <ThemeProvider>
       <TooltipProvider delayDuration={200}>
-        <OfflineBanner />
-        <TopProgressBar />
+        <WebRTCProvider>
+          <OfflineBanner />
+          <TopProgressBar />
 
-        <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+          <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 
-        <Outlet />
-        <Toaster />
-        <ScrollToTop />
+          <Outlet />
+          <Toaster />
+          <ScrollToTop />
+        </WebRTCProvider>
       </TooltipProvider>
     </ThemeProvider>
   );
