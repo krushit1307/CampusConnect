@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { SiteShell } from '@/components/site/SiteShell';
+import React, { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { SiteShell } from "@/components/site/SiteShell";
 
 export default function AuthLogin() {
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const handleOAuthLogin = async (provider: 'google' | 'github') => {
+  const handleOAuthLogin = async (provider: "google" | "github") => {
     setLoading(true);
-    setErrorMsg('');
+    setErrorMsg("");
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
@@ -18,8 +18,10 @@ export default function AuthLogin() {
         },
       });
       if (error) throw error;
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to authenticate with provider');
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to authenticate with provider";
+      setErrorMsg(message);
       setLoading(false);
     }
   };
@@ -43,7 +45,7 @@ export default function AuthLogin() {
             <button
               type="button"
               disabled={loading}
-              onClick={() => handleOAuthLogin('google')}
+              onClick={() => handleOAuthLogin("google")}
               className="neu-border neu-press w-full flex items-center justify-center gap-3 bg-white py-3 font-mono text-sm font-bold uppercase text-black hover:bg-sky transition-colors cursor-pointer"
             >
               <span>🌐</span> Login with Google
@@ -52,7 +54,7 @@ export default function AuthLogin() {
             <button
               type="button"
               disabled={loading}
-              onClick={() => handleOAuthLogin('github')}
+              onClick={() => handleOAuthLogin("github")}
               className="neu-border neu-press w-full flex items-center justify-center gap-3 bg-black py-3 font-mono text-sm font-bold uppercase text-cream hover:bg-cream hover:text-black transition-colors cursor-pointer"
             >
               <span>🐙</span> Login with GitHub
