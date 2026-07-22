@@ -51,7 +51,6 @@ export default function EventsPage() {
         )
         .order("event_date", { ascending: true });
 
-      // Fallback to mock data in development if database is empty
       if (import.meta.env.DEV && (!data || data.length === 0)) {
         return [
           {
@@ -122,7 +121,6 @@ export default function EventsPage() {
     mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
       if (!user) throw new Error("Must be logged in");
       if (eventId.startsWith("mock-")) {
-        // Skip database call for mock event cards in development
         console.log(`[CampusConnect] Mock RSVP toggled for event: ${eventId}`);
         return;
       }
@@ -192,7 +190,7 @@ export default function EventsPage() {
             <div>
               <p className="eyebrow font-bold">All events · Fall semester</p>
               <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">
-                What's on this week.
+                What&apos;s on this week.
               </h1>
             </div>
             <div className="flex flex-wrap items-center gap-2">

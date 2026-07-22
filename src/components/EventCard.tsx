@@ -52,6 +52,10 @@ export function EventCard({
   const [studentId, setStudentId] = useState("");
   const [dietaryPreference, setDietaryPreference] = useState("");
   const [copied, setCopied] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const savedEventsList = Array.isArray(event.saved_events) ? event.saved_events : [];
+  const isSaved = user ? savedEventsList.some((se) => se.user_id === user.id) : false;
 
   const handleCopyLink = async () => {
     try {
@@ -70,7 +74,6 @@ export function EventCard({
 
   const handleShare = async () => {
     const shareUrl = `${window.location.origin}${window.location.pathname}#event-${event.id}`;
-
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
@@ -86,31 +89,23 @@ export function EventCard({
       toast.error("Please log in to RSVP");
       return;
     }
-
     if (hasRsvpd) {
       setConfirmOpen(true);
       return;
     }
-
     setIsFormOpen(true);
   };
 
   const handleSubmit = (formEvent: FormEvent<HTMLFormElement>) => {
     formEvent.preventDefault();
-
     const form = formEvent.currentTarget;
     if (!form.checkValidity()) {
       form.reportValidity();
       return;
     }
-
     onRsvpToggle(event.id, false);
     resetForm();
   };
-  const [confirmOpen, setConfirmOpen] = useState(false);
-
-  const savedEventsList = Array.isArray(event.saved_events) ? event.saved_events : [];
-  const isSaved = user ? savedEventsList.some((se) => se.user_id === user.id) : false;
 
   const handleBookmarkClick = () => {
     if (!user) {
@@ -194,15 +189,13 @@ export function EventCard({
             <label className="block">
               <span className="font-mono text-xs font-bold uppercase">
                 Student ID{" "}
-                <span className="text-destructive ml-1" aria-hidden="true">
-                  *
-                </span>
+                <span className="text-destructive ml-1" aria-hidden="true">*</span>
               </span>
               <input
                 type="text"
                 name="studentId"
                 value={studentId}
-                onChange={(inputEvent) => setStudentId(inputEvent.target.value)}
+                onChange={(e) => setStudentId(e.target.value)}
                 required
                 minLength={3}
                 maxLength={30}
@@ -215,20 +208,16 @@ export function EventCard({
             <label className="block">
               <span className="font-mono text-xs font-bold uppercase">
                 Dietary preference{" "}
-                <span className="text-destructive ml-1" aria-hidden="true">
-                  *
-                </span>
+                <span className="text-destructive ml-1" aria-hidden="true">*</span>
               </span>
               <select
                 name="dietaryPreference"
                 value={dietaryPreference}
-                onChange={(selectEvent) => setDietaryPreference(selectEvent.target.value)}
+                onChange={(e) => setDietaryPreference(e.target.value)}
                 required
                 className="neu-border mt-2 w-full bg-cream px-3 py-2 outline-none focus:ring-2 focus:ring-black"
               >
-                <option value="" disabled>
-                  Select an option
-                </option>
+                <option value="" disabled>Select an option</option>
                 <option value="none">No preference</option>
                 <option value="vegetarian">Vegetarian</option>
                 <option value="vegan">Vegan</option>
