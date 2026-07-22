@@ -1,4 +1,3 @@
-import { formatDate } from "../lib/utils";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
@@ -25,8 +24,8 @@ interface EventItem {
   title: string;
   description: string | null;
   event_date: string | null;
-  start_date: string | null;
-  end_date: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
   location: string | null;
   banner_url?: string | null;
   clubs: { name: string } | { name: string }[] | null;
@@ -381,7 +380,12 @@ export default function EventsPage() {
           const isRsvpd = rsvps.some((r) => r.user_id === user.id);
           return (
             isRsvpd &&
-            eventsOverlap(targetEvent.start_date, targetEvent.end_date, e.start_date, e.end_date)
+            eventsOverlap(
+              targetEvent.start_date ?? null,
+              targetEvent.end_date ?? null,
+              e.start_date ?? null,
+              e.end_date ?? null,
+            )
           );
         });
 
