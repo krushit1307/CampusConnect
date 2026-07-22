@@ -689,7 +689,7 @@ export default function Feed() {
 
                   if (optimisticDeletedIds.includes(post.id)) return null;
 
-                  const isLastPost = index === posts.length - 1;
+                  const shareUrl = `${window.location.origin}${window.location.pathname}#post-${post.id}`;
 
                   return (
                     <article
