@@ -72,6 +72,7 @@ export default function ClubManageRoute() {
 
   const updateClubMutation = useMutation({
     mutationFn: async () => {
+      if (!club) throw new Error("Club not found");
       const { error } = await supabase
         .from("clubs")
         .update({ name, description, banner_url: bannerUrl, logo_url: logoUrl, visibility })
