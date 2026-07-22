@@ -10,33 +10,24 @@ export default function AuthLogin() {
   const handleOAuthLogin = async (provider: "google" | "github") => {
     setLoading(true);
     setErrorMsg("");
+
     try {
-    const handleOAuthLogin = async (provider: "google" | "github") => {
-  setLoading(true);
-  setErrorMsg("");
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          // Redirect directly back to home or login page since the dedicated callback route isn't set up
+          redirectTo: window.location.origin,
+        },
+      });
 
-  const handleOAuthLogin = async (provider: "google" | "github") => {
-  setLoading(true);
-  setErrorMsg("");
-
-  try {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-
-    if (error) throw error;
-  } catch (err: unknown) {
-    const message =
-      err instanceof Error ? err.message : "Failed to authenticate with provider";
-    setErrorMsg(message);
-  } finally {
-    setLoading(false);
-  }
-};
-
+      if (error) throw error;
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to authenticate with provider";
+      setErrorMsg(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
