@@ -1,7 +1,7 @@
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useEffect, useState, useRef, lazy, Suspense } from "react";
 import { User } from "@supabase/supabase-js";
 import { EventCard } from "@/components/EventCard";
 import { CreateEventDialog } from "@/components/CreateEventDialog";
@@ -262,9 +262,6 @@ export default function EventsPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
         refetch();
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["events"] });
-      })
       .subscribe();
 
     return () => {
@@ -383,7 +380,12 @@ export default function EventsPage() {
           const isRsvpd = rsvps.some((r) => r.user_id === user.id);
           return (
             isRsvpd &&
-            eventsOverlap(targetEvent.start_date, targetEvent.end_date, e.start_date, e.end_date)
+            eventsOverlap(
+              targetEvent.start_date ?? null,
+              targetEvent.end_date ?? null,
+              e.start_date ?? null,
+              e.end_date ?? null,
+            )
           );
         });
 
