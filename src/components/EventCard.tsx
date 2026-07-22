@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { EventDateBadge } from "@/components/EventDateBadge";
 import { EventRSVPButton } from "@/components/EventRSVPButton";
 
 interface Event {
@@ -18,6 +17,7 @@ interface Event {
   end_date?: string | null;
   location: string | null;
   banner_url?: string | null;
+  created_at?: string | null;
   clubs: { name: string } | { name: string }[] | null;
   event_rsvps: { id: string; user_id: string }[] | null;
   saved_events: { id: string; user_id: string }[] | null;
@@ -31,6 +31,90 @@ interface EventCardProps {
   isRsvpPending: boolean;
   onBookmarkToggle: (eventId: string, isSaved: boolean) => void;
   isBookmarkPending: boolean;
+}
+
+// Assumed lead time (in days) used when an event has no `created_at` available
+// (e.g. mock/dev fallback data, or a query that hasn't been updated to select it
+// yet). This keeps the progress bar meaningful instead of just hiding it.
+const ASSUMED_LEAD_TIME_DAYS = 30;
+
+interface EventProgress {
+  /** 0-100, how far along we are between "created" and the event date */
+  percent: number;
+  /** true once the event date has passed */
+  isPast: boolean;
+  /** true when we had to fall back to an assumed lead time (no created_at) */
+  isEstimated: boolean;
+}
+
+function getEventProgress(createdAt: string | null | undefined, eventDate: string): EventProgress {
+  const now = Date.now();
+  const eventTime = new Date(eventDate).getTime();
+
+  if (now >= eventTime) {
+    return { percent: 100, isPast: true, isEstimated: false };
+  }
+
+  let startTime: number;
+  let isEstimated = false;
+
+  if (createdAt) {
+    startTime = new Date(createdAt).getTime();
+  } else {
+    startTime = eventTime - ASSUMED_LEAD_TIME_DAYS * 24 * 60 * 60 * 1000;
+    isEstimated = true;
+  }
+
+  const totalWindow = eventTime - startTime;
+  if (totalWindow <= 0) {
+    return { percent: 100, isPast: false, isEstimated };
+  }
+
+  const elapsed = now - startTime;
+  const percent = Math.min(100, Math.max(0, (elapsed / totalWindow) * 100));
+
+  return { percent, isPast: false, isEstimated };
+}
+
+function EventProgressBar({
+  createdAt,
+  eventDate,
+}: {
+  createdAt: string | null | undefined;
+  eventDate: string | null;
+}) {
+  // No date at all ("TBA" events) — nothing meaningful to show a timeline for.
+  if (!eventDate) return null;
+
+  const { percent, isPast, isEstimated } = getEventProgress(createdAt, eventDate);
+
+  return (
+    <div className="mt-4">
+      <div className="mb-1 flex items-center justify-between font-mono text-[10px] font-bold uppercase text-black">
+        <span>Time to event</span>
+        <span>{isPast ? "Ended" : `${Math.round(percent)}%`}</span>
+      </div>
+      <div className="h-4 w-full neu-border overflow-hidden bg-white p-0.5">
+        {isPast ? (
+          <div className="flex h-full w-full items-center justify-center bg-gray-200">
+            <span className="font-mono text-[9px] font-bold uppercase text-gray-500">
+              Event has passed
+            </span>
+          </div>
+        ) : (
+          <div
+            className="h-full border-r-2 border-black bg-lime transition-all duration-500 ease-out"
+            style={{ width: `${percent}%` }}
+          />
+        )}
+      </div>
+      {isEstimated && !isPast && (
+        <p className="mt-1 font-mono text-[9px] text-gray-500">
+          Estimated — creation date unavailable
+        </p>
+      )}
+    </div>
+  );
 }
 
 export function EventCard({
@@ -193,6 +277,8 @@ export function EventCard({
         </div>
       ) : null}
 
+      <EventProgressBar createdAt={event.created_at} eventDate={event.event_date} />
+
       <dl className="mt-5 grid gap-4 sm:grid-cols-3">
         <div>
           <dt className="font-mono text-xs font-bold uppercase text-black">Date &amp; Time</dt>
@@ -220,7 +306,11 @@ export function EventCard({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button onClick={handleCopyLink} variant="outline" size="sm">
+              <Button
+                onClick={handleCopyLink}
+                variant="outline"
+                className="neu-border neu-press bg-white hover:bg-cream h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+              >
                 <LinkIcon className="h-4 w-4 mr-2" />
                 Copy Link
               </Button>
@@ -243,7 +333,12 @@ export function EventCard({
           </a>
         )}
         {hasRsvpd && myRsvp && (
-          <Button type="button" onClick={() => setTicketOpen(true)} variant="outline" size="sm">
+          <Button
+            type="button"
+            onClick={() => setTicketOpen(true)}
+            variant="outline"
+            className="neu-border neu-press bg-white hover:bg-cream h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 text-black"
+          >
             View Ticket
           </Button>
         )}

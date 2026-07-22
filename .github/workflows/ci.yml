@@ -17,12 +17,12 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "22.13.0"
           cache: "npm"
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Verify Code Formatting
         run: |
@@ -45,12 +45,12 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "22.13.0"
           cache: "npm"
           cache-dependency-path: package-lock.json
 
       - name: Install client dependencies
-        run: npm ci
+        run: npm install
 
       - name: Run Lint checks
         run: npm run lint
@@ -68,12 +68,12 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "22.13.0"
           cache: "npm"
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Verify Prettier Check
         run: |
@@ -101,7 +101,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install client dependencies
-        run: npm ci
+        run: npm install
 
       - name: Verify Production Build
         run: npm run build
