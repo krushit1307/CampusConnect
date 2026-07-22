@@ -15,6 +15,10 @@ export default function AuthLogin() {
   setLoading(true);
   setErrorMsg("");
 
+  const handleOAuthLogin = async (provider: "google" | "github") => {
+  setLoading(true);
+  setErrorMsg("");
+
   try {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
@@ -32,6 +36,7 @@ export default function AuthLogin() {
     setLoading(false);
   }
 };
+
   };
 
   return (
