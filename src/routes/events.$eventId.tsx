@@ -18,8 +18,20 @@ import {
   MapPinOff,
   Share2,
   Users,
+  Star,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
@@ -66,6 +78,9 @@ export default function EventDetailsPage() {
   const [copied, setCopied] = useState(false);
   const [idCopied, setIdCopied] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackRating, setFeedbackRating] = useState(0);
+  const [feedbackComment, setFeedbackComment] = useState("");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -84,8 +99,9 @@ export default function EventDetailsPage() {
           `
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by, max_attendees,
           clubs (name, slug),
-          event_rsvps (id, user_id),
-          event_waitlist (id, user_id, created_at)
+          event_rsvps (id, user_id, checked_in),
+          event_waitlist (id, user_id, created_at),
+          event_feedbacks (id, user_id)
         `,
         )
         .eq("id", eventId)
@@ -141,8 +157,10 @@ export default function EventDetailsPage() {
                       : "music-society",
               },
             ],
-            event_rsvps: eventId === "mock-1" ? [{ id: "rsvp-1", user_id: "user-1" }] : [],
+            event_rsvps:
+              eventId === "mock-1" ? [{ id: "rsvp-1", user_id: "user-1", checked_in: true }] : [],
             event_waitlist: [] as { id: string; user_id: string; created_at: string }[],
+            event_feedbacks: [] as { id: string; user_id: string }[],
             attendee_count: eventId === "mock-1" ? 1 : 0,
           };
         }
@@ -238,6 +256,33 @@ export default function EventDetailsPage() {
     },
   });
 
+  const submitFeedback = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Please log in to submit feedback");
+      if (feedbackRating === 0) throw new Error("Please select a rating");
+      if (eventId.startsWith("mock-")) return;
+
+      const { error } = await supabase.from("event_feedbacks").insert({
+        event_id: eventId,
+        user_id: user.id,
+        rating: feedbackRating,
+        comment: feedbackComment.trim() || null,
+      });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Thank you for your feedback!");
+      setFeedbackOpen(false);
+      setFeedbackRating(0);
+      setFeedbackComment("");
+      refetch();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to submit feedback. Please try again.");
+    },
+  });
+
   const isOrganizer = user && event?.created_by === user.id;
 
   if (isLoading) {
@@ -268,6 +313,16 @@ export default function EventDetailsPage() {
 
   const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
   const hasRsvpd = user ? rsvps.some((r) => r.user_id === user.id) : false;
+  // Feedback specific conditions
+  const isCheckedIn = user
+    ? rsvps.some(
+        (r: { user_id: string; checked_in?: boolean }) => r.user_id === user.id && r.checked_in,
+      )
+    : false;
+  const hasEnded = event.end_date ? new Date() > new Date(event.end_date) : false;
+  const rawFeedbacks = (event as Record<string, unknown>).event_feedbacks;
+  const hasSubmittedFeedback =
+    user && Array.isArray(rawFeedbacks) ? rawFeedbacks.some((f) => f.user_id === user.id) : false;
 
   const rawWaitlist = (event as Record<string, unknown>).event_waitlist;
   const waitlist = Array.isArray(rawWaitlist)
@@ -574,6 +629,72 @@ export default function EventDetailsPage() {
                 <Calendar aria-hidden="true" size={14} strokeWidth={3} />
                 Add to Google Calendar
               </a>
+            )}
+
+            {isCheckedIn && hasEnded && (
+              <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    disabled={hasSubmittedFeedback}
+                    variant="primary"
+                    className="neu-border neu-press h-12 px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                  >
+                    <Star className="mr-2 h-4 w-4" />
+                    {hasSubmittedFeedback ? "Feedback Submitted \u2713" : "Submit Feedback"}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md neu-border">
+                  <DialogHeader>
+                    <DialogTitle className="font-display font-bold uppercase text-xl text-blue-900">
+                      Event Feedback
+                    </DialogTitle>
+                    <DialogDescription className="font-mono text-sm">
+                      How was {event.title}? Share your experience!
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="flex flex-col gap-6 py-4">
+                    <div className="flex flex-col items-center gap-3">
+                      <Label className="font-mono font-bold">Rating</Label>
+                      <div className="flex items-center gap-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setFeedbackRating(star)}
+                            className="focus:outline-none transition-transform hover:scale-110 active:scale-95"
+                          >
+                            <Star
+                              className={`h-8 w-8 ${feedbackRating >= star ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="comment" className="font-mono font-bold">
+                        Comment (Optional)
+                      </Label>
+                      <Textarea
+                        id="comment"
+                        placeholder="Tell us what you liked or what could be improved..."
+                        className="neu-border font-mono text-sm min-h-[100px]"
+                        value={feedbackComment}
+                        onChange={(e) => setFeedbackComment(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      onClick={() => submitFeedback.mutate()}
+                      disabled={submitFeedback.isPending || feedbackRating === 0}
+                      variant="primary"
+                      className="font-mono font-bold uppercase w-full sm:w-auto"
+                    >
+                      {submitFeedback.isPending ? "Submitting..." : "Submit Feedback"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             )}
           </div>
 
