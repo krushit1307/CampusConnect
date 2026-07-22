@@ -1,12 +1,8 @@
-import { useRef, useState } from "react";
 import { ImagePlus, Loader2, Send, X } from "lucide-react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { createClient } from "@/lib/supabase/client";
-import { useMutation } from "@/hooks/useReactQueryReplacement";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +12,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useMutation } from "@/hooks/useReactQueryReplacement";
+import { createClient } from "@/lib/supabase/client";
 
 const MAX_DESCRIPTION_LENGTH = 2000;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];

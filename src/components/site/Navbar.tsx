@@ -1,11 +1,11 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState, useRef } from "react";
+import { usePresence } from "@/hooks/usePresence";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
-import { ThemeToggle } from "../ThemeToggle";
-import { usePresence } from "@/hooks/usePresence";
-import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { UserDropdown } from "../Navigation/UserDropdown";
+import { ThemeToggle } from "../ThemeToggle";
+import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
 
 import { Menu, X } from "lucide-react";
 

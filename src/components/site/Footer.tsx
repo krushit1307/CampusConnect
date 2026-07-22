@@ -1,7 +1,7 @@
+import { BugReportModal } from "@/components/Modals/BugReportModal";
+import { ExternalLink, Github, MessageCircle } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Github, MessageCircle, ExternalLink } from "lucide-react";
-import { BugReportModal } from "@/components/Modals/BugReportModal";
 
 const NAV_LINKS = [
   { label: "Events", to: "/events" },

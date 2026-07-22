@@ -1,5 +1,5 @@
-import { Skeleton } from "@/components/ui/skeleton";
 import { SiteShell } from "@/components/site/SiteShell";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function SkeletonEventDetails() {
   return (

@@ -1,20 +1,20 @@
-import { useEffect, useState, useRef } from "react";
-import { createClient } from "@/lib/supabase/client";
-import type { User, RealtimeChannel } from "@supabase/supabase-js";
-import {
-  generateECDHKeypair,
-  exportPublicKey,
-  exportPrivateKey,
-  importPublicKey,
-  importPrivateKey,
-  deriveSharedSecret,
-  encryptMessage,
-  decryptMessage,
-} from "@/lib/crypto";
-import { toast } from "sonner";
-import { ShieldCheck, Send, Search, Lock, AlertTriangle, RefreshCw, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useWebRTC } from "@/components/VideoCall/WebRTCProvider";
+import {
+  decryptMessage,
+  deriveSharedSecret,
+  encryptMessage,
+  exportPrivateKey,
+  exportPublicKey,
+  generateECDHKeypair,
+  importPrivateKey,
+  importPublicKey,
+} from "@/lib/crypto";
+import { createClient } from "@/lib/supabase/client";
+import type { RealtimeChannel, User } from "@supabase/supabase-js";
+import { AlertTriangle, Lock, RefreshCw, Search, Send, ShieldCheck, Video } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 interface Profile {
   id: string;

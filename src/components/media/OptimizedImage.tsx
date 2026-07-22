@@ -1,5 +1,5 @@
-import { useMemo, useState, type ImgHTMLAttributes } from "react";
 import { buildResponsiveImageSrcSet, getOptimizedImageUrl } from "@/lib/imageOptimization";
+import { useMemo, useState, type ImgHTMLAttributes } from "react";
 
 interface OptimizedImageProps extends Omit<
   ImgHTMLAttributes<HTMLImageElement>,
