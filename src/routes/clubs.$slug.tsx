@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
@@ -221,20 +221,43 @@ export default function ClubProfile() {
                           key={i}
                           className="neu-border bg-white flex items-center gap-3 p-3 font-mono text-sm"
                         >
-                          <Avatar className="h-10 w-10 border-2 border-black rounded-full">
-                            <AvatarImage
-                              src={m.avatarUrl || undefined}
-                              alt={m.name}
-                              className="rounded-full"
-                            />
-                            <AvatarFallback className="rounded-full bg-[#bce3f2] text-black font-bold">
-                              {getInitials(m.name)}
-                            </AvatarFallback>
-                          </Avatar>
+                          {m.handle ? (
+                            <Link to={`/profile/${m.handle}`} className="h-10 w-10 shrink-0">
+                              <Avatar className="h-10 w-10 border-2 border-black rounded-full transition-transform hover:scale-105">
+                                <AvatarImage
+                                  src={m.avatarUrl || undefined}
+                                  alt={m.name}
+                                  className="rounded-full"
+                                />
+                                <AvatarFallback className="rounded-full bg-[#bce3f2] text-black font-bold">
+                                  {getInitials(m.name)}
+                                </AvatarFallback>
+                              </Avatar>
+                            </Link>
+                          ) : (
+                            <Avatar className="h-10 w-10 border-2 border-black rounded-full">
+                              <AvatarImage
+                                src={m.avatarUrl || undefined}
+                                alt={m.name}
+                                className="rounded-full"
+                              />
+                              <AvatarFallback className="rounded-full bg-[#bce3f2] text-black font-bold">
+                                {getInitials(m.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
                           <div className="flex-1 min-w-0">
-                            <p className="font-bold truncate" title={m.name}>
-                              {m.name}
-                            </p>
+                            {m.handle ? (
+                              <Link to={`/profile/${m.handle}`} className="hover:underline">
+                                <p className="font-bold truncate" title={m.name}>
+                                  {m.name}
+                                </p>
+                              </Link>
+                            ) : (
+                              <p className="font-bold truncate" title={m.name}>
+                                {m.name}
+                              </p>
+                            )}
                             {m.handle && (
                               <p
                                 className="text-xs text-gray-500 dark:text-gray-300 truncate"

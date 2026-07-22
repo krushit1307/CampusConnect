@@ -13,6 +13,7 @@ import {
   Flame,
 } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
@@ -40,6 +41,7 @@ type MemberRole = "admin" | "organizer" | "member" | "alumni";
 interface Profile {
   id: string;
   full_name: string | null;
+  handle?: string | null;
 }
 
 interface ClubMember {
@@ -158,9 +160,9 @@ export default function Feed() {
         .select(
           `
         id, content, created_at, club_id, pinned,
-        profiles (id, full_name),
+        profiles (id, full_name, handle),
         clubs (id, name, club_members (user_id, role)),
-        comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name)),
+        comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name, handle)),
         post_reactions (emoji, user_id)
       `,
         )
@@ -192,9 +194,9 @@ export default function Feed() {
         .select(
           `
           id, content, created_at, club_id, pinned,
-          profiles (id, full_name),
+          profiles (id, full_name, handle),
           clubs (id, name, club_members (user_id, role)),
-          comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name)),
+          comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name, handle)),
           post_reactions (emoji, user_id)
         `,
         )
@@ -663,10 +665,16 @@ export default function Feed() {
                       )}
                       <header className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b-2 border-black pb-3">
                         <div>
-                          <p className="font-display text-lg font-bold flex items-center gap-2">
-                            {author?.full_name || "Unknown User"}
+                          <div className="font-display text-lg font-bold flex items-center gap-2">
+                            {author?.handle ? (
+                              <Link to={`/profile/${author.handle}`} className="hover:underline">
+                                {author.full_name || "Unknown User"}
+                              </Link>
+                            ) : (
+                              <span>{author?.full_name || "Unknown User"}</span>
+                            )}
                             <RoleBadge role={authorRole} />
-                          </p>
+                          </div>
                           <p className="font-mono text-xs flex flex-wrap items-center">
                             in {club?.name || "Unknown Club"} · {timeAgo(post.created_at)}
                             <span className="text-gray-500 dark:text-gray-300 ml-1">
@@ -893,15 +901,24 @@ export default function Feed() {
                                 <div key={commentNode.id} className={`${indentClass}`}>
                                   <div className="neu-border bg-cream p-3 mb-3">
                                     <div className="flex justify-between">
-                                      <p className="font-mono text-xs font-bold uppercase flex items-center gap-1.5">
-                                        {commentAuthor?.full_name || "Unknown User"}
+                                      <div className="font-mono text-xs font-bold uppercase flex items-center gap-1.5">
+                                        {commentAuthor?.handle ? (
+                                          <Link
+                                            to={`/profile/${commentAuthor.handle}`}
+                                            className="hover:underline"
+                                          >
+                                            {commentAuthor.full_name || "Unknown User"}
+                                          </Link>
+                                        ) : (
+                                          <span>{commentAuthor?.full_name || "Unknown User"}</span>
+                                        )}
                                         <RoleBadge
                                           role={
                                             (commentAuthorMembership?.role ??
                                               "member") as MemberRole
                                           }
                                         />
-                                      </p>
+                                      </div>
                                       <div className="flex items-center gap-2">
                                         <p className="font-mono text-[10px] text-gray-500 dark:text-gray-300">
                                           {timeAgo(commentNode.created_at)}
