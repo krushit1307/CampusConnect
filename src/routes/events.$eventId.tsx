@@ -16,7 +16,6 @@ import {
   Link as LinkIcon,
   MapPin,
   MapPinOff,
-  Share2,
   Users,
   Star,
 } from "lucide-react";
