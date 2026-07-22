@@ -107,6 +107,7 @@ export default function EventsPage() {
           end_date,
           location,
           banner_url,
+          created_at,
           clubs(name),
           event_rsvps(id,user_id),
           saved_events(id,user_id)
