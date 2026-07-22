@@ -25,6 +25,14 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { parseCoordinates } from "@/lib/eventUtils";
 import { EventMap } from "@/components/EventMap";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 function rsvpRowsToCsv(rows: { name: string; email: string; rsvp_date: string; status: string }[]) {
   const headers = ["User Name", "Email", "RSVP Date", "Status"];
@@ -336,15 +344,42 @@ export default function EventDetailsPage() {
 
   return (
     <SiteShell>
-      {/* Top navigation header */}
-      <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6">
+      {/* Breadcrumb nav — replaces the old back-link bar */}
+      <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6" aria-label="Breadcrumb">
         <div className="mx-auto max-w-4xl">
+          {/* Mobile: simple back link */}
           <Link
             to="/events"
-            className="inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider hover:underline"
+            className="inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider hover:underline sm:hidden"
           >
-            <ArrowLeft size={14} /> Back to Events
+            <ArrowLeft size={14} /> Events
           </Link>
+          {/* sm+: full breadcrumb */}
+          <Breadcrumb className="hidden sm:block">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to="/" className="font-mono text-xs font-bold uppercase">
+                    Home
+                  </Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to="/events" className="font-mono text-xs font-bold uppercase">
+                    Events
+                  </Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="font-mono text-xs font-bold uppercase">
+                  {event.title}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
         </div>
       </nav>
 

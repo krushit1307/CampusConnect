@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
@@ -8,7 +8,15 @@ import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Github, Loader2, CheckCircle } from "lucide-react";
+import { ArrowLeft, Github, Loader2, CheckCircle } from "lucide-react";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -214,6 +222,38 @@ export default function ClubProfile() {
     <SiteShell>
       <section className="border-b-2 border-black px-4 py-14 md:px-6">
         <div className="mx-auto max-w-6xl">
+          {/* Breadcrumb — full on sm+, back-link only on mobile */}
+          <Link
+            to="/clubs"
+            className="mb-4 inline-flex items-center gap-1 font-mono text-xs font-bold uppercase tracking-wider hover:underline sm:hidden"
+          >
+            <ArrowLeft size={12} /> Clubs
+          </Link>
+          <Breadcrumb className="hidden sm:block mb-4">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to="/" className="font-mono text-xs font-bold uppercase">
+                    Home
+                  </Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to="/clubs" className="font-mono text-xs font-bold uppercase">
+                    Clubs
+                  </Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="font-mono text-xs font-bold uppercase">
+                  {club.name}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
           <p className="eyebrow font-bold text-blue-900">Club</p>
           <h1 className="mt-2 text-5xl font-bold text-[#123a57] md:text-7xl">{club.name}</h1>
           <div className="markdown-content mt-4 max-w-2xl font-mono text-sm md:text-base leading-relaxed">
