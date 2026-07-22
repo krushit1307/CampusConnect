@@ -1,5 +1,9 @@
-import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import MDEditor, { type RefMDEditor } from "@uiw/react-md-editor";
+import "@uiw/react-md-editor/markdown-editor.css";
+import { useTheme } from "@/components/theme-provider";
 import {
   Bold,
   Code2,
@@ -71,15 +75,35 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
     },
     ref,
   ) => {
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const mdEditorRef = useRef<RefMDEditor>(null);
     const [mode, setMode] = useState<"write" | "preview">("write");
+
+    const { theme } = useTheme();
+    const [colorMode, setColorMode] = useState<"light" | "dark">("light");
+
+    useEffect(() => {
+      const isDark =
+        theme === "dark" ||
+        (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      setColorMode(isDark ? "dark" : "light");
+
+      if (theme === "system") {
+        const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+        const handleChange = (e: MediaQueryListEvent) => {
+          setColorMode(e.matches ? "dark" : "light");
+        };
+        mediaQuery.addEventListener("change", handleChange);
+        return () => mediaQuery.removeEventListener("change", handleChange);
+      }
+    }, [theme]);
 
     useImperativeHandle(ref, () => ({
       focusWrite: () => {
         setMode("write");
         requestAnimationFrame(() => {
-          textareaRef.current?.focus();
-          textareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+          const textarea = mdEditorRef.current?.textarea;
+          textarea?.focus();
+          textarea?.scrollIntoView({ behavior: "smooth", block: "center" });
         });
       },
     }));
@@ -90,7 +114,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
       placeholder = "text",
       linePrefix,
     }: ToolbarAction) => {
-      const textarea = textareaRef.current;
+      const textarea = mdEditorRef.current?.textarea;
       if (!textarea) return;
 
       const start = textarea.selectionStart;
@@ -110,7 +134,11 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
     };
 
     return (
-      <div className="neu-border bg-white" aria-label="Markdown editor">
+      <div
+        className="neu-border bg-white dark:bg-black"
+        aria-label="Markdown editor"
+        data-color-mode={colorMode}
+      >
         <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-black bg-sky p-2">
           <div className="flex flex-wrap gap-1" role="toolbar" aria-label="Markdown formatting">
             {toolbarActions.map((action) => {
@@ -155,26 +183,32 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
         </div>
 
         {mode === "write" ? (
-          <textarea
-            ref={textareaRef}
-            id={id}
+          <MDEditor
+            ref={mdEditorRef}
             value={value}
-            onChange={(event) => onChange(event.target.value)}
-            placeholder={placeholder}
-            rows={rows}
-            className={`${minHeightClass} w-full resize-y bg-white p-4 font-mono text-sm outline-none placeholder:text-gray-500 focus:bg-cream/40`}
-            aria-label="Content in Markdown"
+            onChange={(val) => onChange(val || "")}
+            preview="edit"
+            hideToolbar={true}
+            height="auto"
+            style={{ minHeight: "200px" }}
+            textareaProps={{
+              id: id,
+              placeholder: placeholder,
+              rows: rows,
+              className: `${minHeightClass} w-full resize-y bg-white p-4 font-mono text-sm outline-none placeholder:text-gray-500 focus:bg-cream/40`,
+              "aria-label": "Content in Markdown",
+            }}
           />
         ) : (
-          <div className={`${minHeightClass} bg-white p-4`} aria-live="polite">
+          <div className={`${minHeightClass} bg-white dark:bg-black p-4`} aria-live="polite">
             {value.trim() ? (
               <div className="markdown-content font-mono text-sm leading-relaxed">
-                <ReactMarkdown>{value}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown>
               </div>
             ) : (
               <div className="flex min-h-36 flex-col items-center justify-center gap-2 text-center text-gray-500">
                 <MessageSquareText size={32} aria-hidden="true" />
-                <p className="font-mono text-sm text-gray-800">
+                <p className="font-mono text-sm text-gray-800 dark:text-cream">
                   Your Markdown preview will appear here.
                 </p>
               </div>
@@ -182,7 +216,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
           </div>
         )}
 
-        <div className="border-t-2 border-black bg-cream px-4 py-2 font-mono text-[10px] uppercase">
+        <div className="border-t-2 border-black bg-cream dark:bg-gray-800 dark:text-cream px-4 py-2 font-mono text-[10px] uppercase">
           Raw Markdown is saved. HTML is not rendered.
         </div>
       </div>

@@ -143,7 +143,8 @@ export default function SettingsPage() {
     resolver: zodResolver(profileSchema),
     defaultValues: {
       avatarTheme: "",
-      fullName: "",
+      firstName: "",
+      lastName: "",
       handle: "",
       collegeEmail: "",
       bio: "",
@@ -154,9 +155,16 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (user) {
+      // Auth metadata (from OAuth sign-up, etc.) may only ever have a single
+      // full_name string. If the profile row hasn't been saved with split
+      // first/last names yet, fall back to a best-effort split of that.
+      const [metaFirstName = "", ...metaRest] = (user.user_metadata?.full_name || "").split(" ");
+      const metaLastName = metaRest.join(" ");
+
       form.reset({
         avatarTheme: (profile?.avatar_theme as AvatarThemeId) || "",
-        fullName: profile?.full_name || user.user_metadata?.full_name || "",
+        firstName: profile?.first_name || metaFirstName,
+        lastName: profile?.last_name || metaLastName,
         handle: profile?.handle || "",
         collegeEmail: user.email || "",
         bio: profile?.bio || "",
@@ -184,7 +192,8 @@ export default function SettingsPage() {
         .from("profiles")
         .update({
           avatar_theme: values.avatarTheme || null,
-          full_name: values.fullName,
+          first_name: values.firstName,
+          last_name: values.lastName,
           handle: values.handle,
           bio: values.bio || null,
           linkedin_url: values.linkedinUrl || null,
@@ -215,7 +224,9 @@ export default function SettingsPage() {
     }
   };
 
-  const currentFullName = form.watch("fullName");
+  const currentFirstName = form.watch("firstName");
+  const currentLastName = form.watch("lastName");
+  const currentFullName = `${currentFirstName} ${currentLastName}`.trim();
   const currentAvatarTheme = form.watch("avatarTheme");
 
   const handleBorderThicknessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -264,24 +275,45 @@ export default function SettingsPage() {
 
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="fullName"
-                  render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel required className="eyebrow font-bold text-black">
-                        Full name
-                      </FormLabel>
-                      <FormControl>
-                        <input
-                          {...field}
-                          className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
-                        />
-                      </FormControl>
-                      <FormMessage className="font-mono text-xs text-destructive" />
-                    </FormItem>
-                  )}
-                />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1">
+                        <FormLabel required className="eyebrow font-bold text-black">
+                          First name
+                        </FormLabel>
+                        <FormControl>
+                          <input
+                            {...field}
+                            className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                          />
+                        </FormControl>
+                        <FormMessage className="font-mono text-xs text-destructive" />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1">
+                        <FormLabel required className="eyebrow font-bold text-black">
+                          Last name
+                        </FormLabel>
+                        <FormControl>
+                          <input
+                            {...field}
+                            className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                          />
+                        </FormControl>
+                        <FormMessage className="font-mono text-xs text-destructive" />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 <FormField
                   control={form.control}
@@ -379,7 +411,7 @@ export default function SettingsPage() {
                 {/* ── Skills Tags Editor ── */}
                 <div className="space-y-2 pt-2">
                   <p className="eyebrow font-bold text-black">Skills</p>
-                  <p className="font-mono text-xs text-gray-500">
+                  <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
                     Add skills to power matchmaking — press Enter or click{" "}
                     <span className="font-bold">+</span> to add.
                   </p>
@@ -458,7 +490,7 @@ export default function SettingsPage() {
                   onChange={handleBorderThicknessChange}
                   className="w-full cursor-pointer accent-black"
                 />
-                <p className="font-mono text-xs text-gray-500">
+                <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
                   Controls the width of borders throughout the app (1px - 8px)
                 </p>
               </div>
@@ -473,7 +505,7 @@ export default function SettingsPage() {
                   onChange={handleBorderRadiusChange}
                   className="w-full cursor-pointer accent-black"
                 />
-                <p className="font-mono text-xs text-gray-500">
+                <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
                   Controls the roundness of corners (0px - 32px)
                 </p>
               </div>
@@ -528,7 +560,6 @@ export default function SettingsPage() {
               cancelText="Cancel"
               onCancel={() => setConfirmOpen(false)}
               onConfirm={() => {
-                console.log("Delete account confirmed");
                 setConfirmOpen(false);
               }}
             />
@@ -607,7 +638,7 @@ function AvatarThemePicker({
   return (
     <div className="space-y-2 border-b-2 border-black pb-6">
       <p className="eyebrow font-bold">Avatar theme</p>
-      <p className="font-mono text-xs text-gray-500">
+      <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
         Pick a gradient background to use when you don&apos;t have a custom photo.
       </p>
       <div className="flex flex-wrap gap-3 pt-1">
@@ -658,7 +689,6 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
         .eq("id", user.id)
         .single();
 
-      console.log("Loaded avatar:", data?.avatar_url);
       if (isMounted && !error && data?.avatar_url) {
         setPreview(data.avatar_url);
         setImageError(false);
@@ -707,7 +737,6 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
 
     try {
       const avatarUrl = await uploadAvatar(file);
-      console.log("Avatar URL:", avatarUrl);
 
       if (avatarUrl) {
         setPreview(avatarUrl);
@@ -824,13 +853,13 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
       </div>
       <div className="text-center sm:text-left">
         <p className="eyebrow font-bold text-black">Profile picture</p>
-        <p className="font-mono text-xs text-gray-500">
+        <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
           JPG, PNG or WEBP. Max 2 MB. Square images look best.
         </p>
         {uploadProgress !== null && (
           <div className="mt-2 w-full space-y-1">
             <Progress value={uploadProgress} className="h-2" />
-            <p className="font-mono text-xs text-gray-500">{uploadProgress}%</p>
+            <p className="font-mono text-xs text-gray-500 dark:text-gray-300">{uploadProgress}%</p>
           </div>
         )}
       </div>

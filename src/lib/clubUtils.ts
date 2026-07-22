@@ -29,3 +29,4 @@ export const clubFormSchema = z.object({
 });
 
 export type ClubFormValues = z.infer<typeof clubFormSchema>;
+export type ClubFormInput = z.input<typeof clubFormSchema>;
