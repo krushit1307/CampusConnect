@@ -568,6 +568,24 @@ BEFORE INSERT OR UPDATE ON public.posts
 FOR EACH ROW
 EXECUTE FUNCTION public.check_post_pin_permission();
 
+-- Auto-complete past events function (#589)
+CREATE OR REPLACE FUNCTION public.auto_complete_past_events()
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE public.events
+  SET status = 'completed',
+      updated_at = NOW()
+  WHERE status = 'scheduled'
+    AND COALESCE(end_date, start_date, event_date) < NOW();
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.auto_complete_past_events() TO authenticated, service_role;
+
 -- Comment rate limiter trigger function and trigger
 CREATE OR REPLACE FUNCTION public.check_comment_rate_limit()
 RETURNS TRIGGER
