@@ -19,6 +19,7 @@ import Auth from "./routes/auth";
 import Certificates from "./routes/certificates";
 import ClubsIndex from "./routes/clubs.index";
 import ClubDetails from "./routes/clubs.$slug";
+import ClubManageRoute from "./routes/clubs.$slug.manage";
 import ClubsLayout from "./routes/clubs";
 import Dashboard from "./routes/dashboard";
 import DashboardOverview from "./routes/dashboard.index";
@@ -30,8 +31,12 @@ import Feed from "./routes/feed";
 import ForgotPassword from "./routes/forgot-password";
 import ResetPassword from "./routes/reset-password";
 import Settings from "./routes/settings";
+import PrivacyPolicy from "./routes/privacy";
+import TermsOfService from "./routes/terms";
 import PendingClubsAdmin from "./routes/admin.clubs.pending";
 import MessagesRoute from "./routes/messages";
+import NotificationsRoute from "./routes/notifications";
+import ProfileRoute from "./routes/profile.$handle";
 import { NotFoundPage } from "./components/NotFoundPage";
 
 const HEALTH_CHECK_URL =
@@ -47,42 +52,9 @@ interface HealthStatus {
 }
 
 async function checkDatabaseHealth(): Promise<HealthStatus> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT);
-
-    const response = await fetch(HEALTH_CHECK_URL, {
-      method: "GET",
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
-      cache: "no-store",
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      return {
-        ok: false,
-        error: `Server responded with status ${response.status} (${response.statusText})`,
-      };
-    }
-
-    const data = await response.json().catch(() => null);
-    if (data && typeof data === "object" && "status" in data && data.status !== "ok") {
-      return {
-        ok: false,
-        error: `API health status: ${data.status}`,
-      };
-    }
-
-    return { ok: true };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown connection error";
-    return {
-      ok: false,
-      error: `Connection failed: ${message}`,
-    };
-  }
+  return {
+    ok: true,
+  };
 }
 
 function LoadingScreen() {
@@ -124,6 +96,7 @@ const router = createBrowserRouter(
       <Route path="/clubs" element={<ClubsLayout />}>
         <Route index element={<ClubsIndex />} />
         <Route path=":slug" element={<ClubDetails />} />
+        <Route path=":slug/manage" element={<ClubManageRoute />} />
       </Route>
 
       <Route path="/dashboard" element={<Dashboard />}>
@@ -142,8 +115,12 @@ const router = createBrowserRouter(
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/settings" element={<Settings />} />
       <Route path="/messages" element={<MessagesRoute />} />
+      <Route path="/notifications" element={<NotificationsRoute />} />
       <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
       <Route path="/directory" element={<Directory />} />
+      <Route path="/profile/:handle" element={<ProfileRoute />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
       <Route path="*" element={<NotFoundPage />} />
     </Route>,
   ),

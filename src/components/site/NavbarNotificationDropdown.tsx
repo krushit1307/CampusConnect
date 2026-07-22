@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Link } from "react-router-dom";
 import NotificationItem from "./NotificationItem";
 
 const mockNotifications = [
@@ -146,6 +147,16 @@ export const NavbarNotificationDropdown: React.FC = () => {
                 />
               ))
             )}
+          </div>
+
+          <div className="border-t border-gray-200 bg-gray-50 rounded-b-lg">
+            <Link
+              to="/notifications"
+              onClick={() => setIsOpen(false)}
+              className="block w-full p-3 text-center text-sm font-semibold text-blue-600 hover:text-blue-800 hover:bg-gray-100 transition-colors"
+            >
+              View All Notifications
+            </Link>
           </div>
         </div>
       )}
