@@ -65,19 +65,19 @@ function LoadingScreen() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#ffde00",
+        backgroundColor: "var(--color-brand-yellow-bright)",
         fontFamily: "Inter, system-ui, sans-serif",
         fontWeight: 800,
         fontSize: "1.25rem",
-        color: "#0a0a0a",
+        color: "var(--color-ink)",
       }}
     >
       <div
         style={{
-          border: "4px solid #0a0a0a",
+          border: "4px solid var(--color-ink)",
           padding: "24px 40px",
           backgroundColor: "#ffffff",
-          boxShadow: "8px 8px 0px 0px #0a0a0a",
+          boxShadow: "8px 8px 0px 0px var(--color-ink)",
         }}
       >
         CHECKING SYSTEM STATUS...

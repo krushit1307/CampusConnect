@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 export const NotFoundPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-[#FFFDF9] flex flex-col items-center justify-center p-6 text-slate-900 font-sans select-none selection:bg-yellow-300">
+    <div className="min-h-screen bg-brand-yellow-bg-light flex flex-col items-center justify-center p-6 text-slate-900 font-sans select-none selection:bg-yellow-300">
       {/* Neubrutalist Wrapper Container */}
       <div className="max-w-xl w-full text-center bg-white border-4 border-black p-8 sm:p-12 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none transform transition-transform hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]">
         {/* Animated Custom SVG Neubrutalist Illustration */}
@@ -107,7 +107,7 @@ export const NotFoundPage: React.FC = () => {
         {/* Neubrutalist Primary Navigation Button */}
         <Link
           to="/dashboard"
-          className="inline-block px-8 py-4 bg-[#FF6B6B] border-4 border-black font-black uppercase tracking-wider text-sm transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1"
+          className="inline-block px-8 py-4 bg-brand-red-light border-4 border-black font-black uppercase tracking-wider text-sm transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1"
         >
           Back to Campus Dashboard
         </Link>

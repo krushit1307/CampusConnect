@@ -1,4 +1,5 @@
 import useEmblaCarousel from "embla-carousel-react";
+import { OptimizedImage } from "@/components/media/OptimizedImage";
 
 interface Club {
   id: string;
@@ -30,15 +31,21 @@ export default function TrendingCarousel({ clubs }: TrendingCarouselProps) {
           {clubs.map((club) => (
             <div
               key={club.id}
-              className="min-w-[280px] rounded-xl border-2 border-black shadow-[4px_4px_0_0_#000] bg-white overflow-hidden transition-transform hover:-translate-y-1 hover:translate-x-1 hover:shadow-[0_0_0_0_#000] cursor-grab active:cursor-grabbing"
+              className="min-w-[280px] rounded-xl border-2 border-black shadow-[4px_4px_0_0_var(--color-ink)] bg-white overflow-hidden transition-transform hover:-translate-y-1 hover:translate-x-1 hover:shadow-[0_0_0_0_var(--color-ink)] cursor-grab active:cursor-grabbing"
             >
-              <img
-                src={club.image_url || "/placeholder-club.png"}
+              <OptimizedImage
+                src={club.image_url || "https://placehold.co/600x400/png"}
                 alt={club.name}
+                width={600}
+                height={160}
                 className="h-40 w-full object-cover border-b-2 border-black"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = "https://placehold.co/600x400/png";
-                }}
+                fallback={
+                  <img
+                    src="https://placehold.co/600x400/png"
+                    alt={club.name}
+                    className="h-40 w-full object-cover border-b-2 border-black"
+                  />
+                }
               />
 
               <div className="p-4">
