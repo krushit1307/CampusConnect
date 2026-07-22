@@ -65,7 +65,7 @@ serve(async (req) => {
 
     let owner = "krushit1307";
     let repo = "CampusConnect";
-    
+
     try {
       const bodyText = await req.text();
       if (bodyText) {
@@ -92,7 +92,7 @@ serve(async (req) => {
 
     const issuesRes = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/issues?state=open&assignee=*&per_page=100`,
-      { headers }
+      { headers },
     );
 
     if (!issuesRes.ok) {
@@ -105,7 +105,7 @@ serve(async (req) => {
 
     for (const issue of issues) {
       if (issue.pull_request) continue;
-      
+
       const assignee = issue.assignees?.[0]?.login;
       if (!assignee) continue;
 
@@ -115,12 +115,12 @@ serve(async (req) => {
 
       if (inactiveHours >= EXPIRATION_HOURS) {
         processed++;
-        
+
         const prsRes = await fetch(
           `https://api.github.com/repos/${owner}/${repo}/pulls?state=open&per_page=100`,
-          { headers }
+          { headers },
         );
-        
+
         let hasLinkedPr = false;
         if (prsRes.ok) {
           const prs = await prsRes.json();
@@ -141,7 +141,7 @@ serve(async (req) => {
             method: "DELETE",
             headers: { ...headers, "Content-Type": "application/json" },
             body: JSON.stringify({ assignees: [assignee] }),
-          }
+          },
         );
 
         await fetch(
@@ -152,20 +152,17 @@ serve(async (req) => {
             body: JSON.stringify({
               body: "This issue has been auto-unclaimed due to inactivity.",
             }),
-          }
+          },
         );
 
         const updatedMetadata = clearAssignmentMetadata(metadata);
         const newBody = updateIssueBody(issue.body || "", updatedMetadata);
 
-        await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/issues/${issue.number}`,
-          {
-            method: "PATCH",
-            headers: { ...headers, "Content-Type": "application/json" },
-            body: JSON.stringify({ body: newBody }),
-          }
-        );
+        await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issue.number}`, {
+          method: "PATCH",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ body: newBody }),
+        });
 
         unclaimed++;
       }
@@ -181,7 +178,7 @@ serve(async (req) => {
           ...corsHeaders,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
   } catch (error) {
     console.error("Internal Error:", error);
@@ -192,7 +189,7 @@ serve(async (req) => {
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,
-      }
+      },
     );
   }
 });

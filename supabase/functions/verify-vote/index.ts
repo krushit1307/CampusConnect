@@ -22,7 +22,7 @@ serve(async (req: Request) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    
+
     // We use service role to bypass RLS since users voting are anonymous
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -59,38 +59,36 @@ serve(async (req: Request) => {
       .single();
 
     if (existingVote) {
-      return new Response(JSON.stringify({ error: "Double voting detected. Nullifier already used." }), {
-        status: 409,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Double voting detected. Nullifier already used." }),
+        {
+          status: 409,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
-    
+
     // PGRST116 is "No rows found", which is expected if the nullifier is unused
-    if (checkError && checkError.code !== 'PGRST116') {
+    if (checkError && checkError.code !== "PGRST116") {
       throw new Error(`Database error: ${checkError.message}`);
     }
 
     // 3. Record the vote securely against the nullifier
-    const { error: insertError } = await supabase
-      .from("votes")
-      .insert({
-        election_id: electionId,
-        choice: voteChoice,
-        nullifier: nullifier,
-        // user_id is intentionally omitted to preserve anonymity
-      });
+    const { error: insertError } = await supabase.from("votes").insert({
+      election_id: electionId,
+      choice: voteChoice,
+      nullifier: nullifier,
+      // user_id is intentionally omitted to preserve anonymity
+    });
 
     if (insertError) {
       throw new Error(`Failed to record vote: ${insertError.message}`);
     }
 
-    return new Response(
-      JSON.stringify({ message: "Vote successfully recorded" }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+    return new Response(JSON.stringify({ message: "Vote successfully recorded" }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error: unknown) {
     console.error("Function error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";

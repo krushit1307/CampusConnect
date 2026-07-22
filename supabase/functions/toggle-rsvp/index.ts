@@ -8,8 +8,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-
-
 /**
  * Handles RSVP toggling with rate limiting.
  * @param {Request} req - The incoming HTTP request.
@@ -51,7 +49,6 @@ serve(async (req: Request) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
 
     // Execute RSVP logic securely
     if (hasRsvpd) {
