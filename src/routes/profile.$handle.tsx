@@ -3,7 +3,7 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MapPin, Link2, Calendar, Award, Building } from "lucide-react";
+import { MapPin, Link2, Calendar, Award, Building, CalendarPlus, ArrowRight } from "lucide-react";
 import { NotFoundPage } from "@/components/NotFoundPage";
 
 function getInitials(name: string) {
@@ -226,7 +226,24 @@ export default function Profile() {
               <h2>Upcoming Events</h2>
             </div>
             {upcomingEvents.length === 0 ? (
-              <p className="font-mono text-sm text-gray-500">No upcoming events RSVP'd.</p>
+              <div className="neu-border neu-shadow-sm flex flex-col items-center gap-4 bg-cream p-8 text-center md:p-10">
+                <div className="neu-border inline-flex items-center justify-center bg-lime/40 p-4">
+                  <CalendarPlus size={32} className="text-black" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-display text-xl font-bold">No Events RSVP'd Yet</h3>
+                  <p className="mx-auto max-w-sm font-mono text-sm text-gray-600">
+                    No upcoming events RSVP&apos;d yet. Browse what&apos;s happening on campus and
+                    find something worth joining.
+                  </p>
+                </div>
+                <Link
+                  to="/events"
+                  className="neu-border neu-press inline-flex items-center gap-2 bg-black px-6 py-3 font-mono text-xs font-bold uppercase text-cream transition-colors hover:bg-lime hover:text-black"
+                >
+                  Browse Events <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
             ) : (
               <ul className="divide-y-2 divide-black">
                 {upcomingEvents.map(
