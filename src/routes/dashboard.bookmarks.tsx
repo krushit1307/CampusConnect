@@ -61,6 +61,7 @@ export default function DashboardBookmarks() {
             end_date,
             location,
             banner_url,
+            created_at,
             clubs (name),
             event_rsvps (id, user_id)
           )
