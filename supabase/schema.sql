@@ -143,6 +143,14 @@ CREATE TABLE event_rsvps (
   UNIQUE(event_id, user_id)
 );
 
+CREATE TABLE event_waitlist (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(event_id, user_id)
+);
+
 CREATE TABLE posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   club_id UUID REFERENCES clubs(id) ON DELETE CASCADE,
@@ -536,6 +544,41 @@ CREATE OR REPLACE TRIGGER on_event_canceled
   FOR EACH ROW
   WHEN (NEW.status = 'canceled' AND OLD.status IS DISTINCT FROM 'canceled')
   EXECUTE PROCEDURE public.handle_event_cancellation();
+
+-- Promote waitlist attendee after RSVP cancellation trigger (#587)
+CREATE OR REPLACE FUNCTION public.promote_waitlist_attendee()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    next_waitlist_record RECORD;
+BEGIN
+    SELECT id, event_id, user_id INTO next_waitlist_record
+    FROM public.event_waitlist
+    WHERE event_id = OLD.event_id
+    ORDER BY created_at ASC
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED;
+
+    IF FOUND THEN
+        INSERT INTO public.event_rsvps (event_id, user_id)
+        VALUES (next_waitlist_record.event_id, next_waitlist_record.user_id)
+        ON CONFLICT (event_id, user_id) DO NOTHING;
+
+        DELETE FROM public.event_waitlist
+        WHERE id = next_waitlist_record.id;
+    END IF;
+
+    RETURN OLD;
+END;
+$$;
+
+CREATE OR REPLACE TRIGGER tr_promote_waitlist_on_rsvp_cancel
+AFTER DELETE ON public.event_rsvps
+FOR EACH ROW
+EXECUTE FUNCTION public.promote_waitlist_attendee();
 
 -- Prevent non-admins from pinning discussion posts
 CREATE OR REPLACE FUNCTION public.check_post_pin_permission()
