@@ -7,6 +7,7 @@ import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EventRSVPButton } from "@/components/EventRSVPButton";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 
 interface Event {
   id: string;
@@ -158,7 +159,6 @@ export function EventCard({
 
   const handleShare = async () => {
     const shareUrl = `${window.location.origin}${window.location.pathname}#event-${event.id}`;
-
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
@@ -169,18 +169,12 @@ export function EventCard({
     }
   };
 
-  const handleRsvpClick = () => {
-    if (!user) {
-      toast.error("Please log in to RSVP");
-      return;
-    }
-
-    if (hasRsvpd) {
+  const handleRsvpToggleClick = (eventId: string, currentHasRsvpd: boolean) => {
+    if (currentHasRsvpd) {
       setConfirmOpen(true);
-      return;
+    } else {
+      onRsvpToggle(eventId, false);
     }
-
-    onRsvpToggle(event.id, false);
   };
 
   const savedEventsList = Array.isArray(event.saved_events) ? event.saved_events : [];
@@ -260,7 +254,7 @@ export function EventCard({
       {event.description ? (
         <div
           className={`mt-4 overflow-hidden transition-all duration-300 ease-in-out ${
-            isDescriptionExpanded ? "max-h-250" : "max-h-40"
+            isDescriptionExpanded ? "max-h-[250px]" : "max-h-40"
           }`}
         >
           <p className="text-sm leading-6 text-gray-800 inline">{displayedDescription}</p>
@@ -300,7 +294,7 @@ export function EventCard({
           user={user}
           hasRsvpd={hasRsvpd}
           isPending={isRsvpPending}
-          onToggle={onRsvpToggle}
+          onToggle={handleRsvpToggleClick}
         />
 
         <TooltipProvider>
@@ -343,6 +337,7 @@ export function EventCard({
           </Button>
         )}
       </div>
+
       <div className="mt-4 flex gap-2">
         <a
           href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
@@ -369,6 +364,19 @@ export function EventCard({
           WhatsApp
         </a>
       </div>
+
+      <ConfirmModal
+        open={confirmOpen}
+        onCancel={() => setConfirmOpen(false)}
+        title="Cancel your RSVP?"
+        description="Are you sure you want to remove your RSVP for this event?"
+        confirmText="Yes, cancel RSVP"
+        onConfirm={() => {
+          onRsvpToggle(event.id, true);
+          setConfirmOpen(false);
+        }}
+      />
+
       <TicketDialog
         open={ticketOpen}
         onOpenChange={setTicketOpen}
