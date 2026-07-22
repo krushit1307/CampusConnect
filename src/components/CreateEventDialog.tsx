@@ -38,9 +38,6 @@ import { cn } from "@/lib/utils";
 // Define an extended interface locally to handle the extra location field safely
 interface LocalEventFormValues extends EventFormValues {
   location?: string;
-  category?: string;
-  banner?: string;
-  capacity?: number | string;
 }
 
 const defaultValues: LocalEventFormValues = {
