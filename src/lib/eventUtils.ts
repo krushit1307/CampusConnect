@@ -1,4 +1,13 @@
 import { z } from "zod";
+import {
+  startOfWeek,
+  endOfWeek,
+  addMonths,
+  startOfMonth,
+  endOfMonth,
+  isSameDay,
+  isWithinInterval,
+} from "date-fns";
 
 export const TITLE_MAX_LENGTH = 100;
 
@@ -98,4 +107,31 @@ export function parseCoordinates(locationStr: string): {
     }
   }
   return { isCoordinates: false, isValid: true };
+}
+
+export function matchesDateFilter(
+  dateStr: string | null | undefined,
+  filterType: "all" | "this-week" | "next-month" | "specific",
+  specificDate?: Date,
+  now = new Date(),
+): boolean {
+  if (filterType === "all") return true;
+  if (!dateStr) return false;
+  const eventDate = new Date(dateStr);
+
+  if (filterType === "this-week") {
+    const start = startOfWeek(now);
+    const end = endOfWeek(now);
+    return isWithinInterval(eventDate, { start, end });
+  }
+  if (filterType === "next-month") {
+    const nextMonth = addMonths(now, 1);
+    const start = startOfMonth(nextMonth);
+    const end = endOfMonth(nextMonth);
+    return isWithinInterval(eventDate, { start, end });
+  }
+  if (filterType === "specific" && specificDate) {
+    return isSameDay(eventDate, specificDate);
+  }
+  return true;
 }

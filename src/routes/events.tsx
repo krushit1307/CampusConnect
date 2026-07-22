@@ -8,7 +8,11 @@ import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { toast } from "sonner";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
-import { Search, Loader2, Calendar } from "lucide-react";
+import { Search, Loader2, Calendar as CalendarIcon } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { matchesDateFilter } from "@/lib/eventUtils";
 
 import {
   Select,
@@ -61,6 +65,11 @@ export default function EventsPage() {
   const [sortLoaded, setSortLoaded] = useState(false);
   const [hidePastEvents, setHidePastEvents] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+
+  const [dateFilterType, setDateFilterType] = useState<
+    "all" | "this-week" | "next-month" | "specific"
+  >("all");
+  const [specificDate, setSpecificDate] = useState<Date | undefined>(undefined);
 
   // Search history state (from upstream/main)
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -494,6 +503,10 @@ export default function EventsPage() {
       const date = event.end_date ?? event.event_date;
       if (!date) return true;
       return new Date(date) > new Date();
+    })
+    .filter((event) => {
+      const dateStr = event.start_date ?? event.event_date;
+      return matchesDateFilter(dateStr, dateFilterType, specificDate);
     });
 
   const sortedEvents = [...filteredEvents].sort((a, b) => {
@@ -603,6 +616,74 @@ export default function EventsPage() {
                   />
                   Hide Past Events
                 </label>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="neu-border flex items-center gap-2 bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream text-black md:mr-2 cursor-pointer">
+                      <CalendarIcon className="h-4 w-4" />
+                      {dateFilterType === "all"
+                        ? "Any Date"
+                        : dateFilterType === "this-week"
+                          ? "This Week"
+                          : dateFilterType === "next-month"
+                            ? "Next Month"
+                            : specificDate
+                              ? format(specificDate, "MMM d, yyyy")
+                              : "Specific Date"}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-auto p-0 border-2 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white"
+                    align="start"
+                  >
+                    <div className="flex flex-col border-b-2 border-black p-2 gap-1">
+                      <button
+                        onClick={() => {
+                          setDateFilterType("all");
+                          setSpecificDate(undefined);
+                        }}
+                        className={`text-left px-2 py-1.5 text-sm font-mono hover:bg-cream cursor-pointer ${dateFilterType === "all" ? "font-bold bg-cream" : ""}`}
+                      >
+                        Any Date
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDateFilterType("this-week");
+                          setSpecificDate(undefined);
+                        }}
+                        className={`text-left px-2 py-1.5 text-sm font-mono hover:bg-cream cursor-pointer ${dateFilterType === "this-week" ? "font-bold bg-cream" : ""}`}
+                      >
+                        This Week
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDateFilterType("next-month");
+                          setSpecificDate(undefined);
+                        }}
+                        className={`text-left px-2 py-1.5 text-sm font-mono hover:bg-cream cursor-pointer ${dateFilterType === "next-month" ? "font-bold bg-cream" : ""}`}
+                      >
+                        Next Month
+                      </button>
+                    </div>
+                    <div className="p-2">
+                      <div className="px-2 py-1.5 text-sm font-mono font-bold uppercase">
+                        Specific Date
+                      </div>
+                      <Calendar
+                        mode="single"
+                        selected={specificDate}
+                        onSelect={(date) => {
+                          if (date) {
+                            setSpecificDate(date);
+                            setDateFilterType("specific");
+                          }
+                        }}
+                        initialFocus
+                      />
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
                 {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t) => (
                   <button
                     key={t}
@@ -617,12 +698,14 @@ export default function EventsPage() {
                     {t}
                   </button>
                 ))}
-                {(filter !== "All" || searchQuery) && (
+                {(filter !== "All" || searchQuery || dateFilterType !== "all") && (
                   <button
                     onClick={() => {
                       setFilter("All");
                       setSearchInput("");
                       setSearchQuery("");
+                      setDateFilterType("all");
+                      setSpecificDate(undefined);
                     }}
                     className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream cursor-pointer"
                   >
@@ -681,7 +764,10 @@ export default function EventsPage() {
                   Array.from({ length: 4 }).map((_, i) => <EventCardSkeleton key={i} />)
                 ) : sortedEvents.length === 0 && filter !== "All" ? (
                   <div className="col-span-full mx-auto max-w-md text-center neu-border bg-white p-8 animate-in fade-in-0 zoom-in-95 duration-300">
-                    <Calendar className="mx-auto h-10 w-10 text-neutral-500" aria-hidden="true" />
+                    <CalendarIcon
+                      className="mx-auto h-10 w-10 text-neutral-500"
+                      aria-hidden="true"
+                    />
                     <h3 className="mt-3 font-mono text-lg font-bold uppercase">
                       No {filter} events found.
                     </h3>
@@ -689,7 +775,11 @@ export default function EventsPage() {
                       Try a different category, or clear the filter to see everything.
                     </p>
                     <button
-                      onClick={() => setFilter("All")}
+                      onClick={() => {
+                        setFilter("All");
+                        setDateFilterType("all");
+                        setSpecificDate(undefined);
+                      }}
                       className="mt-4 neu-border bg-yellow px-5 py-2 font-mono text-xs font-bold uppercase transition-all hover:bg-black hover:text-white cursor-pointer"
                     >
                       Clear filter
@@ -708,6 +798,8 @@ export default function EventsPage() {
                         setFilter("All");
                         setSearchInput("");
                         setSearchQuery("");
+                        setDateFilterType("all");
+                        setSpecificDate(undefined);
                       }}
                       className="mt-4 neu-border bg-yellow px-5 py-2 font-mono text-xs font-bold uppercase transition-all hover:bg-black hover:text-white cursor-pointer"
                     >
