@@ -39,13 +39,11 @@ const EventsCalendar = lazy(() => import("@/components/events/EventsCalendar"));
 export default function EventsPage() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
-  const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [filter, setFilter] = useState<string>("All");
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [sortLoaded, setSortLoaded] = useState(false);
   const [hidePastEvents, setHidePastEvents] = useState(false);
-  const [hidePastLoaded, setHidePastLoaded] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
@@ -63,7 +61,6 @@ export default function EventsPage() {
     if (savedHidePast === "true") {
       setHidePastEvents(true);
     }
-    setHidePastLoaded(true);
   }, []);
 
   useEffect(() => {

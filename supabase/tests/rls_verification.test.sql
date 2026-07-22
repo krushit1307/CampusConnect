@@ -218,21 +218,32 @@ VALUES ('90000000-0000-0000-0000-000000000005', '90000000-0000-0000-0000-0000000
 SET local role authenticated;
 SELECT set_config('request.jwt.claim.sub', '90000000-0000-0000-0000-000000000020', true);
 
-SELECT lives_ok(
-  $$UPDATE public.events SET description = 'Updated by co-host admin' WHERE id = '90000000-0000-0000-0000-000000000005'$$,
-  'Co-host club admin can update event details'
-);
+UPDATE public.events
+SET description = 'Updated by co-host admin'
+WHERE id = '90000000-0000-0000-0000-000000000005';
 
 RESET role;
+
+SELECT is(
+  (SELECT description FROM public.events WHERE id = '90000000-0000-0000-0000-000000000005'),
+  'Updated by co-host admin',
+  'Co-host club admin successfully updated event details'
+);
 
 -- Test 13: Regular student (User B, not a co-host admin) CANNOT update the event
 SET local role authenticated;
 SELECT set_config('request.jwt.claim.sub', '90000000-0000-0000-0000-000000000002', true);
 
+UPDATE public.events
+SET description = 'Updated by student'
+WHERE id = '90000000-0000-0000-0000-000000000005';
+
+RESET role;
+
 SELECT is(
-  (SELECT COUNT(*)::int FROM public.events WHERE id = '90000000-0000-0000-0000-000000000005'),
-  1,
-  'Event is still visible by student (SELECT works)'
+  (SELECT description FROM public.events WHERE id = '90000000-0000-0000-0000-000000000005'),
+  'Updated by co-host admin',
+  'Student was blocked from updating event details'
 );
 
 -- Reset role and finish

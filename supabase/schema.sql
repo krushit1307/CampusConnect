@@ -127,6 +127,13 @@ CHECK (
     (longitude >= -180 AND longitude <= 180)
 );
 
+CREATE TABLE event_co_hosts (
+  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  club_id UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (event_id, club_id)
+);
+
 CREATE TABLE event_rsvps (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID REFERENCES events(id) ON DELETE CASCADE,
@@ -291,6 +298,7 @@ ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE club_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE event_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE event_co_hosts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE event_rsvps ENABLE ROW LEVEL SECURITY;
 ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
@@ -298,6 +306,17 @@ ALTER TABLE certificates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saved_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+
+-- event_co_hosts policies
+CREATE POLICY "Co-hosts are viewable by everyone." ON event_co_hosts FOR SELECT USING (true);
+CREATE POLICY "Primary club admins can add co-hosts." ON event_co_hosts FOR INSERT WITH CHECK (
+  public.is_club_admin((SELECT club_id FROM public.events WHERE id = event_co_hosts.event_id), auth.uid()) OR
+  EXISTS (SELECT 1 FROM public.clubs WHERE id = (SELECT club_id FROM public.events WHERE id = event_co_hosts.event_id) AND created_by = auth.uid())
+);
+CREATE POLICY "Primary club admins can delete co-hosts." ON event_co_hosts FOR DELETE USING (
+  public.is_club_admin((SELECT club_id FROM public.events WHERE id = event_co_hosts.event_id), auth.uid()) OR
+  EXISTS (SELECT 1 FROM public.clubs WHERE id = (SELECT club_id FROM public.events WHERE id = event_co_hosts.event_id) AND created_by = auth.uid())
+);
 
 CREATE POLICY "System admins can view audit logs" ON audit_logs FOR SELECT TO authenticated USING (public.is_system_admin());
 
@@ -351,7 +370,12 @@ CREATE POLICY "Club admins can insert events." ON events FOR INSERT WITH CHECK (
 );
 CREATE POLICY "Club admins can update events." ON events FOR UPDATE USING (
   public.is_club_admin(club_id, auth.uid()) OR
-  EXISTS (SELECT 1 FROM clubs WHERE id = events.club_id AND created_by = auth.uid())
+  EXISTS (SELECT 1 FROM clubs WHERE id = events.club_id AND created_by = auth.uid()) OR
+  EXISTS (
+    SELECT 1 FROM public.event_co_hosts ech
+    WHERE ech.event_id = events.id
+      AND public.is_club_admin(ech.club_id, auth.uid())
+  )
 );
 
 -- event_rsvps: users can create/read their own RSVPs, club admins can read all for their events
