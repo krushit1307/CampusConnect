@@ -11,17 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import { calculateReadTime } from "@/utils/readTime";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 
 type MemberRole = "admin" | "organizer" | "member" | "alumni";
 
@@ -74,6 +64,7 @@ export default function Feed() {
   const editorRef = useRef<MarkdownEditorRef>(null);
   const [newComments, setNewComments] = useState<Record<string, string>>({});
   const [showNewPostsBanner, setShowNewPostsBanner] = useState(false);
+  const [confirmPostId, setConfirmPostId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -295,20 +286,27 @@ export default function Feed() {
     onSuccess: () => refetchPosts(),
   });
 
+  const [optimisticDeletedIds, setOptimisticDeletedIds] = useState<string[]>([]);
+
   const deletePostMutation = useMutation({
     mutationFn: async (postId: string) => {
       if (!user) throw new Error("Must be logged in");
       const { error } = await supabase
         .from("posts")
         .update({ deleted_at: new Date().toISOString() })
-        .eq("id", postId);
+        .eq("id", postId)
+        .eq("author_id", user.id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      refetchPosts();
-      toast.success("Post deleted successfully!");
+    onMutate: (postId) => {
+      setOptimisticDeletedIds((prev) => [...prev, postId]);
     },
-    onError: () => {
+    onSuccess: () => {
+      toast.success("Post deleted successfully.");
+      refetchPosts();
+    },
+    onError: (_err, postId) => {
+      setOptimisticDeletedIds((prev) => prev.filter((id) => id !== postId));
       toast.error("Failed to delete post.");
     },
   });
@@ -499,6 +497,8 @@ export default function Feed() {
                     ? post.comments.filter((c) => !c.deleted_at)
                     : [];
 
+                  if (optimisticDeletedIds.includes(post.id)) return null;
+
                   const isLastPost = index === posts.length - 1;
 
                   return (
@@ -521,41 +521,15 @@ export default function Feed() {
                             </span>
                           </p>
                         </div>
-                        {(user?.id === author?.id || userProfile?.role === "system_admin") && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <button
-                                type="button"
-                                className="neu-border neu-press flex items-center gap-1 bg-[#FF6B6B] hover:bg-[#FF8787] text-black px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer"
-                                aria-label="Delete post"
-                              >
-                                <Trash2 size={10} strokeWidth={2.5} />
-                                Delete
-                              </button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent className="neu-border bg-white rounded-none p-6">
-                              <AlertDialogHeader>
-                                <AlertDialogTitle className="font-display text-xl font-bold">
-                                  Delete post?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription className="font-mono text-sm text-gray-700">
-                                  Are you sure you want to delete this post? This action cannot be
-                                  undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
-                                <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
-                                  Cancel
-                                </AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => deletePostMutation.mutate(post.id)}
-                                  className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
-                                >
-                                  Confirm
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                        {user?.id === author?.id && (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmPostId(post.id)}
+                            className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 hover:bg-[#FF6B6B]"
+                            aria-label="Delete post"
+                          >
+                            <Trash2 size={14} strokeWidth={2.5} />
+                          </button>
                         )}
                       </header>
 
@@ -770,6 +744,17 @@ export default function Feed() {
           </div>
         </section>
       </PullToRefresh>
+      <ConfirmModal
+        open={!!confirmPostId}
+        onCancel={() => setConfirmPostId(null)}
+        title="Delete post?"
+        description="Are you sure you want to delete this post? This action cannot be undone."
+        confirmText="Yes, delete"
+        onConfirm={() => {
+          if (confirmPostId) deletePostMutation.mutate(confirmPostId);
+          setConfirmPostId(null);
+        }}
+      />
     </SiteShell>
   );
 }
