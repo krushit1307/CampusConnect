@@ -24,7 +24,6 @@ import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { parseCoordinates } from "@/lib/eventUtils";
-import { DeleteEventDialog } from "@/components/DeleteEventDialog";
 import { EventFeedbackForm } from "@/components/EventFeedbackForm";
 import { EventMap } from "@/components/EventMap";
 
