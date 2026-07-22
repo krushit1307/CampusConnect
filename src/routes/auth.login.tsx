@@ -15,7 +15,6 @@ export default function AuthLogin() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          // Redirect directly back to home or login page since the dedicated callback route isn't set up
           redirectTo: window.location.origin,
         },
       });
