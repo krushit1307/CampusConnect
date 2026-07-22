@@ -1,0 +1,28 @@
+name: "12 Activity Reminder"
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
+
+concurrency:
+  group: activity-reminder-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  check-activity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Process activity reminder
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { processActivityReminder } = await import(`${process.cwd()}/.github/scripts/activity-reminder.js`);
+            await processActivityReminder({ github, context, core });

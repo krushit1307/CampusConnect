@@ -1,16 +1,21 @@
-import { formatDate, getGoogleCalendarUrl } from "@/lib/utils";
-import { FormEvent, useState } from "react";
-import { Calendar, Check, Share2, X, Link as LinkIcon, Bookmark } from "lucide-react";
+import { formatDate, formatEventDateRange, getCountdown, getGoogleCalendarUrl } from "@/lib/utils";
+import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Calendar, Check, Share2, Link as LinkIcon, Bookmark } from "lucide-react";
 import { toast } from "sonner";
-import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { EventRSVPButton } from "@/components/EventRSVPButton";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 
 interface Event {
   id: string;
   title: string;
   description: string | null;
   event_date: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
   location: string | null;
   banner_url?: string | null;
   clubs: { name: string } | { name: string }[] | null;
@@ -39,37 +44,32 @@ export function EventCard({
 }: EventCardProps) {
   const club = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs;
   const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
-  const hasRsvpd = user ? rsvps.some((rsvp) => rsvp.user_id === user.id) : false;
-  const colors = ["bg-lime", "bg-sky", "bg-peach", "bg-lavender"];
+  const myRsvp = user ? rsvps.find((rsvp) => rsvp.user_id === user.id) : null;
+
+  const hasRsvpd = !!myRsvp;
+  const colors = ["bg-lime", "bg-sky", "bg-peach"];
   const googleCalendarUrl = getGoogleCalendarUrl({
     title: event.title,
     description: event.description,
     event_date: event.event_date,
+    start_date: event.start_date,
+    end_date: event.end_date,
     location: event.location,
   });
+  const countdown = event.event_date ? getCountdown(event.event_date) : "TBA";
 
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [studentId, setStudentId] = useState("");
-  const [dietaryPreference, setDietaryPreference] = useState("");
   const [copied, setCopied] = useState(false);
+  const [ticketOpen, setTicketOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-
-  const savedEventsList = Array.isArray(event.saved_events) ? event.saved_events : [];
-  const isSaved = user ? savedEventsList.some((se) => se.user_id === user.id) : false;
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      toast.success("Event link copied to clipboard!");
+      toast.success("Link copied!");
     } catch (error) {
       toast.error("Failed to copy link.");
     }
-  };
-
-  const resetForm = () => {
-    setStudentId("");
-    setDietaryPreference("");
-    setIsFormOpen(false);
   };
 
   const handleShare = async () => {
@@ -77,219 +77,170 @@ export function EventCard({
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
-      toast.success("Link copied to clipboard!");
+      toast.success("Link copied!");
       window.setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      toast.error("Failed to copy link");
+      toast.error("Failed to copy link.");
     }
   };
 
-  const handleRsvpClick = () => {
-    if (!user) {
-      toast.error("Please log in to RSVP");
-      return;
-    }
-    if (hasRsvpd) {
+  const handleRsvpToggleClick = (eventId: string, currentHasRsvpd: boolean) => {
+    if (currentHasRsvpd) {
       setConfirmOpen(true);
-      return;
+    } else {
+      onRsvpToggle(eventId, false);
     }
-    setIsFormOpen(true);
   };
 
-  const handleSubmit = (formEvent: FormEvent<HTMLFormElement>) => {
-    formEvent.preventDefault();
-    const form = formEvent.currentTarget;
-    if (!form.checkValidity()) {
-      form.reportValidity();
-      return;
-    }
-    onRsvpToggle(event.id, false);
-    resetForm();
-  };
+  const savedEventsList = Array.isArray(event.saved_events) ? event.saved_events : [];
+  const isSaved = user ? savedEventsList.some((se) => se.user_id === user.id) : false;
 
   const handleBookmarkClick = () => {
     if (!user) {
       toast.error("Please log in to bookmark events");
       return;
     }
-    onBookmarkToggle(event.id, isSaved);
+    onBookmarkToggle?.(event.id, isSaved);
   };
 
-  return (
-    <article id={`event-${event.id}`} className={`neu-border p-5 relative ${colors[index % colors.length]}`}>
-      <button
-        type="button"
-        onClick={handleBookmarkClick}
-        disabled={isBookmarkPending}
-        className="absolute right-4 top-4 neu-border p-1.5 bg-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-        aria-label={isSaved ? "Unsave event" : "Save event"}
-      >
-        <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
-      </button>
+  const shouldTruncate = !!event.description && event.description.length > 220;
 
+  const displayedDescription =
+    shouldTruncate && !isDescriptionExpanded
+      ? `${event.description!.slice(0, 180)}...`
+      : event.description;
+
+  return (
+    <article
+      id={`event-${event.id}`}
+      className={`neu-border p-5 relative ${colors[index % colors.length]}`}
+    >
       <div className="flex items-start justify-between gap-3">
-        <p className="font-mono text-xs font-bold uppercase tracking-wider pr-10">
-          {event.event_date ? formatDate(event.event_date).split(" at ")[0].toUpperCase() : "TBA"}
-        </p>
-        <button
-          type="button"
-          onClick={handleShare}
-          aria-label="Copy event link"
-          className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white"
-        >
-          {copied ? (
-            <Check aria-hidden="true" size={14} strokeWidth={3} />
-          ) : (
-            <Share2 aria-hidden="true" size={14} strokeWidth={3} />
+        <div className="flex flex-col">
+          <p className="font-mono text-xs font-bold uppercase tracking-wider pr-10 text-red-900">
+            {event.event_date ? formatDate(event.event_date).split(" at ")[0].toUpperCase() : "TBA"}
+          </p>
+
+          {event.event_date && (
+            <span
+              className={`mt-2 inline-flex min-h-[24px] items-center rounded-full px-2 py-1 text-[11px] font-bold ${
+                countdown === "Ended" ? "bg-gray-100 text-gray-600" : "bg-peach text-orange-700"
+              }`}
+            >
+              {countdown}
+            </span>
           )}
-        </button>
+        </div>
+
+        <div className="flex gap-2 relative z-10">
+          <button
+            type="button"
+            onClick={handleBookmarkClick}
+            disabled={isBookmarkPending}
+            className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label={isSaved ? "Unsave event" : "Save event"}
+          >
+            <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
+          </button>
+
+          <button
+            type="button"
+            onClick={handleShare}
+            aria-label="Copy event link"
+            className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black"
+          >
+            {copied ? (
+              <Check aria-hidden="true" size={14} strokeWidth={3} />
+            ) : (
+              <Share2 aria-hidden="true" size={14} strokeWidth={3} />
+            )}
+          </button>
+        </div>
       </div>
 
-      <p className="mt-3 font-mono text-xs font-bold uppercase">Event</p>
-      <h2 className="mt-1 text-2xl font-black">{event.title}</h2>
-      <p className="mt-1 font-mono text-sm font-bold">{club?.name}</p>
+      <p className="mt-3 font-mono text-xs font-bold uppercase text-black">Event</p>
+      <Link to={`/events/${event.id}`} className="group">
+        <h2 className="mt-1 text-2xl font-black group-hover:underline text-violet-900">
+          {event.title}
+        </h2>
+      </Link>
+      <p className="mt-1 font-mono text-sm font-bold text-blue-900">{club?.name}</p>
 
-      {event.description ? <p className="mt-4 text-sm leading-6">{event.description}</p> : null}
+      {event.description ? (
+        <div
+          className={`mt-4 overflow-hidden transition-all duration-300 ease-in-out ${
+            isDescriptionExpanded ? "max-h-[250px]" : "max-h-40"
+          }`}
+        >
+          <p className="text-sm leading-6 text-gray-800 inline">{displayedDescription}</p>
+
+          {shouldTruncate && (
+            <button
+              type="button"
+              onClick={() => setIsDescriptionExpanded((prev) => !prev)}
+              className="ml-1 inline font-semibold text-violet-700 hover:text-violet-900 transition-colors"
+            >
+              {isDescriptionExpanded ? "Read less" : "Read more"}
+            </button>
+          )}
+        </div>
+      ) : null}
 
       <dl className="mt-5 grid gap-4 sm:grid-cols-3">
         <div>
-          <dt className="font-mono text-xs font-bold uppercase">Date &amp; Time</dt>
-          <dd className="mt-1 text-sm">
-            {event.event_date ? formatDate(event.event_date) : "TBA"}
-          </dd>
+          <dt className="font-mono text-xs font-bold uppercase text-black">Date &amp; Time</dt>
+          <dd className="mt-1 text-sm text-red-900">{formatEventDateRange(event)}</dd>
         </div>
         <div>
-          <dt className="font-mono text-xs font-bold uppercase">Venue</dt>
-          <dd className="mt-1 text-sm">{event.location || "TBA"}</dd>
+          <dt className="font-mono text-xs font-bold uppercase text-black">Venue</dt>
+          <dd className="mt-1 text-sm text-red-900">{event.location || "TBA"}</dd>
         </div>
         <div>
-          <dt className="font-mono text-xs font-bold uppercase">Attendees</dt>
-          <dd className="mt-1 text-sm">{rsvps.length} RSVP&apos;d</dd>
+          <dt className="font-mono text-xs font-bold uppercase text-black">Attendees</dt>
+          <dd className="mt-1 text-sm text-red-900">{rsvps.length} RSVP'd</dd>
         </div>
       </dl>
 
-      {isFormOpen && !hasRsvpd ? (
-        <form className="neu-border mt-5 bg-white p-4" onSubmit={handleSubmit} noValidate={false}>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h3 className="font-black">Complete your RSVP</h3>
-              <p className="mt-1 text-sm">Required fields must be completed before submitting.</p>
-            </div>
-            <button
-              type="button"
-              onClick={resetForm}
-              className="neu-border grid h-9 w-9 shrink-0 place-items-center bg-cream"
-              aria-label="Close RSVP form"
-            >
-              <X aria-hidden="true" size={18} strokeWidth={3} />
-            </button>
-          </div>
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <EventRSVPButton
+          eventId={event.id}
+          user={user}
+          hasRsvpd={hasRsvpd}
+          isPending={isRsvpPending}
+          onToggle={handleRsvpToggleClick}
+        />
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="font-mono text-xs font-bold uppercase">
-                Student ID{" "}
-                <span className="text-destructive ml-1" aria-hidden="true">*</span>
-              </span>
-              <input
-                type="text"
-                name="studentId"
-                value={studentId}
-                onChange={(e) => setStudentId(e.target.value)}
-                required
-                minLength={3}
-                maxLength={30}
-                autoComplete="off"
-                className="neu-border mt-2 w-full bg-cream px-3 py-2 outline-none focus:ring-2 focus:ring-black"
-                placeholder="Enter your student ID"
-              />
-            </label>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={handleCopyLink} variant="outline" size="sm">
+                <LinkIcon className="h-4 w-4 mr-2" />
+                Copy Link
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Copy Event Link</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
-            <label className="block">
-              <span className="font-mono text-xs font-bold uppercase">
-                Dietary preference{" "}
-                <span className="text-destructive ml-1" aria-hidden="true">*</span>
-              </span>
-              <select
-                name="dietaryPreference"
-                value={dietaryPreference}
-                onChange={(e) => setDietaryPreference(e.target.value)}
-                required
-                className="neu-border mt-2 w-full bg-cream px-3 py-2 outline-none focus:ring-2 focus:ring-black"
-              >
-                <option value="" disabled>Select an option</option>
-                <option value="none">No preference</option>
-                <option value="vegetarian">Vegetarian</option>
-                <option value="vegan">Vegan</option>
-                <option value="halal">Halal</option>
-                <option value="other">Other</option>
-              </select>
-            </label>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button
-              type="submit"
-              disabled={isRsvpPending}
-              className="neu-border bg-black px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider text-cream disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isRsvpPending ? "Submitting..." : "Confirm RSVP"}
-            </button>
-            <button
-              type="button"
-              onClick={resetForm}
-              className="neu-border bg-white px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : null}
-
-      {!isFormOpen || hasRsvpd ? (
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={handleRsvpClick}
-            disabled={isRsvpPending}
-            className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
-              hasRsvpd ? "bg-lime text-black" : "bg-black text-cream"
-            }`}
+        {hasRsvpd && googleCalendarUrl && (
+          <a
+            href={googleCalendarUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="neu-border bg-white px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
           >
-            {isRsvpPending ? "Updating..." : hasRsvpd ? "RSVP'd ✓" : "RSVP →"}
-          </button>
-
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={handleCopyLink}
-                  variant="outline"
-                  className="neu-border neu-press bg-white hover:bg-cream h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
-                >
-                  <LinkIcon className="h-4 w-4 mr-2" />
-                  Copy Link
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Copy Event Link</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          {hasRsvpd && googleCalendarUrl && (
-            <a
-              href={googleCalendarUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="neu-border bg-white px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
-            >
-              <Calendar aria-hidden="true" size={14} strokeWidth={3} />
-              Add to Google Calendar
-            </a>
-          )}
-        </div>
-      ) : null}
+            <Calendar aria-hidden="true" size={14} strokeWidth={3} />
+            Add to Google Calendar
+          </a>
+        )}
+        {hasRsvpd && myRsvp && (
+          <Button type="button" onClick={() => setTicketOpen(true)} variant="outline" size="sm">
+            View Ticket
+          </Button>
+        )}
+      </div>
 
       <div className="mt-4 flex gap-2">
         <a
@@ -328,6 +279,13 @@ export function EventCard({
           onRsvpToggle(event.id, true);
           setConfirmOpen(false);
         }}
+      />
+
+      <TicketDialog
+        open={ticketOpen}
+        onOpenChange={setTicketOpen}
+        event={event}
+        rsvpId={myRsvp?.id ?? ""}
       />
     </article>
   );

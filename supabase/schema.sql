@@ -38,12 +38,12 @@ RETURNS boolean
 LANGUAGE sql
 IMMUTABLE
 AS $$
-  SELECT
+  SELECT 
     links IS NULL OR (
       jsonb_typeof(links) = 'object'
       AND NOT EXISTS (
-        SELECT 1
-        FROM jsonb_each_text(links)
+        SELECT 1 
+        FROM jsonb_each_text(links) 
         WHERE value NOT LIKE 'http://%' AND value NOT LIKE 'https://%'
       )
     );
@@ -110,6 +110,9 @@ CHECK (
   max_attendees IS NULL OR max_attendees > 0
 );
 
+CREATE INDEX idx_events_category ON events(category_id);
+CREATE INDEX idx_events_start_date ON events(start_date);
+
 ALTER TABLE events
 ADD CONSTRAINT events_latitude_valid
 CHECK (
@@ -123,9 +126,6 @@ CHECK (
     longitude IS NULL OR
     (longitude >= -180 AND longitude <= 180)
 );
-
-CREATE INDEX idx_events_category ON events(category_id);
-CREATE INDEX idx_events_start_date ON events(start_date);
 
 CREATE TABLE event_rsvps (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -165,7 +165,6 @@ CREATE TABLE certificates (
   issued_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- saved_events: NOT NULL on foreign keys (from main)
 CREATE TABLE saved_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
@@ -174,7 +173,6 @@ CREATE TABLE saved_events (
   UNIQUE(event_id, user_id)
 );
 
--- notifications table (from main)
 CREATE TABLE notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
@@ -185,7 +183,6 @@ CREATE TABLE notifications (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- audit_logs table (from main)
 CREATE TABLE audit_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
@@ -214,9 +211,12 @@ STABLE
 SET search_path = public
 AS $$
 BEGIN
+  -- Check Supabase JWT app_metadata claim first (fast path)
   IF (auth.jwt() -> 'app_metadata' ->> 'role') = 'system_admin' THEN
     RETURN TRUE;
   END IF;
+
+  -- Fallback: check the profiles table role column
   RETURN EXISTS (
     SELECT 1
     FROM public.profiles
@@ -263,18 +263,18 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT
+  SELECT 
     e.title,
     e.start_date AS date,
     e.location,
     COALESCE((
-      SELECT COUNT(*)
-      FROM public.event_rsvps r
+      SELECT COUNT(*) 
+      FROM public.event_rsvps r 
       WHERE r.event_id = e.id
     ), 0)::BIGINT AS rsvp_count,
     COALESCE(EXISTS(
-      SELECT 1
-      FROM public.saved_events s
+      SELECT 1 
+      FROM public.saved_events s 
       WHERE s.event_id = e.id AND s.user_id = user_uuid
     ), false) AS is_bookmarked
   FROM public.events e
@@ -314,7 +314,7 @@ CREATE POLICY "Clubs are viewable by everyone." ON clubs FOR SELECT USING (
 );
 CREATE POLICY "Users can create clubs." ON clubs FOR INSERT WITH CHECK (auth.uid() = created_by);
 CREATE POLICY "Club admins can update clubs." ON clubs FOR UPDATE USING (
-  auth.uid() = created_by OR
+  auth.uid() = created_by OR 
   public.is_club_admin(id, auth.uid())
 );
 
@@ -333,7 +333,7 @@ CREATE POLICY "System admins can insert event categories." ON event_categories F
 CREATE POLICY "System admins can update event categories." ON event_categories FOR UPDATE TO authenticated USING (public.is_system_admin()) WITH CHECK (public.is_system_admin());
 CREATE POLICY "System admins can delete event categories." ON event_categories FOR DELETE TO authenticated USING (public.is_system_admin());
 
--- events: public read for public clubs, private club events visible only to approved members
+-- events: public read for public clubs, private club events visible only to approved members and the creator
 CREATE POLICY "Events are viewable by everyone." ON events FOR SELECT USING (
   EXISTS (
     SELECT 1 FROM clubs
@@ -419,6 +419,7 @@ BEGIN
   v_first_name := new.raw_user_meta_data->>'first_name';
   v_last_name := new.raw_user_meta_data->>'last_name';
 
+  -- Prefer first_name/last_name from metadata; fall back to splitting full_name
   IF v_first_name IS NULL OR v_first_name = '' THEN
     IF v_full_name IS NOT NULL AND v_full_name != '' THEN
       IF POSITION(' ' IN v_full_name) > 0 THEN
@@ -458,14 +459,28 @@ DECLARE
   v_max_attendees INTEGER;
   v_current_count INTEGER;
 BEGIN
-  SELECT max_attendees INTO v_max_attendees FROM public.events WHERE id = NEW.event_id;
+  -- Fetch the max_attendees for the event being RSVP'd to.
+  -- If max_attendees is NULL, the event has unlimited capacity.
+  SELECT max_attendees
+  INTO v_max_attendees
+  FROM public.events
+  WHERE id = NEW.event_id;
+
+  -- Only enforce capacity if a limit is set
   IF v_max_attendees IS NOT NULL THEN
-    SELECT COUNT(*) INTO v_current_count FROM public.event_rsvps WHERE event_id = NEW.event_id;
+    -- Count existing RSVPs for this event
+    SELECT COUNT(*)
+    INTO v_current_count
+    FROM public.event_rsvps
+    WHERE event_id = NEW.event_id;
+
+    -- Raise an exception if at or over capacity
     IF v_current_count >= v_max_attendees THEN
       RAISE EXCEPTION 'Event has reached its maximum capacity of % attendees.', v_max_attendees
         USING ERRCODE = 'P0001';
     END IF;
   END IF;
+
   RETURN NEW;
 END;
 $$;
@@ -479,12 +494,13 @@ EXECUTE FUNCTION public.check_event_capacity();
 CREATE OR REPLACE FUNCTION public.handle_event_cancellation()
 RETURNS trigger AS $$
 BEGIN
-  INSERT INTO public.notifications (user_id, type, title, message)
-  SELECT
+  INSERT INTO public.notifications (user_id, type, title, message, link)
+  SELECT 
     rsvp.user_id,
     'event',
     'Event Canceled',
-    'Event ' || NEW.title || ' has been canceled by the organizer.'
+    'Event ' || NEW.title || ' has been canceled by the organizer.',
+    '/events/' || NEW.id
   FROM public.event_rsvps rsvp
   WHERE rsvp.event_id = NEW.id;
   RETURN NEW;
@@ -506,13 +522,19 @@ SET search_path = public
 AS $$
 BEGIN
   IF NEW.pinned = TRUE THEN
+    -- Verify the user is an admin of the corresponding club or the club owner
     IF NOT (
       public.is_club_admin(NEW.club_id, auth.uid()) OR
-      EXISTS (SELECT 1 FROM public.clubs WHERE id = NEW.club_id AND created_by = auth.uid())
+      EXISTS (
+        SELECT 1 FROM public.clubs
+        WHERE id = NEW.club_id AND created_by = auth.uid()
+      )
     ) THEN
-      RAISE EXCEPTION 'Only club administrators can pin posts.' USING ERRCODE = 'P0001';
+      RAISE EXCEPTION 'Only club administrators can pin posts.'
+        USING ERRCODE = 'P0001';
     END IF;
   END IF;
+
   RETURN NEW;
 END;
 $$;
@@ -522,7 +544,7 @@ BEFORE INSERT OR UPDATE ON public.posts
 FOR EACH ROW
 EXECUTE FUNCTION public.check_post_pin_permission();
 
--- Comment rate limiter
+-- Comment rate limiter trigger function and trigger
 CREATE OR REPLACE FUNCTION public.check_comment_rate_limit()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -532,13 +554,19 @@ AS $$
 DECLARE
   v_comment_count INTEGER;
 BEGIN
-  SELECT COUNT(*) INTO v_comment_count
+  -- Count comments created by the currently authenticated user in the past 60 seconds
+  SELECT COUNT(*)
+  INTO v_comment_count
   FROM public.comments
   WHERE author_id = auth.uid()
     AND created_at >= NOW() - INTERVAL '1 minute';
+
+  -- Abort insert if count is >= 5
   IF v_comment_count >= 5 THEN
-    RAISE EXCEPTION 'Comment rate limit exceeded. You can only post 5 comments per minute.' USING ERRCODE = 'P0001';
+    RAISE EXCEPTION 'Comment rate limit exceeded. You can only post 5 comments per minute.'
+      USING ERRCODE = 'P0001';
   END IF;
+
   RETURN NEW;
 END;
 $$;
@@ -548,7 +576,7 @@ BEFORE INSERT ON public.comments
 FOR EACH ROW
 EXECUTE FUNCTION public.check_comment_rate_limit();
 
--- Post like count trigger
+-- Post like count trigger on post_reactions
 CREATE OR REPLACE FUNCTION public.update_post_like_count()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -557,20 +585,28 @@ SET search_path = public
 AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
-    UPDATE posts SET like_count = (SELECT COUNT(*) FROM post_reactions WHERE post_id = NEW.post_id) WHERE id = NEW.post_id;
+    UPDATE posts
+    SET like_count = (SELECT COUNT(*) FROM post_reactions WHERE post_id = NEW.post_id)
+    WHERE id = NEW.post_id;
     RETURN NEW;
   ELSIF TG_OP = 'DELETE' THEN
-    UPDATE posts SET like_count = (SELECT COUNT(*) FROM post_reactions WHERE post_id = OLD.post_id) WHERE id = OLD.post_id;
+    UPDATE posts
+    SET like_count = (SELECT COUNT(*) FROM post_reactions WHERE post_id = OLD.post_id)
+    WHERE id = OLD.post_id;
     RETURN OLD;
   END IF;
 END;
 $$;
 
 CREATE TRIGGER trg_post_reactions_insert
-AFTER INSERT ON post_reactions FOR EACH ROW EXECUTE FUNCTION public.update_post_like_count();
+AFTER INSERT ON post_reactions
+FOR EACH ROW
+EXECUTE FUNCTION public.update_post_like_count();
 
 CREATE TRIGGER trg_post_reactions_delete
-AFTER DELETE ON post_reactions FOR EACH ROW EXECUTE FUNCTION public.update_post_like_count();
+AFTER DELETE ON post_reactions
+FOR EACH ROW
+EXECUTE FUNCTION public.update_post_like_count();
 
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
 RETURNS trigger AS $$
@@ -580,33 +616,112 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER set_updated_at_profiles BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
-CREATE TRIGGER set_updated_at_clubs BEFORE UPDATE ON clubs FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
-CREATE TRIGGER set_updated_at_events BEFORE UPDATE ON events FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
-CREATE TRIGGER set_updated_at_posts BEFORE UPDATE ON posts FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
-CREATE TRIGGER set_updated_at_comments BEFORE UPDATE ON comments FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
+CREATE TRIGGER set_updated_at_profiles
+BEFORE UPDATE ON profiles
+FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
+
+CREATE TRIGGER set_updated_at_clubs
+BEFORE UPDATE ON clubs
+FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
+
+CREATE TRIGGER set_updated_at_events
+BEFORE UPDATE ON events
+FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
+
+CREATE TRIGGER set_updated_at_posts
+BEFORE UPDATE ON posts
+FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
+
+CREATE TRIGGER set_updated_at_comments
+BEFORE UPDATE ON comments
+FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
 
 -- ------------------------------------------------------------
 -- 5. Storage Buckets & Policies
 -- ------------------------------------------------------------
 
+-- Create public buckets
 INSERT INTO storage.buckets (id, name, public)
 VALUES
   ('avatars', 'avatars', true),
   ('club-banners', 'club-banners', true),
   ('event-banners', 'event-banners', true),
   ('certificates', 'certificates', true)
-ON CONFLICT (id) DO UPDATE SET public = EXCLUDED.public;
+ON CONFLICT (id) DO UPDATE
+SET public = EXCLUDED.public;
 
+-- Remove existing policies if they already exist
 DROP POLICY IF EXISTS "Public Access" ON storage.objects;
 DROP POLICY IF EXISTS "Users can upload" ON storage.objects;
 DROP POLICY IF EXISTS "Users can update own uploads" ON storage.objects;
 DROP POLICY IF EXISTS "Users can delete own uploads" ON storage.objects;
 
-CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING (bucket_id IN ('avatars','club-banners','event-banners','certificates'));
-CREATE POLICY "Users can upload" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id IN ('avatars','club-banners','event-banners','certificates') AND (storage.foldername(name))[1] = auth.uid()::text);
-CREATE POLICY "Users can update own uploads" ON storage.objects FOR UPDATE TO authenticated USING (bucket_id IN ('avatars','club-banners','event-banners','certificates') AND (storage.foldername(name))[1] = auth.uid()::text) WITH CHECK (bucket_id IN ('avatars','club-banners','event-banners','certificates') AND (storage.foldername(name))[1] = auth.uid()::text);
-CREATE POLICY "Users can delete own uploads" ON storage.objects FOR DELETE TO authenticated USING (bucket_id IN ('avatars','club-banners','event-banners','certificates') AND (storage.foldername(name))[1] = auth.uid()::text);
+-- Public read access
+CREATE POLICY "Public Access"
+ON storage.objects
+FOR SELECT
+USING (
+  bucket_id IN (
+    'avatars',
+    'club-banners',
+    'event-banners',
+    'certificates'
+  )
+);
+
+-- Authenticated users can upload only to their own folder
+CREATE POLICY "Users can upload"
+ON storage.objects
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id IN (
+    'avatars',
+    'club-banners',
+    'event-banners',
+    'certificates'
+  )
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Users can overwrite/update only their own files
+CREATE POLICY "Users can update own uploads"
+ON storage.objects
+FOR UPDATE
+TO authenticated
+USING (
+  bucket_id IN (
+    'avatars',
+    'club-banners',
+    'event-banners',
+    'certificates'
+  )
+  AND (storage.foldername(name))[1] = auth.uid()::text
+)
+WITH CHECK (
+  bucket_id IN (
+    'avatars',
+    'club-banners',
+    'event-banners',
+    'certificates'
+  )
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Users can delete only their own files
+CREATE POLICY "Users can delete own uploads"
+ON storage.objects
+FOR DELETE
+TO authenticated
+USING (
+  bucket_id IN (
+    'avatars',
+    'club-banners',
+    'event-banners',
+    'certificates'
+  )
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
 
 -- ------------------------------------------------------------
 -- 6. Realtime

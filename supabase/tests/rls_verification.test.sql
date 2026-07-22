@@ -147,6 +147,9 @@ SELECT lives_ok(
   'Approved member can create posts'
 );
 
+-- Reset back to postgres superuser role
+RESET role;
+
 -- ==========================================
 -- Test RLS: Non-admin users cannot write to event_categories
 -- ==========================================
@@ -232,7 +235,7 @@ SELECT is(
   'Event is still visible by student (SELECT works)'
 );
 
+-- Reset role and finish
 RESET role;
-
 SELECT * FROM finish();
 ROLLBACK;

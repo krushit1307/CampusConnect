@@ -38,12 +38,18 @@ export default function DashboardRsvps() {
             title,
             description,
             event_date,
+            start_date,
+            end_date,
             location,
             banner_url,
             clubs (
               name
             ),
             event_rsvps (
+              id,
+              user_id
+            ),
+            saved_events (
               id,
               user_id
             )
@@ -145,7 +151,7 @@ export default function DashboardRsvps() {
         </div>
       ) : displayedEvents.length === 0 ? (
         <div className="neu-border bg-white p-8 text-center dark:bg-[#1a1a1a]">
-          <p className="font-mono text-sm text-gray-500 dark:text-gray-400">
+          <p className="font-mono text-sm text-gray-500 dark:text-gray-300">
             No {activeTab} RSVPs found.
           </p>
         </div>
@@ -159,6 +165,10 @@ export default function DashboardRsvps() {
               user={user}
               onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
               isRsvpPending={toggleRsvp.isPending}
+              onBookmarkToggle={() => {
+                toast.error("Bookmarking from RSVPs tab is not supported yet.");
+              }}
+              isBookmarkPending={false}
             />
           ))}
         </div>
