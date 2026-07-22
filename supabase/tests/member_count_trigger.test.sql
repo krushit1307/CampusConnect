@@ -20,6 +20,12 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO public.clubs (id, name, slug, description, created_by)
 VALUES ('90000000-0000-0000-0000-000000000004', 'Test Club Trigger', 'test-club-trigger', 'A club for testing triggers', '90000000-0000-0000-0000-000000000003');
 
+-- Insert dynamic roles for the test club
+INSERT INTO public.club_roles (id, club_id, title, permissions_level)
+VALUES
+  ('90000000-0000-0000-0000-000000000100', '90000000-0000-0000-0000-000000000004', 'Admin', 100),
+  ('90000000-0000-0000-0000-000000000101', '90000000-0000-0000-0000-000000000004', 'Member', 10);
+
 -- Test 1: Initial member_count is 0
 SELECT is(
   (SELECT member_count FROM public.clubs WHERE id = '90000000-0000-0000-0000-000000000004'),
@@ -28,8 +34,8 @@ SELECT is(
 );
 
 -- Test 2: Inserting a pending member does NOT increment member_count
-INSERT INTO public.club_members (id, club_id, user_id, role, status)
-VALUES ('90000000-0000-0000-0000-000000000005', '90000000-0000-0000-0000-000000000004', '90000000-0000-0000-0000-000000000001', 'member', 'pending');
+INSERT INTO public.club_members (id, club_id, user_id, role_id, status)
+VALUES ('90000000-0000-0000-0000-000000000005', '90000000-0000-0000-0000-000000000004', '90000000-0000-0000-0000-000000000001', '90000000-0000-0000-0000-000000000101', 'pending');
 
 SELECT is(
   (SELECT member_count FROM public.clubs WHERE id = '90000000-0000-0000-0000-000000000004'),
@@ -49,8 +55,8 @@ SELECT is(
 );
 
 -- Test 4: Inserting an approved member directly increments member_count
-INSERT INTO public.club_members (id, club_id, user_id, role, status)
-VALUES ('90000000-0000-0000-0000-000000000006', '90000000-0000-0000-0000-000000000004', '90000000-0000-0000-0000-000000000002', 'member', 'approved');
+INSERT INTO public.club_members (id, club_id, user_id, role_id, status)
+VALUES ('90000000-0000-0000-0000-000000000006', '90000000-0000-0000-0000-000000000004', '90000000-0000-0000-0000-000000000002', '90000000-0000-0000-0000-000000000101', 'approved');
 
 SELECT is(
   (SELECT member_count FROM public.clubs WHERE id = '90000000-0000-0000-0000-000000000004'),
