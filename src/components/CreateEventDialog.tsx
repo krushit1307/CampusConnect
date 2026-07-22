@@ -295,8 +295,10 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                   </div>
                 )}
 
-                <FormItem className="flex flex-col">
-                  <FormLabel required>Event Date Range</FormLabel>
+                <div className="flex flex-col gap-1">
+                  <label className="eyebrow font-bold text-sm">
+                    Event Date Range <span className="text-destructive">*</span>
+                  </label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -332,47 +334,51 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                       />
                     </PopoverContent>
                   </Popover>
-                  <FormMessage>{form.formState.errors.startDate?.message}</FormMessage>
-                  <FormMessage>{form.formState.errors.endDate?.message}</FormMessage>
-                </FormItem>
+                  {form.formState.errors.startDate && (
+                    <p className="text-sm font-medium text-destructive">
+                      {form.formState.errors.startDate.message}
+                    </p>
+                  )}
+                  {form.formState.errors.endDate && (
+                    <p className="text-sm font-medium text-destructive">
+                      {form.formState.errors.endDate.message}
+                    </p>
+                  )}
+                </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <FormItem>
-                    <FormLabel required>Start Time</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="time"
-                        value={startDateStr ? startDateStr.split("T")[1] || "" : ""}
-                        onChange={(e) => {
-                          const time = e.target.value;
-                          if (!startDateStr) return;
-                          const datePart = startDateStr.split("T")[0];
-                          form.setValue("startDate", `${datePart}T${time}`, {
-                            shouldValidate: true,
-                          });
-                        }}
-                        disabled={!startDateStr}
-                      />
-                    </FormControl>
-                  </FormItem>
-                  <FormItem>
-                    <FormLabel required>End Time</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="time"
-                        value={endDateStr ? endDateStr.split("T")[1] || "" : ""}
-                        onChange={(e) => {
-                          const time = e.target.value;
-                          if (!endDateStr) return;
-                          const datePart = endDateStr.split("T")[0];
-                          form.setValue("endDate", `${datePart}T${time}`, {
-                            shouldValidate: true,
-                          });
-                        }}
-                        disabled={!endDateStr}
-                      />
-                    </FormControl>
-                  </FormItem>
+                  <div className="flex flex-col gap-1">
+                    <label className="eyebrow font-bold text-sm">
+                      Start Time <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                      type="time"
+                      value={startDateStr ? startDateStr.split("T")[1] || "" : ""}
+                      onChange={(e) => {
+                        const time = e.target.value;
+                        if (!startDateStr) return;
+                        const datePart = startDateStr.split("T")[0];
+                        form.setValue("startDate", `${datePart}T${time}`, { shouldValidate: true });
+                      }}
+                      disabled={!startDateStr}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="eyebrow font-bold text-sm">
+                      End Time <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                      type="time"
+                      value={endDateStr ? endDateStr.split("T")[1] || "" : ""}
+                      onChange={(e) => {
+                        const time = e.target.value;
+                        if (!endDateStr) return;
+                        const datePart = endDateStr.split("T")[0];
+                        form.setValue("endDate", `${datePart}T${time}`, { shouldValidate: true });
+                      }}
+                      disabled={!endDateStr}
+                    />
+                  </div>
                 </div>
               </>
             )}
