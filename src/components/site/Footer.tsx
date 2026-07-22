@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Github, MessageCircle, ExternalLink } from "lucide-react";
+import { BugReportModal } from "@/components/Modals/BugReportModal";
 
 const NAV_LINKS = [
   { label: "Events", to: "/events" },
@@ -7,6 +9,11 @@ const NAV_LINKS = [
   { label: "Feed", to: "/feed" },
   { label: "Certificates", to: "/certificates" },
   { label: "Dashboard", to: "/dashboard" },
+];
+
+const LEGAL_LINKS = [
+  { label: "Privacy Policy", to: "/privacy" },
+  { label: "Terms of Service", to: "/terms" },
 ];
 
 const SOCIAL_LINKS = [
@@ -28,6 +35,8 @@ const SOCIAL_LINKS = [
 ];
 
 export function Footer() {
+  const [bugReportOpen, setBugReportOpen] = useState(false);
+
   return (
     <footer className="border-t-4 border-black bg-lime shadow-[0_-4px_0_0_#000]">
       <div className="mx-auto max-w-7xl px-4 py-10 md:px-6">
@@ -87,13 +96,27 @@ export function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-8 border-t-2 border-black pt-4 flex flex-col items-center justify-between gap-2 sm:flex-row">
+        <div className="mt-8 border-t-2 border-black pt-4 flex flex-col items-center justify-between gap-3 sm:flex-row">
           <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-black">
             © {new Date().getFullYear()} CampusConnect. Built by the community.
           </p>
-          <p className="font-mono text-[10px] uppercase tracking-widest text-black">
-            ECSoC 2026 · v0.1
-          </p>
+          <div className="flex items-center gap-4">
+            {LEGAL_LINKS.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className="font-mono text-[10px] font-bold uppercase tracking-widest text-black underline-offset-4 hover:underline"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+          <div className="flex items-center gap-4">
+            <BugReportModal open={bugReportOpen} onOpenChange={setBugReportOpen} />
+            <p className="font-mono text-[10px] uppercase tracking-widest text-black">
+              ECSoC 2026 · v0.1
+            </p>
+          </div>
         </div>
       </div>
     </footer>

@@ -183,3 +183,48 @@ export function getGoogleCalendarUrl(event: {
 
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
+
+export function getIcsContent(event: {
+  title: string;
+  description: string | null;
+  event_date: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  location: string | null;
+}): string | null {
+  const startValue = event.start_date || event.event_date;
+  if (!startValue) return null;
+
+  const startDate = new Date(startValue);
+  if (isNaN(startDate.getTime())) return null;
+
+  const endDate = event.end_date
+    ? new Date(event.end_date)
+    : new Date(startDate.getTime() + 60 * 60 * 1000);
+
+  if (isNaN(endDate.getTime())) return null;
+
+  const formatUtc = (date: Date) => {
+    return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  };
+
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//CampusConnect//Event//EN",
+    "BEGIN:VEVENT",
+    `DTSTART:${formatUtc(startDate)}`,
+    `DTEND:${formatUtc(endDate)}`,
+    `SUMMARY:${event.title}`,
+  ];
+
+  if (event.description) {
+    lines.push(`DESCRIPTION:${event.description.replace(/\n/g, "\\n")}`);
+  }
+  if (event.location) {
+    lines.push(`LOCATION:${event.location}`);
+  }
+
+  lines.push("END:VEVENT", "END:VCALENDAR");
+  return lines.join("\r\n");
+}

@@ -84,11 +84,7 @@ export default function ForgotPasswordPage() {
                   placeholder="you@college.edu"
                   required
                 />
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="neu-border neu-press w-full bg-black px-4 py-3 font-mono text-sm font-bold uppercase tracking-wider text-cream disabled:opacity-50"
-                >
+                <Button type="submit" disabled={loading} variant="primary" className="w-full">
                   {loading ? "Sending..." : "Send reset link"}
                 </Button>
               </form>

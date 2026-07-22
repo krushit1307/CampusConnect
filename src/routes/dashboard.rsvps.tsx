@@ -38,6 +38,8 @@ export default function DashboardRsvps() {
             title,
             description,
             event_date,
+            start_date,
+            end_date,
             location,
             banner_url,
             clubs (

@@ -11,9 +11,12 @@ import {
   Sparkles,
   Trash2,
   Flame,
+  Flag,
+  MoreVertical,
 } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
@@ -22,6 +25,7 @@ import { calculateReadTime } from "@/utils/readTime";
 import { PullToRefresh } from "@/components/PullToRefresh";
 
 import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,6 +61,7 @@ interface Comment {
   content: string;
   created_at: string;
   deleted_at: string | null;
+  parent_comment_id: string | null;
   profiles: Profile[] | Profile | null;
 }
 
@@ -78,6 +83,7 @@ interface Post {
 }
 
 const POSTS_PER_PAGE = 10;
+const COMMENTS_PAGE_SIZE = 5;
 
 export default function Feed() {
   const supabase = createClient();
@@ -85,11 +91,17 @@ export default function Feed() {
   const [newPost, setNewPost] = useState("");
   const editorRef = useRef<MarkdownEditorRef>(null);
   const [newComments, setNewComments] = useState<Record<string, string>>({});
+  const [activeReplyIds, setActiveReplyIds] = useState<Record<string, string>>({});
+  const [replyValues, setReplyValues] = useState<Record<string, string>>({});
+  const [visibleCommentsCount, setVisibleCommentsCount] = useState<Record<string, number>>({});
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showNewPostsBanner, setShowNewPostsBanner] = useState(false);
-  // Tracks a per-post, per-emoji "burst" nonce so the spring animation
-  // replays on every like AND unlike toggle (key-remount trick).
-  const [reactionBursts, setReactionBursts] = useState<Record<string, number>>({});
+  const [confirmPostId, setConfirmPostId] = useState<string | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [reactionBursts, setReactionBursts] = useState<Record<string, string>>({});
+  const [reportDialogPostId, setReportDialogPostId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState("");
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
@@ -155,7 +167,7 @@ export default function Feed() {
         id, content, created_at, club_id, pinned,
         profiles (id, full_name),
         clubs (id, name, club_members (user_id, role)),
-        comments (id, content, created_at, deleted_at, profiles (id, full_name)),
+        comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name)),
         post_reactions (emoji, user_id)
       `,
         )
@@ -189,7 +201,7 @@ export default function Feed() {
           id, content, created_at, club_id, pinned,
           profiles (id, full_name),
           clubs (id, name, club_members (user_id, role)),
-          comments (id, content, created_at, deleted_at, profiles (id, full_name)),
+          comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name)),
           post_reactions (emoji, user_id)
         `,
         )
@@ -277,6 +289,20 @@ export default function Feed() {
       window.removeEventListener("scroll", handleScroll);
     };
   }, []);
+
+  useEffect(() => {
+    if (!lightboxSrc) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setLightboxSrc(null);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [lightboxSrc]);
   const postMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Must be logged in");
@@ -299,16 +325,34 @@ export default function Feed() {
   });
 
   const commentMutation = useMutation({
-    mutationFn: async ({ postId, content }: { postId: string; content: string }) => {
+    mutationFn: async ({
+      postId,
+      content,
+      parentCommentId,
+    }: {
+      postId: string;
+      content: string;
+      parentCommentId?: string;
+    }) => {
       if (!user) throw new Error("Must be logged in");
       const { error } = await supabase.from("comments").insert({
         post_id: postId,
         author_id: user.id,
         content,
+        parent_comment_id: parentCommentId || null,
       });
       if (error) throw error;
 
-      setNewComments((prev) => ({ ...prev, [postId]: "" }));
+      if (parentCommentId) {
+        setReplyValues((prev) => ({ ...prev, [parentCommentId]: "" }));
+        setActiveReplyIds((prev) => {
+          const next = { ...prev };
+          delete next[postId];
+          return next;
+        });
+      } else {
+        setNewComments((prev) => ({ ...prev, [postId]: "" }));
+      }
     },
     onSuccess: () => refetchPosts(),
     onError: (error) => {
@@ -350,18 +394,25 @@ export default function Feed() {
     onSuccess: () => refetchPosts(),
   });
 
+  const [optimisticDeletedIds, setOptimisticDeletedIds] = useState<string[]>([]);
+
   const deletePostMutation = useMutation({
     mutationFn: async (postId: string) => {
       if (!user) throw new Error("Must be logged in");
+      setOptimisticDeletedIds((prev) => [...prev, postId]);
       const { error } = await supabase
         .from("posts")
         .update({ deleted_at: new Date().toISOString() })
-        .eq("id", postId);
-      if (error) throw error;
+        .eq("id", postId)
+        .eq("author_id", user.id);
+      if (error) {
+        setOptimisticDeletedIds((prev) => prev.filter((id) => id !== postId));
+        throw error;
+      }
     },
     onSuccess: () => {
+      toast.success("Post deleted successfully.");
       refetchPosts();
-      toast.success("Post deleted successfully!");
     },
     onError: () => {
       toast.error("Failed to delete post.");
@@ -390,6 +441,34 @@ export default function Feed() {
     },
     onError: () => {
       toast.error("Failed to delete comment.");
+    },
+  });
+
+  const reportPostMutation = useMutation({
+    mutationFn: async ({ postId, reason }: { postId: string; reason: string }) => {
+      if (!user) throw new Error("Must be logged in");
+      const { error } = await supabase.from("reports").insert({
+        reporter_id: user.id,
+        target_type: "post",
+        target_id: postId,
+        reason,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Report submitted. Thank you for helping keep the community safe.");
+      setReportDialogPostId(null);
+      setReportReason("");
+    },
+    onError: (error: unknown) => {
+      const code = (error as { code?: string })?.code;
+      if (code === "23505") {
+        toast.error("You've already reported this post.");
+      } else {
+        toast.error("Failed to submit report.");
+      }
+      setReportDialogPostId(null);
+      setReportReason("");
     },
   });
 
@@ -607,7 +686,11 @@ export default function Feed() {
                   const postComments: Comment[] = Array.isArray(post.comments)
                     ? post.comments.filter((c) => !c.deleted_at)
                     : [];
-                  const shareUrl = `${window.location.origin}/feed?postId=${post.id}`;
+
+                  if (optimisticDeletedIds.includes(post.id)) return null;
+
+                  const shareUrl = `${window.location.origin}${window.location.pathname}#post-${post.id}`;
+
                   return (
                     <article
                       id={`post-${post.id}`}
@@ -636,72 +719,35 @@ export default function Feed() {
                             </span>
                           </p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {(() => {
-                            const isClubAdmin =
-                              clubMembers.some(
-                                (m) => m.user_id === user?.id && m.role === "admin",
-                              ) || userProfile?.role === "system_admin";
-                            return isClubAdmin ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  pinMutation.mutate({ postId: post.id, pinned: !post.pinned })
-                                }
-                                disabled={pinMutation.isPending}
-                                className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${
-                                  post.pinned
-                                    ? "bg-[#FDE68A] hover:bg-[#FCD34D] text-black"
-                                    : "bg-white hover:bg-cream text-black"
-                                }`}
-                                aria-label={post.pinned ? "Unpin post" : "Pin post"}
-                              >
-                                <Pin size={10} strokeWidth={2.5} />
-                                {post.pinned ? "Unpin" : "Pin"}
-                              </button>
-                            ) : null;
-                          })()}
-                          {(user?.id === author?.id || userProfile?.role === "system_admin") && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <button
-                                  type="button"
-                                  className="neu-border neu-press flex items-center gap-1 bg-[#FF6B6B] hover:bg-[#FF8787] text-black px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer"
-                                  aria-label="Delete post"
-                                >
-                                  <Trash2 size={10} strokeWidth={2.5} />
-                                  Delete
-                                </button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent className="neu-border bg-white rounded-none p-6">
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle className="font-display text-xl font-bold">
-                                    Delete post?
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription className="font-mono text-sm text-gray-700">
-                                    Are you sure you want to delete this post? This action cannot be
-                                    undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
-                                  <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
-                                    Cancel
-                                  </AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => deletePostMutation.mutate(post.id)}
-                                    className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
-                                  >
-                                    Confirm
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          )}
-                        </div>
+                        {user?.id === author?.id && (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmPostId(post.id)}
+                            className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 hover:bg-[#FF6B6B]"
+                            aria-label="Delete post"
+                          >
+                            <Trash2 size={14} strokeWidth={2.5} />
+                          </button>
+                        )}
                       </header>
 
                       <div className="markdown-content mt-2 font-mono text-sm leading-relaxed">
-                        <ReactMarkdown>{post.content}</ReactMarkdown>
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            img: ({ src, alt }) => (
+                              <img
+                                src={src}
+                                alt={alt || ""}
+                                onClick={() => typeof src === "string" && setLightboxSrc(src)}
+                                className="max-h-64 cursor-zoom-in rounded-none neu-border"
+                                loading="lazy"
+                              />
+                            ),
+                          }}
+                        >
+                          {post.content}
+                        </ReactMarkdown>
                       </div>
 
                       <div className="mt-4 flex flex-wrap gap-2">
@@ -804,75 +850,197 @@ export default function Feed() {
                         </h3>
 
                         <div className="space-y-4 pl-4">
-                          {postComments.map((comment) => {
-                            const commentAuthor = Array.isArray(comment.profiles)
-                              ? comment.profiles[0]
-                              : comment.profiles;
+                          {(() => {
+                            type CommentNode = Comment & { children: CommentNode[] };
 
-                            const commentAuthorMembership = clubMembers.find(
-                              (m) => m.user_id === commentAuthor?.id,
-                            );
+                            const buildCommentTree = (commentsList: Comment[]) => {
+                              const map = new Map<string, CommentNode>();
+                              commentsList.forEach((c) => map.set(c.id, { ...c, children: [] }));
+                              const roots: CommentNode[] = [];
+                              commentsList.forEach((c) => {
+                                if (c.parent_comment_id && map.has(c.parent_comment_id)) {
+                                  map.get(c.parent_comment_id)!.children.push(map.get(c.id)!);
+                                } else {
+                                  roots.push(map.get(c.id)!);
+                                }
+                              });
+                              return roots;
+                            };
+
+                            const renderCommentNode = (
+                              commentNode: CommentNode,
+                              depth: number,
+                              postId: string,
+                            ) => {
+                              const commentAuthor = Array.isArray(commentNode.profiles)
+                                ? commentNode.profiles[0]
+                                : commentNode.profiles;
+
+                              const commentAuthorMembership = clubMembers.find(
+                                (m) => m.user_id === commentAuthor?.id,
+                              );
+
+                              const indentClass = depth === 1 ? "ml-4" : depth >= 2 ? "ml-8" : "";
+
+                              return (
+                                <div key={commentNode.id} className={`${indentClass}`}>
+                                  <div className="neu-border bg-cream p-3 mb-3">
+                                    <div className="flex justify-between">
+                                      <p className="font-mono text-xs font-bold uppercase flex items-center gap-1.5">
+                                        {commentAuthor?.full_name || "Unknown User"}
+                                        <RoleBadge
+                                          role={
+                                            (commentAuthorMembership?.role ??
+                                              "member") as MemberRole
+                                          }
+                                        />
+                                      </p>
+                                      <div className="flex items-center gap-2">
+                                        <p className="font-mono text-[10px] text-gray-500 dark:text-gray-300">
+                                          {timeAgo(commentNode.created_at)}
+                                        </p>
+                                        {(user?.id === commentAuthor?.id ||
+                                          userProfile?.role === "system_admin") && (
+                                          <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                              <button
+                                                type="button"
+                                                className="text-[#FF6B6B] hover:text-[#FF8787] uppercase font-bold font-mono text-[10px]"
+                                                aria-label="Delete comment"
+                                              >
+                                                Delete
+                                              </button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent className="neu-border bg-white rounded-none p-6">
+                                              <AlertDialogHeader>
+                                                <AlertDialogTitle className="font-display text-xl font-bold">
+                                                  Delete comment?
+                                                </AlertDialogTitle>
+                                                <AlertDialogDescription className="font-mono text-sm text-gray-700">
+                                                  Are you sure you want to delete this comment?
+                                                </AlertDialogDescription>
+                                              </AlertDialogHeader>
+                                              <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+                                                <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
+                                                  Cancel
+                                                </AlertDialogCancel>
+                                                <AlertDialogAction
+                                                  onClick={() =>
+                                                    deleteCommentMutation.mutate(commentNode.id)
+                                                  }
+                                                  className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
+                                                >
+                                                  Confirm
+                                                </AlertDialogAction>
+                                              </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                          </AlertDialog>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="markdown-content mt-1 font-mono text-sm">
+                                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                        {commentNode.content}
+                                      </ReactMarkdown>
+                                    </div>
+                                    <div className="mt-2 flex gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setActiveReplyIds((prev) => ({
+                                            ...prev,
+                                            [postId]: commentNode.id,
+                                          }))
+                                        }
+                                        className="text-[10px] font-bold uppercase font-mono text-gray-500 hover:text-black cursor-pointer"
+                                      >
+                                        Reply
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {activeReplyIds[postId] === commentNode.id && (
+                                    <div className="flex gap-2 mb-3 mt-1 pl-4 border-l-2 border-black/20">
+                                      <input
+                                        autoFocus
+                                        value={replyValues[commentNode.id] || ""}
+                                        onChange={(e) =>
+                                          setReplyValues((prev) => ({
+                                            ...prev,
+                                            [commentNode.id]: e.target.value,
+                                          }))
+                                        }
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter" && !e.shiftKey) {
+                                            e.preventDefault();
+                                            if (!user) return alert("Log in first");
+                                            if (replyValues[commentNode.id]?.trim()) {
+                                              commentMutation.mutate({
+                                                postId,
+                                                content: replyValues[commentNode.id],
+                                                parentCommentId: commentNode.id,
+                                              });
+                                            }
+                                          }
+                                        }}
+                                        placeholder="Write a reply..."
+                                        className="neu-border w-full bg-white px-3 py-2 font-mono text-sm outline-none"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setActiveReplyIds((prev) => {
+                                            const n = { ...prev };
+                                            delete n[postId];
+                                            return n;
+                                          })
+                                        }
+                                        className="neu-border bg-white hover:bg-cream px-3 py-2 text-xs font-bold font-mono uppercase"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  {commentNode.children.length > 0 && (
+                                    <div className="space-y-0">
+                                      {commentNode.children.map((child) =>
+                                        renderCommentNode(child, Math.min(depth + 1, 2), postId),
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            };
+
+                            const roots = buildCommentTree(postComments);
+                            const visibleCount =
+                              visibleCommentsCount[post.id] ?? COMMENTS_PAGE_SIZE;
+                            const visibleRoots = roots.slice(0, visibleCount);
+                            const remaining = roots.length - visibleCount;
 
                             return (
-                              <div key={comment.id} className="neu-border bg-cream p-3">
-                                <div className="flex justify-between">
-                                  <p className="font-mono text-xs font-bold uppercase flex items-center gap-1.5">
-                                    {commentAuthor?.full_name || "Unknown User"}
-                                    <RoleBadge
-                                      role={
-                                        (commentAuthorMembership?.role ?? "member") as MemberRole
-                                      }
-                                    />
-                                  </p>
-                                  <div className="flex items-center gap-2">
-                                    <p className="font-mono text-[10px] text-gray-500 dark:text-gray-300">
-                                      {timeAgo(comment.created_at)}
-                                    </p>
-                                    {(user?.id === commentAuthor?.id ||
-                                      userProfile?.role === "system_admin") && (
-                                      <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                          <button
-                                            type="button"
-                                            className="text-[#FF6B6B] hover:text-[#FF8787] uppercase font-bold font-mono text-[10px]"
-                                            aria-label="Delete comment"
-                                          >
-                                            Delete
-                                          </button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent className="neu-border bg-white rounded-none p-6">
-                                          <AlertDialogHeader>
-                                            <AlertDialogTitle className="font-display text-xl font-bold">
-                                              Delete comment?
-                                            </AlertDialogTitle>
-                                            <AlertDialogDescription className="font-mono text-sm text-gray-700">
-                                              Are you sure you want to delete this comment?
-                                            </AlertDialogDescription>
-                                          </AlertDialogHeader>
-                                          <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
-                                            <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
-                                              Cancel
-                                            </AlertDialogCancel>
-                                            <AlertDialogAction
-                                              onClick={() =>
-                                                deleteCommentMutation.mutate(comment.id)
-                                              }
-                                              className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
-                                            >
-                                              Confirm
-                                            </AlertDialogAction>
-                                          </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                      </AlertDialog>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="markdown-content mt-1 font-mono text-sm">
-                                  <ReactMarkdown>{comment.content}</ReactMarkdown>
-                                </div>
-                              </div>
+                              <>
+                                {visibleRoots.map((root) => renderCommentNode(root, 0, post.id))}
+                                {remaining > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setVisibleCommentsCount((prev) => ({
+                                        ...prev,
+                                        [post.id]:
+                                          (prev[post.id] ?? COMMENTS_PAGE_SIZE) +
+                                          COMMENTS_PAGE_SIZE,
+                                      }))
+                                    }
+                                    className="neu-border neu-press w-full bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-all duration-300 hover:bg-cream cursor-pointer"
+                                  >
+                                    Load more comments ({remaining} remaining)
+                                  </button>
+                                )}
+                              </>
                             );
-                          })}
+                          })()}
                         </div>
 
                         <div className="flex gap-2">
@@ -923,17 +1091,17 @@ export default function Feed() {
           </div>
         </section>
       </PullToRefresh>
-
-      {showScrollTop && (
-        <button
-          type="button"
-          onClick={scrollToTop}
-          aria-label="Scroll to top"
-          className="fixed bottom-6 right-6 z-50 neu-border bg-black p-3 text-cream transition-transform hover:-translate-y-1"
-        >
-          <ArrowUp size={20} />
-        </button>
-      )}
+      <ConfirmModal
+        open={!!confirmPostId}
+        onCancel={() => setConfirmPostId(null)}
+        title="Delete post?"
+        description="Are you sure you want to delete this post? This action cannot be undone."
+        confirmText="Yes, delete"
+        onConfirm={() => {
+          if (confirmPostId) deletePostMutation.mutate(confirmPostId);
+          setConfirmPostId(null);
+        }}
+      />
     </SiteShell>
   );
 }
