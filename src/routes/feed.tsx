@@ -25,6 +25,7 @@ import { calculateReadTime } from "@/utils/readTime";
 import { PullToRefresh } from "@/components/PullToRefresh";
 
 import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,22 +37,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
 
 type MemberRole = "admin" | "organizer" | "member" | "alumni";
 
@@ -98,6 +83,7 @@ interface Post {
 }
 
 const POSTS_PER_PAGE = 10;
+const COMMENTS_PAGE_SIZE = 5;
 
 export default function Feed() {
   const supabase = createClient();
@@ -107,14 +93,15 @@ export default function Feed() {
   const [newComments, setNewComments] = useState<Record<string, string>>({});
   const [activeReplyIds, setActiveReplyIds] = useState<Record<string, string>>({});
   const [replyValues, setReplyValues] = useState<Record<string, string>>({});
+  const [visibleCommentsCount, setVisibleCommentsCount] = useState<Record<string, number>>({});
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showNewPostsBanner, setShowNewPostsBanner] = useState(false);
-  // Tracks a per-post, per-emoji "burst" nonce so the spring animation
-  // replays on every like AND unlike toggle (key-remount trick).
-  const [reactionBursts, setReactionBursts] = useState<Record<string, number>>({});
+  const [confirmPostId, setConfirmPostId] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [reactionBursts, setReactionBursts] = useState<Record<string, string>>({});
   const [reportDialogPostId, setReportDialogPostId] = useState<string | null>(null);
-  const [reportReason, setReportReason] = useState<string>("");
+  const [reportReason, setReportReason] = useState("");
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
@@ -407,18 +394,25 @@ export default function Feed() {
     onSuccess: () => refetchPosts(),
   });
 
+  const [optimisticDeletedIds, setOptimisticDeletedIds] = useState<string[]>([]);
+
   const deletePostMutation = useMutation({
     mutationFn: async (postId: string) => {
       if (!user) throw new Error("Must be logged in");
+      setOptimisticDeletedIds((prev) => [...prev, postId]);
       const { error } = await supabase
         .from("posts")
         .update({ deleted_at: new Date().toISOString() })
-        .eq("id", postId);
-      if (error) throw error;
+        .eq("id", postId)
+        .eq("author_id", user.id);
+      if (error) {
+        setOptimisticDeletedIds((prev) => prev.filter((id) => id !== postId));
+        throw error;
+      }
     },
     onSuccess: () => {
+      toast.success("Post deleted successfully.");
       refetchPosts();
-      toast.success("Post deleted successfully!");
     },
     onError: () => {
       toast.error("Failed to delete post.");
@@ -693,7 +687,10 @@ export default function Feed() {
                     ? post.comments.filter((c) => !c.deleted_at)
                     : [];
 
-                  const shareUrl = `${window.location.origin}/feed?postId=${post.id}`;
+                  if (optimisticDeletedIds.includes(post.id)) return null;
+
+                  const shareUrl = `${window.location.origin}${window.location.pathname}#post-${post.id}`;
+
                   return (
                     <article
                       id={`post-${post.id}`}
@@ -722,180 +719,16 @@ export default function Feed() {
                             </span>
                           </p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {(() => {
-                            const isClubAdmin =
-                              clubMembers.some(
-                                (m) => m.user_id === user?.id && m.role === "admin",
-                              ) || userProfile?.role === "system_admin";
-                            return isClubAdmin ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  pinMutation.mutate({ postId: post.id, pinned: !post.pinned })
-                                }
-                                disabled={pinMutation.isPending}
-                                className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${
-                                  post.pinned
-                                    ? "bg-[#FDE68A] hover:bg-[#FCD34D] text-black"
-                                    : "bg-white hover:bg-cream text-black"
-                                }`}
-                                aria-label={post.pinned ? "Unpin post" : "Pin post"}
-                              >
-                                <Pin size={10} strokeWidth={2.5} />
-                                {post.pinned ? "Unpin" : "Pin"}
-                              </button>
-                            ) : null;
-                          })()}
-                          {(user?.id === author?.id || userProfile?.role === "system_admin") && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <button
-                                  type="button"
-                                  className="neu-border neu-press flex items-center gap-1 bg-[#FF6B6B] hover:bg-[#FF8787] text-black px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer"
-                                  aria-label="Delete post"
-                                >
-                                  <Trash2 size={10} strokeWidth={2.5} />
-                                  Delete
-                                </button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent className="neu-border bg-white rounded-none p-6">
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle className="font-display text-xl font-bold">
-                                    Delete post?
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription className="font-mono text-sm text-gray-700">
-                                    Are you sure you want to delete this post? This action cannot be
-                                    undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
-                                  <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
-                                    Cancel
-                                  </AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => deletePostMutation.mutate(post.id)}
-                                    className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
-                                  >
-                                    Confirm
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          )}
-                          {user?.id !== author?.id && (
-                            <>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <button
-                                    type="button"
-                                    className="neu-border neu-press flex items-center gap-1 bg-white hover:bg-cream text-black px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer"
-                                    aria-label="More options"
-                                  >
-                                    <MoreVertical size={10} strokeWidth={2.5} />
-                                  </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                  align="end"
-                                  className="neu-border bg-white rounded-none font-mono text-xs"
-                                >
-                                  <DropdownMenuItem
-                                    onClick={() => setReportDialogPostId(post.id)}
-                                    className="flex items-center gap-2 uppercase font-bold cursor-pointer"
-                                  >
-                                    <Flag size={12} strokeWidth={2.5} />
-                                    Report
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                              <Dialog
-                                open={reportDialogPostId === post.id}
-                                onOpenChange={(open) => {
-                                  if (!open) {
-                                    setReportDialogPostId(null);
-                                    setReportReason("");
-                                  }
-                                }}
-                              >
-                                <DialogContent className="neu-border bg-white rounded-none p-6">
-                                  <DialogHeader>
-                                    <DialogTitle className="font-display text-xl font-bold">
-                                      Report post
-                                    </DialogTitle>
-                                    <DialogDescription className="font-mono text-sm text-gray-700">
-                                      Why are you reporting this post? Moderators will review your
-                                      report.
-                                    </DialogDescription>
-                                  </DialogHeader>
-                                  <RadioGroup
-                                    value={reportReason}
-                                    onValueChange={setReportReason}
-                                    className="mt-2"
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <RadioGroupItem value="spam" id={`report-spam-${post.id}`} />
-                                      <label
-                                        htmlFor={`report-spam-${post.id}`}
-                                        className="font-mono text-sm cursor-pointer"
-                                      >
-                                        Spam
-                                      </label>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <RadioGroupItem
-                                        value="harassment"
-                                        id={`report-harassment-${post.id}`}
-                                      />
-                                      <label
-                                        htmlFor={`report-harassment-${post.id}`}
-                                        className="font-mono text-sm cursor-pointer"
-                                      >
-                                        Harassment
-                                      </label>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <RadioGroupItem
-                                        value="inappropriate"
-                                        id={`report-inappropriate-${post.id}`}
-                                      />
-                                      <label
-                                        htmlFor={`report-inappropriate-${post.id}`}
-                                        className="font-mono text-sm cursor-pointer"
-                                      >
-                                        Inappropriate
-                                      </label>
-                                    </div>
-                                  </RadioGroup>
-                                  <DialogFooter className="mt-4 gap-2 sm:gap-0">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setReportDialogPostId(null);
-                                        setReportReason("");
-                                      }}
-                                      className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream px-4 py-2"
-                                    >
-                                      Cancel
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={!reportReason || reportPostMutation.isPending}
-                                      onClick={() =>
-                                        reportPostMutation.mutate({
-                                          postId: post.id,
-                                          reason: reportReason,
-                                        })
-                                      }
-                                      className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      Submit report
-                                    </button>
-                                  </DialogFooter>
-                                </DialogContent>
-                              </Dialog>
-                            </>
-                          )}
-                        </div>
+                        {user?.id === author?.id && (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmPostId(post.id)}
+                            className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 hover:bg-[#FF6B6B]"
+                            aria-label="Delete post"
+                          >
+                            <Trash2 size={14} strokeWidth={2.5} />
+                          </button>
+                        )}
                       </header>
 
                       <div className="markdown-content mt-2 font-mono text-sm leading-relaxed">
@@ -1181,7 +1014,32 @@ export default function Feed() {
                             };
 
                             const roots = buildCommentTree(postComments);
-                            return roots.map((root) => renderCommentNode(root, 0, post.id));
+                            const visibleCount =
+                              visibleCommentsCount[post.id] ?? COMMENTS_PAGE_SIZE;
+                            const visibleRoots = roots.slice(0, visibleCount);
+                            const remaining = roots.length - visibleCount;
+
+                            return (
+                              <>
+                                {visibleRoots.map((root) => renderCommentNode(root, 0, post.id))}
+                                {remaining > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setVisibleCommentsCount((prev) => ({
+                                        ...prev,
+                                        [post.id]:
+                                          (prev[post.id] ?? COMMENTS_PAGE_SIZE) +
+                                          COMMENTS_PAGE_SIZE,
+                                      }))
+                                    }
+                                    className="neu-border neu-press w-full bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-all duration-300 hover:bg-cream cursor-pointer"
+                                  >
+                                    Load more comments ({remaining} remaining)
+                                  </button>
+                                )}
+                              </>
+                            );
                           })()}
                         </div>
 
@@ -1233,42 +1091,17 @@ export default function Feed() {
           </div>
         </section>
       </PullToRefresh>
-
-      {showScrollTop && (
-        <button
-          type="button"
-          onClick={scrollToTop}
-          aria-label="Scroll to top"
-          className="fixed bottom-6 right-6 z-50 neu-border bg-black p-3 text-cream transition-transform hover:-translate-y-1"
-        >
-          <ArrowUp size={20} />
-        </button>
-      )}
-
-      {lightboxSrc && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Image preview"
-          onClick={() => setLightboxSrc(null)}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 sm:p-8"
-        >
-          <button
-            type="button"
-            onClick={() => setLightboxSrc(null)}
-            aria-label="Close image preview"
-            className="absolute right-4 top-4 neu-border bg-white px-3 py-1 font-mono text-xs font-bold uppercase hover:bg-cream"
-          >
-            Close
-          </button>
-          <img
-            src={lightboxSrc}
-            alt=""
-            onClick={(event) => event.stopPropagation()}
-            className="max-h-full max-w-full cursor-default object-contain"
-          />
-        </div>
-      )}
+      <ConfirmModal
+        open={!!confirmPostId}
+        onCancel={() => setConfirmPostId(null)}
+        title="Delete post?"
+        description="Are you sure you want to delete this post? This action cannot be undone."
+        confirmText="Yes, delete"
+        onConfirm={() => {
+          if (confirmPostId) deletePostMutation.mutate(confirmPostId);
+          setConfirmPostId(null);
+        }}
+      />
     </SiteShell>
   );
 }
