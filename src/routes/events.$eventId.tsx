@@ -452,13 +452,13 @@ export default function EventDetailsPage() {
               sizes="100vw"
               priority
               fallback={
-                <div className="h-full w-full bg-gradient-to-br from-peach via-pink-200 to-lime/40" />
+                <div className="h-full w-full bg-linear-to-br from-peach via-pink-200 to-lime/40" />
               }
             />
             <div className="absolute inset-0 bg-black/50" />
           </div>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-peach via-pink-200 to-lime/40" />
+          <div className="absolute inset-0 bg-linear-to-br from-peach via-pink-200 to-lime/40" />
         )}
 
         <div className="relative mx-auto flex min-h-[50vh] max-w-4xl flex-col justify-end px-4 py-16 md:min-h-[60vh] md:px-6 md:py-24">
@@ -481,7 +481,7 @@ export default function EventDetailsPage() {
                     onClick={handleCopyEventId}
                     variant="outline"
                     size="icon"
-                    className="neu-border h-8 w-8 shrink-0 bg-white text-black transition-all duration-300 hover:scale-105 active:scale-95"
+                    className="neu-border rounded-2xl h-8 w-8 shrink-0 bg-black text-white transition-all duration-300 hover:scale-105 active:scale-95"
                     aria-label="Copy Event ID"
                   >
                     {idCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -677,7 +677,7 @@ export default function EventDetailsPage() {
                       <Textarea
                         id="comment"
                         placeholder="Tell us what you liked or what could be improved..."
-                        className="neu-border font-mono text-sm min-h-[100px]"
+                        className="neu-border font-mono text-sm min-h-25"
                         value={feedbackComment}
                         onChange={(e) => setFeedbackComment(e.target.value)}
                       />
