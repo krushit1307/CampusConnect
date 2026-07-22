@@ -26,6 +26,17 @@ import { PullToRefresh } from "@/components/PullToRefresh";
 
 import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type MemberRole = "admin" | "organizer" | "member" | "alumni";
 
@@ -86,6 +97,10 @@ export default function Feed() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showNewPostsBanner, setShowNewPostsBanner] = useState(false);
   const [confirmPostId, setConfirmPostId] = useState<string | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [reactionBursts, setReactionBursts] = useState<Record<string, string>>({});
+  const [reportDialogPostId, setReportDialogPostId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState("");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -384,22 +399,22 @@ export default function Feed() {
   const deletePostMutation = useMutation({
     mutationFn: async (postId: string) => {
       if (!user) throw new Error("Must be logged in");
+      setOptimisticDeletedIds((prev) => [...prev, postId]);
       const { error } = await supabase
         .from("posts")
         .update({ deleted_at: new Date().toISOString() })
         .eq("id", postId)
         .eq("author_id", user.id);
-      if (error) throw error;
-    },
-    onMutate: (postId) => {
-      setOptimisticDeletedIds((prev) => [...prev, postId]);
+      if (error) {
+        setOptimisticDeletedIds((prev) => prev.filter((id) => id !== postId));
+        throw error;
+      }
     },
     onSuccess: () => {
       toast.success("Post deleted successfully.");
       refetchPosts();
     },
-    onError: (_err, postId) => {
-      setOptimisticDeletedIds((prev) => prev.filter((id) => id !== postId));
+    onError: () => {
       toast.error("Failed to delete post.");
     },
   });
