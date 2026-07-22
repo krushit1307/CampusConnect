@@ -608,7 +608,7 @@ export default function Feed() {
                 style={{
                   animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards",
                 }}
-                className="neu-border flex w-full items-center justify-center gap-2 bg-[#FFD93D] hover:bg-[#FFD93D]/90 py-3 text-center font-display text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0_0_#000] active:translate-x-0 active:translate-y-0 active:shadow-[4px_4px_0_0_#000] cursor-pointer"
+                className="neu-border flex w-full items-center justify-center gap-2 bg-brand-yellow-alt hover:bg-brand-yellow-alt/90 py-3 text-center font-display text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_var(--color-ink)] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0_0_var(--color-ink)] active:translate-x-0 active:translate-y-0 active:shadow-[4px_4px_0_0_var(--color-ink)] cursor-pointer"
               >
                 <Sparkles size={16} className="animate-pulse" />
                 New posts available (Refresh)
@@ -699,12 +699,14 @@ export default function Feed() {
                       key={post.id}
                       ref={isLastPost ? lastPostElementRef : undefined}
                       className={`neu-border p-6 ${
-                        post.pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
+                        post.pinned
+                          ? "bg-brand-yellow-bg border-[3px] border-brand-amber-base"
+                          : "bg-white"
                       }`}
                     >
                       {post.pinned && (
-                        <div className="mb-3 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#B45309]">
-                          <Pin size={12} className="fill-[#B45309]" />
+                        <div className="mb-3 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-brand-amber-dark">
+                          <Pin size={12} className="fill-brand-amber-dark" />
                           Pinned
                         </div>
                       )}
@@ -731,7 +733,7 @@ export default function Feed() {
                           <button
                             type="button"
                             onClick={() => setConfirmPostId(post.id)}
-                            className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 hover:bg-[#FF6B6B]"
+                            className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 hover:bg-brand-red-light"
                             aria-label="Delete post"
                           >
                             <Trash2 size={14} strokeWidth={2.5} />
@@ -810,7 +812,7 @@ export default function Feed() {
 
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#1DA1F2] hover:text-white"
+                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-brand-social-twitter hover:text-white"
                         >
                           Twitter
                         </a>
@@ -819,7 +821,7 @@ export default function Feed() {
                           href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#0A66C2] hover:text-white"
+                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-brand-social-linkedin hover:text-white"
                         >
                           LinkedIn
                         </a>
@@ -830,7 +832,7 @@ export default function Feed() {
                           )}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#25D366] hover:text-white"
+                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-brand-social-whatsapp hover:text-white"
                         >
                           WhatsApp
                         </a>
@@ -922,7 +924,7 @@ export default function Feed() {
                                             <AlertDialogTrigger asChild>
                                               <button
                                                 type="button"
-                                                className="text-[#FF6B6B] hover:text-[#FF8787] uppercase font-bold font-mono text-[10px]"
+                                                className="text-brand-red-light hover:text-brand-red-lighter uppercase font-bold font-mono text-[10px]"
                                                 aria-label="Delete comment"
                                               >
                                                 Delete
@@ -945,7 +947,7 @@ export default function Feed() {
                                                   onClick={() =>
                                                     deleteCommentMutation.mutate(commentNode.id)
                                                   }
-                                                  className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
+                                                  className="neu-border bg-brand-red-light text-black hover:bg-brand-red-lighter rounded-none font-mono text-xs font-bold uppercase"
                                                 >
                                                   Confirm
                                                 </AlertDialogAction>

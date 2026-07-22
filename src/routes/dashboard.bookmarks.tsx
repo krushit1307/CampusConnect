@@ -175,7 +175,7 @@ export default function DashboardBookmarks() {
         </div>
       ) : bookmarkedEvents.length === 0 ? (
         <section className="neu-border relative overflow-hidden bg-lavender px-6 py-14 text-center sm:px-10">
-          <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border-2 border-black bg-white shadow-[4px_4px_0_0_#000]">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border-2 border-black bg-white shadow-[4px_4px_0_0_var(--color-ink)]">
             <CalendarDays aria-hidden="true" size={30} strokeWidth={2.5} />
           </div>
           <h3 className="mt-6 text-2xl font-black">No bookmarked events yet</h3>

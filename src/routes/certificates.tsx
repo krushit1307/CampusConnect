@@ -273,7 +273,7 @@ export default function Certificates() {
 
                   {/* Ticket Card */}
                   <div className="p-5 group">
-                    <div className="neu-border bg-white p-5 flex flex-col gap-4 shadow-[4px_4px_0_0_#000] transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-[6px_6px_0_0_#000]">
+                    <div className="neu-border bg-white p-5 flex flex-col gap-4 shadow-[4px_4px_0_0_var(--color-ink)] transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-[6px_6px_0_0_var(--color-ink)]">
                       {/* Header stripe */}
                       <div className="bg-lime neu-border px-3 py-2 text-center">
                         <p className="font-mono text-[10px] font-black uppercase tracking-widest">
@@ -283,7 +283,7 @@ export default function Certificates() {
 
                       {/* QR Code */}
                       <div className="flex justify-center">
-                        <div className="neu-border bg-white p-3 shadow-[3px_3px_0_0_#000]">
+                        <div className="neu-border bg-white p-3 shadow-[3px_3px_0_0_var(--color-ink)]">
                           <QRCodeSVG
                             value={ticketUrl}
                             size={140}
