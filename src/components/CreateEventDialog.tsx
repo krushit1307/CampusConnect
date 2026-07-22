@@ -2,7 +2,7 @@ import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 import { useMutation } from "@/hooks/useReactQueryReplacement";
-import { Plus, MapPin, CalendarIcon } from "lucide-react";
+import { Plus, MapPin, CalendarIcon, Check } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import { format } from "date-fns";
@@ -34,6 +34,16 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 
+const STEPS = [{ label: "Details" }, { label: "Logistics" }, { label: "Media" }] as const;
+
+type Step = 0 | 1 | 2;
+
+const STEP_FIELDS: Record<Step, (keyof EventFormValues)[]> = {
+  0: ["title", "description"],
+  1: ["startDate", "endDate", "location"],
+  2: [],
+};
+
 const defaultValues: EventFormValues = {
   title: "",
   description: "",
@@ -44,6 +54,7 @@ const defaultValues: EventFormValues = {
 
 export function CreateEventDialog({ user }: { user: User | null }) {
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<Step>(0);
   const supabase = createClient();
 
   const form = useForm<EventFormValues>({
@@ -57,6 +68,13 @@ export function CreateEventDialog({ user }: { user: User | null }) {
     watchedLocation &&
     watchedLocation.trim().length > 0 &&
     watchedLocation.trim().toLowerCase() !== "online";
+
+  const handleNext = async () => {
+    const valid = await form.trigger(STEP_FIELDS[step]);
+    if (valid) setStep((s) => (s + 1) as Step);
+  };
+
+  const handleBack = () => setStep((s) => (s - 1) as Step);
 
   const createEvent = useMutation({
     mutationFn: async (values: EventFormValues) => {
@@ -85,9 +103,9 @@ export function CreateEventDialog({ user }: { user: User | null }) {
     },
     onSuccess: () => {
       toast.success("Event created!");
-      // Invalidate queries is handled by realtime subscriptions if needed or refresh
       window.dispatchEvent(new Event("refetchEvents"));
       form.reset(defaultValues);
+      setStep(0);
       setOpen(false);
     },
     onError: (error: Error) => {
@@ -146,6 +164,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
         setOpen(nextOpen);
         if (!nextOpen) {
           form.reset(defaultValues);
+          setStep(0);
         }
       }}
     >
@@ -158,170 +177,258 @@ export function CreateEventDialog({ user }: { user: User | null }) {
           Create event
         </button>
       </DialogTrigger>
-      <DialogContent className="neu-border neu-shadow bg-violet-500 sm:max-w-md text-black">
+      <DialogContent className="neu-border neu-shadow bg-cream sm:max-w-md text-black">
         <DialogHeader>
-          <DialogTitle className="text-blue-900">Create a new event</DialogTitle>
-          <DialogDescription className="text-black">
-            Fill in the details below. All fields are required.
+          <DialogTitle className="text-black">Create a new event</DialogTitle>
+          <DialogDescription className="text-black/60">
+            Step {step + 1} of {STEPS.length} — {STEPS[step].label}
           </DialogDescription>
         </DialogHeader>
 
+        {/* Progress bar */}
+        <div className="flex gap-2">
+          {STEPS.map((s, i) => (
+            <div key={s.label} className="flex flex-1 flex-col items-center gap-1">
+              <div
+                className={cn(
+                  "neu-border flex h-7 w-7 items-center justify-center font-mono text-xs font-bold transition-colors",
+                  i < step
+                    ? "bg-black text-cream"
+                    : i === step
+                      ? "bg-lime text-black"
+                      : "bg-white text-black/40",
+                )}
+              >
+                {i < step ? <Check size={12} /> : i + 1}
+              </div>
+              <span
+                className={cn(
+                  "font-mono text-[10px] font-bold uppercase",
+                  i === step ? "text-black" : "text-black/40",
+                )}
+              >
+                {s.label}
+              </span>
+            </div>
+          ))}
+        </div>
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel required className="text-red-800">
-                    Title
-                  </FormLabel>
-                  <FormControl className="text-black">
-                    <Input placeholder="Hackathon 2026" maxLength={TITLE_MAX_LENGTH} {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel required className="text-red-800">
-                    Description
-                  </FormLabel>
-                  <FormControl className="text-black">
-                    <Textarea placeholder="What's this event about?" rows={4} {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="location"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-red-800">Location</FormLabel>
-                  <FormControl className="text-black">
-                    <Input
-                      placeholder='e.g. "Main Auditorium, IIT Bombay" or "28.7041,77.1025" or "Online"'
-                      {...field}
-                    />
-                  </FormControl>
-                  <p className="text-xs text-black/50 mt-1">
-                    Enter a venue name, address, or coordinates (lat,lng)
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {showMapPreview && (
-              <div className="rounded overflow-hidden border-2 border-black">
-                <iframe
-                  className="w-full"
-                  height="180"
-                  loading="lazy"
-                  src={`https://maps.google.com/maps?q=${encodeURIComponent(watchedLocation)}&output=embed`}
-                  title="Location preview"
+            {/* Step 1 — Details */}
+            {step === 0 && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel required>Title</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Hackathon 2026"
+                          maxLength={TITLE_MAX_LENGTH}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(watchedLocation)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-1 bg-white py-1.5 font-mono text-xs font-bold underline hover:bg-cream"
-                >
-                  <MapPin size={12} />
-                  Open in Google Maps ↗
-                </a>
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel required>Description</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="What's this event about?" rows={4} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
+
+            {/* Step 2 — Logistics */}
+            {step === 1 && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="location"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Location</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder='e.g. "Main Auditorium" or "28.7041,77.1025" or "Online"'
+                          {...field}
+                        />
+                      </FormControl>
+                      <p className="mt-1 text-xs text-black/50">
+                        Enter a venue name, address, or coordinates (lat,lng)
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {showMapPreview && (
+                  <div className="overflow-hidden border-2 border-black">
+                    <iframe
+                      className="w-full"
+                      height="160"
+                      loading="lazy"
+                      src={`https://maps.google.com/maps?q=${encodeURIComponent(watchedLocation)}&output=embed`}
+                      title="Location preview"
+                    />
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(watchedLocation)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-1 bg-white py-1.5 font-mono text-xs font-bold underline hover:bg-cream"
+                    >
+                      <MapPin size={12} />
+                      Open in Google Maps ↗
+                    </a>
+                  </div>
+                )}
+
+                <FormItem className="flex flex-col">
+                  <FormLabel required>Event Date Range</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !startDateStr && "text-muted-foreground",
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {startDateStr ? (
+                          endDateStr ? (
+                            <>
+                              {format(parsedStart!, "LLL dd, y")} –{" "}
+                              {format(parsedEnd!, "LLL dd, y")}
+                            </>
+                          ) : (
+                            format(parsedStart!, "LLL dd, y")
+                          )
+                        ) : (
+                          <span>Pick a date range</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        initialFocus
+                        mode="range"
+                        defaultMonth={parsedStart}
+                        selected={dateRange}
+                        onSelect={handleSelect}
+                        numberOfMonths={2}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage>{form.formState.errors.startDate?.message}</FormMessage>
+                  <FormMessage>{form.formState.errors.endDate?.message}</FormMessage>
+                </FormItem>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormItem>
+                    <FormLabel required>Start Time</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="time"
+                        value={startDateStr ? startDateStr.split("T")[1] || "" : ""}
+                        onChange={(e) => {
+                          const time = e.target.value;
+                          if (!startDateStr) return;
+                          const datePart = startDateStr.split("T")[0];
+                          form.setValue("startDate", `${datePart}T${time}`, {
+                            shouldValidate: true,
+                          });
+                        }}
+                        disabled={!startDateStr}
+                      />
+                    </FormControl>
+                  </FormItem>
+                  <FormItem>
+                    <FormLabel required>End Time</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="time"
+                        value={endDateStr ? endDateStr.split("T")[1] || "" : ""}
+                        onChange={(e) => {
+                          const time = e.target.value;
+                          if (!endDateStr) return;
+                          const datePart = endDateStr.split("T")[0];
+                          form.setValue("endDate", `${datePart}T${time}`, {
+                            shouldValidate: true,
+                          });
+                        }}
+                        disabled={!endDateStr}
+                      />
+                    </FormControl>
+                  </FormItem>
+                </div>
+              </>
+            )}
+
+            {/* Step 3 — Media (review + confirm) */}
+            {step === 2 && (
+              <div className="neu-border space-y-3 bg-white p-4 font-mono text-sm">
+                <p className="font-bold uppercase text-black/50 text-xs">Review your event</p>
+                <div>
+                  <p className="text-xs text-black/40">Title</p>
+                  <p className="font-bold">{form.getValues("title")}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-black/40">Description</p>
+                  <p className="text-black/80">{form.getValues("description")}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-black/40">Location</p>
+                  <p>{form.getValues("location") || "—"}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <p className="text-xs text-black/40">Start</p>
+                    <p>{startDateStr ? format(parsedStart!, "MMM dd, y HH:mm") : "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-black/40">End</p>
+                    <p>{endDateStr ? format(parsedEnd!, "MMM dd, y HH:mm") : "—"}</p>
+                  </div>
+                </div>
               </div>
             )}
 
-            <div className="space-y-4">
-              <FormItem className="flex flex-col">
-                <FormLabel required>Event Date Range</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !startDateStr && "text-muted-foreground",
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {startDateStr ? (
-                        endDateStr ? (
-                          <>
-                            {format(parsedStart!, "LLL dd, y")} - {format(parsedEnd!, "LLL dd, y")}
-                          </>
-                        ) : (
-                          format(parsedStart!, "LLL dd, y")
-                        )
-                      ) : (
-                        <span>Pick a date range</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      initialFocus
-                      mode="range"
-                      defaultMonth={parsedStart}
-                      selected={dateRange}
-                      onSelect={handleSelect}
-                      numberOfMonths={2}
-                    />
-                  </PopoverContent>
-                </Popover>
-                <FormMessage>{form.formState.errors.startDate?.message}</FormMessage>
-                <FormMessage>{form.formState.errors.endDate?.message}</FormMessage>
-              </FormItem>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormItem>
-                  <FormLabel required>Start Time</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="time"
-                      value={startDateStr ? startDateStr.split("T")[1] || "" : ""}
-                      onChange={(e) => {
-                        const time = e.target.value;
-                        if (!startDateStr) return;
-                        const datePart = startDateStr.split("T")[0];
-                        form.setValue("startDate", `${datePart}T${time}`, { shouldValidate: true });
-                      }}
-                      disabled={!startDateStr}
-                    />
-                  </FormControl>
-                </FormItem>
-                <FormItem>
-                  <FormLabel required>End Time</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="time"
-                      value={endDateStr ? endDateStr.split("T")[1] || "" : ""}
-                      onChange={(e) => {
-                        const time = e.target.value;
-                        if (!endDateStr) return;
-                        const datePart = endDateStr.split("T")[0];
-                        form.setValue("endDate", `${datePart}T${time}`, { shouldValidate: true });
-                      }}
-                      disabled={!endDateStr}
-                    />
-                  </FormControl>
-                </FormItem>
-              </div>
-            </div>
-
-            <DialogFooter className="pt-2">
-              <Button type="submit" disabled={createEvent.isPending} className="w-full sm:w-auto">
-                {createEvent.isPending ? "Creating..." : "Create event"}
-              </Button>
+            <DialogFooter className="flex gap-2 pt-2">
+              {step > 0 && (
+                <Button type="button" variant="outline" onClick={handleBack} className="flex-1">
+                  Back
+                </Button>
+              )}
+              {step < 2 ? (
+                <Button
+                  type="button"
+                  onClick={handleNext}
+                  className="flex-1 bg-black text-cream hover:bg-black/80"
+                >
+                  Next →
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  disabled={createEvent.isPending}
+                  className="flex-1 bg-black text-cream hover:bg-black/80"
+                >
+                  {createEvent.isPending ? "Creating..." : "Create event"}
+                </Button>
+              )}
             </DialogFooter>
           </form>
         </Form>
