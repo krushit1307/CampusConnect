@@ -67,13 +67,10 @@ serve(async (req: Request) => {
         throw new Error(`Database error: ${error.message}`);
       }
 
-      return new Response(
-        JSON.stringify({ state: data?.state ?? "" }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return new Response(JSON.stringify({ state: data?.state ?? "" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     if (req.method === "POST") {
@@ -116,7 +113,7 @@ serve(async (req: Request) => {
           .from("event_crdt_states")
           .update({
             state: mergedStateBase64,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
           })
           .eq("event_id", eventId);
 
@@ -124,12 +121,10 @@ serve(async (req: Request) => {
           throw new Error(`Database update error: ${updateError.message}`);
         }
       } else {
-        const { error: insertError } = await supabase
-          .from("event_crdt_states")
-          .insert({
-            event_id: eventId,
-            state: mergedStateBase64
-          });
+        const { error: insertError } = await supabase.from("event_crdt_states").insert({
+          event_id: eventId,
+          state: mergedStateBase64,
+        });
 
         if (insertError) {
           throw new Error(`Database insert error: ${insertError.message}`);
@@ -144,17 +139,16 @@ serve(async (req: Request) => {
           .eq("id", eventId);
 
         if (eventUpdateError) {
-          console.error(`Failed to cache description text in events table: ${eventUpdateError.message}`);
+          console.error(
+            `Failed to cache description text in events table: ${eventUpdateError.message}`,
+          );
         }
       }
 
-      return new Response(
-        JSON.stringify({ success: true, state: mergedStateBase64 }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return new Response(JSON.stringify({ success: true, state: mergedStateBase64 }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     return new Response(JSON.stringify({ error: "Method not allowed" }), {

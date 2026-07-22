@@ -25,7 +25,7 @@ import { createClient } from "@/lib/supabase/client";
 import { calculateReadTime } from "@/utils/readTime";
 import { PullToRefresh } from "@/components/PullToRefresh";
 
-import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
+import { RichTextEditor, type RichTextEditorRef } from "@/components/RichTextEditor";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import {
   AlertDialog,
@@ -91,7 +91,7 @@ export default function Feed() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const [newPost, setNewPost] = useState("");
-  const editorRef = useRef<MarkdownEditorRef>(null);
+  const editorRef = useRef<RichTextEditorRef>(null);
   const [newComments, setNewComments] = useState<Record<string, string>>({});
   const [activeReplyIds, setActiveReplyIds] = useState<Record<string, string>>({});
   const [replyValues, setReplyValues] = useState<Record<string, string>>({});
@@ -509,7 +509,7 @@ export default function Feed() {
         <section className="bg-cream px-4 py-12 md:px-6">
           <div className="mx-auto max-w-4xl space-y-6">
             <div className="space-y-3">
-              <MarkdownEditor ref={editorRef} value={newPost} onChange={setNewPost} />
+              <RichTextEditor ref={editorRef} value={newPost} onChange={setNewPost} />
 
               <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
                 <select
