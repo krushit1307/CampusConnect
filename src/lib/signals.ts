@@ -240,7 +240,7 @@ export function bindSignalToDOM(
     if (node.nodeType === 3) {
       node.nodeValue = formattedVal;
     } else if (prop in node) {
-      (node as Record<string, unknown>)[prop] = formattedVal;
+      (node as unknown as Record<string, unknown>)[prop] = formattedVal;
     } else {
       node.textContent = formattedVal;
     }
