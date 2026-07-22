@@ -11,13 +11,13 @@ USING (
   EXISTS (
     SELECT 1
     FROM public.event_rsvps
-    WHERE public.event_rsvps.event_id = public.event_resources.event_id
+    WHERE public.event_rsvps.event_id = event_resources.event_id
       AND public.event_rsvps.user_id = auth.uid()
   )
   OR
   -- Allow club admins to view all resources for their events
   public.is_club_admin(
-    (SELECT club_id FROM public.events WHERE id = public.event_resources.event_id),
+    (SELECT club_id FROM public.events WHERE id = event_resources.event_id),
     auth.uid()
   )
   OR
@@ -25,7 +25,7 @@ USING (
   EXISTS (
     SELECT 1
     FROM public.clubs
-    WHERE public.clubs.id = (SELECT club_id FROM public.events WHERE id = public.event_resources.event_id)
+    WHERE public.clubs.id = (SELECT club_id FROM public.events WHERE id = event_resources.event_id)
       AND public.clubs.created_by = auth.uid()
   )
 );

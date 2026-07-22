@@ -1,12 +1,11 @@
 import { formatDate, formatEventDateRange, getCountdown, getGoogleCalendarUrl } from "@/lib/utils";
 import { Link } from "react-router-dom";
-import { FormEvent, useState } from "react";
-import { Calendar, Check, Share2, X, Link as LinkIcon, Bookmark } from "lucide-react";
+import { useState } from "react";
+import { Calendar, Check, Share2, Link as LinkIcon, Bookmark } from "lucide-react";
 import { toast } from "sonner";
 import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { EventDateBadge } from "@/components/EventDateBadge";
 import { EventRSVPButton } from "@/components/EventRSVPButton";
 
 interface Event {
