@@ -57,8 +57,17 @@ export default function EventsPage() {
   useEffect(() => {
     const history = localStorage.getItem("event-search-history");
 
-    if (history) {
-      setRecentSearches(JSON.parse(history));
+    if (!history) return;
+
+    try {
+      const parsedHistory = JSON.parse(history);
+
+      if (Array.isArray(parsedHistory)) {
+        setRecentSearches(parsedHistory.filter((item): item is string => typeof item === "string"));
+      }
+    } catch (error) {
+      console.error("Failed to load search history:", error);
+      localStorage.removeItem("event-search-history");
     }
   }, []);
   const saveSearch = (value = searchQuery) => {
