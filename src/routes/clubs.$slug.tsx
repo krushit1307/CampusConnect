@@ -255,7 +255,17 @@ export default function ClubProfile() {
             </BreadcrumbList>
           </Breadcrumb>
           <p className="eyebrow font-bold text-blue-900">Club</p>
-          <h1 className="mt-2 text-5xl font-bold text-[#123a57] md:text-7xl">{club.name}</h1>
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <h1 className="mt-2 text-5xl font-bold text-[#123a57] md:text-7xl">{club.name}</h1>
+            {membership?.role === "admin" && (
+              <Link
+                to={`/clubs/${club.slug}/manage`}
+                className="neu-border neu-press bg-[#FFD166] mt-4 sm:mt-2 px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0"
+              >
+                Manage Club
+              </Link>
+            )}
+          </div>
           <div className="markdown-content mt-4 max-w-2xl font-mono text-sm md:text-base leading-relaxed">
             <ReactMarkdown>{club.description || ""}</ReactMarkdown>
           </div>
