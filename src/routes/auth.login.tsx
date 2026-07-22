@@ -11,29 +11,27 @@ export default function AuthLogin() {
     setLoading(true);
     setErrorMsg("");
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-      if (error) throw error;
-       if (error) throw error;
- try {
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider,
-    options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
-    },
-  });
+    const handleOAuthLogin = async (provider: "google" | "github") => {
+  setLoading(true);
+  setErrorMsg("");
 
-  if (error) throw error;
-} catch (err: unknown) {
-  const message =
-    err instanceof Error ? err.message : "Failed to authenticate with provider";
-  setErrorMsg(message);
-  setLoading(false);
-}
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) throw error;
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error ? err.message : "Failed to authenticate with provider";
+    setErrorMsg(message);
+  } finally {
+    setLoading(false);
+  }
+};
   };
 
   return (
