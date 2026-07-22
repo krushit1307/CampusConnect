@@ -174,7 +174,9 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
             ) : (
               <div className="flex min-h-36 flex-col items-center justify-center gap-2 text-center text-gray-500">
                 <MessageSquareText size={32} aria-hidden="true" />
-                <p className="font-mono text-sm">Your Markdown preview will appear here.</p>
+                <p className="font-mono text-sm text-gray-800">
+                  Your Markdown preview will appear here.
+                </p>
               </div>
             )}
           </div>

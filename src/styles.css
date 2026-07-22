@@ -57,12 +57,13 @@
 }
 
 :root {
+  --font-size-base: 16px;
   --radius: 0px;
   --cream: #f3f1e4;
-  --lime: #dff25c;
-  --sky: #bce3f2;
+  --lime: #acc412;
+  --sky: #08b3ca;
   --lavender: #d9cdeb;
-  --peach: #f3b78a;
+  --peach: #e37c2d;
   --ink: #000000;
   --background: #f3f1e4;
   --foreground: #000000;
@@ -96,6 +97,8 @@
   --sidebar-accent-foreground: #000000;
   --sidebar-border: #000000;
   --sidebar-ring: #000000;
+  --border-thickness: 2px;
+  --border-radius: 0px;
 }
 
 .dark {
@@ -504,7 +507,8 @@
 /* Neubrutalist overrides for React Big Calendar */
 .rbc-calendar {
   font-family: var(--font-mono);
-  background-color: #ffffff;
+  background-color: #ea7272;
+  color: #000000;
 }
 
 .rbc-month-view {
@@ -608,4 +612,28 @@
   color: #ffffff !important;
   box-shadow: none !important;
   transform: none !important;
+}
+/* Neubrutalist scrollbars, applied globally */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #000000 var(--cream);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background-color: var(--cream);
+  border-left: 2px solid #000000;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #000000;
+  border: 2px solid #000000;
+  border-radius: 0px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #1f1f1f;
 }

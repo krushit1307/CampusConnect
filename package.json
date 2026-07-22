@@ -12,6 +12,7 @@
     "format": "prettier --write .",
     "test": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",
+    "test:e2e": "playwright test",
     "prepare": "husky",
     "github:update-labels": "npx tsx scripts/update-labels.ts",
     "github:create-new-issues": "npx tsx scripts/create-new-issues.ts",
@@ -84,6 +85,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@playwright/test": "^1.61.1",
     "@types/node": "^22.16.5",
     "@types/react": "^19.2.0",
     "@types/react-big-calendar": "^1.16.3",

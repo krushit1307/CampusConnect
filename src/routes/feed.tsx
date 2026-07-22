@@ -1,7 +1,15 @@
 import { FeedPostSkeleton } from "@/components/FeedPostSkeleton";
 import { useMutation, useQuery, useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import type { User } from "@supabase/supabase-js";
-import { MessageCircle, MessageSquareText, PenLine, Sparkles, Trash2 } from "lucide-react";
+import {
+  Link2,
+  MessageCircle,
+  MessageSquareText,
+  PenLine,
+  Pin,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
@@ -59,6 +67,7 @@ interface Post {
   content: string;
   created_at: string;
   club_id: string;
+  pinned: boolean;
   profiles: Profile[] | Profile | null;
   clubs: Club[] | Club | null;
   comments: Comment[] | null;
@@ -136,7 +145,7 @@ export default function Feed() {
         .from("posts")
         .select(
           `
-        id, content, created_at, club_id,
+        id, content, created_at, club_id, pinned,
         profiles (id, full_name),
         clubs (id, name, club_members (user_id, role)),
         comments (id, content, created_at, deleted_at, profiles (id, full_name)),
@@ -159,7 +168,8 @@ export default function Feed() {
     getNextPageParam: (lastPage) => lastPage.nextPage,
   });
 
-  const posts = data?.pages.flatMap((page) => page.posts) ?? [];
+  const allPosts = data?.pages.flatMap((page) => page.posts) ?? [];
+  const posts = [...allPosts].sort((a, b) => Number(b.pinned) - Number(a.pinned));
 
   const postsRef = useRef(posts);
   const userRef = useRef(user);
@@ -311,6 +321,16 @@ export default function Feed() {
     onError: () => {
       toast.error("Failed to delete post.");
     },
+  });
+
+  const pinMutation = useMutation({
+    mutationFn: async ({ postId, pinned }: { postId: string; pinned: boolean }) => {
+      if (!user) throw new Error("Must be logged in");
+      const { error } = await supabase.from("posts").update({ pinned }).eq("id", postId);
+      if (error) throw error;
+    },
+    onSuccess: () => refetchPosts(),
+    onError: (error) => toast.error(error.message || "Failed to update pin."),
   });
 
   const deleteCommentMutation = useMutation({
@@ -506,8 +526,16 @@ export default function Feed() {
                       id={`post-${post.id}`}
                       key={post.id}
                       ref={isLastPost ? lastPostElementRef : undefined}
-                      className="neu-border bg-white p-6"
+                      className={`neu-border p-6 ${
+                        post.pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
+                      }`}
                     >
+                      {post.pinned && (
+                        <div className="mb-3 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#B45309]">
+                          <Pin size={12} className="fill-[#B45309]" />
+                          Pinned
+                        </div>
+                      )}
                       <header className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b-2 border-black pb-3">
                         <div>
                           <p className="font-display text-lg font-bold flex items-center gap-2">
@@ -521,42 +549,68 @@ export default function Feed() {
                             </span>
                           </p>
                         </div>
-                        {(user?.id === author?.id || userProfile?.role === "system_admin") && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const isClubAdmin =
+                              clubMembers.some(
+                                (m) => m.user_id === user?.id && m.role === "admin",
+                              ) || userProfile?.role === "system_admin";
+                            return isClubAdmin ? (
                               <button
                                 type="button"
-                                className="neu-border neu-press flex items-center gap-1 bg-[#FF6B6B] hover:bg-[#FF8787] text-black px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer"
-                                aria-label="Delete post"
+                                onClick={() =>
+                                  pinMutation.mutate({ postId: post.id, pinned: !post.pinned })
+                                }
+                                disabled={pinMutation.isPending}
+                                className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${
+                                  post.pinned
+                                    ? "bg-[#FDE68A] hover:bg-[#FCD34D] text-black"
+                                    : "bg-white hover:bg-cream text-black"
+                                }`}
+                                aria-label={post.pinned ? "Unpin post" : "Pin post"}
                               >
-                                <Trash2 size={10} strokeWidth={2.5} />
-                                Delete
+                                <Pin size={10} strokeWidth={2.5} />
+                                {post.pinned ? "Unpin" : "Pin"}
                               </button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent className="neu-border bg-white rounded-none p-6">
-                              <AlertDialogHeader>
-                                <AlertDialogTitle className="font-display text-xl font-bold">
-                                  Delete post?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription className="font-mono text-sm text-gray-700">
-                                  Are you sure you want to delete this post? This action cannot be
-                                  undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
-                                <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
-                                  Cancel
-                                </AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => deletePostMutation.mutate(post.id)}
-                                  className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
+                            ) : null;
+                          })()}
+                          {(user?.id === author?.id || userProfile?.role === "system_admin") && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="neu-border neu-press flex items-center gap-1 bg-[#FF6B6B] hover:bg-[#FF8787] text-black px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer"
+                                  aria-label="Delete post"
                                 >
-                                  Confirm
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        )}
+                                  <Trash2 size={10} strokeWidth={2.5} />
+                                  Delete
+                                </button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent className="neu-border bg-white rounded-none p-6">
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle className="font-display text-xl font-bold">
+                                    Delete post?
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription className="font-mono text-sm text-gray-700">
+                                    Are you sure you want to delete this post? This action cannot be
+                                    undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+                                  <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
+                                    Cancel
+                                  </AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => deletePostMutation.mutate(post.id)}
+                                    className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
+                                  >
+                                    Confirm
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </div>
                       </header>
 
                       <div className="markdown-content mt-2 font-mono text-sm leading-relaxed">
