@@ -30,6 +30,12 @@ UPDATE public.profiles SET role = 'system_admin' WHERE id = '90000000-0000-0000-
 INSERT INTO public.clubs (id, name, slug, description, created_by)
 VALUES ('90000000-0000-0000-0000-000000000004', 'Test Club RLS', 'test-club-rls', 'A club for testing RLS', '90000000-0000-0000-0000-000000000003');
 
+-- Insert dynamic roles for the primary club
+INSERT INTO public.club_roles (id, club_id, title, permissions_level)
+VALUES
+  ('90000000-0000-0000-0000-000000000100', '90000000-0000-0000-0000-000000000004', 'Admin', 100),
+  ('90000000-0000-0000-0000-000000000101', '90000000-0000-0000-0000-000000000004', 'Member', 10);
+
 -- Create an event for the club
 INSERT INTO public.events (id, club_id, title, description, location, created_by)
 VALUES ('90000000-0000-0000-0000-000000000005', '90000000-0000-0000-0000-000000000004', 'Test Event RLS', 'Event description', 'Online', '90000000-0000-0000-0000-000000000003');
@@ -118,8 +124,8 @@ SELECT throws_ok(
 RESET role;
 
 -- Insert a pending membership for User A
-INSERT INTO public.club_members (id, club_id, user_id, role, status)
-VALUES ('90000000-0000-0000-0000-000000000008', '90000000-0000-0000-0000-000000000004', '90000000-0000-0000-0000-000000000001', 'member', 'pending');
+INSERT INTO public.club_members (id, club_id, user_id, role_id, status)
+VALUES ('90000000-0000-0000-0000-000000000008', '90000000-0000-0000-0000-000000000004', '90000000-0000-0000-0000-000000000001', '90000000-0000-0000-0000-000000000101', 'pending');
 
 -- Case 2: User A is a pending member of the club
 SET local role authenticated;
@@ -206,9 +212,15 @@ UPDATE public.profiles SET role = 'club_admin' WHERE id = '90000000-0000-0000-00
 INSERT INTO public.clubs (id, name, slug, description, created_by)
 VALUES ('90000000-0000-0000-0000-000000000022', 'Co-Host Club', 'co-host-club', 'Secondary hosting club', '90000000-0000-0000-0000-000000000020');
 
+-- Insert dynamic roles for the co-host club
+INSERT INTO public.club_roles (id, club_id, title, permissions_level)
+VALUES
+  ('90000000-0000-0000-0000-000000000102', '90000000-0000-0000-0000-000000000022', 'Admin', 100),
+  ('90000000-0000-0000-0000-000000000103', '90000000-0000-0000-0000-000000000022', 'Member', 10);
+
 -- Make the co-host user an approved admin of the co-host club
-INSERT INTO public.club_members (id, club_id, user_id, role, status)
-VALUES ('90000000-0000-0000-0000-000000000023', '90000000-0000-0000-0000-000000000022', '90000000-0000-0000-0000-000000000020', 'admin', 'approved');
+INSERT INTO public.club_members (id, club_id, user_id, role_id, status)
+VALUES ('90000000-0000-0000-0000-000000000023', '90000000-0000-0000-0000-000000000022', '90000000-0000-0000-0000-000000000020', '90000000-0000-0000-0000-000000000102', 'approved');
 
 -- Register the co-host club for the test event
 INSERT INTO public.event_co_hosts (event_id, club_id)

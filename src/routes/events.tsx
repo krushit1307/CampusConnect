@@ -632,8 +632,8 @@ export default function EventsPage() {
                     <p className="text-3xl">🔍</p>
                     <h3 className="mt-2 font-mono text-lg font-bold uppercase">No Events Found</h3>
                     <p className="mt-1 font-mono text-xs text-neutral-600">
-                      No events matched &quot;{searchQuery}&quot;. Try clearing your filters or searching for
-                      another term.
+                      No events matched &quot;{searchQuery}&quot;. Try clearing your filters or
+                      searching for another term.
                     </p>
                     <button
                       onClick={() => {
