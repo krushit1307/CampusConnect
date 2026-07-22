@@ -7,7 +7,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req) => {
+/**
+ * Edge Function to export all personal data for the authenticated user
+ * in compliance with GDPR requirements.
+ *
+ * @param {Request} req - The incoming HTTP request.
+ * @returns {Promise<Response>} Downloadable JSON file payload containing profile, posts, comments, and RSVPs.
+ */
+serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
