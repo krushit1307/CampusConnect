@@ -11,6 +11,8 @@ import {
   Sparkles,
   Trash2,
   Flame,
+  Flag,
+  MoreVertical,
 } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
@@ -34,6 +36,22 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 type MemberRole = "admin" | "organizer" | "member" | "alumni";
 
@@ -95,6 +113,8 @@ export default function Feed() {
   // replays on every like AND unlike toggle (key-remount trick).
   const [reactionBursts, setReactionBursts] = useState<Record<string, number>>({});
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [reportDialogPostId, setReportDialogPostId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState<string>("");
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
@@ -430,6 +450,34 @@ export default function Feed() {
     },
   });
 
+  const reportPostMutation = useMutation({
+    mutationFn: async ({ postId, reason }: { postId: string; reason: string }) => {
+      if (!user) throw new Error("Must be logged in");
+      const { error } = await supabase.from("reports").insert({
+        reporter_id: user.id,
+        target_type: "post",
+        target_id: postId,
+        reason,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Report submitted. Thank you for helping keep the community safe.");
+      setReportDialogPostId(null);
+      setReportReason("");
+    },
+    onError: (error: unknown) => {
+      const code = (error as { code?: string })?.code;
+      if (code === "23505") {
+        toast.error("You've already reported this post.");
+      } else {
+        toast.error("Failed to submit report.");
+      }
+      setReportDialogPostId(null);
+      setReportReason("");
+    },
+  });
+
   const timeAgo = (dateString: string) => {
     const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
     const diff = new Date().getTime() - new Date(dateString).getTime();
@@ -734,6 +782,118 @@ export default function Feed() {
                                 </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
+                          )}
+                          {user?.id !== author?.id && (
+                            <>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="neu-border neu-press flex items-center gap-1 bg-white hover:bg-cream text-black px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer"
+                                    aria-label="More options"
+                                  >
+                                    <MoreVertical size={10} strokeWidth={2.5} />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  align="end"
+                                  className="neu-border bg-white rounded-none font-mono text-xs"
+                                >
+                                  <DropdownMenuItem
+                                    onClick={() => setReportDialogPostId(post.id)}
+                                    className="flex items-center gap-2 uppercase font-bold cursor-pointer"
+                                  >
+                                    <Flag size={12} strokeWidth={2.5} />
+                                    Report
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                              <Dialog
+                                open={reportDialogPostId === post.id}
+                                onOpenChange={(open) => {
+                                  if (!open) {
+                                    setReportDialogPostId(null);
+                                    setReportReason("");
+                                  }
+                                }}
+                              >
+                                <DialogContent className="neu-border bg-white rounded-none p-6">
+                                  <DialogHeader>
+                                    <DialogTitle className="font-display text-xl font-bold">
+                                      Report post
+                                    </DialogTitle>
+                                    <DialogDescription className="font-mono text-sm text-gray-700">
+                                      Why are you reporting this post? Moderators will review your
+                                      report.
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <RadioGroup
+                                    value={reportReason}
+                                    onValueChange={setReportReason}
+                                    className="mt-2"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <RadioGroupItem value="spam" id={`report-spam-${post.id}`} />
+                                      <label
+                                        htmlFor={`report-spam-${post.id}`}
+                                        className="font-mono text-sm cursor-pointer"
+                                      >
+                                        Spam
+                                      </label>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <RadioGroupItem
+                                        value="harassment"
+                                        id={`report-harassment-${post.id}`}
+                                      />
+                                      <label
+                                        htmlFor={`report-harassment-${post.id}`}
+                                        className="font-mono text-sm cursor-pointer"
+                                      >
+                                        Harassment
+                                      </label>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <RadioGroupItem
+                                        value="inappropriate"
+                                        id={`report-inappropriate-${post.id}`}
+                                      />
+                                      <label
+                                        htmlFor={`report-inappropriate-${post.id}`}
+                                        className="font-mono text-sm cursor-pointer"
+                                      >
+                                        Inappropriate
+                                      </label>
+                                    </div>
+                                  </RadioGroup>
+                                  <DialogFooter className="mt-4 gap-2 sm:gap-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setReportDialogPostId(null);
+                                        setReportReason("");
+                                      }}
+                                      className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream px-4 py-2"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={!reportReason || reportPostMutation.isPending}
+                                      onClick={() =>
+                                        reportPostMutation.mutate({
+                                          postId: post.id,
+                                          reason: reportReason,
+                                        })
+                                      }
+                                      className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      Submit report
+                                    </button>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                            </>
                           )}
                         </div>
                       </header>

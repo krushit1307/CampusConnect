@@ -297,7 +297,7 @@ export default function EventsPage() {
         if (count === 1) {
           setShowConfetti(true);
           window.setTimeout(() => setShowConfetti(false), 3000);
-          toast.success("🎉 You RSVPd to your first event! See it in your Dashboard.");
+          toast.success("🎉 You RSVP'd to your first event! See it in your Dashboard.");
         } else {
           toast.success("RSVP registered successfully!");
         }
