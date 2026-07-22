@@ -1,4 +1,4 @@
--- Migration: 20260721170000_e2ee_direct_messages.sql
+-- Migration: 20260721210000_e2ee_direct_messages.sql
 -- Description: Implement end-to-end encryption (E2EE) for direct messages and key exchange
 
 -- 1. Create user_public_keys table

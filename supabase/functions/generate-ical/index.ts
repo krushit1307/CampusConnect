@@ -13,7 +13,11 @@ function formatDateForICal(date: Date): string {
 
 function escapeICalText(text: string): string {
   if (!text) return "";
-  return text.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+  return text
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\n/g, "\\n");
 }
 
 serve(async (req) => {
@@ -58,7 +62,9 @@ serve(async (req) => {
     // Fetch events for this club
     const { data: events, error: eventsError } = await supabase
       .from("events")
-      .select("id, title, description, start_date, end_date, event_date, location, created_at, updated_at")
+      .select(
+        "id, title, description, start_date, end_date, event_date, location, created_at, updated_at",
+      )
       .eq("club_id", clubId)
       .order("start_date", { ascending: true });
 
@@ -85,9 +91,15 @@ serve(async (req) => {
 
         const startDate = new Date(startDateStr);
         // Default end date to 1 hour after start if not provided
-        const endDate = event.end_date ? new Date(event.end_date) : new Date(startDate.getTime() + 60 * 60 * 1000);
-        
-        const dtstamp = event.updated_at ? new Date(event.updated_at) : (event.created_at ? new Date(event.created_at) : now);
+        const endDate = event.end_date
+          ? new Date(event.end_date)
+          : new Date(startDate.getTime() + 60 * 60 * 1000);
+
+        const dtstamp = event.updated_at
+          ? new Date(event.updated_at)
+          : event.created_at
+            ? new Date(event.created_at)
+            : now;
 
         lines.push("BEGIN:VEVENT");
         lines.push(`UID:${event.id}@campusconnect`);
@@ -118,7 +130,6 @@ serve(async (req) => {
         "Access-Control-Allow-Origin": "*",
       },
     });
-
   } catch (error: unknown) {
     console.error("Internal Error:", error);
     return new Response(
@@ -128,7 +139,7 @@ serve(async (req) => {
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,
-      }
+      },
     );
   }
 });

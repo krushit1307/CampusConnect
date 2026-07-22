@@ -258,22 +258,23 @@ This project is licensed under the MIT License - see the [LICENSE](./LICENSE) fi
 ## 👥 Contributors
 
 <!-- START_CONTRIBUTORS_GALLERY -->
+
 ### 🏆 Hall of Fame (Top 5)
 
-| Rank | Contributor | Contributions |
-| :---: | :---: | :---: |
-| 🥇 | <a href="https://github.com/krushit1307"><img src="https://avatars.githubusercontent.com/u/196679210?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>krushit1307</b></sub></a> | 120 |
-| 🥈 | <a href="https://github.com/Aryanbuha890"><img src="https://avatars.githubusercontent.com/u/273169945?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>Aryanbuha890</b></sub></a> | 31 |
-| 🥉 | <a href="https://github.com/Jivan-Patel"><img src="https://avatars.githubusercontent.com/u/225341922?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>Jivan-Patel</b></sub></a> | 27 |
-| 4️⃣ | <a href="https://github.com/Ayush-0918"><img src="https://avatars.githubusercontent.com/u/184804819?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>Ayush-0918</b></sub></a> | 22 |
-| 5️⃣ | <a href="https://github.com/nayanraj864-cmyk"><img src="https://avatars.githubusercontent.com/u/231409700?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>nayanraj864-cmyk</b></sub></a> | 15 |
+| Rank |                                                                                                  Contributor                                                                                                   | Contributions |
+| :--: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-----------: |
+|  🥇  |      <a href="https://github.com/krushit1307"><img src="https://avatars.githubusercontent.com/u/196679210?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>krushit1307</b></sub></a>      |      127      |
+|  🥈  |     <a href="https://github.com/Aryanbuha890"><img src="https://avatars.githubusercontent.com/u/273169945?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>Aryanbuha890</b></sub></a>     |      31       |
+|  🥉  |      <a href="https://github.com/Jivan-Patel"><img src="https://avatars.githubusercontent.com/u/225341922?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>Jivan-Patel</b></sub></a>      |      27       |
+|  4️⃣  |       <a href="https://github.com/Ayush-0918"><img src="https://avatars.githubusercontent.com/u/184804819?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>Ayush-0918</b></sub></a>       |      23       |
+|  5️⃣  | <a href="https://github.com/nayanraj864-cmyk"><img src="https://avatars.githubusercontent.com/u/231409700?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>nayanraj864-cmyk</b></sub></a> |      15       |
 
 ### 👥 All Contributors
 
-<a href="https://github.com/krushit1307"><img src="https://avatars.githubusercontent.com/u/196679210?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="krushit1307 (120 contributions)"/></a>
+<a href="https://github.com/krushit1307"><img src="https://avatars.githubusercontent.com/u/196679210?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="krushit1307 (127 contributions)"/></a>
 <a href="https://github.com/Aryanbuha890"><img src="https://avatars.githubusercontent.com/u/273169945?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="Aryanbuha890 (31 contributions)"/></a>
 <a href="https://github.com/Jivan-Patel"><img src="https://avatars.githubusercontent.com/u/225341922?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="Jivan-Patel (27 contributions)"/></a>
-<a href="https://github.com/Ayush-0918"><img src="https://avatars.githubusercontent.com/u/184804819?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="Ayush-0918 (22 contributions)"/></a>
+<a href="https://github.com/Ayush-0918"><img src="https://avatars.githubusercontent.com/u/184804819?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="Ayush-0918 (23 contributions)"/></a>
 <a href="https://github.com/nayanraj864-cmyk"><img src="https://avatars.githubusercontent.com/u/231409700?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="nayanraj864-cmyk (15 contributions)"/></a>
 <a href="https://github.com/Yuva-Deekshitha-N"><img src="https://avatars.githubusercontent.com/u/153242050?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="Yuva-Deekshitha-N (15 contributions)"/></a>
 <a href="https://github.com/diksha78dev"><img src="https://avatars.githubusercontent.com/u/184750994?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="diksha78dev (11 contributions)"/></a>
@@ -285,20 +286,20 @@ This project is licensed under the MIT License - see the [LICENSE](./LICENSE) fi
 <a href="https://github.com/MILAN-123865"><img src="https://avatars.githubusercontent.com/u/196552402?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="MILAN-123865 (10 contributions)"/></a>
 <a href="https://github.com/dharmikpatel2006msu"><img src="https://avatars.githubusercontent.com/u/219997593?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="dharmikpatel2006msu (8 contributions)"/></a>
 <a href="https://github.com/Parshant-12"><img src="https://avatars.githubusercontent.com/u/167954691?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="Parshant-12 (7 contributions)"/></a>
+<a href="https://github.com/Dhruvi2006-source"><img src="https://avatars.githubusercontent.com/u/204190294?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="Dhruvi2006-source (7 contributions)"/></a>
 <a href="https://github.com/apps/copilot-swe-agent"><img src="https://avatars.githubusercontent.com/in/1143301?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="Copilot (6 contributions)"/></a>
-<a href="https://github.com/Dhruvi2006-source"><img src="https://avatars.githubusercontent.com/u/204190294?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="Dhruvi2006-source (6 contributions)"/></a>
-<a href="https://github.com/zainabhina05-png"><img src="https://avatars.githubusercontent.com/u/233611462?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="zainabhina05-png (5 contributions)"/></a>
-<a href="https://github.com/priyalgupta776-ux"><img src="https://avatars.githubusercontent.com/u/237921876?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="priyalgupta776-ux (5 contributions)"/></a>
-<a href="https://github.com/PrathamReddy888"><img src="https://avatars.githubusercontent.com/u/219442049?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="PrathamReddy888 (5 contributions)"/></a>
-<a href="https://github.com/prasiddhi-105"><img src="https://avatars.githubusercontent.com/u/200559194?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="prasiddhi-105 (5 contributions)"/></a>
+<a href="https://github.com/priyalgupta776-ux"><img src="https://avatars.githubusercontent.com/u/237921876?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="priyalgupta776-ux (6 contributions)"/></a>
 <a href="https://github.com/itxhadi27-cmd"><img src="https://avatars.githubusercontent.com/u/222145496?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="itxhadi27-cmd (5 contributions)"/></a>
+<a href="https://github.com/prasiddhi-105"><img src="https://avatars.githubusercontent.com/u/200559194?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="prasiddhi-105 (5 contributions)"/></a>
+<a href="https://github.com/PrathamReddy888"><img src="https://avatars.githubusercontent.com/u/219442049?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="PrathamReddy888 (5 contributions)"/></a>
+<a href="https://github.com/zainabhina05-png"><img src="https://avatars.githubusercontent.com/u/233611462?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="zainabhina05-png (5 contributions)"/></a>
 <a href="https://github.com/Bhavesh-png"><img src="https://avatars.githubusercontent.com/u/190761644?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="Bhavesh-png (4 contributions)"/></a>
 <a href="https://github.com/Deep2812msu2006"><img src="https://avatars.githubusercontent.com/u/219998921?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="Deep2812msu2006 (4 contributions)"/></a>
+<a href="https://github.com/apps/github-actions"><img src="https://avatars.githubusercontent.com/in/15368?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="github-actions[bot] (4 contributions)"/></a>
 <a href="https://github.com/prem-programs"><img src="https://avatars.githubusercontent.com/u/215557525?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="prem-programs (3 contributions)"/></a>
 <a href="https://github.com/yashvi-3106"><img src="https://avatars.githubusercontent.com/u/187176611?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="yashvi-3106 (3 contributions)"/></a>
-<a href="https://github.com/apps/github-actions"><img src="https://avatars.githubusercontent.com/in/15368?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="github-actions[bot] (3 contributions)"/></a>
 <a href="https://github.com/Zoya220"><img src="https://avatars.githubusercontent.com/u/185303340?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="Zoya220 (3 contributions)"/></a>
 <a href="https://github.com/NirvanJain"><img src="https://avatars.githubusercontent.com/u/151359367?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="NirvanJain (3 contributions)"/></a>
-<a href="https://github.com/VeaMartin14"><img src="https://avatars.githubusercontent.com/u/219551836?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="VeaMartin14 (3 contributions)"/></a>
+<a href="https://github.com/Komal290106"><img src="https://avatars.githubusercontent.com/u/179382143?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="Komal290106 (3 contributions)"/></a>
 
 <!-- END_CONTRIBUTORS_GALLERY -->
