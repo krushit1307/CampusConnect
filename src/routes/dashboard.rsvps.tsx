@@ -42,6 +42,7 @@ export default function DashboardRsvps() {
             end_date,
             location,
             banner_url,
+            created_at,
             clubs (
               name
             ),

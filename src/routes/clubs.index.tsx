@@ -1,13 +1,12 @@
 import { Link } from "react-router-dom";
-
 import { useEffect, useRef, useState } from "react";
-
 import { SiteShell } from "@/components/site/SiteShell";
 import { useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { LayoutGrid, List, UsersRound, X } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { CreateClubDialog } from "@/components/CreateClubDialog";
+import { ClubCardSkeleton } from "@/components/ui/ClubCardSkeleton";
 
 const ITEMS_PER_PAGE = 12;
 const VIEW_MODE_STORAGE_KEY = "clubs-view-mode";
@@ -262,35 +261,25 @@ export default function ClubsIndex() {
             }
           >
             {isLoading ? (
-              // Initial Page Loader Skeletons
-              Array.from({ length: viewMode === "grid" ? 6 : 4 }).map((_, i) => (
-                <div
-                  key={i}
-                  className={
-                    viewMode === "grid"
-                      ? "neu-border bg-white p-6 animate-pulse h-48 flex flex-col justify-between"
-                      : "neu-border bg-white p-4 animate-pulse h-20 flex items-center gap-4"
-                  }
-                >
-                  {viewMode === "grid" ? (
-                    <>
-                      <div>
-                        <div className="h-6 bg-gray-200 w-16 mb-4 rounded neu-border border-gray-300" />
-                        <div className="h-8 bg-gray-200 w-3/4 rounded" />
-                      </div>
-                      <div className="h-4 bg-gray-200 w-full mt-4 rounded" />
-                    </>
-                  ) : (
-                    <>
-                      <div className="h-12 w-12 shrink-0 bg-gray-200 rounded neu-border border-gray-300" />
-                      <div className="flex-1">
-                        <div className="h-5 bg-gray-200 w-1/3 rounded mb-2" />
-                        <div className="h-3 bg-gray-200 w-2/3 rounded" />
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))
+              // Display a grid of exactly 6 skeleton cards for grid view, or 4 for list view
+              viewMode === "grid" ? (
+                Array.from({ length: 6 }).map((_, index) => (
+                  <ClubCardSkeleton key={`skeleton-${index}`} />
+                ))
+              ) : (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="neu-border bg-white p-4 animate-pulse h-20 flex items-center gap-4"
+                  >
+                    <div className="h-12 w-12 shrink-0 bg-gray-200 rounded neu-border border-gray-300" />
+                    <div className="flex-1">
+                      <div className="h-5 bg-gray-200 w-1/3 rounded mb-2" />
+                      <div className="h-3 bg-gray-200 w-2/3 rounded" />
+                    </div>
+                  </div>
+                ))
+              )
             ) : allClubs.length === 0 ? (
               <div className="neu-border col-span-full mx-auto flex w-full max-w-2xl flex-col items-center bg-white px-6 py-12 text-center md:px-12 md:py-16">
                 <div className="neu-border mb-6 flex h-20 w-20 items-center justify-center bg-lime md:h-24 md:w-24">

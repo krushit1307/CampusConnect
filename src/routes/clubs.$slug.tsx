@@ -255,7 +255,17 @@ export default function ClubProfile() {
             </BreadcrumbList>
           </Breadcrumb>
           <p className="eyebrow font-bold text-blue-900">Club</p>
-          <h1 className="mt-2 text-5xl font-bold text-[#123a57] md:text-7xl">{club.name}</h1>
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <h1 className="mt-2 text-5xl font-bold text-[#123a57] md:text-7xl">{club.name}</h1>
+            {membership?.role === "admin" && (
+              <Link
+                to={`/clubs/${club.slug}/manage`}
+                className="neu-border neu-press bg-[#FFD166] mt-4 sm:mt-2 px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0"
+              >
+                Manage Club
+              </Link>
+            )}
+          </div>
           <div className="markdown-content mt-4 max-w-2xl font-mono text-sm md:text-base leading-relaxed">
             <ReactMarkdown>{club.description || ""}</ReactMarkdown>
           </div>
@@ -290,20 +300,43 @@ export default function ClubProfile() {
                           key={i}
                           className="neu-border bg-white flex items-center gap-3 p-3 font-mono text-sm"
                         >
-                          <Avatar className="h-10 w-10 border-2 border-black rounded-full">
-                            <AvatarImage
-                              src={m.avatarUrl || undefined}
-                              alt={m.name}
-                              className="rounded-full"
-                            />
-                            <AvatarFallback className="rounded-full bg-[#bce3f2] text-black font-bold">
-                              {getInitials(m.name)}
-                            </AvatarFallback>
-                          </Avatar>
+                          {m.handle ? (
+                            <Link to={`/profile/${m.handle}`} className="h-10 w-10 shrink-0">
+                              <Avatar className="h-10 w-10 border-2 border-black rounded-full transition-transform hover:scale-105">
+                                <AvatarImage
+                                  src={m.avatarUrl || undefined}
+                                  alt={m.name}
+                                  className="rounded-full"
+                                />
+                                <AvatarFallback className="rounded-full bg-[#bce3f2] text-black font-bold">
+                                  {getInitials(m.name)}
+                                </AvatarFallback>
+                              </Avatar>
+                            </Link>
+                          ) : (
+                            <Avatar className="h-10 w-10 border-2 border-black rounded-full">
+                              <AvatarImage
+                                src={m.avatarUrl || undefined}
+                                alt={m.name}
+                                className="rounded-full"
+                              />
+                              <AvatarFallback className="rounded-full bg-[#bce3f2] text-black font-bold">
+                                {getInitials(m.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
                           <div className="flex-1 min-w-0">
-                            <p className="font-bold truncate" title={m.name}>
-                              {m.name}
-                            </p>
+                            {m.handle ? (
+                              <Link to={`/profile/${m.handle}`} className="hover:underline">
+                                <p className="font-bold truncate" title={m.name}>
+                                  {m.name}
+                                </p>
+                              </Link>
+                            ) : (
+                              <p className="font-bold truncate" title={m.name}>
+                                {m.name}
+                              </p>
+                            )}
                             {m.handle && (
                               <p
                                 className="text-xs text-gray-500 dark:text-gray-300 truncate"

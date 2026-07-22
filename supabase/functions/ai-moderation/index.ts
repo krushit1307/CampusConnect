@@ -17,7 +17,7 @@ serve(async (req: Request) => {
 
   try {
     const payload = await req.json();
-    
+
     // Expecting payload from pg_net trigger on INSERT to posts table
     if (payload.type !== "INSERT" || payload.table !== "posts") {
       return new Response(JSON.stringify({ message: "Ignored: not a new post insert." }), {
@@ -48,12 +48,12 @@ serve(async (req: Request) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiApiKey}`
+        Authorization: `Bearer ${openaiApiKey}`,
       },
       body: JSON.stringify({
         model: "text-embedding-ada-002",
-        input: content
-      })
+        input: content,
+      }),
     });
 
     if (!openaiRes.ok) {
@@ -72,7 +72,7 @@ serve(async (req: Request) => {
     const { data: matches, error: matchError } = await supabase.rpc("match_toxic_patterns", {
       query_embedding: embedding,
       match_threshold: 0.85, // Flag if similarity > 0.85
-      match_count: 1
+      match_count: 1,
     });
 
     if (matchError) {
@@ -82,13 +82,15 @@ serve(async (req: Request) => {
     // 3. If a match is found, flag the post
     if (matches && matches.length > 0) {
       const match = matches[0];
-      console.log(`Flagging post ${id} due to similarity with toxic pattern: ${match.pattern_text}`);
+      console.log(
+        `Flagging post ${id} due to similarity with toxic pattern: ${match.pattern_text}`,
+      );
 
       const { error: updateError } = await supabase
         .from("posts")
-        .update({ 
+        .update({
           is_flagged: true,
-          flagged_reason: `AI Moderation: Semantic similarity of ${Math.round(match.similarity * 100)}% to known toxic pattern.`
+          flagged_reason: `AI Moderation: Semantic similarity of ${Math.round(match.similarity * 100)}% to known toxic pattern.`,
         })
         .eq("id", id);
 
@@ -106,7 +108,6 @@ serve(async (req: Request) => {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-
   } catch (error: unknown) {
     console.error("Function error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
