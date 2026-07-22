@@ -11,6 +11,11 @@ const NAV_LINKS = [
   { label: "Dashboard", to: "/dashboard" },
 ];
 
+const LEGAL_LINKS = [
+  { label: "Privacy Policy", to: "/privacy" },
+  { label: "Terms of Service", to: "/terms" },
+];
+
 const SOCIAL_LINKS = [
   {
     label: "GitHub",
@@ -91,10 +96,21 @@ export function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-8 border-t-2 border-black pt-4 flex flex-col items-center justify-between gap-2 sm:flex-row">
+        <div className="mt-8 border-t-2 border-black pt-4 flex flex-col items-center justify-between gap-3 sm:flex-row">
           <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-black">
             © {new Date().getFullYear()} CampusConnect. Built by the community.
           </p>
+          <div className="flex items-center gap-4">
+            {LEGAL_LINKS.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className="font-mono text-[10px] font-bold uppercase tracking-widest text-black underline-offset-4 hover:underline"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
           <div className="flex items-center gap-4">
             <BugReportModal open={bugReportOpen} onOpenChange={setBugReportOpen} />
             <p className="font-mono text-[10px] uppercase tracking-widest text-black">

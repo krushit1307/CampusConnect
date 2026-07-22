@@ -24,9 +24,9 @@ export const clubFormSchema = z.object({
     .transform((val) => (val === "" ? null : val))
     .nullable()
     .optional(),
-  visibility: z.enum(["public", "private"]).optional().default("public"),
-  social_links: z.record(z.string(), z.string().url()).default({}).optional(),
-  logo_url: z.string().url("Must be a valid URL").nullable().optional(),
+  visibility: z.enum(["public", "private"]).default("public"),
+  social_links: z.record(z.string(), z.string().url()).default({}),
+  logo_url: z.string().nullable().optional(),
 });
 
 export type ClubFormValues = z.infer<typeof clubFormSchema>;
