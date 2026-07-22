@@ -7,6 +7,7 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
 import { toast } from "sonner";
+import EventSharePanel from "@/components/events/EventSharePanel";
 import {
   ArrowLeft,
   Calendar,
@@ -35,6 +36,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { parseCoordinates } from "@/lib/eventUtils";
+import { EventFeedbackForm } from "@/components/EventFeedbackForm";
 import { EventMap } from "@/components/EventMap";
 import {
   Breadcrumb,
@@ -473,6 +475,7 @@ export default function EventDetailsPage() {
             >
               {event.title}
             </h1>
+            <EventSharePanel title={event.title} />
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -740,7 +743,7 @@ export default function EventDetailsPage() {
                 </>
               ) : coordsCheck.isCoordinates && !coordsCheck.isValid ? (
                 <div className="neu-border mt-4 flex items-start gap-4 bg-peach/20 p-5">
-                  <div className="shrink-0 rounded-none border-2 border-black bg-white p-2 text-[#e53935]">
+                  <div className="shrink-0 rounded-none border-2 border-black bg-white p-2 text-destructive">
                     <MapPinOff className="h-6 w-6" />
                   </div>
                   <div>
@@ -775,6 +778,16 @@ export default function EventDetailsPage() {
             </div>
           )}
 
+          {/* Event Feedback (Only if ended and user RSVP'd) */}
+          {user &&
+            hasRsvpd &&
+            event.end_date &&
+            new Date(event.end_date).getTime() < Date.now() && (
+              <div className="mt-10">
+                <EventFeedbackForm eventId={event.id} user={user} />
+              </div>
+            )}
+
           {/* Social Share Buttons */}
           <div className="mt-10 border-t-2 border-black pt-6">
             <h3 className="font-mono text-xs font-bold uppercase text-blue-900">
@@ -785,7 +798,7 @@ export default function EventDetailsPage() {
                 href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-[#1DA1F2] hover:text-white transition-colors text-black"
+                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-twitter hover:text-white transition-colors text-black"
               >
                 Twitter
               </a>
@@ -793,7 +806,7 @@ export default function EventDetailsPage() {
                 href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-[#0A66C2] hover:text-white transition-colors text-black"
+                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-linkedin hover:text-white transition-colors text-black"
               >
                 LinkedIn
               </a>
@@ -802,7 +815,7 @@ export default function EventDetailsPage() {
                 target="_blank"
                 rel="noopener noreferrer"
 
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-[#25D366] hover:text-white transition-colors text-black"
+                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-whatsapp hover:text-white transition-colors text-black"
               >
                 WhatsApp
               </a>

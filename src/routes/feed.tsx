@@ -15,6 +15,7 @@ import {
   MoreVertical,
 } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
@@ -24,7 +25,7 @@ import { createClient } from "@/lib/supabase/client";
 import { calculateReadTime } from "@/utils/readTime";
 import { PullToRefresh } from "@/components/PullToRefresh";
 
-import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
+import { RichTextEditor, type RichTextEditorRef } from "@/components/RichTextEditor";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import {
   AlertDialog,
@@ -43,6 +44,7 @@ type MemberRole = "admin" | "organizer" | "member" | "alumni";
 interface Profile {
   id: string;
   full_name: string | null;
+  handle?: string | null;
 }
 
 interface ClubMember {
@@ -89,7 +91,7 @@ export default function Feed() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const [newPost, setNewPost] = useState("");
-  const editorRef = useRef<MarkdownEditorRef>(null);
+  const editorRef = useRef<RichTextEditorRef>(null);
   const [newComments, setNewComments] = useState<Record<string, string>>({});
   const [activeReplyIds, setActiveReplyIds] = useState<Record<string, string>>({});
   const [replyValues, setReplyValues] = useState<Record<string, string>>({});
@@ -165,9 +167,9 @@ export default function Feed() {
         .select(
           `
         id, content, created_at, club_id, pinned,
-        profiles (id, full_name),
+        profiles (id, full_name, handle),
         clubs (id, name, club_members (user_id, role)),
-        comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name)),
+        comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name, handle)),
         post_reactions (emoji, user_id)
       `,
         )
@@ -199,9 +201,9 @@ export default function Feed() {
         .select(
           `
           id, content, created_at, club_id, pinned,
-          profiles (id, full_name),
+          profiles (id, full_name, handle),
           clubs (id, name, club_members (user_id, role)),
-          comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name)),
+          comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name, handle)),
           post_reactions (emoji, user_id)
         `,
         )
@@ -507,7 +509,7 @@ export default function Feed() {
         <section className="bg-cream px-4 py-12 md:px-6">
           <div className="mx-auto max-w-4xl space-y-6">
             <div className="space-y-3">
-              <MarkdownEditor ref={editorRef} value={newPost} onChange={setNewPost} />
+              <RichTextEditor ref={editorRef} value={newPost} onChange={setNewPost} />
 
               <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
                 <select
@@ -606,7 +608,7 @@ export default function Feed() {
                 style={{
                   animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards",
                 }}
-                className="neu-border flex w-full items-center justify-center gap-2 bg-[#FFD93D] hover:bg-[#FFD93D]/90 py-3 text-center font-display text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0_0_#000] active:translate-x-0 active:translate-y-0 active:shadow-[4px_4px_0_0_#000] cursor-pointer"
+                className="neu-border flex w-full items-center justify-center gap-2 bg-brand-yellow-alt hover:bg-brand-yellow-alt/90 py-3 text-center font-display text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_var(--color-ink)] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0_0_var(--color-ink)] active:translate-x-0 active:translate-y-0 active:shadow-[4px_4px_0_0_var(--color-ink)] cursor-pointer"
               >
                 <Sparkles size={16} className="animate-pulse" />
                 New posts available (Refresh)
@@ -697,21 +699,29 @@ export default function Feed() {
                       key={post.id}
                       ref={isLastPost ? lastPostElementRef : undefined}
                       className={`neu-border p-6 ${
-                        post.pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
+                        post.pinned
+                          ? "bg-brand-yellow-bg border-[3px] border-brand-amber-base"
+                          : "bg-white"
                       }`}
                     >
                       {post.pinned && (
-                        <div className="mb-3 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#B45309]">
-                          <Pin size={12} className="fill-[#B45309]" />
+                        <div className="mb-3 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-brand-amber-dark">
+                          <Pin size={12} className="fill-brand-amber-dark" />
                           Pinned
                         </div>
                       )}
                       <header className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b-2 border-black pb-3">
                         <div>
-                          <p className="font-display text-lg font-bold flex items-center gap-2">
-                            {author?.full_name || "Unknown User"}
+                          <div className="font-display text-lg font-bold flex items-center gap-2">
+                            {author?.handle ? (
+                              <Link to={`/profile/${author.handle}`} className="hover:underline">
+                                {author.full_name || "Unknown User"}
+                              </Link>
+                            ) : (
+                              <span>{author?.full_name || "Unknown User"}</span>
+                            )}
                             <RoleBadge role={authorRole} />
-                          </p>
+                          </div>
                           <p className="font-mono text-xs flex flex-wrap items-center">
                             in {club?.name || "Unknown Club"} · {timeAgo(post.created_at)}
                             <span className="text-gray-500 dark:text-gray-300 ml-1">
@@ -723,7 +733,7 @@ export default function Feed() {
                           <button
                             type="button"
                             onClick={() => setConfirmPostId(post.id)}
-                            className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 hover:bg-[#FF6B6B]"
+                            className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 hover:bg-brand-red-light"
                             aria-label="Delete post"
                           >
                             <Trash2 size={14} strokeWidth={2.5} />
@@ -802,7 +812,7 @@ export default function Feed() {
 
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#1DA1F2] hover:text-white"
+                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-brand-social-twitter hover:text-white"
                         >
                           Twitter
                         </a>
@@ -811,7 +821,7 @@ export default function Feed() {
                           href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#0A66C2] hover:text-white"
+                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-brand-social-linkedin hover:text-white"
                         >
                           LinkedIn
                         </a>
@@ -822,7 +832,7 @@ export default function Feed() {
                           )}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#25D366] hover:text-white"
+                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-brand-social-whatsapp hover:text-white"
                         >
                           WhatsApp
                         </a>
@@ -886,15 +896,24 @@ export default function Feed() {
                                 <div key={commentNode.id} className={`${indentClass}`}>
                                   <div className="neu-border bg-cream p-3 mb-3">
                                     <div className="flex justify-between">
-                                      <p className="font-mono text-xs font-bold uppercase flex items-center gap-1.5">
-                                        {commentAuthor?.full_name || "Unknown User"}
+                                      <div className="font-mono text-xs font-bold uppercase flex items-center gap-1.5">
+                                        {commentAuthor?.handle ? (
+                                          <Link
+                                            to={`/profile/${commentAuthor.handle}`}
+                                            className="hover:underline"
+                                          >
+                                            {commentAuthor.full_name || "Unknown User"}
+                                          </Link>
+                                        ) : (
+                                          <span>{commentAuthor?.full_name || "Unknown User"}</span>
+                                        )}
                                         <RoleBadge
                                           role={
                                             (commentAuthorMembership?.role ??
                                               "member") as MemberRole
                                           }
                                         />
-                                      </p>
+                                      </div>
                                       <div className="flex items-center gap-2">
                                         <p className="font-mono text-[10px] text-gray-500 dark:text-gray-300">
                                           {timeAgo(commentNode.created_at)}
@@ -905,7 +924,7 @@ export default function Feed() {
                                             <AlertDialogTrigger asChild>
                                               <button
                                                 type="button"
-                                                className="text-[#FF6B6B] hover:text-[#FF8787] uppercase font-bold font-mono text-[10px]"
+                                                className="text-brand-red-light hover:text-brand-red-lighter uppercase font-bold font-mono text-[10px]"
                                                 aria-label="Delete comment"
                                               >
                                                 Delete
@@ -928,7 +947,7 @@ export default function Feed() {
                                                   onClick={() =>
                                                     deleteCommentMutation.mutate(commentNode.id)
                                                   }
-                                                  className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
+                                                  className="neu-border bg-brand-red-light text-black hover:bg-brand-red-lighter rounded-none font-mono text-xs font-bold uppercase"
                                                 >
                                                   Confirm
                                                 </AlertDialogAction>

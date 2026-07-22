@@ -197,7 +197,7 @@ export function Navbar() {
                   className={`neu-border w-full px-4 py-2.5 text-left font-mono text-sm font-bold uppercase ${
                     isActive
                       ? "bg-black text-cream dark:bg-cream dark:text-black"
-                      : "bg-white text-black hover:bg-lime dark:bg-[#1a1a1a] dark:text-cream"
+                      : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
                   }`}
                   style={{ letterSpacing: "0.05em" }}
                 >

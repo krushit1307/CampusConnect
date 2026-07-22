@@ -1,7 +1,7 @@
 export default function TermsOfService() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 md:px-6">
-      <div className="neu-border inline-block w-fit bg-black px-3 py-1 shadow-[4px_4px_0_0_#000]">
+      <div className="neu-border inline-block w-fit bg-black px-3 py-1 shadow-[4px_4px_0_0_var(--color-ink)]">
         <span className="font-display text-lg font-black text-lime">Terms of Service</span>
       </div>
 
