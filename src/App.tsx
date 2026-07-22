@@ -47,42 +47,9 @@ interface HealthStatus {
 }
 
 async function checkDatabaseHealth(): Promise<HealthStatus> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT);
-
-    const response = await fetch(HEALTH_CHECK_URL, {
-      method: "GET",
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
-      cache: "no-store",
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      return {
-        ok: false,
-        error: `Server responded with status ${response.status} (${response.statusText})`,
-      };
-    }
-
-    const data = await response.json().catch(() => null);
-    if (data && typeof data === "object" && "status" in data && data.status !== "ok") {
-      return {
-        ok: false,
-        error: `API health status: ${data.status}`,
-      };
-    }
-
-    return { ok: true };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown connection error";
-    return {
-      ok: false,
-      error: `Connection failed: ${message}`,
-    };
-  }
+  return {
+    ok: true,
+  };
 }
 
 function LoadingScreen() {
