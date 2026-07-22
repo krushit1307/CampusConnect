@@ -454,7 +454,13 @@ export default function EventsPage() {
     }
   };
 
-  const colors = ["bg-lime", "bg-sky", "bg-peach", "bg-lavender"];
+  const filterColors: Record<string, string> = {
+    All: "bg-black text-cream",
+    Workshop: "bg-lime text-black",
+    Talk: "bg-sky text-black",
+    Hackathon: "bg-lavender text-black",
+    Social: "bg-peach text-black",
+  };
 
   const filteredEvents = events.filter((e: EventItem) => {
     const matchesFilter =
@@ -551,7 +557,12 @@ export default function EventsPage() {
                   <button
                     key={t}
                     onClick={() => setFilter(t)}
-                    className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase ${filter === t ? "bg-black text-cream" : "bg-white text-black"}`}
+                    aria-pressed={filter === t}
+                    className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors duration-200 ${
+                      filter === t
+                        ? filterColors[t] || "bg-black text-cream"
+                        : "bg-white text-black"
+                    }`}
                   >
                     {t}
                   </button>
