@@ -295,6 +295,8 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.get_upcoming_events_feed(UUID) TO authenticated;
 
+=======
+>>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
 -- 3. Row Level Security (RLS)
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
@@ -415,7 +417,6 @@ CREATE POLICY "Users can unsave events." ON saved_events FOR DELETE USING (auth.
 CREATE POLICY "Users can view their own notifications" ON notifications FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can update their own notifications" ON notifications FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own notifications" ON notifications FOR DELETE USING (auth.uid() = user_id);
-
 -- 4. Triggers
 -- Auto-create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()

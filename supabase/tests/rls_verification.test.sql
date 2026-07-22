@@ -4,8 +4,8 @@ BEGIN;
 -- Enable pgTAP extension if not already enabled
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
--- Plan the tests (we have 8 tests)
-SELECT plan(8);
+-- Plan the tests (we have 11 tests)
+SELECT plan(11);
 
 -- Grant privileges to authenticated role so that table-level permissions do not interfere with RLS testing
 GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated, anon;
@@ -17,11 +17,12 @@ VALUES
   ('90000000-0000-0000-0000-000000000001', 'usera@test.com', 'authenticated', 'authenticated', '{"full_name": "User A"}'),
   ('90000000-0000-0000-0000-000000000002', 'userb@test.com', 'authenticated', 'authenticated', '{"full_name": "User B"}'),
   ('90000000-0000-0000-0000-000000000003', 'admin@test.com', 'authenticated', 'authenticated', '{"full_name": "Admin User"}'),
-  ('90000000-0000-0000-0000-000000000010', 'sysadmin@test.com', 'authenticated', 'authenticated', '{"full_name": "System Admin User"}')
+  ('90000000-0000-0000-0000-000000000010', 'sysadmin@test.com', 'authenticated', 'authenticated', '{"full_name": "System Admin User"}'),
+  ('90000000-0000-0000-0000-000000000011', 'userc@test.com', 'authenticated', 'authenticated', '{"full_name": "User C"}')
 ON CONFLICT (id) DO NOTHING;
 
 -- Set correct roles in profiles table
-UPDATE public.profiles SET role = 'student' WHERE id IN ('90000000-0000-0000-0000-000000000001', '90000000-0000-0000-0000-000000000002');
+UPDATE public.profiles SET role = 'student' WHERE id IN ('90000000-0000-0000-0000-000000000001', '90000000-0000-0000-0000-000000000002', '90000000-0000-0000-0000-000000000011');
 UPDATE public.profiles SET role = 'club_admin' WHERE id = '90000000-0000-0000-0000-000000000003';
 UPDATE public.profiles SET role = 'system_admin' WHERE id = '90000000-0000-0000-0000-000000000010';
 
@@ -33,11 +34,15 @@ VALUES ('90000000-0000-0000-0000-000000000004', 'Test Club RLS', 'test-club-rls'
 INSERT INTO public.events (id, club_id, title, description, location, created_by)
 VALUES ('90000000-0000-0000-0000-000000000005', '90000000-0000-0000-0000-000000000004', 'Test Event RLS', 'Event description', 'Online', '90000000-0000-0000-0000-000000000003');
 
--- Create RSVPs for both User A and User B
+-- Create RSVPs for User A and User B (User C has no RSVP)
 INSERT INTO public.event_rsvps (id, event_id, user_id, checked_in)
 VALUES
   ('90000000-0000-0000-0000-000000000006', '90000000-0000-0000-0000-000000000005', '90000000-0000-0000-0000-000000000001', false),
   ('90000000-0000-0000-0000-000000000007', '90000000-0000-0000-0000-000000000005', '90000000-0000-0000-0000-000000000002', false);
+
+-- Create event resource
+INSERT INTO public.event_resources (id, event_id, title, url, resource_type)
+VALUES ('90000000-0000-0000-0000-000000000030', '90000000-0000-0000-0000-000000000005', 'Test Slides', 'https://example.com/slides.pdf', 'pdf');
 
 -- ==========================================
 -- Test RLS: Students cannot read other users' RSVPs
@@ -57,6 +62,38 @@ SELECT ok(
 SELECT ok(
   NOT EXISTS (SELECT 1 FROM public.event_rsvps WHERE id = '90000000-0000-0000-0000-000000000007'),
   'Student cannot read other users'' RSVPs'
+);
+
+-- User A (has RSVP) CAN read the event resources
+SELECT ok(
+  EXISTS (SELECT 1 FROM public.event_resources WHERE id = '90000000-0000-0000-0000-000000000030'),
+  'Attendee with RSVP can view event resources'
+);
+
+-- Reset back to postgres superuser role
+RESET role;
+
+-- Switch context to authenticated User C (no RSVP)
+SET local role authenticated;
+SELECT set_config('request.jwt.claim.sub', '90000000-0000-0000-0000-000000000011', true);
+
+-- User C should NOT be able to see event resources
+SELECT ok(
+  NOT EXISTS (SELECT 1 FROM public.event_resources WHERE id = '90000000-0000-0000-0000-000000000030'),
+  'Non-attendee without RSVP cannot view event resources'
+);
+
+-- Reset back to postgres superuser role
+RESET role;
+
+-- Switch context to Club Admin (creator of the club)
+SET local role authenticated;
+SELECT set_config('request.jwt.claim.sub', '90000000-0000-0000-0000-000000000003', true);
+
+-- Club Admin can see event resources
+SELECT ok(
+  EXISTS (SELECT 1 FROM public.event_resources WHERE id = '90000000-0000-0000-0000-000000000030'),
+  'Club Admin can view event resources'
 );
 
 -- Reset back to postgres superuser role
@@ -152,3 +189,4 @@ SELECT lives_ok(
 RESET role;
 SELECT * FROM finish();
 ROLLBACK;
+
