@@ -30,6 +30,7 @@ import Feed from "./routes/feed";
 import ForgotPassword from "./routes/forgot-password";
 import ResetPassword from "./routes/reset-password";
 import Settings from "./routes/settings";
+import VerifyEmail from "./routes/verify-email";
 import PendingClubsAdmin from "./routes/admin.clubs.pending";
 
 // ---------------------------------------------------------------------------
@@ -149,6 +150,7 @@ const router = createBrowserRouter(
         <Route path="/feed" element={<Feed />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
       </Route>
