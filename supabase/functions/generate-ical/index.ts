@@ -25,8 +25,8 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  // Rate Limiting: 20 requests per minute per IP for feed fetching
-  const rateLimitResponse = await limitRate(req, "generate-ical", { limit: 20, windowMs: 60000 });
+  // Rate Limiting: 20 requests per 2 minutes per IP for calendar fetching
+  const rateLimitResponse = await limitRate(req, "generate-ical", { limit: 20, windowMs: 120000 });
   if (rateLimitResponse) {
     return rateLimitResponse;
   }

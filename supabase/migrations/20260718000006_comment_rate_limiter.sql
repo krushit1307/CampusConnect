@@ -1,5 +1,5 @@
 -- Migration: Implement Database-level Comment Rate Limiter Trigger
--- Restricts users to a maximum of 5 comments per minute.
+-- Restricts users to a maximum of 10 comments per minute.
 
 CREATE OR REPLACE FUNCTION public.check_comment_rate_limit()
 RETURNS TRIGGER
@@ -17,9 +17,9 @@ BEGIN
   WHERE author_id = auth.uid()
     AND created_at >= NOW() - INTERVAL '1 minute';
 
-  -- Abort insert if count is >= 5
-  IF v_comment_count >= 5 THEN
-    RAISE EXCEPTION 'Comment rate limit exceeded. You can only post 5 comments per minute.'
+  -- Abort insert if count is >= 10
+  IF v_comment_count >= 10 THEN
+    RAISE EXCEPTION 'Comment rate limit exceeded. You can only post 10 comments per minute.'
       USING ERRCODE = 'P0001';
   END IF;
 

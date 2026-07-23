@@ -6,8 +6,8 @@ const redisToken = Deno.env.get("UPSTASH_REDIS_REST_TOKEN");
 const redis = redisUrl && redisToken ? new Redis({ url: redisUrl, token: redisToken }) : null;
 
 export interface RateLimitConfig {
-  limit?: number; // Maximum requests allowed in the window (default: 5)
-  windowMs?: number; // Window size in milliseconds (default: 60000 / 1 minute)
+  limit?: number; // Maximum requests allowed in the window (default: 10)
+  windowMs?: number; // Window size in milliseconds (default: 120000 / 2 minutes)
 }
 
 /**
@@ -30,8 +30,8 @@ export async function limitRate(
     return null;
   }
 
-  const limit = config.limit ?? 5;
-  const windowMs = config.windowMs ?? 60000;
+  const limit = config.limit ?? 10;
+  const windowMs = config.windowMs ?? 120000;
 
   // Extract client IP address from the x-forwarded-for header
   const xForwardedFor = req.headers.get("x-forwarded-for");
@@ -65,7 +65,7 @@ export async function limitRate(
       "X-RateLimit-Remaining": remaining.toString(),
     });
 
-    if (requestCount > limit) {
+    if (requestCount >= limit) {
       return new Response(
         JSON.stringify({
           error: "Too many requests. Please try again later.",
@@ -75,6 +75,7 @@ export async function limitRate(
           headers: {
             ...Object.fromEntries(headers.entries()),
             "Content-Type": "application/json",
+            "Retry-After": String(Math.ceil(windowMs / 1000)),
           },
         },
       );
