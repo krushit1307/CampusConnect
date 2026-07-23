@@ -40,6 +40,13 @@ import { parseCoordinates } from "@/lib/eventUtils";
 import { EventFeedbackForm } from "@/components/EventFeedbackForm";
 import { EventMap } from "@/components/EventMap";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { HelpCircle } from "lucide-react";
+import {
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbLink,
@@ -103,7 +110,7 @@ export default function EventDetailsPage() {
         .from("events")
         .select(
           `
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, max_attendees,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, max_attendees, faqs,
           clubs (name, slug),
           event_rsvps (id, user_id, checked_in),
           event_waitlist (id, user_id, created_at),
@@ -164,6 +171,7 @@ export default function EventDetailsPage() {
               eventId === "mock-1" ? [{ id: "rsvp-1", user_id: "user-1", checked_in: true }] : [],
             event_waitlist: [] as { id: string; user_id: string; created_at: string }[],
             event_feedbacks: [] as { id: string; user_id: string }[],
+            faqs: [] as { question: string; answer: string }[],
             attendee_count: eventId === "mock-1" ? 1 : 0,
           };
         }
@@ -724,6 +732,41 @@ export default function EventDetailsPage() {
               </p>
             )}
           </div>
+
+          {/* FAQ Section */}
+          {Array.isArray((event as Record<string, unknown>).faqs) &&
+            ((event as Record<string, unknown>).faqs as { question: string; answer: string }[])
+              .length > 0 && (
+              <div className="mt-8">
+                <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
+                  Frequently Asked Questions
+                </h2>
+                <Accordion type="single" collapsible className="mt-4 space-y-2">
+                  {(
+                    (event as Record<string, unknown>).faqs as {
+                      question: string;
+                      answer: string;
+                    }[]
+                  ).map((faq, index) => (
+                    <AccordionItem
+                      key={index}
+                      value={`faq-${index}`}
+                      className="neu-border bg-white"
+                    >
+                      <AccordionTrigger className="px-4 font-mono text-sm font-bold text-black hover:no-underline">
+                        <div className="flex items-center gap-2 text-left">
+                          <HelpCircle className="h-4 w-4 shrink-0 text-blue-900" />
+                          {faq.question}
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="px-4 pb-4 font-mono text-sm text-black/70">
+                        {faq.answer}
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </div>
+            )}
 
           {/* Interactive Map */}
           {event.location && event.location.toLowerCase() !== "online" && (
