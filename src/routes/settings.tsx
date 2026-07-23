@@ -272,36 +272,9 @@ export default function SettingsPage() {
           </h1>
         </div>
       </section>
+
       <section className="px-4 py-12 md:px-6">
         <div className="mx-auto max-w-4xl space-y-8">
-          {/* --- NEW COLORFUL STATS GRID --- */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="border-2 border-black bg-[#a3e635] p-5 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1">
-              <p className="font-mono text-xs font-bold uppercase text-black/70">Last Active</p>
-              <p className="mt-2 font-display text-xl font-bold text-black">
-                {profile?.lastActivityAt
-                  ? new Date(profile.lastActivityAt).toLocaleDateString()
-                  : "Just now"}
-              </p>
-            </div>
-
-            <div className="border-2 border-black bg-[#fb923c] p-5 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1">
-              <p className="font-mono text-xs font-bold uppercase text-black/70">Welcome Status</p>
-              <p className="mt-2 font-display text-xl font-bold text-black">
-                {profile?.welcomeSource ? `Via ${profile.welcomeSource}` : "Pending"}
-              </p>
-            </div>
-
-            <div className="border-2 border-black bg-[#22d3ee] p-5 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1">
-              <p className="font-mono text-xs font-bold uppercase text-black/70">
-                Claims Processed
-              </p>
-              <p className="mt-2 font-display text-xl font-bold text-black">
-                {profile?.processedClaimCommentIds?.length || 0}
-              </p>
-            </div>
-          </div>
-          {/* ------------------------------- */}
           <Panel title="Profile">
             <AvatarUpload name={currentFullName || "User"} avatarTheme={currentAvatarTheme} />
 
@@ -578,6 +551,7 @@ export default function SettingsPage() {
               </div>
             </div>
           </Panel>
+
           <Panel title="Text Size">
             <div className="flex items-center gap-4">
               <button
@@ -606,11 +580,13 @@ export default function SettingsPage() {
               </button>
             </div>
           </Panel>
+
           <Panel title="Notifications">
             <Toggle label="Email me about upcoming RSVPs" defaultChecked />
             <Toggle label="Weekly digest of club activity" defaultChecked />
             <Toggle label="New certificates" />
           </Panel>
+
           <Panel title="Danger zone" tone="bg-red-50">
             <button
               onClick={() => setConfirmOpen(true)}
@@ -807,36 +783,7 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
     setUploading(true);
 
     try {
-      const worker = new Worker(new URL("../workers/compress.worker.ts", import.meta.url), {
-        type: "module",
-      });
-
-      const compressedFile = await new Promise<File>((resolve, reject) => {
-        worker.onmessage = (event) => {
-          if (event.data.success) {
-            const newFile = new File([event.data.data], file.name, {
-              type: "image/jpeg",
-            });
-            resolve(newFile);
-          } else {
-            reject(new Error(event.data.error));
-          }
-          worker.terminate();
-        };
-        worker.onerror = (error) => {
-          reject(error);
-          worker.terminate();
-        };
-
-        worker.postMessage({
-          file,
-          width: 512,
-          height: 512,
-          quality: 80,
-        });
-      });
-
-      const avatarUrl = await uploadAvatar(compressedFile);
+      const avatarUrl = await uploadAvatar(file);
 
       if (avatarUrl) {
         setPreview(avatarUrl);
