@@ -28,6 +28,7 @@ import { useEmailVerification } from "@/hooks/useEmailVerification";
 
 import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { ShareMenu } from "@/components/ui/ShareMenu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -843,35 +844,12 @@ export default function Feed() {
                         })}
                       </div>
 
-                      <div className="mt-4 flex gap-2 border-t-2 border-black pt-4">
-                        <a
-                          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#1DA1F2] hover:text-white"
-                        >
-                          Twitter
-                        </a>
-
-                        <a
-                          href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#0A66C2] hover:text-white"
-                        >
-                          LinkedIn
-                        </a>
-
-                        <a
-                          href={`https://wa.me/?text=${encodeURIComponent(
-                            `Check out this post: ${post.content.substring(0, 50)}... - ${shareUrl}`,
-                          )}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#25D366] hover:text-white"
-                        >
-                          WhatsApp
-                        </a>
+                      <div className="mt-4 flex items-center gap-2 border-t-2 border-black pt-4">
+                        <ShareMenu
+                          url={shareUrl}
+                          title={`Post by ${author?.full_name ?? "User"}`}
+                          text={`Check out this post: ${post.content.substring(0, 50)}...`}
+                        />
 
                         <button
                           type="button"

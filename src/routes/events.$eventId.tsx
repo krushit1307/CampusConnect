@@ -8,7 +8,7 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
 import { toast } from "sonner";
-import EventSharePanel from "@/components/events/EventSharePanel";
+import { ShareMenu } from "@/components/ui/ShareMenu";
 import {
   ArrowLeft,
   Check,
@@ -480,7 +480,7 @@ export default function EventDetailsPage() {
             >
               {event.title}
             </h1>
-            <EventSharePanel title={event.title} />
+            <ShareMenu url={shareUrl} title={event.title} />
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -797,36 +797,17 @@ export default function EventDetailsPage() {
               </div>
             )}
 
-          {/* Social Share Buttons */}
+          {/* Social Share */}
           <div className="mt-10 border-t-2 border-black pt-6">
             <h3 className="font-mono text-xs font-bold uppercase text-blue-900">
               Share with Friends
             </h3>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <a
-                href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-twitter hover:text-white transition-colors text-black"
-              >
-                Twitter
-              </a>
-              <a
-                href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-linkedin hover:text-white transition-colors text-black"
-              >
-                LinkedIn
-              </a>
-              <a
-                href={`https://wa.me/?text=${encodeURIComponent(`Check out this event: ${event.title} - ${shareUrl}`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-whatsapp hover:text-white transition-colors text-black"
-              >
-                WhatsApp
-              </a>
+            <div className="mt-4">
+              <ShareMenu
+                url={shareUrl}
+                title={event.title}
+                text={`Check out this event: ${event.title}`}
+              />
             </div>
           </div>
         </div>

@@ -72,11 +72,9 @@ export function EventCardSkeleton({ index = 0 }: { index?: number }) {
         <Skeleton className="h-9 w-28" />
       </div>
 
-      {/* Social share links */}
-      <div className="mt-4 flex gap-2">
-        <Skeleton className="h-9 w-20" />
-        <Skeleton className="h-9 w-20" />
-        <Skeleton className="h-9 w-20" />
+      {/* Social share button */}
+      <div className="mt-4">
+        <Skeleton className="h-9 w-24" />
       </div>
 
       <span className="sr-only">Loading event...</span>
