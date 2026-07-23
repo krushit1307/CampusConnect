@@ -27,6 +27,7 @@ import DashboardRsvps from "./routes/dashboard.rsvps";
 import DashboardBookmarks from "./routes/dashboard.bookmarks";
 import DashboardCalendar from "./routes/dashboard.calendar";
 import Feed from "./routes/feed";
+import EventsMapPage from "./routes/events.map";
 import ForgotPassword from "./routes/forgot-password";
 import ResetPassword from "./routes/reset-password";
 import Settings from "./routes/settings";
@@ -146,6 +147,8 @@ const router = createBrowserRouter(
             </Suspense>
           }
         />
+        {/* Events Map View with clustering */}
+        <Route path="/events/map" element={<EventsMapPage />} />
 
         <Route path="/feed" element={<Feed />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
