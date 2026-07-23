@@ -190,10 +190,7 @@ export default function App() {
     <ErrorBoundary>
       <RouterProvider router={router} />
       {needsOnboarding && userId && (
-        <OnboardingWizard
-          userId={userId}
-          onComplete={() => setNeedsOnboarding(false)}
-        />
+        <OnboardingWizard userId={userId} onComplete={() => setNeedsOnboarding(false)} />
       )}
     </ErrorBoundary>
   );
