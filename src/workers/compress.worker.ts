@@ -1,9 +1,14 @@
-import init, { compress_image } from "../../wasm/image-compressor/pkg/image_compressor";
-
 self.onmessage = async (event: MessageEvent) => {
   try {
-    // Initialize WebAssembly module
-    await init();
+    // Dynamically import the WASM module so the build doesn't fail when the
+    // Rust package hasn't been compiled yet (the package is built separately
+    // via wasm-pack before deployment).
+    const wasmModule = await import(
+      /* @vite-ignore */
+      "../../wasm/image-compressor/pkg/image_compressor"
+    );
+    await wasmModule.default();
+    const compress_image = wasmModule.compress_image;
 
     const { file, width, height, quality } = event.data;
 
