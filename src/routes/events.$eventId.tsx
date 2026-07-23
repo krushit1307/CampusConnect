@@ -743,7 +743,7 @@ export default function EventDetailsPage() {
                 </>
               ) : coordsCheck.isCoordinates && !coordsCheck.isValid ? (
                 <div className="neu-border mt-4 flex items-start gap-4 bg-peach/20 p-5">
-                  <div className="shrink-0 rounded-none border-2 border-black bg-white p-2 text-[#e53935]">
+                  <div className="shrink-0 rounded-none border-2 border-black bg-white p-2 text-destructive">
                     <MapPinOff className="h-6 w-6" />
                   </div>
                   <div>
@@ -798,7 +798,7 @@ export default function EventDetailsPage() {
                 href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-[#1DA1F2] hover:text-white transition-colors text-black"
+                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-twitter hover:text-white transition-colors text-black"
               >
                 Twitter
               </a>
@@ -806,7 +806,7 @@ export default function EventDetailsPage() {
                 href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-[#0A66C2] hover:text-white transition-colors text-black"
+                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-linkedin hover:text-white transition-colors text-black"
               >
                 LinkedIn
               </a>
@@ -815,7 +815,7 @@ export default function EventDetailsPage() {
                 target="_blank"
                 rel="noopener noreferrer"
 
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-[#25D366] hover:text-white transition-colors text-black"
+                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-whatsapp hover:text-white transition-colors text-black"
               >
                 WhatsApp
               </a>

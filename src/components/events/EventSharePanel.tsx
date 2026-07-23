@@ -1,4 +1,4 @@
-import { Twitter, MessageCircle, Share2 } from "lucide-react";
+import { MessageCircle, Share2, Twitter } from "lucide-react";
 
 interface EventSharePanelProps {
   title: string;

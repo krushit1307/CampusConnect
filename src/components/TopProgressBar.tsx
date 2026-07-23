@@ -85,7 +85,7 @@ export default function TopProgressBar() {
 
   return (
     <div
-      className="fixed top-0 left-0 h-1 bg-[#f5c66b] z-50 transition-[width,opacity] duration-300 ease-out"
+      className="fixed top-0 left-0 h-1 bg-brand-peach-light z-50 transition-[width,opacity] duration-300 ease-out"
       style={{
         width: `${progress}%`,
         opacity: progress === 100 ? 0 : 1,
