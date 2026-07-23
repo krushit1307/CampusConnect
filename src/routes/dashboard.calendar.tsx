@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { User } from "@supabase/supabase-js";
 import { CalendarDays } from "lucide-react";
+import { CalendarSkeleton } from "@/components/DashboardWidgetSkeleton";
 
 const EventsCalendar = lazy(() => import("@/components/events/EventsCalendar"));
 
@@ -71,11 +72,7 @@ export default function DashboardCalendar() {
     .filter((e) => !!e) as RsvpEvent[];
 
   if (isLoading) {
-    return (
-      <div className="neu-border flex h-[600px] items-center justify-center bg-white p-12 text-center font-mono text-sm animate-pulse md:h-[700px]">
-        Loading your calendar...
-      </div>
-    );
+    return <CalendarSkeleton />;
   }
 
   if (events.length === 0) {
@@ -91,13 +88,7 @@ export default function DashboardCalendar() {
   }
 
   return (
-    <Suspense
-      fallback={
-        <div className="neu-border bg-white p-12 text-center font-mono text-sm animate-pulse">
-          Loading calendar view...
-        </div>
-      }
-    >
+    <Suspense fallback={<CalendarSkeleton />}>
       <EventsCalendar events={events} />
     </Suspense>
   );

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
 import { Settings, Users, Calendar, ShieldCheck, XCircle, CheckCircle } from "lucide-react";
+import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 
 export default function ClubManageRoute() {
   const { slug = "" } = useParams();
@@ -107,10 +108,7 @@ export default function ClubManageRoute() {
   if (isLoading) {
     return (
       <SiteShell>
-        <div className="p-8 max-w-5xl mx-auto space-y-4">
-          <div className="h-12 bg-gray-200 animate-pulse w-1/3" />
-          <div className="h-64 bg-gray-200 animate-pulse" />
-        </div>
+        <ClubManageSkeleton />
       </SiteShell>
     );
   }
