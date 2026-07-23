@@ -18,7 +18,7 @@ export const comments = {
 
   maxIssueLimitReached: ({ user, activeCount }) =>
     `Hey @${user}, we love the energy! 🌟\n\n` +
-    `You've reached our limit with **${activeCount} active assigned issues** (the max is **7**). This helps ensure everyone gets a chance to contribute.\n\n` +
+    `You've reached our limit with **${activeCount} active assigned issues** (the max is **10**). This helps ensure everyone gets a chance to contribute.\n\n` +
     `Once you finish or release an active issue (using \`${COMMANDS.unclaim}\`), you can definitely claim another one!`,
 
   invalidClaim: ({ user }) =>

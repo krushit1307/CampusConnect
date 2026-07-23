@@ -1,8 +1,15 @@
 import { useNavigate } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SiteShell } from "@/components/site/SiteShell";
-import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
-import { Camera, Loader2, X, Plus } from "lucide-react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type KeyboardEvent,
+} from "react";
+import { Camera, Loader2, UploadCloud, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
 
@@ -243,6 +250,13 @@ export default function SettingsPage() {
     localStorage.setItem("border-radius", String(value));
   };
 
+  interface ProfileStats {
+    lastActivityAt?: string;
+    welcomeSource?: string;
+    processedClaimCommentIds?: number[];
+  }
+  const pStats = profile as typeof profile & ProfileStats;
+
   if (isProfileLoading && !profile) {
     return (
       <SiteShell>
@@ -255,16 +269,47 @@ export default function SettingsPage() {
 
   return (
     <SiteShell>
-      <section className="border-b-2 border-black px-4 py-14 md:px-6">
+      <section className="border-b-2 border-black bg-[#0bc5ea] px-4 py-16 md:px-6">
         <div className="mx-auto max-w-4xl">
-          <p className="eyebrow font-bold text-black">Account</p>
-          <h1 className="mt-2 text-4xl font-bold text-[#123a57] md:text-6xl text-black">
+          <p className="font-mono text-sm font-bold uppercase tracking-widest text-black/80">
+            Account
+          </p>
+          <h1 className="mt-2 text-5xl font-extrabold tracking-tight text-black md:text-7xl">
             Settings.
           </h1>
         </div>
       </section>
+
       <section className="px-4 py-12 md:px-6">
-        <div className="mx-auto max-w-4xl space-y-6 text-indigo-900">
+        <div className="mx-auto max-w-4xl space-y-8">
+          {/* --- NEW COLORFUL STATS GRID --- */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="border-2 border-black bg-[#a3e635] p-5 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1">
+              <p className="font-mono text-xs font-bold uppercase text-black/70">Last Active</p>
+              <p className="mt-2 font-display text-xl font-bold text-black">
+                {pStats?.lastActivityAt
+                  ? new Date(pStats.lastActivityAt).toLocaleDateString()
+                  : "Just now"}
+              </p>
+            </div>
+
+            <div className="border-2 border-black bg-[#fb923c] p-5 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1">
+              <p className="font-mono text-xs font-bold uppercase text-black/70">Welcome Status</p>
+              <p className="mt-2 font-display text-xl font-bold text-black">
+                {pStats?.welcomeSource ? `Via ${pStats.welcomeSource}` : "Pending"}
+              </p>
+            </div>
+
+            <div className="border-2 border-black bg-[#22d3ee] p-5 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1">
+              <p className="font-mono text-xs font-bold uppercase text-black/70">
+                Claims Processed
+              </p>
+              <p className="mt-2 font-display text-xl font-bold text-black">
+                {pStats?.processedClaimCommentIds?.length || 0}
+              </p>
+            </div>
+          </div>
+          {/* ------------------------------- */}
           <Panel title="Profile">
             <AvatarUpload name={currentFullName || "User"} avatarTheme={currentAvatarTheme} />
 
@@ -478,6 +523,7 @@ export default function SettingsPage() {
               </form>
             </Form>
           </Panel>
+
           <Panel title="Appearance">
             <div className="space-y-6">
               <div className="space-y-2">
@@ -511,6 +557,7 @@ export default function SettingsPage() {
               </div>
             </div>
           </Panel>
+
           <Panel title="Text Size">
             <div className="flex items-center gap-4">
               <button
@@ -539,15 +586,17 @@ export default function SettingsPage() {
               </button>
             </div>
           </Panel>
+
           <Panel title="Notifications">
             <Toggle label="Email me about upcoming RSVPs" defaultChecked />
             <Toggle label="Weekly digest of club activity" defaultChecked />
             <Toggle label="New certificates" />
           </Panel>
+
           <Panel title="Danger zone" tone="bg-red-50">
             <button
               onClick={() => setConfirmOpen(true)}
-              className="neu-border neu-press bg-[#123a57] px-4 py-2 font-mono text-xs font-bold uppercase text-white"
+              className="neu-border neu-press bg-brand-blue-dark px-4 py-2 font-mono text-xs font-bold uppercase text-white"
             >
               Delete account
             </button>
@@ -580,9 +629,13 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section className={`neu-border ${tone} p-6`}>
-      <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold">{title}</h2>
-      <div className="space-y-4">{children}</div>
+    <section
+      className={`border-2 border-black shadow-[6px_6px_0px_rgba(0,0,0,1)] ${tone} p-6 md:p-8`}
+    >
+      <h2 className="mb-6 border-b-2 border-black pb-3 font-display text-2xl font-extrabold tracking-tight text-black">
+        {title}
+      </h2>
+      <div className="space-y-6 text-black">{children}</div>
     </section>
   );
 }
@@ -665,6 +718,14 @@ function AvatarThemePicker({
   );
 }
 
+// Formats a byte count as a short human-readable size, e.g. "482 KB" / "1.3 MB".
+// Used by the drag-and-drop zone below to show the selected file's details.
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
 function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: AvatarThemeId | "" }) {
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
@@ -673,6 +734,11 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<{ name: string; size: number } | null>(null);
+  // Counts nested dragenter/dragleave events so the highlighted state doesn't
+  // flicker off when the pointer passes over a child element of the drop zone.
+  const dragDepthRef = useRef(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -716,10 +782,9 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
   const gradientClass = AVATAR_THEMES.find((theme) => theme.id === avatarTheme)?.gradient;
   const backgroundClass = showGradient && gradientClass ? gradientClass : "bg-lime";
 
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  // Shared validation + upload pipeline used by both the click-to-browse
+  // input and the drag-and-drop zone below.
+  async function processFile(file: File) {
     const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
 
     if (!allowedTypes.includes(file.type)) {
@@ -733,7 +798,14 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
       toast.error("Image must be under 2 MB.");
       return;
     }
+
+    setSelectedFile({ name: file.name, size: file.size });
     setUploading(true);
+
+    // Show an immediate local preview while compression/upload run in the background.
+    const localPreviewUrl = URL.createObjectURL(file);
+    setPreview(localPreviewUrl);
+    setImageError(false);
 
     try {
       const avatarUrl = await uploadAvatar(file);
@@ -749,10 +821,55 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
     } finally {
       setUploading(false);
       setUploadProgress(null);
+      setSelectedFile(null);
+      URL.revokeObjectURL(localPreviewUrl);
       if (inputRef.current) {
         inputRef.current.value = "";
       }
     }
+  }
+
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await processFile(file);
+  }
+
+  function handleDragEnter(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (uploading) return;
+    dragDepthRef.current += 1;
+    if (event.dataTransfer.types.includes("Files")) {
+      setIsDragging(true);
+    }
+  }
+
+  function handleDragOver(event: DragEvent<HTMLDivElement>) {
+    // Required so the browser allows a drop here instead of opening the file.
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) {
+      setIsDragging(false);
+    }
+  }
+
+  async function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    dragDepthRef.current = 0;
+    setIsDragging(false);
+    if (uploading) return;
+
+    const file = event.dataTransfer.files?.[0];
+    if (!file) return;
+    await processFile(file);
   }
 
   async function uploadAvatar(file: File): Promise<string | undefined> {
@@ -807,8 +924,8 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
   }
 
   return (
-    <div className="flex flex-col items-center gap-3 border-b-2 border-black pb-6 sm:flex-row sm:items-center sm:gap-5">
-      <div className="relative shrink-0">
+    <div className="flex flex-col gap-4 border-b-2 border-black pb-6 sm:flex-row sm:items-start">
+      <div className="relative mx-auto shrink-0 sm:mx-0">
         <div
           className={`neu-border flex h-24 w-24 items-center justify-center overflow-hidden rounded-full ${backgroundClass}`}
         >
@@ -829,69 +946,84 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
             <span className="font-display text-2xl font-bold text-black">{initials}</span>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={uploading}
-          aria-label="Change profile picture"
-          title="Change profile picture"
-          className="neu-border neu-press absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-black text-cream hover:bg-cream hover:text-black"
+      </div>
+
+      <div className="flex-1 space-y-2">
+        <div>
+          <p className="eyebrow font-bold text-black">Profile picture</p>
+        </div>
+
+        {/* Neubrutalist drag-and-drop zone — replaces the raw <input type="file"> trigger */}
+        <div
+          onClick={() => !uploading && inputRef.current?.click()}
+          onDragEnter={handleDragEnter}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if ((event.key === "Enter" || event.key === " ") && !uploading) {
+              event.preventDefault();
+              inputRef.current?.click();
+            }
+          }}
+          aria-label="Upload profile picture. Click to browse, or drag and drop an image."
+          className={`neu-border flex cursor-pointer flex-col items-center justify-center gap-1.5 border-2 border-dashed p-5 text-center transition-colors duration-150 ${
+            uploading
+              ? "cursor-not-allowed border-black bg-gray-100 opacity-70"
+              : isDragging
+                ? "border-black bg-lime/40 scale-[1.01]"
+                : "border-black bg-white hover:bg-cream"
+          }`}
         >
           {uploading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
           ) : (
-            <Camera className="h-4 w-4" />
+            <UploadCloud className="h-6 w-6" aria-hidden="true" />
           )}
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          onChange={handleFileChange}
-          className="hidden"
-        />
-      </div>
-      <div className="text-center sm:text-left">
-        <p className="eyebrow font-bold text-black">Profile picture</p>
-        <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
-          JPG, PNG or WEBP. Max 2 MB. Square images look best.
-        </p>
+          <p className="font-mono text-xs font-bold uppercase">
+            {uploading
+              ? "Uploading..."
+              : isDragging
+                ? "Drop to upload"
+                : "Drag & drop or click to upload"}
+          </p>
+          <p className="font-mono text-[10px] text-gray-500 dark:text-gray-400">
+            JPG, PNG or WEBP · Max 2 MB · Square images look best
+          </p>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+        </div>
+
+        {/* Selected file name + size preview */}
+        {selectedFile && (
+          <div className="neu-border flex items-center justify-between gap-3 bg-white px-3 py-2 font-mono text-xs">
+            <span className="flex items-center gap-2 truncate">
+              <Camera className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span className="truncate" title={selectedFile.name}>
+                {selectedFile.name}
+              </span>
+            </span>
+            <span className="shrink-0 font-bold text-gray-600 dark:text-gray-300">
+              {formatFileSize(selectedFile.size)}
+            </span>
+          </div>
+        )}
+
         {uploadProgress !== null && (
-          <div className="mt-2 w-full space-y-1">
+          <div className="w-full space-y-1">
             <Progress value={uploadProgress} className="h-2" />
             <p className="font-mono text-xs text-gray-500 dark:text-gray-300">{uploadProgress}%</p>
           </div>
         )}
       </div>
     </div>
-  );
-}
-
-function UnderlineInput({
-  label,
-  defaultValue,
-  required,
-}: {
-  label: string;
-  defaultValue?: string;
-  required?: boolean;
-}) {
-  return (
-    <label className="block">
-      <span className="eyebrow mb-1 block font-bold">
-        {label}
-        {required && (
-          <span className="text-destructive ml-1" aria-hidden="true">
-            *
-          </span>
-        )}
-      </span>
-      <input
-        defaultValue={defaultValue}
-        required={required}
-        className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
-      />
-    </label>
   );
 }
 
