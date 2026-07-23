@@ -1,9 +1,16 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-export function EventCardSkeleton() {
+export function EventCardSkeleton({ index = 0 }: { index?: number }) {
+  const delays = ["delay-75", "delay-150", "delay-300", "delay-500"];
+  const delayClass = delays[index % delays.length];
+
   return (
-    <article className="neu-border bg-white p-5" role="status" aria-live="polite">
-      <div className="animate-pulse">
+    <article
+      className={`neu-border bg-white p-5 animate-pulse ${delayClass}`}
+      role="status"
+      aria-live="polite"
+    >
+      <div>
         {/* Date pill */}
         <Skeleton className="h-3 w-24" />
 

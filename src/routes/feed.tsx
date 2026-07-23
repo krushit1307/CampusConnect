@@ -24,6 +24,7 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { calculateReadTime } from "@/utils/readTime";
 import { PullToRefresh } from "@/components/PullToRefresh";
+import { useEmailVerification } from "@/hooks/useEmailVerification";
 
 import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
@@ -63,7 +64,7 @@ interface Comment {
   content: string;
   created_at: string;
   deleted_at: string | null;
-  parent_comment_id: string | null;
+  parent_comment_id?: string | null;
   profiles: Profile[] | Profile | null;
 }
 
@@ -90,6 +91,7 @@ const COMMENTS_PAGE_SIZE = 5;
 export default function Feed() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
+  const emailVerified = useEmailVerification();
   const [newPost, setNewPost] = useState("");
   const editorRef = useRef<MarkdownEditorRef>(null);
   const [newComments, setNewComments] = useState<Record<string, string>>({});
@@ -466,34 +468,6 @@ export default function Feed() {
     },
   });
 
-  const reportPostMutation = useMutation({
-    mutationFn: async ({ postId, reason }: { postId: string; reason: string }) => {
-      if (!user) throw new Error("Must be logged in");
-      const { error } = await supabase.from("reports").insert({
-        reporter_id: user.id,
-        target_type: "post",
-        target_id: postId,
-        reason,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Report submitted. Thank you for helping keep the community safe.");
-      setReportDialogPostId(null);
-      setReportReason("");
-    },
-    onError: (error: unknown) => {
-      const code = (error as { code?: string })?.code;
-      if (code === "23505") {
-        toast.error("You've already reported this post.");
-      } else {
-        toast.error("Failed to submit report.");
-      }
-      setReportDialogPostId(null);
-      setReportReason("");
-    },
-  });
-
   const timeAgo = (dateString: string) => {
     const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
     const diff = new Date().getTime() - new Date(dateString).getTime();
@@ -541,7 +515,9 @@ export default function Feed() {
                 >
                   {userClubs.length === 0 && <option value="">No clubs joined</option>}
                   {userClubs.map((userClub) => {
-                    const club = Array.isArray(userClub.clubs) ? userClub.clubs[0] : userClub.clubs;
+                    const club = Array.isArray(userClub.clubs)
+                      ? userClub.clubs[0]
+                      : userClub.clubs;
 
                     return club ? (
                       <option key={club.id} value={club.id}>
@@ -555,11 +531,17 @@ export default function Feed() {
                   type="button"
                   onClick={() => {
                     if (!user) return alert("Log in first");
+                    if (!emailVerified) return alert("Please verify your email to post");
                     if (!selectedClubId) return alert("Join or select a club first");
                     if (newPost.trim()) postMutation.mutate();
                   }}
-                  disabled={!newPost.trim() || !selectedClubId || postMutation.isPending}
-                  className="neu-border neu-press bg-black px-5 py-2 font-mono text-xs font-bold uppercase text-cream disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={
+                    !newPost.trim() || !selectedClubId || postMutation.isPending || !emailVerified
+                  }
+                  title={!emailVerified ? "Please verify your email to post" : ""}
+                  className={`neu-border neu-press px-5 py-2 font-mono text-xs font-bold uppercase disabled:cursor-not-allowed disabled:opacity-50 ${
+                    emailVerified ? "bg-black text-cream" : "bg-gray-400 text-gray-700"
+                  }`}
                 >
                   {postMutation.isPending ? "Posting…" : "Post Markdown"}
                 </button>
@@ -641,7 +623,7 @@ export default function Feed() {
                 style={{
                   animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards",
                 }}
-                className="neu-border flex w-full items-center justify-center gap-2 bg-[#FFD93D] hover:bg-[#FFD93D]/90 py-3 text-center font-display text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0_0_#000] active:translate-x-0 active:translate-y-0 active:shadow-[4px_4px_0_0_#000] cursor-pointer"
+                className="neu-border flex w-full items-center justify-center gap-2 bg-[#FFD93D] hover:bg-[#FFD93D]/90 py-3 text-center font-display text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_#000] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_#000] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[4px_4px_0_0_#000] cursor-pointer"
               >
                 <Sparkles size={16} className="animate-pulse" />
                 New posts available (Refresh)
@@ -762,16 +744,42 @@ export default function Feed() {
                             </span>
                           </p>
                         </div>
-                        {user?.id === author?.id && (
-                          <button
-                            type="button"
-                            onClick={() => setConfirmPostId(post.id)}
-                            className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 hover:bg-[#FF6B6B]"
-                            aria-label="Delete post"
-                          >
-                            <Trash2 size={14} strokeWidth={2.5} />
-                          </button>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const isClubAdmin =
+                              clubMembers.some(
+                                (m) => m.user_id === user?.id && m.role === "admin",
+                              ) || userProfile?.role === "system_admin";
+                            return isClubAdmin ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  pinMutation.mutate({ postId: post.id, pinned: !post.pinned })
+                                }
+                                disabled={pinMutation.isPending}
+                                className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${
+                                  post.pinned
+                                    ? "bg-[#FDE68A] hover:bg-[#FCD34D] text-black"
+                                    : "bg-white hover:bg-cream text-black"
+                                }`}
+                                aria-label={post.pinned ? "Unpin post" : "Pin post"}
+                              >
+                                <Pin size={10} strokeWidth={2.5} />
+                                {post.pinned ? "Unpin" : "Pin"}
+                              </button>
+                            ) : null;
+                          })()}
+                          {(user?.id === author?.id || userProfile?.role === "system_admin") && (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmPostId(post.id)}
+                              className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 hover:bg-[#FF6B6B]"
+                              aria-label="Delete post"
+                            >
+                              <Trash2 size={14} strokeWidth={2.5} />
+                            </button>
+                          )}
+                        </div>
                       </header>
 
                       <div className="markdown-content mt-2 font-mono text-sm leading-relaxed">
@@ -813,6 +821,8 @@ export default function Feed() {
                               type="button"
                               onClick={() => {
                                 if (!user) return alert("Log in first");
+                                if (!emailVerified)
+                                  return alert("Please verify your email to react");
                                 setReactionBursts((prev) => ({
                                   ...prev,
                                   [burstKey]: (prev[burstKey] ?? 0) + 1,
@@ -1021,6 +1031,8 @@ export default function Feed() {
                                           if (e.key === "Enter" && !e.shiftKey) {
                                             e.preventDefault();
                                             if (!user) return alert("Log in first");
+                                            if (!emailVerified)
+                                              return alert("Please verify your email to comment");
                                             if (replyValues[commentNode.id]?.trim()) {
                                               commentMutation.mutate({
                                                 postId,
@@ -1103,6 +1115,8 @@ export default function Feed() {
                               if (event.key === "Enter" && !event.shiftKey) {
                                 event.preventDefault();
                                 if (!user) return alert("Log in first");
+                                if (!emailVerified)
+                                  return alert("Please verify your email to comment");
 
                                 const content = newComments[post.id];
                                 if (content?.trim()) {

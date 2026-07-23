@@ -18,7 +18,7 @@ export const COMMANDS = Object.freeze({
 });
 
 export const LIMITS = Object.freeze({
-  maxActiveAssignedIssues: 7,
+  maxActiveAssignedIssues: 10,
   guidanceCooldownHours: 12,
 });
 

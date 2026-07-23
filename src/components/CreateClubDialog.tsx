@@ -463,7 +463,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
           }
         }}
       >
-        <DialogContent className="neu-border neu-shadow bg-[#f3f1e4] sm:max-w-md text-black max-h-[90vh] flex flex-col p-6">
+        <DialogContent className="neu-border neu-shadow bg-cream sm:max-w-md text-black max-h-[90vh] flex flex-col p-6">
           <DialogHeader>
             <DialogTitle className="text-black">Crop Club Logo</DialogTitle>
           </DialogHeader>

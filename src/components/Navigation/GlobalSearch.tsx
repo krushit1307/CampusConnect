@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useDebounce } from "../../hooks/useDebounce";
 
 // Mock implementation of fetchSearchResults and setResults based on the issue description

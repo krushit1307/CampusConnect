@@ -1,13 +1,12 @@
 import { Link } from "react-router-dom";
-
-import { useEffect, useRef, useState } from "react";
-
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { LayoutGrid, List, UsersRound, X } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { CreateClubDialog } from "@/components/CreateClubDialog";
+import { ClubCardSkeleton } from "@/components/ui/ClubCardSkeleton";
 
 const ITEMS_PER_PAGE = 12;
 const VIEW_MODE_STORAGE_KEY = "clubs-view-mode";
@@ -19,6 +18,8 @@ export default function ClubsIndex() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const observer = useRef<IntersectionObserver | null>(null);
+
   const [user, setUser] = useState<User | null>(null);
 
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -95,6 +96,26 @@ export default function ClubsIndex() {
 
   const directoryClubs = filteredClubs.filter(
     (c) => search || !trendingClubs.find((t) => t.slug === c.slug),
+  );
+  const lastClubRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (isFetchingNextPage) return;
+
+      if (observer.current) {
+        observer.current.disconnect();
+      }
+
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage && !search) {
+          fetchNextPage();
+        }
+      });
+
+      if (node) {
+        observer.current.observe(node);
+      }
+    },
+    [fetchNextPage, hasNextPage, isFetchingNextPage, search],
   );
 
   return (
@@ -183,9 +204,9 @@ export default function ClubsIndex() {
                     <Link
                       key={`trending-${c.slug}`}
                       to={`/clubs/${c.slug}`}
-                      className="neu-border group relative block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000] flex flex-col justify-between"
+                      className="neu-border group relative block bg-white p-6 shadow-[4px_4px_0_0_var(--color-ink)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_var(--color-ink)] flex flex-col justify-between"
                     >
-                      <span className="absolute -right-2 -top-3 neu-border bg-yellow text-black px-2.5 py-0.5 font-mono text-[10px] font-black uppercase tracking-wider shadow-[2px_2px_0_0_#000] rotate-2">
+                      <span className="absolute -right-2 -top-3 neu-border bg-yellow text-black px-2.5 py-0.5 font-mono text-[10px] font-black uppercase tracking-wider shadow-[2px_2px_0_0_var(--color-ink)] rotate-2">
                         ✨ Trending
                       </span>
                       <div>
@@ -262,35 +283,25 @@ export default function ClubsIndex() {
             }
           >
             {isLoading ? (
-              // Initial Page Loader Skeletons
-              Array.from({ length: viewMode === "grid" ? 6 : 4 }).map((_, i) => (
-                <div
-                  key={i}
-                  className={
-                    viewMode === "grid"
-                      ? "neu-border bg-white p-6 animate-pulse h-48 flex flex-col justify-between"
-                      : "neu-border bg-white p-4 animate-pulse h-20 flex items-center gap-4"
-                  }
-                >
-                  {viewMode === "grid" ? (
-                    <>
-                      <div>
-                        <div className="h-6 bg-gray-200 w-16 mb-4 rounded neu-border border-gray-300" />
-                        <div className="h-8 bg-gray-200 w-3/4 rounded" />
-                      </div>
-                      <div className="h-4 bg-gray-200 w-full mt-4 rounded" />
-                    </>
-                  ) : (
-                    <>
-                      <div className="h-12 w-12 shrink-0 bg-gray-200 rounded neu-border border-gray-300" />
-                      <div className="flex-1">
-                        <div className="h-5 bg-gray-200 w-1/3 rounded mb-2" />
-                        <div className="h-3 bg-gray-200 w-2/3 rounded" />
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))
+              // Display a grid of exactly 6 skeleton cards for grid view, or 4 for list view
+              viewMode === "grid" ? (
+                Array.from({ length: 6 }).map((_, index) => (
+                  <ClubCardSkeleton key={`skeleton-${index}`} />
+                ))
+              ) : (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="neu-border bg-white p-4 animate-pulse h-20 flex items-center gap-4"
+                  >
+                    <div className="h-12 w-12 shrink-0 bg-gray-200 rounded neu-border border-gray-300" />
+                    <div className="flex-1">
+                      <div className="h-5 bg-gray-200 w-1/3 rounded mb-2" />
+                      <div className="h-3 bg-gray-200 w-2/3 rounded" />
+                    </div>
+                  </div>
+                ))
+              )
             ) : allClubs.length === 0 ? (
               <div className="neu-border col-span-full mx-auto flex w-full max-w-2xl flex-col items-center bg-white px-6 py-12 text-center md:px-12 md:py-16">
                 <div className="neu-border mb-6 flex h-20 w-20 items-center justify-center bg-lime md:h-24 md:w-24">
@@ -309,13 +320,14 @@ export default function ClubsIndex() {
             ) : viewMode === "grid" ? (
               directoryClubs.map((c, index) => (
                 <div
+                  ref={index === directoryClubs.length - 1 ? lastClubRef : null}
                   key={`${viewMode}-${c.slug}`}
                   className="animate-fade-in-up"
                   style={{ animationDelay: `${index * 75}ms` }}
                 >
                   <Link
                     to={`/clubs/${c.slug}`}
-                    className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000] h-full"
+                    className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_var(--color-ink)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_var(--color-ink)] h-full"
                   >
                     <div
                       className={`club-logo-badge neu-border ${colors[index % colors.length]} mb-4 inline-block px-3 py-1 font-mono text-xs font-bold uppercase`}
@@ -339,13 +351,14 @@ export default function ClubsIndex() {
             ) : (
               directoryClubs.map((c, index) => (
                 <div
+                  ref={index === directoryClubs.length - 1 ? lastClubRef : null}
                   key={`${viewMode}-${c.slug}`}
                   className="animate-fade-in-up"
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
                   <Link
                     to={`/clubs/${c.slug}`}
-                    className="neu-border group flex items-center gap-4 bg-white p-4 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000]"
+                    className="neu-border group flex items-center gap-4 bg-white p-4 shadow-[4px_4px_0_0_var(--color-ink)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_var(--color-ink)]"
                   >
                     <div
                       className={`club-logo-badge neu-border ${colors[index % colors.length]} flex h-12 w-12 shrink-0 items-center justify-center`}
@@ -400,20 +413,6 @@ export default function ClubsIndex() {
                 </div>
               ))}
           </div>
-
-          {/* Load More Controller */}
-          {hasNextPage && !search && (
-            <div className="mt-12 flex justify-center">
-              <button
-                type="button"
-                disabled={isFetchingNextPage}
-                onClick={() => fetchNextPage()}
-                className="neu-border neu-press bg-black px-6 py-3 font-mono text-sm font-bold uppercase text-cream hover:bg-cream hover:text-black transition-all disabled:opacity-50"
-              >
-                {isFetchingNextPage ? "Loading more..." : "Load More Clubs"}
-              </button>
-            </div>
-          )}
         </div>
       </section>
     </SiteShell>

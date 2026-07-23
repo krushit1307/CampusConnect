@@ -1,12 +1,14 @@
 import { formatDate, formatEventDateRange, getCountdown, getGoogleCalendarUrl } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { FormEvent, useState } from "react";
+import { BookmarkButton } from "@/components/events/BookmarkButton";
 import { Calendar, Check, Share2, X, Link as LinkIcon, Bookmark } from "lucide-react";
 import { toast } from "sonner";
 import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EventRSVPButton } from "@/components/EventRSVPButton";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 
 interface Event {
   id: string;
@@ -158,7 +160,6 @@ export function EventCard({
 
   const handleShare = async () => {
     const shareUrl = `${window.location.origin}${window.location.pathname}#event-${event.id}`;
-
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
@@ -169,18 +170,12 @@ export function EventCard({
     }
   };
 
-  const handleRsvpClick = () => {
-    if (!user) {
-      toast.error("Please log in to RSVP");
-      return;
-    }
-
-    if (hasRsvpd) {
+  const handleRsvpToggleClick = (eventId: string, currentHasRsvpd: boolean) => {
+    if (currentHasRsvpd) {
       setConfirmOpen(true);
-      return;
+    } else {
+      onRsvpToggle(eventId, false);
     }
-
-    onRsvpToggle(event.id, false);
   };
 
   const savedEventsList = Array.isArray(event.saved_events) ? event.saved_events : [];
@@ -224,15 +219,11 @@ export function EventCard({
         </div>
 
         <div className="flex gap-2 relative z-10">
-          <button
-            type="button"
+          <BookmarkButton
+            isSaved={isSaved}
+            isPending={isBookmarkPending}
             onClick={handleBookmarkClick}
-            disabled={isBookmarkPending}
-            className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60"
-            aria-label={isSaved ? "Unsave event" : "Save event"}
-          >
-            <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
-          </button>
+          />
 
           <button
             type="button"
@@ -260,7 +251,7 @@ export function EventCard({
       {event.description ? (
         <div
           className={`mt-4 overflow-hidden transition-all duration-300 ease-in-out ${
-            isDescriptionExpanded ? "max-h-250" : "max-h-40"
+            isDescriptionExpanded ? "max-h-[250px]" : "max-h-40"
           }`}
         >
           <p className="text-sm leading-6 text-gray-800 inline">{displayedDescription}</p>
@@ -300,7 +291,7 @@ export function EventCard({
           user={user}
           hasRsvpd={hasRsvpd}
           isPending={isRsvpPending}
-          onToggle={onRsvpToggle}
+          onToggle={handleRsvpToggleClick}
         />
 
         <TooltipProvider>
@@ -343,12 +334,13 @@ export function EventCard({
           </Button>
         )}
       </div>
+
       <div className="mt-4 flex gap-2">
         <a
           href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#1DA1F2] hover:text-white transition-colors"
+          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-twitter hover:text-white transition-colors"
         >
           Twitter
         </a>
@@ -356,7 +348,7 @@ export function EventCard({
           href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#0A66C2] hover:text-white transition-colors"
+          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-linkedin hover:text-white transition-colors"
         >
           LinkedIn
         </a>
@@ -364,11 +356,24 @@ export function EventCard({
           href={`https://wa.me/?text=${encodeURIComponent(`Check out this event: ${event.title} - ${window.location.href}`)}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#25D366] hover:text-white transition-colors"
+          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-whatsapp hover:text-white transition-colors"
         >
           WhatsApp
         </a>
       </div>
+
+      <ConfirmModal
+        open={confirmOpen}
+        onCancel={() => setConfirmOpen(false)}
+        title="Cancel your RSVP?"
+        description="Are you sure you want to remove your RSVP for this event?"
+        confirmText="Yes, cancel RSVP"
+        onConfirm={() => {
+          onRsvpToggle(event.id, true);
+          setConfirmOpen(false);
+        }}
+      />
+
       <TicketDialog
         open={ticketOpen}
         onOpenChange={setTicketOpen}

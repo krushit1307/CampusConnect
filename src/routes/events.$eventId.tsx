@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
+import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
@@ -10,7 +11,6 @@ import { toast } from "sonner";
 import EventSharePanel from "@/components/events/EventSharePanel";
 import {
   ArrowLeft,
-  Calendar,
   Check,
   Copy,
   Download,
@@ -19,6 +19,7 @@ import {
   MapPinOff,
   Users,
   Star,
+  Calendar,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -76,6 +77,7 @@ export default function EventDetailsPage() {
   const { eventId = "" } = useParams();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
+  const emailVerified = useEmailVerification();
   const [copied, setCopied] = useState(false);
   const [idCopied, setIdCopied] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -354,6 +356,10 @@ export default function EventDetailsPage() {
       toast.error("Please log in to RSVP");
       return;
     }
+    if (!emailVerified) {
+      toast.error("Please verify your email to RSVP");
+      return;
+    }
     if (hasRsvpd) {
       setConfirmOpen(true);
       return;
@@ -539,7 +545,11 @@ export default function EventDetailsPage() {
                 <Button
                   onClick={() => {
                     if (!user) {
-                      toast.error("Please log in to join waitlist");
+                      toast.error("Please log in to join the waitlist");
+                      return;
+                    }
+                    if (!emailVerified) {
+                      toast.error("Please verify your email to join the waitlist");
                       return;
                     }
                     toggleWaitlist.mutate({ isOnWaitlist });
@@ -626,10 +636,10 @@ export default function EventDetailsPage() {
                 href={googleCalendarUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="neu-border flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                className="neu-border bg-white h-12 px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
               >
-                <Calendar aria-hidden="true" size={14} strokeWidth={3} />
-                Add to Google Calendar
+                <Calendar aria-hidden="true" size={16} strokeWidth={2.5} />
+                Add to Calendar
               </a>
             )}
 
@@ -743,7 +753,7 @@ export default function EventDetailsPage() {
                 </>
               ) : coordsCheck.isCoordinates && !coordsCheck.isValid ? (
                 <div className="neu-border mt-4 flex items-start gap-4 bg-peach/20 p-5">
-                  <div className="shrink-0 rounded-none border-2 border-black bg-white p-2 text-[#e53935]">
+                  <div className="shrink-0 rounded-none border-2 border-black bg-white p-2 text-destructive">
                     <MapPinOff className="h-6 w-6" />
                   </div>
                   <div>
@@ -798,7 +808,7 @@ export default function EventDetailsPage() {
                 href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-[#1DA1F2] hover:text-white transition-colors text-black"
+                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-twitter hover:text-white transition-colors text-black"
               >
                 Twitter
               </a>
@@ -806,7 +816,7 @@ export default function EventDetailsPage() {
                 href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-[#0A66C2] hover:text-white transition-colors text-black"
+                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-linkedin hover:text-white transition-colors text-black"
               >
                 LinkedIn
               </a>
@@ -815,7 +825,7 @@ export default function EventDetailsPage() {
                 target="_blank"
                 rel="noopener noreferrer"
 
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-[#25D366] hover:text-white transition-colors text-black"
+                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-whatsapp hover:text-white transition-colors text-black"
               >
                 WhatsApp
               </a>
