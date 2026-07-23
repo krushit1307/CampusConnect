@@ -35,6 +35,7 @@ export default function Dashboard() {
     enabled: !!user?.id,
   });
 
+
   if (!user)
     return (
       <SiteShell>
@@ -99,3 +100,4 @@ export default function Dashboard() {
     </SiteShell>
   );
 }
+

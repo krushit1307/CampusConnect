@@ -10,6 +10,18 @@ import { PullToRefresh } from "@/components/PullToRefresh";
 import { toast } from "sonner";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
 
+export interface EventItem {
+  id: string;
+  title: string;
+  description: string | null;
+  event_date: string | null;
+  location: string | null;
+  banner_url?: string | null;
+  clubs: { name: string } | { name: string }[] | null;
+  event_rsvps: { id: string; user_id: string }[] | null;
+  saved_events: { id: string; user_id: string }[] | null;
+}
+
 export default function EventsPage() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
@@ -33,7 +45,8 @@ export default function EventsPage() {
           `
           id, title, description, event_date, location, banner_url,
           clubs (name),
-          event_rsvps (id, user_id)
+          event_rsvps (id, user_id),
+          saved_events (id, user_id)
         `,
         )
         .order("event_date", { ascending: true });
@@ -49,6 +62,7 @@ export default function EventsPage() {
             location: "Main Auditorium",
             clubs: { name: "Tech Club" },
             event_rsvps: [{ id: "rsvp-1", user_id: "user-1" }],
+            saved_events: [],
           },
           {
             id: "mock-2",
@@ -58,6 +72,7 @@ export default function EventsPage() {
             location: "Art Studio 3",
             clubs: { name: "Art & Design" },
             event_rsvps: [],
+            saved_events: [],
           },
           {
             id: "mock-3",
@@ -70,6 +85,7 @@ export default function EventsPage() {
               { id: "rsvp-2", user_id: "user-2" },
               { id: "rsvp-3", user_id: "user-3" },
             ],
+            saved_events: [],
           },
         ];
       }
@@ -80,11 +96,32 @@ export default function EventsPage() {
 
   const events = queryData || [];
 
+  const queryClient = {
+    invalidateQueries: (options?: { queryKey?: string[] }) => {
+      refetch();
+    },
+    cancelQueries: async (options?: { queryKey?: string[] }) => {
+      // no-op for replacement hook
+    },
+    getQueryData: (queryKey: string[]): any => {
+      if (queryKey[0] === "events") {
+        return queryData;
+      }
+      return undefined;
+    },
+    setQueryData: (queryKey: string[], updater: any) => {
+      // no-op for replacement hook
+    }
+  };
+
   useEffect(() => {
     const channel = supabase
-      .channel("realtime_rsvps")
+      .channel("realtime_changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "event_rsvps" }, () => {
         refetch();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["events"] });
       })
       .subscribe();
 
@@ -121,11 +158,112 @@ export default function EventsPage() {
         throw error;
       }
     },
-    onSuccess: () => {
-      refetch();
+    onMutate: async ({ eventId, hasRsvpd }) => {
+      await queryClient.cancelQueries({ queryKey: ["events"] });
+
+      const previousEvents = queryClient.getQueryData<EventItem[]>(["events"]);
+
+      if (previousEvents) {
+        queryClient.setQueryData<EventItem[]>(
+          ["events"],
+          previousEvents.map((e) => {
+            if (e.id === eventId) {
+              const rsvpsList = Array.isArray(e.event_rsvps) ? e.event_rsvps : [];
+              if (hasRsvpd) {
+                return {
+                  ...e,
+                  event_rsvps: rsvpsList.filter((r) => r.user_id !== (user?.id || "")),
+                };
+              } else {
+                return {
+                  ...e,
+                  event_rsvps: [...rsvpsList, { id: "temp-rsvp-id", user_id: user?.id || "" }],
+                };
+              }
+            }
+            return e;
+          }),
+        );
+      }
+
+      return { previousEvents };
     },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to update RSVP. Please try again.");
+    onError: (_err, _newVariables, context) => {
+      if (context?.previousEvents) {
+        queryClient.setQueryData(["events"], context.previousEvents);
+      }
+      toast.error("Failed to update RSVP.");
+    },
+    onSuccess: (_data, variables) => {
+      toast.success(
+        variables.hasRsvpd ? "RSVP cancelled successfully!" : "RSVP registered successfully!",
+      );
+      if (!variables.eventId.startsWith("mock-")) {
+        queryClient.invalidateQueries({ queryKey: ["events"] });
+        queryClient.invalidateQueries({ queryKey: ["upcomingEvents"] });
+      }
+    },
+  });
+
+  const toggleBookmark = useMutation({
+    mutationFn: async ({ eventId, isSaved }: { eventId: string; isSaved: boolean }) => {
+      if (!user) throw new Error("Must be logged in");
+      if (eventId.startsWith("mock-")) {
+        console.log(`[CampusConnect] Mock Bookmark toggled for event: ${eventId}`);
+        return;
+      }
+      const { error } = isSaved
+        ? await supabase
+            .from("saved_events")
+            .delete()
+            .match({ event_id: eventId, user_id: user.id })
+        : await supabase.from("saved_events").insert({ event_id: eventId, user_id: user.id });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+    },
+    onMutate: async ({ eventId, isSaved }) => {
+      await queryClient.cancelQueries({ queryKey: ["events"] });
+
+      const previousEvents = queryClient.getQueryData<EventItem[]>(["events"]);
+
+      if (previousEvents) {
+        queryClient.setQueryData<EventItem[]>(
+          ["events"],
+          previousEvents.map((e) => {
+            if (e.id === eventId) {
+              const savedList = Array.isArray(e.saved_events) ? e.saved_events : [];
+              if (isSaved) {
+                return {
+                  ...e,
+                  saved_events: savedList.filter((s) => s.user_id !== (user?.id || "")),
+                };
+              } else {
+                return {
+                  ...e,
+                  saved_events: [...savedList, { id: "temp-id", user_id: user?.id || "" }],
+                };
+              }
+            }
+            return e;
+          }),
+        );
+      }
+
+      return { previousEvents };
+    },
+    onError: (_err, _newVariables, context) => {
+      if (context?.previousEvents) {
+        queryClient.setQueryData(["events"], context.previousEvents);
+      }
+      toast.error("Failed to update bookmark.");
+    },
+    onSuccess: (_data, variables) => {
+      toast.success(variables.isSaved ? "Removed from saved events!" : "Saved to bookmarks!");
+      if (!variables.eventId.startsWith("mock-")) {
+        queryClient.invalidateQueries({ queryKey: ["events"] });
+      }
     },
   });
 
@@ -174,18 +312,22 @@ export default function EventsPage() {
         </section>
         <section className="bg-cream px-4 py-12 md:px-6">
           <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {isLoading
-              ? Array.from({ length: 4 }).map((_, i) => <EventCardSkeleton key={i} />)
-              : filteredEvents.map((e, index) => (
-                  <EventCard
-                    key={e.id}
-                    event={e}
-                    index={index}
-                    user={user}
-                    onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
-                    isRsvpPending={toggleRsvp.isPending}
-                  />
-                ))}
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, i) => <EventCardSkeleton key={i} />)
+            ) : (
+              filteredEvents.map((e, index) => (
+                <EventCard
+                  key={e.id}
+                  event={e}
+                  index={index}
+                  user={user}
+                  onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
+                  isRsvpPending={toggleRsvp.isPending}
+                  onBookmarkToggle={(eventId, isSaved) => toggleBookmark.mutate({ eventId, isSaved })}
+                  isBookmarkPending={toggleBookmark.isPending}
+                />
+              ))
+            )}
           </div>
         </section>
       </PullToRefresh>
