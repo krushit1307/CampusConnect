@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { User } from "@supabase/supabase-js";
 import { CalendarDays } from "lucide-react";
+import { CalendarSkeleton } from "@/components/DashboardWidgetSkeleton";
 
 const EventsCalendar = lazy(() => import("@/components/events/EventsCalendar"));
 
@@ -18,6 +19,15 @@ interface RsvpEvent {
   clubs: { name: string } | { name: string }[] | null;
 }
 
+interface RsvpQueryRow {
+  id: string;
+  event: RsvpEvent | RsvpEvent[] | null;
+}
+
+function isRsvpEvent(item: unknown): item is RsvpEvent {
+  return item !== null && typeof item === "object" && "id" in item && "title" in item;
+}
+
 export default function DashboardCalendar() {
   const [supabase] = useState(() => createClient());
   const [user, setUser] = useState<User | null>(null);
@@ -30,7 +40,7 @@ export default function DashboardCalendar() {
 
   // Fetch only the events this user has RSVP'd to — same source as the
   // "My RSVPs" tab, but shaped for the calendar widget.
-  const { data: rsvps = [], isLoading } = useQuery({
+  const { data: rsvps = [], isLoading } = useQuery<RsvpQueryRow[]>({
     queryKey: ["userRsvpsCalendar", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -56,7 +66,7 @@ export default function DashboardCalendar() {
         .eq("user_id", user?.id);
 
       if (error) throw error;
-      return data || [];
+      return (data as unknown as RsvpQueryRow[]) || [];
     },
     enabled: !!user?.id,
   });
@@ -68,14 +78,10 @@ export default function DashboardCalendar() {
       if (!rawEvent) return null;
       return Array.isArray(rawEvent) ? rawEvent[0] : rawEvent;
     })
-    .filter((e) => !!e) as RsvpEvent[];
+    .filter(isRsvpEvent);
 
   if (isLoading) {
-    return (
-      <div className="neu-border flex h-[600px] items-center justify-center bg-white p-12 text-center font-mono text-sm animate-pulse md:h-[700px]">
-        Loading your calendar...
-      </div>
-    );
+    return <CalendarSkeleton />;
   }
 
   if (events.length === 0) {
@@ -91,13 +97,7 @@ export default function DashboardCalendar() {
   }
 
   return (
-    <Suspense
-      fallback={
-        <div className="neu-border bg-white p-12 text-center font-mono text-sm animate-pulse">
-          Loading calendar view...
-        </div>
-      }
-    >
+    <Suspense fallback={<CalendarSkeleton />}>
       <EventsCalendar events={events} />
     </Suspense>
   );

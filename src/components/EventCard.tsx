@@ -53,12 +53,12 @@ function getEventProgress(createdAt: string | null | undefined, eventDate: strin
   const now = Date.now();
   const eventTime = new Date(eventDate).getTime();
 
-  if (now >= eventTime) {
+  if (now > eventTime) {
     return { percent: 100, isPast: true, isEstimated: false };
   }
 
-  let startTime: number;
   let isEstimated = false;
+  let startTime: number;
 
   if (createdAt) {
     startTime = new Date(createdAt).getTime();
@@ -224,7 +224,6 @@ export function EventCard({
             isPending={isBookmarkPending}
             onClick={handleBookmarkClick}
           />
-
           <button
             type="button"
             onClick={handleShare}

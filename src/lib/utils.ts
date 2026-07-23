@@ -228,3 +228,52 @@ export function getIcsContent(event: {
   lines.push("END:VEVENT", "END:VCALENDAR");
   return lines.join("\r\n");
 }
+
+export function getMultiIcsContent(events: {
+  title: string;
+  description: string | null;
+  event_date: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  location: string | null;
+}[]): string | null {
+  if (!events.length) return null;
+
+  const formatUtc = (date: Date) =>
+    date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//CampusConnect//Events//EN",
+  ];
+
+  for (const event of events) {
+    const startValue = event.start_date || event.event_date;
+    if (!startValue) continue;
+    const startDate = new Date(startValue);
+    if (isNaN(startDate.getTime())) continue;
+
+    const endDate = event.end_date
+      ? new Date(event.end_date)
+      : new Date(startDate.getTime() + 60 * 60 * 1000);
+    if (isNaN(endDate.getTime())) continue;
+
+    lines.push("BEGIN:VEVENT");
+    lines.push(`DTSTART:${formatUtc(startDate)}`);
+    lines.push(`DTEND:${formatUtc(endDate)}`);
+    lines.push(`SUMMARY:${event.title}`);
+    if (event.description) {
+      lines.push(`DESCRIPTION:${event.description.replace(/\n/g, "\\n")}`);
+    }
+    if (event.location) {
+      lines.push(`LOCATION:${event.location}`);
+    }
+    lines.push("END:VEVENT");
+  }
+
+  if (lines.length === 3) return null;
+
+  lines.push("END:VCALENDAR");
+  return lines.join("\r\n");
+}
