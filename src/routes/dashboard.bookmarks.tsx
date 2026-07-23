@@ -170,7 +170,7 @@ export default function DashboardBookmarks() {
       {isLoading || isFetching ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3" aria-label="Loading bookmarks">
           {Array.from({ length: 3 }).map((_, index) => (
-            <EventCardSkeleton key={index} />
+            <EventCardSkeleton key={index} index={index} />
           ))}
         </div>
       ) : bookmarkedEvents.length === 0 ? (

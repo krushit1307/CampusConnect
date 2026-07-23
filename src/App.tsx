@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
+import { useEmailVerification } from "./hooks/useEmailVerification";
+
 import Directory from "./routes/Directory";
 
 import {
@@ -8,11 +10,13 @@ import {
   Route,
 } from "react-router-dom";
 
-// Layout
+// Layout & Components
 import Layout from "./components/Layout";
 import { ErrorBoundary, RouteErrorBoundary } from "./components/ErrorBoundary";
 import MaintenancePage from "./components/MaintenancePage";
+import { OnboardingWizard } from "./components/OnboardingWizard";
 import { createClient } from "./lib/supabase/client";
+
 // Pages
 import Index from "./routes/index";
 import Auth from "./routes/auth";
@@ -38,13 +42,6 @@ import MessagesRoute from "./routes/messages";
 import NotificationsRoute from "./routes/notifications";
 import ProfileRoute from "./routes/profile.$handle";
 import { NotFoundPage } from "./components/NotFoundPage";
-
-const HEALTH_CHECK_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_HEALTH_URL) ||
-  (typeof process !== "undefined" && process.env?.REACT_APP_API_HEALTH_URL) ||
-  "/api/health";
-
-const HEALTH_CHECK_TIMEOUT = 8000; // 8 seconds
 
 interface HealthStatus {
   ok: boolean;
@@ -126,48 +123,14 @@ const router = createBrowserRouter(
   ),
 );
 
-const DB_HEALTH_CHECK_TIMEOUT_MS = 8000;
-const DB_RETRY_INTERVAL_MS = 15000;
-
-type DbStatus = "checking" | "online" | "offline";
-
-/**
- * Pings Supabase with a cheap, RLS-open HEAD request. Returns false if the
- * client throws (bad config, connection refused, DNS failure, etc.) or if
- * the request doesn't resolve within the timeout.
- */
-async function checkDatabaseConnection(): Promise<boolean> {
-  try {
-    const supabase = createClient();
-
-    const healthCheck = supabase.from("profiles").select("id", { count: "exact", head: true });
-
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error("Database health check timed out")),
-        DB_HEALTH_CHECK_TIMEOUT_MS,
-      ),
-    );
-
-    type HealthCheckResult = Awaited<typeof healthCheck>;
-    const { error } = (await Promise.race([healthCheck, timeout])) as HealthCheckResult;
-
-    if (error) {
-      console.error("Database health check returned an error:", error.message);
-      return false;
-    }
-
-    return true;
-  } catch (err) {
-    console.error("Database client threw while checking connection:", err);
-    return false;
-  }
-}
-
 export default function App() {
   const [dbStatus, setDbStatus] = useState<HealthStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
+
+  // Onboarding state
+  const [userId, setUserId] = useState<string | null>(null);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
   const performHealthCheck = useCallback(async () => {
     setIsLoading(true);
@@ -179,6 +142,38 @@ export default function App() {
   useEffect(() => {
     performHealthCheck();
   }, [performHealthCheck, retryCount]);
+
+  // Check if user profile is complete
+  useEffect(() => {
+    async function checkProfileOnboarding() {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) return;
+
+        setUserId(user.id);
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name, major")
+          .eq("id", user.id)
+          .single();
+
+        if (!profile || !profile.full_name || !profile.major) {
+          setNeedsOnboarding(true);
+        }
+      } catch (err) {
+        console.error("Failed to check profile status:", err);
+      }
+    }
+
+    if (!isLoading && dbStatus?.ok) {
+      checkProfileOnboarding();
+    }
+  }, [isLoading, dbStatus]);
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -193,9 +188,20 @@ export default function App() {
     );
   }
 
+  const emailVerified = useEmailVerification();
+
   return (
     <ErrorBoundary>
+      {!emailVerified && (
+        <div className="bg-yellow-100 border border-yellow-300 text-yellow-900 px-4 py-3 text-center">
+          📧 Please verify your email address to unlock posting, commenting, and RSVP features.
+          Check your inbox for the verification email.
+        </div>
+      )}
       <RouterProvider router={router} />
+      {needsOnboarding && userId && (
+        <OnboardingWizard userId={userId} onComplete={() => setNeedsOnboarding(false)} />
+      )}
     </ErrorBoundary>
   );
 }

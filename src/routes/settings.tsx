@@ -736,7 +736,36 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
     setUploading(true);
 
     try {
-      const avatarUrl = await uploadAvatar(file);
+      const worker = new Worker(new URL("../workers/compress.worker.ts", import.meta.url), {
+        type: "module",
+      });
+
+      const compressedFile = await new Promise<File>((resolve, reject) => {
+        worker.onmessage = (event) => {
+          if (event.data.success) {
+            const newFile = new File([event.data.data], file.name, {
+              type: "image/jpeg",
+            });
+            resolve(newFile);
+          } else {
+            reject(new Error(event.data.error));
+          }
+          worker.terminate();
+        };
+        worker.onerror = (error) => {
+          reject(error);
+          worker.terminate();
+        };
+
+        worker.postMessage({
+          file,
+          width: 512,
+          height: 512,
+          quality: 80,
+        });
+      });
+
+      const avatarUrl = await uploadAvatar(compressedFile);
 
       if (avatarUrl) {
         setPreview(avatarUrl);
