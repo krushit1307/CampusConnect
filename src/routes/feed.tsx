@@ -103,6 +103,7 @@ export default function Feed() {
   const [reactionBursts, setReactionBursts] = useState<Record<string, string>>({});
   const [reportDialogPostId, setReportDialogPostId] = useState<string | null>(null);
   const [reportReason, setReportReason] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -218,6 +219,22 @@ export default function Feed() {
 
   const trendingPosts: Post[] = trendingData ?? [];
   const activePosts = feedMode === "latest" ? posts : trendingPosts;
+
+  const filteredPosts = activePosts.filter((post) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+
+    const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
+    const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
+
+    const contentMatch = post.content?.toLowerCase().includes(q);
+    const authorMatch =
+      author?.full_name?.toLowerCase().includes(q) || author?.handle?.toLowerCase().includes(q);
+    const clubMatch = club?.name?.toLowerCase().includes(q);
+
+    return contentMatch || authorMatch || clubMatch;
+  });
+
   const isActiveFeedLoading = feedMode === "latest" ? isLoading : isTrendingLoading;
 
   const postsRef = useRef(posts);
@@ -235,6 +252,7 @@ export default function Feed() {
     setShowNewPostsBanner(false);
     refetchPosts();
   }, [refetchPosts]);
+
   const observer = useRef<IntersectionObserver | null>(null);
   const lastPostElementRef = useCallback(
     (node: HTMLElement | null) => {
@@ -280,6 +298,7 @@ export default function Feed() {
       supabase.removeChannel(channel);
     };
   }, [supabase, refetchPosts]);
+
   useEffect(() => {
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 300);
@@ -305,6 +324,7 @@ export default function Feed() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [lightboxSrc]);
+
   const postMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Must be logged in");
@@ -487,6 +507,7 @@ export default function Feed() {
     const minutes = Math.floor(diff / (1000 * 60));
     return rtf.format(-Math.max(1, minutes), "minute");
   };
+
   const scrollToTop = () => {
     window.scrollTo({
       top: 0,
@@ -564,6 +585,18 @@ export default function Feed() {
               }
             `}</style>
 
+            {/* ── Search Bar ── */}
+            <div>
+              <input
+                type="text"
+                placeholder="Search posts by content, author, or club..."
+                aria-label="Search posts"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full border-2 border-black bg-white px-4 py-2 font-mono text-sm outline-none focus:bg-lime/10"
+              />
+            </div>
+
             {/* ── Feed mode tabs ── */}
             <div
               role="tablist"
@@ -621,7 +654,7 @@ export default function Feed() {
                   <FeedPostSkeleton key={index} />
                 ))}
               </div>
-            ) : activePosts.length === 0 ? (
+            ) : filteredPosts.length === 0 ? (
               <div
                 className="neu-border relative overflow-hidden bg-white px-6 py-12 text-center sm:px-10 sm:py-16"
                 role="status"
@@ -650,7 +683,9 @@ export default function Feed() {
                     The conversation starts here
                   </p>
                   <h2 className="text-2xl font-bold sm:text-3xl">
-                    No posts yet. Be the first to start a discussion!
+                    {searchQuery
+                      ? "No posts match your search query."
+                      : "No posts yet. Be the first to start a discussion!"}
                   </h2>
                   <p className="mt-4 max-w-md font-mono text-sm leading-relaxed text-gray-700">
                     Share an announcement, ask a question, or post an update for your club
@@ -671,8 +706,8 @@ export default function Feed() {
               </div>
             ) : (
               <>
-                {activePosts.map((post: Post, index: number) => {
-                  const isLastPost = feedMode === "latest" && index === posts.length - 1;
+                {filteredPosts.map((post: Post, index: number) => {
+                  const isLastPost = feedMode === "latest" && index === filteredPosts.length - 1;
                   const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
                   const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
                   const clubMembers: ClubMember[] = Array.isArray(club?.club_members)
@@ -778,8 +813,6 @@ export default function Feed() {
                               type="button"
                               onClick={() => {
                                 if (!user) return alert("Log in first");
-                                // Bump the burst nonce so the emoji <span> remounts
-                                // and the spring keyframe animation replays.
                                 setReactionBursts((prev) => ({
                                   ...prev,
                                   [burstKey]: (prev[burstKey] ?? 0) + 1,
@@ -790,8 +823,6 @@ export default function Feed() {
                                 isReacted ? "bg-lime" : "bg-white hover:bg-cream"
                               }`}
                             >
-                              {/* key includes burstNonce so React remounts the span
-                                   on every click, retriggering the CSS animation. */}
                               <span
                                 key={`${burstKey}-${burstNonce}`}
                                 className="reaction-burst inline-flex items-center"
@@ -807,7 +838,6 @@ export default function Feed() {
                       <div className="mt-4 flex gap-2 border-t-2 border-black pt-4">
                         <a
                           href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`}
-
                           target="_blank"
                           rel="noopener noreferrer"
                           className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#1DA1F2] hover:text-white"
