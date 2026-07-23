@@ -31,7 +31,7 @@ export default function AuthLogin() {
   return (
     <SiteShell>
       <div className="flex min-h-[70vh] items-center justify-center bg-cream px-4 py-12">
-        <div className="neu-border w-full max-w-md bg-white p-8 shadow-[8px_8px_0_0_#000]">
+        <div className="neu-border w-full max-w-md bg-white p-8 shadow-[8px_8px_0_0_var(--color-ink)]">
           <h1 className="text-3xl font-bold text-black mb-2">Welcome Back</h1>
           <p className="font-mono text-xs text-gray-600 mb-6">
             Sign in to your CampusConnect account

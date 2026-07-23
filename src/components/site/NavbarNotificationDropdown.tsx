@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Search, X } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import NotificationItem from "./NotificationItem";
 import { createClient } from "../../lib/supabase/client";

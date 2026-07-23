@@ -258,7 +258,7 @@ export default function SettingsPage() {
       <section className="border-b-2 border-black px-4 py-14 md:px-6">
         <div className="mx-auto max-w-4xl">
           <p className="eyebrow font-bold text-black">Account</p>
-          <h1 className="mt-2 text-4xl font-bold text-[#123a57] md:text-6xl text-black">
+          <h1 className="mt-2 text-4xl font-bold text-brand-blue-dark md:text-6xl text-black">
             Settings.
           </h1>
         </div>
@@ -547,7 +547,7 @@ export default function SettingsPage() {
           <Panel title="Danger zone" tone="bg-red-50">
             <button
               onClick={() => setConfirmOpen(true)}
-              className="neu-border neu-press bg-[#123a57] px-4 py-2 font-mono text-xs font-bold uppercase text-white"
+              className="neu-border neu-press bg-brand-blue-dark px-4 py-2 font-mono text-xs font-bold uppercase text-white"
             >
               Delete account
             </button>

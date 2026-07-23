@@ -6,6 +6,35 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --color-brand-social-linkedin: var(--brand-social-linkedin);
+  --color-brand-emerald-base: var(--brand-emerald-base);
+  --color-brand-gray-base-900: var(--brand-gray-base-900);
+  --color-brand-blue-muted: var(--brand-blue-muted);
+  --color-brand-blue-dark: var(--brand-blue-dark);
+  --color-brand-gray-base-800: var(--brand-gray-base-800);
+  --color-brand-blue-alt: var(--brand-blue-alt);
+  --color-brand-social-twitter: var(--brand-social-twitter);
+  --color-brand-blue-base: var(--brand-blue-base);
+  --color-brand-social-whatsapp: var(--brand-social-whatsapp);
+  --color-brand-blue-base-500: var(--brand-blue-base-500);
+  --color-brand-amber-dark: var(--brand-amber-dark);
+  --color-brand-blue-light: var(--brand-blue-light);
+  --color-brand-green-bg: var(--brand-green-bg);
+  --color-brand-gray-base-100: var(--brand-gray-base-100);
+  --color-brand-amber-base: var(--brand-amber-base);
+  --color-brand-peach-light: var(--brand-peach-light);
+  --color-brand-yellow-bg-alt: var(--brand-yellow-bg-alt);
+  --color-brand-red-ios: var(--brand-red-ios);
+  --color-brand-red-ios-dark: var(--brand-red-ios-dark);
+  --color-brand-red-light: var(--brand-red-light);
+  --color-brand-red-lighter: var(--brand-red-lighter);
+  --color-brand-orange-base: var(--brand-orange-base);
+  --color-brand-yellow-base: var(--brand-yellow-base);
+  --color-brand-yellow-alt: var(--brand-yellow-alt);
+  --color-brand-yellow-bright: var(--brand-yellow-bright);
+  --color-brand-red-bg: var(--brand-red-bg);
+  --color-brand-yellow-bg: var(--brand-yellow-bg);
+  --color-brand-yellow-bg-light: var(--brand-yellow-bg-light);
   --radius-sm: 0px;
   --radius-md: 0px;
   --radius-lg: 0px;
@@ -57,6 +86,35 @@
 }
 
 :root {
+  --brand-social-linkedin: #0a66c2;
+  --brand-emerald-base: #10b981;
+  --brand-gray-base-900: #111111;
+  --brand-blue-muted: #114c73;
+  --brand-blue-dark: #123a57;
+  --brand-gray-base-800: #1a1a1a;
+  --brand-blue-alt: #1a5a8c;
+  --brand-social-twitter: #1da1f2;
+  --brand-blue-base: #1e5c8a;
+  --brand-social-whatsapp: #25d366;
+  --brand-blue-base-500: #3b82f6;
+  --brand-amber-dark: #b45309;
+  --brand-blue-light: #bce3f2;
+  --brand-green-bg: #d3f4e6;
+  --brand-gray-base-100: #f3f4f6;
+  --brand-amber-base: #f59e0b;
+  --brand-peach-light: #f5c66b;
+  --brand-yellow-bg-alt: #fef8eb;
+  --brand-red-ios: #ff3b30;
+  --brand-red-ios-dark: #ff453a;
+  --brand-red-light: #ff6b6b;
+  --brand-red-lighter: #ff8787;
+  --brand-orange-base: #ffb800;
+  --brand-yellow-base: #ffd166;
+  --brand-yellow-alt: #ffd93d;
+  --brand-yellow-bright: #ffde00;
+  --brand-red-bg: #ffe3e3;
+  --brand-yellow-bg: #fffbea;
+  --brand-yellow-bg-light: #fffdf9;
   --font-size-base: 16px;
   --radius: 0px;
   --cream: #f3f1e4;
@@ -64,39 +122,39 @@
   --sky: #08b3ca;
   --lavender: #d9cdeb;
   --peach: #e37c2d;
-  --ink: #000000;
+  --ink: var(--color-ink);
   --background: #f3f1e4;
-  --foreground: #000000;
+  --foreground: var(--color-ink);
   --card: #ffffff;
-  --card-foreground: #000000;
+  --card-foreground: var(--color-ink);
   --popover: #ffffff;
-  --popover-foreground: #000000;
-  --primary: #000000;
+  --popover-foreground: var(--color-ink);
+  --primary: var(--color-ink);
   --primary-foreground: #f3f1e4;
   --secondary: #f3f1e4;
-  --secondary-foreground: #000000;
+  --secondary-foreground: var(--color-ink);
   --muted: #f3f1e4;
   --muted-foreground: #333333;
   --accent: #dff25c;
-  --accent-foreground: #000000;
+  --accent-foreground: var(--color-ink);
   --destructive: #e53935;
   --destructive-foreground: #ffffff;
-  --border: #000000;
-  --input: #000000;
-  --ring: #000000;
+  --border: var(--color-ink);
+  --input: var(--color-ink);
+  --ring: var(--color-ink);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: #f3f1e4;
-  --sidebar-foreground: #000000;
-  --sidebar-primary: #000000;
+  --sidebar-foreground: var(--color-ink);
+  --sidebar-primary: var(--color-ink);
   --sidebar-primary-foreground: #f3f1e4;
   --sidebar-accent: #dff25c;
-  --sidebar-accent-foreground: #000000;
-  --sidebar-border: #000000;
-  --sidebar-ring: #000000;
+  --sidebar-accent-foreground: var(--color-ink);
+  --sidebar-border: var(--color-ink);
+  --sidebar-ring: var(--color-ink);
   --border-thickness: 2px;
   --border-radius: 0px;
 }
@@ -248,15 +306,15 @@
 }
 
 @utility neu-border {
-  border: 2px solid #000000;
+  border: 2px solid var(--color-ink);
 }
 
 @utility neu-shadow {
-  box-shadow: 6px 6px 0 0 #000000;
+  box-shadow: 6px 6px 0 0 var(--color-ink);
 }
 
 @utility neu-shadow-sm {
-  box-shadow: 3px 3px 0 0 #000000;
+  box-shadow: 3px 3px 0 0 var(--color-ink);
 }
 
 @utility neu-press {
@@ -265,11 +323,11 @@
     box-shadow 120ms ease;
   &:hover {
     transform: translate(-2px, -2px);
-    box-shadow: 8px 8px 0 0 #000000;
+    box-shadow: 8px 8px 0 0 var(--color-ink);
   }
   &:active {
     transform: translate(2px, 2px);
-    box-shadow: 2px 2px 0 0 #000000;
+    box-shadow: 2px 2px 0 0 var(--color-ink);
   }
 }
 
@@ -308,14 +366,14 @@
 
   code {
     background: var(--cream);
-    border: 2px solid #000000;
+    border: 2px solid var(--color-ink);
     padding: 0 0.3em;
     font-size: 0.9em;
   }
 
   pre {
     background: var(--cream);
-    border: 2px solid #000000;
+    border: 2px solid var(--color-ink);
     padding: 0.75em;
     overflow-x: auto;
     margin: 0.5em 0;
@@ -341,7 +399,7 @@
   }
 
   blockquote {
-    border-left: 3px solid #000000;
+    border-left: 3px solid var(--color-ink);
     padding-left: 0.75em;
     margin: 0.5em 0;
     font-style: italic;
@@ -508,25 +566,25 @@
 .rbc-calendar {
   font-family: var(--font-mono);
   background-color: #ea7272;
-  color: #000000;
+  color: var(--color-ink);
 }
 
 .rbc-month-view {
-  border: 2px solid #000000 !important;
+  border: 2px solid var(--color-ink) !important;
   border-radius: 0px !important;
 }
 
 .rbc-day-bg {
-  border-left: 2px solid #000000 !important;
+  border-left: 2px solid var(--color-ink) !important;
 }
 
 .rbc-month-row {
-  border-bottom: 2px solid #000000 !important;
+  border-bottom: 2px solid var(--color-ink) !important;
 }
 
 .rbc-header {
-  border-bottom: 2px solid #000000 !important;
-  border-left: 2px solid #000000 !important;
+  border-bottom: 2px solid var(--color-ink) !important;
+  border-left: 2px solid var(--color-ink) !important;
   font-family: var(--font-display) !important;
   font-weight: 700 !important;
   text-transform: uppercase !important;
@@ -552,20 +610,20 @@
 }
 
 .rbc-event {
-  border: 2px solid #000000 !important;
+  border: 2px solid var(--color-ink) !important;
   border-radius: 0px !important;
   background-color: var(--peach) !important;
-  color: #000000 !important;
+  color: var(--color-ink) !important;
   font-family: var(--font-mono) !important;
   font-size: 11px !important;
   font-weight: 700 !important;
-  box-shadow: 2px 2px 0px 0px #000000 !important;
+  box-shadow: 2px 2px 0px 0px var(--color-ink) !important;
   transition: transform 120ms ease;
 }
 
 .rbc-event:hover {
   transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0px 0px #000000 !important;
+  box-shadow: 3px 3px 0px 0px var(--color-ink) !important;
 }
 
 .rbc-toolbar {
@@ -582,10 +640,10 @@
 }
 
 .rbc-toolbar button {
-  border: 2px solid #000000 !important;
+  border: 2px solid var(--color-ink) !important;
   border-radius: 0px !important;
   background-color: #ffffff !important;
-  color: #000000 !important;
+  color: var(--color-ink) !important;
   font-family: var(--font-mono) !important;
   font-weight: 700 !important;
   text-transform: uppercase !important;
@@ -593,22 +651,22 @@
   padding: 6px 12px !important;
   transition: all 120ms ease !important;
   cursor: pointer !important;
-  box-shadow: 3px 3px 0px 0px #000000 !important;
+  box-shadow: 3px 3px 0px 0px var(--color-ink) !important;
 }
 
 .rbc-toolbar button:hover {
   background-color: var(--cream) !important;
   transform: translate(-1px, -1px) !important;
-  box-shadow: 4px 4px 0px 0px #000000 !important;
+  box-shadow: 4px 4px 0px 0px var(--color-ink) !important;
 }
 
 .rbc-toolbar button:active {
   transform: translate(2px, 2px) !important;
-  box-shadow: 1px 1px 0px 0px #000000 !important;
+  box-shadow: 1px 1px 0px 0px var(--color-ink) !important;
 }
 
 .rbc-toolbar button.rbc-active {
-  background-color: #000000 !important;
+  background-color: var(--color-ink) !important;
 
   color: #ffffff !important;
   box-shadow: none !important;
@@ -700,7 +758,7 @@
 /* Neubrutalist scrollbars, applied globally */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #000000 var(--cream);
+  scrollbar-color: var(--color-ink) var(--cream);
 }
 
 *::-webkit-scrollbar {
@@ -709,12 +767,12 @@
 
 *::-webkit-scrollbar-track {
   background-color: var(--cream);
-  border-left: 2px solid #000000;
+  border-left: 2px solid var(--color-ink);
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: #000000;
-  border: 2px solid #000000;
+  background-color: var(--color-ink);
+  border: 2px solid var(--color-ink);
   border-radius: 0px;
 }
 

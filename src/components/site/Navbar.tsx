@@ -1,11 +1,11 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState, useRef } from "react";
+import { usePresence } from "@/hooks/usePresence";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
-import { ThemeToggle } from "../ThemeToggle";
-import { usePresence } from "@/hooks/usePresence";
-import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { UserDropdown } from "../Navigation/UserDropdown";
+import { ThemeToggle } from "../ThemeToggle";
+import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
 
 import { Menu, X } from "lucide-react";
 
@@ -197,7 +197,7 @@ export function Navbar() {
                   className={`neu-border w-full px-4 py-2.5 text-left font-mono text-sm font-bold uppercase ${
                     isActive
                       ? "bg-black text-cream dark:bg-cream dark:text-black"
-                      : "bg-white text-black hover:bg-lime dark:bg-[#1a1a1a] dark:text-cream"
+                      : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
                   }`}
                   style={{ letterSpacing: "0.05em" }}
                 >

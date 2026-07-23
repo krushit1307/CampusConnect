@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+import { CalendarPlus } from "lucide-react";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
@@ -151,11 +153,25 @@ export default function DashboardRsvps() {
           ))}
         </div>
       ) : displayedEvents.length === 0 ? (
-        <div className="neu-border bg-white p-8 text-center dark:bg-[#1a1a1a]">
-          <p className="font-mono text-sm text-gray-500 dark:text-gray-300">
-            No {activeTab} RSVPs found.
+        <section className="neu-border relative overflow-hidden bg-lavender px-6 py-14 text-center sm:px-10 dark:bg-brand-gray-base-800">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border-2 border-black bg-white shadow-[4px_4px_0_0_var(--color-ink)]">
+            <CalendarPlus aria-hidden="true" size={30} strokeWidth={2.5} />
+          </div>
+          <h3 className="mt-6 text-2xl font-black">
+            {activeTab === "upcoming" ? "No upcoming RSVPs yet" : "No past RSVPs yet"}
+          </h3>
+          <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-gray-700 dark:text-gray-300">
+            {activeTab === "upcoming"
+              ? "You haven't RSVP'd to any upcoming events. Browse what's happening on campus and find something worth joining."
+              : "Events you've attended will show up here once they've passed."}
           </p>
-        </div>
+          <Link
+            to="/events"
+            className="neu-border neu-press mt-6 inline-flex bg-black px-5 py-3 font-mono text-xs font-bold uppercase tracking-wider text-cream"
+          >
+            Browse events →
+          </Link>
+        </section>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {displayedEvents.map((e, index) => (

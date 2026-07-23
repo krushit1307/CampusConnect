@@ -343,7 +343,7 @@ export function EventCard({
           href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#1DA1F2] hover:text-white transition-colors"
+          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-twitter hover:text-white transition-colors"
         >
           Twitter
         </a>
@@ -351,7 +351,7 @@ export function EventCard({
           href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#0A66C2] hover:text-white transition-colors"
+          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-linkedin hover:text-white transition-colors"
         >
           LinkedIn
         </a>
@@ -359,7 +359,7 @@ export function EventCard({
           href={`https://wa.me/?text=${encodeURIComponent(`Check out this event: ${event.title} - ${window.location.href}`)}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#25D366] hover:text-white transition-colors"
+          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-whatsapp hover:text-white transition-colors"
         >
           WhatsApp
         </a>
