@@ -25,7 +25,7 @@ import {
 
 const PAGE_SIZE = 20;
 
-interface EventItem {
+export interface EventItem {
   id: string;
   title: string;
   description: string | null;
@@ -54,18 +54,6 @@ function eventsOverlap(
   const startB = new Date(startBStr).getTime();
   const endB = new Date(endBStr).getTime();
   return startA < endB && startB < endA;
-}
-
-export interface EventItem {
-  id: string;
-  title: string;
-  description: string | null;
-  event_date: string | null;
-  location: string | null;
-  banner_url?: string | null;
-  clubs: { name: string } | { name: string }[] | null;
-  event_rsvps: { id: string; user_id: string }[] | null;
-  saved_events: { id: string; user_id: string }[] | null;
 }
 
 export default function EventsPage() {

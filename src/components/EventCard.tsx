@@ -58,6 +58,7 @@ function getEventProgress(createdAt: string | null | undefined, eventDate: strin
   }
 
   let isEstimated = false;
+  let startTime: number;
 
   if (createdAt) {
     startTime = new Date(createdAt).getTime();
@@ -118,7 +119,6 @@ function EventProgressBar({
   );
 }
 
->>>>>>> upstream/main
 export function EventCard({
   event,
   index,
@@ -195,17 +195,6 @@ export function EventCard({
     shouldTruncate && !isDescriptionExpanded
       ? `${event.description!.slice(0, 180)}...`
       : event.description;
-
-  const savedEventsList = Array.isArray(event.saved_events) ? event.saved_events : [];
-  const isSaved = user ? savedEventsList.some((se) => se.user_id === user.id) : false;
-
-  const handleBookmarkClick = () => {
-    if (!user) {
-      toast.error("Please log in to bookmark events");
-      return;
-    }
-    onBookmarkToggle(event.id, isSaved);
-  };
 
   return (
     <article

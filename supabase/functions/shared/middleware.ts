@@ -85,8 +85,15 @@ export async function limitRate(
     return null;
   }
 
-  const limit = config.limit ?? 5;
-  const windowMs = config.windowMs ?? 60000;
+  const limit = Math.floor(config.limit ?? 5);
+  const windowMs = Math.floor(config.windowMs ?? 60000);
+
+  if (limit <= 0 || windowMs <= 0 || !Number.isFinite(limit) || !Number.isFinite(windowMs)) {
+    console.warn(
+      `[RateLimiter] Invalid rate limit configuration: limit=${limit}, windowMs=${windowMs}. Skipping rate limiting for: ${functionName}`,
+    );
+    return null;
+  }
 
   // Extract client IP address from the x-forwarded-for header
   const xForwardedFor = req.headers.get("x-forwarded-for");
