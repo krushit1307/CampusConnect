@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
@@ -18,6 +18,8 @@ export default function ClubsIndex() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const observer = useRef<IntersectionObserver | null>(null);
+
   const [user, setUser] = useState<User | null>(null);
 
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -94,6 +96,26 @@ export default function ClubsIndex() {
 
   const directoryClubs = filteredClubs.filter(
     (c) => search || !trendingClubs.find((t) => t.slug === c.slug),
+  );
+  const lastClubRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (isFetchingNextPage) return;
+
+      if (observer.current) {
+        observer.current.disconnect();
+      }
+
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage && !search) {
+          fetchNextPage();
+        }
+      });
+
+      if (node) {
+        observer.current.observe(node);
+      }
+    },
+    [fetchNextPage, hasNextPage, isFetchingNextPage, search],
   );
 
   return (
@@ -298,6 +320,7 @@ export default function ClubsIndex() {
             ) : viewMode === "grid" ? (
               directoryClubs.map((c, index) => (
                 <div
+                  ref={index === directoryClubs.length - 1 ? lastClubRef : null}
                   key={`${viewMode}-${c.slug}`}
                   className="animate-fade-in-up"
                   style={{ animationDelay: `${index * 75}ms` }}
@@ -328,6 +351,7 @@ export default function ClubsIndex() {
             ) : (
               directoryClubs.map((c, index) => (
                 <div
+                  ref={index === directoryClubs.length - 1 ? lastClubRef : null}
                   key={`${viewMode}-${c.slug}`}
                   className="animate-fade-in-up"
                   style={{ animationDelay: `${index * 50}ms` }}
@@ -389,20 +413,6 @@ export default function ClubsIndex() {
                 </div>
               ))}
           </div>
-
-          {/* Load More Controller */}
-          {hasNextPage && !search && (
-            <div className="mt-12 flex justify-center">
-              <button
-                type="button"
-                disabled={isFetchingNextPage}
-                onClick={() => fetchNextPage()}
-                className="neu-border neu-press bg-black px-6 py-3 font-mono text-sm font-bold uppercase text-cream hover:bg-cream hover:text-black transition-all disabled:opacity-50"
-              >
-                {isFetchingNextPage ? "Loading more..." : "Load More Clubs"}
-              </button>
-            </div>
-          )}
         </div>
       </section>
     </SiteShell>
