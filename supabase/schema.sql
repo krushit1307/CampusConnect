@@ -163,6 +163,30 @@ CREATE TABLE posts (
   deleted_at TIMESTAMPTZ
 );
 
+CREATE TABLE post_likes (
+  post_id UUID REFERENCES posts(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  UNIQUE(post_id, user_id)
+);
+
+CREATE INDEX idx_post_likes_post_id ON post_likes(post_id);
+CREATE INDEX idx_post_likes_user_id ON post_likes(user_id);
+
+ALTER TABLE post_likes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can read post likes."
+  ON post_likes FOR SELECT
+  USING (true);
+
+CREATE POLICY "Users can insert their own likes."
+  ON post_likes FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own likes."
+  ON post_likes FOR DELETE
+  USING (auth.uid() = user_id);
+
 CREATE TABLE comments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
@@ -666,25 +690,26 @@ BEFORE INSERT ON public.comments
 FOR EACH ROW
 EXECUTE FUNCTION public.check_comment_rate_limit();
 
--- Post like count trigger on post_reactions
+-- Post like count triggers on post_reactions and post_likes
 CREATE OR REPLACE FUNCTION public.update_post_like_count()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_post_id UUID;
 BEGIN
-  IF TG_OP = 'INSERT' THEN
-    UPDATE posts
-    SET like_count = (SELECT COUNT(*) FROM post_reactions WHERE post_id = NEW.post_id)
-    WHERE id = NEW.post_id;
-    RETURN NEW;
-  ELSIF TG_OP = 'DELETE' THEN
-    UPDATE posts
-    SET like_count = (SELECT COUNT(*) FROM post_reactions WHERE post_id = OLD.post_id)
-    WHERE id = OLD.post_id;
-    RETURN OLD;
-  END IF;
+  v_post_id := COALESCE(NEW.post_id, OLD.post_id);
+
+  UPDATE posts
+  SET like_count = (
+    (SELECT COUNT(*) FROM post_reactions WHERE post_id = v_post_id) +
+    (SELECT COUNT(*) FROM post_likes WHERE post_id = v_post_id)
+  )
+  WHERE id = v_post_id;
+
+  RETURN COALESCE(NEW, OLD);
 END;
 $$;
 
@@ -695,6 +720,16 @@ EXECUTE FUNCTION public.update_post_like_count();
 
 CREATE TRIGGER trg_post_reactions_delete
 AFTER DELETE ON post_reactions
+FOR EACH ROW
+EXECUTE FUNCTION public.update_post_like_count();
+
+CREATE TRIGGER trg_post_likes_insert
+AFTER INSERT ON post_likes
+FOR EACH ROW
+EXECUTE FUNCTION public.update_post_like_count();
+
+CREATE TRIGGER trg_post_likes_delete
+AFTER DELETE ON post_likes
 FOR EACH ROW
 EXECUTE FUNCTION public.update_post_like_count();
 
