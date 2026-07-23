@@ -5,8 +5,10 @@
 -- migrates existing data, then drops the full_name column.
 -- ============================================================
 
--- Drop dependent get_recommended_connections function before dropping full_name column
+-- Drop dependent functions before dropping full_name column to avoid PostgreSQL dependency errors
 DROP FUNCTION IF EXISTS public.get_recommended_connections(UUID, INT);
+DROP FUNCTION IF EXISTS public.get_event_member_emails(UUID);
+DROP FUNCTION IF EXISTS public.get_digest_subscribers();
 
 -- 1. Add new columns (nullable initially to avoid constraint issues)
 ALTER TABLE profiles
