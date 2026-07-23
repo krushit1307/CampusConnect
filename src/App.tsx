@@ -1,14 +1,18 @@
 import { Suspense, lazy } from "react";
+import { AnimatePresence } from "framer-motion";
 import {
   createBrowserRouter,
   RouterProvider,
   createRoutesFromElements,
   Route,
+  useLocation,
+  Outlet,
 } from "react-router-dom";
 
 // Layout & Components
 import Layout from "./components/Layout";
 import { ErrorBoundary, RouteErrorBoundary } from "./components/ErrorBoundary";
+import { PageWrapper } from "./components/PageWrapper";
 
 // Pages
 import Index from "./routes/index";
@@ -90,49 +94,64 @@ function RemoteLoadingScreen() {
 }
 
 // ---------------------------------------------------------------------------
+// Animated Outlet Wrapper for Framer Motion transitions
+// ---------------------------------------------------------------------------
+function AnimatedOutlet() {
+  const location = useLocation();
+
+  return (
+    <AnimatePresence mode="wait">
+      <PageWrapper key={location.pathname}>
+        <Outlet />
+      </PageWrapper>
+    </AnimatePresence>
+  );
+}
 
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route element={<Layout />} errorElement={<RouteErrorBoundary />}>
-      <Route path="/" element={<Index />} />
-      <Route path="/auth" element={<Auth />} />
-      <Route path="/certificates" element={<Certificates />} />
+      <Route element={<AnimatedOutlet />}>
+        <Route path="/" element={<Index />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/certificates" element={<Certificates />} />
 
-      <Route path="/clubs" element={<ClubsLayout />}>
-        <Route index element={<ClubsIndex />} />
-        <Route path=":slug" element={<ClubDetails />} />
+        <Route path="/clubs" element={<ClubsLayout />}>
+          <Route index element={<ClubsIndex />} />
+          <Route path=":slug" element={<ClubDetails />} />
+        </Route>
+
+        <Route path="/dashboard" element={<Dashboard />}>
+          <Route index element={<DashboardOverview />} />
+          <Route path="rsvps" element={<DashboardRsvps />} />
+          <Route path="bookmarks" element={<DashboardBookmarks />} />
+          <Route path="calendar" element={<DashboardCalendar />} />
+        </Route>
+
+        {/* Events — loaded from remote micro-frontend when available */}
+        <Route
+          path="/events"
+          element={
+            <Suspense fallback={<RemoteLoadingScreen />}>
+              <LazyEventsIndex />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/events/:eventId"
+          element={
+            <Suspense fallback={<RemoteLoadingScreen />}>
+              <LazyEventDetails />
+            </Suspense>
+          }
+        />
+
+        <Route path="/feed" element={<Feed />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
       </Route>
-
-      <Route path="/dashboard" element={<Dashboard />}>
-        <Route index element={<DashboardOverview />} />
-        <Route path="rsvps" element={<DashboardRsvps />} />
-        <Route path="bookmarks" element={<DashboardBookmarks />} />
-        <Route path="calendar" element={<DashboardCalendar />} />
-      </Route>
-
-      {/* Events — loaded from remote micro-frontend when available */}
-      <Route
-        path="/events"
-        element={
-          <Suspense fallback={<RemoteLoadingScreen />}>
-            <LazyEventsIndex />
-          </Suspense>
-        }
-      />
-      <Route
-        path="/events/:eventId"
-        element={
-          <Suspense fallback={<RemoteLoadingScreen />}>
-            <LazyEventDetails />
-          </Suspense>
-        }
-      />
-
-      <Route path="/feed" element={<Feed />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/settings" element={<Settings />} />
-      <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
     </Route>,
   ),
 );
