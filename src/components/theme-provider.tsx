@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { setTheme as setGlobalTheme } from "@/store/globalState";
 
 export type Theme = "light" | "dark" | "system";
 
@@ -48,11 +49,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const initialTheme = getStoredTheme() ?? getPreferredTheme();
     setThemeState(initialTheme);
     applyTheme(initialTheme);
+    setGlobalTheme(initialTheme);
   }, []);
 
   useEffect(() => {
     applyTheme(theme);
     window.localStorage.setItem(STORAGE_KEY, theme);
+    setGlobalTheme(theme);
 
     if (theme === "system") {
       const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -62,6 +65,21 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       return () => mediaQuery.removeEventListener("change", handleChange);
     }
   }, [theme]);
+
+  // Sync theme changes across browser tabs/windows
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === STORAGE_KEY && event.newValue) {
+        const newTheme = event.newValue as Theme;
+        if (newTheme === "light" || newTheme === "dark" || newTheme === "system") {
+          setThemeState(newTheme);
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
 
   const value = useMemo(
     () => ({

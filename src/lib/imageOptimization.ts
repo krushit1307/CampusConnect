@@ -17,6 +17,33 @@ export function isSupabasePublicImage(url: string): boolean {
   }
 }
 
+// Allowed schemes for anything rendered as an <img src>. This exists so that
+// DOM- or user-influenced strings (e.g. a blob: preview URL derived from a
+// picked File, before it's ever uploaded anywhere) can never resolve to a
+// scheme like `javascript:`/`vbscript:`/`data:text/html` — the categories
+// CodeQL's DOM-XSS query (js/xss-through-dom) flags this kind of flow for.
+const SAFE_IMAGE_SRC_SCHEMES = new Set(["http:", "https:", "blob:", "data:"]);
+
+export function isSafeImageSrc(source: string): boolean {
+  if (!source) return false;
+
+  // No scheme at all (e.g. "/logo.png") means a same-origin relative path — safe.
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(source)) return true;
+
+  try {
+    const parsed = new URL(
+      source,
+      typeof window !== "undefined" ? window.location.origin : undefined,
+    );
+    if (!SAFE_IMAGE_SRC_SCHEMES.has(parsed.protocol)) return false;
+    // data: URLs specifically must be images — data:text/html etc. is never allowed.
+    if (parsed.protocol === "data:" && !/^data:image\//i.test(source)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function getOptimizedImageUrl(source: string, options: ImageTransformOptions = {}): string {
   if (!isSupabasePublicImage(source)) return source;
 

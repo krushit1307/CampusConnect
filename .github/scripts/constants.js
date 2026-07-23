@@ -8,6 +8,7 @@ export const AUTOMATION = Object.freeze({
   prChecklistMarker: "cc:pr-checklist",
   mergedMarker: "cc:pr-merged",
   firstWelcomeMarker: "cc:first-contributor-welcome",
+  firstIssueWelcomeMarker: "cc:first-issue-welcome",
   guidanceMarker: "cc:claim-guidance",
   overrideMarker: "cc:maintainer-override",
 });

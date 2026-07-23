@@ -142,11 +142,11 @@
   --border: var(--color-ink);
   --input: var(--color-ink);
   --ring: var(--color-ink);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  --chart-1: var(--lime);
+  --chart-2: var(--sky);
+  --chart-3: var(--peach);
+  --chart-4: var(--lavender);
+  --chart-5: var(--brand-yellow-base);
   --sidebar: #f3f1e4;
   --sidebar-foreground: var(--color-ink);
   --sidebar-primary: var(--color-ink);

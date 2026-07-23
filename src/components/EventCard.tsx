@@ -1,6 +1,7 @@
 import { formatDate, formatEventDateRange, getCountdown, getGoogleCalendarUrl } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { FormEvent, useState } from "react";
+import { BookmarkButton } from "@/components/events/BookmarkButton";
 import { Calendar, Check, Share2, X, Link as LinkIcon, Bookmark } from "lucide-react";
 import { toast } from "sonner";
 import { TicketDialog } from "@/components/ui/ticket-modal";
@@ -52,12 +53,12 @@ function getEventProgress(createdAt: string | null | undefined, eventDate: strin
   const now = Date.now();
   const eventTime = new Date(eventDate).getTime();
 
-  if (now >= eventTime) {
+  if (now > eventTime) {
     return { percent: 100, isPast: true, isEstimated: false };
   }
 
-  let startTime: number;
   let isEstimated = false;
+  let startTime: number;
 
   if (createdAt) {
     startTime = new Date(createdAt).getTime();
@@ -222,13 +223,7 @@ export function EventCard({
             isSaved={isSaved}
             isPending={isBookmarkPending}
             onClick={handleBookmarkClick}
-            disabled={isBookmarkPending}
-            className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60"
-            aria-label={isSaved ? "Unsave event" : "Save event"}
-          >
-            <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
-          </BookmarkButton>
-
+          />
           <button
             type="button"
             onClick={handleShare}

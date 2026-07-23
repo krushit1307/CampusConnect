@@ -251,13 +251,17 @@ VALUES
 )
 ON CONFLICT (id) DO NOTHING;
 
--- 8. Post Comments
-INSERT INTO comments (id, post_id, author_id, content)
-VALUES
-(
-  'cc000000-0000-0000-0000-000000000001',
-  'a0000000-0000-0000-0000-000000000001',
-  'd0000000-0000-0000-0000-000000000002',
-  'Super excited! Cant wait to see what teams build.'
-)
+INSERT INTO
+    comments (
+        id,
+        post_id,
+        author_id,
+        content
+    )
+VALUES (
+        'cc000000-0000-0000-0000-000000000001',
+        'a0000000-0000-0000-0000-000000000001',
+        'd0000000-0000-0000-0000-000000000002',
+        'Super excited! Cant wait to see what teams build.'
+    )
 ON CONFLICT (id) DO NOTHING;
