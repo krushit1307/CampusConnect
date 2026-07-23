@@ -19,24 +19,46 @@ Before you begin, make sure you have the following installed:
 2. **Clone Your Fork**
 
    ```bash
-   git clone https://github.com/YOUR_USERNAME/CampusConnect.git
+   git clone [https://github.com/YOUR_USERNAME/CampusConnect.git](https://github.com/YOUR_USERNAME/CampusConnect.git)
    cd CampusConnect
    ```
 
-3. **Create a Branch**
-   Create a new branch for your work. Use a descriptive naming convention:
-   - `feature/your-feature-name` (for new features)
+3. **Install Dependencies**
+   Install the necessary packages to run the project locally.
+
+   ```bash
+   npm install
+   ```
+
+4. **Set Up Environment Variables**
+   Copy the example environment file and update it with your local or preview Supabase credentials.
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+5. **Start the Development Server**
+   Run the application locally to see your changes in real-time. The app will typically be available at `http://localhost:3000`.
+
+   ```bash
+   npm run dev
+   ```
+
+6. **Create a Branch**
+   Create a new branch for your work. Use the following naming convention —
+   a short-form type prefix, a slash, then a brief kebab-case description:
+   - `feat/your-feature-name` (for new features)
    - `fix/your-bug-fix` (for bug fixes)
    - `docs/your-docs-update` (for documentation)
 
    ```bash
-   git checkout -b feature/awesome-new-feature
+   git checkout -b feat/awesome-new-feature
    ```
 
-4. **Make Your Changes**
-   Write your code, add components, or update documentation.
+7. **Make Your Changes**
+   Write your code, add components, or update documentation. Ensure you test your changes locally!
 
-5. **Commit Your Changes**
+8. **Commit Your Changes**
    We follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/). Please use one of the following prefixes for your commit messages:
    - `feat:` (New feature)
    - `fix:` (Bug fix)
@@ -49,14 +71,14 @@ Before you begin, make sure you have the following installed:
    git commit -m "feat: add user profile page skeleton"
    ```
 
-6. **Push to Your Fork**
+9. **Push to Your Fork**
 
    ```bash
    git push origin feature/awesome-new-feature
    ```
 
-7. **Open a Pull Request**
-   Go to the original repository and you will see a prompt to open a Pull Request.
+10. **Open a Pull Request**
+    Go to the original repository and you will see a prompt to open a Pull Request.
 
 ## 📝 Pull Request Guidelines
 
@@ -65,7 +87,27 @@ Before you begin, make sure you have the following installed:
 - **Add Screenshots:** If your change affects the UI, please include before/after screenshots in the PR description.
 - **Pass CI:** Ensure your code passes all checks (build and lint) in GitHub Actions.
 
-## 💅 Code Style & Formatting (CRITICAL)
+## 🔒 Branch Protection Rules
+
+To keep `main` stable and deployable at all times, the following rules apply:
+
+- **No direct commits to `main`.** All changes — including documentation and
+  small fixes — must go through a Pull Request from a feature branch on your
+  fork.
+- **Branch naming is enforced by convention** (see step 6 above): use the
+  `feat/`, `fix/`, or `docs/` prefix that matches the type of change.
+- **CI must pass before merging.** Every PR runs automated lint and build
+  checks; a PR with failing checks will not be merged until it's fixed.
+- **Keep your branch up to date.** Before opening a PR, sync your branch with
+  the latest `upstream/main` to avoid merge conflicts:
+
+  ```bash
+  git fetch upstream
+  git merge upstream/main
+  ```
+
+- **One issue, one PR.** Avoid bundling unrelated changes into a single PR —
+  it slows down review and makes it harder to merge safely.
 
 This project uses **ESLint** and **Prettier** to maintain code quality. **Failing to format your code will cause your Pull Request CI checks to fail!**
 
@@ -79,19 +121,41 @@ This command will automatically fix spacing, missing quotes, and other formattin
 
 _(Highly Recommended: Configure your code editor to "Format on Save" using the Prettier extension)._
 
+## 🔐 Edge Function Authentication
+
+Custom Supabase Edge Functions should use the shared authentication middleware located at:
+
+`supabase/functions/shared/auth-middleware.ts`
+
+Example:
+
+```ts
+import { verifyAuth } from "../shared/auth-middleware.ts";
+
+const user = await verifyAuth(req, supabase);
+```
+
+The middleware validates the Bearer JWT and returns the authenticated user. Invalid or missing tokens should result in an HTTP 401 response.
+
 ## 🙋 How to Claim an Issue
 
-To prevent duplicate work:
+This repository uses an automated bot to assign issues to contributors!
 
-1. Find an issue you want to work on (look for the `good-first-issue` label if you're new!).
-2. Leave a comment saying: **"I'd like to work on this!"**
-3. **Wait for a maintainer to assign you** to the issue before starting your work.
+1. Find an unassigned issue you want to work on (look for the `good-first-issue` label if you're new!).
+2. Leave a comment on the issue saying exactly: `/claim`.
+3. The bot will automatically assign the issue to you. You can only have a maximum of 7 active issues at a time.
+4. **Time Limit:** There is no strict time limit to open a Pull Request. However, please try to drop a quick progress update occasionally if you're taking a long time, so we know you are still working on it.
+5. If you change your mind and no longer want to work on the issue, comment `/unclaim` to release it.
 
 ## 🏷️ Issue Labels Guide
 
 - **Difficulty:** `good-first-issue`, `intermediate`, `advanced`
 - **Area:** `frontend`, `backend`, `database`, `docs`, `design`
 - **Type:** `bug`, `enhancement`, `help-wanted`
+
+## 📜 Code of Conduct
+
+We are committed to providing a welcoming and inspiring community for all. By participating in this project, you agree to abide by our Code of Conduct. Please be kind, respectful, and constructive in your interactions with other contributors.
 
 ## 💬 Communication Channel
 

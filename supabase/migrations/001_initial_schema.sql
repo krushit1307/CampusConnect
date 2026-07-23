@@ -4,7 +4,7 @@ CREATE TYPE member_role AS ENUM ('member', 'admin');
 CREATE TYPE join_status AS ENUM ('pending', 'approved');
 
 -- 2. Create tables
-CREATE TABLE profiles (
+CREATE TABLE IF NOT EXISTS profiles (
   id UUID REFERENCES auth.users(id) PRIMARY KEY,
   full_name TEXT,
   avatar_url TEXT,
@@ -15,7 +15,7 @@ CREATE TABLE profiles (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE clubs (
+CREATE TABLE IF NOT EXISTS clubs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   slug TEXT UNIQUE NOT NULL,
@@ -27,7 +27,7 @@ CREATE TABLE clubs (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE club_members (
+CREATE TABLE IF NOT EXISTS club_members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   club_id UUID REFERENCES clubs(id) ON DELETE CASCADE,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
@@ -37,7 +37,7 @@ CREATE TABLE club_members (
   UNIQUE(club_id, user_id)
 );
 
-CREATE TABLE events (
+CREATE TABLE IF NOT EXISTS events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   club_id UUID REFERENCES clubs(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
@@ -50,7 +50,7 @@ CREATE TABLE events (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE event_rsvps (
+CREATE TABLE IF NOT EXISTS event_rsvps (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID REFERENCES events(id) ON DELETE CASCADE,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
@@ -59,7 +59,7 @@ CREATE TABLE event_rsvps (
   UNIQUE(event_id, user_id)
 );
 
-CREATE TABLE posts (
+CREATE TABLE IF NOT EXISTS posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   club_id UUID REFERENCES clubs(id) ON DELETE CASCADE,
   author_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
@@ -68,7 +68,7 @@ CREATE TABLE posts (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE comments (
+CREATE TABLE IF NOT EXISTS comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
   author_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
@@ -77,7 +77,7 @@ CREATE TABLE comments (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE certificates (
+CREATE TABLE IF NOT EXISTS certificates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID REFERENCES events(id) ON DELETE CASCADE,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
@@ -96,70 +96,98 @@ ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE certificates ENABLE ROW LEVEL SECURITY;
 
 -- profiles: users can read all, update only their own row
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone." ON profiles;
 CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Users can insert their own profile." ON profiles;
 CREATE POLICY "Users can insert their own profile." ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
+DROP POLICY IF EXISTS "Users can update own profile." ON profiles;
 CREATE POLICY "Users can update own profile." ON profiles FOR UPDATE USING (auth.uid() = id);
 
 -- clubs: public read, only club admins/creators can update
+DROP POLICY IF EXISTS "Clubs are viewable by everyone." ON clubs;
 CREATE POLICY "Clubs are viewable by everyone." ON clubs FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Users can create clubs." ON clubs;
 CREATE POLICY "Users can create clubs." ON clubs FOR INSERT WITH CHECK (auth.uid() = created_by);
+DROP POLICY IF EXISTS "Club admins can update clubs." ON clubs;
 CREATE POLICY "Club admins can update clubs." ON clubs FOR UPDATE USING (
   auth.uid() = created_by OR 
   EXISTS (SELECT 1 FROM club_members WHERE club_id = clubs.id AND user_id = auth.uid() AND role = 'admin' AND status = 'approved')
 );
 
 -- club_members: members can read their club's list, only club admins can approve/change roles
+DROP POLICY IF EXISTS "Anyone can read club members." ON club_members;
 CREATE POLICY "Anyone can read club members." ON club_members FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Users can request to join." ON club_members;
 CREATE POLICY "Users can request to join." ON club_members FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can leave club." ON club_members;
 CREATE POLICY "Users can leave club." ON club_members FOR DELETE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins can update members." ON club_members;
 CREATE POLICY "Admins can update members." ON club_members FOR UPDATE USING (
   EXISTS (SELECT 1 FROM club_members admin_members WHERE admin_members.club_id = club_members.club_id AND admin_members.user_id = auth.uid() AND admin_members.role = 'admin' AND admin_members.status = 'approved') OR
   EXISTS (SELECT 1 FROM clubs WHERE id = club_members.club_id AND created_by = auth.uid())
 );
 
 -- events: public read, only club admins can create/edit
+DROP POLICY IF EXISTS "Events are viewable by everyone." ON events;
 CREATE POLICY "Events are viewable by everyone." ON events FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Club admins can insert events." ON events;
 CREATE POLICY "Club admins can insert events." ON events FOR INSERT WITH CHECK (
   EXISTS (SELECT 1 FROM club_members WHERE club_id = events.club_id AND user_id = auth.uid() AND role = 'admin' AND status = 'approved') OR
   EXISTS (SELECT 1 FROM clubs WHERE id = events.club_id AND created_by = auth.uid())
 );
+DROP POLICY IF EXISTS "Club admins can update events." ON events;
 CREATE POLICY "Club admins can update events." ON events FOR UPDATE USING (
   EXISTS (SELECT 1 FROM club_members WHERE club_id = events.club_id AND user_id = auth.uid() AND role = 'admin' AND status = 'approved') OR
   EXISTS (SELECT 1 FROM clubs WHERE id = events.club_id AND created_by = auth.uid())
 );
 
 -- event_rsvps: users can create/read their own RSVPs, club admins can read all for their events
+DROP POLICY IF EXISTS "Users can read own RSVPs." ON event_rsvps;
 CREATE POLICY "Users can read own RSVPs." ON event_rsvps FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Club admins can read all RSVPs." ON event_rsvps;
 CREATE POLICY "Club admins can read all RSVPs." ON event_rsvps FOR SELECT USING (
   EXISTS (SELECT 1 FROM club_members WHERE club_id = (SELECT club_id FROM events WHERE id = event_rsvps.event_id) AND user_id = auth.uid() AND role = 'admin' AND status = 'approved') OR
   EXISTS (SELECT 1 FROM clubs WHERE id = (SELECT club_id FROM events WHERE id = event_rsvps.event_id) AND created_by = auth.uid())
 );
+DROP POLICY IF EXISTS "Users can RSVP." ON event_rsvps;
 CREATE POLICY "Users can RSVP." ON event_rsvps FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can remove their RSVP." ON event_rsvps;
 CREATE POLICY "Users can remove their RSVP." ON event_rsvps FOR DELETE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Club admins can update RSVPs (check in)." ON event_rsvps;
 CREATE POLICY "Club admins can update RSVPs (check in)." ON event_rsvps FOR UPDATE USING (
   EXISTS (SELECT 1 FROM club_members WHERE club_id = (SELECT club_id FROM events WHERE id = event_rsvps.event_id) AND user_id = auth.uid() AND role = 'admin' AND status = 'approved') OR
   EXISTS (SELECT 1 FROM clubs WHERE id = (SELECT club_id FROM events WHERE id = event_rsvps.event_id) AND created_by = auth.uid())
 );
 
 -- posts/comments: club members can read/write within their club, authors can edit/delete their own
+DROP POLICY IF EXISTS "Anyone can read posts." ON posts;
 CREATE POLICY "Anyone can read posts." ON posts FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Club members can insert posts." ON posts;
 CREATE POLICY "Club members can insert posts." ON posts FOR INSERT WITH CHECK (
   EXISTS (SELECT 1 FROM club_members WHERE club_id = posts.club_id AND user_id = auth.uid() AND status = 'approved') OR
   EXISTS (SELECT 1 FROM clubs WHERE id = posts.club_id AND created_by = auth.uid())
 );
+DROP POLICY IF EXISTS "Authors can update own posts." ON posts;
 CREATE POLICY "Authors can update own posts." ON posts FOR UPDATE USING (auth.uid() = author_id);
+DROP POLICY IF EXISTS "Authors can delete own posts." ON posts;
 CREATE POLICY "Authors can delete own posts." ON posts FOR DELETE USING (auth.uid() = author_id);
 
+DROP POLICY IF EXISTS "Anyone can read comments." ON comments;
 CREATE POLICY "Anyone can read comments." ON comments FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Club members can insert comments." ON comments;
 CREATE POLICY "Club members can insert comments." ON comments FOR INSERT WITH CHECK (
   EXISTS (SELECT 1 FROM club_members WHERE club_id = (SELECT club_id FROM posts WHERE id = comments.post_id) AND user_id = auth.uid() AND status = 'approved') OR
   EXISTS (SELECT 1 FROM clubs WHERE id = (SELECT club_id FROM posts WHERE id = comments.post_id) AND created_by = auth.uid())
 );
+DROP POLICY IF EXISTS "Authors can update own comments." ON comments;
 CREATE POLICY "Authors can update own comments." ON comments FOR UPDATE USING (auth.uid() = author_id);
+DROP POLICY IF EXISTS "Authors can delete own comments." ON comments;
 CREATE POLICY "Authors can delete own comments." ON comments FOR DELETE USING (auth.uid() = author_id);
 
 -- certificates: users can read only their own
+DROP POLICY IF EXISTS "Users can read own certificates." ON certificates;
 CREATE POLICY "Users can read own certificates." ON certificates FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Service role can insert certificates." ON certificates;
 CREATE POLICY "Service role can insert certificates." ON certificates FOR INSERT WITH CHECK (true); -- Usually handled by edge functions / server
 
 -- 4. Triggers
@@ -184,8 +212,10 @@ INSERT INTO storage.buckets (id, name, public) VALUES ('event-banners', 'event-b
 INSERT INTO storage.buckets (id, name, public) VALUES ('certificates', 'certificates', true) ON CONFLICT DO NOTHING;
 
 -- Allow public reads
+DROP POLICY IF EXISTS "Public Access" ON storage.objects;
 CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING ( bucket_id IN ('avatars', 'club-banners', 'event-banners', 'certificates') );
 -- Authenticated users can write to their own folders
+DROP POLICY IF EXISTS "Users can upload" ON storage.objects;
 CREATE POLICY "Users can upload" ON storage.objects FOR INSERT WITH CHECK ( auth.role() = 'authenticated' AND (storage.foldername(name))[1] = auth.uid()::text );
 
 -- 6. Realtime

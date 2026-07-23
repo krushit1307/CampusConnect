@@ -1,24 +1,27 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { verifyAuth } from "../shared/auth-middleware.ts";
+import { limitRate } from "../shared/rate_limiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const RATE_LIMIT_WINDOW_MS = 2000; // 2 seconds
-
-// In-memory store for rate limiting (persists across warm invocations in the same isolate)
-const rateLimits = new Map<string, number>();
-
 /**
  * Handles RSVP toggling with rate limiting.
  * @param {Request} req - The incoming HTTP request.
  * @returns {Promise<Response>} The HTTP response.
  */
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  // Rate Limiting Logic using Redis Upstash (10 requests per minute)
+  const rateLimitResponse = await limitRate(req, "toggle-rsvp", { limit: 10, windowMs: 60000 });
+  if (rateLimitResponse) {
+    return rateLimitResponse;
   }
 
   try {
@@ -27,23 +30,11 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    // Get JWT from authorization header
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing Authorization header" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    let user;
 
-    // Verify user
-    const token = authHeader.replace("Bearer ", "");
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
+    try {
+      user = await verifyAuth(req, supabase);
+    } catch {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -58,22 +49,6 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // Rate Limiting Logic using in-memory store
-    const rateLimitKey = `${user.id}:${eventId}`;
-    const now = Date.now();
-    const lastRequest = rateLimits.get(rateLimitKey);
-
-    if (lastRequest && now - lastRequest < RATE_LIMIT_WINDOW_MS) {
-      return new Response(
-        JSON.stringify({ error: "Rate limit exceeded. Please wait before toggling again." }),
-        {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
-    rateLimits.set(rateLimitKey, now);
 
     // Execute RSVP logic securely
     if (hasRsvpd) {
