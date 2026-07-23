@@ -53,6 +53,12 @@
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.110.0",
     "@tailwindcss/vite": "^4.2.1",
+    "@tiptap/core": "^2.11.2",
+    "@tiptap/extension-collaboration": "^2.27.2",
+    "@tiptap/extension-collaboration-cursor": "^2.26.2",
+    "@tiptap/pm": "^2.11.2",
+    "@tiptap/react": "^2.27.2",
+    "@tiptap/starter-kit": "^2.27.2",
     "@types/react-easy-crop": "^1.16.0",
     "@uiw/react-md-editor": "^4.1.1",
     "class-variance-authority": "^0.7.1",
@@ -90,15 +96,9 @@
     "workbox-precaching": "^7.4.1",
     "workbox-routing": "^7.4.1",
     "workbox-strategies": "^7.4.1",
-    "zod": "^3.24.2",
-    "@tiptap/core": "^2.11.2",
-    "@tiptap/extension-collaboration": "^2.11.2",
-    "@tiptap/extension-collaboration-cursor": "^2.11.2",
-    "@tiptap/pm": "^2.11.2",
-    "@tiptap/react": "^2.11.2",
-    "@tiptap/starter-kit": "^2.11.2",
-    "y-protocols": "^1.0.6",
-    "yjs": "^13.6.20"
+    "y-protocols": "^1.0.7",
+    "yjs": "^13.6.31",
+    "zod": "^3.24.2"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [

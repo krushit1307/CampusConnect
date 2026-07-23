@@ -85,6 +85,9 @@ export default function EventDetailsPage() {
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState("");
 
+  // Safe window URL handling for SSR / hydration safety
+  const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
@@ -115,9 +118,6 @@ export default function EventDetailsPage() {
         if (import.meta.env.DEV && eventId.startsWith("mock-")) {
           return {
             id: eventId,
-            // Mock data has no real owner; use a placeholder so this branch's
-            // type matches the real Supabase row (which always has
-            // created_by) instead of silently omitting the field.
             created_by: "mock-user-1",
             title:
               eventId === "mock-1"
@@ -316,7 +316,6 @@ export default function EventDetailsPage() {
 
   const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
   const hasRsvpd = user ? rsvps.some((r) => r.user_id === user.id) : false;
-  // Feedback specific conditions
   const isCheckedIn = user
     ? rsvps.some(
         (r: { user_id: string; checked_in?: boolean }) => r.user_id === user.id && r.checked_in,
@@ -369,7 +368,7 @@ export default function EventDetailsPage() {
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(shareUrl || window.location.href);
       setCopied(true);
       toast.success("Event link copied to clipboard!");
       setTimeout(() => setCopied(false), 2000);
@@ -406,7 +405,7 @@ export default function EventDetailsPage() {
 
   return (
     <SiteShell>
-      {/* Breadcrumb nav — replaces the old back-link bar */}
+      {/* Breadcrumb nav */}
       <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6" aria-label="Breadcrumb">
         <div className="mx-auto max-w-4xl">
           {/* Mobile: simple back link */}
@@ -782,13 +781,13 @@ export default function EventDetailsPage() {
                   className="neu-border mt-4 inline-flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
                 >
                   <MapPin className="h-4 w-4" />
-                  Open "{event.location}" in Google Maps ↗
+                  Open &quot;{event.location}&quot; in Google Maps ↗
                 </a>
               )}
             </div>
           )}
 
-          {/* Event Feedback (Only if ended and user RSVP'd) */}
+          {/* Event Feedback Form (Only if ended and user RSVP'd) */}
           {user &&
             hasRsvpd &&
             event.end_date &&
@@ -805,7 +804,7 @@ export default function EventDetailsPage() {
             </h3>
             <div className="mt-4 flex flex-wrap gap-2">
               <a
-                href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
+                href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-twitter hover:text-white transition-colors text-black"
@@ -813,7 +812,7 @@ export default function EventDetailsPage() {
                 Twitter
               </a>
               <a
-                href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`}
+                href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-linkedin hover:text-white transition-colors text-black"
@@ -821,10 +820,9 @@ export default function EventDetailsPage() {
                 LinkedIn
               </a>
               <a
-                href={`https://wa.me/?text=${encodeURIComponent(`Check out this event: ${event.title} - ${window.location.href}`)}`}
+                href={`https://wa.me/?text=${encodeURIComponent(`Check out this event: ${event.title} - ${shareUrl}`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-
                 className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-whatsapp hover:text-white transition-colors text-black"
               >
                 WhatsApp
