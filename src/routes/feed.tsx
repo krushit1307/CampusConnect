@@ -18,6 +18,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { VideoEmbed } from "@/components/VideoEmbed";
 import { toast } from "sonner";
 import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
@@ -784,6 +785,12 @@ export default function Feed() {
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
                           components={{
+                            a: ({ href, children }) => {
+                              if (href && /youtube\.com|youtu\.be|vimeo\.com/.test(href)) {
+                                return <VideoEmbed url={href} />;
+                              }
+                              return <a href={href}>{children}</a>;
+                            },
                             img: ({ src, alt }) => (
                               <img
                                 src={src}
