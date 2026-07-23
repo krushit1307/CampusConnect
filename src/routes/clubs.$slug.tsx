@@ -155,12 +155,9 @@ export default function ClubProfile() {
       setJoinSuccess(true);
       toast.success(isPublic ? "You have joined the club!" : "Join request submitted!");
       if (!isPublic) {
-        // pending: refetch so the row is in state; joinSuccess shows for 2s then
-        // the membership row (status=pending) takes over correctly
         refetch();
         setTimeout(() => setJoinSuccess(false), 2000);
       }
-      // approved: skip refetch — joinSuccess stays true and renders "Member ✓" permanently
     },
     onError: () => {
       toast.error("Failed to submit join request. Please try again.");
