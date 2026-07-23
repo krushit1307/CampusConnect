@@ -62,13 +62,13 @@ export default function DashboardCalendar() {
   });
 
   // Postgrest may return the nested relation as an object or an array — normalize either way.
-  const events: RsvpEvent[] = rsvps
+  const events = rsvps
     .map((r) => {
       const rawEvent = r.event;
       if (!rawEvent) return null;
       return Array.isArray(rawEvent) ? rawEvent[0] : rawEvent;
     })
-    .filter((e): e is RsvpEvent => !!e);
+    .filter((e) => !!e) as RsvpEvent[];
 
   if (isLoading) {
     return (
