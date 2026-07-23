@@ -354,9 +354,9 @@ CREATE POLICY "Admins can update members." ON club_members FOR UPDATE USING (
   EXISTS (SELECT 1 FROM clubs WHERE id = club_members.club_id AND created_by = auth.uid())
 );
 
--- event_categories: public read, only system admins can modify
+-- event_categories: public read, only system admins or verified club admins can insert
 CREATE POLICY "Event categories are viewable by everyone." ON event_categories FOR SELECT USING (true);
-CREATE POLICY "System admins can insert event categories." ON event_categories FOR INSERT TO authenticated WITH CHECK (public.is_system_admin());
+CREATE POLICY "System admins and verified club admins can insert event categories." ON event_categories FOR INSERT TO authenticated WITH CHECK (public.is_system_admin() OR public.is_verified_club_admin());
 CREATE POLICY "System admins can update event categories." ON event_categories FOR UPDATE TO authenticated USING (public.is_system_admin()) WITH CHECK (public.is_system_admin());
 CREATE POLICY "System admins can delete event categories." ON event_categories FOR DELETE TO authenticated USING (public.is_system_admin());
 

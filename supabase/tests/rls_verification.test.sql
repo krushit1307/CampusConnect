@@ -4,8 +4,8 @@ BEGIN;
 -- Enable pgTAP extension if not already enabled
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
--- Plan the tests (we have 13 tests)
-SELECT plan(13);
+-- Plan the tests (we have 15 tests)
+SELECT plan(15);
 
 -- Grant privileges to authenticated role so that table-level permissions do not interfere with RLS testing
 GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated, anon;
@@ -256,6 +256,68 @@ SELECT is(
   (SELECT description FROM public.events WHERE id = '90000000-0000-0000-0000-000000000005'),
   'Updated by co-host admin',
   'Student was blocked from updating event details'
+);
+
+-- Reset back to postgres superuser role
+RESET role;
+
+-- ==========================================
+-- Test RLS: Verified club admin can insert event categories (#602)
+-- ==========================================
+
+-- Create a verified club
+INSERT INTO public.clubs (id, name, slug, description, created_by, is_verified)
+VALUES ('90000000-0000-0000-0000-000000000040', 'Verified Club', 'verified-club', 'A verified club', '90000000-0000-0000-0000-000000000003', true);
+
+-- Insert dynamic roles for the verified club
+INSERT INTO public.club_roles (id, club_id, title, permissions_level)
+VALUES
+  ('90000000-0000-0000-0000-000000000104', '90000000-0000-0000-0000-000000000040', 'Admin', 100),
+  ('90000000-0000-0000-0000-000000000105', '90000000-0000-0000-0000-000000000040', 'Member', 10);
+
+-- Make User C an admin of the verified club
+INSERT INTO public.club_members (id, club_id, user_id, role_id, status)
+VALUES ('90000000-0000-0000-0000-000000000041', '90000000-0000-0000-0000-000000000040', '90000000-0000-0000-0000-000000000011', '90000000-0000-0000-0000-000000000104', 'approved');
+
+-- Switch context to User C (now a verified club admin)
+SET local role authenticated;
+SELECT set_config('request.jwt.claim.sub', '90000000-0000-0000-0000-000000000011', true);
+
+SELECT lives_ok(
+  $$INSERT INTO public.event_categories (id, name, description) VALUES ('90000000-0000-0000-0000-000000000050', 'Verified Club Category', 'Created by verified club admin')$$,
+  'Verified club admin can insert event categories'
+);
+
+-- Reset back to postgres superuser role
+RESET role;
+
+-- ==========================================
+-- Test RLS: Non-verified club admin cannot insert event categories (#602)
+-- ==========================================
+
+-- Create a non-verified club with User B as admin
+INSERT INTO public.clubs (id, name, slug, description, created_by, is_verified)
+VALUES ('90000000-0000-0000-0000-000000000060', 'Non-Verified Club', 'non-verified-club', 'A non-verified club', '90000000-0000-0000-0000-000000000002', false);
+
+-- Insert dynamic roles for the non-verified club
+INSERT INTO public.club_roles (id, club_id, title, permissions_level)
+VALUES
+  ('90000000-0000-0000-0000-000000000106', '90000000-0000-0000-0000-000000000060', 'Admin', 100),
+  ('90000000-0000-0000-0000-000000000107', '90000000-0000-0000-0000-000000000060', 'Member', 10);
+
+-- Make User B an admin of the non-verified club
+INSERT INTO public.club_members (id, club_id, user_id, role_id, status)
+VALUES ('90000000-0000-0000-0000-000000000061', '90000000-0000-0000-0000-000000000060', '90000000-0000-0000-0000-000000000002', '90000000-0000-0000-0000-000000000106', 'approved');
+
+-- Switch context to User B (non-verified club admin)
+SET local role authenticated;
+SELECT set_config('request.jwt.claim.sub', '90000000-0000-0000-0000-000000000002', true);
+
+SELECT throws_ok(
+  $$INSERT INTO public.event_categories (id, name, description) VALUES ('90000000-0000-0000-0000-000000000070', 'Spam Category', 'Should fail')$$,
+  '42501',
+  NULL,
+  'Non-verified club admin cannot insert event categories'
 );
 
 -- Reset role and finish
