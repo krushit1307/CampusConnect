@@ -1,0 +1,145 @@
+name: PR Auto Merge and Label
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  pull-requests: write
+  issues: write
+  contents: write
+
+jobs:
+  auto-merge:
+    name: Label and Auto-Merge PRs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate and Process PR
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            
+            async function processPR(prNumber) {
+              console.log(`\nEvaluating PR #${prNumber}`);
+              
+              let mergeable = null;
+              let mergeableState = null;
+              
+              // Retry loop because PR mergeable state might be null immediately after creation
+              for (let attempt = 1; attempt <= 10; attempt++) {
+                const { data: pr } = await github.rest.pulls.get({
+                  owner,
+                  repo,
+                  pull_number: prNumber
+                });
+                
+                mergeable = pr.mergeable;
+                mergeableState = pr.mergeable_state;
+                
+                if (mergeable !== null) {
+                  break;
+                }
+                
+                console.log(`Mergeable status is null, retrying (${attempt}/10) in 5 seconds...`);
+                await new Promise(r => setTimeout(r, 5000));
+              }
+              
+              // Fetch current labels
+              const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+                owner,
+                repo,
+                issue_number: prNumber
+              });
+              const currentLabels = labels.map(l => l.name);
+              
+              const addLabel = async (label) => {
+                if (!currentLabels.includes(label)) {
+                  console.log(`Adding label: ${label}`);
+                  await github.rest.issues.addLabels({
+                    owner,
+                    repo,
+                    issue_number: prNumber,
+                    labels: [label]
+                  });
+                }
+              };
+              
+              const removeLabel = async (label) => {
+                if (currentLabels.includes(label)) {
+                  console.log(`Removing label: ${label}`);
+                  try {
+                    await github.rest.issues.removeLabel({
+                      owner,
+                      repo,
+                      issue_number: prNumber,
+                      name: label
+                    });
+                  } catch (e) {
+                    console.error(`Could not remove label ${label}:`, e.message);
+                  }
+                }
+              };
+              
+              if (mergeable === false) {
+                console.log("Merge conflicts detected.");
+                await removeLabel("Blue");
+                await addLabel("Red");
+              } else if (mergeable === true) {
+                console.log("No merge conflicts. Proceeding with auto-merge.");
+                await removeLabel("Red");
+                await addLabel("Blue");
+                
+                try {
+                  console.log(`Auto-merging PR #${prNumber} into main...`);
+                  await github.rest.pulls.merge({
+                    owner,
+                    repo,
+                    pull_number: prNumber,
+                    merge_method: 'squash'
+                  });
+                  console.log(`✅ Successfully merged PR #${prNumber}`);
+                } catch (e) {
+                  console.error(`❌ Failed to auto-merge PR #${prNumber}:`, e.message);
+                  
+                  // If it fails to merge because it's behind, try updating the branch
+                  if (e.message.includes("out of date") || mergeableState === "behind") {
+                    console.log("🔄 Attempting to update branch...");
+                    try {
+                      await github.rest.pulls.updateBranch({ owner, repo, pull_number: prNumber });
+                      console.log(`✅ PR #${prNumber} branch successfully updated. It will re-trigger the workflow.`);
+                    } catch (updateError) {
+                      console.error(`❌ Failed to update branch: ${updateError.message}`);
+                    }
+                  }
+                }
+              } else {
+                console.log("Failed to determine mergeable status (still null).");
+              }
+            }
+
+            if (context.eventName === "workflow_dispatch") {
+              console.log("Manual trigger detected. Fetching all open PRs...");
+              let page = 1;
+              let hasMore = true;
+              while (hasMore) {
+                const { data: openPRs } = await github.rest.pulls.list({
+                  owner,
+                  repo,
+                  state: 'open',
+                  per_page: 100,
+                  page
+                });
+                for (const pr of openPRs) {
+                  await processPR(pr.number);
+                }
+                if (openPRs.length < 100) hasMore = false;
+                page++;
+              }
+              console.log("✅ Finished processing all open PRs.");
+            } else {
+              const prNumber = context.payload.pull_request.number;
+              await processPR(prNumber);
+            }

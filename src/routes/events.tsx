@@ -25,7 +25,7 @@ import {
 
 const PAGE_SIZE = 20;
 
-interface EventItem {
+export interface EventItem {
   id: string;
   title: string;
   description: string | null;
@@ -365,6 +365,7 @@ export default function EventsPage() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
+
       const { error } = await supabase.functions.invoke("toggle-rsvp", {
         body: {
           eventId,
@@ -380,6 +381,9 @@ export default function EventsPage() {
       }
     },
     onSuccess: async (_data, variables) => {
+      toast.success(
+        variables.hasRsvpd ? "RSVP cancelled successfully!" : "RSVP registered successfully!",
+      );
       if (!variables.hasRsvpd && user && !variables.eventId.startsWith("mock-")) {
         const { count } = await supabase
           .from("event_rsvps")
@@ -413,7 +417,8 @@ export default function EventsPage() {
       const { error } = await query;
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      toast.success(variables.isSaved ? "Removed from saved events!" : "Saved to bookmarks!");
       refetch();
     },
     onError: () => {

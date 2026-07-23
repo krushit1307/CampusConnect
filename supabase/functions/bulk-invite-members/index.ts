@@ -113,27 +113,24 @@ serve(async (req: Request) => {
   // -------------------------------------------------------------------------
   // 1. Auth – verify the calling user
   // -------------------------------------------------------------------------
-      // Service-role client for privileged inserts
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    );
+  // Service-role client for privileged inserts
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+  );
 
-    let user;
+  let user;
 
-    try {
-      user = await verifyAuth(req, supabase);
-    } catch {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        {
-          status: 401,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        },
-      );
+  try {
+    user = await verifyAuth(req, supabase);
+  } catch {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json",
+      },
+    });
   }
 
   // -------------------------------------------------------------------------
