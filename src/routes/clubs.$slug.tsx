@@ -154,8 +154,8 @@ export default function ClubProfile() {
       setIsJoinDialogOpen(false);
       setJoinSuccess(true);
       toast.success(isPublic ? "You have joined the club!" : "Join request submitted!");
+      refetch();
       if (!isPublic) {
-        refetch();
         setTimeout(() => setJoinSuccess(false), 2000);
       }
     },
@@ -217,7 +217,11 @@ export default function ClubProfile() {
       : null;
 
   const clubName = club.name || "Club";
-  const clubDescription = club.description || "Check out this club on CampusConnect.";
+  const clubDescription = (
+    club.description
+      ? club.description.replace(/[#*_`>[\]()~-]/g, "").trim()
+      : "Check out this club on CampusConnect."
+  ).slice(0, 160);
   const currentUrl = typeof window !== "undefined" ? window.location.href : "";
 
   return (
@@ -318,7 +322,7 @@ export default function ClubProfile() {
                       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         {displayedMembers.map((m, i) => (
                           <li
-                            key={i}
+                            key={m.handle || `${m.name}-${i}`}
                             className="neu-border bg-white flex items-center gap-3 p-3 font-mono text-sm"
                           >
                             {m.handle ? (
@@ -395,9 +399,7 @@ export default function ClubProfile() {
                   disabled={leaveMutation.isPending}
                   className="neu-border neu-press inline-flex items-center gap-2 bg-gray-200 px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-red-100 disabled:opacity-50"
                 >
-                  {leaveMutation.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : null}
+                  {leaveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                   Leave Club
                 </button>
               ) : membership?.status === "pending" ? (
