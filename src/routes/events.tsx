@@ -1,6 +1,7 @@
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
+import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { useEffect, useState, useRef, lazy, Suspense, useCallback } from "react";
 import { User } from "@supabase/supabase-js";
 import { EventCard } from "@/components/EventCard";
@@ -59,6 +60,8 @@ export default function EventsPage() {
   const supabase = createClient();
 
   const [user, setUser] = useState<User | null>(null);
+  const emailVerified = useEmailVerification();
+  const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [filter, setFilter] = useState<string>("All");
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
@@ -419,6 +422,12 @@ export default function EventsPage() {
   });
 
   const handleRsvpToggle = async (eventId: string, hasRsvpd: boolean) => {
+    if (!emailVerified && !hasRsvpd) {
+      toast.error("Please verify your email to RSVP");
+      return;
+    }
+    // Overlap warning: only check when joining (not leaving), and only if we
+    // have start/end times for the target event.
     if (!hasRsvpd && user) {
       const targetEvent = events.find((e) => e.id === eventId);
       if (targetEvent?.start_date && targetEvent?.end_date) {
