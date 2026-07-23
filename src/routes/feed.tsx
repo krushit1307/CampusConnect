@@ -645,12 +645,6 @@ export default function Feed() {
                                 if (!user) return alert("Log in first");
                                 if (!emailVerified)
                                   return alert("Please verify your email to react");
-                                // Bump the burst nonce so the emoji <span> remounts
-                                // and the spring keyframe animation replays.
-                                setReactionBursts((prev) => ({
-                                  ...prev,
-                                  [burstKey]: (prev[burstKey] ?? 0) + 1,
-                                }));
                                 reactionMutation.mutate({ postId: post.id, emoji, isReacted });
                               }}
                               className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${
