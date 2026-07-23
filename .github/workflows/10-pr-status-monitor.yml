@@ -253,11 +253,7 @@ jobs:
               let stateForBehind = (currentMergeableStateString || "").toLowerCase();
               if (stateForBehind === "behind") {
                 try {
-                  console.log(`🔄 PR #${prNumber} is behind main. Automatically updating branch...`);
-                  await github.rest.issues.createComment({
-                    owner, repo, issue_number: prNumber,
-                    body: `@${targetUser} 🔄 This PR is behind the main branch. Automatically updating it with the latest changes from main to run CI again...`
-                  });
+                  console.log(`🔄 PR #${prNumber} is behind main. Automatically updating branch silently...`);
                   await github.rest.pulls.updateBranch({
                     owner,
                     repo,
@@ -267,10 +263,6 @@ jobs:
                   return; // A new commit is pushed, workflow will re-trigger
                 } catch (updateError) {
                   console.error(`❌ Failed to update branch for PR #${prNumber}: ${updateError.message}`);
-                  await github.rest.issues.createComment({
-                    owner, repo, issue_number: prNumber,
-                    body: `⚠️ **Branch Update Failed:** ${updateError.message}. If this is a fork, please ensure "Allow edits from maintainers" is checked, or manually update your branch with main.`
-                  });
                 }
               }
 
@@ -336,17 +328,18 @@ jobs:
                   });
                 } catch (mergeError) {
                   console.error(`❌ Failed to auto-merge PR #${prNumber}: ${mergeError.message}`);
-                  await github.rest.issues.createComment({
-                    owner, repo, issue_number: prNumber,
-                    body: `⚠️ **Auto-Merge Failed:** ${mergeError.message}. Please merge manually.`
-                  });
+                  if (mergeError.message.includes("out of date") || mergeError.message.includes("modified") || mergeError.message.includes("not mergeable")) {
+                    console.log(`🔄 Attempting to update branch instead...`);
+                    try {
+                      await github.rest.pulls.updateBranch({ owner, repo, pull_number: prNumber });
+                      console.log(`✅ PR #${prNumber} branch successfully updated after merge failure.`);
+                    } catch (updateError) {
+                      console.error(`❌ Failed to update branch: ${updateError.message}`);
+                    }
+                  }
                 }
               } else {
-                console.log(`PR #${prNumber} is in state "${state}". Skipping auto-merge/update.`);
-                await github.rest.issues.createComment({
-                  owner, repo, issue_number: prNumber,
-                  body: `@${targetUser} ✅ All CI checks passed! Status: \`${state}\`. Please review and merge manually.`
-                });
+                console.log(`PR #${prNumber} is in state "${state}". Skipping auto-merge/update silently.`);
               }
             }
 
