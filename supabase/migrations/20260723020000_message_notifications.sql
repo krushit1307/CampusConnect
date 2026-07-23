@@ -7,7 +7,7 @@ DECLARE
   v_sender_name TEXT;
 BEGIN
   -- Retrieve the sender's full name
-  SELECT full_name INTO v_sender_name FROM public.profiles WHERE id = NEW.sender_id;
+  SELECT NULLIF(TRIM(CONCAT(first_name, ' ', last_name)), '') INTO v_sender_name FROM public.profiles WHERE id = NEW.sender_id;
   
   -- Insert into notifications table
   -- The existing Supabase Realtime subscription in NavbarNotificationDropdown 

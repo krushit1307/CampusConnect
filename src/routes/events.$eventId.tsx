@@ -6,8 +6,8 @@ import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
-import { formatEventDateRange } from "@/lib/utils";
-import { EventActions } from "@/components/events/EventActions";
+import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
+
 import { toast } from "sonner";
 import EventSharePanel from "@/components/events/EventSharePanel";
 import {
@@ -20,6 +20,7 @@ import {
   MapPinOff,
   Users,
   Star,
+  Calendar,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -631,15 +632,16 @@ export default function EventDetailsPage() {
               </Button>
             )}
 
-            {hasRsvpd && (
-              <EventActions
-                title={event.title}
-                description={event.description}
-                event_date={event.event_date}
-                start_date={event.start_date}
-                end_date={event.end_date}
-                location={event.location}
-              />
+            {hasRsvpd && googleCalendarUrl && (
+              <a
+                href={googleCalendarUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="neu-border flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+              >
+                <Calendar aria-hidden="true" size={14} strokeWidth={3} />
+                Add to Google Calendar
+              </a>
             )}
 
             {isCheckedIn && hasEnded && (
