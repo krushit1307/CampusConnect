@@ -19,7 +19,7 @@ Before you begin, make sure you have the following installed:
 2. **Clone Your Fork**
 
    ```bash
-   git clone https://github.com/YOUR_USERNAME/CampusConnect.git
+   git clone [https://github.com/YOUR_USERNAME/CampusConnect.git](https://github.com/YOUR_USERNAME/CampusConnect.git)
    cd CampusConnect
    ```
 
