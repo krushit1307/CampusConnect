@@ -240,6 +240,7 @@ export default function DashboardOverview() {
           .from("posts")
           .select("id, content, created_at, clubs(name)")
           .eq("author_id", user?.id)
+          .is("deleted_at", null)
           .order("created_at", { ascending: false })
           .limit(5),
         supabase
