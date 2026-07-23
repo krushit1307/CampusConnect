@@ -243,6 +243,13 @@ export default function SettingsPage() {
     localStorage.setItem("border-radius", String(value));
   };
 
+  interface ProfileStats {
+    lastActivityAt?: string;
+    welcomeSource?: string;
+    processedClaimCommentIds?: number[];
+  }
+  const pStats = profile as typeof profile & ProfileStats;
+
   if (isProfileLoading && !profile) {
     return (
       <SiteShell>
@@ -255,16 +262,19 @@ export default function SettingsPage() {
 
   return (
     <SiteShell>
-      <section className="border-b-2 border-black px-4 py-14 md:px-6">
+      <section className="border-b-2 border-black bg-[#0bc5ea] px-4 py-16 md:px-6">
         <div className="mx-auto max-w-4xl">
-          <p className="eyebrow font-bold text-black">Account</p>
-          <h1 className="mt-2 text-4xl font-bold text-brand-blue-dark md:text-6xl text-black">
+          <p className="font-mono text-sm font-bold uppercase tracking-widest text-black/80">
+            Account
+          </p>
+          <h1 className="mt-2 text-5xl font-extrabold tracking-tight text-black md:text-7xl">
             Settings.
           </h1>
         </div>
       </section>
+
       <section className="px-4 py-12 md:px-6">
-        <div className="mx-auto max-w-4xl space-y-6 text-indigo-900">
+        <div className="mx-auto max-w-4xl space-y-8">
           <Panel title="Profile">
             <AvatarUpload name={currentFullName || "User"} avatarTheme={currentAvatarTheme} />
 
@@ -478,6 +488,36 @@ export default function SettingsPage() {
               </form>
             </Form>
           </Panel>
+
+          {/* --- NEW COLORFUL STATS GRID --- */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="border-2 border-black bg-[#a3e635] p-5 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1">
+              <p className="font-mono text-xs font-bold uppercase text-black/70">Last Active</p>
+              <p className="mt-2 font-display text-xl font-bold text-black">
+                {pStats?.lastActivityAt
+                  ? new Date(pStats.lastActivityAt).toLocaleDateString()
+                  : "Just now"}
+              </p>
+            </div>
+
+            <div className="border-2 border-black bg-[#fb923c] p-5 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1">
+              <p className="font-mono text-xs font-bold uppercase text-black/70">Welcome Status</p>
+              <p className="mt-2 font-display text-xl font-bold text-black">
+                {pStats?.welcomeSource ? `Via ${pStats.welcomeSource}` : "Pending"}
+              </p>
+            </div>
+
+            <div className="border-2 border-black bg-[#22d3ee] p-5 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1">
+              <p className="font-mono text-xs font-bold uppercase text-black/70">
+                Claims Processed
+              </p>
+              <p className="mt-2 font-display text-xl font-bold text-black">
+                {pStats?.processedClaimCommentIds?.length || 0}
+              </p>
+            </div>
+          </div>
+          {/* ------------------------------- */}
+
           <Panel title="Appearance">
             <div className="space-y-6">
               <div className="space-y-2">
@@ -511,6 +551,7 @@ export default function SettingsPage() {
               </div>
             </div>
           </Panel>
+
           <Panel title="Text Size">
             <div className="flex items-center gap-4">
               <button
@@ -539,11 +580,13 @@ export default function SettingsPage() {
               </button>
             </div>
           </Panel>
+
           <Panel title="Notifications">
             <Toggle label="Email me about upcoming RSVPs" defaultChecked />
             <Toggle label="Weekly digest of club activity" defaultChecked />
             <Toggle label="New certificates" />
           </Panel>
+
           <Panel title="Danger zone" tone="bg-red-50">
             <button
               onClick={() => setConfirmOpen(true)}
@@ -580,9 +623,13 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section className={`neu-border ${tone} p-6`}>
-      <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold">{title}</h2>
-      <div className="space-y-4">{children}</div>
+    <section
+      className={`border-2 border-black shadow-[6px_6px_0px_rgba(0,0,0,1)] ${tone} p-6 md:p-8`}
+    >
+      <h2 className="mb-6 border-b-2 border-black pb-3 font-display text-2xl font-extrabold tracking-tight text-black">
+        {title}
+      </h2>
+      <div className="space-y-6 text-black">{children}</div>
     </section>
   );
 }
@@ -736,36 +783,7 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
     setUploading(true);
 
     try {
-      const worker = new Worker(new URL("../workers/compress.worker.ts", import.meta.url), {
-        type: "module",
-      });
-
-      const compressedFile = await new Promise<File>((resolve, reject) => {
-        worker.onmessage = (event) => {
-          if (event.data.success) {
-            const newFile = new File([event.data.data], file.name, {
-              type: "image/jpeg",
-            });
-            resolve(newFile);
-          } else {
-            reject(new Error(event.data.error));
-          }
-          worker.terminate();
-        };
-        worker.onerror = (error) => {
-          reject(error);
-          worker.terminate();
-        };
-
-        worker.postMessage({
-          file,
-          width: 512,
-          height: 512,
-          quality: 80,
-        });
-      });
-
-      const avatarUrl = await uploadAvatar(compressedFile);
+      const avatarUrl = await uploadAvatar(file);
 
       if (avatarUrl) {
         setPreview(avatarUrl);
@@ -893,34 +911,6 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
         )}
       </div>
     </div>
-  );
-}
-
-function UnderlineInput({
-  label,
-  defaultValue,
-  required,
-}: {
-  label: string;
-  defaultValue?: string;
-  required?: boolean;
-}) {
-  return (
-    <label className="block">
-      <span className="eyebrow mb-1 block font-bold">
-        {label}
-        {required && (
-          <span className="text-destructive ml-1" aria-hidden="true">
-            *
-          </span>
-        )}
-      </span>
-      <input
-        defaultValue={defaultValue}
-        required={required}
-        className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
-      />
-    </label>
   );
 }
 
