@@ -524,7 +524,8 @@ VALUES
   ('avatars', 'avatars', true),
   ('club-banners', 'club-banners', true),
   ('event-banners', 'event-banners', true),
-  ('certificates', 'certificates', true)
+  ('certificates', 'certificates', true),
+  ('qrcodes', 'qrcodes', true)
 ON CONFLICT (id) DO UPDATE
 SET public = EXCLUDED.public;
 
@@ -543,7 +544,8 @@ USING (
     'avatars',
     'club-banners',
     'event-banners',
-    'certificates'
+    'certificates',
+    'qrcodes'
   )
 );
 
@@ -557,7 +559,8 @@ WITH CHECK (
     'avatars',
     'club-banners',
     'event-banners',
-    'certificates'
+    'certificates',
+    'qrcodes'
   )
   AND (storage.foldername(name))[1] = auth.uid()::text
 );
@@ -572,7 +575,8 @@ USING (
     'avatars',
     'club-banners',
     'event-banners',
-    'certificates'
+    'certificates',
+    'qrcodes'
   )
   AND (storage.foldername(name))[1] = auth.uid()::text
 )
@@ -581,7 +585,8 @@ WITH CHECK (
     'avatars',
     'club-banners',
     'event-banners',
-    'certificates'
+    'certificates',
+    'qrcodes'
   )
   AND (storage.foldername(name))[1] = auth.uid()::text
 );
@@ -596,7 +601,8 @@ USING (
     'avatars',
     'club-banners',
     'event-banners',
-    'certificates'
+    'certificates',
+    'qrcodes'
   )
   AND (storage.foldername(name))[1] = auth.uid()::text
 );
