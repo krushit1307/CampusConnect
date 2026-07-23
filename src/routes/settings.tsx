@@ -914,34 +914,6 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
   );
 }
 
-function UnderlineInput({
-  label,
-  defaultValue,
-  required,
-}: {
-  label: string;
-  defaultValue?: string;
-  required?: boolean;
-}) {
-  return (
-    <label className="block">
-      <span className="eyebrow mb-1 block font-bold">
-        {label}
-        {required && (
-          <span className="text-destructive ml-1" aria-hidden="true">
-            *
-          </span>
-        )}
-      </span>
-      <input
-        defaultValue={defaultValue}
-        required={required}
-        className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
-      />
-    </label>
-  );
-}
-
 function Toggle({ label, defaultChecked }: { label: string; defaultChecked?: boolean }) {
   return (
     <label className="flex cursor-pointer items-center justify-between gap-3">
