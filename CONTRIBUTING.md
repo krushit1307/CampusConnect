@@ -19,11 +19,32 @@ Before you begin, make sure you have the following installed:
 2. **Clone Your Fork**
 
    ```bash
-   git clone https://github.com/YOUR_USERNAME/CampusConnect.git
+   git clone [https://github.com/YOUR_USERNAME/CampusConnect.git](https://github.com/YOUR_USERNAME/CampusConnect.git)
    cd CampusConnect
    ```
 
-3. **Create a Branch**
+3. **Install Dependencies**
+   Install the necessary packages to run the project locally.
+
+   ```bash
+   npm install
+   ```
+
+4. **Set Up Environment Variables**
+   Copy the example environment file and update it with your local or preview Supabase credentials.
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+5. **Start the Development Server**
+   Run the application locally to see your changes in real-time. The app will typically be available at `http://localhost:3000`.
+
+   ```bash
+   npm run dev
+   ```
+
+6. **Create a Branch**
    Create a new branch for your work. Use a descriptive naming convention:
    - `feature/your-feature-name` (for new features)
    - `fix/your-bug-fix` (for bug fixes)
@@ -33,10 +54,10 @@ Before you begin, make sure you have the following installed:
    git checkout -b feature/awesome-new-feature
    ```
 
-4. **Make Your Changes**
-   Write your code, add components, or update documentation.
+7. **Make Your Changes**
+   Write your code, add components, or update documentation. Ensure you test your changes locally!
 
-5. **Commit Your Changes**
+8. **Commit Your Changes**
    We follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/). Please use one of the following prefixes for your commit messages:
    - `feat:` (New feature)
    - `fix:` (Bug fix)
@@ -49,14 +70,14 @@ Before you begin, make sure you have the following installed:
    git commit -m "feat: add user profile page skeleton"
    ```
 
-6. **Push to Your Fork**
+9. **Push to Your Fork**
 
    ```bash
    git push origin feature/awesome-new-feature
    ```
 
-7. **Open a Pull Request**
-   Go to the original repository and you will see a prompt to open a Pull Request.
+10. **Open a Pull Request**
+    Go to the original repository and you will see a prompt to open a Pull Request.
 
 ## 📝 Pull Request Guidelines
 
@@ -79,7 +100,7 @@ This command will automatically fix spacing, missing quotes, and other formattin
 
 _(Highly Recommended: Configure your code editor to "Format on Save" using the Prettier extension)._
 
-## Edge Function Authentication
+## 🔐 Edge Function Authentication
 
 Custom Supabase Edge Functions should use the shared authentication middleware located at:
 
@@ -110,6 +131,10 @@ This repository uses an automated bot to assign issues to contributors!
 - **Difficulty:** `good-first-issue`, `intermediate`, `advanced`
 - **Area:** `frontend`, `backend`, `database`, `docs`, `design`
 - **Type:** `bug`, `enhancement`, `help-wanted`
+
+## 📜 Code of Conduct
+
+We are committed to providing a welcoming and inspiring community for all. By participating in this project, you agree to abide by our Code of Conduct. Please be kind, respectful, and constructive in your interactions with other contributors.
 
 ## 💬 Communication Channel
 
