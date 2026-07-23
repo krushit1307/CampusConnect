@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
+    "prepare": "husky",
     "dev:remote": "vite --config vite.config.events.ts --port 4174",
     "build": "vite build",
     "build:dev": "vite build --mode development",
@@ -19,7 +20,6 @@
     "test:e2e": "playwright test",
     "test:cypress": "cypress run",
     "test:cypress:open": "cypress open",
-    "prepare": "husky",
     "github:update-labels": "npx tsx scripts/update-labels.ts",
     "github:create-new-issues": "npx tsx scripts/create-new-issues.ts",
     "github:create-frontend-issues": "npx tsx scripts/create-frontend-issues.ts",
@@ -106,7 +106,8 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
-      "eslint --fix"
+      "eslint --fix",
+      "prettier --write"
     ],
     "*.{json,css,md}": [
       "prettier --write"
