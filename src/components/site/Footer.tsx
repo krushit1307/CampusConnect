@@ -112,7 +112,14 @@ export function Footer() {
             ))}
           </div>
           <div className="flex items-center gap-4">
+            {/* The BugReportModal is rendered here inline so it works exactly as it did before */}
             <BugReportModal open={bugReportOpen} onOpenChange={setBugReportOpen} />
+            <button
+              onClick={() => setBugReportOpen(true)}
+              className="font-mono cursor-pointer text-[10px] font-bold uppercase tracking-widest text-black hover:underline"
+            >
+              Feedback
+            </button>
             <p className="font-mono text-[10px] uppercase tracking-widest text-black">
               ECSoC 2026 · v0.1
             </p>
