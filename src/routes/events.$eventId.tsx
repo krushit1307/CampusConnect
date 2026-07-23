@@ -3,14 +3,15 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
+import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
-import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
+import { formatEventDateRange } from "@/lib/utils";
+import { EventActions } from "@/components/Events/EventActions";
 import { toast } from "sonner";
 import EventSharePanel from "@/components/events/EventSharePanel";
 import {
   ArrowLeft,
-  Calendar,
   Check,
   Copy,
   Download,
@@ -76,6 +77,7 @@ export default function EventDetailsPage() {
   const { eventId = "" } = useParams();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
+  const emailVerified = useEmailVerification();
   const [copied, setCopied] = useState(false);
   const [idCopied, setIdCopied] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -354,6 +356,10 @@ export default function EventDetailsPage() {
       toast.error("Please log in to RSVP");
       return;
     }
+    if (!emailVerified) {
+      toast.error("Please verify your email to RSVP");
+      return;
+    }
     if (hasRsvpd) {
       setConfirmOpen(true);
       return;
@@ -539,7 +545,11 @@ export default function EventDetailsPage() {
                 <Button
                   onClick={() => {
                     if (!user) {
-                      toast.error("Please log in to join waitlist");
+                      toast.error("Please log in to join the waitlist");
+                      return;
+                    }
+                    if (!emailVerified) {
+                      toast.error("Please verify your email to join the waitlist");
                       return;
                     }
                     toggleWaitlist.mutate({ isOnWaitlist });
@@ -621,16 +631,15 @@ export default function EventDetailsPage() {
               </Button>
             )}
 
-            {hasRsvpd && googleCalendarUrl && (
-              <a
-                href={googleCalendarUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="neu-border flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
-              >
-                <Calendar aria-hidden="true" size={14} strokeWidth={3} />
-                Add to Google Calendar
-              </a>
+            {hasRsvpd && (
+              <EventActions
+                title={event.title}
+                description={event.description}
+                event_date={event.event_date}
+                start_date={event.start_date}
+                end_date={event.end_date}
+                location={event.location}
+              />
             )}
 
             {isCheckedIn && hasEnded && (
