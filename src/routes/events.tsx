@@ -35,6 +35,7 @@ export interface EventItem {
   end_date?: string | null;
   location: string | null;
   banner_url?: string | null;
+  created_at?: string | null;
   clubs: { name: string } | { name: string }[] | null;
   event_rsvps: { id: string; user_id: string }[] | null;
   saved_events: { id: string; user_id: string }[] | null;
@@ -279,7 +280,7 @@ export default function EventsPage() {
         .from("club_analytics_view")
         .select(
           `
-          id, title, description, event_date, start_date, end_date, location, banner_url,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_at,
           clubs (name),
           event_rsvps (id, user_id),
           saved_events (id, user_id)
