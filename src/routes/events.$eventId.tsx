@@ -7,7 +7,7 @@ import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { formatEventDateRange } from "@/lib/utils";
-import { EventActions } from "@/components/Events/EventActions";
+import { EventActions } from "@/components/events/EventActions";
 import { toast } from "sonner";
 import EventSharePanel from "@/components/events/EventSharePanel";
 import {
