@@ -255,16 +255,46 @@ export default function SettingsPage() {
 
   return (
     <SiteShell>
-      <section className="border-b-2 border-black px-4 py-14 md:px-6">
+      <section className="border-b-2 border-black bg-[#0bc5ea] px-4 py-16 md:px-6">
         <div className="mx-auto max-w-4xl">
-          <p className="eyebrow font-bold text-black">Account</p>
-          <h1 className="mt-2 text-4xl font-bold text-brand-blue-dark md:text-6xl text-black">
+          <p className="font-mono text-sm font-bold uppercase tracking-widest text-black/80">
+            Account
+          </p>
+          <h1 className="mt-2 text-5xl font-extrabold tracking-tight text-black md:text-7xl">
             Settings.
           </h1>
         </div>
       </section>
       <section className="px-4 py-12 md:px-6">
-        <div className="mx-auto max-w-4xl space-y-6 text-indigo-900">
+        <div className="mx-auto max-w-4xl space-y-8">
+          {/* --- NEW COLORFUL STATS GRID --- */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="border-2 border-black bg-[#a3e635] p-5 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1">
+              <p className="font-mono text-xs font-bold uppercase text-black/70">Last Active</p>
+              <p className="mt-2 font-display text-xl font-bold text-black">
+                {profile?.lastActivityAt
+                  ? new Date(profile.lastActivityAt).toLocaleDateString()
+                  : "Just now"}
+              </p>
+            </div>
+
+            <div className="border-2 border-black bg-[#fb923c] p-5 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1">
+              <p className="font-mono text-xs font-bold uppercase text-black/70">Welcome Status</p>
+              <p className="mt-2 font-display text-xl font-bold text-black">
+                {profile?.welcomeSource ? `Via ${profile.welcomeSource}` : "Pending"}
+              </p>
+            </div>
+
+            <div className="border-2 border-black bg-[#22d3ee] p-5 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1">
+              <p className="font-mono text-xs font-bold uppercase text-black/70">
+                Claims Processed
+              </p>
+              <p className="mt-2 font-display text-xl font-bold text-black">
+                {profile?.processedClaimCommentIds?.length || 0}
+              </p>
+            </div>
+          </div>
+          {/* ------------------------------- */}
           <Panel title="Profile">
             <AvatarUpload name={currentFullName || "User"} avatarTheme={currentAvatarTheme} />
 
@@ -478,6 +508,51 @@ export default function SettingsPage() {
               </form>
             </Form>
           </Panel>
+
+          {/* --- NEW ACCOUNT STATISTICS PANEL --- */}
+          <Panel title="Account Statistics" tone="bg-blue-50">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+              <StatCard
+                label="Last Active"
+                value={
+                  profile?.lastActivityAt
+                    ? new Date(profile.lastActivityAt).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "N/A"
+                }
+              />
+              <StatCard
+                label="Welcome Sent"
+                value={
+                  profile?.welcomeSentAt
+                    ? new Date(profile.welcomeSentAt).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "N/A"
+                }
+              />
+              <StatCard label="Welcome Source" value={profile?.welcomeSource || "N/A"} />
+              <StatCard
+                label="Claims Processed"
+                value={profile?.processedClaimCommentIds?.length || 0}
+              />
+              <StatCard
+                label="Unclaims Processed"
+                value={profile?.processedUnclaimCommentIds?.length || 0}
+              />
+            </div>
+          </Panel>
+          {/* ---------------------------------- */}
+
           <Panel title="Appearance">
             <div className="space-y-6">
               <div className="space-y-2">
@@ -580,9 +655,13 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section className={`neu-border ${tone} p-6`}>
-      <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold">{title}</h2>
-      <div className="space-y-4">{children}</div>
+    <section
+      className={`border-2 border-black shadow-[6px_6px_0px_rgba(0,0,0,1)] ${tone} p-6 md:p-8`}
+    >
+      <h2 className="mb-6 border-b-2 border-black pb-3 font-display text-2xl font-extrabold tracking-tight text-black">
+        {title}
+      </h2>
+      <div className="space-y-6 text-black">{children}</div>
     </section>
   );
 }
@@ -901,5 +980,14 @@ function Toggle({ label, defaultChecked }: { label: string; defaultChecked?: boo
       <span className="font-mono text-sm">{label}</span>
       <input type="checkbox" defaultChecked={defaultChecked} className="h-5 w-5 accent-black" />
     </label>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="neu-border flex flex-col justify-center bg-lime/20 p-4 transition-transform hover:scale-[1.02]">
+      <p className="eyebrow text-xs font-bold text-gray-600 dark:text-gray-400">{label}</p>
+      <p className="mt-1 font-mono text-sm font-bold text-black break-words">{value}</p>
+    </div>
   );
 }
