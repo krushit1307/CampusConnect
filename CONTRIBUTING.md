@@ -45,13 +45,14 @@ Before you begin, make sure you have the following installed:
    ```
 
 6. **Create a Branch**
-   Create a new branch for your work. Use a descriptive naming convention:
-   - `feature/your-feature-name` (for new features)
+   Create a new branch for your work. Use the following naming convention —
+   a short-form type prefix, a slash, then a brief kebab-case description:
+   - `feat/your-feature-name` (for new features)
    - `fix/your-bug-fix` (for bug fixes)
    - `docs/your-docs-update` (for documentation)
 
    ```bash
-   git checkout -b feature/awesome-new-feature
+   git checkout -b feat/awesome-new-feature
    ```
 
 7. **Make Your Changes**
@@ -86,7 +87,27 @@ Before you begin, make sure you have the following installed:
 - **Add Screenshots:** If your change affects the UI, please include before/after screenshots in the PR description.
 - **Pass CI:** Ensure your code passes all checks (build and lint) in GitHub Actions.
 
-## 💅 Code Style & Formatting (CRITICAL)
+## 🔒 Branch Protection Rules
+
+To keep `main` stable and deployable at all times, the following rules apply:
+
+- **No direct commits to `main`.** All changes — including documentation and
+  small fixes — must go through a Pull Request from a feature branch on your
+  fork.
+- **Branch naming is enforced by convention** (see step 6 above): use the
+  `feat/`, `fix/`, or `docs/` prefix that matches the type of change.
+- **CI must pass before merging.** Every PR runs automated lint and build
+  checks; a PR with failing checks will not be merged until it's fixed.
+- **Keep your branch up to date.** Before opening a PR, sync your branch with
+  the latest `upstream/main` to avoid merge conflicts:
+
+  ```bash
+  git fetch upstream
+  git merge upstream/main
+  ```
+
+- **One issue, one PR.** Avoid bundling unrelated changes into a single PR —
+  it slows down review and makes it harder to merge safely.
 
 This project uses **ESLint** and **Prettier** to maintain code quality. **Failing to format your code will cause your Pull Request CI checks to fail!**
 
