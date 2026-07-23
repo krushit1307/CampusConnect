@@ -11,8 +11,11 @@ import {
   Sparkles,
   Trash2,
   Flame,
+  Flag,
+  MoreVertical,
 } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
@@ -24,6 +27,7 @@ import { PullToRefresh } from "@/components/PullToRefresh";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 
 import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +45,7 @@ type MemberRole = "admin" | "organizer" | "member" | "alumni";
 interface Profile {
   id: string;
   full_name: string | null;
+  handle?: string | null;
 }
 
 interface ClubMember {
@@ -59,7 +64,7 @@ interface Comment {
   content: string;
   created_at: string;
   deleted_at: string | null;
-  parent_comment_id: string | null;
+  parent_comment_id?: string | null;
   profiles: Profile[] | Profile | null;
 }
 
@@ -81,6 +86,7 @@ interface Post {
 }
 
 const POSTS_PER_PAGE = 10;
+const COMMENTS_PAGE_SIZE = 5;
 
 export default function Feed() {
   const supabase = createClient();
@@ -91,12 +97,16 @@ export default function Feed() {
   const [newComments, setNewComments] = useState<Record<string, string>>({});
   const [activeReplyIds, setActiveReplyIds] = useState<Record<string, string>>({});
   const [replyValues, setReplyValues] = useState<Record<string, string>>({});
+  const [visibleCommentsCount, setVisibleCommentsCount] = useState<Record<string, number>>({});
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showNewPostsBanner, setShowNewPostsBanner] = useState(false);
-  // Tracks a per-post, per-emoji "burst" nonce so the spring animation
-  // replays on every like AND unlike toggle (key-remount trick).
-  const [reactionBursts, setReactionBursts] = useState<Record<string, number>>({});
+  const [confirmPostId, setConfirmPostId] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [reactionBursts, setReactionBursts] = useState<Record<string, string>>({});
+  const [reportDialogPostId, setReportDialogPostId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
@@ -160,9 +170,9 @@ export default function Feed() {
         .select(
           `
         id, content, created_at, club_id, pinned,
-        profiles (id, full_name),
+        profiles (id, full_name, handle),
         clubs (id, name, club_members (user_id, role)),
-        comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name)),
+        comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name, handle)),
         post_reactions (emoji, user_id)
       `,
         )
@@ -194,9 +204,9 @@ export default function Feed() {
         .select(
           `
           id, content, created_at, club_id, pinned,
-          profiles (id, full_name),
+          profiles (id, full_name, handle),
           clubs (id, name, club_members (user_id, role)),
-          comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name)),
+          comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name, handle)),
           post_reactions (emoji, user_id)
         `,
         )
@@ -211,6 +221,22 @@ export default function Feed() {
 
   const trendingPosts: Post[] = trendingData ?? [];
   const activePosts = feedMode === "latest" ? posts : trendingPosts;
+
+  const filteredPosts = activePosts.filter((post) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+
+    const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
+    const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
+
+    const contentMatch = post.content?.toLowerCase().includes(q);
+    const authorMatch =
+      author?.full_name?.toLowerCase().includes(q) || author?.handle?.toLowerCase().includes(q);
+    const clubMatch = club?.name?.toLowerCase().includes(q);
+
+    return contentMatch || authorMatch || clubMatch;
+  });
+
   const isActiveFeedLoading = feedMode === "latest" ? isLoading : isTrendingLoading;
 
   const postsRef = useRef(posts);
@@ -228,6 +254,7 @@ export default function Feed() {
     setShowNewPostsBanner(false);
     refetchPosts();
   }, [refetchPosts]);
+
   const observer = useRef<IntersectionObserver | null>(null);
   const lastPostElementRef = useCallback(
     (node: HTMLElement | null) => {
@@ -273,6 +300,7 @@ export default function Feed() {
       supabase.removeChannel(channel);
     };
   }, [supabase, refetchPosts]);
+
   useEffect(() => {
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 300);
@@ -298,6 +326,7 @@ export default function Feed() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [lightboxSrc]);
+
   const postMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Must be logged in");
@@ -389,18 +418,25 @@ export default function Feed() {
     onSuccess: () => refetchPosts(),
   });
 
+  const [optimisticDeletedIds, setOptimisticDeletedIds] = useState<string[]>([]);
+
   const deletePostMutation = useMutation({
     mutationFn: async (postId: string) => {
       if (!user) throw new Error("Must be logged in");
+      setOptimisticDeletedIds((prev) => [...prev, postId]);
       const { error } = await supabase
         .from("posts")
         .update({ deleted_at: new Date().toISOString() })
-        .eq("id", postId);
-      if (error) throw error;
+        .eq("id", postId)
+        .eq("author_id", user.id);
+      if (error) {
+        setOptimisticDeletedIds((prev) => prev.filter((id) => id !== postId));
+        throw error;
+      }
     },
     onSuccess: () => {
+      toast.success("Post deleted successfully.");
       refetchPosts();
-      toast.success("Post deleted successfully!");
     },
     onError: () => {
       toast.error("Failed to delete post.");
@@ -445,6 +481,7 @@ export default function Feed() {
     const minutes = Math.floor(diff / (1000 * 60));
     return rtf.format(-Math.max(1, minutes), "minute");
   };
+
   const scrollToTop = () => {
     window.scrollTo({
       top: 0,
@@ -528,6 +565,18 @@ export default function Feed() {
               }
             `}</style>
 
+            {/* ── Search Bar ── */}
+            <div>
+              <input
+                type="text"
+                placeholder="Search posts by content, author, or club..."
+                aria-label="Search posts"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full border-2 border-black bg-white px-4 py-2 font-mono text-sm outline-none focus:bg-lime/10"
+              />
+            </div>
+
             {/* ── Feed mode tabs ── */}
             <div
               role="tablist"
@@ -572,7 +621,7 @@ export default function Feed() {
                 style={{
                   animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards",
                 }}
-                className="neu-border flex w-full items-center justify-center gap-2 bg-[#FFD93D] hover:bg-[#FFD93D]/90 py-3 text-center font-display text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0_0_#000] active:translate-x-0 active:translate-y-0 active:shadow-[4px_4px_0_0_#000] cursor-pointer"
+                className="neu-border flex w-full items-center justify-center gap-2 bg-[#FFD93D] hover:bg-[#FFD93D]/90 py-3 text-center font-display text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_#000] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_#000] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[4px_4px_0_0_#000] cursor-pointer"
               >
                 <Sparkles size={16} className="animate-pulse" />
                 New posts available (Refresh)
@@ -585,7 +634,7 @@ export default function Feed() {
                   <FeedPostSkeleton key={index} />
                 ))}
               </div>
-            ) : activePosts.length === 0 ? (
+            ) : filteredPosts.length === 0 ? (
               <div
                 className="neu-border relative overflow-hidden bg-white px-6 py-12 text-center sm:px-10 sm:py-16"
                 role="status"
@@ -614,7 +663,9 @@ export default function Feed() {
                     The conversation starts here
                   </p>
                   <h2 className="text-2xl font-bold sm:text-3xl">
-                    No posts yet. Be the first to start a discussion!
+                    {searchQuery
+                      ? "No posts match your search query."
+                      : "No posts yet. Be the first to start a discussion!"}
                   </h2>
                   <p className="mt-4 max-w-md font-mono text-sm leading-relaxed text-gray-700">
                     Share an announcement, ask a question, or post an update for your club
@@ -635,8 +686,8 @@ export default function Feed() {
               </div>
             ) : (
               <>
-                {activePosts.map((post: Post, index: number) => {
-                  const isLastPost = feedMode === "latest" && index === posts.length - 1;
+                {filteredPosts.map((post: Post, index: number) => {
+                  const isLastPost = feedMode === "latest" && index === filteredPosts.length - 1;
                   const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
                   const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
                   const clubMembers: ClubMember[] = Array.isArray(club?.club_members)
@@ -653,7 +704,10 @@ export default function Feed() {
                     ? post.comments.filter((c) => !c.deleted_at)
                     : [];
 
-                  const shareUrl = `${window.location.origin}/feed?postId=${post.id}`;
+                  if (optimisticDeletedIds.includes(post.id)) return null;
+
+                  const shareUrl = `${window.location.origin}${window.location.pathname}#post-${post.id}`;
+
                   return (
                     <article
                       id={`post-${post.id}`}
@@ -671,10 +725,16 @@ export default function Feed() {
                       )}
                       <header className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b-2 border-black pb-3">
                         <div>
-                          <p className="font-display text-lg font-bold flex items-center gap-2">
-                            {author?.full_name || "Unknown User"}
+                          <div className="font-display text-lg font-bold flex items-center gap-2">
+                            {author?.handle ? (
+                              <Link to={`/profile/${author.handle}`} className="hover:underline">
+                                {author.full_name || "Unknown User"}
+                              </Link>
+                            ) : (
+                              <span>{author?.full_name || "Unknown User"}</span>
+                            )}
                             <RoleBadge role={authorRole} />
-                          </p>
+                          </div>
                           <p className="font-mono text-xs flex flex-wrap items-center">
                             in {club?.name || "Unknown Club"} · {timeAgo(post.created_at)}
                             <span className="text-gray-500 dark:text-gray-300 ml-1">
@@ -708,40 +768,14 @@ export default function Feed() {
                             ) : null;
                           })()}
                           {(user?.id === author?.id || userProfile?.role === "system_admin") && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <button
-                                  type="button"
-                                  className="neu-border neu-press flex items-center gap-1 bg-[#FF6B6B] hover:bg-[#FF8787] text-black px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer"
-                                  aria-label="Delete post"
-                                >
-                                  <Trash2 size={10} strokeWidth={2.5} />
-                                  Delete
-                                </button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent className="neu-border bg-white rounded-none p-6">
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle className="font-display text-xl font-bold">
-                                    Delete post?
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription className="font-mono text-sm text-gray-700">
-                                    Are you sure you want to delete this post? This action cannot be
-                                    undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
-                                  <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
-                                    Cancel
-                                  </AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => deletePostMutation.mutate(post.id)}
-                                    className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
-                                  >
-                                    Confirm
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmPostId(post.id)}
+                              className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 hover:bg-[#FF6B6B]"
+                              aria-label="Delete post"
+                            >
+                              <Trash2 size={14} strokeWidth={2.5} />
+                            </button>
                           )}
                         </div>
                       </header>
@@ -787,8 +821,6 @@ export default function Feed() {
                                 if (!user) return alert("Log in first");
                                 if (!emailVerified)
                                   return alert("Please verify your email to react");
-                                // Bump the burst nonce so the emoji <span> remounts
-                                // and the spring keyframe animation replays.
                                 setReactionBursts((prev) => ({
                                   ...prev,
                                   [burstKey]: (prev[burstKey] ?? 0) + 1,
@@ -799,8 +831,6 @@ export default function Feed() {
                                 isReacted ? "bg-lime" : "bg-white hover:bg-cream"
                               }`}
                             >
-                              {/* key includes burstNonce so React remounts the span
-                                   on every click, retriggering the CSS animation. */}
                               <span
                                 key={`${burstKey}-${burstNonce}`}
                                 className="reaction-burst inline-flex items-center"
@@ -816,7 +846,6 @@ export default function Feed() {
                       <div className="mt-4 flex gap-2 border-t-2 border-black pt-4">
                         <a
                           href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`}
-
                           target="_blank"
                           rel="noopener noreferrer"
                           className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#1DA1F2] hover:text-white"
@@ -903,15 +932,24 @@ export default function Feed() {
                                 <div key={commentNode.id} className={`${indentClass}`}>
                                   <div className="neu-border bg-cream p-3 mb-3">
                                     <div className="flex justify-between">
-                                      <p className="font-mono text-xs font-bold uppercase flex items-center gap-1.5">
-                                        {commentAuthor?.full_name || "Unknown User"}
+                                      <div className="font-mono text-xs font-bold uppercase flex items-center gap-1.5">
+                                        {commentAuthor?.handle ? (
+                                          <Link
+                                            to={`/profile/${commentAuthor.handle}`}
+                                            className="hover:underline"
+                                          >
+                                            {commentAuthor.full_name || "Unknown User"}
+                                          </Link>
+                                        ) : (
+                                          <span>{commentAuthor?.full_name || "Unknown User"}</span>
+                                        )}
                                         <RoleBadge
                                           role={
                                             (commentAuthorMembership?.role ??
                                               "member") as MemberRole
                                           }
                                         />
-                                      </p>
+                                      </div>
                                       <div className="flex items-center gap-2">
                                         <p className="font-mono text-[10px] text-gray-500 dark:text-gray-300">
                                           {timeAgo(commentNode.created_at)}
@@ -991,6 +1029,8 @@ export default function Feed() {
                                           if (e.key === "Enter" && !e.shiftKey) {
                                             e.preventDefault();
                                             if (!user) return alert("Log in first");
+                                            if (!emailVerified)
+                                              return alert("Please verify your email to comment");
                                             if (replyValues[commentNode.id]?.trim()) {
                                               commentMutation.mutate({
                                                 postId,
@@ -1031,7 +1071,32 @@ export default function Feed() {
                             };
 
                             const roots = buildCommentTree(postComments);
-                            return roots.map((root) => renderCommentNode(root, 0, post.id));
+                            const visibleCount =
+                              visibleCommentsCount[post.id] ?? COMMENTS_PAGE_SIZE;
+                            const visibleRoots = roots.slice(0, visibleCount);
+                            const remaining = roots.length - visibleCount;
+
+                            return (
+                              <>
+                                {visibleRoots.map((root) => renderCommentNode(root, 0, post.id))}
+                                {remaining > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setVisibleCommentsCount((prev) => ({
+                                        ...prev,
+                                        [post.id]:
+                                          (prev[post.id] ?? COMMENTS_PAGE_SIZE) +
+                                          COMMENTS_PAGE_SIZE,
+                                      }))
+                                    }
+                                    className="neu-border neu-press w-full bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-all duration-300 hover:bg-cream cursor-pointer"
+                                  >
+                                    Load more comments ({remaining} remaining)
+                                  </button>
+                                )}
+                              </>
+                            );
                           })()}
                         </div>
 
@@ -1085,42 +1150,17 @@ export default function Feed() {
           </div>
         </section>
       </PullToRefresh>
-
-      {showScrollTop && (
-        <button
-          type="button"
-          onClick={scrollToTop}
-          aria-label="Scroll to top"
-          className="fixed bottom-6 right-6 z-50 neu-border bg-black p-3 text-cream transition-transform hover:-translate-y-1"
-        >
-          <ArrowUp size={20} />
-        </button>
-      )}
-
-      {lightboxSrc && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Image preview"
-          onClick={() => setLightboxSrc(null)}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 sm:p-8"
-        >
-          <button
-            type="button"
-            onClick={() => setLightboxSrc(null)}
-            aria-label="Close image preview"
-            className="absolute right-4 top-4 neu-border bg-white px-3 py-1 font-mono text-xs font-bold uppercase hover:bg-cream"
-          >
-            Close
-          </button>
-          <img
-            src={lightboxSrc}
-            alt=""
-            onClick={(event) => event.stopPropagation()}
-            className="max-h-full max-w-full cursor-default object-contain"
-          />
-        </div>
-      )}
+      <ConfirmModal
+        open={!!confirmPostId}
+        onCancel={() => setConfirmPostId(null)}
+        title="Delete post?"
+        description="Are you sure you want to delete this post? This action cannot be undone."
+        confirmText="Yes, delete"
+        onConfirm={() => {
+          if (confirmPostId) deletePostMutation.mutate(confirmPostId);
+          setConfirmPostId(null);
+        }}
+      />
     </SiteShell>
   );
 }

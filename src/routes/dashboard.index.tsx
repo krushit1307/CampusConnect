@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import {
   Sparkles,
@@ -12,8 +12,12 @@ import {
   GraduationCap,
   FileText,
   Link2,
+  Calendar,
+  MessageCircle,
+  Users,
 } from "lucide-react";
 import TrendingCarousel from "@/components/Clubs/TrendingCarousel";
+import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/DashboardWidgetSkeleton";
 
 interface SavedEventDetails {
   id: string;
@@ -25,6 +29,140 @@ interface SavedEventDetails {
 interface DashboardSavedEvent {
   id: string;
   events: SavedEventDetails[] | SavedEventDetails | null;
+}
+
+interface ActivityItem {
+  id: string;
+  type: "post" | "rsvp" | "club_join";
+  description: string;
+  created_at: string;
+}
+
+interface ActivityPostRow {
+  id: string;
+  content: string;
+  created_at: string;
+  clubs: { name: string } | { name: string }[] | null;
+}
+
+interface ActivityRsvpRow {
+  id: string;
+  created_at: string;
+  events: { id: string; title: string } | { id: string; title: string }[] | null;
+}
+
+interface ActivityClubMemberRow {
+  id: string;
+  created_at: string;
+  clubs: { name: string } | { name: string }[] | null;
+}
+
+/**
+ * Formats a date string as a short relative time string (e.g. "2 hours ago",
+ * "in 3 days"). Used by the Dashboard's Recent Activity widget (#258).
+ */
+function formatRelativeActivityTime(dateString: string): string {
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "";
+
+  const diffMs = date.getTime() - Date.now();
+  const diffSeconds = Math.round(diffMs / 1000);
+  const diffMinutes = Math.round(diffSeconds / 60);
+  const diffHours = Math.round(diffMinutes / 60);
+  const diffDays = Math.round(diffHours / 24);
+
+  const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+
+  if (Math.abs(diffSeconds) < 60) return rtf.format(diffSeconds, "second");
+  if (Math.abs(diffMinutes) < 60) return rtf.format(diffMinutes, "minute");
+  if (Math.abs(diffHours) < 24) return rtf.format(diffHours, "hour");
+  return rtf.format(diffDays, "day");
+}
+
+// How long to wait before showing the progress bar at all. Queries that
+// resolve faster than this never trigger it — the widgets' own skeletons
+// (WidgetListSkeleton / TrendingCarouselSkeleton) cover that case instead.
+const PROGRESS_REVEAL_DELAY_MS = 250;
+
+const PROGRESS_SOFT_CEILING = 90;
+const PROGRESS_TICK_MS = 200;
+
+/**
+ * Page-load progress indicator for the dashboard's analytics-backed widgets
+ * (trending clubs, your clubs, upcoming/saved events, recent activity — all
+ * of which read from materialized/aggregated views that can be slow on a
+ * cold cache). Shows a neubrutalist percentage bar once loading has taken
+ * long enough to be noticeable, and snaps to 100% + fades out once real data
+ * has arrived. If the underlying queries resolve immediately, this never
+ * renders at all — the widgets' individual skeletons handle that case.
+ */
+function AnalyticsLoadProgress({ isLoading }: { isLoading: boolean }) {
+  const [visible, setVisible] = useState(false);
+  const [percent, setPercent] = useState(0);
+  const revealTimeoutRef = useRef<number | null>(null);
+  const tickIntervalRef = useRef<number | null>(null);
+  const hideTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const clearTimers = () => {
+      if (revealTimeoutRef.current) window.clearTimeout(revealTimeoutRef.current);
+      if (tickIntervalRef.current) window.clearInterval(tickIntervalRef.current);
+      if (hideTimeoutRef.current) window.clearTimeout(hideTimeoutRef.current);
+    };
+
+    if (isLoading) {
+      clearTimers();
+      revealTimeoutRef.current = window.setTimeout(() => {
+        setVisible(true);
+        setPercent((p) => (p === 0 ? 8 : p));
+
+        tickIntervalRef.current = window.setInterval(() => {
+          setPercent((p) => {
+            if (p >= PROGRESS_SOFT_CEILING) return p;
+            const remaining = PROGRESS_SOFT_CEILING - p;
+            // Ease-out: bigger steps early, smaller as we approach the ceiling.
+            const increment = Math.max(0.75, remaining * 0.12);
+            return Math.min(PROGRESS_SOFT_CEILING, p + increment);
+          });
+        }, PROGRESS_TICK_MS);
+      }, PROGRESS_REVEAL_DELAY_MS);
+    } else {
+      clearTimers();
+      setVisible((wasVisible) => {
+        if (wasVisible) {
+          setPercent(100);
+          hideTimeoutRef.current = window.setTimeout(() => {
+            setVisible(false);
+            setPercent(0);
+          }, 350);
+        }
+        return wasVisible;
+      });
+    }
+
+    return clearTimers;
+  }, [isLoading]);
+
+  if (!visible) return null;
+
+  return (
+    <div
+      className="lg:col-span-3 neu-border bg-white p-4 transition-opacity duration-300"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="mb-1.5 flex items-center justify-between font-mono text-xs font-bold uppercase text-black">
+        <span>Loading club analytics...</span>
+        <span>{Math.round(percent)}%</span>
+      </div>
+      <div className="h-4 w-full border-2 border-black bg-cream overflow-hidden">
+        <div
+          className="h-full bg-lime border-r-2 border-black transition-all duration-200 ease-out"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 export default function DashboardOverview() {
@@ -59,7 +197,7 @@ export default function DashboardOverview() {
 
   const [animateIn, setAnimateIn] = useState(false);
 
-  const { data: trendingClubs = [] } = useQuery({
+  const { data: trendingClubs = [], isLoading: isTrendingLoading } = useQuery({
     queryKey: ["trendingClubs"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -110,7 +248,7 @@ export default function DashboardOverview() {
   const isFullyCompleted = completedCount === steps.length;
   const showBanner = !dismissed && !isProfileLoading && !isFullyCompleted;
 
-  const { data: userClubs = [] } = useQuery({
+  const { data: userClubs = [], isLoading: isClubsLoading } = useQuery({
     queryKey: ["userClubs", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -131,7 +269,7 @@ export default function DashboardOverview() {
     enabled: !!user?.id,
   });
 
-  const { data: upcomingEvents = [] } = useQuery({
+  const { data: upcomingEvents = [], isLoading: isUpcomingLoading } = useQuery({
     queryKey: ["upcomingEvents", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -155,7 +293,7 @@ export default function DashboardOverview() {
     enabled: !!user?.id,
   });
 
-  const { data: savedEvents = [] } = useQuery({
+  const { data: savedEvents = [], isLoading: isSavedLoading } = useQuery({
     queryKey: ["savedEvents", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -181,7 +319,73 @@ export default function DashboardOverview() {
     enabled: !!user?.id,
   });
 
+  const { data: recentActivity = [], isLoading: isActivityLoading } = useQuery({
+    queryKey: ["recentActivity", user?.id],
+    queryFn: async (): Promise<ActivityItem[]> => {
+      const [postsRes, rsvpsRes, membersRes] = await Promise.all([
+        supabase
+          .from("posts")
+          .select("id, content, created_at, clubs(name)")
+          .eq("author_id", user?.id)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false })
+          .limit(5),
+        supabase
+          .from("event_rsvps")
+          .select("id, created_at, events(id, title)")
+          .eq("user_id", user?.id)
+          .order("created_at", { ascending: false })
+          .limit(5),
+        supabase
+          .from("club_members")
+          .select("id, created_at, clubs(name)")
+          .eq("user_id", user?.id)
+          .eq("status", "approved")
+          .order("created_at", { ascending: false })
+          .limit(5),
+      ]);
+
+      const posts: ActivityItem[] = (postsRes.data || []).map((p: ActivityPostRow) => {
+        const club = Array.isArray(p.clubs) ? p.clubs[0] : p.clubs;
+        return {
+          id: `post-${p.id}`,
+          type: "post",
+          description: club?.name ? `You posted in ${club.name}` : "You made a post",
+          created_at: p.created_at,
+        };
+      });
+
+      const rsvps: ActivityItem[] = (rsvpsRes.data || []).map((r: ActivityRsvpRow) => {
+        const event = Array.isArray(r.events) ? r.events[0] : r.events;
+        return {
+          id: `rsvp-${r.id}`,
+          type: "rsvp",
+          description: event?.title ? `You RSVP'd to ${event.title}` : "You RSVP'd to an event",
+          created_at: r.created_at,
+        };
+      });
+
+      const clubJoins: ActivityItem[] = (membersRes.data || []).map((m: ActivityClubMemberRow) => {
+        const club = Array.isArray(m.clubs) ? m.clubs[0] : m.clubs;
+        return {
+          id: `club-${m.id}`,
+          type: "club_join",
+          description: club?.name ? `You joined ${club.name}` : "You joined a club",
+          created_at: m.created_at,
+        };
+      });
+
+      return [...posts, ...rsvps, ...clubJoins]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 5);
+    },
+    enabled: !!user?.id,
+  });
+
   const colors = ["bg-lime", "bg-sky", "bg-peach"];
+
+  const isAnalyticsLoading =
+    isTrendingLoading || isClubsLoading || isUpcomingLoading || isSavedLoading || isActivityLoading;
 
   if (!user) return null;
 
@@ -307,12 +511,20 @@ export default function DashboardOverview() {
         </div>
       )}
 
+      <AnalyticsLoadProgress isLoading={isAnalyticsLoading} />
+
       <div className="lg:col-span-3">
-        <TrendingCarousel clubs={trendingClubs} />
+        {isTrendingLoading ? (
+          <TrendingCarouselSkeleton />
+        ) : (
+          <TrendingCarousel clubs={trendingClubs} />
+        )}
       </div>
 
       <Widget title="Upcoming events" cta={{ label: "All events", to: "/events" }}>
-        {upcomingEvents.length === 0 ? (
+        {isUpcomingLoading ? (
+          <WidgetListSkeleton rows={3} />
+        ) : upcomingEvents.length === 0 ? (
           <p className="py-4 font-mono text-sm text-gray-500 dark:text-gray-300">
             No upcoming events yet.
           </p>
@@ -347,7 +559,9 @@ export default function DashboardOverview() {
       </Widget>
 
       <Widget title="Saved events" cta={{ label: "Explore", to: "/events" }}>
-        {savedEvents.length === 0 ? (
+        {isSavedLoading ? (
+          <WidgetListSkeleton rows={3} />
+        ) : savedEvents.length === 0 ? (
           <p className="py-4 font-mono text-sm text-gray-500 dark:text-gray-300">
             No saved events yet.
           </p>
@@ -382,7 +596,9 @@ export default function DashboardOverview() {
       </Widget>
 
       <Widget title="Your clubs" cta={{ label: "Directory", to: "/clubs" }}>
-        {userClubs.length === 0 ? (
+        {isClubsLoading ? (
+          <WidgetListSkeleton rows={3} />
+        ) : userClubs.length === 0 ? (
           <p className="font-mono text-sm text-gray-500 dark:text-gray-300">
             You haven't joined any clubs yet.
           </p>
@@ -412,12 +628,34 @@ export default function DashboardOverview() {
       </Widget>
 
       <Widget title="Recent activity" className="lg:col-span-3">
-        <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
-          <li className="flex items-start gap-2">
-            <span className="mt-2 inline-block h-2 w-2 shrink-0 bg-black" />
-            No recent activity fetched yet.
-          </li>
-        </ul>
+        {isActivityLoading ? (
+          <WidgetListSkeleton rows={4} />
+        ) : recentActivity.length === 0 ? (
+          <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
+            <li className="flex items-start gap-2">
+              <span className="mt-2 inline-block h-2 w-2 shrink-0 bg-black" />
+              No recent activity yet.
+            </li>
+          </ul>
+        ) : (
+          <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
+            {recentActivity.map((item) => {
+              const Icon =
+                item.type === "rsvp" ? Calendar : item.type === "post" ? MessageCircle : Users;
+              return (
+                <li key={item.id} className="flex items-start gap-2">
+                  <Icon className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    {item.description}
+                    <span className="ml-2 text-black/50">
+                      {formatRelativeActivityTime(item.created_at)}
+                    </span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </Widget>
     </div>
   );

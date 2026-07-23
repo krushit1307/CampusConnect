@@ -8,24 +8,45 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
 import { toast } from "sonner";
+import EventSharePanel from "@/components/events/EventSharePanel";
 import {
   ArrowLeft,
-  Calendar,
   Check,
   Copy,
   Download,
   Link as LinkIcon,
   MapPin,
   MapPinOff,
-  Share2,
   Users,
+  Star,
+  Calendar,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { parseCoordinates } from "@/lib/eventUtils";
+import { EventFeedbackForm } from "@/components/EventFeedbackForm";
 import { EventMap } from "@/components/EventMap";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 function rsvpRowsToCsv(rows: { name: string; email: string; rsvp_date: string; status: string }[]) {
   const headers = ["User Name", "Email", "RSVP Date", "Status"];
@@ -60,6 +81,9 @@ export default function EventDetailsPage() {
   const [copied, setCopied] = useState(false);
   const [idCopied, setIdCopied] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackRating, setFeedbackRating] = useState(0);
+  const [feedbackComment, setFeedbackComment] = useState("");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -78,8 +102,9 @@ export default function EventDetailsPage() {
           `
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by, max_attendees,
           clubs (name, slug),
-          event_rsvps (id, user_id),
-          event_waitlist (id, user_id, created_at)
+          event_rsvps (id, user_id, checked_in),
+          event_waitlist (id, user_id, created_at),
+          event_feedbacks (id, user_id)
         `,
         )
         .eq("id", eventId)
@@ -135,8 +160,10 @@ export default function EventDetailsPage() {
                       : "music-society",
               },
             ],
-            event_rsvps: eventId === "mock-1" ? [{ id: "rsvp-1", user_id: "user-1" }] : [],
+            event_rsvps:
+              eventId === "mock-1" ? [{ id: "rsvp-1", user_id: "user-1", checked_in: true }] : [],
             event_waitlist: [] as { id: string; user_id: string; created_at: string }[],
+            event_feedbacks: [] as { id: string; user_id: string }[],
             attendee_count: eventId === "mock-1" ? 1 : 0,
           };
         }
@@ -232,6 +259,33 @@ export default function EventDetailsPage() {
     },
   });
 
+  const submitFeedback = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Please log in to submit feedback");
+      if (feedbackRating === 0) throw new Error("Please select a rating");
+      if (eventId.startsWith("mock-")) return;
+
+      const { error } = await supabase.from("event_feedbacks").insert({
+        event_id: eventId,
+        user_id: user.id,
+        rating: feedbackRating,
+        comment: feedbackComment.trim() || null,
+      });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Thank you for your feedback!");
+      setFeedbackOpen(false);
+      setFeedbackRating(0);
+      setFeedbackComment("");
+      refetch();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to submit feedback. Please try again.");
+    },
+  });
+
   const isOrganizer = user && event?.created_by === user.id;
 
   if (isLoading) {
@@ -262,6 +316,16 @@ export default function EventDetailsPage() {
 
   const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
   const hasRsvpd = user ? rsvps.some((r) => r.user_id === user.id) : false;
+  // Feedback specific conditions
+  const isCheckedIn = user
+    ? rsvps.some(
+        (r: { user_id: string; checked_in?: boolean }) => r.user_id === user.id && r.checked_in,
+      )
+    : false;
+  const hasEnded = event.end_date ? new Date() > new Date(event.end_date) : false;
+  const rawFeedbacks = (event as Record<string, unknown>).event_feedbacks;
+  const hasSubmittedFeedback =
+    user && Array.isArray(rawFeedbacks) ? rawFeedbacks.some((f) => f.user_id === user.id) : false;
 
   const rawWaitlist = (event as Record<string, unknown>).event_waitlist;
   const waitlist = Array.isArray(rawWaitlist)
@@ -342,15 +406,42 @@ export default function EventDetailsPage() {
 
   return (
     <SiteShell>
-      {/* Top navigation header */}
-      <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6">
+      {/* Breadcrumb nav — replaces the old back-link bar */}
+      <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6" aria-label="Breadcrumb">
         <div className="mx-auto max-w-4xl">
+          {/* Mobile: simple back link */}
           <Link
             to="/events"
-            className="inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider hover:underline"
+            className="inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider hover:underline sm:hidden"
           >
-            <ArrowLeft size={14} /> Back to Events
+            <ArrowLeft size={14} /> Events
           </Link>
+          {/* sm+: full breadcrumb */}
+          <Breadcrumb className="hidden sm:block">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to="/" className="font-mono text-xs font-bold uppercase">
+                    Home
+                  </Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to="/events" className="font-mono text-xs font-bold uppercase">
+                    Events
+                  </Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="font-mono text-xs font-bold uppercase">
+                  {event.title}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
         </div>
       </nav>
 
@@ -368,13 +459,13 @@ export default function EventDetailsPage() {
               sizes="100vw"
               priority
               fallback={
-                <div className="h-full w-full bg-gradient-to-br from-peach via-pink-200 to-lime/40" />
+                <div className="h-full w-full bg-linear-to-br from-peach via-pink-200 to-lime/40" />
               }
             />
             <div className="absolute inset-0 bg-black/50" />
           </div>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-peach via-pink-200 to-lime/40" />
+          <div className="absolute inset-0 bg-linear-to-br from-peach via-pink-200 to-lime/40" />
         )}
 
         <div className="relative mx-auto flex min-h-[50vh] max-w-4xl flex-col justify-end px-4 py-16 md:min-h-[60vh] md:px-6 md:py-24">
@@ -390,6 +481,7 @@ export default function EventDetailsPage() {
             >
               {event.title}
             </h1>
+            <EventSharePanel title={event.title} />
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -397,7 +489,7 @@ export default function EventDetailsPage() {
                     onClick={handleCopyEventId}
                     variant="outline"
                     size="icon"
-                    className="neu-border h-8 w-8 shrink-0 bg-white text-black transition-all duration-300 hover:scale-105 active:scale-95"
+                    className="neu-border rounded-2xl h-8 w-8 shrink-0 bg-black text-white transition-all duration-300 hover:scale-105 active:scale-95"
                     aria-label="Copy Event ID"
                   >
                     {idCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -440,16 +532,17 @@ export default function EventDetailsPage() {
 
           <div className="mt-8 hidden items-center gap-4 md:flex">
             {hasRsvpd ? (
-              <button
+              <Button
                 onClick={handleRsvpClick}
                 disabled={toggleRsvp.isPending}
-                className="neu-border bg-lime px-8 py-4 font-mono text-base font-bold uppercase tracking-wider text-black transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                variant="secondary"
+                size="lg"
               >
                 {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
-              </button>
+              </Button>
             ) : isAtCapacity ? (
               <div className="flex flex-col gap-1">
-                <button
+                <Button
                   onClick={() => {
                     if (!user) {
                       toast.error("Please log in to join the waitlist");
@@ -462,16 +555,15 @@ export default function EventDetailsPage() {
                     toggleWaitlist.mutate({ isOnWaitlist });
                   }}
                   disabled={toggleWaitlist.isPending}
-                  className={`neu-border px-8 py-4 font-mono text-base font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
-                    isOnWaitlist ? "bg-amber-300 text-black" : "bg-black text-cream"
-                  }`}
+                  variant={isOnWaitlist ? "secondary" : "primary"}
+                  size="lg"
                 >
                   {toggleWaitlist.isPending
                     ? "Updating..."
                     : isOnWaitlist
                       ? "On Waitlist ✓"
                       : "Join Waitlist"}
-                </button>
+                </Button>
                 {isOnWaitlist && waitlistPosition > 0 && (
                   <span
                     className={`font-mono text-xs font-bold ${event.banner_url ? "text-white" : "text-black"}`}
@@ -481,13 +573,14 @@ export default function EventDetailsPage() {
                 )}
               </div>
             ) : (
-              <button
+              <Button
                 onClick={handleRsvpClick}
                 disabled={toggleRsvp.isPending}
-                className="neu-border bg-black px-8 py-4 font-mono text-base font-bold uppercase tracking-wider text-cream transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                variant="primary"
+                size="lg"
               >
                 {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
-              </button>
+              </Button>
             )}
             <span
               className={`font-mono text-sm font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
@@ -543,11 +636,77 @@ export default function EventDetailsPage() {
                 href={googleCalendarUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="neu-border flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                className="neu-border bg-white h-12 px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
               >
-                <Calendar aria-hidden="true" size={14} strokeWidth={3} />
-                Add to Google Calendar
+                <Calendar aria-hidden="true" size={16} strokeWidth={2.5} />
+                Add to Calendar
               </a>
+            )}
+
+            {isCheckedIn && hasEnded && (
+              <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    disabled={hasSubmittedFeedback}
+                    variant="primary"
+                    className="neu-border neu-press h-12 px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                  >
+                    <Star className="mr-2 h-4 w-4" />
+                    {hasSubmittedFeedback ? "Feedback Submitted \u2713" : "Submit Feedback"}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md neu-border">
+                  <DialogHeader>
+                    <DialogTitle className="font-display font-bold uppercase text-xl text-blue-900">
+                      Event Feedback
+                    </DialogTitle>
+                    <DialogDescription className="font-mono text-sm">
+                      How was {event.title}? Share your experience!
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="flex flex-col gap-6 py-4">
+                    <div className="flex flex-col items-center gap-3">
+                      <Label className="font-mono font-bold">Rating</Label>
+                      <div className="flex items-center gap-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setFeedbackRating(star)}
+                            className="focus:outline-none transition-transform hover:scale-110 active:scale-95"
+                          >
+                            <Star
+                              className={`h-8 w-8 ${feedbackRating >= star ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="comment" className="font-mono font-bold">
+                        Comment (Optional)
+                      </Label>
+                      <Textarea
+                        id="comment"
+                        placeholder="Tell us what you liked or what could be improved..."
+                        className="neu-border font-mono text-sm min-h-25"
+                        value={feedbackComment}
+                        onChange={(e) => setFeedbackComment(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      onClick={() => submitFeedback.mutate()}
+                      disabled={submitFeedback.isPending || feedbackRating === 0}
+                      variant="primary"
+                      className="font-mono font-bold uppercase w-full sm:w-auto"
+                    >
+                      {submitFeedback.isPending ? "Submitting..." : "Submit Feedback"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             )}
           </div>
 
@@ -594,7 +753,7 @@ export default function EventDetailsPage() {
                 </>
               ) : coordsCheck.isCoordinates && !coordsCheck.isValid ? (
                 <div className="neu-border mt-4 flex items-start gap-4 bg-peach/20 p-5">
-                  <div className="shrink-0 rounded-none border-2 border-black bg-white p-2 text-[#e53935]">
+                  <div className="shrink-0 rounded-none border-2 border-black bg-white p-2 text-destructive">
                     <MapPinOff className="h-6 w-6" />
                   </div>
                   <div>
@@ -629,6 +788,16 @@ export default function EventDetailsPage() {
             </div>
           )}
 
+          {/* Event Feedback (Only if ended and user RSVP'd) */}
+          {user &&
+            hasRsvpd &&
+            event.end_date &&
+            new Date(event.end_date).getTime() < Date.now() && (
+              <div className="mt-10">
+                <EventFeedbackForm eventId={event.id} user={user} />
+              </div>
+            )}
+
           {/* Social Share Buttons */}
           <div className="mt-10 border-t-2 border-black pt-6">
             <h3 className="font-mono text-xs font-bold uppercase text-blue-900">
@@ -639,7 +808,7 @@ export default function EventDetailsPage() {
                 href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-[#1DA1F2] hover:text-white transition-colors text-black"
+                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-twitter hover:text-white transition-colors text-black"
               >
                 Twitter
               </a>
@@ -647,7 +816,7 @@ export default function EventDetailsPage() {
                 href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-[#0A66C2] hover:text-white transition-colors text-black"
+                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-linkedin hover:text-white transition-colors text-black"
               >
                 LinkedIn
               </a>
@@ -656,7 +825,7 @@ export default function EventDetailsPage() {
                 target="_blank"
                 rel="noopener noreferrer"
 
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-[#25D366] hover:text-white transition-colors text-black"
+                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-whatsapp hover:text-white transition-colors text-black"
               >
                 WhatsApp
               </a>
@@ -678,15 +847,11 @@ export default function EventDetailsPage() {
           )}
         </div>
         {hasRsvpd ? (
-          <button
-            onClick={handleRsvpClick}
-            disabled={toggleRsvp.isPending}
-            className="neu-border bg-lime px-6 py-3 font-mono text-sm font-bold uppercase tracking-wider text-black transition-all duration-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Button onClick={handleRsvpClick} disabled={toggleRsvp.isPending} variant="secondary">
             {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
-          </button>
+          </Button>
         ) : isAtCapacity ? (
-          <button
+          <Button
             onClick={() => {
               if (!user) {
                 toast.error("Please log in to join waitlist");
@@ -695,24 +860,18 @@ export default function EventDetailsPage() {
               toggleWaitlist.mutate({ isOnWaitlist });
             }}
             disabled={toggleWaitlist.isPending}
-            className={`neu-border px-6 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
-              isOnWaitlist ? "bg-amber-300 text-black" : "bg-black text-cream"
-            }`}
+            variant={isOnWaitlist ? "secondary" : "primary"}
           >
             {toggleWaitlist.isPending
               ? "Updating..."
               : isOnWaitlist
                 ? "On Waitlist ✓"
                 : "Join Waitlist"}
-          </button>
+          </Button>
         ) : (
-          <button
-            onClick={handleRsvpClick}
-            disabled={toggleRsvp.isPending}
-            className="neu-border bg-black px-6 py-3 font-mono text-sm font-bold uppercase tracking-wider text-cream transition-all duration-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Button onClick={handleRsvpClick} disabled={toggleRsvp.isPending} variant="primary">
             {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
-          </button>
+          </Button>
         )}
       </div>
 

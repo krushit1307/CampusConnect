@@ -3,9 +3,6 @@ export const AUTOMATION = Object.freeze({
   metadataStart: "<!-- cc:metadata:start -->",
   metadataEnd: "<!-- cc:metadata:end -->",
   markerPrefix: "cc",
-  reminder12Marker: "cc:reminder-12h",
-  reminder18Marker: "cc:reminder-18h",
-  expiredMarker: "cc:claim-expired",
   claimWelcomeMarker: "cc:claim-welcome",
   assignmentWelcomeMarker: "cc:manual-assignment-welcome",
   prChecklistMarker: "cc:pr-checklist",
@@ -21,14 +18,8 @@ export const COMMANDS = Object.freeze({
 });
 
 export const LIMITS = Object.freeze({
-  maxActiveAssignedIssues: 7,
+  maxActiveAssignedIssues: 10,
   guidanceCooldownHours: 12,
-});
-
-export const TIMERS = Object.freeze({
-  reminder12Hours: 24,
-  reminder18Hours: 48,
-  expirationHours: 72,
 });
 
 export const IGNORE_BOTS = Object.freeze([
