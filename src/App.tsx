@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import {
   createBrowserRouter,
   RouterProvider,
@@ -8,26 +9,87 @@ import {
 // Layout & Components
 import Layout from "./components/Layout";
 import { ErrorBoundary, RouteErrorBoundary } from "./components/ErrorBoundary";
+
 // Pages
 import Index from "./routes/index";
 import Auth from "./routes/auth";
 import Certificates from "./routes/certificates";
 import ClubsIndex from "./routes/clubs.index";
 import ClubDetails from "./routes/clubs.$slug";
-import ClubManageRoute from "./routes/clubs.$slug.manage";
 import ClubsLayout from "./routes/clubs";
 import Dashboard from "./routes/dashboard";
 import DashboardOverview from "./routes/dashboard.index";
 import DashboardRsvps from "./routes/dashboard.rsvps";
 import DashboardBookmarks from "./routes/dashboard.bookmarks";
 import DashboardCalendar from "./routes/dashboard.calendar";
-import EventsIndex from "./routes/events";
-import EventDetails from "./routes/events.$eventId";
 import Feed from "./routes/feed";
 import ForgotPassword from "./routes/forgot-password";
 import ResetPassword from "./routes/reset-password";
 import Settings from "./routes/settings";
 import PendingClubsAdmin from "./routes/admin.clubs.pending";
+
+// ---------------------------------------------------------------------------
+// Micro-frontend: Events remote (loaded dynamically from Module Federation)
+// Falls back to local static imports when the remote is unavailable.
+// ---------------------------------------------------------------------------
+
+type EventsModule = {
+  EventsPage: React.ComponentType;
+  EventDetailsPage: React.ComponentType;
+};
+
+let eventsModulePromise: Promise<EventsModule> | null = null;
+
+async function loadEventsRemote(): Promise<EventsModule> {
+  if (!eventsModulePromise) {
+    eventsModulePromise = (async () => {
+      try {
+        const mod = await import("eventsApp/remoteEntry");
+        return {
+          EventsPage: mod.EventsPage,
+          EventDetailsPage: mod.EventDetailsPage,
+        };
+      } catch (err) {
+        console.warn("[Host] Events remote unavailable, falling back to local modules:", err);
+        const [eventsMod, eventDetailsMod] = await Promise.all([
+          import("./routes/events"),
+          import("./routes/events.$eventId"),
+        ]);
+        return {
+          EventsPage: eventsMod.default,
+          EventDetailsPage: eventDetailsMod.default,
+        };
+      }
+    })();
+  }
+  return eventsModulePromise;
+}
+
+const LazyEventsIndex = lazy(() => loadEventsRemote().then((m) => ({ default: m.EventsPage })));
+const LazyEventDetails = lazy(() =>
+  loadEventsRemote().then((m) => ({ default: m.EventDetailsPage })),
+);
+
+function RemoteLoadingScreen() {
+  return (
+    <div
+      style={{
+        minHeight: "40vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "Inter, system-ui, sans-serif",
+        fontWeight: 800,
+        fontSize: "1rem",
+        color: "#555",
+      }}
+    >
+      Loading Events…
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -48,10 +110,23 @@ const router = createBrowserRouter(
         <Route path="calendar" element={<DashboardCalendar />} />
       </Route>
 
-      <Route path="/events">
-        <Route index element={<EventsIndex />} />
-        <Route path=":eventId" element={<EventDetails />} />
-      </Route>
+      {/* Events — loaded from remote micro-frontend when available */}
+      <Route
+        path="/events"
+        element={
+          <Suspense fallback={<RemoteLoadingScreen />}>
+            <LazyEventsIndex />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/events/:eventId"
+        element={
+          <Suspense fallback={<RemoteLoadingScreen />}>
+            <LazyEventDetails />
+          </Suspense>
+        }
+      />
 
       <Route path="/feed" element={<Feed />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />

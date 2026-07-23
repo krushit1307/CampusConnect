@@ -13,9 +13,10 @@ export default defineConfig({
     viteReact(),
     tailwindcss(),
     federation({
-      name: "host",
-      remotes: {
-        eventsApp: "http://localhost:4174/remoteEntry.js",
+      name: "eventsApp",
+      filename: "remoteEntry.js",
+      exposes: {
+        "./remoteEntry": "./src/micro-frontends/events/remoteEntry.ts",
       },
       shared: {
         react: {
@@ -40,18 +41,6 @@ export default defineConfig({
   },
   build: {
     target: "esnext",
-    chunkSizeWarningLimit: 1000,
-    rolldownOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes("node_modules")) {
-            if (id.includes("react") || id.includes("react-dom")) {
-              return "vendor-react";
-            }
-            return "vendor";
-          }
-        },
-      },
-    },
+    outDir: "dist-events",
   },
 });
