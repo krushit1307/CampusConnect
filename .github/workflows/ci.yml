@@ -17,12 +17,12 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "22.13.0"
           cache: "npm"
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Verify Code Formatting
         run: |
@@ -45,15 +45,30 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "22.13.0"
           cache: "npm"
           cache-dependency-path: package-lock.json
 
       - name: Install client dependencies
-        run: npm ci
+        run: npm install
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build WebAssembly module
+        working-directory: wasm/image-compressor
+        run: wasm-pack build --target web
 
       - name: Run Lint checks
         run: npm run lint
+
+      - name: Run Type Check
+        run: npm run typecheck
 
   prettier:
     name: Prettier Check
@@ -65,12 +80,12 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "22.13.0"
           cache: "npm"
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Verify Prettier Check
         run: |
@@ -98,7 +113,45 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install client dependencies
-        run: npm ci
+        run: npm install
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build WebAssembly module
+        working-directory: wasm/image-compressor
+        run: wasm-pack build --target web
 
       - name: Verify Production Build
         run: npm run build
+
+  db-migrations:
+    name: Verify Database Migrations
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+
+      - name: Copy CI Supabase config
+        run: cp supabase/config.ci.toml supabase/config.toml
+
+      - name: Start local Supabase
+        run: supabase start
+
+      - name: Verify database migrations
+        run: supabase db reset
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop || true

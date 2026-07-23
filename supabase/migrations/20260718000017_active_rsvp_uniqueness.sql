@@ -1,22 +1,13 @@
 -- ============================================================
 -- Migration: 20260718000017_active_rsvp_uniqueness.sql
 -- Description:
--- Creates a partial unique index on the event_rsvps table to
--- enforce uniqueness of (event_id, user_id) only when status is active.
+-- The event_rsvps table already enforces UNIQUE(event_id, user_id)
+-- via the table definition in 001_initial_schema.sql.
+--
+-- The previous implementation referenced a non-existent `status`
+-- column, which causes migration verification to fail.
+--
+-- No additional partial index is required for the current schema.
 -- ============================================================
 
--- ------------------------------------------------------------
--- Drop existing partial index if it exists
--- ------------------------------------------------------------
 DROP INDEX IF EXISTS idx_event_rsvps_active_uniqueness;
-
--- ------------------------------------------------------------
--- Create partial unique index
--- ------------------------------------------------------------
-CREATE UNIQUE INDEX idx_event_rsvps_active_uniqueness
-ON event_rsvps (event_id, user_id)
-WHERE status = 'active';
-
--- ------------------------------------------------------------
--- End of migration
--- ------------------------------------------------------------

@@ -4,7 +4,9 @@ import {
   isEndAfterStart,
   isPastDate,
   formatEventDateRange,
+  parseCoordinates,
   TITLE_MAX_LENGTH,
+  matchesDateFilter,
 } from "./eventUtils";
 
 // ---------------------------------------------------------------------------
@@ -165,5 +167,191 @@ describe("formatEventDateRange", () => {
     const result = formatEventDateRange("2026-07-11T09:00:00Z", "2026-07-11T11:00:00Z");
     expect(result).toContain(" at ");
     expect(result).toContain(" – ");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseCoordinates
+// ---------------------------------------------------------------------------
+describe("parseCoordinates", () => {
+  it("identifies valid coordinates", () => {
+    const result = parseCoordinates("28.7041, 77.1025");
+    expect(result.isCoordinates).toBe(true);
+    expect(result.isValid).toBe(true);
+    expect(result.lat).toBe(28.7041);
+    expect(result.lng).toBe(77.1025);
+  });
+
+  it("identifies negative coordinates", () => {
+    const result = parseCoordinates("-33.8688, 151.2093");
+    expect(result.isCoordinates).toBe(true);
+    expect(result.isValid).toBe(true);
+    expect(result.lat).toBe(-33.8688);
+    expect(result.lng).toBe(151.2093);
+  });
+
+  it("identifies invalid latitude (out of bounds)", () => {
+    const result = parseCoordinates("95.1234, 77.1025");
+    expect(result.isCoordinates).toBe(true);
+    expect(result.isValid).toBe(false);
+  });
+
+  it("identifies invalid longitude (out of bounds)", () => {
+    const result = parseCoordinates("28.7041, -195.1234");
+    expect(result.isCoordinates).toBe(true);
+    expect(result.isValid).toBe(false);
+  });
+
+  it("identifies coordinate-like inputs with alphabetic chars as coordinates and invalid", () => {
+    const result = parseCoordinates("28.7041, abc");
+    expect(result.isCoordinates).toBe(true);
+    expect(result.isValid).toBe(false);
+  });
+
+  it("treats plain address strings as not coordinates (and valid)", () => {
+    const result = parseCoordinates("Main Auditorium, IIT Bombay");
+    expect(result.isCoordinates).toBe(false);
+    expect(result.isValid).toBe(true);
+  });
+
+  it("treats online event string as not coordinates (and valid)", () => {
+    const result = parseCoordinates("online");
+    expect(result.isCoordinates).toBe(false);
+    expect(result.isValid).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// matchesDateFilter
+// ---------------------------------------------------------------------------
+describe("matchesDateFilter", () => {
+  const FIXED_NOW = new Date(2026, 6, 23, 12, 0, 0); // July 23, 2026 12:00 local time (Thursday)
+
+  it("returns true for 'all' filter regardless of date", () => {
+    expect(matchesDateFilter(new Date(2020, 0, 1).toISOString(), "all", undefined, FIXED_NOW)).toBe(
+      true,
+    );
+    expect(matchesDateFilter(null, "all", undefined, FIXED_NOW)).toBe(true);
+  });
+
+  it("returns false if date is missing and filter is not 'all'", () => {
+    expect(matchesDateFilter(null, "this-week", undefined, FIXED_NOW)).toBe(false);
+  });
+
+  it("matches 'this-week' correctly", () => {
+    // start of week (Sunday) is July 19, end of week (Saturday) is July 25
+    expect(
+      matchesDateFilter(
+        new Date(2026, 6, 20, 12, 0).toISOString(),
+        "this-week",
+        undefined,
+        FIXED_NOW,
+      ),
+    ).toBe(true);
+    expect(
+      matchesDateFilter(
+        new Date(2026, 6, 18, 12, 0).toISOString(),
+        "this-week",
+        undefined,
+        FIXED_NOW,
+      ),
+    ).toBe(false); // Last week
+    expect(
+      matchesDateFilter(
+        new Date(2026, 6, 26, 12, 0).toISOString(),
+        "this-week",
+        undefined,
+        FIXED_NOW,
+      ),
+    ).toBe(false); // Next week
+  });
+
+  it("matches 'next-month' correctly", () => {
+    // Next month is August 2026
+    expect(
+      matchesDateFilter(
+        new Date(2026, 7, 1, 12, 0).toISOString(),
+        "next-month",
+        undefined,
+        FIXED_NOW,
+      ),
+    ).toBe(true);
+    expect(
+      matchesDateFilter(
+        new Date(2026, 7, 31, 12, 0).toISOString(),
+        "next-month",
+        undefined,
+        FIXED_NOW,
+      ),
+    ).toBe(true);
+    expect(
+      matchesDateFilter(
+        new Date(2026, 6, 31, 23, 59).toISOString(),
+        "next-month",
+        undefined,
+        FIXED_NOW,
+      ),
+    ).toBe(false); // This month
+    expect(
+      matchesDateFilter(
+        new Date(2026, 8, 1, 0, 0).toISOString(),
+        "next-month",
+        undefined,
+        FIXED_NOW,
+      ),
+    ).toBe(false); // Two months later
+  });
+
+  it("matches 'specific' correctly", () => {
+    const specificDate = new Date(2026, 6, 25);
+    expect(
+      matchesDateFilter(
+        new Date(2026, 6, 25, 14, 30).toISOString(),
+        "specific",
+        specificDate,
+        FIXED_NOW,
+      ),
+    ).toBe(true);
+    expect(
+      matchesDateFilter(
+        new Date(2026, 6, 26, 14, 30).toISOString(),
+        "specific",
+        specificDate,
+        FIXED_NOW,
+      ),
+    ).toBe(false);
+  });
+
+  it("handles edge cases around month boundaries", () => {
+    const endOfMonthNow = new Date(2026, 6, 31, 23, 50); // July 31 23:50 local (Friday)
+
+    // "This week" on the last day of month
+    // Week is July 26 (Sun) - Aug 1 (Sat)
+    expect(
+      matchesDateFilter(
+        new Date(2026, 7, 1, 10, 0).toISOString(),
+        "this-week",
+        undefined,
+        endOfMonthNow,
+      ),
+    ).toBe(true);
+
+    // "Next month" from July 31 is August
+    expect(
+      matchesDateFilter(
+        new Date(2026, 7, 1, 0, 0).toISOString(),
+        "next-month",
+        undefined,
+        endOfMonthNow,
+      ),
+    ).toBe(true);
+    expect(
+      matchesDateFilter(
+        new Date(2026, 7, 31, 23, 59).toISOString(),
+        "next-month",
+        undefined,
+        endOfMonthNow,
+      ),
+    ).toBe(true);
   });
 });

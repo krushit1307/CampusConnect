@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { parse } from "https://deno.land/std@0.168.0/encoding/csv.ts";
-
+import { verifyAuth } from "../shared/auth-middleware.ts";
 // ---------------------------------------------------------------------------
 // CORS headers – allow the Supabase dashboard and any campus frontend
 // ---------------------------------------------------------------------------
@@ -113,31 +113,27 @@ serve(async (req: Request) => {
   // -------------------------------------------------------------------------
   // 1. Auth – verify the calling user
   // -------------------------------------------------------------------------
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    return new Response(JSON.stringify({ error: "Missing Authorization header" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+      // Service-role client for privileged inserts
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    );
 
-  // Service-role client for privileged inserts
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-  );
+    let user;
 
-  const token = authHeader.replace("Bearer ", "");
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser(token);
-
-  if (userError || !user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    try {
+      user = await verifyAuth(req, supabase);
+    } catch {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        {
+          status: 401,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        },
+      );
   }
 
   // -------------------------------------------------------------------------
@@ -226,8 +222,9 @@ serve(async (req: Request) => {
   let rawEmails: string[];
   try {
     rawEmails = parseEmailsFromCsv(csvText!);
-  } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message || "Failed to parse CSV." }), {
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : "Failed to parse CSV.";
+    return new Response(JSON.stringify({ error: errorMessage }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -261,7 +258,7 @@ serve(async (req: Request) => {
   const failed: string[] = [];
   const resolvedUsers: { user_id: string; email: string }[] = [];
 
-  const allUsers: any[] = [];
+  const allUsers: { id: string; email?: string }[] = [];
   let page = 1;
   const perPage = 1000;
   let hasMore = true;
@@ -329,7 +326,7 @@ serve(async (req: Request) => {
       );
     }
 
-    const existingProfileIds = new Set((existingProfiles || []).map((p: any) => p.id));
+    const existingProfileIds = new Set((existingProfiles || []).map((p: { id: string }) => p.id));
     for (const u of pendingResolved) {
       if (existingProfileIds.has(u.user_id)) {
         resolvedUsers.push(u);
