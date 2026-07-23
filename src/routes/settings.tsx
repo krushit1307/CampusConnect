@@ -9,6 +9,7 @@ import {
   type DragEvent,
   type KeyboardEvent,
 } from "react";
+import { useTheme } from "@/components/theme-provider";
 import { Camera, Loader2, UploadCloud, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
@@ -70,6 +71,7 @@ function useFontSize() {
 export default function SettingsPage() {
   const navigate = useNavigate();
   const supabase = createClient();
+  const { theme, setTheme } = useTheme();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -526,6 +528,48 @@ export default function SettingsPage() {
 
           <Panel title="Appearance">
             <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="eyebrow font-bold text-black dark:text-cream">Theme Mode</label>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setTheme("light")}
+                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${
+                      theme === "light"
+                        ? "bg-black text-cream dark:bg-cream dark:text-black"
+                        : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
+                    }`}
+                  >
+                    ☀️ Light
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTheme("dark")}
+                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${
+                      theme === "dark"
+                        ? "bg-black text-cream dark:bg-cream dark:text-black"
+                        : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
+                    }`}
+                  >
+                    🌙 Dark
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTheme("system")}
+                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${
+                      theme === "system"
+                        ? "bg-black text-cream dark:bg-cream dark:text-black"
+                        : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
+                    }`}
+                  >
+                    💻 System
+                  </button>
+                </div>
+                <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+                  Select your preferred color theme or match system settings
+                </p>
+              </div>
+
               <div className="space-y-2">
                 <label className="eyebrow font-bold">Border Thickness: {borderThickness}px</label>
                 <input
