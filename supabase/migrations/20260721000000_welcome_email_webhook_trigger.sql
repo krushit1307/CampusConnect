@@ -24,7 +24,7 @@ BEGIN
         'table', 'profiles',
         'record', jsonb_build_object(
             'id', NEW.id,
-            'full_name', NEW.full_name,
+            'full_name', TRIM(CONCAT(NEW.first_name, ' ', NEW.last_name)),
             'created_at', NEW.created_at
         )
     );
