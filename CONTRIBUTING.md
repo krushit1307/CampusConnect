@@ -30,11 +30,29 @@ Before you begin, make sure you have the following installed:
    npm install
    ```
 
-4. **Set Up Environment Variables**
-   Copy the example environment file and update it with your local or preview Supabase credentials.
+4. 4. **Set Up Environment Variables**
 
-   ```bash
-   cp .env.example .env.local
+CampusConnect uses environment variables to connect to your Supabase project. A template is provided in `.env.example`.
+
+1. Copy the example file:
+
+```bash
+cp .env.example .env.local
+```
+
+2. Open `.env.local` and replace the placeholder values with your own Supabase credentials.
+
+Required variables include:
+
+| Variable | Description |
+|----------|-------------|
+| `VITE_SUPABASE_URL` | Your Supabase project URL. |
+| `VITE_SUPABASE_ANON_KEY` | Your Supabase anonymous API key. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key (required only for server-side operations). |
+
+You can find these values in your Supabase dashboard under **Settings → API**.
+
+> **Important:** Never commit your `.env.local` file to GitHub because it contains sensitive credentials.
    ```
 
 5. **Start the Development Server**

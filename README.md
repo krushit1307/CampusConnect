@@ -146,6 +146,19 @@ erDiagram
         cp .env.example .env.local
         ```
      2. Fill in your remote hosted Supabase URL and Anon Key.
+     Required Environment Variables
+
+The `.env.example` file contains all the required environment variables for running the project.
+
+| Variable | Description |
+|----------|-------------|
+| `VITE_SUPABASE_URL` | Your Supabase project URL. You can find it in your Supabase project under **Settings → API**. |
+| `VITE_SUPABASE_ANON_KEY` | Your Supabase anonymous (public) API key, available under **Settings → API**. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key. Keep this value private and never commit it to Git. |
+
+ Open `.env.local` and replace the placeholder values with your own Supabase project credentials.
+> 
+**Important:** Do not commit your `.env.local` file. Only `.env.example` should be tracked in Git.
      3. Apply database migrations to your remote project:
         ```bash
         supabase db push
