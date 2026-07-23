@@ -2,7 +2,7 @@ name: "10 PR Status Monitor"
 
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
   workflow_run:
     workflows: ["CI Pipeline", "05 PR Validation", "PR Verification (Safe Merge Check)"]
     types: [completed]
@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Wait 5 minutes for all checks to register
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' && github.event.action != 'labeled'
         run: |
           echo "⏳ Waiting 5 minutes for all CI checks to spin up and register..."
           sleep 300
@@ -320,7 +320,7 @@ jobs:
               const state = (currentMergeableStateString || "").toLowerCase();
               console.log(`PR #${prNumber} mergeable_state: "${state}"`);
 
-              if (state === "clean" || state === "has_hooks" || state === "unstable" || state === "") {
+              if (state === "clean" || state === "has_hooks" || state === "unstable" || state === "" || state === "blocked") {
                 try {
                   console.log(`🚀 Auto-merging PR #${prNumber}...`);
                   await github.rest.pulls.merge({
