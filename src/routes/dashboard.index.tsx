@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import {
   Sparkles,
@@ -77,6 +77,92 @@ function formatRelativeActivityTime(dateString: string): string {
   if (Math.abs(diffMinutes) < 60) return rtf.format(diffMinutes, "minute");
   if (Math.abs(diffHours) < 24) return rtf.format(diffHours, "hour");
   return rtf.format(diffDays, "day");
+}
+
+// How long to wait before showing the progress bar at all. Queries that
+// resolve faster than this never trigger it — the widgets' own skeletons
+// (WidgetListSkeleton / TrendingCarouselSkeleton) cover that case instead.
+const PROGRESS_REVEAL_DELAY_MS = 250;
+
+const PROGRESS_SOFT_CEILING = 90;
+const PROGRESS_TICK_MS = 200;
+
+/**
+ * Page-load progress indicator for the dashboard's analytics-backed widgets
+ * (trending clubs, your clubs, upcoming/saved events, recent activity — all
+ * of which read from materialized/aggregated views that can be slow on a
+ * cold cache). Shows a neubrutalist percentage bar once loading has taken
+ * long enough to be noticeable, and snaps to 100% + fades out once real data
+ * has arrived. If the underlying queries resolve immediately, this never
+ * renders at all — the widgets' individual skeletons handle that case.
+ */
+function AnalyticsLoadProgress({ isLoading }: { isLoading: boolean }) {
+  const [visible, setVisible] = useState(false);
+  const [percent, setPercent] = useState(0);
+  const revealTimeoutRef = useRef<number | null>(null);
+  const tickIntervalRef = useRef<number | null>(null);
+  const hideTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const clearTimers = () => {
+      if (revealTimeoutRef.current) window.clearTimeout(revealTimeoutRef.current);
+      if (tickIntervalRef.current) window.clearInterval(tickIntervalRef.current);
+      if (hideTimeoutRef.current) window.clearTimeout(hideTimeoutRef.current);
+    };
+
+    if (isLoading) {
+      clearTimers();
+      revealTimeoutRef.current = window.setTimeout(() => {
+        setVisible(true);
+        setPercent((p) => (p === 0 ? 8 : p));
+
+        tickIntervalRef.current = window.setInterval(() => {
+          setPercent((p) => {
+            if (p >= PROGRESS_SOFT_CEILING) return p;
+            const remaining = PROGRESS_SOFT_CEILING - p;
+            // Ease-out: bigger steps early, smaller as we approach the ceiling.
+            const increment = Math.max(0.75, remaining * 0.12);
+            return Math.min(PROGRESS_SOFT_CEILING, p + increment);
+          });
+        }, PROGRESS_TICK_MS);
+      }, PROGRESS_REVEAL_DELAY_MS);
+    } else {
+      clearTimers();
+      setVisible((wasVisible) => {
+        if (wasVisible) {
+          setPercent(100);
+          hideTimeoutRef.current = window.setTimeout(() => {
+            setVisible(false);
+            setPercent(0);
+          }, 350);
+        }
+        return wasVisible;
+      });
+    }
+
+    return clearTimers;
+  }, [isLoading]);
+
+  if (!visible) return null;
+
+  return (
+    <div
+      className="lg:col-span-3 neu-border bg-white p-4 transition-opacity duration-300"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="mb-1.5 flex items-center justify-between font-mono text-xs font-bold uppercase text-black">
+        <span>Loading club analytics...</span>
+        <span>{Math.round(percent)}%</span>
+      </div>
+      <div className="h-4 w-full border-2 border-black bg-cream overflow-hidden">
+        <div
+          className="h-full bg-lime border-r-2 border-black transition-all duration-200 ease-out"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 export default function DashboardOverview() {
@@ -298,6 +384,9 @@ export default function DashboardOverview() {
 
   const colors = ["bg-lime", "bg-sky", "bg-peach"];
 
+  const isAnalyticsLoading =
+    isTrendingLoading || isClubsLoading || isUpcomingLoading || isSavedLoading || isActivityLoading;
+
   if (!user) return null;
 
   return (
@@ -421,6 +510,8 @@ export default function DashboardOverview() {
           </div>
         </div>
       )}
+
+      <AnalyticsLoadProgress isLoading={isAnalyticsLoading} />
 
       <div className="lg:col-span-3">
         {isTrendingLoading ? (
