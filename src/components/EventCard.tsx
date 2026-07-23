@@ -227,7 +227,7 @@ export function EventCard({
             aria-label={isSaved ? "Unsave event" : "Save event"}
           >
             <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
-          </button>
+          </BookmarkButton>
 
           <button
             type="button"
