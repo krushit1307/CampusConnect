@@ -243,6 +243,13 @@ export default function SettingsPage() {
     localStorage.setItem("border-radius", String(value));
   };
 
+  interface ProfileStats {
+    lastActivityAt?: string;
+    welcomeSource?: string;
+    processedClaimCommentIds?: number[];
+  }
+  const pStats = profile as typeof profile & ProfileStats;
+
   if (isProfileLoading && !profile) {
     return (
       <SiteShell>
@@ -509,49 +516,34 @@ export default function SettingsPage() {
             </Form>
           </Panel>
 
-          {/* --- NEW ACCOUNT STATISTICS PANEL --- */}
-          <Panel title="Account Statistics" tone="bg-blue-50">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-              <StatCard
-                label="Last Active"
-                value={
-                  profile?.lastActivityAt
-                    ? new Date(profile.lastActivityAt).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "N/A"
-                }
-              />
-              <StatCard
-                label="Welcome Sent"
-                value={
-                  profile?.welcomeSentAt
-                    ? new Date(profile.welcomeSentAt).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "N/A"
-                }
-              />
-              <StatCard label="Welcome Source" value={profile?.welcomeSource || "N/A"} />
-              <StatCard
-                label="Claims Processed"
-                value={profile?.processedClaimCommentIds?.length || 0}
-              />
-              <StatCard
-                label="Unclaims Processed"
-                value={profile?.processedUnclaimCommentIds?.length || 0}
-              />
+          {/* --- NEW COLORFUL STATS GRID --- */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="border-2 border-black bg-[#a3e635] p-5 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1">
+              <p className="font-mono text-xs font-bold uppercase text-black/70">Last Active</p>
+              <p className="mt-2 font-display text-xl font-bold text-black">
+                {pStats?.lastActivityAt
+                  ? new Date(pStats.lastActivityAt).toLocaleDateString()
+                  : "Just now"}
+              </p>
             </div>
-          </Panel>
-          {/* ---------------------------------- */}
+
+            <div className="border-2 border-black bg-[#fb923c] p-5 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1">
+              <p className="font-mono text-xs font-bold uppercase text-black/70">Welcome Status</p>
+              <p className="mt-2 font-display text-xl font-bold text-black">
+                {pStats?.welcomeSource ? `Via ${pStats.welcomeSource}` : "Pending"}
+              </p>
+            </div>
+
+            <div className="border-2 border-black bg-[#22d3ee] p-5 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1">
+              <p className="font-mono text-xs font-bold uppercase text-black/70">
+                Claims Processed
+              </p>
+              <p className="mt-2 font-display text-xl font-bold text-black">
+                {pStats?.processedClaimCommentIds?.length || 0}
+              </p>
+            </div>
+          </div>
+          {/* ------------------------------- */}
 
           <Panel title="Appearance">
             <div className="space-y-6">
@@ -980,14 +972,5 @@ function Toggle({ label, defaultChecked }: { label: string; defaultChecked?: boo
       <span className="font-mono text-sm">{label}</span>
       <input type="checkbox" defaultChecked={defaultChecked} className="h-5 w-5 accent-black" />
     </label>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="neu-border flex flex-col justify-center bg-lime/20 p-4 transition-transform hover:scale-[1.02]">
-      <p className="eyebrow text-xs font-bold text-gray-600 dark:text-gray-400">{label}</p>
-      <p className="mt-1 font-mono text-sm font-bold text-black break-words">{value}</p>
-    </div>
   );
 }
