@@ -515,9 +515,7 @@ export default function Feed() {
                 >
                   {userClubs.length === 0 && <option value="">No clubs joined</option>}
                   {userClubs.map((userClub) => {
-                    const club = Array.isArray(userClub.clubs)
-                      ? userClub.clubs[0]
-                      : userClub.clubs;
+                    const club = Array.isArray(userClub.clubs) ? userClub.clubs[0] : userClub.clubs;
 
                     return club ? (
                       <option key={club.id} value={club.id}>
