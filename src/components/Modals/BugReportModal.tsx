@@ -36,18 +36,48 @@ interface BugReportModalProps {
 }
 
 export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
+  const [category, setCategory] = useState("bug"); // NEW: Category state
   const [description, setDescription] = useState("");
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
 
+  // NEW: Dynamic text engine based on category
+  const contentMap: Record<
+    string,
+    { title: string; subtitle: string; label: string; placeholder: string }
+  > = {
+    bug: {
+      title: "Report a Bug",
+      subtitle: "Found something broken? Let us know and we'll fix it.",
+      label: "What went wrong?",
+      placeholder:
+        "Describe the bug — what happened, what you expected, and the steps to reproduce it.",
+    },
+    feature: {
+      title: "Request a Feature",
+      subtitle: "Have a great idea? We'd love to hear it.",
+      label: "Describe your feature",
+      placeholder:
+        "Describe how this feature would work and why it would be useful to the community.",
+    },
+    suggestion: {
+      title: "General Suggestion",
+      subtitle: "How can we improve your experience?",
+      label: "Your feedback",
+      placeholder: "Share your thoughts, ideas, or general feedback with us.",
+    },
+  };
+
+  const currentContent = contentMap[category];
+
   const submitReport = useMutation({
     mutationFn: async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) throw new Error("You must be logged in to report a bug.");
+      if (!user) throw new Error("You must be logged in to submit feedback.");
 
       let uploadedPath: string | null = null;
 
@@ -71,10 +101,12 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
           screenshotUrl = publicUrl;
         }
 
-        const { error: insertError } = await supabase.from("bug_reports").insert({
-          user_id: user.id,
-          description: description.trim(),
-          screenshot_url: screenshotUrl,
+        const { error: insertError } = await supabase.functions.invoke("submit-bug-report", {
+          body: {
+            category,
+            description: description.trim(),
+            screenshot_url: screenshotUrl,
+          },
         });
         if (insertError) throw new Error(insertError.message);
       } catch (err) {
@@ -89,17 +121,18 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
       }
     },
     onSuccess: () => {
-      toast.success("Bug report submitted. Thank you!");
+      toast.success("Feedback submitted. Thank you!");
       resetForm();
       onOpenChange(false);
     },
     onError: (error: Error) => {
       console.error("[BugReportModal] Submit failed:", error);
-      toast.error(error.message || "Failed to submit bug report. Please try again.");
+      toast.error(error.message || "Failed to submit report. Please try again.");
     },
   });
 
   function resetForm() {
+    setCategory("bug");
     setDescription("");
     setScreenshot(null);
     setPreviewDataUrl(null);
@@ -149,26 +182,41 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
           type="button"
           className="font-mono text-[10px] font-bold uppercase tracking-widest text-black underline-offset-4 hover:underline"
         >
-          Report Bug
+          Feedback
         </button>
       </DialogTrigger>
 
       <DialogContent className="neu-border neu-shadow bg-violet-500 sm:max-w-lg text-black">
         <DialogHeader>
-          <DialogTitle className="text-blue-900">Report a Bug</DialogTitle>
-          <DialogDescription className="text-black">
-            Found something broken? Let us know and we&apos;ll fix it.
-          </DialogDescription>
+          <DialogTitle className="text-blue-900">{currentContent.title}</DialogTitle>
+          <DialogDescription className="text-black">{currentContent.subtitle}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* NEW: Category Dropdown */}
+          <div className="space-y-2">
+            <Label htmlFor="feedback-category" className="text-red-900">
+              Feedback Type
+            </Label>
+            <select
+              id="feedback-category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <option value="bug">🐛 Report a Bug</option>
+              <option value="feature">💡 Request a Feature</option>
+              <option value="suggestion">💭 General Suggestion</option>
+            </select>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="bug-description" className="text-red-900">
-              What went wrong?
+              {currentContent.label}
             </Label>
             <Textarea
               id="bug-description"
-              placeholder="Describe the bug — what happened, what you expected, and the steps to reproduce it."
+              placeholder={currentContent.placeholder}
               rows={5}
               maxLength={MAX_DESCRIPTION_LENGTH}
               value={description}
@@ -211,12 +259,11 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
                 />
                 <Button
                   type="button"
-                  variant="outline"
                   onClick={() => fileInputRef.current?.click()}
-                  className="bg-white"
+                  className="bg-white cursor-pointer text-black font-bold uppercase border-2 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:bg-gray-50 hover:text-black hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] transition-all"
                 >
-                  <ImagePlus className="h-4 w-4" />
-                  Upload Screenshot
+                  <ImagePlus className="h-4 w-4 mr-2" />
+                  UPLOAD SCREENSHOT
                 </Button>
               </div>
             )}
@@ -228,16 +275,16 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
             type="button"
             onClick={() => submitReport.mutate()}
             disabled={!canSubmit}
-            className="w-full sm:w-auto"
+            className="w-full cursor-pointer sm:w-auto bg-black text-white font-bold uppercase border-2 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:bg-gray-800 hover:text-white hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_rgba(0,0,0,1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0_0_rgba(0,0,0,1)]"
           >
             {submitReport.isPending ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 Submitting...
               </>
             ) : (
               <>
-                <Send className="h-4 w-4" />
+                <Send className="h-4 w-4 mr-2" />
                 Submit Report
               </>
             )}
