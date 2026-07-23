@@ -395,7 +395,9 @@ export default function ClubProfile() {
                   disabled={leaveMutation.isPending}
                   className="neu-border neu-press inline-flex items-center gap-2 bg-gray-200 px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-red-100 disabled:opacity-50"
                 >
-                  {leaveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  {leaveMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : null}
                   Leave Club
                 </button>
               ) : membership?.status === "pending" ? (
