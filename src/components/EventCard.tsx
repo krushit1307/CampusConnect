@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EventRSVPButton } from "@/components/EventRSVPButton";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { motion } from "framer-motion";
 
 interface Event {
   id: string;
@@ -248,22 +249,25 @@ export function EventCard({
       <p className="mt-1 font-mono text-sm font-bold text-blue-900">{club?.name}</p>
 
       {event.description ? (
-        <div
-          className={`mt-4 overflow-hidden transition-all duration-300 ease-in-out ${
-            isDescriptionExpanded ? "max-h-[250px]" : "max-h-40"
-          }`}
-        >
-          <p className="text-sm leading-6 text-gray-800 inline">{displayedDescription}</p>
+        <div className="mt-4">
+          <motion.div
+            initial={false}
+            animate={{ height: "auto" }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <p className="text-sm leading-6 text-gray-800 inline">{displayedDescription}</p>
 
-          {shouldTruncate && (
-            <button
-              type="button"
-              onClick={() => setIsDescriptionExpanded((prev) => !prev)}
-              className="ml-1 inline font-semibold text-violet-700 hover:text-violet-900 transition-colors"
-            >
-              {isDescriptionExpanded ? "Read less" : "Read more"}
-            </button>
-          )}
+            {shouldTruncate && (
+              <button
+                type="button"
+                onClick={() => setIsDescriptionExpanded((prev) => !prev)}
+                className="ml-1 inline font-semibold text-violet-700 hover:text-violet-900 transition-colors"
+              >
+                {isDescriptionExpanded ? "Read less" : "Read more"}
+              </button>
+            )}
+          </motion.div>
         </div>
       ) : null}
 
