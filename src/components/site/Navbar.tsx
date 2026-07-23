@@ -113,9 +113,9 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 border-b-2 border-black bg-white text-black dark:border-cream dark:bg-black dark:text-cream">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-3 sm:px-4 md:px-6">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-3 sm:px-4 md:px-6 min-w-0">
         {/* Logo */}
-        <Link to="/" className="shrink-0 font-display text-lg font-bold sm:text-xl md:text-2xl">
+        <Link to="/" className="shrink-0 min-w-0 font-display text-sm font-bold sm:text-xl md:text-2xl navbar-logo">
           <span style={{ letterSpacing: "0.04em" }}>CAMPUS</span>
           <span className="bg-black px-1 text-cream dark:bg-cream dark:text-black">CONNECT</span>
         </Link>
@@ -141,8 +141,8 @@ export function Navbar() {
         </nav>
 
         {/* Actions */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2">
             <div className="hidden rounded-full border border-black bg-lime px-2 py-1 text-xs font-mono font-bold md:flex dark:border-cream dark:text-black">
               🟢 {onlineUsers} online
             </div>

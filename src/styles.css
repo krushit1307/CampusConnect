@@ -805,3 +805,12 @@
     }
   }
 }
+
+/* Navbar overflow fix for screens narrower than 350px */
+@media (max-width: 349px) {
+  .navbar-logo {
+    font-size: 0.7rem;
+    letter-spacing: 0.02em;
+  }
+}
+
