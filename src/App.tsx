@@ -13,6 +13,7 @@ import {
 import Layout from "./components/Layout";
 import { ErrorBoundary, RouteErrorBoundary } from "./components/ErrorBoundary";
 import { PageWrapper } from "./components/PageWrapper";
+import { QueryClientProvider, queryClient } from "@/hooks/useReactQueryReplacement";
 
 // Pages
 import Index from "./routes/index";
@@ -169,8 +170,10 @@ const router = createBrowserRouter(
 
 export default function App() {
   return (
-    <ErrorBoundary>
-      <RouterProvider router={router} />
-    </ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <ErrorBoundary>
+        <RouterProvider router={router} />
+      </ErrorBoundary>
+    </QueryClientProvider>
   );
 }

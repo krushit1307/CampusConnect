@@ -57,6 +57,99 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 
+interface SimilarEventItem {
+  id: string;
+  title: string;
+  category_id?: string;
+  event_date?: string;
+  banner_url?: string;
+  description?: string;
+}
+
+function SimilarEvents({
+  currentEventId,
+  categoryId,
+}: {
+  currentEventId: string;
+  categoryId?: string;
+}) {
+  const supabase = createClient();
+  const [similarEvents, setSimilarEvents] = useState<SimilarEventItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!categoryId) {
+      setLoading(false);
+      return;
+    }
+
+    async function fetchSimilarEvents() {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("events")
+          .select("id, title, category_id, event_date, banner_url, description")
+          .eq("category_id", categoryId)
+          .neq("id", currentEventId)
+          .limit(3);
+
+        if (error) {
+          console.error("Error fetching similar events:", error);
+        } else if (data) {
+          setSimilarEvents(data as SimilarEventItem[]);
+        }
+      } catch (err) {
+        console.error("Unexpected error fetching similar events:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchSimilarEvents();
+  }, [currentEventId, categoryId, supabase]);
+
+  if (loading || similarEvents.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-10 border-t-2 border-black pt-8">
+      <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900 mb-6">
+        Similar Events You Might Like
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {similarEvents.map((evt) => (
+          <Link
+            key={evt.id}
+            to={`/events/${evt.id}`}
+            className="neu-border group block bg-white p-4 hover:translate-x-0.5 hover:-translate-y-0.5 transition-transform"
+          >
+            {evt.banner_url ? (
+              <img
+                src={evt.banner_url}
+                alt={evt.title}
+                className="w-full h-32 object-cover border-2 border-black mb-3"
+              />
+            ) : (
+              <div className="w-full h-32 bg-peach/30 border-2 border-black mb-3 flex items-center justify-center font-mono text-xs font-bold text-black/50">
+                NO IMAGE
+              </div>
+            )}
+            <h3 className="font-mono text-sm font-bold uppercase line-clamp-1 group-hover:underline">
+              {evt.title}
+            </h3>
+            {evt.event_date && (
+              <p className="font-mono text-xs text-black/60 mt-1">
+                📅 {new Date(evt.event_date).toLocaleDateString()}
+              </p>
+            )}
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function rsvpRowsToCsv(rows: { name: string; email: string; rsvp_date: string; status: string }[]) {
   const headers = ["User Name", "Email", "RSVP Date", "Status"];
   const escape = (val: string) => {
@@ -113,7 +206,7 @@ export default function EventDetailsPage() {
         .from("events")
         .select(
           `
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, max_attendees, faqs,
+          id, title, description, category_id, event_date, start_date, end_date, location, banner_url, created_by, max_attendees, faqs,
           clubs (name, slug),
           event_rsvps (id, user_id, checked_in),
           event_waitlist (id, user_id, created_at),
@@ -128,6 +221,7 @@ export default function EventDetailsPage() {
         if (import.meta.env.DEV && eventId.startsWith("mock-")) {
           return {
             id: eventId,
+            category_id: "cat-1",
             created_by: "mock-user-1",
             title:
               eventId === "mock-1"
@@ -853,6 +947,12 @@ export default function EventDetailsPage() {
                 <EventFeedbackForm eventId={event.id} user={user} />
               </div>
             )}
+
+          {/* Similar Events Recommendation Block */}
+          <SimilarEvents
+            currentEventId={event.id}
+            categoryId={(event as Record<string, unknown>).category_id as string | undefined}
+          />
 
           {/* Social Share */}
           <div className="mt-10 border-t-2 border-black pt-6">
