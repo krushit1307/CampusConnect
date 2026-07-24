@@ -34,6 +34,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 
+import { FlyerUploader } from "@/components/FlyerUploader";
+import type { ParsedFlyer } from "@/lib/parser";
+
 const STEPS = [{ label: "Details" }, { label: "Logistics" }, { label: "Media" }] as const;
 
 type Step = 0 | 1 | 2;
@@ -116,6 +119,22 @@ export function CreateEventDialog({ user }: { user: User | null }) {
 
   const onSubmit = (values: EventFormValues) => {
     createEvent.mutate(values);
+  };
+
+  const handleDataExtracted = (data: ParsedFlyer) => {
+    if (data.title) form.setValue("title", data.title, { shouldValidate: true });
+    if (data.description) form.setValue("description", data.description, { shouldValidate: true });
+    if (data.date) {
+      try {
+        const d = new Date(data.date);
+        if (!isNaN(d.getTime())) {
+          form.setValue("startDate", `${format(d, "yyyy-MM-dd")}T12:00`, { shouldValidate: true });
+          form.setValue("endDate", `${format(d, "yyyy-MM-dd")}T14:00`, { shouldValidate: true });
+        }
+      } catch (e) {
+        console.error("Failed to parse date from flyer", e);
+      }
+    }
   };
 
   const startDateStr = form.watch("startDate");
@@ -218,6 +237,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
             {/* Step 1 — Details */}
             {step === 0 && (
               <>
+                <FlyerUploader onDataExtracted={handleDataExtracted} />
                 <FormField
                   control={form.control}
                   name="title"
