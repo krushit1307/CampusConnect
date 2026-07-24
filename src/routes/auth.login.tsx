@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { SiteShell } from "@/components/site/SiteShell";
+import { getFriendlyAuthError } from "@/utils/authErrors";
 
 export default function AuthLogin() {
   const supabase = createClient();
@@ -21,7 +22,7 @@ export default function AuthLogin() {
 
       if (error) throw error;
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to authenticate with provider";
+      const message = getFriendlyAuthError(err);
       setErrorMsg(message);
     } finally {
       setLoading(false);

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 import { useMutation } from "@/hooks/useReactQueryReplacement";
-import { Plus, MapPin, CalendarIcon, Check } from "lucide-react";
+import { Plus, MapPin, CalendarIcon, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import { format } from "date-fns";
@@ -37,14 +37,20 @@ import { cn } from "@/lib/utils";
 import { FlyerUploader } from "@/components/FlyerUploader";
 import type { ParsedFlyer } from "@/lib/parser";
 
-const STEPS = [{ label: "Details" }, { label: "Logistics" }, { label: "Media" }] as const;
+const STEPS = [
+  { label: "Details" },
+  { label: "Logistics" },
+  { label: "FAQs" },
+  { label: "Review" },
+] as const;
 
-type Step = 0 | 1 | 2;
+type Step = 0 | 1 | 2 | 3;
 
 const STEP_FIELDS: Record<Step, (keyof EventFormValues)[]> = {
   0: ["title", "description"],
   1: ["startDate", "endDate", "location"],
   2: [],
+  3: [],
 };
 
 const defaultValues: EventFormValues = {
@@ -53,6 +59,7 @@ const defaultValues: EventFormValues = {
   location: "",
   startDate: "",
   endDate: "",
+  faqs: [],
 };
 
 export function CreateEventDialog({ user }: { user: User | null }) {
@@ -98,6 +105,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
         // read event_date (e.g. EventCard, event ordering) keep working.
         event_date: startDateIso,
         created_by: user.id,
+        faqs: values.faqs && values.faqs.length > 0 ? values.faqs : [],
       });
 
       if (error) {
@@ -403,8 +411,73 @@ export function CreateEventDialog({ user }: { user: User | null }) {
               </>
             )}
 
-            {/* Step 3 — Media (review + confirm) */}
+            {/* Step 3 — FAQs (optional) */}
             {step === 2 && (
+              <div className="space-y-4">
+                <p className="font-mono text-xs font-bold text-black/50 uppercase">
+                  Add frequently asked questions (optional)
+                </p>
+                {form.watch("faqs")?.map((_faq, index) => (
+                  <div key={index} className="neu-border space-y-2 bg-white p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-bold text-black/40">
+                        Q{index + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const current = form.getValues("faqs") || [];
+                          form.setValue(
+                            "faqs",
+                            current.filter((_: unknown, i: number) => i !== index),
+                          );
+                        }}
+                        className="text-destructive hover:text-destructive/80"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <Input
+                      placeholder="Question"
+                      value={form.watch(`faqs.${index}.question`) || ""}
+                      onChange={(e) => {
+                        const current = form.getValues("faqs") || [];
+                        const updated = [...current];
+                        updated[index] = { ...updated[index], question: e.target.value };
+                        form.setValue("faqs", updated);
+                      }}
+                      className="font-mono text-sm"
+                    />
+                    <Textarea
+                      placeholder="Answer"
+                      value={form.watch(`faqs.${index}.answer`) || ""}
+                      onChange={(e) => {
+                        const current = form.getValues("faqs") || [];
+                        const updated = [...current];
+                        updated[index] = { ...updated[index], answer: e.target.value };
+                        form.setValue("faqs", updated);
+                      }}
+                      rows={2}
+                      className="font-mono text-sm"
+                    />
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const current = form.getValues("faqs") || [];
+                    form.setValue("faqs", [...current, { question: "", answer: "" }]);
+                  }}
+                  className="w-full border-dashed font-mono text-xs font-bold"
+                >
+                  <Plus className="mr-1 h-3 w-3" /> Add Question
+                </Button>
+              </div>
+            )}
+
+            {/* Step 4 — Review (confirm) */}
+            {step === 3 && (
               <div className="neu-border space-y-3 bg-white p-4 font-mono text-sm">
                 <p className="font-bold uppercase text-black/50 text-xs">Review your event</p>
                 <div>
@@ -429,6 +502,12 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                     <p>{endDateStr ? format(parsedEnd!, "MMM dd, y HH:mm") : "—"}</p>
                   </div>
                 </div>
+                {form.getValues("faqs") && form.getValues("faqs").length > 0 && (
+                  <div>
+                    <p className="text-xs text-black/40">FAQs</p>
+                    <p className="font-bold">{form.getValues("faqs").length} question(s)</p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -438,7 +517,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                   Back
                 </Button>
               )}
-              {step < 2 ? (
+              {step < 3 ? (
                 <Button
                   type="button"
                   onClick={handleNext}

@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import MDEditor, { type RefMDEditor } from "@uiw/react-md-editor";
 import "@uiw/react-md-editor/markdown-editor.css";
 import { useTheme } from "@/components/theme-provider";
+import { MentionRenderer } from "@/components/MentionRenderer";
 import {
   Bold,
   Code2,
@@ -16,6 +17,7 @@ import {
   MessageSquareText,
   Pencil,
   Quote,
+  AtSign,
 } from "lucide-react";
 
 export type MarkdownEditorProps = {
@@ -25,6 +27,8 @@ export type MarkdownEditorProps = {
   rows?: number;
   minHeightClass?: string;
   id?: string;
+  clubId?: string;
+  enableMentions?: boolean;
 };
 
 type ToolbarAction = {
@@ -68,10 +72,12 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
     {
       value,
       onChange,
-      placeholder = "Share an update using Markdown…",
+      placeholder = "Share an update using Markdown… (Type @ to mention)",
       rows = 7,
       minHeightClass = "min-h-44",
       id,
+      clubId,
+      enableMentions = true,
     },
     ref,
   ) => {
@@ -133,6 +139,25 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
       });
     };
 
+    const insertMention = () => {
+      const textarea = mdEditorRef.current?.textarea;
+      if (!textarea) return;
+
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const before = value.slice(0, start);
+      const after = value.slice(end);
+
+      // Insert @ symbol
+      const newValue = `${before}@${after}`;
+      onChange(newValue);
+
+      requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + 1, start + 1);
+      });
+    };
+
     return (
       <div
         className="neu-border bg-white dark:bg-black"
@@ -156,6 +181,17 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
                 </button>
               );
             })}
+            {enableMentions && (
+              <button
+                type="button"
+                onClick={insertMention}
+                className="neu-border bg-white p-2 transition hover:-translate-y-0.5 hover:bg-peach focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                aria-label="Mention user"
+                title="Mention user (@)"
+              >
+                <AtSign size={16} strokeWidth={2.5} aria-hidden="true" />
+              </button>
+            )}
           </div>
 
           <div className="flex" aria-label="Editor mode">
@@ -203,7 +239,18 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
           <div className={`${minHeightClass} bg-white dark:bg-black p-4`} aria-live="polite">
             {value.trim() ? (
               <div className="markdown-content font-mono text-sm leading-relaxed">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    p: ({ children }) => (
+                      <p>
+                        <MentionRenderer content={String(children)} />
+                      </p>
+                    ),
+                  }}
+                >
+                  {value}
+                </ReactMarkdown>
               </div>
             ) : (
               <div className="flex min-h-36 flex-col items-center justify-center gap-2 text-center text-gray-500">

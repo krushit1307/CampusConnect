@@ -8,7 +8,7 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
 import { toast } from "sonner";
-import EventSharePanel from "@/components/events/EventSharePanel";
+import { ShareMenu } from "@/components/ui/ShareMenu";
 import {
   ArrowLeft,
   Check,
@@ -20,7 +20,9 @@ import {
   Users,
   Star,
   Calendar,
+  Flag,
 } from "lucide-react";
+import { ReportDialog } from "@/components/ReportDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
@@ -39,6 +41,13 @@ import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { parseCoordinates } from "@/lib/eventUtils";
 import { EventFeedbackForm } from "@/components/EventFeedbackForm";
 import { EventMap } from "@/components/EventMap";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { HelpCircle } from "lucide-react";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -84,6 +93,10 @@ export default function EventDetailsPage() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState("");
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+
+  // Safe window URL handling for SSR / hydration safety
+  const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -100,7 +113,7 @@ export default function EventDetailsPage() {
         .from("events")
         .select(
           `
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, max_attendees,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, max_attendees, faqs,
           clubs (name, slug),
           event_rsvps (id, user_id, checked_in),
           event_waitlist (id, user_id, created_at),
@@ -115,9 +128,6 @@ export default function EventDetailsPage() {
         if (import.meta.env.DEV && eventId.startsWith("mock-")) {
           return {
             id: eventId,
-            // Mock data has no real owner; use a placeholder so this branch's
-            // type matches the real Supabase row (which always has
-            // created_by) instead of silently omitting the field.
             created_by: "mock-user-1",
             title:
               eventId === "mock-1"
@@ -164,6 +174,7 @@ export default function EventDetailsPage() {
               eventId === "mock-1" ? [{ id: "rsvp-1", user_id: "user-1", checked_in: true }] : [],
             event_waitlist: [] as { id: string; user_id: string; created_at: string }[],
             event_feedbacks: [] as { id: string; user_id: string }[],
+            faqs: [] as { question: string; answer: string }[],
             attendee_count: eventId === "mock-1" ? 1 : 0,
           };
         }
@@ -316,7 +327,6 @@ export default function EventDetailsPage() {
 
   const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
   const hasRsvpd = user ? rsvps.some((r) => r.user_id === user.id) : false;
-  // Feedback specific conditions
   const isCheckedIn = user
     ? rsvps.some(
         (r: { user_id: string; checked_in?: boolean }) => r.user_id === user.id && r.checked_in,
@@ -369,7 +379,7 @@ export default function EventDetailsPage() {
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(shareUrl || window.location.href);
       setCopied(true);
       toast.success("Event link copied to clipboard!");
       setTimeout(() => setCopied(false), 2000);
@@ -406,7 +416,7 @@ export default function EventDetailsPage() {
 
   return (
     <SiteShell>
-      {/* Breadcrumb nav — replaces the old back-link bar */}
+      {/* Breadcrumb nav */}
       <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6" aria-label="Breadcrumb">
         <div className="mx-auto max-w-4xl">
           {/* Mobile: simple back link */}
@@ -481,7 +491,7 @@ export default function EventDetailsPage() {
             >
               {event.title}
             </h1>
-            <EventSharePanel title={event.title} />
+            <ShareMenu url={shareUrl} title={event.title} />
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -643,6 +653,17 @@ export default function EventDetailsPage() {
               </a>
             )}
 
+            {user && !isOrganizer && (
+              <Button
+                onClick={() => setIsReportDialogOpen(true)}
+                variant="outline"
+                className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
+              >
+                <Flag className="h-4 w-4" />
+                Report Event
+              </Button>
+            )}
+
             {isCheckedIn && hasEnded && (
               <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
                 <DialogTrigger asChild>
@@ -726,6 +747,41 @@ export default function EventDetailsPage() {
             )}
           </div>
 
+          {/* FAQ Section */}
+          {Array.isArray((event as Record<string, unknown>).faqs) &&
+            ((event as Record<string, unknown>).faqs as { question: string; answer: string }[])
+              .length > 0 && (
+              <div className="mt-8">
+                <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
+                  Frequently Asked Questions
+                </h2>
+                <Accordion type="single" collapsible className="mt-4 space-y-2">
+                  {(
+                    (event as Record<string, unknown>).faqs as {
+                      question: string;
+                      answer: string;
+                    }[]
+                  ).map((faq, index) => (
+                    <AccordionItem
+                      key={index}
+                      value={`faq-${index}`}
+                      className="neu-border bg-white"
+                    >
+                      <AccordionTrigger className="px-4 font-mono text-sm font-bold text-black hover:no-underline">
+                        <div className="flex items-center gap-2 text-left">
+                          <HelpCircle className="h-4 w-4 shrink-0 text-blue-900" />
+                          {faq.question}
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="px-4 pb-4 font-mono text-sm text-black/70">
+                        {faq.answer}
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </div>
+            )}
+
           {/* Interactive Map */}
           {event.location && event.location.toLowerCase() !== "online" && (
             <div className="mt-8">
@@ -782,13 +838,13 @@ export default function EventDetailsPage() {
                   className="neu-border mt-4 inline-flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
                 >
                   <MapPin className="h-4 w-4" />
-                  Open "{event.location}" in Google Maps ↗
+                  Open &quot;{event.location}&quot; in Google Maps ↗
                 </a>
               )}
             </div>
           )}
 
-          {/* Event Feedback (Only if ended and user RSVP'd) */}
+          {/* Event Feedback Form (Only if ended and user RSVP'd) */}
           {user &&
             hasRsvpd &&
             event.end_date &&
@@ -798,37 +854,17 @@ export default function EventDetailsPage() {
               </div>
             )}
 
-          {/* Social Share Buttons */}
+          {/* Social Share */}
           <div className="mt-10 border-t-2 border-black pt-6">
             <h3 className="font-mono text-xs font-bold uppercase text-blue-900">
               Share with Friends
             </h3>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <a
-                href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-twitter hover:text-white transition-colors text-black"
-              >
-                Twitter
-              </a>
-              <a
-                href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-linkedin hover:text-white transition-colors text-black"
-              >
-                LinkedIn
-              </a>
-              <a
-                href={`https://wa.me/?text=${encodeURIComponent(`Check out this event: ${event.title} - ${window.location.href}`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-whatsapp hover:text-white transition-colors text-black"
-              >
-                WhatsApp
-              </a>
+            <div className="mt-4">
+              <ShareMenu
+                url={shareUrl}
+                title={event.title}
+                text={`Check out this event: ${event.title}`}
+              />
             </div>
           </div>
         </div>
@@ -882,6 +918,12 @@ export default function EventDetailsPage() {
         description="Are you sure you want to cancel your RSVP for this event? Your spot will be released."
         onConfirm={handleConfirmCancel}
         onCancel={() => setConfirmOpen(false)}
+      />
+      <ReportDialog
+        isOpen={isReportDialogOpen}
+        onClose={() => setIsReportDialogOpen(false)}
+        targetType="event"
+        targetId={event.id}
       />
     </SiteShell>
   );

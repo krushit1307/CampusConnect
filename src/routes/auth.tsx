@@ -7,6 +7,8 @@ import { PasswordStrengthMeter, getPasswordStrength } from "@/components/ui/pass
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { PasswordInput } from "@/components/ui/password-input";
+import { sendVerificationEmail } from "@/lib/email/service";
+import { getFriendlyAuthError } from "@/utils/authErrors";
 
 export default function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -37,7 +39,7 @@ export default function AuthPage() {
 
     try {
       if (mode === "signup") {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -51,6 +53,18 @@ export default function AuthPage() {
 
         if (signUpError) throw signUpError;
 
+        // Construct verification link & send verification email via Email Service
+        const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+        const tokenHash = signUpData?.user?.id || "signup_token";
+        const verificationUrl = `${appUrl}/verify-email?token=${encodeURIComponent(tokenHash)}&type=signup`;
+
+        await sendVerificationEmail({
+          to: email,
+          recipientName: `${firstName} ${lastName}`.trim(),
+          verificationUrl,
+        });
+
+        toast.success("Account created! A verification link has been sent to your email.");
         navigate("/dashboard", { replace: true });
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -63,8 +77,7 @@ export default function AuthPage() {
         navigate("/dashboard", { replace: true });
       }
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      const message = getFriendlyAuthError(err);
 
       setError(message);
       toast.error(message);
@@ -87,8 +100,7 @@ export default function AuthPage() {
 
       if (error) throw error;
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      const message = getFriendlyAuthError(err);
 
       setError(message);
       toast.error(message);

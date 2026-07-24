@@ -9,11 +9,12 @@ import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { toast } from "sonner";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
-import { Search, Loader2, Calendar as CalendarIcon } from "lucide-react";
+import { Search, Loader2, Calendar as CalendarIcon, Download } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { matchesDateFilter } from "@/lib/eventUtils";
+import { getMultiIcsContent } from "@/lib/utils";
 
 import {
   Select,
@@ -25,7 +26,7 @@ import {
 
 const PAGE_SIZE = 20;
 
-interface EventItem {
+export interface EventItem {
   id: string;
   title: string;
   description: string | null;
@@ -34,6 +35,7 @@ interface EventItem {
   end_date?: string | null;
   location: string | null;
   banner_url?: string | null;
+  created_at?: string | null;
   clubs: { name: string } | { name: string }[] | null;
   event_rsvps: { id: string; user_id: string }[] | null;
   saved_events: { id: string; user_id: string }[] | null;
@@ -278,7 +280,7 @@ export default function EventsPage() {
         .from("club_analytics_view")
         .select(
           `
-          id, title, description, event_date, start_date, end_date, location, banner_url,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_at,
           clubs (name),
           event_rsvps (id, user_id),
           saved_events (id, user_id)
@@ -365,6 +367,7 @@ export default function EventsPage() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
+
       const { error } = await supabase.functions.invoke("toggle-rsvp", {
         body: {
           eventId,
@@ -380,6 +383,9 @@ export default function EventsPage() {
       }
     },
     onSuccess: async (_data, variables) => {
+      toast.success(
+        variables.hasRsvpd ? "RSVP cancelled successfully!" : "RSVP registered successfully!",
+      );
       if (!variables.hasRsvpd && user && !variables.eventId.startsWith("mock-")) {
         const { count } = await supabase
           .from("event_rsvps")
@@ -397,6 +403,24 @@ export default function EventsPage() {
     },
   });
 
+  const handleExportCalendar = useCallback(() => {
+    const icsContent = getMultiIcsContent(sortedEvents);
+    if (!icsContent) {
+      toast.error("No events to export");
+      return;
+    }
+    const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "campus_events.ics";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Calendar exported successfully!");
+  }, [sortedEvents]);
+
   const toggleBookmark = useMutation({
     mutationFn: async ({ eventId, isSaved }: { eventId: string; isSaved: boolean }) => {
       if (!user) throw new Error("Login required");
@@ -413,7 +437,8 @@ export default function EventsPage() {
       const { error } = await query;
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      toast.success(variables.isSaved ? "Removed from saved events!" : "Saved to bookmarks!");
       refetch();
     },
     onError: () => {
@@ -766,6 +791,15 @@ export default function EventsPage() {
                     Calendar
                   </button>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={handleExportCalendar}
+                  className="neu-border flex items-center gap-2 bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream text-black cursor-pointer"
+                >
+                  <Download className="h-4 w-4" />
+                  Export Calendar
+                </button>
 
                 <Select
                   value={sortOrder}
