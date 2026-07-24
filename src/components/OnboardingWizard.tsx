@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 
 interface OnboardingWizardProps {
@@ -49,8 +50,28 @@ export function OnboardingWizard({ userId, onComplete }: OnboardingWizardProps) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-      <div className="neu-border w-full max-w-lg bg-white p-8 shadow-[8px_8px_0_0_#000]">
+    <AnimatePresence>
+      <motion.div
+        key="onboarding-overlay"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
+      >
+      <motion.div
+        key="onboarding-panel"
+        className="neu-border w-full max-w-lg bg-white p-8 shadow-[8px_8px_0_0_#000]"
+        initial={{ opacity: 0, scale: 0.95, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 6 }}
+        transition={{
+          type: "spring",
+          stiffness: 380,
+          damping: 28,
+          mass: 0.8,
+        }}
+      >
         <div className="mb-6 flex items-center justify-between border-b-2 border-black pb-4">
           <h2 className="font-mono text-lg font-black uppercase text-black">
             Welcome! Complete Your Profile ({step}/3)
@@ -135,7 +156,8 @@ export function OnboardingWizard({ userId, onComplete }: OnboardingWizardProps) 
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
