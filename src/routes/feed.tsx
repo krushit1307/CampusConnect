@@ -84,7 +84,7 @@ interface Post {
   content: string;
   created_at: string;
   club_id: string;
-  pinned: boolean;
+  is_pinned: boolean;
   profiles: Profile[] | Profile | null;
   clubs: Club[] | Club | null;
   comments: Comment[] | null;
@@ -175,7 +175,7 @@ export default function Feed() {
         .from("posts")
         .select(
           `
-        id, content, created_at, club_id, pinned,
+        id, content, created_at, club_id, is_pinned,
         profiles (id, full_name, handle),
         clubs (id, name, club_members (user_id, role)),
         comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name, handle)),
@@ -183,6 +183,7 @@ export default function Feed() {
       `,
         )
         .is("deleted_at", null)
+        .order("is_pinned", { ascending: false })
         .order("created_at", { ascending: false })
         .range(from, to);
 
@@ -199,7 +200,7 @@ export default function Feed() {
   });
 
   const allPosts = data?.pages.flatMap((page) => page.posts) ?? [];
-  const posts = [...allPosts].sort((a, b) => Number(b.pinned) - Number(a.pinned));
+  const posts = [...allPosts].sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned));
 
   // Trending posts — fetched lazily only when the Trending tab is active
   const { data: trendingData, isLoading: isTrendingLoading } = useQuery<Post[]>({
@@ -209,7 +210,7 @@ export default function Feed() {
         .from("trending_posts")
         .select(
           `
-          id, content, created_at, club_id, pinned,
+          id, content, created_at, club_id, is_pinned,
           profiles (id, full_name, handle),
           clubs (id, name, club_members (user_id, role)),
           comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name, handle)),
@@ -450,9 +451,9 @@ export default function Feed() {
   });
 
   const pinMutation = useMutation({
-    mutationFn: async ({ postId, pinned }: { postId: string; pinned: boolean }) => {
+    mutationFn: async ({ postId, is_pinned }: { postId: string; is_pinned: boolean }) => {
       if (!user) throw new Error("Must be logged in");
-      const { error } = await supabase.from("posts").update({ pinned }).eq("id", postId);
+      const { error } = await supabase.from("posts").update({ is_pinned }).eq("id", postId);
       if (error) throw error;
     },
     onSuccess: () => refetchPosts(),
@@ -725,10 +726,10 @@ export default function Feed() {
                       key={post.id}
                       ref={isLastPost ? lastPostElementRef : undefined}
                       className={`neu-border p-6 ${
-                        post.pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
+                        post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
                       }`}
                     >
-                      {post.pinned && (
+                      {post.is_pinned && (
                         <div className="mb-3 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#B45309]">
                           <Pin size={12} className="fill-[#B45309]" />
                           Pinned
@@ -763,18 +764,21 @@ export default function Feed() {
                               <button
                                 type="button"
                                 onClick={() =>
-                                  pinMutation.mutate({ postId: post.id, pinned: !post.pinned })
+                                  pinMutation.mutate({
+                                    postId: post.id,
+                                    is_pinned: !post.is_pinned,
+                                  })
                                 }
                                 disabled={pinMutation.isPending}
                                 className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${
-                                  post.pinned
+                                  post.is_pinned
                                     ? "bg-[#FDE68A] hover:bg-[#FCD34D] text-black"
                                     : "bg-white hover:bg-cream text-black"
                                 }`}
-                                aria-label={post.pinned ? "Unpin post" : "Pin post"}
+                                aria-label={post.is_pinned ? "Unpin post" : "Pin post"}
                               >
                                 <Pin size={10} strokeWidth={2.5} />
-                                {post.pinned ? "Unpin" : "Pin"}
+                                {post.is_pinned ? "Unpin" : "Pin"}
                               </button>
                             ) : null;
                           })()}
