@@ -21,6 +21,10 @@ export default function ClubManageRoute() {
   const [bannerUrl, setBannerUrl] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [visibility, setVisibility] = useState<"public" | "private">("public");
+  const [githubRepoUrl, setGithubRepoUrl] = useState("");
+  const [twitterUrl, setTwitterUrl] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -39,7 +43,7 @@ export default function ClubManageRoute() {
         .from("clubs")
         .select(
           `
-          id, name, slug, description, banner_url, logo_url, visibility,
+          id, name, slug, description, banner_url, logo_url, visibility, github_repo_url, social_links,
           club_members (id, role, status, user_id, profiles (full_name, avatar_url, handle)),
           events (id, title, event_date, max_attendees, event_rsvps(id))
         `,
@@ -68,15 +72,48 @@ export default function ClubManageRoute() {
       setBannerUrl(club.banner_url || "");
       setLogoUrl(club.logo_url || "");
       setVisibility(club.visibility || "public");
+      setGithubRepoUrl(club.github_repo_url || "");
+      const links = (club.social_links || {}) as Record<string, string>;
+      setTwitterUrl(links.twitter || "");
+      setInstagramUrl(links.instagram || "");
+      setWebsiteUrl(links.website || "");
     }
   }, [club]);
 
   const updateClubMutation = useMutation({
     mutationFn: async () => {
       if (!club) throw new Error("Club not found");
+
+      const githubRepo = githubRepoUrl.trim() || null;
+      if (githubRepo && !githubRepo.startsWith("https://github.com/")) {
+        throw new Error("GitHub repository URL must start with https://github.com/");
+      }
+
+      const socialLinks: Record<string, string> = {};
+      if (twitterUrl.trim()) socialLinks.twitter = twitterUrl.trim();
+      if (instagramUrl.trim()) socialLinks.instagram = instagramUrl.trim();
+      if (websiteUrl.trim()) socialLinks.website = websiteUrl.trim();
+
+      const urlPattern = /^https?:\/\//i;
+      for (const [key, val] of Object.entries(socialLinks)) {
+        if (!urlPattern.test(val)) {
+          throw new Error(
+            `${key.charAt(0).toUpperCase() + key.slice(1)} URL must start with http:// or https://`,
+          );
+        }
+      }
+
       const { error } = await supabase
         .from("clubs")
-        .update({ name, description, banner_url: bannerUrl, logo_url: logoUrl, visibility })
+        .update({
+          name,
+          description,
+          banner_url: bannerUrl,
+          logo_url: logoUrl,
+          visibility,
+          github_repo_url: githubRepo,
+          social_links: socialLinks,
+        })
         .eq("id", club.id);
       if (error) throw error;
     },
@@ -84,7 +121,7 @@ export default function ClubManageRoute() {
       toast.success("Club settings updated");
       refetch();
     },
-    onError: () => toast.error("Failed to update settings"),
+    onError: (err: Error) => toast.error(err.message || "Failed to update settings"),
   });
 
   const updateMemberMutation = useMutation({
@@ -243,6 +280,54 @@ export default function ClubManageRoute() {
                       <option value="public">Public</option>
                       <option value="private">Private</option>
                     </select>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="font-mono text-sm font-bold uppercase mb-1 block">
+                        GitHub Repo URL
+                      </label>
+                      <input
+                        value={githubRepoUrl}
+                        onChange={(e) => setGithubRepoUrl(e.target.value)}
+                        placeholder="https://github.com/org/repo"
+                        className="neu-border w-full p-2 font-mono text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-mono text-sm font-bold uppercase mb-1 block">
+                        Website URL
+                      </label>
+                      <input
+                        value={websiteUrl}
+                        onChange={(e) => setWebsiteUrl(e.target.value)}
+                        placeholder="https://example.com"
+                        className="neu-border w-full p-2 font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="font-mono text-sm font-bold uppercase mb-1 block">
+                        Twitter URL
+                      </label>
+                      <input
+                        value={twitterUrl}
+                        onChange={(e) => setTwitterUrl(e.target.value)}
+                        placeholder="https://twitter.com/username"
+                        className="neu-border w-full p-2 font-mono text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-mono text-sm font-bold uppercase mb-1 block">
+                        Instagram URL
+                      </label>
+                      <input
+                        value={instagramUrl}
+                        onChange={(e) => setInstagramUrl(e.target.value)}
+                        placeholder="https://instagram.com/username"
+                        className="neu-border w-full p-2 font-mono text-sm"
+                      />
+                    </div>
                   </div>
                   <button
                     type="submit"
