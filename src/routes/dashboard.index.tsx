@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import TrendingCarousel from "@/components/Clubs/TrendingCarousel";
 import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/DashboardWidgetSkeleton";
+import { SandboxedWidget } from "@/components/SandboxedWidget";
 
 interface SavedEventDetails {
   id: string;
@@ -626,6 +627,29 @@ export default function DashboardOverview() {
           </ul>
         )}
       </Widget>
+
+      <SandboxedWidget
+        title="Custom Dashboard Widget (Plugin Demo)"
+        bundleCode={`
+          const App = () => {
+            const [theme, setTheme] = React.useState('light');
+            React.useEffect(() => {
+              window.CampusConnect.getTheme().then(setTheme);
+            }, []);
+            return React.createElement('div', { 
+              style: { padding: '20px', textAlign: 'center', borderRadius: '8px', border: '2px dashed #ccc' } 
+            }, 
+              React.createElement('h3', null, 'Hello from Third-Party Plugin! 🚀'),
+              React.createElement('p', null, 'This is a securely sandboxed React component executing inside an iframe.'),
+              React.createElement('p', null, 'Current Theme from Parent RPC: ' + theme)
+            );
+          };
+          const root = ReactDOM.createRoot(document.getElementById('root'));
+          root.render(React.createElement(App));
+        `}
+        className="lg:col-span-3 mb-4"
+        height={200}
+      />
 
       <Widget title="Recent activity" className="lg:col-span-3">
         {isActivityLoading ? (
