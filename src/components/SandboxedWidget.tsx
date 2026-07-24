@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { useTheme } from '@/components/theme-provider';
+import React, { useEffect, useRef } from "react";
+import { useTheme } from "@/components/theme-provider";
 
 export interface SandboxedWidgetProps {
   /** Optional title for the widget card */
@@ -16,13 +16,13 @@ export interface SandboxedWidgetProps {
   className?: string;
 }
 
-export function SandboxedWidget({ 
-  title, 
-  bundleCode, 
-  bundleUrl, 
-  clubId, 
+export function SandboxedWidget({
+  title,
+  bundleCode,
+  bundleUrl,
+  clubId,
   height = 300,
-  className = ''
+  className = "",
 }: SandboxedWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -31,24 +31,24 @@ export function SandboxedWidget({
   // Initialize the sandboxed iframe and inject the RPC bridge
   useEffect(() => {
     if (!containerRef.current) return;
-    
+
     // Create Shadow DOM if not exists to completely isolate the widget from global CSS
     let shadowRoot = containerRef.current.shadowRoot;
     if (!shadowRoot) {
-      shadowRoot = containerRef.current.attachShadow({ mode: 'closed' });
+      shadowRoot = containerRef.current.attachShadow({ mode: "closed" });
     }
-    
+
     // Create highly restricted iframe
-    const iframe = document.createElement('iframe');
-    // CRITICAL: We DO NOT include 'allow-same-origin'. 
+    const iframe = document.createElement("iframe");
+    // CRITICAL: We DO NOT include 'allow-same-origin'.
     // This forces the iframe into a unique origin context ("null"), fully isolating localStorage, cookies, etc.
-    iframe.sandbox.add('allow-scripts');
-    
-    iframe.style.width = '100%';
-    iframe.style.height = '100%';
-    iframe.style.border = 'none';
+    iframe.sandbox.add("allow-scripts");
+
+    iframe.style.width = "100%";
+    iframe.style.height = "100%";
+    iframe.style.border = "none";
     iframeRef.current = iframe;
-    
+
     // Inject the RPC bridge API so the guest can communicate with the host safely
     const rpcScript = `
       window.CampusConnect = {
@@ -81,10 +81,10 @@ export function SandboxedWidget({
         }
       });
     `;
-    
+
     // Generate the srcdoc for the iframe.
     // We include standard React libraries since widgets are likely compiled React bundles.
-    const htmlContent = \`
+    const htmlContent = `
       <!DOCTYPE html>
       <html lang="en">
         <head>
@@ -107,13 +107,12 @@ export function SandboxedWidget({
           \${bundleUrl ? \`<script src="\${bundleUrl}"></script>\` : ''}
         </body>
       </html>
-    \`;
-    
+    `;
+
     iframe.srcdoc = htmlContent;
-    
-    shadowRoot.innerHTML = '';
+
+    shadowRoot.innerHTML = "";
     shadowRoot.appendChild(iframe);
-    
   }, [bundleCode, bundleUrl, theme]); // Re-render if bundle or theme (for initial body style) changes
 
   // Listen for RPC requests from the iframe
@@ -122,58 +121,63 @@ export function SandboxedWidget({
       // Verify the message actually came from our managed iframe.
       // Note: event.origin will be "null" because of the strict sandbox, so we check event.source.
       if (iframeRef.current && event.source === iframeRef.current.contentWindow) {
-        if (event.data && event.data.source === 'campus-connect-widget') {
+        if (event.data && event.data.source === "campus-connect-widget") {
           const { id, method } = event.data;
-          
+
           let responseData = null;
           let responseError = null;
-          
+
           try {
             switch (method) {
-              case 'getTheme':
+              case "getTheme":
                 responseData = theme;
                 break;
-              case 'getClubId':
+              case "getClubId":
                 responseData = clubId || null;
                 break;
-              case 'getUser':
+              case "getUser":
                 // Expose very limited, non-sensitive user data to third-party widgets
-                responseData = { isAnonymous: false }; 
+                responseData = { isAnonymous: false };
                 break;
               default:
-                throw new Error('Unknown RPC method: ' + method);
+                throw new Error("Unknown RPC method: " + method);
             }
-          } catch (e: any) {
-            responseError = e.message;
+          } catch (e: unknown) {
+            responseError = e instanceof Error ? e.message : String(e);
           }
-          
+
           if (iframeRef.current.contentWindow) {
-            iframeRef.current.contentWindow.postMessage({
-              source: 'campus-connect-host',
-              id,
-              data: responseData,
-              error: responseError
-            }, '*');
+            iframeRef.current.contentWindow.postMessage(
+              {
+                source: "campus-connect-host",
+                id,
+                data: responseData,
+                error: responseError,
+              },
+              "*",
+            );
           }
         }
       }
     };
-    
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
   }, [theme, clubId]);
 
   return (
-    <div className={\`flex flex-col rounded-lg border bg-card text-card-foreground shadow-sm \${className}\`}>
+    <div
+      className={`flex flex-col rounded-lg border bg-card text-card-foreground shadow-sm ${className}`}
+    >
       {title && (
         <div className="flex flex-col space-y-1.5 p-6 pb-4">
           <h3 className="text-lg font-semibold leading-none tracking-tight">{title}</h3>
         </div>
       )}
-      <div 
-        ref={containerRef} 
-        style={{ height }} 
-        className="w-full relative rounded-b-lg overflow-hidden bg-background" 
+      <div
+        ref={containerRef}
+        style={{ height }}
+        className="w-full relative rounded-b-lg overflow-hidden bg-background"
       />
     </div>
   );

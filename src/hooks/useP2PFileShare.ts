@@ -102,7 +102,11 @@ export function useP2PFileShare(fileId: string | null, userId: string | null) {
     dc.onopen = () => {
       setSwarmPeers((prev) => {
         const next = new Map(prev);
-        const peer = next.get(remotePeerId) || { peerId: remotePeerId, hasFile: false, availableChunks: [] };
+        const peer = next.get(remotePeerId) || {
+          peerId: remotePeerId,
+          hasFile: false,
+          availableChunks: [],
+        };
         next.set(remotePeerId, peer);
         return next;
       });
@@ -127,7 +131,14 @@ export function useP2PFileShare(fileId: string | null, userId: string | null) {
             const chunk = fileChunksBufferRef.current.get(chunkIndex);
             if (chunk && dc.readyState === "open") {
               const hash = await hashBuffer(chunk);
-              dc.send(JSON.stringify({ type: "chunk-header", chunkIndex, totalChunks: fileChunksBufferRef.current.size, hash }));
+              dc.send(
+                JSON.stringify({
+                  type: "chunk-header",
+                  chunkIndex,
+                  totalChunks: fileChunksBufferRef.current.size,
+                  hash,
+                }),
+              );
               dc.send(chunk);
             }
           }
