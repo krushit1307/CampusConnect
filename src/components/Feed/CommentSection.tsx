@@ -1,7 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
-
-const supabase = createClient();
+import React, { useState, useCallback } from "react";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 
 interface CommentSectionProps {
   postId: string;
@@ -11,72 +9,18 @@ interface CommentSectionProps {
   };
 }
 
-interface PresencePayload {
-  typing?: boolean;
-  user?: string;
-  [key: string]: unknown;
-}
-
 export const CommentSection: React.FC<CommentSectionProps> = ({ postId, currentUser }) => {
   const [commentText, setCommentText] = useState("");
-  const [typingUsers, setTypingUsers] = useState<string[]>([]);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-
   const username = currentUser?.name || "A user";
 
-  // 1. Subscribe to Supabase Realtime Presence Channel
-  useEffect(() => {
-    const channel = supabase.channel(`discussion-post:${postId}`, {
-      config: { presence: { key: currentUser?.id || Math.random().toString() } },
-    });
+  const { typingUsers, broadcastTyping } = useTypingIndicator(
+    `discussion-post:${postId}`,
+    username,
+  );
 
-    channelRef.current = channel;
-
-    channel
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState<PresencePayload>();
-        const currentlyTyping: string[] = [];
-
-        Object.values(state).forEach((presences) => {
-          if (Array.isArray(presences)) {
-            (presences as PresencePayload[]).forEach((presence) => {
-              if (presence.typing && presence.user && presence.user !== username) {
-                currentlyTyping.push(presence.user);
-              }
-            });
-          }
-        });
-
-        setTypingUsers(currentlyTyping);
-      })
-      .subscribe();
-
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [postId, username, currentUser?.id]);
-
-  // 2. Broadcast typing status with auto-reset debouncer
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setCommentText(e.target.value);
-
-    if (!channelRef.current) return;
-
-    // Broadcast that this user is currently typing
-    channelRef.current.track({ typing: true, user: username });
-
-    // Clear previous timeout if user keeps typing
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    // Automatically stop typing indicator after 2.5 seconds of inactivity
-    typingTimeoutRef.current = setTimeout(() => {
-      if (channelRef.current) {
-        channelRef.current.track({ typing: false, user: username });
-      }
-    }, 2500);
+    broadcastTyping();
   };
 
   // Helper to render typing text
