@@ -186,19 +186,34 @@ describe("RSVP Flow", () => {
       cy.wait("@getEvent");
     });
 
-    it("should show share buttons", () => {
+    it("should show share section", () => {
       cy.contains("Share with Friends").should("be.visible");
     });
 
-    it("should show Twitter share button", () => {
-      cy.contains("Twitter").should("be.visible");
+    it("should open share menu and show Twitter share option", () => {
+      cy.contains("Share with Friends")
+        .parent()
+        .within(() => {
+          cy.contains("Share").click();
+        });
+      cy.contains("Twitter/X").should("be.visible");
     });
 
-    it("should show LinkedIn share button", () => {
+    it("should open share menu and show LinkedIn share option", () => {
+      cy.contains("Share with Friends")
+        .parent()
+        .within(() => {
+          cy.contains("Share").click();
+        });
       cy.contains("LinkedIn").should("be.visible");
     });
 
-    it("should show WhatsApp share button", () => {
+    it("should open share menu and show WhatsApp share option", () => {
+      cy.contains("Share with Friends")
+        .parent()
+        .within(() => {
+          cy.contains("Share").click();
+        });
       cy.contains("WhatsApp").should("be.visible");
     });
   });

@@ -1,6 +1,7 @@
 import React from "react";
 import { isRouteErrorResponse, useRouteError } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { NotFoundPage } from "./NotFoundPage";
 
 const MAX_SOFT_RETRIES = 2;
 
@@ -186,6 +187,9 @@ export function RouteErrorBoundary() {
   let stack: string | undefined;
 
   if (isRouteErrorResponse(routeError)) {
+    if (routeError.status === 404) {
+      return <NotFoundPage />;
+    }
     message = `${routeError.status} ${routeError.statusText}`;
   } else if (routeError instanceof Error) {
     message = routeError.message;

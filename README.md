@@ -146,26 +146,27 @@ erDiagram
         cp .env.example .env.local
         ```
      2. Fill in your remote hosted Supabase URL and Anon Key.
-     Required Environment Variables
+        Required Environment Variables
 
 The `.env.example` file contains all the required environment variables for running the project.
 
-| Variable | Description |
-|----------|-------------|
-| `VITE_SUPABASE_URL` | Your Supabase project URL. You can find it in your Supabase project under **Settings → API**. |
-| `VITE_SUPABASE_ANON_KEY` | Your Supabase anonymous (public) API key, available under **Settings → API**. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key. Keep this value private and never commit it to Git. |
+| Variable                    | Description                                                                                   |
+| --------------------------- | --------------------------------------------------------------------------------------------- |
+| `VITE_SUPABASE_URL`         | Your Supabase project URL. You can find it in your Supabase project under **Settings → API**. |
+| `VITE_SUPABASE_ANON_KEY`    | Your Supabase anonymous (public) API key, available under **Settings → API**.                 |
+| `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key. Keep this value private and never commit it to Git.           |
 
- Open `.env.local` and replace the placeholder values with your own Supabase project credentials.
-> 
-**Important:** Do not commit your `.env.local` file. Only `.env.example` should be tracked in Git.
-     3. Apply database migrations to your remote project:
-        ```bash
+Open `.env.local` and replace the placeholder values with your own Supabase project credentials.
+
+>
+
+**Important:** Do not commit your `.env.local` file. Only `.env.example` should be tracked in Git. 3. Apply database migrations to your remote project:
+`bash
         supabase db push
-        ```
+        `
 
-   - **Option B: Local Supabase Container (Recommended for offline development)**
-     Follow the [Supabase Local Development & Seeding](#️-supabase-local-development--seeding) guide below to spin up a local container stack pre-populated with test records.
+- **Option B: Local Supabase Container (Recommended for offline development)**
+  Follow the [Supabase Local Development & Seeding](#️-supabase-local-development--seeding) guide below to spin up a local container stack pre-populated with test records.
 
 4. **Start the development server:**
    ```bash
@@ -275,15 +276,16 @@ feat/wasm-image-compression
 <!-- readme: contributors -end -->
 
 <!-- START_CONTRIBUTORS_GALLERY -->
+
 ### 🏆 Hall of Fame (Top 5)
 
-| Rank | Contributor | Contributions |
-| :---: | :---: | :---: |
-| 🥇 | <a href="https://github.com/krushit1307"><img src="https://avatars.githubusercontent.com/u/196679210?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>krushit1307</b></sub></a> | 159 |
-| 🥈 | <a href="https://github.com/Aryanbuha890"><img src="https://avatars.githubusercontent.com/u/273169945?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>Aryanbuha890</b></sub></a> | 37 |
-| 🥉 | <a href="https://github.com/Jivan-Patel"><img src="https://avatars.githubusercontent.com/u/225341922?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>Jivan-Patel</b></sub></a> | 32 |
-| 4️⃣ | <a href="https://github.com/MILAN-123865"><img src="https://avatars.githubusercontent.com/u/196552402?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>MILAN-123865</b></sub></a> | 30 |
-| 5️⃣ | <a href="https://github.com/Ayush-0918"><img src="https://avatars.githubusercontent.com/u/184804819?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>Ayush-0918</b></sub></a> | 30 |
+| Rank |                                                                                              Contributor                                                                                               | Contributions |
+| :--: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-----------: |
+|  🥇  |  <a href="https://github.com/krushit1307"><img src="https://avatars.githubusercontent.com/u/196679210?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>krushit1307</b></sub></a>  |      159      |
+|  🥈  | <a href="https://github.com/Aryanbuha890"><img src="https://avatars.githubusercontent.com/u/273169945?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>Aryanbuha890</b></sub></a> |      37       |
+|  🥉  |  <a href="https://github.com/Jivan-Patel"><img src="https://avatars.githubusercontent.com/u/225341922?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>Jivan-Patel</b></sub></a>  |      32       |
+|  4️⃣  | <a href="https://github.com/MILAN-123865"><img src="https://avatars.githubusercontent.com/u/196552402?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>MILAN-123865</b></sub></a> |      30       |
+|  5️⃣  |   <a href="https://github.com/Ayush-0918"><img src="https://avatars.githubusercontent.com/u/184804819?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>Ayush-0918</b></sub></a>   |      30       |
 
 ### 👥 All Contributors
 

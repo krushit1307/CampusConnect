@@ -9,11 +9,12 @@ import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { toast } from "sonner";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
-import { Search, Loader2, Calendar as CalendarIcon } from "lucide-react";
+import { Search, Loader2, Calendar as CalendarIcon, Download } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { matchesDateFilter } from "@/lib/eventUtils";
+import { getMultiIcsContent } from "@/lib/utils";
 
 import {
   Select,
@@ -34,6 +35,7 @@ export interface EventItem {
   end_date?: string | null;
   location: string | null;
   banner_url?: string | null;
+  created_at?: string | null;
   clubs: { name: string } | { name: string }[] | null;
   event_rsvps: { id: string; user_id: string }[] | null;
   saved_events: { id: string; user_id: string }[] | null;
@@ -278,7 +280,7 @@ export default function EventsPage() {
         .from("club_analytics_view")
         .select(
           `
-          id, title, description, event_date, start_date, end_date, location, banner_url,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_at,
           clubs (name),
           event_rsvps (id, user_id),
           saved_events (id, user_id)
@@ -400,6 +402,24 @@ export default function EventsPage() {
       toast.error("Failed to update RSVP");
     },
   });
+
+  const handleExportCalendar = useCallback(() => {
+    const icsContent = getMultiIcsContent(sortedEvents);
+    if (!icsContent) {
+      toast.error("No events to export");
+      return;
+    }
+    const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "campus_events.ics";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Calendar exported successfully!");
+  }, [sortedEvents]);
 
   const toggleBookmark = useMutation({
     mutationFn: async ({ eventId, isSaved }: { eventId: string; isSaved: boolean }) => {
@@ -771,6 +791,15 @@ export default function EventsPage() {
                     Calendar
                   </button>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={handleExportCalendar}
+                  className="neu-border flex items-center gap-2 bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream text-black cursor-pointer"
+                >
+                  <Download className="h-4 w-4" />
+                  Export Calendar
+                </button>
 
                 <Select
                   value={sortOrder}

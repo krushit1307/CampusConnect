@@ -44,23 +44,24 @@ cp .env.example .env.local
 
 Required variables include:
 
-| Variable | Description |
-|----------|-------------|
-| `VITE_SUPABASE_URL` | Your Supabase project URL. |
-| `VITE_SUPABASE_ANON_KEY` | Your Supabase anonymous API key. |
+| Variable                    | Description                                                                |
+| --------------------------- | -------------------------------------------------------------------------- |
+| `VITE_SUPABASE_URL`         | Your Supabase project URL.                                                 |
+| `VITE_SUPABASE_ANON_KEY`    | Your Supabase anonymous API key.                                           |
 | `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key (required only for server-side operations). |
 
 You can find these values in your Supabase dashboard under **Settings → API**.
 
 > **Important:** Never commit your `.env.local` file to GitHub because it contains sensitive credentials.
-   ```
+
+````
 
 5. **Start the Development Server**
-   Run the application locally to see your changes in real-time. The app will typically be available at `http://localhost:3000`.
+Run the application locally to see your changes in real-time. The app will typically be available at `http://localhost:3000`.
 
-   ```bash
-   npm run dev
-   ```
+```bash
+npm run dev
+````
 
 6. **Create a Branch**
    Create a new branch for your work. Use the following naming convention —

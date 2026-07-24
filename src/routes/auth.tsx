@@ -8,6 +8,7 @@ import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { PasswordInput } from "@/components/ui/password-input";
 import { sendVerificationEmail } from "@/lib/email/service";
+import { getFriendlyAuthError } from "@/utils/authErrors";
 
 export default function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -76,8 +77,7 @@ export default function AuthPage() {
         navigate("/dashboard", { replace: true });
       }
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      const message = getFriendlyAuthError(err);
 
       setError(message);
       toast.error(message);
@@ -100,8 +100,7 @@ export default function AuthPage() {
 
       if (error) throw error;
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      const message = getFriendlyAuthError(err);
 
       setError(message);
       toast.error(message);

@@ -1,14 +1,16 @@
 import { formatDate, formatEventDateRange, getCountdown, getGoogleCalendarUrl } from "@/lib/utils";
 import { Link } from "react-router-dom";
-import { FormEvent, useState } from "react";
+import { useState } from "react";
 import { BookmarkButton } from "@/components/events/BookmarkButton";
-import { Calendar, Check, Share2, X, Link as LinkIcon, Bookmark } from "lucide-react";
+import { Calendar, Check, Share2, Link as LinkIcon } from "lucide-react";
+import { ShareMenu } from "@/components/ui/ShareMenu";
 import { toast } from "sonner";
 import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EventRSVPButton } from "@/components/EventRSVPButton";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { motion } from "framer-motion";
 
 interface Event {
   id: string;
@@ -248,22 +250,25 @@ export function EventCard({
       <p className="mt-1 font-mono text-sm font-bold text-blue-900">{club?.name}</p>
 
       {event.description ? (
-        <div
-          className={`mt-4 overflow-hidden transition-all duration-300 ease-in-out ${
-            isDescriptionExpanded ? "max-h-[250px]" : "max-h-40"
-          }`}
-        >
-          <p className="text-sm leading-6 text-gray-800 inline">{displayedDescription}</p>
+        <div className="mt-4">
+          <motion.div
+            initial={false}
+            animate={{ height: "auto" }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <p className="text-sm leading-6 text-gray-800 inline">{displayedDescription}</p>
 
-          {shouldTruncate && (
-            <button
-              type="button"
-              onClick={() => setIsDescriptionExpanded((prev) => !prev)}
-              className="ml-1 inline font-semibold text-violet-700 hover:text-violet-900 transition-colors"
-            >
-              {isDescriptionExpanded ? "Read less" : "Read more"}
-            </button>
-          )}
+            {shouldTruncate && (
+              <button
+                type="button"
+                onClick={() => setIsDescriptionExpanded((prev) => !prev)}
+                className="ml-1 inline font-semibold text-violet-700 hover:text-violet-900 transition-colors"
+              >
+                {isDescriptionExpanded ? "Read less" : "Read more"}
+              </button>
+            )}
+          </motion.div>
         </div>
       ) : null}
 
@@ -334,31 +339,12 @@ export function EventCard({
         )}
       </div>
 
-      <div className="mt-4 flex gap-2">
-        <a
-          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-twitter hover:text-white transition-colors"
-        >
-          Twitter
-        </a>
-        <a
-          href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-linkedin hover:text-white transition-colors"
-        >
-          LinkedIn
-        </a>
-        <a
-          href={`https://wa.me/?text=${encodeURIComponent(`Check out this event: ${event.title} - ${window.location.href}`)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-brand-social-whatsapp hover:text-white transition-colors"
-        >
-          WhatsApp
-        </a>
+      <div className="mt-4">
+        <ShareMenu
+          url={typeof window !== "undefined" ? window.location.href : ""}
+          title={event.title}
+          text={`Check out this event: ${event.title}`}
+        />
       </div>
 
       <ConfirmModal
