@@ -50,27 +50,39 @@ serve(async (req: Request) => {
       });
     }
 
-    // Execute RSVP logic securely
+    // Execute RSVP logic securely with concurrency protection
+    let status = "cancelled";
     if (hasRsvpd) {
-      const { error } = await supabase
+      const { error: rsvpErr } = await supabase
         .from("event_rsvps")
         .delete()
         .match({ event_id: eventId, user_id: user.id });
 
-      if (error) {
-        throw error;
+      if (rsvpErr) {
+        throw rsvpErr;
+      }
+
+      const { error: waitlistErr } = await supabase
+        .from("event_waitlist")
+        .delete()
+        .match({ event_id: eventId, user_id: user.id });
+
+      if (waitlistErr) {
+        throw waitlistErr;
       }
     } else {
-      const { error } = await supabase
-        .from("event_rsvps")
-        .insert({ event_id: eventId, user_id: user.id });
+      const { data, error } = await supabase.rpc("safe_rsvp", {
+        target_event_id: eventId,
+        target_user_id: user.id,
+      });
 
       if (error) {
         throw error;
       }
+      status = data;
     }
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, status }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
