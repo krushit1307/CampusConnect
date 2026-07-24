@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
@@ -7,6 +7,11 @@ import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
 import { Settings, Users, Calendar, ShieldCheck, XCircle, CheckCircle } from "lucide-react";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
+
+// ⚠️ Adjust if your Supabase Storage bucket for club banners has a different name
+const BUCKET_NAME = "club-banners";
+const ACCEPTED_BANNER_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_BANNER_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
 export default function ClubManageRoute() {
   const { slug = "" } = useParams();
@@ -25,6 +30,13 @@ export default function ClubManageRoute() {
   const [twitterUrl, setTwitterUrl] = useState("");
   const [instagramUrl, setInstagramUrl] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
+
+  // Banner drag-and-drop upload state
+  const [bannerPreview, setBannerPreview] = useState("");
+  const [isDraggingBanner, setIsDraggingBanner] = useState(false);
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const [bannerError, setBannerError] = useState("");
+  const bannerInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -79,6 +91,86 @@ export default function ClubManageRoute() {
       setWebsiteUrl(links.website || "");
     }
   }, [club]);
+
+  const validateBannerFile = (file: File): string | null => {
+    if (!ACCEPTED_BANNER_TYPES.includes(file.type)) {
+      return "Only JPEG, PNG, or WEBP images are allowed.";
+    }
+    if (file.size > MAX_BANNER_SIZE_BYTES) {
+      return "File must be smaller than 5MB.";
+    }
+    return null;
+  };
+
+  const uploadBannerFile = async (file: File) => {
+    const validationError = validateBannerFile(file);
+    if (validationError) {
+      setBannerError(validationError);
+      return;
+    }
+    setBannerError("");
+
+    // Instant local preview before the actual Supabase Storage upload happens
+    const localPreviewUrl = URL.createObjectURL(file);
+    setBannerPreview(localPreviewUrl);
+
+    setIsUploadingBanner(true);
+    try {
+      if (!club?.id) throw new Error("Club not loaded yet");
+
+      const ext = file.name.split(".").pop();
+      const filePath = `${club.id}/banner-${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(BUCKET_NAME)
+        .upload(filePath, file, { cacheControl: "3600", upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
+
+      setBannerUrl(publicUrlData.publicUrl);
+      toast.success("Banner uploaded");
+    } catch (err) {
+      setBannerError("Upload failed. Please try again.");
+      toast.error(err instanceof Error ? err.message : "Failed to upload banner");
+    } finally {
+      setIsUploadingBanner(false);
+      URL.revokeObjectURL(localPreviewUrl);
+    }
+  };
+
+  const handleBannerDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingBanner(true);
+  };
+
+  const handleBannerDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingBanner(true);
+  };
+
+  const handleBannerDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingBanner(false);
+  };
+
+  const handleBannerDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingBanner(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) uploadBannerFile(file);
+  };
+
+  const handleBannerFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadBannerFile(file);
+    e.target.value = "";
+  };
 
   const updateClubMutation = useMutation({
     mutationFn: async () => {
@@ -249,13 +341,46 @@ export default function ClubManageRoute() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="font-mono text-sm font-bold uppercase mb-1 block">
-                        Banner URL
+                        Banner Image
                       </label>
-                      <input
-                        value={bannerUrl}
-                        onChange={(e) => setBannerUrl(e.target.value)}
-                        className="neu-border w-full p-2 font-mono text-sm"
-                      />
+                      <div
+                        onClick={() => bannerInputRef.current?.click()}
+                        onDragEnter={handleBannerDragEnter}
+                        onDragOver={handleBannerDragOver}
+                        onDragLeave={handleBannerDragLeave}
+                        onDrop={handleBannerDrop}
+                        className={`neu-border cursor-pointer p-4 font-mono text-sm transition-all flex flex-col items-center justify-center gap-2 min-h-[120px] ${
+                          isDraggingBanner
+                            ? "bg-lime/40 -translate-y-1"
+                            : "bg-white hover:bg-gray-50"
+                        }`}
+                      >
+                        <input
+                          ref={bannerInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={handleBannerFileSelect}
+                        />
+                        {isUploadingBanner ? (
+                          <p className="text-xs uppercase font-bold">Uploading...</p>
+                        ) : bannerPreview || bannerUrl ? (
+                          <img
+                            src={bannerPreview || bannerUrl}
+                            alt="Banner preview"
+                            className="max-h-24 object-cover rounded"
+                          />
+                        ) : (
+                          <p className="text-xs text-gray-500 text-center">
+                            Drag & drop an image here, or click to browse
+                            <br />
+                            <span className="text-[10px]">JPEG, PNG, WEBP — max 5MB</span>
+                          </p>
+                        )}
+                      </div>
+                      {bannerError && (
+                        <p className="text-xs text-red-500 font-mono mt-1">{bannerError}</p>
+                      )}
                     </div>
                     <div>
                       <label className="font-mono text-sm font-bold uppercase mb-1 block">
