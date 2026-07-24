@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useBlocker } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SiteShell } from "@/components/site/SiteShell";
 import {
@@ -161,7 +161,35 @@ export default function SettingsPage() {
       phoneNumber: "",
     },
   });
+  const {
+    formState: { isDirty },
+  } = form;
+  const blocker = useBlocker(isDirty);
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!isDirty) return;
 
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isDirty]);
+  useEffect(() => {
+    if (blocker.state !== "blocked") return;
+
+    const shouldLeave = window.confirm("You have unsaved changes. Are you sure you want to leave?");
+
+    if (shouldLeave) {
+      blocker.proceed();
+    } else {
+      blocker.reset();
+    }
+  }, [blocker]);
   useEffect(() => {
     if (user) {
       // Auth metadata (from OAuth sign-up, etc.) may only ever have a single
