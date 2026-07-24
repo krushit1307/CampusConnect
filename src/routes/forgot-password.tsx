@@ -4,6 +4,7 @@ import { Sparkle } from "@/components/site/Sparkle";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { getFriendlyAuthError } from "@/utils/authErrors";
 
 export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
@@ -19,11 +20,8 @@ export default function ForgotPasswordPage() {
     const email = formData.get("email") as string;
 
     try {
-      const { error } = await supabase.functions.invoke("request-password-reset", {
-        body: {
-          email,
-          redirectTo: `${window.location.origin}/reset-password`,
-        },
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
 
       if (error) throw error;
@@ -33,8 +31,9 @@ export default function ForgotPasswordPage() {
       setSubmitted(true);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      setError(err.message);
-      toast.error(err.message || "Something went wrong. Please try again.");
+      const message = getFriendlyAuthError(err);
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -47,12 +46,12 @@ export default function ForgotPasswordPage() {
       <Sparkle className="absolute bottom-8 left-8" size={16} />
       <Sparkle className="absolute bottom-8 right-8" size={16} />
       <div className="w-full max-w-md">
-        <Link to="/" className="mb-6 inline-block font-display text-2xl font-bold">
-          CAMPUS<span className="bg-black px-1 text-cream">CONNECT</span>
+        <Link to="/" className="mb-6 inline-block font-display text-2xl font-bold text-black">
+          CAMPUS<span className="bg-black px-1 text-amber-300">CONNECT</span>
         </Link>
         <div className="neu-border bg-white p-8">
-          <p className="eyebrow mb-2 font-bold">Forgot password</p>
-          <h1 className="mb-6 text-3xl font-bold">Reset your password</h1>
+          <p className="eyebrow mb-2 font-bold text-black">Forgot password</p>
+          <h1 className="mb-6 text-3xl font-bold text-indigo-900">Reset your password</h1>
 
           {submitted ? (
             <div className="space-y-4">
@@ -76,7 +75,7 @@ export default function ForgotPasswordPage() {
               {error && (
                 <div className="mb-4 bg-red-100 p-2 font-mono text-sm text-red-700">{error}</div>
               )}
-              <form onSubmit={onSubmit} className="space-y-4">
+              <form onSubmit={onSubmit} className="space-y-4 text-red-900">
                 <Field
                   label="College email"
                   type="email"
@@ -84,17 +83,13 @@ export default function ForgotPasswordPage() {
                   placeholder="you@college.edu"
                   required
                 />
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="neu-border neu-press w-full bg-black px-4 py-3 font-mono text-sm font-bold uppercase tracking-wider text-cream disabled:opacity-50"
-                >
+                <Button type="submit" disabled={loading} variant="primary" className="w-full">
                   {loading ? "Sending..." : "Send reset link"}
                 </Button>
               </form>
-              <p className="mt-6 text-center font-mono text-xs">
+              <p className="mt-6 text-center font-mono text-xs text-black">
                 Remembered it?{" "}
-                <Link to="/auth" className="font-bold underline underline-offset-2">
+                <Link to="/auth" className="font-bold underline underline-offset-2 text-blue-700">
                   Sign in
                 </Link>
               </p>

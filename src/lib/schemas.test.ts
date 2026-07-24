@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { profileSchema } from "./schemas";
+import { profileSchema, AVATAR_THEMES } from "./schemas";
 
 describe("profileSchema", () => {
   const validPayload = {
-    fullName: "Ada Lovelace",
+    firstName: "Ada",
+    lastName: "Lovelace",
     handle: "ada_lovelace",
     collegeEmail: "ada@college.edu",
     bio: "Systems programming, tea, and long walks.",
@@ -16,24 +17,16 @@ describe("profileSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  describe("fullName validation", () => {
-    it("accepts a name with 2 characters", () => {
-      const result = profileSchema.safeParse({ ...validPayload, fullName: "Ab" });
-      expect(result.success).toBe(true);
-    });
-
-    it("rejects a name with less than 2 characters", () => {
-      const result = profileSchema.safeParse({ ...validPayload, fullName: "A" });
+  describe("firstName validation", () => {
+    it("rejects an empty first name", () => {
+      const result = profileSchema.safeParse({ ...validPayload, firstName: "" });
       expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.flatten().fieldErrors.fullName).toContain(
-          "Full name must be at least 2 characters long.",
-        );
-      }
     });
+  });
 
-    it("rejects an empty name", () => {
-      const result = profileSchema.safeParse({ ...validPayload, fullName: "" });
+  describe("lastName validation", () => {
+    it("rejects an empty last name", () => {
+      const result = profileSchema.safeParse({ ...validPayload, lastName: "" });
       expect(result.success).toBe(false);
     });
   });
@@ -168,6 +161,27 @@ describe("profileSchema", () => {
 
     it("rejects phone numbers that are too short", () => {
       const result = profileSchema.safeParse({ ...validPayload, phoneNumber: "1234567" });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("avatarTheme validation", () => {
+    it("accepts empty or missing avatarTheme", () => {
+      const result1 = profileSchema.safeParse({ ...validPayload, avatarTheme: "" });
+      const result2 = profileSchema.safeParse({ ...validPayload, avatarTheme: undefined });
+      expect(result1.success).toBe(true);
+      expect(result2.success).toBe(true);
+    });
+
+    it("accepts each predefined gradient id", () => {
+      for (const theme of AVATAR_THEMES) {
+        const result = profileSchema.safeParse({ ...validPayload, avatarTheme: theme.id });
+        expect(result.success).toBe(true);
+      }
+    });
+
+    it("rejects a gradient id that isn't one of the predefined themes", () => {
+      const result = profileSchema.safeParse({ ...validPayload, avatarTheme: "galaxy" });
       expect(result.success).toBe(false);
     });
   });

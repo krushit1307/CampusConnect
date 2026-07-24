@@ -4,9 +4,11 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
-import { Award, ArrowRight, Copy, Download, X } from "lucide-react";
+import { Award, ArrowRight, Copy, Download, Loader2, QrCode, X } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { formatDateOnly } from "@/lib/utils";
+import { formatStandardDate } from "@/utils/dateUtils";
+import { downloadCertificatePdf } from "@/lib/certificateUtils";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -32,6 +34,8 @@ export default function Certificates() {
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [selectedCert, setSelectedCert] = useState<Certificate | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [ticketCert, setTicketCert] = useState<Certificate | null>(null);
+  const [isTicketOpen, setIsTicketOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -86,7 +90,7 @@ export default function Certificates() {
         }
       `}</style>
 
-      <section className="bg-cream px-4 py-12 md:px-6">
+      <section className="bg-amber-300 px-4 py-12 md:px-6">
         <div className="mx-auto max-w-7xl">
           {isLoading ? (
             <>
@@ -95,8 +99,8 @@ export default function Certificates() {
               ))}
             </>
           ) : certs.length === 0 ? (
-            <div className="col-span-full font-mono py-10 text-gray-500">
-              You don't have any certificates yet. Attend events to earn them!
+            <div className="col-span-full font-mono py-10 text-neutral-600">
+              You don&apos;t have any certificates yet. Attend events to earn them!
             </div>
           ) : displayedCerts.length === 0 ? (
             <div className="col-span-full">
@@ -197,7 +201,9 @@ export default function Certificates() {
                         </div>
                         <div className="flex justify-between border-b border-black/10 pb-1">
                           <span className="font-bold uppercase text-black">Issued</span>
-                          <span>{c.issued_at ? formatDateOnly(c.issued_at, "short") : "N/A"}</span>
+                          <span>
+                            {c.issued_at ? formatStandardDate(c.issued_at, "MMM d, yyyy") : "N/A"}
+                          </span>
                         </div>
                         <div className="flex justify-between pb-1">
                           <span className="font-bold uppercase text-black">Verify ID</span>
@@ -208,15 +214,27 @@ export default function Certificates() {
                       </div>
                     </div>
                     <div className="mt-6">
-                      <button
-                        onClick={() => {
-                          setSelectedCert(c);
-                          setIsDialogOpen(true);
-                        }}
-                        className="neu-border neu-press w-full bg-black text-cream hover:bg-lime hover:text-black py-2.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer"
-                      >
-                        View Certificate
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedCert(c);
+                            setIsDialogOpen(true);
+                          }}
+                          className="neu-border neu-press flex-1 bg-black text-cream hover:bg-lime hover:text-black py-2.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer"
+                        >
+                          View Certificate
+                        </button>
+                        <button
+                          onClick={() => {
+                            setTicketCert(c);
+                            setIsTicketOpen(true);
+                          }}
+                          className="neu-border neu-press bg-white hover:bg-sky py-2.5 px-3 font-mono text-xs font-bold uppercase transition-colors cursor-pointer"
+                          aria-label="View Ticket"
+                        >
+                          <QrCode className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   </article>
                 );
@@ -225,6 +243,110 @@ export default function Certificates() {
           )}
         </div>
       </section>
+
+      {/* QR Ticket Dialog */}
+      <Dialog open={isTicketOpen} onOpenChange={setIsTicketOpen}>
+        <DialogContent className="max-w-sm w-[95vw] bg-cream border-2 border-black rounded-none shadow-[8px_8px_0_0_rgba(0,0,0,1)] p-0 font-mono [&>button]:hidden">
+          {ticketCert &&
+            (() => {
+              const event = Array.isArray(ticketCert.events)
+                ? ticketCert.events[0]
+                : ticketCert.events;
+              const club = event
+                ? Array.isArray(event.clubs)
+                  ? event.clubs[0]
+                  : event.clubs
+                : null;
+              const ticketUrl = ticketCert.certificate_url || window.location.href;
+              return (
+                <div className="flex flex-col">
+                  {/* Top Bar */}
+                  <div className="bg-black text-cream px-4 py-3 flex justify-between items-center border-b-2 border-black">
+                    <DialogTitle className="font-mono font-bold text-xs uppercase tracking-wider text-cream">
+                      Event Ticket
+                    </DialogTitle>
+                    <button
+                      onClick={() => setIsTicketOpen(false)}
+                      className="text-cream hover:text-lime transition-colors cursor-pointer"
+                      aria-label="Close"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {/* Ticket Card */}
+                  <div className="p-5 group">
+                    <div className="neu-border bg-white p-5 flex flex-col gap-4 shadow-[4px_4px_0_0_var(--color-ink)] transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-[6px_6px_0_0_var(--color-ink)]">
+                      {/* Header stripe */}
+                      <div className="bg-lime neu-border px-3 py-2 text-center">
+                        <p className="font-mono text-[10px] font-black uppercase tracking-widest">
+                          CampusConnect · Official Ticket
+                        </p>
+                      </div>
+
+                      {/* QR Code */}
+                      <div className="flex justify-center">
+                        <div className="neu-border bg-white p-3 shadow-[3px_3px_0_0_var(--color-ink)]">
+                          <QRCodeSVG
+                            value={ticketUrl}
+                            size={140}
+                            bgColor="#ffffff"
+                            fgColor="#000000"
+                            level="M"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Event details */}
+                      <div className="space-y-2 text-xs border-t-2 border-dashed border-black pt-3">
+                        <div className="flex justify-between">
+                          <span className="font-bold uppercase text-gray-500">Event</span>
+                          <span className="font-bold text-black text-right max-w-[160px] truncate">
+                            {event?.title || "—"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-bold uppercase text-gray-500">Attendee</span>
+                          <span className="font-bold text-black">
+                            {user?.email?.split("@")[0] || "—"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-bold uppercase text-gray-500">Club</span>
+                          <span className="font-bold text-black">{club?.name || "—"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-bold uppercase text-gray-500">Issued</span>
+                          <span className="font-bold text-black">
+                            {ticketCert.issued_at
+                              ? formatStandardDate(ticketCert.issued_at, "MMM d, yyyy")
+                              : "—"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-bold uppercase text-gray-500">Ticket ID</span>
+                          <span className="font-bold text-gray-500 font-mono">
+                            {ticketCert.id.split("-")[0].toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Download Button */}
+                  <div className="px-5 pb-5">
+                    <button
+                      onClick={() => window.open(ticketUrl, "_blank")}
+                      className="neu-border neu-press w-full bg-black text-cream hover:bg-lime hover:text-black py-3 font-mono text-xs font-bold uppercase transition-colors cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <Download className="h-4 w-4" /> Download Ticket
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+        </DialogContent>
+      </Dialog>
 
       {/* Preview Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -299,7 +421,7 @@ export default function Certificates() {
                           <p className="font-bold uppercase text-gray-500">Date of Issue</p>
                           <p className="font-bold text-black">
                             {selectedCert.issued_at
-                              ? formatDateOnly(selectedCert.issued_at, "long")
+                              ? formatStandardDate(selectedCert.issued_at, "MMMM d, yyyy")
                               : "N/A"}
                           </p>
                         </div>
@@ -336,35 +458,36 @@ export default function Certificates() {
                     <button
                       onClick={async () => {
                         setOpeningId(selectedCert.id);
-                        const minDuration = new Promise((resolve) => setTimeout(resolve, 400));
+                        const minDuration = new Promise((resolve) => setTimeout(resolve, 500));
                         try {
-                          const response = await fetch(selectedCert.certificate_url);
-                          const blob = await response.blob();
-                          const blobUrl = window.URL.createObjectURL(blob);
-
-                          const link = document.createElement("a");
-                          link.href = blobUrl;
-                          const eventTitle = event?.title || "certificate";
-                          const filename = `${eventTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-certificate.pdf`;
-                          link.download = filename;
-
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
-                          window.URL.revokeObjectURL(blobUrl);
+                          await downloadCertificatePdf({
+                            certificateUrl: selectedCert.certificate_url,
+                            eventTitle: event?.title,
+                            studentName: user?.email?.split("@")[0] || "Student",
+                            issuedAt: selectedCert.issued_at,
+                            certId: selectedCert.id,
+                          });
+                          toast.success("Certificate downloaded successfully!");
                         } catch (err) {
                           console.error("PDF download failed:", err);
-                          // Fallback to opening in new window if fetch fails
-                          window.open(selectedCert.certificate_url, "_blank");
+                          toast.error("Failed to download certificate.");
+                        } finally {
+                          await minDuration;
+                          setOpeningId(null);
                         }
-                        await minDuration;
-                        setOpeningId(null);
                       }}
                       disabled={openingId === selectedCert.id}
                       className="neu-border neu-press flex-1 bg-black text-cream hover:bg-lime hover:text-black py-3 font-mono text-xs font-bold uppercase transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
                     >
-                      <Download className="h-4 w-4" />{" "}
-                      {openingId === selectedCert.id ? "Downloading..." : "Download PDF"}
+                      {openingId === selectedCert.id ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" /> Downloading PDF...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-4 w-4" /> Download PDF
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
