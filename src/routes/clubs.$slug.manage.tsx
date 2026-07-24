@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
 import { Settings, Users, Calendar, ShieldCheck, XCircle, CheckCircle } from "lucide-react";
+import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 
 export default function ClubManageRoute() {
@@ -25,6 +26,7 @@ export default function ClubManageRoute() {
   const [twitterUrl, setTwitterUrl] = useState("");
   const [instagramUrl, setInstagramUrl] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
+  const [promoVideoUrl, setPromoVideoUrl] = useState("");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -43,7 +45,7 @@ export default function ClubManageRoute() {
         .from("clubs")
         .select(
           `
-          id, name, slug, description, banner_url, logo_url, visibility, github_repo_url, social_links,
+          id, name, slug, description, banner_url, logo_url, visibility, github_repo_url, social_links, promo_video_url,
           club_members (id, role, status, user_id, profiles (full_name, avatar_url, handle)),
           events (id, title, event_date, max_attendees, event_rsvps(id))
         `,
@@ -77,6 +79,7 @@ export default function ClubManageRoute() {
       setTwitterUrl(links.twitter || "");
       setInstagramUrl(links.instagram || "");
       setWebsiteUrl(links.website || "");
+      setPromoVideoUrl(club.promo_video_url || "");
     }
   }, [club]);
 
@@ -110,6 +113,7 @@ export default function ClubManageRoute() {
           description,
           banner_url: bannerUrl,
           logo_url: logoUrl,
+          promo_video_url: promoVideoUrl || null,
           visibility,
           github_repo_url: githubRepo,
           social_links: socialLinks,
@@ -267,6 +271,13 @@ export default function ClubManageRoute() {
                         className="neu-border w-full p-2 font-mono text-sm"
                       />
                     </div>
+                  </div>
+                  <div className="pt-2 pb-2">
+                    <PromoVideoUploader
+                      clubId={club.id}
+                      initialVideoUrl={promoVideoUrl}
+                      onUploadComplete={(url) => setPromoVideoUrl(url || "")}
+                    />
                   </div>
                   <div>
                     <label className="font-mono text-sm font-bold uppercase mb-1 block">

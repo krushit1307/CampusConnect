@@ -1,4 +1,5 @@
 import { Suspense, lazy } from "react";
+// @ts-expect-error - framer-motion types may not be resolved in all editor settings
 import { AnimatePresence } from "framer-motion";
 import {
   createBrowserRouter,
@@ -36,6 +37,7 @@ import Settings from "./routes/settings";
 import VerifyEmail from "./routes/verify-email";
 import PendingClubsAdmin from "./routes/admin.clubs.pending";
 import AdminReportsPage from "./routes/admin.reports";
+import ChallengeArena from "./routes/challenge";
 import { NotFoundPage } from "./components/NotFoundPage";
 
 // ---------------------------------------------------------------------------
@@ -154,6 +156,7 @@ const router = createBrowserRouter(
         />
         {/* Events Map View with clustering */}
         <Route path="/events/map" element={<EventsMapPage />} />
+        <Route path="/challenge" element={<ChallengeArena />} />
 
         <Route path="/feed" element={<Feed />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />

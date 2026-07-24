@@ -84,7 +84,8 @@
     "react-dom": "^19.2.0",
     "react-easy-crop": "^6.2.2",
     "react-helmet-async": "^2.0.5",
-    "react-hook-form": "^7.71.2",
+    "react-hook-form": "^7.71.2"
+    "react-intersection-observer": "^10.1.0",
     "react-leaflet": "^5.0.0",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^4.6.5",

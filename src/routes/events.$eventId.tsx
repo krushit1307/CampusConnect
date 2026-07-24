@@ -141,7 +141,11 @@ function SimilarEvents({
             </h3>
             {evt.event_date && (
               <p className="font-mono text-xs text-black/60 mt-1">
+
                 📅 {formatStandardDate(evt.event_date)}
+
+                📅 {new Date(evt.event_date).toLocaleDateString()}
+
               </p>
             )}
           </Link>

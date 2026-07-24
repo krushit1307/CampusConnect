@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.110.0";
-import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
+import { PDFDocument, rgb, StandardFonts, PDFFont } from "https://esm.sh/pdf-lib@1.17.1";
 import { limitRate } from "../shared/rate_limiter.ts";
 
 const corsHeaders = {
@@ -104,33 +104,32 @@ serve(async (req) => {
     const helveticaFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     const helveticaNormal = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-    page.drawText("Certificate of Participation", {
-      x: 100,
-      y: 320,
-      size: 30,
-      font: helveticaFont,
-      color: rgb(0, 0, 0),
-    });
-    page.drawText(`This certifies that`, { x: 230, y: 270, size: 16, font: helveticaNormal });
-    page.drawText(fullName, {
-      x: 200,
-      y: 230,
-      size: 24,
-      font: helveticaFont,
-    });
-    page.drawText(`has successfully participated in`, {
-      x: 190,
-      y: 190,
-      size: 16,
-      font: helveticaNormal,
-    });
-    page.drawText(event.title, { x: 150, y: 150, size: 20, font: helveticaFont });
-    page.drawText(`Organized by ${clubName || "CampusConnect"}`, {
-      x: 200,
-      y: 110,
-      size: 14,
-      font: helveticaNormal,
-    });
+    const drawCenteredScaledText = (
+      text: string,
+      y: number,
+      font: PDFFont,
+      defaultSize: number,
+      color = rgb(0, 0, 0),
+    ) => {
+      const maxWidth = 500;
+      let size = defaultSize;
+      let textWidth = font.widthOfTextAtSize(text, size);
+
+      if (textWidth > maxWidth) {
+        size = Math.max(10, (maxWidth / textWidth) * size);
+        textWidth = font.widthOfTextAtSize(text, size);
+      }
+
+      const x = (page.getWidth() - textWidth) / 2;
+      page.drawText(text, { x, y, size, font, color });
+    };
+
+    drawCenteredScaledText("Certificate of Participation", 320, helveticaFont, 30, rgb(0, 0, 0));
+    drawCenteredScaledText(`This certifies that`, 270, helveticaNormal, 16);
+    drawCenteredScaledText(fullName, 230, helveticaFont, 24);
+    drawCenteredScaledText(`has successfully participated in`, 190, helveticaNormal, 16);
+    drawCenteredScaledText(event.title, 150, helveticaFont, 20);
+    drawCenteredScaledText(`Organized by ${clubName || "CampusConnect"}`, 110, helveticaNormal, 14);
 
     const dateStr = event.event_date
       ? new Date(event.event_date).toLocaleDateString()
