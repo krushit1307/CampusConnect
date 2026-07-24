@@ -26,6 +26,7 @@ import { createClient } from "@/lib/supabase/client";
 import { calculateReadTime } from "@/utils/readTime";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
+import CompressWorker from "@/workers/compress.worker?worker";
 
 import {
   MarkdownEditorWithMentions,
@@ -85,6 +86,7 @@ interface Post {
   created_at: string;
   club_id: string;
   pinned: boolean;
+  image_url: string | null;
   profiles: Profile[] | Profile | null;
   clubs: Club[] | Club | null;
   comments: Comment[] | null;
@@ -112,6 +114,12 @@ export default function Feed() {
   const [reportDialogPostId, setReportDialogPostId] = useState<string | null>(null);
   const [reportReason, setReportReason] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Attached Image States
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachedImage, setAttachedImage] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [compressing, setCompressing] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -175,7 +183,7 @@ export default function Feed() {
         .from("posts")
         .select(
           `
-        id, content, created_at, club_id, pinned,
+        id, content, created_at, club_id, pinned, image_url,
         profiles (id, full_name, handle),
         clubs (id, name, club_members (user_id, role)),
         comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name, handle)),
@@ -209,7 +217,7 @@ export default function Feed() {
         .from("trending_posts")
         .select(
           `
-          id, content, created_at, club_id, pinned,
+          id, content, created_at, club_id, pinned, image_url,
           profiles (id, full_name, handle),
           clubs (id, name, club_members (user_id, role)),
           comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name, handle)),
@@ -333,20 +341,80 @@ export default function Feed() {
     };
   }, [lightboxSrc]);
 
+  const compressImageFile = (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      try {
+        const worker = new CompressWorker();
+        worker.postMessage({ file, width: 800, height: 600, quality: 80 });
+        worker.onmessage = (e) => {
+          if (e.data.success) {
+            const compressedBytes = e.data.data;
+            const blob = new Blob([compressedBytes], { type: "image/jpeg" });
+            const compressedFile = new File([blob], file.name, { type: "image/jpeg" });
+            resolve(compressedFile);
+          } else {
+            resolve(file);
+          }
+          worker.terminate();
+        };
+      } catch (err) {
+        console.error("Compression worker creation failed", err);
+        resolve(file);
+      }
+    });
+  };
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImagePreviewUrl(URL.createObjectURL(file));
+    setCompressing(true);
+
+    try {
+      const compressed = await compressImageFile(file);
+      setAttachedImage(compressed);
+    } catch (err) {
+      console.error(err);
+      setAttachedImage(file);
+    } finally {
+      setCompressing(false);
+    }
+  };
+
   const postMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Must be logged in");
       if (!selectedClubId) throw new Error("Select a club");
 
+      let imageUrl = null;
+      if (attachedImage) {
+        const filePath = `${user.id}/${crypto.randomUUID()}-${attachedImage.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from("post-attachments")
+          .upload(filePath, attachedImage);
+
+        if (uploadError) throw uploadError;
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("post-attachments").getPublicUrl(filePath);
+
+        imageUrl = publicUrl;
+      }
+
       const { error } = await supabase.from("posts").insert({
         club_id: selectedClubId,
         author_id: user.id,
         content: newPost,
+        image_url: imageUrl,
       });
 
       if (error) throw error;
 
       setNewPost("");
+      setAttachedImage(null);
+      setImagePreviewUrl(null);
     },
     onSuccess: () => refetchPosts(),
     onError: (error) => {
@@ -517,6 +585,32 @@ export default function Feed() {
                 clubId={selectedClubId}
               />
 
+              {imagePreviewUrl && (
+                <div className="relative inline-block mt-2">
+                  <img
+                    src={imagePreviewUrl}
+                    alt="Attached preview"
+                    className="max-h-40 neu-border object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAttachedImage(null);
+                      setImagePreviewUrl(null);
+                    }}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 border-2 border-black hover:bg-red-600 flex items-center justify-center h-6 w-6"
+                    title="Remove image"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                  {compressing && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-mono text-xs">
+                      Compressing...
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
                 <select
                   value={selectedClubId}
@@ -536,24 +630,46 @@ export default function Feed() {
                   })}
                 </select>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!user) return alert("Log in first");
-                    if (!emailVerified) return alert("Please verify your email to post");
-                    if (!selectedClubId) return alert("Join or select a club first");
-                    if (newPost.trim()) postMutation.mutate();
-                  }}
-                  disabled={
-                    !newPost.trim() || !selectedClubId || postMutation.isPending || !emailVerified
-                  }
-                  title={!emailVerified ? "Please verify your email to post" : ""}
-                  className={`neu-border neu-press px-5 py-2 font-mono text-xs font-bold uppercase disabled:cursor-not-allowed disabled:opacity-50 ${
-                    emailVerified ? "bg-black text-cream" : "bg-gray-400 text-gray-700"
-                  }`}
-                >
-                  {postMutation.isPending ? "Posting…" : "Post Markdown"}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={postMutation.isPending || compressing}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-cream flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    📷 Attach Image
+                  </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImageSelect}
+                    accept="image/*"
+                    className="hidden"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!user) return alert("Log in first");
+                      if (!emailVerified) return alert("Please verify your email to post");
+                      if (!selectedClubId) return alert("Join or select a club first");
+                      if (newPost.trim()) postMutation.mutate();
+                    }}
+                    disabled={
+                      !newPost.trim() ||
+                      !selectedClubId ||
+                      postMutation.isPending ||
+                      !emailVerified ||
+                      compressing
+                    }
+                    title={!emailVerified ? "Please verify your email to post" : ""}
+                    className={`neu-border neu-press px-5 py-2 font-mono text-xs font-bold uppercase disabled:cursor-not-allowed disabled:opacity-50 ${
+                      emailVerified ? "bg-black text-cream" : "bg-gray-400 text-gray-700"
+                    }`}
+                  >
+                    {postMutation.isPending ? "Posting…" : "Post Markdown"}
+                  </button>
+                </div>
               </div>
 
               {postMutation.isError && (
@@ -820,6 +936,18 @@ export default function Feed() {
                           {post.content}
                         </ReactMarkdown>
                       </div>
+
+                      {post.image_url && (
+                        <div className="mt-3">
+                          <img
+                            src={post.image_url}
+                            alt="Post attachment"
+                            onClick={() => setLightboxSrc(post.image_url)}
+                            className="max-h-96 cursor-zoom-in rounded-none neu-border object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
 
                       <div className="mt-4 flex flex-wrap gap-2">
                         {["👍", "👏", "🔥"].map((emoji) => {
