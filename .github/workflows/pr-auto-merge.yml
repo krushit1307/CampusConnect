@@ -21,7 +21,7 @@ jobs:
           github-token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
-            
+
             async function processPR(prNumber) {
               console.log(`\nEvaluating PR #${prNumber}`);
               
