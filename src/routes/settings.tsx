@@ -528,50 +528,29 @@ export default function SettingsPage() {
 
           <Panel title="Appearance">
             <div className="space-y-6">
+              {/* Theme Toggle */}
               <div className="space-y-2">
                 <label className="eyebrow font-bold text-black dark:text-cream">Theme Mode</label>
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setTheme("light")}
-                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${
-                      theme === "light"
-                        ? "bg-black text-cream dark:bg-cream dark:text-black"
-                        : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
-                    }`}
-                  >
-                    ☀️ Light
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTheme("dark")}
-                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${
-                      theme === "dark"
-                        ? "bg-black text-cream dark:bg-cream dark:text-black"
-                        : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
-                    }`}
-                  >
-                    🌙 Dark
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTheme("system")}
-                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${
-                      theme === "system"
-                        ? "bg-black text-cream dark:bg-cream dark:text-black"
-                        : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
-                    }`}
-                  >
-                    💻 System
-                  </button>
+
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <label className="eyebrow font-bold text-black dark:text-cream">
+                      Dark Mode
+                    </label>
+
+                    <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+                      Toggle between light and dark theme
+                    </p>
+                  </div>
+
+                  <ThemeToggle theme={theme} setTheme={setTheme} />
                 </div>
-                <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
-                  Select your preferred color theme or match system settings
-                </p>
               </div>
 
+              {/* Border Thickness */}
               <div className="space-y-2">
                 <label className="eyebrow font-bold">Border Thickness: {borderThickness}px</label>
+
                 <input
                   type="range"
                   min="1"
@@ -580,13 +559,16 @@ export default function SettingsPage() {
                   onChange={handleBorderThicknessChange}
                   className="w-full cursor-pointer accent-black"
                 />
+
                 <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
                   Controls the width of borders throughout the app (1px - 8px)
                 </p>
               </div>
 
+              {/* Border Radius */}
               <div className="space-y-2">
                 <label className="eyebrow font-bold">Border Radius: {borderRadius}px</label>
+
                 <input
                   type="range"
                   min="0"
@@ -595,6 +577,7 @@ export default function SettingsPage() {
                   onChange={handleBorderRadiusChange}
                   className="w-full cursor-pointer accent-black"
                 />
+
                 <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
                   Controls the roundness of corners (0px - 32px)
                 </p>
@@ -1068,6 +1051,37 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
         )}
       </div>
     </div>
+  );
+}
+function ThemeToggle({
+  theme,
+  setTheme,
+}: {
+  theme: "light" | "dark" | "system";
+  setTheme: (theme: "light" | "dark" | "system") => void;
+}) {
+  const isDark = theme === "dark";
+
+  const handleToggle = () => {
+    setTheme(isDark ? "light" : "dark");
+  };
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={isDark}
+      onClick={handleToggle}
+      className={`relative flex h-7 w-14 items-center rounded-full border-2 border-black transition-colors ${
+        isDark ? "bg-black" : "bg-gray-200"
+      }`}
+    >
+      <span
+        className={`h-5 w-5 rounded-full border-2 border-black bg-white transition-transform ${
+          isDark ? "translate-x-7" : "translate-x-1"
+        }`}
+      />
+    </button>
   );
 }
 
