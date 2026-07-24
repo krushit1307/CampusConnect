@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 import { useMutation } from "@/hooks/useReactQueryReplacement";
@@ -62,6 +62,21 @@ const defaultValues: EventFormValues = {
   faqs: [],
 };
 
+const DRAFT_KEY = "event_draft";
+const DRAFT_AUTOSAVE_INTERVAL_MS = 5000;
+
+// Only worth saving/restoring a draft if the user actually typed something.
+function hasDraftContent(values: EventFormValues): boolean {
+  return Boolean(
+    values.title?.trim() ||
+    values.description?.trim() ||
+    values.location?.trim() ||
+    values.startDate ||
+    values.endDate ||
+    (values.faqs && values.faqs.length > 0),
+  );
+}
+
 export function CreateEventDialog({ user }: { user: User | null }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>(0);
@@ -78,6 +93,25 @@ export function CreateEventDialog({ user }: { user: User | null }) {
     watchedLocation &&
     watchedLocation.trim().length > 0 &&
     watchedLocation.trim().toLowerCase() !== "online";
+
+  // Auto-save the in-progress draft to localStorage every 5 seconds while
+  // the dialog is open, so it survives a refresh or browser crash.
+  useEffect(() => {
+    if (!open) return;
+
+    const interval = setInterval(() => {
+      const values = form.getValues();
+      if (!hasDraftContent(values)) return;
+
+      try {
+        window.localStorage.setItem(DRAFT_KEY, JSON.stringify(values));
+      } catch (e) {
+        console.error("[CreateEventDialog] Failed to save draft to localStorage:", e);
+      }
+    }, DRAFT_AUTOSAVE_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [open, form]);
 
   const handleNext = async () => {
     const valid = await form.trigger(STEP_FIELDS[step]);
@@ -115,6 +149,11 @@ export function CreateEventDialog({ user }: { user: User | null }) {
     onSuccess: () => {
       toast.success("Event created!");
       window.dispatchEvent(new Event("refetchEvents"));
+      try {
+        window.localStorage.removeItem(DRAFT_KEY);
+      } catch (e) {
+        console.error("[CreateEventDialog] Failed to clear saved draft:", e);
+      }
       form.reset(defaultValues);
       setStep(0);
       setOpen(false);
@@ -189,7 +228,25 @@ export function CreateEventDialog({ user }: { user: User | null }) {
       open={open}
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen);
-        if (!nextOpen) {
+        if (nextOpen) {
+          try {
+            const saved = window.localStorage.getItem(DRAFT_KEY);
+            if (saved) {
+              const draftValues = JSON.parse(saved) as EventFormValues;
+              if (hasDraftContent(draftValues)) {
+                toast("You have an unsaved draft.", {
+                  description: "Would you like to resume where you left off?",
+                  action: {
+                    label: "Resume",
+                    onClick: () => form.reset(draftValues),
+                  },
+                });
+              }
+            }
+          } catch (e) {
+            console.error("[CreateEventDialog] Failed to read saved draft:", e);
+          }
+        } else {
           form.reset(defaultValues);
           setStep(0);
         }
