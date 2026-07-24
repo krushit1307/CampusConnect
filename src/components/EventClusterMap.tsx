@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, CircleMarker, Popup, useMap, useMapEvents } fr
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { createClient } from "@/lib/supabase/client";
+import { formatStandardDate } from "@/utils/dateUtils";
 
 interface EventCluster {
   cluster_id: number;
@@ -115,12 +116,7 @@ function ClusterMarker({
 function SingleEventMarker({ event, onClick }: { event: EventData; onClick: () => void }) {
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "TBD";
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
+    return formatStandardDate(dateStr, "MMM d, h:mm a");
   };
 
   return (

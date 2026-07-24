@@ -24,4 +24,18 @@ describe("certificateUtils module", () => {
     expect(blob.type).toBe("application/pdf");
     expect(blob.size).toBeGreaterThan(100);
   });
+
+  it("handles exceptionally long names and event titles without erroring", async () => {
+    const blob = await generateFallbackCertificatePdf({
+      eventTitle:
+        "A very long event title that spans many characters to test the text scaling functionality of our pdf generator",
+      studentName: "Hubert Blaine Wolfeschlegelsteinhausenbergerdorff Sr.",
+      issuedAt: "2026-07-24T00:00:00.000Z",
+      certId: "CERT-LONGNAME-123",
+    });
+
+    expect(blob).toBeInstanceOf(Blob);
+    expect(blob.type).toBe("application/pdf");
+    expect(blob.size).toBeGreaterThan(100);
+  });
 });
