@@ -123,7 +123,7 @@ function ScrollReveal({ children, delay = 0 }: { children: React.ReactNode; dela
 function SectionEyebrow({ children }: { children: React.ReactNode }) {
   return (
     <p
-      className="eyebrow flex items-center gap-2 font-bold text-[#123a57]"
+      className="eyebrow flex items-center gap-2 font-bold text-brand-blue-dark"
       style={{ letterSpacing: "0.1em", fontSize: "12px" }}
     >
       <Sparkle size={10} />
@@ -205,18 +205,18 @@ export default function Landing() {
         {/* Dynamic Animated Blobs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
           {/* Blob 1 (Accent Color) */}
-          <div className="absolute -top-[10%] -left-[10%] w-[300px] h-[300px] rounded-full bg-[#f5c66b]/22 blur-[80px] animate-blob-1 mix-blend-screen md:w-[450px] md:h-[450px]" />
+          <div className="absolute -top-[10%] -left-[10%] w-[300px] h-[300px] rounded-full bg-brand-peach-light/22 blur-[80px] animate-blob-1 mix-blend-screen md:w-[450px] md:h-[450px]" />
           {/* Blob 2 (Primary Darker Tone) */}
-          <div className="absolute bottom-[10%] right-[5%] w-[350px] h-[350px] rounded-full bg-[#1e5c8a]/55 blur-[90px] animate-blob-2 mix-blend-screen md:w-[500px] md:h-[500px]" />
+          <div className="absolute bottom-[10%] right-[5%] w-[350px] h-[350px] rounded-full bg-brand-blue-base/55 blur-[90px] animate-blob-2 mix-blend-screen md:w-[500px] md:h-[500px]" />
           {/* Blob 3 (Accent Color Variant) */}
-          <div className="absolute top-[30%] left-[30%] w-[250px] h-[250px] rounded-full bg-[#f5c66b]/18 blur-[70px] animate-blob-3 mix-blend-screen md:w-[350px] md:h-[350px]" />
+          <div className="absolute top-[30%] left-[30%] w-[250px] h-[250px] rounded-full bg-brand-peach-light/18 blur-[70px] animate-blob-3 mix-blend-screen md:w-[350px] md:h-[350px]" />
         </div>
 
         {/* Ambient Overlay for text contrast */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#123a57]/70 via-[#123a57]/55 to-[#114c73]/45 z-0 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-brand-blue-dark/70 via-brand-blue-dark/55 to-brand-blue-muted/45 z-0 pointer-events-none" />
 
         <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center text-white z-10">
-          <p className="mb-3 font-mono text-sm font-bold uppercase tracking-widest text-[#f5c66b] animate-fade-in-up animate-delay-100">
+          <p className="mb-3 font-mono text-sm font-bold uppercase tracking-widest text-brand-peach-light animate-fade-in-up animate-delay-100">
             Student Communities Platform
           </p>
           <h1 className="mb-4 max-w-2xl font-display text-5xl font-bold leading-tight md:text-6xl animate-fade-in-up animate-delay-300">
@@ -228,7 +228,7 @@ export default function Landing() {
           <div className="mt-8 flex flex-wrap justify-center gap-4 animate-fade-in-up animate-delay-700">
             <Link
               to="/auth"
-              className="rounded-md bg-[#f5c66b] px-8 py-3 font-mono font-bold uppercase text-[#123a57] transition hover:bg-white active:scale-95"
+              className="rounded-md bg-brand-peach-light px-8 py-3 font-mono font-bold uppercase text-brand-blue-dark transition hover:bg-white active:scale-95"
             >
               Get Started
             </Link>
@@ -258,7 +258,7 @@ export default function Landing() {
             {[
               {
                 icon: (
-                  <svg viewBox="0 0 100 100" className="h-16 w-16 stroke-[#123a57] fill-none">
+                  <svg viewBox="0 0 100 100" className="h-16 w-16 stroke-brand-blue-dark fill-none">
                     <circle cx="30" cy="25" r="8" />
                     <path
                       d="M20 38h20a2 2 0 012 2v12a2 2 0 01-2 2H20a2 2 0 01-2-2V40a2 2 0 012-2z"
@@ -281,7 +281,10 @@ export default function Landing() {
               },
               {
                 icon: (
-                  <svg viewBox="0 0 100 100" className="h-16 w-16 stroke-[#f5c66b] fill-none">
+                  <svg
+                    viewBox="0 0 100 100"
+                    className="h-16 w-16 stroke-brand-peach-light fill-none"
+                  >
                     <rect x="15" y="20" width="70" height="60" rx="4" strokeWidth="3" />
                     <line x1="15" y1="35" x2="85" y2="35" strokeWidth="3" />
                     <line x1="30" y1="45" x2="30" y2="75" strokeWidth="2" />
@@ -294,7 +297,10 @@ export default function Landing() {
               },
               {
                 icon: (
-                  <svg viewBox="0 0 100 100" className="h-16 w-16 stroke-[#10B981] fill-none">
+                  <svg
+                    viewBox="0 0 100 100"
+                    className="h-16 w-16 stroke-brand-emerald-base fill-none"
+                  >
                     <rect x="10" y="15" width="80" height="60" rx="4" strokeWidth="3" />
                     <circle cx="50" cy="45" r="12" strokeWidth="2" />
                     <path d="M45 35 L55 55 M55 35 L45 55" strokeWidth="2" />
@@ -306,7 +312,7 @@ export default function Landing() {
               },
               {
                 icon: (
-                  <svg viewBox="0 0 100 100" className="h-16 w-16 fill-[#3B82F6]">
+                  <svg viewBox="0 0 100 100" className="h-16 w-16 fill-brand-blue-base-500">
                     <path d="M50 10 L65 40 L95 45 L70 65 L80 95 L50 75 L20 95 L30 65 L5 45 L35 40 Z" />
                   </svg>
                 ),
@@ -315,11 +321,11 @@ export default function Landing() {
               },
             ].map((feature, idx) => (
               <ScrollReveal key={idx} delay={idx * 100}>
-                <div className="flex flex-col items-center text-center p-6 border-2 border-transparent rounded-lg transition-all duration-300 hover:border-[#f5c66b]/20 hover:bg-gray-50/50 hover:shadow-xs">
+                <div className="flex flex-col items-center text-center p-6 border-2 border-transparent rounded-lg transition-all duration-300 hover:border-brand-peach-light/20 hover:bg-gray-50/50 hover:shadow-xs">
                   <div className="mb-6 transition-transform duration-300 hover:scale-115 hover:rotate-3">
                     {feature.icon}
                   </div>
-                  <h3 className="mb-3 font-display text-2xl font-bold text-[#123a57]">
+                  <h3 className="mb-3 font-display text-2xl font-bold text-brand-blue-dark">
                     {feature.title}
                   </h3>
                   <p className="font-mono text-sm leading-relaxed text-gray-600">{feature.desc}</p>
@@ -356,8 +362,8 @@ export default function Landing() {
               },
             ].map((c, idx) => (
               <ScrollReveal key={c.n} delay={idx * 150}>
-                <article className="neu-border bg-rose-200 p-6 transition-all duration-300 hover:-translate-y-2 hover:shadow-[8px_8px_0_0_#123a57] hover:border-[#123a57]">
-                  <div className="neu-border mb-4 inline-block bg-[#123a57] text-[#fef8eb] px-3 py-1 font-mono text-sm font-bold">
+                <article className="neu-border bg-rose-200 p-6 transition-all duration-300 hover:-translate-y-2 hover:shadow-[8px_8px_0_0_var(--color-brand-blue-dark)] hover:border-brand-blue-dark">
+                  <div className="neu-border mb-4 inline-block bg-brand-blue-dark text-brand-yellow-bg-alt px-3 py-1 font-mono text-sm font-bold">
                     {c.n}
                   </div>
                   <h3 className="mb-3 text-2xl font-bold text-indigo-900">{c.t}</h3>
@@ -398,7 +404,7 @@ export default function Landing() {
           <div>
             <ScrollReveal>
               <SectionEyebrow>Everything You Need</SectionEyebrow>
-              <h2 className="mb-4 font-display text-4xl font-bold text-[#123a57] md:text-5xl text-red-900">
+              <h2 className="mb-4 font-display text-4xl font-bold text-brand-blue-dark md:text-5xl text-red-900">
                 Create a club. Publish an event. Ship certificates.
               </h2>
               <p className="font-mono text-gray-800 leading-relaxed mb-6">
@@ -416,7 +422,7 @@ export default function Landing() {
                     "Export data as CSV whenever you want",
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-3">
-                      <span className="mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-black bg-[#123a57] text-[#fef8eb]">
+                      <span className="mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-black bg-brand-blue-dark text-brand-yellow-bg-alt">
                         <svg
                           viewBox="0 0 24 24"
                           width="12"
@@ -456,7 +462,7 @@ export default function Landing() {
                 ].map((c) => (
                   <article
                     key={c.t}
-                    className="neu-border bg-sky-200 p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#123a57] hover:border-[#123a57]"
+                    className="neu-border bg-sky-200 p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-brand-blue-dark)] hover:border-brand-blue-dark"
                   >
                     <h3 className="mb-2 text-xl font-bold text-indigo-900">{c.t}</h3>
                     <p className="font-mono text-sm leading-relaxed text-gray-800">{c.d}</p>
@@ -479,7 +485,7 @@ export default function Landing() {
             spreadsheets or missed updates. Everything is in one place and our members actually
             engage now."
           </p>
-          <p className="font-display font-bold text-[#123a57]">- Campus Club Leaders</p>
+          <p className="font-display font-bold text-brand-blue-dark">- Campus Club Leaders</p>
         </div>
       </section>
 
@@ -510,7 +516,7 @@ export default function Landing() {
               },
             ].map((c, idx) => (
               <ScrollReveal key={c.t} delay={idx * 150}>
-                <article className="neu-border bg-rose-200 p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#123a57] hover:border-[#123a57]">
+                <article className="neu-border bg-rose-200 p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-brand-blue-dark)] hover:border-brand-blue-dark">
                   <h3 className="mb-2 text-xl font-bold text-violet-900">{c.t}</h3>
                   <p className="font-mono text-sm leading-relaxed text-gray-800">{c.d}</p>
                 </article>
@@ -530,14 +536,14 @@ export default function Landing() {
                 Hosted or self-hosted. Same features either way.
               </h2>
               <div className="grid grid-cols-2 gap-4">
-                <div className="neu-border bg-rose-200 p-5 border-l-4 border-l-[#123a57] transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#123a57]">
+                <div className="neu-border bg-rose-200 p-5 border-l-4 border-l-[#123a57] transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-brand-blue-dark)]">
                   <p className="eyebrow font-bold text-gray-800">Recommended</p>
                   <h3 className="mt-2 text-2xl font-bold text-blue-950">Cloud</h3>
                   <p className="mt-3 font-mono text-xs leading-relaxed text-gray-800">
                     Managed hosting, SSO with your college email, zero DevOps.
                   </p>
                 </div>
-                <div className="neu-border bg-rose-200 p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#000000]">
+                <div className="neu-border bg-rose-200 p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-ink)]">
                   <p className="eyebrow font-bold text-gray-800">Fork it</p>
                   <h3 className="mt-2 text-2xl font-bold text-blue-950">Self-host</h3>
                   <p className="mt-3 font-mono text-xs leading-relaxed text-gray-800">
@@ -554,10 +560,10 @@ export default function Landing() {
               <h2 className="mb-6 text-4xl font-bold text-amber-900 md:text-5xl">
                 Boring, proven tech.
               </h2>
-              <div className="neu-border overflow-hidden bg-white transition-all duration-300 hover:shadow-[6px_6px_0_0_#123a57] hover:border-[#123a57]">
+              <div className="neu-border overflow-hidden bg-white transition-all duration-300 hover:shadow-[6px_6px_0_0_var(--color-brand-blue-dark)] hover:border-brand-blue-dark">
                 <table className="w-full font-mono text-sm text-left">
                   <thead>
-                    <tr className="bg-[#123a57] text-[#fef8eb]">
+                    <tr className="bg-brand-blue-dark text-brand-yellow-bg-alt">
                       <th className="border-b-2 border-black p-4 font-bold">Layer</th>
                       <th className="border-b-2 border-black p-4 font-bold">Choice</th>
                     </tr>
@@ -571,7 +577,7 @@ export default function Landing() {
                       ["Deploy", "Cloudflare Workers"],
                     ].map(([a, b], i) => (
                       <tr key={a} className={i % 2 ? "bg-gray-50" : "bg-sky-100"}>
-                        <td className="border-b-2 border-black p-4 font-bold text-[#123a57]">
+                        <td className="border-b-2 border-black p-4 font-bold text-brand-blue-dark">
                           {a}
                         </td>
                         <td className="border-b-2 border-black p-4 text-gray-700">{b}</td>
@@ -600,8 +606,8 @@ export default function Landing() {
               { t: "Zapier", d: "Every action fires a webhook." },
             ].map((c, idx) => (
               <ScrollReveal key={c.t} delay={idx * 100}>
-                <article className="neu-border bg-rose-200 p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#123a57] hover:border-[#123a57]">
-                  <h3 className="mb-2 text-xl font-bold text-[#123a57]">{c.t}</h3>
+                <article className="neu-border bg-rose-200 p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-brand-blue-dark)] hover:border-brand-blue-dark">
+                  <h3 className="mb-2 text-xl font-bold text-brand-blue-dark">{c.t}</h3>
                   <p className="font-mono text-sm leading-relaxed text-gray-700">{c.d}</p>
                 </article>
               </ScrollReveal>
@@ -630,8 +636,8 @@ export default function Landing() {
                 }}
                 className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase transition-all duration-200 active:scale-95 cursor-pointer ${
                   activeCategory === category
-                    ? "bg-black text-[#fef8eb] shadow-none translate-x-[2px] translate-y-[2px]"
-                    : "bg-lime text-black hover:bg-gray-100 shadow-[2px_2px_0_0_#000000]"
+                    ? "bg-black text-brand-yellow-bg-alt shadow-none translate-x-[2px] translate-y-[2px]"
+                    : "bg-lime text-black hover:bg-gray-100 shadow-[2px_2px_0_0_var(--color-ink)]"
                 }`}
               >
                 {category}
@@ -645,7 +651,7 @@ export default function Landing() {
               return (
                 <div
                   key={idx}
-                  className="neu-border bg-orange-100 transition-all duration-300 overflow-hidden shadow-[4px_4px_0_0_#000000] hover:shadow-[6px_6px_0_0_#123a57] hover:border-[#123a57]"
+                  className="neu-border bg-orange-100 transition-all duration-300 overflow-hidden shadow-[4px_4px_0_0_var(--color-ink)] hover:shadow-[6px_6px_0_0_var(--color-brand-blue-dark)] hover:border-brand-blue-dark"
                 >
                   <button
                     onClick={() => setOpenIndex(isOpen ? null : idx)}
@@ -701,16 +707,16 @@ export default function Landing() {
       </section>
 
       {/* CTA SECTION (PR 207) */}
-      <section className="bg-gradient-to-r from-[#123a57] to-[#1a5a8c] px-4 py-20 text-center text-white md:px-6 md:py-28">
+      <section className="bg-gradient-to-r from-brand-blue-dark to-brand-blue-alt px-4 py-20 text-center text-white md:px-6 md:py-28">
         <ScrollReveal>
           <div className="mx-auto max-w-2xl">
             <h2 className="mb-4 font-display text-4xl font-bold">Ready to get started?</h2>
-            <p className="mb-8 font-mono leading-relaxed text-[#fef8eb]">
+            <p className="mb-8 font-mono leading-relaxed text-brand-yellow-bg-alt">
               Launch your club page in seconds and start managing events like a pro.
             </p>
             <Link
               to="/auth"
-              className="inline-block rounded-md bg-[#f5c66b] px-8 py-4 font-mono font-bold uppercase text-[#123a57] transition hover:bg-white active:scale-95"
+              className="inline-block rounded-md bg-brand-peach-light px-8 py-4 font-mono font-bold uppercase text-brand-blue-dark transition hover:bg-white active:scale-95"
             >
               Create Your Club Now
             </Link>

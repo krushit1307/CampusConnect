@@ -40,7 +40,8 @@ const avatarThemeIds = AVATAR_THEMES.map((theme) => theme.id) as [
 
 export const profileSchema = z.object({
   avatarTheme: z.enum(avatarThemeIds).optional().or(z.literal("")),
-  fullName: z.string().trim().min(2, "Full name must be at least 2 characters long."),
+  firstName: z.string().trim().min(1, "First name is required."),
+  lastName: z.string().trim().min(1, "Last name is required."),
   handle: z
     .string()
     .trim()

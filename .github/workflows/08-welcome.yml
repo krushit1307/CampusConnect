@@ -3,6 +3,8 @@ name: "08 First Contributor Welcome"
 on:
   pull_request_target:
     types: [opened, reopened, ready_for_review]
+  issues:
+    types: [opened]
 
 permissions:
   pull-requests: write
@@ -10,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: welcome-${{ github.event.pull_request.number }}
+  group: welcome-${{ github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: false
 
 jobs:
@@ -23,5 +25,10 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const { processFirstContributorWelcome } = await import(`${process.cwd()}/.github/scripts/pr.js`);
-            await processFirstContributorWelcome({ github, context, core });
+            if (context.eventName === 'issues') {
+              const { processFirstIssueWelcome } = await import(`${process.cwd()}/.github/scripts/issue-comments.js`);
+              await processFirstIssueWelcome({ github, context, core });
+            } else {
+              const { processFirstContributorWelcome } = await import(`${process.cwd()}/.github/scripts/pr.js`);
+              await processFirstContributorWelcome({ github, context, core });
+            }
