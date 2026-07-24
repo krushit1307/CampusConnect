@@ -675,9 +675,9 @@ BEGIN
   WHERE author_id = auth.uid()
     AND created_at >= NOW() - INTERVAL '1 minute';
 
-  -- Abort insert if count is >= 5
-  IF v_comment_count >= 5 THEN
-    RAISE EXCEPTION 'Comment rate limit exceeded. You can only post 5 comments per minute.'
+  -- Abort insert if count is >= 15
+  IF v_comment_count >= 15 THEN
+    RAISE EXCEPTION 'Comment rate limit exceeded. You can only post 15 comments per minute.'
       USING ERRCODE = 'P0001';
   END IF;
 

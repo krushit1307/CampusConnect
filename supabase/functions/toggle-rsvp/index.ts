@@ -18,8 +18,8 @@ serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  // Rate Limiting Logic using Redis Upstash (10 requests per minute)
-  const rateLimitResponse = await limitRate(req, "toggle-rsvp", { limit: 10, windowMs: 60000 });
+  // Rate Limiting Logic using Redis Upstash (60 requests per minute)
+  const rateLimitResponse = await limitRate(req, "toggle-rsvp", { limit: 60, windowMs: 60000 });
   if (rateLimitResponse) {
     return rateLimitResponse;
   }
