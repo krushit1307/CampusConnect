@@ -20,6 +20,7 @@ import Auth from "./routes/auth";
 import Certificates from "./routes/certificates";
 import ClubsIndex from "./routes/clubs.index";
 import ClubDetails from "./routes/clubs.$slug";
+import ClubManageRoute from "./routes/clubs.$slug.manage";
 import ClubsLayout from "./routes/clubs";
 import Dashboard from "./routes/dashboard";
 import DashboardOverview from "./routes/dashboard.index";
@@ -121,6 +122,7 @@ const router = createBrowserRouter(
         <Route path="/clubs" element={<ClubsLayout />}>
           <Route index element={<ClubsIndex />} />
           <Route path=":slug" element={<ClubDetails />} />
+          <Route path=":slug/manage" element={<ClubManageRoute />} />
         </Route>
 
         <Route path="/dashboard" element={<Dashboard />}>
