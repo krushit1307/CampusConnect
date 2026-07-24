@@ -4,10 +4,11 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
-import { Award, ArrowRight, Copy, Download, X, QrCode } from "lucide-react";
+import { Award, ArrowRight, Copy, Download, Loader2, QrCode, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { formatDateOnly } from "@/lib/utils";
+import { downloadCertificatePdf } from "@/lib/certificateUtils";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -455,35 +456,36 @@ export default function Certificates() {
                     <button
                       onClick={async () => {
                         setOpeningId(selectedCert.id);
-                        const minDuration = new Promise((resolve) => setTimeout(resolve, 400));
+                        const minDuration = new Promise((resolve) => setTimeout(resolve, 500));
                         try {
-                          const response = await fetch(selectedCert.certificate_url);
-                          const blob = await response.blob();
-                          const blobUrl = window.URL.createObjectURL(blob);
-
-                          const link = document.createElement("a");
-                          link.href = blobUrl;
-                          const eventTitle = event?.title || "certificate";
-                          const filename = `${eventTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-certificate.pdf`;
-                          link.download = filename;
-
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
-                          window.URL.revokeObjectURL(blobUrl);
+                          await downloadCertificatePdf({
+                            certificateUrl: selectedCert.certificate_url,
+                            eventTitle: event?.title,
+                            studentName: user?.email?.split("@")[0] || "Student",
+                            issuedAt: selectedCert.issued_at,
+                            certId: selectedCert.id,
+                          });
+                          toast.success("Certificate downloaded successfully!");
                         } catch (err) {
                           console.error("PDF download failed:", err);
-                          // Fallback to opening in new window if fetch fails
-                          window.open(selectedCert.certificate_url, "_blank");
+                          toast.error("Failed to download certificate.");
+                        } finally {
+                          await minDuration;
+                          setOpeningId(null);
                         }
-                        await minDuration;
-                        setOpeningId(null);
                       }}
                       disabled={openingId === selectedCert.id}
                       className="neu-border neu-press flex-1 bg-black text-cream hover:bg-lime hover:text-black py-3 font-mono text-xs font-bold uppercase transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
                     >
-                      <Download className="h-4 w-4" />{" "}
-                      {openingId === selectedCert.id ? "Downloading..." : "Download PDF"}
+                      {openingId === selectedCert.id ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" /> Downloading PDF...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-4 w-4" /> Download PDF
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
