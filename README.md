@@ -302,4 +302,8 @@ This project is licensed under the MIT License - see the [LICENSE](./LICENSE) fi
 <a href="https://github.com/NirvanJain"><img src="https://avatars.githubusercontent.com/u/151359367?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="NirvanJain (3 contributions)"/></a>
 <a href="https://github.com/Komal290106"><img src="https://avatars.githubusercontent.com/u/179382143?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="Komal290106 (3 contributions)"/></a>
 
+### Design Assets
+
+- [CampusConnect Onboarding Flow Wireframe (Figma)](https://www.figma.com/design/z0rOY6FzRLLfApy81vGNpm/Untitled?node-id=0-1&t=eEgiAEO0pnhJcMvg-1)
+
 <!-- END_CONTRIBUTORS_GALLERY -->
