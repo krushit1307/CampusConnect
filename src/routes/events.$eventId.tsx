@@ -20,7 +20,9 @@ import {
   Users,
   Star,
   Calendar,
+  Flag,
 } from "lucide-react";
+import { ReportDialog } from "@/components/ReportDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
@@ -91,6 +93,7 @@ export default function EventDetailsPage() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState("");
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
 
   // Safe window URL handling for SSR / hydration safety
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
@@ -404,9 +407,7 @@ export default function EventDetailsPage() {
   const attendeeCount =
     ((event as Record<string, unknown>).attendee_count as number) ?? rsvps.length;
   const maxAttendees = (event as Record<string, unknown>).max_attendees as
-    | number
-    | null
-    | undefined;
+    number | null | undefined;
   const isAtCapacity =
     maxAttendees !== null &&
     maxAttendees !== undefined &&
@@ -650,6 +651,17 @@ export default function EventDetailsPage() {
                 <Calendar aria-hidden="true" size={16} strokeWidth={2.5} />
                 Add to Calendar
               </a>
+            )}
+
+            {user && !isOrganizer && (
+              <Button
+                onClick={() => setIsReportDialogOpen(true)}
+                variant="outline"
+                className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
+              >
+                <Flag className="h-4 w-4" />
+                Report Event
+              </Button>
             )}
 
             {isCheckedIn && hasEnded && (
@@ -906,6 +918,12 @@ export default function EventDetailsPage() {
         description="Are you sure you want to cancel your RSVP for this event? Your spot will be released."
         onConfirm={handleConfirmCancel}
         onCancel={() => setConfirmOpen(false)}
+      />
+      <ReportDialog
+        isOpen={isReportDialogOpen}
+        onClose={() => setIsReportDialogOpen(false)}
+        targetType="event"
+        targetId={event.id}
       />
     </SiteShell>
   );

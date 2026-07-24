@@ -9,7 +9,8 @@ import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Github, Loader2, CheckCircle } from "lucide-react";
+import { ArrowLeft, Github, Loader2, CheckCircle, Flag } from "lucide-react";
+import { ReportDialog } from "@/components/ReportDialog";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -110,6 +111,7 @@ export default function ClubProfile() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
   const [joinSuccess, setJoinSuccess] = useState(false);
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -468,6 +470,13 @@ export default function ClubProfile() {
               >
                 Follow
               </button>
+              <button
+                onClick={() => setIsReportDialogOpen(true)}
+                className="neu-border neu-press bg-white hover:bg-peach px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5"
+              >
+                <Flag size={12} />
+                Report
+              </button>
               {club.github_repo_url && (
                 <a
                   href={club.github_repo_url}
@@ -509,6 +518,12 @@ export default function ClubProfile() {
             </div>
           </div>
         </section>
+        <ReportDialog
+          isOpen={isReportDialogOpen}
+          onClose={() => setIsReportDialogOpen(false)}
+          targetType="club"
+          targetId={club.id}
+        />
       </SiteShell>
     </>
   );

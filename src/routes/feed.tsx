@@ -26,6 +26,7 @@ import { createClient } from "@/lib/supabase/client";
 import { calculateReadTime } from "@/utils/readTime";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
+import { ReportDialog } from "@/components/ReportDialog";
 
 import {
   MarkdownEditorWithMentions,
@@ -109,7 +110,9 @@ export default function Feed() {
   const [confirmPostId, setConfirmPostId] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [reactionBursts, setReactionBursts] = useState<Record<string, string>>({});
-  const [reportDialogPostId, setReportDialogPostId] = useState<string | null>(null);
+  const [reportTarget, setReportTarget] = useState<{ type: "post" | "comment"; id: string } | null>(
+    null,
+  );
   const [reportReason, setReportReason] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -778,6 +781,16 @@ export default function Feed() {
                               </button>
                             ) : null;
                           })()}
+                          {user && user.id !== author?.id && (
+                            <button
+                              type="button"
+                              onClick={() => setReportTarget({ type: "post", id: post.id })}
+                              className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 hover:bg-peach"
+                              title="Report post"
+                            >
+                              <Flag size={14} strokeWidth={2.5} />
+                            </button>
+                          )}
                           {(user?.id === author?.id || userProfile?.role === "system_admin") && (
                             <button
                               type="button"
@@ -953,6 +966,21 @@ export default function Feed() {
                                         <p className="font-mono text-[10px] text-gray-500 dark:text-gray-300">
                                           {timeAgo(commentNode.created_at)}
                                         </p>
+                                        {user && user.id !== commentAuthor?.id && (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setReportTarget({
+                                                type: "comment",
+                                                id: commentNode.id,
+                                              })
+                                            }
+                                            className="text-gray-500 hover:text-black uppercase font-bold font-mono text-[10px]"
+                                            aria-label="Report comment"
+                                          >
+                                            Report
+                                          </button>
+                                        )}
                                         {(user?.id === commentAuthor?.id ||
                                           userProfile?.role === "system_admin") && (
                                           <AlertDialog>
@@ -1159,6 +1187,12 @@ export default function Feed() {
           if (confirmPostId) deletePostMutation.mutate(confirmPostId);
           setConfirmPostId(null);
         }}
+      />
+      <ReportDialog
+        isOpen={!!reportTarget}
+        onClose={() => setReportTarget(null)}
+        targetType={reportTarget?.type || "post"}
+        targetId={reportTarget?.id || ""}
       />
     </SiteShell>
   );
