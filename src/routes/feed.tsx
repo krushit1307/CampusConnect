@@ -79,7 +79,9 @@ interface Comment {
   content: string;
   created_at: string;
   deleted_at: string | null;
+  parent_id?: string | null;
   parent_comment_id?: string | null;
+  depth?: number;
   profiles: Profile[] | Profile | null;
 }
 
@@ -195,7 +197,7 @@ export default function Feed() {
         id, content, created_at, club_id, is_pinned,
         profiles (id, full_name, handle),
         clubs (id, name, club_members (user_id, role)),
-        comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name, handle)),
+        comments (id, content, created_at, deleted_at, parent_id, parent_comment_id, profiles (id, full_name, handle)),
         post_reactions (emoji, user_id)
       `,
         )
@@ -230,7 +232,7 @@ export default function Feed() {
           id, content, created_at, club_id, is_pinned,
           profiles (id, full_name, handle),
           clubs (id, name, club_members (user_id, role)),
-          comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name, handle)),
+          comments (id, content, created_at, deleted_at, parent_id, parent_comment_id, profiles (id, full_name, handle)),
           post_reactions (emoji, user_id)
         `,
         )
@@ -447,6 +449,7 @@ export default function Feed() {
         post_id: postId,
         author_id: user.id,
         content,
+        parent_id: parentCommentId || null,
         parent_comment_id: parentCommentId || null,
       });
       if (error) throw error;
@@ -1061,8 +1064,9 @@ export default function Feed() {
                               commentsList.forEach((c) => map.set(c.id, { ...c, children: [] }));
                               const roots: CommentNode[] = [];
                               commentsList.forEach((c) => {
-                                if (c.parent_comment_id && map.has(c.parent_comment_id)) {
-                                  map.get(c.parent_comment_id)!.children.push(map.get(c.id)!);
+                                const parentId = c.parent_id || c.parent_comment_id;
+                                if (parentId && map.has(parentId)) {
+                                  map.get(parentId)!.children.push(map.get(c.id)!);
                                 } else {
                                   roots.push(map.get(c.id)!);
                                 }
