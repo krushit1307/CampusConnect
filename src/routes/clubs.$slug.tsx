@@ -14,6 +14,7 @@ import type { MarkdownNodeChild, HeadingNode } from "@/lib/markdown";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowLeft, Github, Loader2, CheckCircle, Flag } from "lucide-react";
 import { ReportDialog } from "@/components/ReportDialog";
+import { EmptyState } from "@/components/EmptyState";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -455,7 +456,11 @@ export default function ClubProfile() {
                 {memberList.length} members total
               </p>
               {memberList.length === 0 ? (
-                <p className="font-mono text-sm text-black">No members yet.</p>
+                <EmptyState
+                  illustration="no-members"
+                  title="No members yet."
+                  description="Be the first to join this club and help it grow."
+                />
               ) : (
                 <>
                   <div className="mb-4">
@@ -469,7 +474,12 @@ export default function ClubProfile() {
                     />
                   </div>
                   {filteredMembers.length === 0 ? (
-                    <p className="font-mono text-sm text-gray-700">No members match your search.</p>
+                    <EmptyState
+                      size="sm"
+                      bordered={false}
+                      illustration="no-results"
+                      title="No members match your search."
+                    />
                   ) : (
                     <>
                       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -649,7 +659,12 @@ export default function ClubProfile() {
                 Upcoming events
               </h2>
               {events.length === 0 ? (
-                <p className="font-mono text-sm text-black">No upcoming events.</p>
+                <EmptyState
+                  bordered={false}
+                  illustration="no-events"
+                  title="No upcoming events."
+                  description="Check back soon — this club hasn't scheduled anything yet."
+                />
               ) : (
                 <ul className="divide-y-2 divide-black">
                   {events.map((e: ClubEvent) => (

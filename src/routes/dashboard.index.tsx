@@ -19,6 +19,7 @@ import {
 import TrendingCarousel from "@/components/Clubs/TrendingCarousel";
 import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { SandboxedWidget } from "@/components/SandboxedWidget";
+import { EmptyState } from "@/components/EmptyState";
 
 interface SavedEventDetails {
   id: string;
@@ -526,9 +527,13 @@ export default function DashboardOverview() {
         {isUpcomingLoading ? (
           <WidgetListSkeleton rows={3} />
         ) : upcomingEvents.length === 0 ? (
-          <p className="py-4 font-mono text-sm text-gray-500 dark:text-gray-300">
-            No upcoming events yet.
-          </p>
+          <EmptyState
+            size="sm"
+            bordered={false}
+            illustration="no-events"
+            title="No upcoming events yet."
+            action={{ label: "Explore Events", to: "/events" }}
+          />
         ) : (
           <ul className="divide-y-2 divide-black">
             {upcomingEvents.map((r, i) => {
@@ -563,9 +568,13 @@ export default function DashboardOverview() {
         {isSavedLoading ? (
           <WidgetListSkeleton rows={3} />
         ) : savedEvents.length === 0 ? (
-          <p className="py-4 font-mono text-sm text-gray-500 dark:text-gray-300">
-            No saved events yet.
-          </p>
+          <EmptyState
+            size="sm"
+            bordered={false}
+            illustration="no-events"
+            title="No saved events yet."
+            action={{ label: "Explore Events", to: "/events" }}
+          />
         ) : (
           <ul className="divide-y-2 divide-black">
             {savedEvents.map((item: DashboardSavedEvent, i) => {
@@ -600,9 +609,13 @@ export default function DashboardOverview() {
         {isClubsLoading ? (
           <WidgetListSkeleton rows={3} />
         ) : userClubs.length === 0 ? (
-          <p className="font-mono text-sm text-gray-500 dark:text-gray-300">
-            You haven't joined any clubs yet.
-          </p>
+          <EmptyState
+            size="sm"
+            bordered={false}
+            illustration="no-clubs"
+            title="You haven't joined any clubs yet."
+            action={{ label: "Browse Clubs", to: "/clubs" }}
+          />
         ) : (
           <ul className="space-y-3">
             {userClubs.map((c) => {
@@ -655,12 +668,12 @@ export default function DashboardOverview() {
         {isActivityLoading ? (
           <WidgetListSkeleton rows={4} />
         ) : recentActivity.length === 0 ? (
-          <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
-            <li className="flex items-start gap-2">
-              <span className="mt-2 inline-block h-2 w-2 shrink-0 bg-black" />
-              No recent activity yet.
-            </li>
-          </ul>
+          <EmptyState
+            size="sm"
+            bordered={false}
+            illustration="no-results"
+            title="No recent activity yet."
+          />
         ) : (
           <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
             {recentActivity.map((item) => {
