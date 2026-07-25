@@ -1,7 +1,7 @@
 import React from "react";
 import { UploadCloud, Loader2 } from "lucide-react";
 import { useOCR } from "@/hooks/useOCR";
-import type { ParsedFlyer } from "@/lib/parser";
+import { toast } from "sonner";import type { ParsedFlyer } from "@/lib/parser";
 
 interface FlyerUploaderProps {
   onDataExtracted: (data: ParsedFlyer) => void;
@@ -10,15 +10,20 @@ interface FlyerUploaderProps {
 export function FlyerUploader({ onDataExtracted }: FlyerUploaderProps) {
   const { isProcessing, processFlyer } = useOCR({ onSuccess: onDataExtracted });
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      await processFlyer(file);
-      // Reset input value to allow uploading the same file again if needed
-      e.target.value = "";
-    }
-  };
+    if (!file) return;
 
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File size must be under 5MB");
+      e.target.value = "";
+      return;
+    }
+
+    await processFlyer(file);
+    // Reset input value to allow uploading the same file again if needed
+    e.target.value = "";
+  };
   return (
     <div className="flex flex-col gap-1 mb-4">
       <label className="eyebrow font-bold text-sm">Autofill from Flyer</label>
