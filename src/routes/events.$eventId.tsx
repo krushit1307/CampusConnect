@@ -335,8 +335,18 @@ export default function EventDetailsPage() {
     onSuccess: () => {
       refetch();
     },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to update RSVP. Please try again.");
+    onError: (error: (Error & { details?: string; context?: string }) | unknown) => {
+      const err = error as Record<string, unknown>;
+      if (
+        (typeof err?.message === "string" && err.message.includes("Rate limit")) ||
+        (typeof err?.details === "string" && err.details.includes("Rate limit")) ||
+        (typeof err?.context === "string" && err.context.includes("Rate limit")) ||
+        (typeof error === "string" && error.includes("Rate limit"))
+      ) {
+        toast.error("Please wait a minute before toggling RSVP again.");
+      } else {
+        toast.error((err?.message as string) || "Failed to update RSVP. Please try again.");
+      }
     },
   });
 
