@@ -42,17 +42,14 @@ import { TagMultiSelect } from "@/components/ui/TagMultiSelect";
 const STEPS = [
   { label: "Details" },
   { label: "Logistics" },
-  { label: "FAQs" },
-  { label: "Review" },
+  { label: "Media & Ticketing" },
 ] as const;
 
-type Step = 0 | 1 | 2 | 3;
-
+type Step = 0 | 1 | 2;
 const STEP_FIELDS: Record<Step, (keyof EventFormValues)[]> = {
   0: ["title", "description", "tags"],
   1: ["startDate", "endDate", "location"],
-  2: [],
-  3: [],
+  2: ["banner", "capacity", "faqs"],
 };
 
 const defaultValues: EventFormValues = {
@@ -61,6 +58,8 @@ const defaultValues: EventFormValues = {
   location: "",
   startDate: "",
   endDate: "",
+  banner: "",
+  capacity: "",
   faqs: [],
   tags: [],
 };
@@ -149,6 +148,8 @@ export function CreateEventDialog({
         // read event_date (e.g. EventCard, event ordering) keep working.
         event_date: startDateIso,
         created_by: user.id,
+        banner: values.banner?.trim() || null,
+        capacity: values.capacity || null,
         faqs: values.faqs && values.faqs.length > 0 ? values.faqs : [],
         tags: values.tags && values.tags.length > 0 ? values.tags : [],
       });
@@ -408,7 +409,7 @@ export function CreateEventDialog({
                       src={`https://maps.google.com/maps?q=${encodeURIComponent(watchedLocation)}&output=embed`}
                       title="Location preview"
                     />
-                    <a
+                    
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(watchedLocation)}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -508,9 +509,51 @@ export function CreateEventDialog({
               </>
             )}
 
-            {/* Step 3 — FAQs (optional) */}
+            {/* Step 3 — Media & Ticketing */}
             {step === 2 && (
-              <div className="space-y-4">
+              <div className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="banner"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Banner Image URL</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="https://example.com/banner.png"
+                          {...field}
+                        />
+                      </FormControl>
+                      <p className="mt-1 text-xs text-black/50">
+                        Paste a link to a banner image (optional)
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="capacity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ticket Capacity</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={1}
+                          placeholder="e.g. 100"
+                          {...field}
+                        />
+                      </FormControl>
+                      <p className="mt-1 text-xs text-black/50">
+                        Max number of attendees (optional, leave blank for unlimited)
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <p className="font-mono text-xs font-bold text-black/50 uppercase">
                   Add frequently asked questions (optional)
                 </p>
@@ -573,48 +616,13 @@ export function CreateEventDialog({
               </div>
             )}
 
-            {/* Step 4 — Review (confirm) */}
-            {step === 3 && (
-              <div className="neu-border space-y-3 bg-white p-4 font-mono text-sm">
-                <p className="font-bold uppercase text-black/50 text-xs">Review your event</p>
-                <div>
-                  <p className="text-xs text-black/40">Title</p>
-                  <p className="font-bold">{form.getValues("title")}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-black/40">Description</p>
-                  <p className="text-black/80">{form.getValues("description")}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-black/40">Location</p>
-                  <p>{form.getValues("location") || "—"}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <p className="text-xs text-black/40">Start</p>
-                    <p>{startDateStr ? format(parsedStart!, "MMM dd, y HH:mm") : "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-black/40">End</p>
-                    <p>{endDateStr ? format(parsedEnd!, "MMM dd, y HH:mm") : "—"}</p>
-                  </div>
-                </div>
-                {form.getValues("faqs") && form.getValues("faqs").length > 0 && (
-                  <div>
-                    <p className="text-xs text-black/40">FAQs</p>
-                    <p className="font-bold">{form.getValues("faqs").length} question(s)</p>
-                  </div>
-                )}
-              </div>
-            )}
-
             <DialogFooter className="flex gap-2 pt-2">
               {step > 0 && (
                 <Button type="button" variant="outline" onClick={handleBack} className="flex-1">
                   Back
                 </Button>
               )}
-              {step < 3 ? (
+              {step < 2 ? (
                 <Button
                   type="button"
                   onClick={handleNext}
