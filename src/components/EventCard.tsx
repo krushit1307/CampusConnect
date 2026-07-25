@@ -34,8 +34,6 @@ interface EventCardProps {
 }
 
 // Assumed lead time (in days) used when an event has no `created_at` available
-// (e.g. mock/dev fallback data, or a query that hasn't been updated to select it
-// yet). This keeps the progress bar meaningful instead of just hiding it.
 const ASSUMED_LEAD_TIME_DAYS = 30;
 
 interface EventProgress {
@@ -83,7 +81,6 @@ function EventProgressBar({
   createdAt: string | null | undefined;
   eventDate: string | null;
 }) {
-  // No date at all ("TBA" events) — nothing meaningful to show a timeline for.
   if (!eventDate) return null;
 
   const { percent, isPast, isEstimated } = getEventProgress(createdAt, eventDate);
@@ -115,6 +112,34 @@ function EventProgressBar({
       )}
     </div>
   );
+}
+
+/**
+ * Helper to auto-detect and linkify http/https URLs within a text string.
+ */
+function renderLocationWithLinks(locationText: string | null) {
+  if (!locationText) return "TBA";
+
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = locationText.split(urlRegex);
+
+  return parts.map((part, i) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-blue-700 transition-colors break-all"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
 }
 
 export function EventCard({
@@ -286,7 +311,7 @@ export function EventCard({
         </div>
         <div>
           <dt className="font-mono text-xs font-bold uppercase text-black">Venue</dt>
-          <dd className="mt-1 text-sm text-red-900">{event.location || "TBA"}</dd>
+          <dd className="mt-1 text-sm text-red-900">{renderLocationWithLinks(event.location)}</dd>
         </div>
         <div>
           <dt className="font-mono text-xs font-bold uppercase text-black">Attendees</dt>
