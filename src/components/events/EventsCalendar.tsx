@@ -62,6 +62,9 @@ export default function EventsCalendar({ events }: EventsCalendarProps) {
         style={{ height: "100%" }}
         views={["month", "week", "day"]}
         defaultView="month"
+        eventPropGetter={() => ({
+          className: "calendar-rsvp-event",
+        })}
         onSelectEvent={(event: { id: string }) => {
           navigate(`/events/${event.id}`);
         }}
