@@ -41,6 +41,7 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { parseCoordinates } from "@/lib/eventUtils";
 import { EventFeedbackForm } from "@/components/EventFeedbackForm";
+import { EventPhotoGallery } from "@/components/EventPhotoGallery";
 import { EventMap } from "@/components/EventMap";
 import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
 import {
@@ -958,7 +959,7 @@ export default function EventDetailsPage() {
             </div>
           )}
 
-          {/* Event Feedback Form (Only if ended and user RSVP'd) */}
+          {/* Event Feedback (Only if ended and user RSVP'd) */}
           {user &&
             hasRsvpd &&
             event.end_date &&
@@ -967,6 +968,13 @@ export default function EventDetailsPage() {
                 <EventFeedbackForm eventId={event.id} user={user} />
               </div>
             )}
+
+          {/* Attendee Photo Gallery (Only for past events) */}
+          {event.end_date && new Date(event.end_date).getTime() < Date.now() && (
+            <div className="mt-10 pt-10 border-t-2 border-black border-dashed">
+              <EventPhotoGallery eventId={event.id} user={user} />
+            </div>
+          )}
 
           {/* Similar Events Recommendation Block */}
           <SimilarEvents
