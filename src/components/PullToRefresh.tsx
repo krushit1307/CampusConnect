@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Loader2, ArrowDown } from "lucide-react";
 
 interface PullToRefreshProps {
@@ -6,6 +6,10 @@ interface PullToRefreshProps {
   isRefreshing: boolean;
   children: React.ReactNode;
 }
+
+const ACTIVATION_THRESHOLD = 80;
+const MAX_PULL_DISTANCE = 140;
+const PULL_RESISTANCE = 0.4;
 
 export function PullToRefresh({ onRefresh, isRefreshing, children }: PullToRefreshProps) {
   const [pullDistance, setPullDistance] = useState(0);
@@ -15,16 +19,35 @@ export function PullToRefresh({ onRefresh, isRefreshing, children }: PullToRefre
   const startY = useRef(0);
   const startX = useRef(0);
   const activeTouch = useRef(false);
+  const pullDistanceRef = useRef(0);
+  const isRefreshingRef = useRef(isRefreshing);
+  const onRefreshRef = useRef(onRefresh);
 
-  const ACTIVATION_THRESHOLD = 80;
-  const MAX_PULL_DISTANCE = 140;
-  const PULL_RESISTANCE = 0.4;
+  useEffect(() => {
+    isRefreshingRef.current = isRefreshing;
+    if (!isRefreshing && !isDragging) {
+      setPullDistance(0);
+      pullDistanceRef.current = 0;
+    }
+  }, [isRefreshing, isDragging]);
+
+  useEffect(() => {
+    onRefreshRef.current = onRefresh;
+  }, [onRefresh]);
+
+  const updatePullDistance = useCallback((dist: number) => {
+    pullDistanceRef.current = dist;
+    setPullDistance(dist);
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const handleTouchStart = (e: TouchEvent) => {
+      // Guard against starting a new gesture while refreshing
+      if (isRefreshingRef.current) return;
+
       const isAtTop = window.scrollY === 0 && document.documentElement.scrollTop === 0;
       if (!isAtTop) {
         activeTouch.current = false;
@@ -45,26 +68,25 @@ export function PullToRefresh({ onRefresh, isRefreshing, children }: PullToRefre
       const diffY = currentY - startY.current;
       const diffX = currentX - startX.current;
 
-      // Avoid triggering if the swipe is primarily horizontal (e.g., carousel swipe)
+      // Avoid triggering if swipe is primarily horizontal (e.g., carousel swipe)
       if (Math.abs(diffX) > Math.abs(diffY)) {
         activeTouch.current = false;
         setIsDragging(false);
-        setPullDistance(0);
+        updatePullDistance(0);
         return;
       }
 
       if (diffY > 0) {
-        // Prevent native bounce / reload behavior
         if (e.cancelable) {
           e.preventDefault();
         }
         const dist = Math.min(diffY * PULL_RESISTANCE, MAX_PULL_DISTANCE);
-        setPullDistance(dist);
+        updatePullDistance(dist);
       } else {
         // Moving up - cancel gesture and allow normal scrolling
         activeTouch.current = false;
         setIsDragging(false);
-        setPullDistance(0);
+        updatePullDistance(0);
       }
     };
 
@@ -73,14 +95,14 @@ export function PullToRefresh({ onRefresh, isRefreshing, children }: PullToRefre
       activeTouch.current = false;
       setIsDragging(false);
 
-      if (pullDistance >= ACTIVATION_THRESHOLD && !isRefreshing) {
-        // Trigger the refresh callback
-        const result = onRefresh();
+      const currentPull = pullDistanceRef.current;
+      if (currentPull >= ACTIVATION_THRESHOLD && !isRefreshingRef.current) {
+        const result = onRefreshRef.current();
         if (result instanceof Promise) {
           result.catch((err) => console.error("Error during pull-to-refresh:", err));
         }
       } else {
-        setPullDistance(0);
+        updatePullDistance(0);
       }
     };
 
@@ -95,11 +117,8 @@ export function PullToRefresh({ onRefresh, isRefreshing, children }: PullToRefre
       container.removeEventListener("touchend", handleTouchEnd);
       container.removeEventListener("touchcancel", handleTouchEnd);
     };
-  }, [pullDistance, isRefreshing, onRefresh]);
+  }, [updatePullDistance]);
 
-  // Determine current height of visual indicator
-  // If refreshing, lock to a height of 60px.
-  // If dragging while refreshing, allow stretching past 60px.
   const currentHeight = isRefreshing
     ? isDragging
       ? Math.max(60, pullDistance)
@@ -110,6 +129,16 @@ export function PullToRefresh({ onRefresh, isRefreshing, children }: PullToRefre
     <div ref={containerRef} className="relative w-full">
       {/* Pull indicator */}
       <div
+        role="status"
+        aria-live="polite"
+        aria-busy={isRefreshing}
+        aria-label={
+          isRefreshing
+            ? "Refreshing content"
+            : pullDistance >= ACTIVATION_THRESHOLD
+              ? "Release to refresh content"
+              : "Pull to refresh content"
+        }
         className="absolute left-0 right-0 z-30 flex items-center justify-center overflow-hidden border-b-2 border-black bg-lime text-black font-mono text-xs uppercase font-bold dark:border-cream"
         style={{
           top: 0,
@@ -120,13 +149,14 @@ export function PullToRefresh({ onRefresh, isRefreshing, children }: PullToRefre
         <div className="flex h-14 items-center gap-2">
           {isRefreshing ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin text-black" />
+              <Loader2 className="h-4 w-4 animate-spin text-black" aria-hidden="true" />
               <span>Refreshing...</span>
             </>
           ) : (
             <>
               <ArrowDown
                 className="h-4 w-4 text-black transition-transform duration-200"
+                aria-hidden="true"
                 style={{
                   transform: `rotate(${pullDistance >= ACTIVATION_THRESHOLD ? 180 : 0}deg)`,
                 }}

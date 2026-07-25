@@ -21,14 +21,14 @@ VALUES (
         'd0000000-0000-0000-0000-000000000001',
         'authenticated',
         'authenticated',
-        'admin@campusconnect.com',
+        'admin@campusconnect.edu',
         crypt (
             'password123',
             gen_salt ('bf')
         ),
         NOW(),
         '{"provider": "email", "providers": ["email"]}',
-        '{"full_name": "Admin User", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=Admin"}',
+        '{"full_name": "Admin User", "first_name": "Admin", "last_name": "User", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=Admin"}',
         NOW(),
         NOW()
     ),
@@ -37,14 +37,14 @@ VALUES (
         'd0000000-0000-0000-0000-000000000002',
         'authenticated',
         'authenticated',
-        'student@campusconnect.com',
+        'student@campusconnect.edu',
         crypt (
             'password123',
             gen_salt ('bf')
         ),
         NOW(),
         '{"provider": "email", "providers": ["email"]}',
-        '{"full_name": "John Doe", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=John"}',
+        '{"full_name": "John Doe", "first_name": "John", "last_name": "Doe", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=John"}',
         NOW(),
         NOW()
     )
@@ -251,13 +251,17 @@ VALUES
 )
 ON CONFLICT (id) DO NOTHING;
 
--- 8. Post Comments
-INSERT INTO comments (id, post_id, author_id, content)
-VALUES
-(
-  'cc000000-0000-0000-0000-000000000001',
-  'a0000000-0000-0000-0000-000000000001',
-  'd0000000-0000-0000-0000-000000000002',
-  'Super excited! Cant wait to see what teams build.'
-)
+INSERT INTO
+    comments (
+        id,
+        post_id,
+        author_id,
+        content
+    )
+VALUES (
+        'cc000000-0000-0000-0000-000000000001',
+        'a0000000-0000-0000-0000-000000000001',
+        'd0000000-0000-0000-0000-000000000002',
+        'Super excited! Cant wait to see what teams build.'
+    )
 ON CONFLICT (id) DO NOTHING;

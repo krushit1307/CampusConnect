@@ -14,7 +14,7 @@ describe("club moderation utilities", () => {
           created_at: "2026-07-18T10:00:00.000Z",
         },
       ],
-      [{ id: "user-1", full_name: "Jidnyasa Patil" }],
+      [{ id: "user-1", first_name: "Jidnyasa", last_name: "Patil" }],
     );
 
     expect(result[0].submitterName).toBe("Jidnyasa Patil");

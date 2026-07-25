@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 import { useMutation } from "@/hooks/useReactQueryReplacement";
-import { Plus, MapPin, CalendarIcon, Check } from "lucide-react";
+import { Plus, MapPin, CalendarIcon, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import { format } from "date-fns";
@@ -34,14 +34,25 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 
-const STEPS = [{ label: "Details" }, { label: "Logistics" }, { label: "Media" }] as const;
+import { FlyerUploader } from "@/components/FlyerUploader";
+import type { ParsedFlyer } from "@/lib/parser";
 
-type Step = 0 | 1 | 2;
+import { TagMultiSelect } from "@/components/ui/TagMultiSelect";
+
+const STEPS = [
+  { label: "Details" },
+  { label: "Logistics" },
+  { label: "FAQs" },
+  { label: "Review" },
+] as const;
+
+type Step = 0 | 1 | 2 | 3;
 
 const STEP_FIELDS: Record<Step, (keyof EventFormValues)[]> = {
-  0: ["title", "description"],
+  0: ["title", "description", "tags"],
   1: ["startDate", "endDate", "location"],
   2: [],
+  3: [],
 };
 
 const defaultValues: EventFormValues = {
@@ -50,7 +61,24 @@ const defaultValues: EventFormValues = {
   location: "",
   startDate: "",
   endDate: "",
+  faqs: [],
+  tags: [],
 };
+
+const DRAFT_KEY = "event_draft";
+const DRAFT_AUTOSAVE_INTERVAL_MS = 5000;
+
+// Only worth saving/restoring a draft if the user actually typed something.
+function hasDraftContent(values: EventFormValues): boolean {
+  return Boolean(
+    values.title?.trim() ||
+    values.description?.trim() ||
+    values.location?.trim() ||
+    values.startDate ||
+    values.endDate ||
+    (values.faqs && values.faqs.length > 0),
+  );
+}
 
 export function CreateEventDialog({ user }: { user: User | null }) {
   const [open, setOpen] = useState(false);
@@ -68,6 +96,25 @@ export function CreateEventDialog({ user }: { user: User | null }) {
     watchedLocation &&
     watchedLocation.trim().length > 0 &&
     watchedLocation.trim().toLowerCase() !== "online";
+
+  // Auto-save the in-progress draft to localStorage every 5 seconds while
+  // the dialog is open, so it survives a refresh or browser crash.
+  useEffect(() => {
+    if (!open) return;
+
+    const interval = setInterval(() => {
+      const values = form.getValues();
+      if (!hasDraftContent(values)) return;
+
+      try {
+        window.localStorage.setItem(DRAFT_KEY, JSON.stringify(values));
+      } catch (e) {
+        console.error("[CreateEventDialog] Failed to save draft to localStorage:", e);
+      }
+    }, DRAFT_AUTOSAVE_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [open, form]);
 
   const handleNext = async () => {
     const valid = await form.trigger(STEP_FIELDS[step]);
@@ -95,6 +142,8 @@ export function CreateEventDialog({ user }: { user: User | null }) {
         // read event_date (e.g. EventCard, event ordering) keep working.
         event_date: startDateIso,
         created_by: user.id,
+        faqs: values.faqs && values.faqs.length > 0 ? values.faqs : [],
+        tags: values.tags && values.tags.length > 0 ? values.tags : [],
       });
 
       if (error) {
@@ -104,6 +153,11 @@ export function CreateEventDialog({ user }: { user: User | null }) {
     onSuccess: () => {
       toast.success("Event created!");
       window.dispatchEvent(new Event("refetchEvents"));
+      try {
+        window.localStorage.removeItem(DRAFT_KEY);
+      } catch (e) {
+        console.error("[CreateEventDialog] Failed to clear saved draft:", e);
+      }
       form.reset(defaultValues);
       setStep(0);
       setOpen(false);
@@ -116,6 +170,22 @@ export function CreateEventDialog({ user }: { user: User | null }) {
 
   const onSubmit = (values: EventFormValues) => {
     createEvent.mutate(values);
+  };
+
+  const handleDataExtracted = (data: ParsedFlyer) => {
+    if (data.title) form.setValue("title", data.title, { shouldValidate: true });
+    if (data.description) form.setValue("description", data.description, { shouldValidate: true });
+    if (data.date) {
+      try {
+        const d = new Date(data.date);
+        if (!isNaN(d.getTime())) {
+          form.setValue("startDate", `${format(d, "yyyy-MM-dd")}T12:00`, { shouldValidate: true });
+          form.setValue("endDate", `${format(d, "yyyy-MM-dd")}T14:00`, { shouldValidate: true });
+        }
+      } catch (e) {
+        console.error("Failed to parse date from flyer", e);
+      }
+    }
   };
 
   const startDateStr = form.watch("startDate");
@@ -162,7 +232,25 @@ export function CreateEventDialog({ user }: { user: User | null }) {
       open={open}
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen);
-        if (!nextOpen) {
+        if (nextOpen) {
+          try {
+            const saved = window.localStorage.getItem(DRAFT_KEY);
+            if (saved) {
+              const draftValues = JSON.parse(saved) as EventFormValues;
+              if (hasDraftContent(draftValues)) {
+                toast("You have an unsaved draft.", {
+                  description: "Would you like to resume where you left off?",
+                  action: {
+                    label: "Resume",
+                    onClick: () => form.reset(draftValues),
+                  },
+                });
+              }
+            }
+          } catch (e) {
+            console.error("[CreateEventDialog] Failed to read saved draft:", e);
+          }
+        } else {
           form.reset(defaultValues);
           setStep(0);
         }
@@ -218,6 +306,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
             {/* Step 1 — Details */}
             {step === 0 && (
               <>
+                <FlyerUploader onDataExtracted={handleDataExtracted} />
                 <FormField
                   control={form.control}
                   name="title"
@@ -243,6 +332,25 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                       <FormLabel required>Description</FormLabel>
                       <FormControl>
                         <Textarea placeholder="What's this event about?" rows={4} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="tags"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-mono text-xs font-bold uppercase text-black">
+                        Event Tags
+                      </FormLabel>
+                      <FormControl>
+                        <TagMultiSelect
+                          value={field.value || []}
+                          onChange={field.onChange}
+                          placeholder="Select or type event tags (e.g. #Tech, #Career)..."
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -383,8 +491,73 @@ export function CreateEventDialog({ user }: { user: User | null }) {
               </>
             )}
 
-            {/* Step 3 — Media (review + confirm) */}
+            {/* Step 3 — FAQs (optional) */}
             {step === 2 && (
+              <div className="space-y-4">
+                <p className="font-mono text-xs font-bold text-black/50 uppercase">
+                  Add frequently asked questions (optional)
+                </p>
+                {form.watch("faqs")?.map((_faq, index) => (
+                  <div key={index} className="neu-border space-y-2 bg-white p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-bold text-black/40">
+                        Q{index + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const current = form.getValues("faqs") || [];
+                          form.setValue(
+                            "faqs",
+                            current.filter((_: unknown, i: number) => i !== index),
+                          );
+                        }}
+                        className="text-destructive hover:text-destructive/80"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <Input
+                      placeholder="Question"
+                      value={form.watch(`faqs.${index}.question`) || ""}
+                      onChange={(e) => {
+                        const current = form.getValues("faqs") || [];
+                        const updated = [...current];
+                        updated[index] = { ...updated[index], question: e.target.value };
+                        form.setValue("faqs", updated);
+                      }}
+                      className="font-mono text-sm"
+                    />
+                    <Textarea
+                      placeholder="Answer"
+                      value={form.watch(`faqs.${index}.answer`) || ""}
+                      onChange={(e) => {
+                        const current = form.getValues("faqs") || [];
+                        const updated = [...current];
+                        updated[index] = { ...updated[index], answer: e.target.value };
+                        form.setValue("faqs", updated);
+                      }}
+                      rows={2}
+                      className="font-mono text-sm"
+                    />
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const current = form.getValues("faqs") || [];
+                    form.setValue("faqs", [...current, { question: "", answer: "" }]);
+                  }}
+                  className="w-full border-dashed font-mono text-xs font-bold"
+                >
+                  <Plus className="mr-1 h-3 w-3" /> Add Question
+                </Button>
+              </div>
+            )}
+
+            {/* Step 4 — Review (confirm) */}
+            {step === 3 && (
               <div className="neu-border space-y-3 bg-white p-4 font-mono text-sm">
                 <p className="font-bold uppercase text-black/50 text-xs">Review your event</p>
                 <div>
@@ -409,6 +582,12 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                     <p>{endDateStr ? format(parsedEnd!, "MMM dd, y HH:mm") : "—"}</p>
                   </div>
                 </div>
+                {form.getValues("faqs") && form.getValues("faqs").length > 0 && (
+                  <div>
+                    <p className="text-xs text-black/40">FAQs</p>
+                    <p className="font-bold">{form.getValues("faqs").length} question(s)</p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -418,7 +597,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                   Back
                 </Button>
               )}
-              {step < 2 ? (
+              {step < 3 ? (
                 <Button
                   type="button"
                   onClick={handleNext}

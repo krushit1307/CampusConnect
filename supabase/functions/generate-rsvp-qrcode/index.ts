@@ -96,9 +96,9 @@ serve(async (req) => {
     }
 
     // Retrieve the public URL for the uploaded QR code
-    const { data: { publicUrl } } = supabase.storage
-      .from("qrcodes")
-      .getPublicUrl(filePath);
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("qrcodes").getPublicUrl(filePath);
 
     return new Response(JSON.stringify({ qrCodeUrl: publicUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

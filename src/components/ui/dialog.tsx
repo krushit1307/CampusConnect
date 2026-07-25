@@ -3,10 +3,47 @@
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 
-const Dialog = DialogPrimitive.Root;
+// Radix Dialog.Root wraps everything; we track open state via a context so
+// DialogContent can drive AnimatePresence without prop-drilling.
+const DialogOpenContext = React.createContext(false);
+
+const Dialog = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Root>
+>(({ open, defaultOpen, onOpenChange, children, ...props }, _ref) => {
+  const [isOpen, setIsOpen] = React.useState(open ?? defaultOpen ?? false);
+
+  // Keep internal state in sync with controlled `open` prop
+  React.useEffect(() => {
+    if (open !== undefined) setIsOpen(open);
+  }, [open]);
+
+  const handleOpenChange = React.useCallback(
+    (nextOpen: boolean) => {
+      setIsOpen(nextOpen);
+      onOpenChange?.(nextOpen);
+    },
+    [onOpenChange],
+  );
+
+  return (
+    <DialogOpenContext.Provider value={isOpen}>
+      <DialogPrimitive.Root
+        open={open}
+        defaultOpen={defaultOpen}
+        onOpenChange={handleOpenChange}
+        {...props}
+      >
+        {children}
+      </DialogPrimitive.Root>
+    </DialogOpenContext.Provider>
+  );
+});
+Dialog.displayName = "Dialog";
 
 const DialogTrigger = DialogPrimitive.Trigger;
 
@@ -14,6 +51,7 @@ const DialogPortal = DialogPrimitive.Portal;
 
 const DialogClose = DialogPrimitive.Close;
 
+// --- Overlay (backdrop) ---
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
@@ -25,10 +63,20 @@ const DialogOverlay = React.forwardRef<
       className,
     )}
     {...props}
-  />
+    asChild
+  >
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm"
+    />
+  </DialogPrimitive.Overlay>
 ));
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
+// --- Content (the modal panel) ---
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
