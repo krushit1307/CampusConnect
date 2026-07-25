@@ -39,6 +39,7 @@ export const eventFormSchema = z
       )
       .optional()
       .default([]),
+    tags: z.array(z.string()).optional().default([]),
   })
   .refine((data) => new Date(data.endDate) > new Date(data.startDate), {
     message: "End date must be after the start date.",

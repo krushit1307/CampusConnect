@@ -35,6 +35,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
+import { TagMultiSelect } from "@/components/ui/TagMultiSelect";
+
 interface EditEventDialogProps {
   event: EventDocument;
   user: User | null;
@@ -59,6 +61,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
       location: event.location || "",
       startDate: event.start_date ? new Date(event.start_date).toISOString().slice(0, 16) : "",
       endDate: event.end_date ? new Date(event.end_date).toISOString().slice(0, 16) : "",
+      tags: event.tags || [],
     },
     mode: "onBlur",
   });
@@ -72,6 +75,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
         location: event.location || "",
         startDate: event.start_date ? new Date(event.start_date).toISOString().slice(0, 16) : "",
         endDate: event.end_date ? new Date(event.end_date).toISOString().slice(0, 16) : "",
+        tags: event.tags || [],
       });
     }
   }, [open, event, form]);
@@ -134,6 +138,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
         location: values.location?.trim() || null,
         start_date: new Date(values.startDate).toISOString(),
         end_date: new Date(values.endDate).toISOString(),
+        tags: values.tags || [],
         version_vector: (baseSnapshot.version_vector || {}) as VersionVector,
       };
 
@@ -210,6 +215,26 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                     <FormLabel required>Description</FormLabel>
                     <FormControl>
                       <Textarea placeholder="Event description" rows={3} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="tags"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-mono text-xs font-bold uppercase text-black">
+                      Event Tags
+                    </FormLabel>
+                    <FormControl>
+                      <TagMultiSelect
+                        value={field.value || []}
+                        onChange={field.onChange}
+                        placeholder="Select or type event tags (e.g. #Tech, #Career)..."
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
