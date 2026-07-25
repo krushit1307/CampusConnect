@@ -410,7 +410,8 @@ export function CreateEventDialog({
                       src={`https://maps.google.com/maps?q=${encodeURIComponent(watchedLocation)}&output=embed`}
                       title="Location preview"
                     />
-                    
+
+                    <a
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(watchedLocation)}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -520,10 +521,7 @@ export function CreateEventDialog({
                     <FormItem>
                       <FormLabel>Banner Image URL</FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder="https://example.com/banner.png"
-                          {...field}
-                        />
+                        <Input placeholder="https://example.com/banner.png" {...field} />
                       </FormControl>
                       <p className="mt-1 text-xs text-black/50">
                         Paste a link to a banner image (optional)
@@ -540,12 +538,7 @@ export function CreateEventDialog({
                     <FormItem>
                       <FormLabel>Ticket Capacity</FormLabel>
                       <FormControl>
-                        <Input
-                          type="number"
-                          min={1}
-                          placeholder="e.g. 100"
-                          {...field}
-                        />
+                        <Input type="number" min={1} placeholder="e.g. 100" {...field} />
                       </FormControl>
                       <p className="mt-1 text-xs text-black/50">
                         Max number of attendees (optional, leave blank for unlimited)

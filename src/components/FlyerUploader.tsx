@@ -1,7 +1,8 @@
 import React from "react";
 import { UploadCloud, Loader2 } from "lucide-react";
 import { useOCR } from "@/hooks/useOCR";
-import { toast } from "sonner";import type { ParsedFlyer } from "@/lib/parser";
+import { toast } from "sonner";
+import type { ParsedFlyer } from "@/lib/parser";
 
 interface FlyerUploaderProps {
   onDataExtracted: (data: ParsedFlyer) => void;
@@ -10,7 +11,7 @@ interface FlyerUploaderProps {
 export function FlyerUploader({ onDataExtracted }: FlyerUploaderProps) {
   const { isProcessing, processFlyer } = useOCR({ onSuccess: onDataExtracted });
 
-const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 

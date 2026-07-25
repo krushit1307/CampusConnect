@@ -40,18 +40,13 @@ registerRoute(
 );
 
 // All other Supabase API calls (GET requests) — always go to network, never cache.
-registerRoute(
-  ({ url }) => url.hostname.includes("supabase.co"),
-  new NetworkOnly(),
-);
+registerRoute(({ url }) => url.hostname.includes("supabase.co"), new NetworkOnly());
 
 // Offline fallback for full-page navigations (e.g. a hard refresh while offline).
 const OFFLINE_URL = "/offline.html";
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open("offline-fallback-cache").then((cache) => cache.add(OFFLINE_URL)),
-  );
+  event.waitUntil(caches.open("offline-fallback-cache").then((cache) => cache.add(OFFLINE_URL)));
 });
 
 registerRoute(

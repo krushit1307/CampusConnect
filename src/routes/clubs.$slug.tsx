@@ -15,7 +15,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowLeft, Github, Loader2, CheckCircle, Flag } from "lucide-react";
 import { ReportDialog } from "@/components/ReportDialog";
 import { EmptyState } from "@/components/EmptyState";
-import { VideoPlayer } from "@/components/VideoPlayer";import {
+import { VideoPlayer } from "@/components/VideoPlayer";
+import {
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbLink,
@@ -438,12 +439,10 @@ export default function ClubProfile() {
                 <h3 className="font-display text-xl font-bold text-indigo-900 uppercase tracking-tight">
                   Featured Club Promo
                 </h3>
-<div className="neu-border bg-black aspect-video mt-4 overflow-hidden">
-                  <VideoPlayer
-                    src={club.promo_video_url}
-                    title="Club Promo"
-                  />
-                </div>              </div>
+                <div className="neu-border bg-black aspect-video mt-4 overflow-hidden">
+                  <VideoPlayer src={club.promo_video_url} title="Club Promo" />
+                </div>{" "}
+              </div>
             )}
 
             {/* Members section below the description */}
