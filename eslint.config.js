@@ -14,9 +14,15 @@ const localRulesPlugin = {
 
 export default tseslint.config(
   {
-    ignores: ["dist", ".output", ".vinxi", "supabase/functions", ".history/**"],
+    ignores: [
+      "dist",
+      ".output",
+      ".vinxi",
+      "supabase/functions",
+      ".history/**",
+      "wasm/image-compressor/pkg",
+    ],
   },
-
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

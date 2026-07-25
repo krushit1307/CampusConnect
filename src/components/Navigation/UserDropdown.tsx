@@ -1,13 +1,13 @@
-import { Link } from "react-router-dom";
-import type { User } from "@supabase/supabase-js";
 import {
   DropdownMenu,
-  DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { User } from "@supabase/supabase-js";
+import { Link } from "react-router-dom";
 
 interface UserDropdownProps {
   user: User;

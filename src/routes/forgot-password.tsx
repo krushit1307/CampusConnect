@@ -4,6 +4,7 @@ import { Sparkle } from "@/components/site/Sparkle";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { getFriendlyAuthError } from "@/utils/authErrors";
 
 export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
@@ -19,11 +20,8 @@ export default function ForgotPasswordPage() {
     const email = formData.get("email") as string;
 
     try {
-      const { error } = await supabase.functions.invoke("request-password-reset", {
-        body: {
-          email,
-          redirectTo: `${window.location.origin}/reset-password`,
-        },
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
 
       if (error) throw error;
@@ -33,8 +31,9 @@ export default function ForgotPasswordPage() {
       setSubmitted(true);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      setError(err.message);
-      toast.error(err.message || "Something went wrong. Please try again.");
+      const message = getFriendlyAuthError(err);
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
