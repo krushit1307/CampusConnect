@@ -18,13 +18,14 @@ serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  // Rate Limiting Logic using Redis Upstash (60 requests per minute)
-  const rateLimitResponse = await limitRate(req, "toggle-rsvp", { limit: 60, windowMs: 60000 });
-  if (rateLimitResponse) {
-    return rateLimitResponse;
-  }
-
   try {
+    // Rate Limiting Logic using Redis Upstash (60 requests per minute)
+    // Applied inside try block to ensure errors are caught gracefully
+    const rateLimitResponse = await limitRate(req, "toggle-rsvp", { limit: 60, windowMs: 60000 });
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
