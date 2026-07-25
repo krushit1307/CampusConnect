@@ -14,21 +14,30 @@ interface NotificationItemProps {
 }
 
 const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onMarkAsRead }) => {
-  const handleItemClick = () => {
+const handleItemClick = () => {
     onMarkAsRead(notification.id);
     if (notification.link) {
       window.location.href = notification.link;
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleItemClick();
+    }
+  };
   return (
-    <div
+<div
       onClick={handleItemClick}
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
+      aria-label={`${notification.isRead ? "Read" : "Unread"} notification: ${notification.title}`}
       className={`p-3 border-b border-gray-100 cursor-pointer transition-colors duration-200 hover:bg-gray-50 flex flex-col gap-1 text-left ${
         !notification.isRead ? "bg-blue-50/60 font-medium" : "bg-white"
       }`}
-    >
-      <div className="flex justify-between items-start gap-2">
+    >      <div className="flex justify-between items-start gap-2">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
           {notification.type}
         </span>
