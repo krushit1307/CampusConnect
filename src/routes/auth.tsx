@@ -7,6 +7,8 @@ import { PasswordStrengthMeter, getPasswordStrength } from "@/components/ui/pass
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { PasswordInput } from "@/components/ui/password-input";
+import { sendVerificationEmail } from "@/lib/email/service";
+import { getFriendlyAuthError } from "@/utils/authErrors";
 
 export default function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -37,7 +39,7 @@ export default function AuthPage() {
 
     try {
       if (mode === "signup") {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -51,6 +53,18 @@ export default function AuthPage() {
 
         if (signUpError) throw signUpError;
 
+        // Construct verification link & send verification email via Email Service
+        const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+        const tokenHash = signUpData?.user?.id || "signup_token";
+        const verificationUrl = `${appUrl}/verify-email?token=${encodeURIComponent(tokenHash)}&type=signup`;
+
+        await sendVerificationEmail({
+          to: email,
+          recipientName: `${firstName} ${lastName}`.trim(),
+          verificationUrl,
+        });
+
+        toast.success("Account created! A verification link has been sent to your email.");
         navigate("/dashboard", { replace: true });
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -63,8 +77,7 @@ export default function AuthPage() {
         navigate("/dashboard", { replace: true });
       }
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      const message = getFriendlyAuthError(err);
 
       setError(message);
       toast.error(message);
@@ -87,8 +100,7 @@ export default function AuthPage() {
 
       if (error) throw error;
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      const message = getFriendlyAuthError(err);
 
       setError(message);
       toast.error(message);
@@ -113,7 +125,8 @@ export default function AuthPage() {
 
           <Link
             to="/"
-            className="neu-border flex items-center gap-1.5 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase text-black transition-colors hover:bg-black hover:text-cream"
+            className="neu-border flex items-center gap-1.5 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase text-black transition-colors hover:bg-black hover:text-cream cursor-pointer"
+            aria-label="Return to Home page"
           >
             <ArrowLeft size={14} />
             Home
@@ -126,15 +139,15 @@ export default function AuthPage() {
               {mode === "signin" ? "Welcome back" : "Get started"}
             </p>
 
-            <h1 className="mb-6 text-3xl font-bold text-blue-900">
+            <h1 className="mb-6 text-3xl font-bold text-black">
               {mode === "signin" ? "Sign in to CampusConnect" : "Create your account"}
             </h1>
 
             {error && (
-              <div className="mb-4 bg-red-100 p-2 font-mono text-sm text-red-700">{error}</div>
+              <div className="mb-4 bg-red-100 p-2 font-mono text-sm text-red-800">{error}</div>
             )}
 
-            <form onSubmit={onSubmit} className="space-y-4 text-red-900">
+            <form onSubmit={onSubmit} className="space-y-4 text-black">
               {mode === "signup" && (
                 <div className="grid grid-cols-2 gap-3">
                   <Field
@@ -190,10 +203,10 @@ export default function AuthPage() {
               )}
 
               {mode === "signin" && (
-                <p className="text-right text-blue-600">
+                <p className="text-right">
                   <Link
                     to="/forgot-password"
-                    className="font-mono text-xs font-bold underline underline-offset-2"
+                    className="font-mono text-xs font-bold text-blue-700 underline underline-offset-2 cursor-pointer"
                   >
                     Forgot password?
                   </Link>
@@ -206,7 +219,7 @@ export default function AuthPage() {
                   loading || (mode === "signup" && getPasswordStrength(password) === "weak")
                 }
                 variant="primary"
-                className="w-full"
+                className="w-full bg-black text-cream hover:bg-black/90 cursor-pointer shadow-[3px_3px_0_0_var(--color-ink)]"
               >
                 {loading ? "Loading..." : mode === "signin" ? "Sign in" : "Create account"}
               </Button>
@@ -222,7 +235,7 @@ export default function AuthPage() {
               onClick={handleGoogleSignIn}
               disabled={loading}
               variant="outline"
-              className="w-full"
+              className="w-full bg-white border-2 border-black hover:bg-gray-100 cursor-pointer shadow-[3px_3px_0_0_var(--color-ink)]"
             >
               Continue with Google
             </Button>
@@ -237,7 +250,7 @@ export default function AuthPage() {
                   setError(null);
                   setPassword("");
                 }}
-                className="h-auto p-0 font-bold underline text-blue-600"
+                className="h-auto p-0 font-bold underline text-blue-700 cursor-pointer"
               >
                 {mode === "signin" ? "Create an account" : "Sign in"}
               </Button>
@@ -272,10 +285,10 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="eyebrow mb-1 block font-bold">
+      <span className="eyebrow mb-1 block font-bold text-black">
         {label}
         {required && (
-          <span className="ml-1 text-destructive" aria-hidden="true">
+          <span className="ml-1 text-red-700" aria-hidden="true">
             *
           </span>
         )}
@@ -290,7 +303,8 @@ function Field({
             autoComplete={autoComplete}
             value={value}
             onChange={onChange}
-            className="w-full bg-transparent px-1 py-2 font-mono text-sm outline-none"
+            aria-label={label}
+            className="w-full bg-transparent px-1 py-2 font-mono text-sm outline-none cursor-text"
           />
         ) : (
           <input
@@ -299,7 +313,8 @@ function Field({
             placeholder={placeholder}
             required={required}
             autoComplete={autoComplete}
-            className="w-full bg-transparent px-1 py-2 font-mono text-sm outline-none"
+            aria-label={label}
+            className="w-full bg-transparent px-1 py-2 font-mono text-sm outline-none cursor-text"
           />
         )}
 

@@ -18,7 +18,7 @@ export const comments = {
 
   maxIssueLimitReached: ({ user, activeCount }) =>
     `Hey @${user}, we love the energy! 🌟\n\n` +
-    `You've reached our limit with **${activeCount} active assigned issues** (the max is **7**). This helps ensure everyone gets a chance to contribute.\n\n` +
+    `You've reached our limit with **${activeCount} active assigned issues** (the max is **10**). This helps ensure everyone gets a chance to contribute.\n\n` +
     `Once you finish or release an active issue (using \`${COMMANDS.unclaim}\`), you can definitely claim another one!`,
 
   invalidClaim: ({ user }) =>
@@ -62,9 +62,12 @@ export const comments = {
     `A quick validation pass is running now. If anything is missing, you'll see it below with clear next steps — nothing to worry about, we're here to help you get it merge-ready. 💙`,
 
   welcomeMessage: ({ user }) =>
-    `Hey @${user}, welcome to the **CampusConnect** community! 🎉\n\n` +
-    `We are thrilled to have you! A great place to start is **CONTRIBUTING.md**. If you get stuck, don't hesitate to ask for help in Discussions.\n\n` +
-    `Can't wait to see your awesome contributions! 🌟`,
+    withMarker(
+      AUTOMATION.firstIssueWelcomeMarker,
+      `Hey @${user}, welcome to the **CampusConnect** community! 🎉\n\n` +
+        `We are thrilled to have you! A great place to start is **CONTRIBUTING.md**. If you get stuck, don't hesitate to ask for help in Discussions.\n\n` +
+        `Can't wait to see your awesome contributions! 🌟`,
+    ),
 
   prValidationChecklist: ({ body }) => withMarker(AUTOMATION.prChecklistMarker, body),
 

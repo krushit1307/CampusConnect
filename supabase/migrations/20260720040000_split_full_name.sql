@@ -5,6 +5,11 @@
 -- migrates existing data, then drops the full_name column.
 -- ============================================================
 
+-- Drop dependent functions before dropping full_name column to avoid PostgreSQL dependency errors
+DROP FUNCTION IF EXISTS public.get_recommended_connections(UUID, INT);
+DROP FUNCTION IF EXISTS public.get_event_member_emails(UUID);
+DROP FUNCTION IF EXISTS public.get_digest_subscribers();
+
 -- 1. Add new columns (nullable initially to avoid constraint issues)
 ALTER TABLE profiles
 ADD COLUMN IF NOT EXISTS first_name TEXT,
@@ -111,5 +116,52 @@ BEGIN
   JOIN public.profiles p ON u.id = p.id
   WHERE (p.notification_preferences->>'digest')::BOOLEAN = true
     AND p.role = 'student';
+END;
+$$;
+
+-- 8. Recreate public.get_recommended_connections using first_name and last_name
+CREATE OR REPLACE FUNCTION public.get_recommended_connections(user_id UUID, limit_count INT)
+RETURNS TABLE (
+  id UUID,
+  full_name TEXT,
+  avatar_url TEXT,
+  handle TEXT,
+  skills TEXT[],
+  match_count INT
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  caller_skills TEXT[];
+BEGIN
+  -- Retrieve caller's skills array
+  SELECT p.skills INTO caller_skills FROM public.profiles p WHERE p.id = user_id;
+  
+  -- If caller doesn't exist or has no skills, return empty set
+  IF caller_skills IS NULL OR cardinality(caller_skills) = 0 THEN
+    RETURN;
+  END IF;
+
+  RETURN QUERY
+  SELECT 
+    p.id,
+    TRIM(CONCAT(p.first_name, ' ', p.last_name))::TEXT AS full_name,
+    p.avatar_url,
+    p.handle,
+    p.skills,
+    COALESCE(cardinality(ARRAY(
+      SELECT UNNEST(p.skills) 
+      INTERSECT 
+      SELECT UNNEST(caller_skills)
+    )), 0)::INT AS match_count
+  FROM public.profiles p
+  WHERE p.id != user_id
+    AND p.skills IS NOT NULL
+    AND p.skills && caller_skills  -- Uses GIN index for overlapping skills
+  ORDER BY match_count DESC, p.id ASC
+  LIMIT limit_count;
 END;
 $$;

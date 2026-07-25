@@ -1,4 +1,4 @@
-import { QRCodeSVG } from "qrcode.react";
+import { useState } from "react";
 
 import {
   Dialog,
@@ -7,7 +7,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
+import { SteganographicQRCode } from "@/components/SteganographicQRCode";
+import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
 import { formatEventDateRange } from "@/lib/utils";
 
 interface Event {
@@ -28,67 +29,63 @@ interface TicketDialogProps {
 
 export function TicketDialog({ open, onOpenChange, event, rsvpId }: TicketDialogProps) {
   const ticketId = rsvpId.slice(-6).toUpperCase();
-  const handleDownload = () => {
-    const svg = document.getElementById(`ticket-qr-${ticketId}`);
-    if (!svg) return;
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    const img = new Image();
-    img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      if (ctx) {
-        ctx.fillStyle = "white";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
-        const pngFile = canvas.toDataURL("image/png");
-        const downloadLink = document.createElement("a");
-        downloadLink.download = `Ticket-${ticketId}.png`;
-        downloadLink.href = `${pngFile}`;
-        downloadLink.click();
-      }
-    };
-    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
-  };
+  const [activeTab, setActiveTab] = useState<"ticket" | "scanner">("ticket");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md neu-border bg-cream">
+      <DialogContent className="sm:max-w-md neu-border bg-cream max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-black">Event Ticket</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-2xl font-black">Event Ticket</DialogTitle>
+            <div className="flex rounded-md border-2 border-black bg-white p-0.5 font-mono text-[10px] font-bold">
+              <button
+                onClick={() => setActiveTab("ticket")}
+                className={`rounded px-2.5 py-1 ${
+                  activeTab === "ticket" ? "bg-black text-white" : "text-black hover:bg-muted"
+                }`}
+              >
+                Ticket QR
+              </button>
+              <button
+                onClick={() => setActiveTab("scanner")}
+                className={`rounded px-2.5 py-1 ${
+                  activeTab === "scanner" ? "bg-black text-white" : "text-black hover:bg-muted"
+                }`}
+              >
+                Verify Ticket
+              </button>
+            </div>
+          </div>
 
           <DialogDescription>
-            Show this QR code at the event entrance for quick check-in.
+            {activeTab === "ticket"
+              ? "Show this steganographically signed QR code at entrance check-in."
+              : "Verify ticket image authenticity via hidden LSB Ed25519 signature."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="mt-2 flex flex-col items-center gap-4">
-          <div className="rounded-lg border bg-white p-5">
-            <QRCodeSVG id={`ticket-qr-${ticketId}`} value={rsvpId} size={220} />
-          </div>
+        {activeTab === "ticket" ? (
+          <div className="mt-2 flex flex-col items-center gap-4">
+            <SteganographicQRCode rsvpId={rsvpId} size={200} />
 
-          <div className="w-full space-y-2 text-center">
-            <h3 className="text-lg font-bold">{event.title}</h3>
+            <div className="w-full space-y-2 text-center">
+              <h3 className="text-lg font-bold">{event.title}</h3>
 
-            <p className="text-sm text-muted-foreground">{formatEventDateRange(event)}</p>
+              <p className="text-sm text-muted-foreground">{formatEventDateRange(event)}</p>
 
-            <p className="text-sm text-muted-foreground">{event.location ?? "Location TBA"}</p>
+              <p className="text-sm text-muted-foreground">{event.location ?? "Location TBA"}</p>
 
-            <div className="mt-4 rounded-md border bg-muted p-3">
-              <p className="font-mono text-xs uppercase">RSVP ID</p>
-
-              <p className="mt-1 font-bold break-all font-mono text-sm">{ticketId}</p>
+              <div className="mt-2 rounded-md border bg-muted p-3">
+                <p className="font-mono text-xs uppercase">RSVP ID</p>
+                <p className="mt-1 font-bold break-all font-mono text-sm">{ticketId}</p>
+              </div>
             </div>
-
-            <button
-              onClick={handleDownload}
-              className="neu-border neu-press mt-4 w-full bg-black px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider text-cream"
-            >
-              Download Ticket
-            </button>
           </div>
-        </div>
+        ) : (
+          <div className="mt-2">
+            <SteganographicQRScanner />
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

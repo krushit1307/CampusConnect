@@ -101,7 +101,7 @@ export default function NotificationsRoute() {
       case "event":
         return <Calendar size={16} className="text-blue-600" />;
       case "club":
-        return <Building size={16} className="text-[#F59E0B]" />;
+        return <Building size={16} className="text-brand-amber-base" />;
       case "reply":
         return <MessageSquare size={16} className="text-green-600" />;
       default:
