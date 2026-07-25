@@ -6,9 +6,13 @@ export function parseXml(xml: string): Document {
   const parser = new DOMParser({
     errorHandler: {
       warning: (msg: string) => console.warn(msg),
-      error: (msg: string) => { throw new Error(msg); },
-      fatalError: (msg: string) => { throw new Error(msg); }
-    }
+      error: (msg: string) => {
+        throw new Error(msg);
+      },
+      fatalError: (msg: string) => {
+        throw new Error(msg);
+      },
+    },
   });
   return parser.parseFromString(xml, "text/xml") as unknown as Document;
 }

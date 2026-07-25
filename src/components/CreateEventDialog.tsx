@@ -150,6 +150,7 @@ export function CreateEventDialog({
         created_by: user.id,
         banner: values.banner?.trim() || null,
         capacity: values.capacity || null,
+        is_private: values.isPrivate ?? false,
         faqs: values.faqs && values.faqs.length > 0 ? values.faqs : [],
         tags: values.tags && values.tags.length > 0 ? values.tags : [],
       });
