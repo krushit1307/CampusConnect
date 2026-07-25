@@ -1,3 +1,4 @@
+// @ts-expect-error - Local WASM pkg is generated at build time
 import init, { compress_image } from "../../wasm/image-compressor/pkg/image_compressor";
 
 self.onmessage = async (event: MessageEvent) => {

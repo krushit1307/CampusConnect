@@ -1,5 +1,9 @@
-import { buildResponsiveImageSrcSet, getOptimizedImageUrl } from "@/lib/imageOptimization";
 import { useMemo, useState, type ImgHTMLAttributes } from "react";
+import {
+  buildResponsiveImageSrcSet,
+  getOptimizedImageUrl,
+  isSafeImageSrc,
+} from "@/lib/imageOptimization";
 
 interface OptimizedImageProps extends Omit<
   ImgHTMLAttributes<HTMLImageElement>,
@@ -53,7 +57,13 @@ export function OptimizedImage({
     [height, quality, responsiveWidths, src],
   );
 
-  if (failed) return <>{fallback}</>;
+  // Guards the sink below: only ever render src values on an explicit scheme
+  // allowlist (http/https/blob/data:image). Anything else — including a
+  // hypothetically crafted javascript:/data:text/html string — falls back
+  // instead of ever reaching the <img> element.
+  const isSrcSafe = useMemo(() => isSafeImageSrc(optimizedSrc), [optimizedSrc]);
+
+  if (failed || !isSrcSafe) return <>{fallback}</>;
 
   return (
     <img

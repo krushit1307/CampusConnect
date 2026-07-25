@@ -8,7 +8,7 @@ import { EventCardSkeleton } from "@/components/EventCardSkeleton";
 import { useMutation, useQuery } from "@/hooks/useReactQueryReplacement";
 import { normalizeSavedEvents } from "@/lib/bookmarks";
 import { createClient } from "@/lib/supabase/client";
-
+import EmptyBookmarks from "@/components/EmptyBookmarks";
 interface BookmarkedEvent {
   id: string;
   title: string;
@@ -174,22 +174,7 @@ export default function DashboardBookmarks() {
           ))}
         </div>
       ) : bookmarkedEvents.length === 0 ? (
-        <section className="neu-border relative overflow-hidden bg-lavender px-6 py-14 text-center sm:px-10">
-          <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border-2 border-black bg-white shadow-[4px_4px_0_0_var(--color-ink)]">
-            <CalendarDays aria-hidden="true" size={30} strokeWidth={2.5} />
-          </div>
-          <h3 className="mt-6 text-2xl font-black">No bookmarked events yet</h3>
-          <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-gray-700">
-            Explore upcoming campus events and tap the bookmark icon on any event you want to save
-            here.
-          </p>
-          <Link
-            to="/events"
-            className="neu-border neu-press mt-6 inline-flex bg-black px-5 py-3 font-mono text-xs font-bold uppercase tracking-wider text-cream"
-          >
-            Explore events →
-          </Link>
-        </section>
+        <EmptyBookmarks />
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {bookmarkedEvents.map((event, index) => (

@@ -61,7 +61,10 @@ export default function ClubsIndex() {
 
         const { data, count } = await supabase
           .from("clubs")
-          .select(`id, name, slug, description`, { count: "exact" })
+          .select(
+            `id, name, slug, description, club_stats (total_members, total_events, total_posts)`,
+            { count: "exact" },
+          )
           .range(from, to);
 
         return {
@@ -337,7 +340,11 @@ export default function ClubsIndex() {
                     <h2 className="text-2xl font-bold">{c.name}</h2>
                     <div className="my-3 border-t-2 border-black" />
                     <div className="flex items-center justify-between font-mono text-xs">
-                      <span>Members</span>
+                      <span>
+                        {Array.isArray(c.club_stats)
+                          ? `${c.club_stats[0]?.total_members ?? 0} Members`
+                          : `${(c.club_stats as { total_members?: number } | null)?.total_members ?? 0} Members`}
+                      </span>
                       <span className="font-bold uppercase flex items-center gap-1">
                         View{" "}
                         <span className="transition-transform duration-300 group-hover:translate-x-1">

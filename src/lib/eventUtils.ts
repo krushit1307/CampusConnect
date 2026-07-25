@@ -30,6 +30,15 @@ export const eventFormSchema = z
       .positive("Capacity must be positive")
       .optional()
       .or(z.literal("")),
+    faqs: z
+      .array(
+        z.object({
+          question: z.string().trim().min(1, "Question is required."),
+          answer: z.string().trim().min(1, "Answer is required."),
+        }),
+      )
+      .optional()
+      .default([]),
   })
   .refine((data) => new Date(data.endDate) > new Date(data.startDate), {
     message: "End date must be after the start date.",
