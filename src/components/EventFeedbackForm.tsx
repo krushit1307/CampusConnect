@@ -72,7 +72,7 @@ export function EventFeedbackForm({ eventId, user }: EventFeedbackFormProps) {
 
   if (existingFeedback) {
     return (
-      <div className="neu-border bg-[#d3f4e6] p-6 mb-8">
+      <div className="neu-border bg-brand-green-bg p-6 mb-8">
         <h3 className="font-display text-xl font-bold uppercase mb-4 text-black">Your Feedback</h3>
         <div className="flex gap-1 mb-4">
           {[1, 2, 3, 4, 5].map((star) => (
@@ -80,7 +80,9 @@ export function EventFeedbackForm({ eventId, user }: EventFeedbackFormProps) {
               key={star}
               size={24}
               className={`${
-                star <= existingFeedback.rating ? "text-[#FFB800] fill-[#FFB800]" : "text-gray-400"
+                star <= existingFeedback.rating
+                  ? "text-brand-orange-base fill-brand-orange-base"
+                  : "text-gray-400"
               }`}
             />
           ))}
@@ -100,7 +102,7 @@ export function EventFeedbackForm({ eventId, user }: EventFeedbackFormProps) {
         e.preventDefault();
         submitMutation.mutate();
       }}
-      className="neu-border bg-[#ffe3e3] p-6 mb-8"
+      className="neu-border bg-brand-red-bg p-6 mb-8"
     >
       <h3 className="font-display text-xl font-bold uppercase mb-4 text-black">Leave Feedback</h3>
 
@@ -122,7 +124,7 @@ export function EventFeedbackForm({ eventId, user }: EventFeedbackFormProps) {
                 size={32}
                 className={`${
                   star <= (hoverRating || rating)
-                    ? "text-[#FFB800] fill-[#FFB800]"
+                    ? "text-brand-orange-base fill-brand-orange-base"
                     : "text-gray-400"
                 } transition-colors`}
               />

@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
+import { describe, expect, it, vi } from "vitest";
 import { UserDropdown } from "./UserDropdown";
 
 describe("UserDropdown", () => {

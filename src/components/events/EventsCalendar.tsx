@@ -1,8 +1,8 @@
-import { Calendar, dateFnsLocalizer } from "react-big-calendar";
-import { format, parse, startOfWeek, getDay } from "date-fns";
+import { format, getDay, parse, startOfWeek } from "date-fns";
 import { enUS } from "date-fns/locale";
-import { useNavigate } from "react-router-dom";
+import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import "react-big-calendar/lib/css/react-big-calendar.css";
+import { useNavigate } from "react-router-dom";
 
 const locales = {
   "en-US": enUS,
@@ -62,6 +62,9 @@ export default function EventsCalendar({ events }: EventsCalendarProps) {
         style={{ height: "100%" }}
         views={["month", "week", "day"]}
         defaultView="month"
+        eventPropGetter={() => ({
+          className: "calendar-rsvp-event",
+        })}
         onSelectEvent={(event: { id: string }) => {
           navigate(`/events/${event.id}`);
         }}
