@@ -486,7 +486,7 @@ export default function SettingsPage() {
                 {/* ── Skills Tags Editor ── */}
                 <div className="space-y-2 pt-2">
                   <p className="eyebrow font-bold text-black">Skills</p>
-                  <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+                  <p className="font-mono text-xs text-muted-foreground">
                     Add skills to power matchmaking — press Enter or click{" "}
                     <span className="font-bold">+</span> to add.
                   </p>
@@ -566,7 +566,7 @@ export default function SettingsPage() {
                       Dark Mode
                     </label>
 
-                    <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+                    <p className="font-mono text-xs text-muted-foreground">
                       Toggle between light and dark theme
                     </p>
                   </div>
@@ -588,7 +588,7 @@ export default function SettingsPage() {
                   className="w-full cursor-pointer accent-black"
                 />
 
-                <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+                <p className="font-mono text-xs text-muted-foreground">
                   Controls the width of borders throughout the app (1px - 8px)
                 </p>
               </div>
@@ -606,7 +606,7 @@ export default function SettingsPage() {
                   className="w-full cursor-pointer accent-black"
                 />
 
-                <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+                <p className="font-mono text-xs text-muted-foreground">
                   Controls the roundness of corners (0px - 32px)
                 </p>
               </div>
@@ -746,7 +746,7 @@ function AvatarThemePicker({
   return (
     <div className="space-y-2 border-b-2 border-black pb-6">
       <p className="eyebrow font-bold">Avatar theme</p>
-      <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+      <p className="font-mono text-xs text-muted-foreground">
         Pick a gradient background to use when you don&apos;t have a custom photo.
       </p>
       <div className="flex flex-wrap gap-3 pt-1">
@@ -1044,7 +1044,7 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
                 ? "Drop to upload"
                 : "Drag & drop or click to upload"}
           </p>
-          <p className="font-mono text-[10px] text-gray-500 dark:text-gray-400">
+          <p className="font-mono text-[10px] text-muted-foreground">
             JPG, PNG or WEBP · Max 2 MB · Square images look best
           </p>
           <input
