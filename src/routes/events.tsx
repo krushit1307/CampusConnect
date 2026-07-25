@@ -171,6 +171,7 @@ export default function EventsPage() {
         `,
           { count: "exact" },
         )
+        .neq("status", "archived")
         .order("event_date", { ascending: true })
         .range(0, PAGE_SIZE - 1);
 
@@ -287,6 +288,7 @@ export default function EventsPage() {
         `,
           { count: "exact" },
         )
+        .neq("status", "archived")
         .order("event_date", { ascending: true })
         .range(start, end);
 
