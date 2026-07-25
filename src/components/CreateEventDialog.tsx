@@ -62,6 +62,7 @@ const defaultValues: EventFormValues = {
   capacity: "",
   faqs: [],
   tags: [],
+  isPrivate: false,
 };
 
 const DRAFT_KEY = "event_draft";
@@ -372,6 +373,30 @@ export function CreateEventDialog({
                         />
                       </FormControl>
                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="isPrivate"
+                  render={({ field }) => (
+                    <FormItem className="neu-border flex items-center justify-between bg-white p-3 shadow-none">
+                      <div className="space-y-0.5">
+                        <FormLabel className="cursor-pointer font-mono text-xs font-bold uppercase text-black">
+                          Private Event (Members Only)
+                        </FormLabel>
+                        <p className="text-[11px] text-black/60">
+                          Restrict visibility to approved members of the hosting club.
+                        </p>
+                      </div>
+                      <FormControl>
+                        <input
+                          type="checkbox"
+                          checked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                          className="h-4 w-4 rounded border-2 border-black accent-teal-500 cursor-pointer"
+                        />
+                      </FormControl>
                     </FormItem>
                   )}
                 />
