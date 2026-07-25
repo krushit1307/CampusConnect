@@ -38,6 +38,7 @@ import VerifyEmail from "./routes/verify-email";
 import PendingClubsAdmin from "./routes/admin.clubs.pending";
 import AdminReportsPage from "./routes/admin.reports";
 import ChallengeArena from "./routes/challenge";
+import { Leaderboard } from "./components/Leaderboard";
 import { NotFoundPage } from "./components/NotFoundPage";
 
 // ---------------------------------------------------------------------------
@@ -157,6 +158,7 @@ const router = createBrowserRouter(
         {/* Events Map View with clustering */}
         <Route path="/events/map" element={<EventsMapPage />} />
         <Route path="/challenge" element={<ChallengeArena />} />
+        <Route path="/leaderboard" element={<Leaderboard />} />
 
         <Route path="/feed" element={<Feed />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
