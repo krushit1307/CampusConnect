@@ -16,6 +16,7 @@ import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
 
 import { Progress } from "@/components/ui/progress";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
+import { Switch } from "@/components/ui/switch";
 
 import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
@@ -1088,28 +1089,21 @@ function ThemeToggle({
   theme: "light" | "dark" | "system";
   setTheme: (theme: "light" | "dark" | "system") => void;
 }) {
-  const isDark = theme === "dark";
+  const isDark =
+    theme === "dark" ||
+    (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 
-  const handleToggle = () => {
-    setTheme(isDark ? "light" : "dark");
+  const handleToggle = (checked: boolean) => {
+    setTheme(checked ? "dark" : "light");
   };
 
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={isDark}
-      onClick={handleToggle}
-      className={`relative flex h-7 w-14 items-center rounded-full border-2 border-black transition-colors ${
-        isDark ? "bg-black" : "bg-gray-200"
-      }`}
-    >
-      <span
-        className={`h-5 w-5 rounded-full border-2 border-black bg-white transition-transform ${
-          isDark ? "translate-x-7" : "translate-x-1"
-        }`}
-      />
-    </button>
+    <Switch
+      checked={isDark}
+      onCheckedChange={handleToggle}
+      aria-label="Toggle dark mode"
+      className="data-[state=checked]:bg-black data-[state=unchecked]:bg-gray-200 h-7 w-14 [&>span]:h-5 [&>span]:w-5 data-[state=checked]:[&>span]:translate-x-7 data-[state=unchecked]:[&>span]:translate-x-1 border-2 border-black"
+    />
   );
 }
 
