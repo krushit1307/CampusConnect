@@ -1,6 +1,7 @@
 import { Suspense, lazy } from "react";
 // @ts-expect-error - framer-motion types may not be resolved in all editor settings
 import { AnimatePresence } from "framer-motion";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import {
   createBrowserRouter,
   RouterProvider,
