@@ -90,14 +90,14 @@ function EventProgressBar({
 
   return (
     <div className="mt-4">
-      <div className="mb-1 flex items-center justify-between font-mono text-[10px] font-bold uppercase text-black">
+      <div className="mb-1 flex items-center justify-between font-mono text-[9px] sm:text-xs font-bold uppercase text-black">
         <span>Time to event</span>
         <span>{isPast ? "Ended" : `${Math.round(percent)}%`}</span>
       </div>
       <div className="h-4 w-full neu-border overflow-hidden bg-white p-0.5">
         {isPast ? (
           <div className="flex h-full w-full items-center justify-center bg-gray-200">
-            <span className="font-mono text-[9px] font-bold uppercase text-gray-500">
+            <span className="font-mono text-[8px] sm:text-[9px] font-bold uppercase text-gray-500">
               Event has passed
             </span>
           </div>
@@ -109,12 +109,40 @@ function EventProgressBar({
         )}
       </div>
       {isEstimated && !isPast && (
-        <p className="mt-1 font-mono text-[9px] text-gray-500">
+        <p className="mt-1 font-mono text-[8px] sm:text-[9px] text-gray-500">
           Estimated — creation date unavailable
         </p>
       )}
     </div>
   );
+}
+
+/**
+ * Helper to auto-detect and linkify http/https URLs within a text string.
+ */
+function renderLocationWithLinks(locationText: string | null) {
+  if (!locationText) return "TBA";
+
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = locationText.split(urlRegex);
+
+  return parts.map((part, i) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-blue-700 transition-colors break-all"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
 }
 
 export function EventCard({
@@ -286,7 +314,7 @@ export function EventCard({
         </div>
         <div>
           <dt className="font-mono text-xs font-bold uppercase text-black">Venue</dt>
-          <dd className="mt-1 text-sm text-red-900">{event.location || "TBA"}</dd>
+          <dd className="mt-1 text-sm text-red-900">{renderLocationWithLinks(event.location)}</dd>
         </div>
         <div>
           <dt className="font-mono text-xs font-bold uppercase text-black">Attendees</dt>
