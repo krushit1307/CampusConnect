@@ -8,9 +8,11 @@ const PORT = parseInt(process.env.PORT || "3002", 10);
 
 const app = express();
 
-app.use(express.json({
-  type: ["application/json", "application/activity+json", "application/ld+json"],
-}));
+app.use(
+  express.json({
+    type: ["application/json", "application/activity+json", "application/ld+json"],
+  }),
+);
 
 app.get("/.well-known/webfinger", handleWebFinger);
 
