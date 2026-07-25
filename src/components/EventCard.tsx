@@ -167,7 +167,6 @@ export function EventCard({
   });
   const countdown = event.event_date ? getCountdown(event.event_date) : "TBA";
 
-  const [copied, setCopied] = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
@@ -181,18 +180,10 @@ export function EventCard({
     }
   };
 
-  const handleShare = async () => {
-    const shareUrl = `${window.location.origin}${window.location.pathname}#event-${event.id}`;
-
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      toast.success("Link copied!");
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      toast.error("Failed to copy link.");
-    }
-  };
+  const shareUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}${window.location.pathname}#event-${event.id}`
+      : "";
 
   const handleRsvpClick = () => {
     if (!user) {
@@ -258,19 +249,19 @@ export function EventCard({
           >
             <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
           </button>
-
-          <button
-            type="button"
-            onClick={handleShare}
-            aria-label="Copy event link"
-            className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black"
+          <ShareMenu
+            url={shareUrl}
+            title={event.title}
+            text={`Check out this event: ${event.title}`}
           >
-            {copied ? (
-              <Check aria-hidden="true" size={14} strokeWidth={3} />
-            ) : (
+            <button
+              type="button"
+              aria-label="Share event link"
+              className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black"
+            >
               <Share2 aria-hidden="true" size={14} strokeWidth={3} />
-            )}
-          </button>
+            </button>
+          </ShareMenu>
         </div>
       </div>
 
@@ -368,31 +359,12 @@ export function EventCard({
           </Button>
         )}
       </div>
-      <div className="mt-4 flex gap-2">
-        <a
-          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#1DA1F2] hover:text-white transition-colors"
-        >
-          Twitter
-        </a>
-        <a
-          href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#0A66C2] hover:text-white transition-colors"
-        >
-          LinkedIn
-        </a>
-        <a
-          href={`https://wa.me/?text=${encodeURIComponent(`Check out this event: ${event.title} - ${window.location.href}`)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#25D366] hover:text-white transition-colors"
-        >
-          WhatsApp
-        </a>
+      <div className="mt-4">
+        <ShareMenu
+          url={shareUrl}
+          title={event.title}
+          text={`Check out this event: ${event.title}`}
+        />
       </div>
       <TicketDialog
         open={ticketOpen}
