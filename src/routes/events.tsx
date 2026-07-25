@@ -17,6 +17,7 @@ import { matchesDateFilter } from "@/lib/eventUtils";
 import { getMultiIcsContent } from "@/lib/utils";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { EventFilters, FilterState } from "@/components/EventFilters";
+import { ScrollAwareFab } from "@/components/ScrollAwareFab";
 
 import {
   Select,
@@ -1033,6 +1034,10 @@ export default function EventsPage() {
               </section>
             </div>
           </div>
+
+          <ScrollAwareFab>
+            <CreateEventDialog user={user} variant="fab" />
+          </ScrollAwareFab>
         </SidebarProvider>
       </PullToRefresh>
     </SiteShell>

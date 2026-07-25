@@ -80,7 +80,14 @@ function hasDraftContent(values: EventFormValues): boolean {
   );
 }
 
-export function CreateEventDialog({ user }: { user: User | null }) {
+export function CreateEventDialog({
+  user,
+  variant = "default",
+}: {
+  user: User | null;
+  /** "fab" renders a compact circular icon-only trigger for use inside ScrollAwareFab (#1232) */
+  variant?: "default" | "fab";
+}) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>(0);
   const supabase = createClient();
@@ -257,13 +264,23 @@ export function CreateEventDialog({ user }: { user: User | null }) {
       }}
     >
       <DialogTrigger asChild>
-        <button
-          type="button"
-          className="neu-border neu-press flex items-center gap-2 bg-teal-500 px-4 py-2 font-mono text-xs font-bold uppercase text-black"
-        >
-          <Plus className="h-4 w-4" />
-          Create event
-        </button>
+        {variant === "fab" ? (
+          <button
+            type="button"
+            aria-label="Create event"
+            className="neu-border neu-press flex h-14 w-14 items-center justify-center rounded-full bg-teal-500 text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+          >
+            <Plus className="h-6 w-6" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="neu-border neu-press flex items-center gap-2 bg-teal-500 px-4 py-2 font-mono text-xs font-bold uppercase text-black"
+          >
+            <Plus className="h-4 w-4" />
+            Create event
+          </button>
+        )}
       </DialogTrigger>
       <DialogContent className="neu-border neu-shadow bg-cream sm:max-w-md text-black">
         <DialogHeader>
