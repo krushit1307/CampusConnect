@@ -39,7 +39,16 @@ serve(async (req: Request) => {
     }
 
     // Securely query only the records belonging to the authenticated user
-    const [profileRes, postsRes, commentsRes, rsvpsRes, savedEventsRes, notificationsRes, certificatesRes, feedbacksRes] = await Promise.all([
+    const [
+      profileRes,
+      postsRes,
+      commentsRes,
+      rsvpsRes,
+      savedEventsRes,
+      notificationsRes,
+      certificatesRes,
+      feedbacksRes,
+    ] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
       supabase.from("posts").select("*").eq("author_id", user.id),
       supabase.from("comments").select("*").eq("author_id", user.id),

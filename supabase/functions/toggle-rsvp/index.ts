@@ -72,10 +72,22 @@ serve(async (req: Request) => {
         throw waitlistErr;
       }
     } else {
-      const { data, error } = await supabase.rpc("safe_rsvp", {
-        target_event_id: eventId,
-        target_user_id: user.id,
-      });
+      // Query if the event requires manual approval
+      const { data: event, error: eventError } = await supabase
+        .from("events")
+        .select("requires_approval")
+        .eq("id", eventId)
+        .single();
+
+      if (eventError) {
+        throw new Error(`Event check failed: ${eventError.message}`);
+      }
+
+      const initialStatus = event?.requires_approval ? "waitlisted" : "approved";
+
+      const { error } = await supabase
+        .from("event_rsvps")
+        .insert({ event_id: eventId, user_id: user.id, status: initialStatus });
 
       if (error) {
         throw error;

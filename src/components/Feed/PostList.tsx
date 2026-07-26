@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useInView } from "react-intersection-observer";
 import { supabase } from "@/lib/supabase/client";
+import { Flag } from "lucide-react";
+import { ReportDialog } from "@/components/ReportDialog";
 
 const PAGE_SIZE = 10;
 
@@ -18,6 +20,7 @@ export const PostList = () => {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [reportPostId, setReportPostId] = useState<string | null>(null);
 
   // IntersectionObserver hook setup
   const { ref: sentinelRef, inView } = useInView({
@@ -77,9 +80,24 @@ export const PostList = () => {
   return (
     <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full p-4">
       {posts.map((post) => (
-        <div key={post.id} className="p-4 border rounded-lg shadow-sm bg-card text-card-foreground">
-          <h3 className="font-bold text-lg">{post.title || "Untitled Post"}</h3>
-          <p className="mt-2 text-muted-foreground">{post.content}</p>
+        <div
+          key={post.id}
+          className="p-4 border rounded-lg shadow-sm bg-card text-card-foreground flex flex-col justify-between"
+        >
+          <div>
+            <h3 className="font-bold text-lg">{post.title || "Untitled Post"}</h3>
+            <p className="mt-2 text-muted-foreground">{post.content}</p>
+          </div>
+          <div className="mt-3 flex items-center justify-end border-t pt-2">
+            <button
+              type="button"
+              onClick={() => setReportPostId(String(post.id))}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+              aria-label={`Report post ${post.title || post.id}`}
+            >
+              <Flag size={14} /> Report
+            </button>
+          </div>
         </div>
       ))}
 
@@ -90,6 +108,13 @@ export const PostList = () => {
           <p className="text-sm text-muted-foreground">You've reached the end of the feed!</p>
         )}
       </div>
+
+      <ReportDialog
+        isOpen={!!reportPostId}
+        onClose={() => setReportPostId(null)}
+        targetType="post"
+        targetId={reportPostId || ""}
+      />
     </div>
   );
 };

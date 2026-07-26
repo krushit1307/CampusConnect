@@ -1,4 +1,5 @@
 import { FeedPostSkeleton } from "@/components/FeedPostSkeleton";
+import { CommentThreadSkeleton } from "@/components/Feed/CommentSkeleton";
 import { useMutation, useQuery, useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import type { User } from "@supabase/supabase-js";
 import {
@@ -79,7 +80,9 @@ interface Comment {
   content: string;
   created_at: string;
   deleted_at: string | null;
+  parent_id?: string | null;
   parent_comment_id?: string | null;
+  depth?: number;
   profiles: Profile[] | Profile | null;
 }
 
@@ -98,9 +101,10 @@ interface Post {
   clubs: Club[] | Club | null;
   comments: Comment[] | null;
   post_reactions: PostReaction[] | null;
+  image_url?: string;
 }
 
-const POSTS_PER_PAGE = 10;
+const POSTS_PER_PAGE = 20;
 const COMMENTS_PAGE_SIZE = 5;
 
 export default function Feed() {
@@ -123,6 +127,12 @@ export default function Feed() {
   );
   const [reportReason, setReportReason] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  // Track which post comment sections are expanded; comments are fetched lazily on first expand
+  const [expandedPostIds, setExpandedPostIds] = useState<Set<string>>(new Set());
+  // Track per-post comment loading state (true while the first lazy fetch is in-flight)
+  const [loadingCommentPostIds, setLoadingCommentPostIds] = useState<Set<string>>(new Set());
+  // Cache of lazily-fetched comment threads keyed by postId
+  const [lazyComments, setLazyComments] = useState<Record<string, Comment[]>>({});
 
   // Attached Image States
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -195,7 +205,7 @@ export default function Feed() {
         id, content, created_at, club_id, is_pinned,
         profiles (id, full_name, handle),
         clubs (id, name, club_members (user_id, role)),
-        comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name, handle)),
+        comments (id, content, created_at, deleted_at, parent_id, parent_comment_id, profiles (id, full_name, handle)),
         post_reactions (emoji, user_id)
       `,
         )
@@ -230,7 +240,7 @@ export default function Feed() {
           id, content, created_at, club_id, is_pinned,
           profiles (id, full_name, handle),
           clubs (id, name, club_members (user_id, role)),
-          comments (id, content, created_at, deleted_at, parent_comment_id, profiles (id, full_name, handle)),
+          comments (id, content, created_at, deleted_at, parent_id, parent_comment_id, profiles (id, full_name, handle)),
           post_reactions (emoji, user_id)
         `,
         )
@@ -279,24 +289,51 @@ export default function Feed() {
     refetchPosts();
   }, [refetchPosts]);
 
-  const observer = useRef<IntersectionObserver | null>(null);
-  const lastPostElementRef = useCallback(
-    (node: HTMLElement | null) => {
-      if (isLoading || isFetchingNextPage) return;
-      if (observer.current) observer.current.disconnect();
-      observer.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && hasNextPage) {
-          fetchNextPage();
-        }
-      });
-      if (node) observer.current.observe(node);
+  /** Fetch (or re-fetch) comments for a post and store them in lazyComments. */
+  const fetchCommentsForPost = useCallback(
+    (postId: string) => {
+      setLoadingCommentPostIds((ids) => new Set([...ids, postId]));
+      supabase
+        .from("comments")
+        .select(
+          "id, content, created_at, deleted_at, parent_id, parent_comment_id, profiles (id, full_name, handle)",
+        )
+        .eq("post_id", postId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true })
+        .then(({ data, error }) => {
+          if (!error && data) {
+            setLazyComments((c) => ({ ...c, [postId]: data as Comment[] }));
+          }
+          setLoadingCommentPostIds((ids) => {
+            const next = new Set(ids);
+            next.delete(postId);
+            return next;
+          });
+        });
     },
-    [isLoading, isFetchingNextPage, fetchNextPage, hasNextPage],
+    [supabase],
   );
 
-  useEffect(() => {
-    return () => observer.current?.disconnect();
-  }, []);
+  /** Toggle a post's comment section. On first open, lazily fetches the full thread. */
+  const toggleComments = useCallback(
+    (postId: string) => {
+      setExpandedPostIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(postId)) {
+          next.delete(postId);
+        } else {
+          next.add(postId);
+          // Only fetch if not already cached
+          if (!lazyComments[postId]) {
+            fetchCommentsForPost(postId);
+          }
+        }
+        return next;
+      });
+    },
+    [fetchCommentsForPost, lazyComments],
+  );
 
   useEffect(() => {
     const channel = supabase
@@ -312,7 +349,17 @@ export default function Feed() {
         }
         refetchPosts();
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, (payload) => {
+        // Bust the lazy cache for the affected post so the next expand re-fetches fresh data
+        const postId = (payload.new as { post_id?: string })?.post_id
+          ?? (payload.old as { post_id?: string })?.post_id;
+        if (postId) {
+          setLazyComments((prev) => {
+            const next = { ...prev };
+            delete next[postId];
+            return next;
+          });
+        }
         refetchPosts();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "post_reactions" }, () => {
@@ -447,6 +494,7 @@ export default function Feed() {
         post_id: postId,
         author_id: user.id,
         content,
+        parent_id: parentCommentId || null,
         parent_comment_id: parentCommentId || null,
       });
       if (error) throw error;
@@ -462,11 +510,23 @@ export default function Feed() {
         setNewComments((prev) => ({ ...prev, [postId]: "" }));
       }
     },
-    onSuccess: () => refetchPosts(),
+    onSuccess: (_data, variables) => {
+      // Bust the lazy cache for this post so the new comment appears on re-fetch
+      setLazyComments((prev) => {
+        const next = { ...prev };
+        delete next[variables.postId];
+        return next;
+      });
+      refetchPosts();
+    },
     onError: (error) => {
       toast.error(error.message || "Failed to post comment. Please try again.");
     },
   });
+
+  const [optimisticReactions, setOptimisticReactions] = useState<
+    Record<string, { countOffset: number; userReacted: boolean }>
+  >({});
 
   const reactionMutation = useMutation({
     mutationFn: async ({
@@ -499,7 +559,24 @@ export default function Feed() {
         if (error) throw error;
       }
     },
-    onSuccess: () => refetchPosts(),
+    onSuccess: (_data, variables) => {
+      const key = `${variables.postId}-${variables.emoji}`;
+      setOptimisticReactions((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      refetchPosts();
+    },
+    onError: (error, variables) => {
+      const key = `${variables.postId}-${variables.emoji}`;
+      setOptimisticReactions((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      toast.error(error.message || "Failed to update reaction.");
+    },
   });
 
   const [optimisticDeletedIds, setOptimisticDeletedIds] = useState<string[]>([]);
@@ -538,12 +615,18 @@ export default function Feed() {
   });
 
   const deleteCommentMutation = useMutation({
-    mutationFn: async (commentId: string) => {
+    mutationFn: async ({ commentId }: { commentId: string; postId: string }) => {
       if (!user) throw new Error("Must be logged in");
       const { error } = await supabase.from("comments").delete().eq("id", commentId);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      // Bust the lazy cache for this post so the deleted comment disappears
+      setLazyComments((prev) => {
+        const next = { ...prev };
+        delete next[variables.postId];
+        return next;
+      });
       refetchPosts();
       toast.success("Comment deleted successfully!");
     },
@@ -830,8 +913,7 @@ export default function Feed() {
               </div>
             ) : (
               <>
-                {filteredPosts.map((post: Post, index: number) => {
-                  const isLastPost = feedMode === "latest" && index === filteredPosts.length - 1;
+                {filteredPosts.map((post: Post) => {
                   const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
                   const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
                   const clubMembers: ClubMember[] = Array.isArray(club?.club_members)
@@ -844,9 +926,18 @@ export default function Feed() {
 
                   const authorRole = (authorMembership?.role ?? "member") as MemberRole;
 
-                  const postComments: Comment[] = Array.isArray(post.comments)
-                    ? post.comments.filter((c) => !c.deleted_at)
-                    : [];
+                  // Prefer lazily-fetched comments (full thread); fall back to the embedded
+                  // snapshot that comes with the post query while the lazy fetch is pending.
+                  const postComments: Comment[] = (
+                    lazyComments[post.id] !== undefined
+                      ? lazyComments[post.id]
+                      : Array.isArray(post.comments)
+                        ? (post.comments as Comment[])
+                        : []
+                  ).filter((c) => !c.deleted_at);
+
+                  const isCommentsLoading = loadingCommentPostIds.has(post.id);
+                  const isCommentsExpanded = expandedPostIds.has(post.id);
 
                   if (optimisticDeletedIds.includes(post.id)) return null;
 
@@ -856,7 +947,6 @@ export default function Feed() {
                     <article
                       id={`post-${post.id}`}
                       key={post.id}
-                      ref={isLastPost ? lastPostElementRef : undefined}
                       className={`neu-border p-6 ${
                         post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
                       }`}
@@ -972,7 +1062,7 @@ export default function Feed() {
                           <img
                             src={post.image_url}
                             alt="Post attachment"
-                            onClick={() => setLightboxSrc(post.image_url)}
+                            onClick={() => setLightboxSrc(post.image_url ?? null)}
                             className="max-h-96 cursor-zoom-in rounded-none neu-border object-cover"
                             loading="lazy"
                           />
@@ -984,12 +1074,17 @@ export default function Feed() {
                           const postReactions: PostReaction[] = Array.isArray(post.post_reactions)
                             ? post.post_reactions
                             : [];
-                          const reactionCount = postReactions.filter(
-                            (r) => r.emoji === emoji,
-                          ).length;
-                          const isReacted = postReactions.some(
+                          const baseCount = postReactions.filter((r) => r.emoji === emoji).length;
+                          const baseIsReacted = postReactions.some(
                             (r) => r.emoji === emoji && r.user_id === user?.id,
                           );
+
+                          const opt = optimisticReactions[`${post.id}-${emoji}`];
+                          const reactionCount = opt
+                            ? Math.max(0, baseCount + opt.countOffset)
+                            : baseCount;
+                          const isReacted = opt ? opt.userReacted : baseIsReacted;
+
                           const burstKey = `${post.id}-${emoji}`;
                           const burstNonce = reactionBursts[burstKey] ?? 0;
 
@@ -1001,6 +1096,16 @@ export default function Feed() {
                                 if (!user) return alert("Log in first");
                                 if (!emailVerified)
                                   return alert("Please verify your email to react");
+
+                                const optKey = `${post.id}-${emoji}`;
+                                setOptimisticReactions((prev) => ({
+                                  ...prev,
+                                  [optKey]: {
+                                    countOffset: isReacted ? -1 : 1,
+                                    userReacted: !isReacted,
+                                  },
+                                }));
+
                                 setReactionBursts((prev) => ({
                                   ...prev,
                                   [burstKey]: (prev[burstKey] ?? 0) + 1,
@@ -1048,11 +1153,32 @@ export default function Feed() {
                       </div>
 
                       <div className="mt-4 space-y-3 border-t-2 border-black pt-4">
-                        <h3 className="mb-4 flex items-center gap-2 font-mono text-xs font-bold uppercase">
-                          <MessageSquareText size={16} /> Comments ({postComments.length})
-                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => toggleComments(post.id)}
+                          className="mb-4 flex w-full items-center gap-2 font-mono text-xs font-bold uppercase hover:underline focus:outline-none"
+                          aria-expanded={isCommentsExpanded}
+                          aria-controls={`comments-${post.id}`}
+                        >
+                          <MessageSquareText size={16} />
+                          Comments ({postComments.length})
+                          <span className="ml-auto font-mono text-[10px] text-gray-400">
+                            {isCommentsExpanded ? "▲ hide" : "▼ show"}
+                          </span>
+                        </button>
 
-                        <div className="space-y-4 pl-4">
+                        {/* Skeleton — shown while the lazy comment fetch is in-flight */}
+                        {isCommentsExpanded && isCommentsLoading && (
+                          <div className="pl-4">
+                            <CommentThreadSkeleton count={3} />
+                          </div>
+                        )}
+
+                        <div
+                          id={`comments-${post.id}`}
+                          className="space-y-4 pl-4"
+                          hidden={!isCommentsExpanded || isCommentsLoading}
+                        >
                           {(() => {
                             type CommentNode = Comment & { children: CommentNode[] };
 
@@ -1061,8 +1187,9 @@ export default function Feed() {
                               commentsList.forEach((c) => map.set(c.id, { ...c, children: [] }));
                               const roots: CommentNode[] = [];
                               commentsList.forEach((c) => {
-                                if (c.parent_comment_id && map.has(c.parent_comment_id)) {
-                                  map.get(c.parent_comment_id)!.children.push(map.get(c.id)!);
+                                const parentId = c.parent_id || c.parent_comment_id;
+                                if (parentId && map.has(parentId)) {
+                                  map.get(parentId)!.children.push(map.get(c.id)!);
                                 } else {
                                   roots.push(map.get(c.id)!);
                                 }
@@ -1153,7 +1280,10 @@ export default function Feed() {
                                                 </AlertDialogCancel>
                                                 <AlertDialogAction
                                                   onClick={() =>
-                                                    deleteCommentMutation.mutate(commentNode.id)
+                                                    deleteCommentMutation.mutate({
+                                                      commentId: commentNode.id,
+                                                      postId,
+                                                    })
                                                   }
                                                   className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
                                                 >
@@ -1272,7 +1402,7 @@ export default function Feed() {
                           })()}
                         </div>
 
-                        <div className="flex gap-2">
+                        <div className="flex gap-2" hidden={!isCommentsExpanded}>
                           <input
                             value={newComments[post.id] || ""}
                             onChange={(event) =>
@@ -1303,6 +1433,17 @@ export default function Feed() {
                   );
                 })}
               </>
+            )}
+
+            {hasNextPage && feedMode === "latest" && (
+              <button
+                type="button"
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+                className="neu-border neu-press w-full bg-white hover:bg-cream py-4 text-center font-mono text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_#000] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_#000] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[4px_4px_0_0_#000] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isFetchingNextPage ? "Loading more..." : "Load More Posts"}
+              </button>
             )}
 
             {isFetchingNextPage &&

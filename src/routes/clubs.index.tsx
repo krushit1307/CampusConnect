@@ -3,10 +3,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { LayoutGrid, List, UsersRound, X } from "lucide-react";
+import { LayoutGrid, List, UsersRound } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { CreateClubDialog } from "@/components/CreateClubDialog";
 import { ClubCardSkeleton } from "@/components/ui/ClubCardSkeleton";
+import { SearchInput } from "@/components/ui/SearchInput";
 
 const ITEMS_PER_PAGE = 12;
 const VIEW_MODE_STORAGE_KEY = "clubs-view-mode";
@@ -17,7 +18,6 @@ export default function ClubsIndex() {
   const supabase = createClient();
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
   const observer = useRef<IntersectionObserver | null>(null);
 
   const [user, setUser] = useState<User | null>(null);
@@ -163,29 +163,13 @@ export default function ClubsIndex() {
           <div className="flex-1">
             <p className="eyebrow font-bold">Club directory · {totalActiveCount} active</p>
             <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">Find your people.</h1>
-            <div className="relative mt-6 max-w-xl">
-              <input
-                ref={inputRef}
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Search clubs by name or interest..."
-                className="neu-border w-full bg-white px-4 py-3 pr-10 font-mono text-sm outline-none text-black"
-              />
-              {searchInput && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchInput("");
-                    setSearch("");
-                    inputRef.current?.focus();
-                  }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black dark:text-gray-300 dark:hover:text-white"
-                  aria-label="Clear search"
-                >
-                  <X size={18} />
-                </button>
-              )}
-            </div>
+            <SearchInput
+              value={searchInput}
+              onChange={setSearchInput}
+              onClear={() => setSearch("")}
+              placeholder="Search clubs by name or interest..."
+              className="mt-6 max-w-xl"
+            />
           </div>
           <div>
             <CreateClubDialog user={user} />

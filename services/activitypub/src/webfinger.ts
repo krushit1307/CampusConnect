@@ -25,9 +25,7 @@ export function handleWebFinger(req: Request, res: Response): void {
 
   const response: WebFingerResponse = {
     subject: resource,
-    aliases: [
-      `https://${DOMAIN}/api/activitypub/actors/${username}`,
-    ],
+    aliases: [`https://${DOMAIN}/api/activitypub/actors/${username}`],
     links: [
       {
         rel: "self",

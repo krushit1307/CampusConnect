@@ -43,8 +43,9 @@ export async function verifyAssertionSignature(
     : [];
 
   const isExclusiveC14N = transformAlgorithms.some(
-    (a) => a === "http://www.w3.org/2001/10/xml-exc-c14n#" ||
-            a === "http://www.w3.org/2001/10/xml-exc-c14n#WithComments",
+    (a) =>
+      a === "http://www.w3.org/2001/10/xml-exc-c14n#" ||
+      a === "http://www.w3.org/2001/10/xml-exc-c14n#WithComments",
   );
 
   const c14nBytes = canonicalizeSignedInfo(signedInfo);
@@ -64,14 +65,17 @@ export async function verifyAssertionSignature(
   const refDigestValue = getTextContent(digestValue).trim();
   const digestBytes = decodeBase64(refDigestValue);
 
-  const digestMethod = getChild(signedInfo, "Reference", NS_DSIG)
-    ?.getElementsByTagNameNS(NS_DSIG, "DigestMethod")
-    ?.item(0)
-    ?.getAttribute("Algorithm") || "http://www.w3.org/2001/04/xmlenc#sha256";
+  const digestMethod =
+    getChild(signedInfo, "Reference", NS_DSIG)
+      ?.getElementsByTagNameNS(NS_DSIG, "DigestMethod")
+      ?.item(0)
+      ?.getAttribute("Algorithm") || "http://www.w3.org/2001/04/xmlenc#sha256";
 
-  const digestAlgo = digestMethod.includes("sha512") ? "SHA-512"
-    : digestMethod.includes("sha384") ? "SHA-384"
-    : "SHA-256";
+  const digestAlgo = digestMethod.includes("sha512")
+    ? "SHA-512"
+    : digestMethod.includes("sha384")
+      ? "SHA-384"
+      : "SHA-256";
 
   const assertionXml = new XMLSerializer().serializeToString(assertion);
   const assertionBytes = new TextEncoder().encode(assertionXml);
@@ -108,10 +112,7 @@ async function importIdpPublicKey(certPem: string): Promise<CryptoKey | null> {
     const pemFooter = "-----END CERTIFICATE-----";
     let pemContents = certPem;
     if (pemContents.includes(pemHeader)) {
-      pemContents = pemContents
-        .replace(pemHeader, "")
-        .replace(pemFooter, "")
-        .replace(/\s/g, "");
+      pemContents = pemContents.replace(pemHeader, "").replace(pemFooter, "").replace(/\s/g, "");
     } else {
       pemContents = pemContents.replace(/\s/g, "");
     }
@@ -141,12 +142,7 @@ async function verifySignature(
   publicKey: CryptoKey,
 ): Promise<boolean> {
   try {
-    return await crypto.subtle.verify(
-      { name: "RSASSA-PKCS1-v1_5" },
-      publicKey,
-      signature,
-      data,
-    );
+    return await crypto.subtle.verify({ name: "RSASSA-PKCS1-v1_5" }, publicKey, signature, data);
   } catch (err) {
     console.error("[SAML] Signature verification error:", err);
     return false;
@@ -158,10 +154,9 @@ export function verifyResponseSignature(
   idpConfig: SamlIdpConfig,
   xmlStr: string,
 ): Promise<XmlSignatureResult> {
-  const assertion = response.getElementsByTagNameNS(
-    "urn:oasis:names:tc:SAML:2.0:assertion",
-    "Assertion",
-  ).item(0) as Element | null;
+  const assertion = response
+    .getElementsByTagNameNS("urn:oasis:names:tc:SAML:2.0:assertion", "Assertion")
+    .item(0) as Element | null;
 
   if (!assertion) {
     return Promise.resolve({ valid: false, error: "No Assertion in Response" });

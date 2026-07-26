@@ -1,32 +1,14 @@
 import { useNavigate, useBlocker } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SiteShell } from "@/components/site/SiteShell";
-import {
-  useEffect,
-  useRef,
-  useState,
-  type ChangeEvent,
-  type DragEvent,
-  type KeyboardEvent,
-} from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { useTheme } from "@/components/theme-provider";
-import { Camera, Loader2, UploadCloud, X, Plus } from "lucide-react";
+import { Loader2, X, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 
-import { Progress } from "@/components/ui/progress";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
-import Cropper from "react-easy-crop";
-import { getCroppedImg, type Area } from "@/utils/cropImage";
+
 
 import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
@@ -46,6 +28,7 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
+import { ImageCropUpload } from "@/components/ImageCropUpload";
 
 const FONT_SIZE_KEY = "campusconnect-font-size";
 
@@ -497,7 +480,7 @@ export default function SettingsPage() {
                 {/* ── Skills Tags Editor ── */}
                 <div className="space-y-2 pt-2">
                   <p className="eyebrow font-bold text-black">Skills</p>
-                  <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+                  <p className="font-mono text-xs text-muted-foreground">
                     Add skills to power matchmaking — press Enter or click{" "}
                     <span className="font-bold">+</span> to add.
                   </p>
@@ -577,7 +560,7 @@ export default function SettingsPage() {
                       Dark Mode
                     </label>
 
-                    <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+                    <p className="font-mono text-xs text-muted-foreground">
                       Toggle between light and dark theme
                     </p>
                   </div>
@@ -599,7 +582,7 @@ export default function SettingsPage() {
                   className="w-full cursor-pointer accent-black"
                 />
 
-                <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+                <p className="font-mono text-xs text-muted-foreground">
                   Controls the width of borders throughout the app (1px - 8px)
                 </p>
               </div>
@@ -617,7 +600,7 @@ export default function SettingsPage() {
                   className="w-full cursor-pointer accent-black"
                 />
 
-                <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+                <p className="font-mono text-xs text-muted-foreground">
                   Controls the roundness of corners (0px - 32px)
                 </p>
               </div>
@@ -706,43 +689,6 @@ function Panel({
   );
 }
 
-function uploadFileWithProgress(
-  supabaseUrl: string,
-  accessToken: string,
-  bucket: string,
-  path: string,
-  file: File,
-  onProgress: (percent: number) => void,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${supabaseUrl}/storage/v1/object/${bucket}/${path}`);
-    xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
-    xhr.setRequestHeader("x-upsert", "true");
-    xhr.setRequestHeader("Content-Type", file.type);
-
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        onProgress(Math.round((event.loaded / event.total) * 100));
-      }
-    };
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
-      } else {
-        reject(new Error(`Upload failed with status ${xhr.status}`));
-      }
-    };
-
-    xhr.onerror = () => {
-      reject(new Error("Upload failed due to a network error"));
-    };
-
-    xhr.send(file);
-  });
-}
-
 // Renders the 5 predefined gradient swatches. Clicking one updates the form
 // state immediately (so AvatarUpload's preview reflects it right away), and
 // the value is persisted to Supabase along with the rest of the profile
@@ -757,7 +703,7 @@ function AvatarThemePicker({
   return (
     <div className="space-y-2 border-b-2 border-black pb-6">
       <p className="eyebrow font-bold">Avatar theme</p>
-      <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+      <p className="font-mono text-xs text-muted-foreground">
         Pick a gradient background to use when you don&apos;t have a custom photo.
       </p>
       <div className="flex flex-wrap gap-3 pt-1">
@@ -784,35 +730,11 @@ function AvatarThemePicker({
   );
 }
 
-// Formats a byte count as a short human-readable size, e.g. "482 KB" / "1.3 MB".
-// Used by the drag-and-drop zone below to show the selected file's details.
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-}
-
 function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: AvatarThemeId | "" }) {
   const supabaseRef = useRef(createClient());
   const supabase = supabaseRef.current;
   const [preview, setPreview] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<{ name: string; size: number } | null>(null);
-  
-  const [cropOpen, setCropOpen] = useState(false);
-  const [imageSrc, setImageSrc] = useState("");
-  const [originalFile, setOriginalFile] = useState<File | null>(null);
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
-
-  // Counts nested dragenter/dragleave events so the highlighted state doesn't
-  // flicker off when the pointer passes over a child element of the drop zone.
-  const dragDepthRef = useRef(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -842,72 +764,25 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
     };
   }, [supabase]);
 
-  const initials = name
-    .split(" ")
-    .filter(Boolean)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  useEffect(() => {
+    if (name) {
+      setInitials(
+        name
+          .split(" ")
+          .filter(Boolean)
+          .map((part) => part[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase(),
+      );
+    }
+  }, [name]);
 
-  // Only fall back to a gradient when there's no uploaded photo to show.
-  // A real photo always takes priority over the theme.
   const showGradient = (!preview || imageError) && !!avatarTheme;
   const gradientClass = AVATAR_THEMES.find((theme) => theme.id === avatarTheme)?.gradient;
   const backgroundClass = showGradient && gradientClass ? gradientClass : "bg-lime";
 
-  // Shared validation + upload pipeline used by both the click-to-browse
-  // input and the drag-and-drop zone below.
-  async function processFile(file: File) {
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
 
-    if (!allowedTypes.includes(file.type)) {
-      toast.error("Only JPG, PNG and WEBP images are allowed.");
-      return;
-    }
-
-    const maxSize = 2 * 1024 * 1024;
-
-    if (file.size > maxSize) {
-      toast.error("Image must be under 2 MB.");
-      return;
-    }
-
-    // Do NOT upload immediately. Load into cropping dialog first.
-    const reader = new FileReader();
-    reader.addEventListener("load", () => {
-      setImageSrc(reader.result as string);
-      setOriginalFile(file);
-      setCrop({ x: 0, y: 0 });
-      setZoom(1);
-      setCropOpen(true);
-    });
-    reader.readAsDataURL(file);
-  }
-
-  async function handleCropConfirm() {
-    if (!imageSrc || !croppedAreaPixels || !originalFile) return;
-
-    setCropOpen(false);
-    setUploading(true);
-
-    let croppedPreviewUrl = "";
-    try {
-      const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
-      const croppedFile = new File([croppedBlob], originalFile.name, {
-        type: originalFile.type,
-      });
-
-      setSelectedFile({ name: croppedFile.name, size: croppedFile.size });
-
-      // Show an immediate local preview while upload runs in the background.
-      croppedPreviewUrl = URL.createObjectURL(croppedBlob);
-      setPreview(croppedPreviewUrl);
-      setImageError(false);
-
-      const avatarUrl = await uploadAvatar(croppedFile);
-
-      if (avatarUrl) {
         setPreview(avatarUrl);
         setImageError(false);
         toast.success("Profile picture updated.");
@@ -983,54 +858,26 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
   }
 
   async function uploadAvatar(file: File): Promise<string | undefined> {
+=======
+  async function handleUploaded(url: string) {
+    setPreview(url);
+    setImageError(false);
+
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
-
-    if (!user) {
-      toast.error("Please sign in first.");
-      return;
-    }
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
-      toast.error("Session expired. Please sign in again.");
-      return;
-    }
-
-    const supabaseUrl = getSupabaseUrl();
-    const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-    const filePath = `${user.id}/${crypto.randomUUID()}.${extension}`;
-
-    await uploadFileWithProgress(
-      supabaseUrl,
-      session.access_token,
-      "avatars",
-      filePath,
-      file,
-      setUploadProgress,
-    );
-    setUploadProgress(null);
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("avatars").getPublicUrl(filePath);
+    if (!user) return;
 
     const { error: updateError } = await supabase
       .from("profiles")
-      .update({
-        avatar_url: publicUrl,
-      })
+      .update({ avatar_url: url })
       .eq("id", user.id);
 
     if (updateError) {
-      throw updateError;
+      console.error(updateError);
+      toast.error("Failed to save profile picture.");
     }
-
-    return publicUrl;
   }
 
   return (
@@ -1063,75 +910,16 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
           <p className="eyebrow font-bold text-black">Profile picture</p>
         </div>
 
-        {/* Neubrutalist drag-and-drop zone — replaces the raw <input type="file"> trigger */}
-        <div
-          onClick={() => !uploading && inputRef.current?.click()}
-          onDragEnter={handleDragEnter}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(event) => {
-            if ((event.key === "Enter" || event.key === " ") && !uploading) {
-              event.preventDefault();
-              inputRef.current?.click();
-            }
-          }}
-          aria-label="Upload profile picture. Click to browse, or drag and drop an image."
-          className={`neu-border flex cursor-pointer flex-col items-center justify-center gap-1.5 border-2 border-dashed p-5 text-center transition-colors duration-150 ${
-            uploading
-              ? "cursor-not-allowed border-black bg-gray-100 opacity-70"
-              : isDragging
-                ? "border-black bg-lime/40 scale-[1.01]"
-                : "border-black bg-white hover:bg-cream"
-          }`}
-        >
-          {uploading ? (
-            <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
-          ) : (
-            <UploadCloud className="h-6 w-6" aria-hidden="true" />
-          )}
-          <p className="font-mono text-xs font-bold uppercase">
-            {uploading
-              ? "Uploading..."
-              : isDragging
-                ? "Drop to upload"
-                : "Drag & drop or click to upload"}
-          </p>
-          <p className="font-mono text-[10px] text-gray-500 dark:text-gray-400">
-            JPG, PNG or WEBP · Max 2 MB · Square images look best
-          </p>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-        </div>
-
-        {/* Selected file name + size preview */}
-        {selectedFile && (
-          <div className="neu-border flex items-center justify-between gap-3 bg-white px-3 py-2 font-mono text-xs">
-            <span className="flex items-center gap-2 truncate">
-              <Camera className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <span className="truncate" title={selectedFile.name}>
-                {selectedFile.name}
-              </span>
-            </span>
-            <span className="shrink-0 font-bold text-gray-600 dark:text-gray-300">
-              {formatFileSize(selectedFile.size)}
-            </span>
-          </div>
-        )}
-
-        {uploadProgress !== null && (
-          <div className="w-full space-y-1">
-            <Progress value={uploadProgress} className="h-2" />
-            <p className="font-mono text-xs text-gray-500 dark:text-gray-300">{uploadProgress}%</p>
-          </div>
-        )}
+        <ImageCropUpload
+          aspect={1}
+          bucket="avatars"
+          value={preview ?? undefined}
+          onUploaded={handleUploaded}
+          accept="image/jpeg,image/png,image/webp"
+          maxSizeBytes={2 * 1024 * 1024}
+          label="profile picture"
+          hint="JPG, PNG or WEBP · Max 2 MB · Square images look best"
+        />
       </div>
 
       <Dialog
@@ -1204,28 +992,21 @@ function ThemeToggle({
   theme: "light" | "dark" | "system";
   setTheme: (theme: "light" | "dark" | "system") => void;
 }) {
-  const isDark = theme === "dark";
+  const isDark =
+    theme === "dark" ||
+    (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 
-  const handleToggle = () => {
-    setTheme(isDark ? "light" : "dark");
+  const handleToggle = (checked: boolean) => {
+    setTheme(checked ? "dark" : "light");
   };
 
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={isDark}
-      onClick={handleToggle}
-      className={`relative flex h-7 w-14 items-center rounded-full border-2 border-black transition-colors ${
-        isDark ? "bg-black" : "bg-gray-200"
-      }`}
-    >
-      <span
-        className={`h-5 w-5 rounded-full border-2 border-black bg-white transition-transform ${
-          isDark ? "translate-x-7" : "translate-x-1"
-        }`}
-      />
-    </button>
+    <Switch
+      checked={isDark}
+      onCheckedChange={handleToggle}
+      aria-label="Toggle dark mode"
+      className="data-[state=checked]:bg-black data-[state=unchecked]:bg-gray-200 h-7 w-14 [&>span]:h-5 [&>span]:w-5 data-[state=checked]:[&>span]:translate-x-7 data-[state=unchecked]:[&>span]:translate-x-1 border-2 border-black"
+    />
   );
 }
 

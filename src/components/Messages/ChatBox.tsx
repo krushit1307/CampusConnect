@@ -1,20 +1,20 @@
-import { Button } from "@/components/ui/button";
-import { useWebRTC } from "@/components/VideoCall/WebRTCProvider";
+import { useEffect, useState, useRef, useMemo } from "react";
+import { createClient } from "@/lib/supabase/client";
+import type { User, RealtimeChannel } from "@supabase/supabase-js";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import {
-  decryptMessage,
+  generateECDHKeypair,
+  exportPublicKey,
+  exportPrivateKey,
+  importPublicKey,
+  importPrivateKey,
   deriveSharedSecret,
   encryptMessage,
-  exportPrivateKey,
-  exportPublicKey,
-  generateECDHKeypair,
-  importPrivateKey,
-  importPublicKey,
+  decryptMessage,
 } from "@/lib/crypto";
-import { createClient } from "@/lib/supabase/client";
-import type { RealtimeChannel, User } from "@supabase/supabase-js";
-import { AlertTriangle, Lock, RefreshCw, Search, Send, ShieldCheck, Video } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ShieldCheck, Send, Search, Lock, AlertTriangle, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface Profile {
   id: string;
@@ -36,7 +36,6 @@ interface Message {
 
 export default function ChatBox() {
   const supabase = createClient();
-  const { startCall } = useWebRTC();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [filteredProfiles, setFilteredProfiles] = useState<Profile[]>([]);
@@ -58,6 +57,22 @@ export default function ChatBox() {
   const [sharedKeys, setSharedKeys] = useState<Record<string, CryptoKey>>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Stable per-conversation presence channel name:
+  // sort the two participant IDs so both sides derive the same channel key
+  const typingChannelName = useMemo(() => {
+    if (!currentUser?.id || !activeRecipient?.id) return "";
+    const ids = [currentUser.id, activeRecipient.id].sort().join("_");
+    return `chat_typing:${ids}`;
+  }, [currentUser?.id, activeRecipient?.id]);
+
+  const { typingUsers, broadcastTyping, clearTyping } = useTypingIndicator(
+    typingChannelName,
+    currentUser?.id ?? "",
+    currentUser?.user_metadata?.full_name ??
+      currentUser?.email?.split("@")[0] ??
+      "Someone",
+  );
 
   // 1. Initialize user and their cryptographic keys
   useEffect(() => {
@@ -369,6 +384,7 @@ export default function ChatBox() {
 
       const textToSend = inputMessage;
       setInputMessage("");
+      clearTyping();
 
       // Encrypt message on client side
       const { ciphertext, iv } = await encryptMessage(textToSend, sharedKey);
@@ -456,7 +472,7 @@ export default function ChatBox() {
   return (
     <div className="mx-auto max-w-6xl p-4">
       {/* Page Header */}
-      <div className="mb-6 border-2 border-black bg-brand-yellow-bright p-4 text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+      <div className="mb-6 border-2 border-black bg-[#ffde00] p-4 text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
         <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
           <div>
             <h1 className="font-display text-2xl font-black uppercase tracking-wider sm:text-3xl">
@@ -486,7 +502,7 @@ export default function ChatBox() {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
         {/* Contacts Sidebar */}
         <div className="flex flex-col border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:bg-black dark:border-cream md:col-span-4">
-          <div className="border-b-2 border-black p-3 dark:border-cream bg-brand-gray-base-100 dark:bg-zinc-900">
+          <div className="border-b-2 border-black p-3 dark:border-cream bg-[#f3f4f6] dark:bg-zinc-900">
             <div className="relative flex items-center">
               <Search className="absolute left-3 h-4 w-4 text-gray-500" />
               <input
@@ -561,22 +577,9 @@ export default function ChatBox() {
                     {activeRecipient.college || "No College Listed"}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      if (activeRecipient) {
-                        startCall(activeRecipient.id, activeRecipient.full_name || "Club Member");
-                      }
-                    }}
-                    className="flex items-center gap-1.5 border-2 border-black bg-yellow-300 px-3 py-1 font-mono text-[10px] font-bold uppercase text-black hover:bg-black hover:text-white transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none active:translate-x-0.5 active:translate-y-0.5"
-                  >
-                    <Video size={12} />
-                    Call
-                  </button>
-                  <div className="flex items-center gap-1.5 border border-black bg-cream px-2 py-0.5 font-mono text-[9px] font-bold uppercase text-black">
-                    <Lock size={10} />
-                    Session Secure
-                  </div>
+                <div className="flex items-center gap-1.5 border border-black bg-cream px-2 py-0.5 font-mono text-[9px] font-bold uppercase text-black">
+                  <Lock size={10} />
+                  Session Secure
                 </div>
               </div>
 
@@ -651,22 +654,46 @@ export default function ChatBox() {
               {!recipientKeyError && (
                 <form
                   onSubmit={handleSendMessage}
-                  className="border-t-2 border-black p-3 bg-white dark:bg-zinc-900 dark:border-cream flex gap-2"
+                  className="border-t-2 border-black p-3 bg-white dark:bg-zinc-900 dark:border-cream flex flex-col gap-2"
                 >
-                  <input
-                    type="text"
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder="Type a secure message..."
-                    className="flex-1 border-2 border-black px-3 py-2 font-mono text-sm focus:outline-none dark:bg-zinc-800 dark:border-cream dark:text-cream"
-                  />
-                  <Button
-                    type="submit"
-                    size="icon"
-                    className="h-10 w-10 border-2 border-black bg-lime text-black neu-border neu-press"
+                  {/* Typing indicator — visible only when someone else is typing */}
+                  <div
+                    className="min-h-[1.25rem] flex items-center gap-1.5"
+                    aria-live="polite"
+                    aria-atomic="true"
                   >
-                    <Send className="h-4 w-4" />
-                  </Button>
+                    {typingUsers.length > 0 && (
+                      <p className="font-mono text-[11px] text-gray-500 dark:text-gray-400 italic animate-pulse">
+                        💬{" "}
+                        {typingUsers.length === 1
+                          ? `${typingUsers[0]} is typing…`
+                          : typingUsers.length === 2
+                            ? `${typingUsers[0]} and ${typingUsers[1]} are typing…`
+                            : "Several people are typing…"}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={inputMessage}
+                      onChange={(e) => {
+                        setInputMessage(e.target.value);
+                        broadcastTyping();
+                      }}
+                      onFocus={broadcastTyping}
+                      placeholder="Type a secure message..."
+                      className="flex-1 border-2 border-black px-3 py-2 font-mono text-sm focus:outline-none dark:bg-zinc-800 dark:border-cream dark:text-cream"
+                    />
+                    <Button
+                      type="submit"
+                      size="icon"
+                      className="h-10 w-10 border-2 border-black bg-lime text-black neu-border neu-press"
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </form>
               )}
             </>

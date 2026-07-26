@@ -6,7 +6,8 @@ import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
-import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
+import { formatEventDateRange } from "@/lib/utils";
+import { downloadIcs, getGoogleCalendarUrl } from "@/lib/calendarUtils";
 import { formatStandardDate } from "@/utils/dateUtils";
 import { toast } from "sonner";
 import { ShareMenu } from "@/components/ui/ShareMenu";
@@ -19,9 +20,9 @@ import {
   MapPin,
   MapPinOff,
   Users,
-  Star,
-  Calendar,
-  Flag,
+  X,
+  CheckCircle,
+  Clock,
 } from "lucide-react";
 import { ReportDialog } from "@/components/ReportDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -40,25 +41,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { parseCoordinates } from "@/lib/eventUtils";
-import { EventFeedbackForm } from "@/components/EventFeedbackForm";
-import { EventPhotoGallery } from "@/components/EventPhotoGallery";
-import { EventMap } from "@/components/EventMap";
-import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { HelpCircle } from "lucide-react";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 
 interface SimilarEventItem {
   id: string;
@@ -154,29 +137,26 @@ function SimilarEvents({
   );
 }
 
-function rsvpRowsToCsv(rows: { name: string; email: string; rsvp_date: string; status: string }[]) {
-  const headers = ["User Name", "Email", "RSVP Date", "Status"];
-  const escape = (val: string) => {
-    const str = String(val ?? "");
-    return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
-  };
-  const lines = [headers.join(",")];
-  for (const r of rows) {
-    lines.push([r.name, r.email, formatStandardDate(r.rsvp_date), r.status].map(escape).join(","));
-  }
-  return lines.join("\n");
+interface Profile {
+  first_name: string;
+  last_name: string;
+  avatar_url: string | null;
 }
 
-function downloadCsv(csvContent: string, filename: string) {
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.setAttribute("download", filename);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+interface EventRsvp {
+  id: string;
+  user_id: string;
+  status: string;
+  checked_in: boolean;
+  rsvp_at: string;
+  profiles: Profile | Profile[] | null;
+}
+
+interface EventWaitlist {
+  id: string;
+  user_id: string;
+  created_at: string;
+  profiles: Profile | Profile[] | null;
 }
 
 export default function EventDetailsPage() {
@@ -199,6 +179,148 @@ export default function EventDetailsPage() {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
 
+  // Gallery States and Queries
+  interface UploadingFile {
+    id: string;
+    name: string;
+    objectUrl: string;
+    progress: number;
+    status: "uploading" | "success" | "error";
+    errorMsg?: string;
+  }
+
+  const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+
+  const { data: galleryPhotos = [], refetch: refetchGallery } = useQuery<string[]>({
+    queryKey: ["eventGallery", eventId],
+    queryFn: async () => {
+      if (eventId.startsWith("mock-")) return [];
+      const { data, error } = await supabase.storage.from("event-gallery").list(eventId);
+      if (error) {
+        console.error("Failed to list gallery files", error);
+        return [];
+      }
+      if (!data) return [];
+
+      return data
+        .filter((file) => file.name !== ".emptyFolderPlaceholder")
+        .map((file) => {
+          return supabase.storage.from("event-gallery").getPublicUrl(`${eventId}/${file.name}`).data
+            .publicUrl;
+        });
+    },
+    enabled: !!eventId,
+  });
+
+  useEffect(() => {
+    if (!lightboxSrc) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setLightboxSrc(null);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [lightboxSrc]);
+
+  useEffect(() => {
+    return () => {
+      uploadingFiles.forEach((file) => URL.revokeObjectURL(file.objectUrl));
+    };
+  }, [uploadingFiles]);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    if (files.length > 10) {
+      toast.error("You can upload a maximum of 10 photos at once.");
+      return;
+    }
+
+    const newUploads: UploadingFile[] = Array.from(files).map((file) => ({
+      id: crypto.randomUUID(),
+      name: file.name,
+      objectUrl: URL.createObjectURL(file),
+      progress: 0,
+      status: "uploading",
+    }));
+
+    setUploadingFiles((prev) => [...prev, ...newUploads]);
+
+    const uploadPromises = Array.from(files).map((file, index) => {
+      const uploadItem = newUploads[index];
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+      const filePath = `${eventId}/${fileName}`;
+
+      return new Promise<void>((resolve) => {
+        const progressInterval = setInterval(() => {
+          setUploadingFiles((prev) =>
+            prev.map((item) => {
+              if (item.id === uploadItem.id && item.status === "uploading" && item.progress < 90) {
+                return { ...item, progress: item.progress + 10 };
+              }
+              return item;
+            }),
+          );
+        }, 200);
+
+        supabase.storage
+          .from("event-gallery")
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+          })
+          .then(({ error }) => {
+            clearInterval(progressInterval);
+            if (error) {
+              setUploadingFiles((prev) =>
+                prev.map((item) =>
+                  item.id === uploadItem.id
+                    ? { ...item, status: "error", progress: 0, errorMsg: error.message }
+                    : item,
+                ),
+              );
+              toast.error(`Failed to upload ${file.name}: ${error.message}`);
+            } else {
+              setUploadingFiles((prev) =>
+                prev.map((item) =>
+                  item.id === uploadItem.id ? { ...item, status: "success", progress: 100 } : item,
+                ),
+              );
+            }
+          })
+          .catch((err: unknown) => {
+            clearInterval(progressInterval);
+            const errMsg = err instanceof Error ? err.message : "Unknown error";
+            setUploadingFiles((prev) =>
+              prev.map((item) =>
+                item.id === uploadItem.id
+                  ? { ...item, status: "error", progress: 0, errorMsg: errMsg }
+                  : item,
+              ),
+            );
+            toast.error(`Error uploading ${file.name}`);
+          })
+          .finally(() => {
+            resolve();
+          });
+      });
+    });
+
+    await Promise.all(uploadPromises);
+
+    refetchGallery();
+    setTimeout(() => {
+      setUploadingFiles((prev) => prev.filter((item) => item.status !== "success"));
+    }, 2000);
+  };
+
   const {
     data: event,
     isLoading,
@@ -210,12 +332,10 @@ export default function EventDetailsPage() {
         .from("events")
         .select(
           `
-          id, title, description, category_id, event_date, start_date, end_date, location, latitude, longitude, banner_url, created_by, max_attendees, faqs,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, max_attendees, requires_approval,
           clubs (name, slug),
-          profiles (full_name, email),
-          event_rsvps (id, user_id, checked_in),
-          event_waitlist (id, user_id, created_at),
-          event_feedbacks (id, user_id)
+          event_rsvps (id, user_id, status, checked_in, rsvp_at, profiles (first_name, last_name, avatar_url)),
+          event_waitlist (id, user_id, created_at, profiles (first_name, last_name, avatar_url))
         `,
         )
         .eq("id", eventId)
@@ -271,11 +391,47 @@ export default function EventDetailsPage() {
                       : "music-society",
               },
             ],
+            requires_approval: true,
             event_rsvps:
-              eventId === "mock-1" ? [{ id: "rsvp-1", user_id: "user-1", checked_in: true }] : [],
-            event_waitlist: [] as { id: string; user_id: string; created_at: string }[],
-            event_feedbacks: [] as { id: string; user_id: string }[],
-            faqs: [] as { question: string; answer: string }[],
+              eventId === "mock-1"
+                ? [
+                    {
+                      id: "rsvp-1",
+                      user_id: "user-1",
+                      status: "approved",
+                      checked_in: false,
+                      rsvp_at: new Date().toISOString(),
+                      profiles: { first_name: "John", last_name: "Doe", avatar_url: null },
+                    },
+                    {
+                      id: "rsvp-2",
+                      user_id: "user-2",
+                      status: "waitlisted",
+                      checked_in: false,
+                      rsvp_at: new Date().toISOString(),
+                      profiles: { first_name: "Alice", last_name: "Smith", avatar_url: null },
+                    },
+                    {
+                      id: "rsvp-3",
+                      user_id: "user-3",
+                      status: "rejected",
+                      checked_in: false,
+                      rsvp_at: new Date().toISOString(),
+                      profiles: { first_name: "Bob", last_name: "Johnson", avatar_url: null },
+                    },
+                  ]
+                : [],
+            event_waitlist:
+              eventId === "mock-1"
+                ? [
+                    {
+                      id: "wait-1",
+                      user_id: "user-4",
+                      created_at: new Date().toISOString(),
+                      profiles: { first_name: "Emma", last_name: "Brown", avatar_url: null },
+                    },
+                  ]
+                : [],
             attendee_count: eventId === "mock-1" ? 1 : 0,
             profiles: { full_name: "Mock Organizer", email: "mock@example.com" },
           };
@@ -367,15 +523,10 @@ export default function EventDetailsPage() {
       });
 
       if (error) throw error;
-      return data as {
-        rows: { name: string; email: string; rsvp_date: string; status: string }[];
-      };
+      return data;
     },
-    onSuccess: (data) => {
-      const csv = rsvpRowsToCsv(data.rows);
-      const safeTitle = (event?.title ?? "event").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-      downloadCsv(csv, `${safeTitle}-rsvps.csv`);
-      toast.success("RSVP list exported.");
+    onSuccess: () => {
+      toast.success("We will email you shortly");
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to export RSVP list.");
@@ -409,7 +560,228 @@ export default function EventDetailsPage() {
     },
   });
 
+  useEffect(() => {
+    if (!eventId || eventId.startsWith("mock-") || !event) return;
+
+    const channel = supabase
+      .channel(`event-rsvps-${eventId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "event_rsvps",
+          filter: `event_id=eq.${eventId}`,
+        },
+        () => {
+          if (isOrganizer) {
+            toast.success("New RSVP received!");
+          }
+          refetch();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [eventId, event?.created_by, user?.id, supabase, refetch, isOrganizer]);
+
   const isOrganizer = user && event?.created_by === user.id;
+
+  // Local state for optimistic updates during dragging
+  const [columns, setColumns] = useState<{
+    waitlisted: {
+      id: string;
+      userId: string;
+      name: string;
+      avatarUrl: string | null;
+      rsvpId?: string;
+    }[];
+    approved: {
+      id: string;
+      userId: string;
+      name: string;
+      avatarUrl: string | null;
+      rsvpId: string;
+    }[];
+    rejected: {
+      id: string;
+      userId: string;
+      name: string;
+      avatarUrl: string | null;
+      rsvpId: string;
+    }[];
+  }>({ waitlisted: [], approved: [], rejected: [] });
+
+  useEffect(() => {
+    if (!event) return;
+
+    const typedEvent = event as unknown as {
+      event_waitlist: EventWaitlist[];
+      event_rsvps: EventRsvp[];
+    };
+
+    const waitlistCards = (typedEvent.event_waitlist || []).map((w: EventWaitlist) => {
+      const profile = (Array.isArray(w.profiles) ? w.profiles[0] : w.profiles) as Profile | null;
+      return {
+        id: `waitlist-${w.id}`,
+        userId: w.user_id,
+        name: profile ? `${profile.first_name} ${profile.last_name}` : "Unknown User",
+        avatarUrl: profile?.avatar_url || null,
+      };
+    });
+
+    const rsvpWaitlistCards = (typedEvent.event_rsvps || [])
+      .filter((r: EventRsvp) => r.status === "waitlisted")
+      .map((r: EventRsvp) => {
+        const profile = (Array.isArray(r.profiles) ? r.profiles[0] : r.profiles) as Profile | null;
+        return {
+          id: `rsvp-${r.id}`,
+          userId: r.user_id,
+          rsvpId: r.id,
+          name: profile ? `${profile.first_name} ${profile.last_name}` : "Unknown User",
+          avatarUrl: profile?.avatar_url || null,
+        };
+      });
+
+    const approvedCards = (typedEvent.event_rsvps || [])
+      .filter((r: EventRsvp) => r.status === "approved" || !r.status)
+      .map((r: EventRsvp) => {
+        const profile = (Array.isArray(r.profiles) ? r.profiles[0] : r.profiles) as Profile | null;
+        return {
+          id: `rsvp-${r.id}`,
+          userId: r.user_id,
+          rsvpId: r.id,
+          name: profile ? `${profile.first_name} ${profile.last_name}` : "Unknown User",
+          avatarUrl: profile?.avatar_url || null,
+        };
+      });
+
+    const rejectedCards = (typedEvent.event_rsvps || [])
+      .filter((r: EventRsvp) => r.status === "rejected")
+      .map((r: EventRsvp) => {
+        const profile = (Array.isArray(r.profiles) ? r.profiles[0] : r.profiles) as Profile | null;
+        return {
+          id: `rsvp-${r.id}`,
+          userId: r.user_id,
+          rsvpId: r.id,
+          name: profile ? `${profile.first_name} ${profile.last_name}` : "Unknown User",
+          avatarUrl: profile?.avatar_url || null,
+        };
+      });
+
+    setColumns({
+      waitlisted: [...waitlistCards, ...rsvpWaitlistCards],
+      approved: approvedCards,
+      rejected: rejectedCards,
+    });
+  }, [event]);
+
+  const updateRsvpStatus = useMutation({
+    mutationFn: async ({
+      userId,
+      rsvpId,
+      newStatus,
+    }: {
+      userId: string;
+      rsvpId?: string;
+      newStatus: "waitlisted" | "approved" | "rejected";
+    }) => {
+      if (eventId.startsWith("mock-")) {
+        return;
+      }
+
+      if (newStatus === "approved") {
+        if (rsvpId) {
+          const { error } = await supabase
+            .from("event_rsvps")
+            .update({ status: "approved" })
+            .eq("id", rsvpId);
+          if (error) throw error;
+        } else {
+          // Promote from event_waitlist to approved
+          const { error: insertError } = await supabase
+            .from("event_rsvps")
+            .insert({ event_id: eventId, user_id: userId, status: "approved" });
+          if (insertError) throw insertError;
+
+          const { error: deleteError } = await supabase
+            .from("event_waitlist")
+            .delete()
+            .eq("event_id", eventId)
+            .eq("user_id", userId);
+          if (deleteError) throw deleteError;
+        }
+      } else if (newStatus === "rejected") {
+        if (rsvpId) {
+          const { error } = await supabase
+            .from("event_rsvps")
+            .update({ status: "rejected" })
+            .eq("id", rsvpId);
+          if (error) throw error;
+        } else {
+          // Promote from event_waitlist to rejected
+          const { error: insertError } = await supabase
+            .from("event_rsvps")
+            .insert({ event_id: eventId, user_id: userId, status: "rejected" });
+          if (insertError) throw insertError;
+
+          const { error: deleteError } = await supabase
+            .from("event_waitlist")
+            .delete()
+            .eq("event_id", eventId)
+            .eq("user_id", userId);
+          if (deleteError) throw deleteError;
+        }
+      } else if (newStatus === "waitlisted") {
+        if (rsvpId) {
+          const { error } = await supabase
+            .from("event_rsvps")
+            .update({ status: "waitlisted" })
+            .eq("id", rsvpId);
+          if (error) throw error;
+        }
+      }
+    },
+    onSuccess: () => {
+      toast.success("RSVP status updated!");
+      refetch();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update RSVP status.");
+      refetch();
+    },
+  });
+
+  const onDragEnd = (result: DropResult) => {
+    const { source, destination } = result;
+
+    if (!destination) return;
+    if (source.droppableId === destination.droppableId && source.index === destination.index)
+      return;
+
+    const sourceColId = source.droppableId as keyof typeof columns;
+    const destColId = destination.droppableId as keyof typeof columns;
+
+    const sourceList = Array.from(columns[sourceColId]);
+    const destList = Array.from(columns[destColId]);
+
+    const [movedCard] = sourceList.splice(source.index, 1);
+    destList.splice(destination.index, 0, movedCard);
+
+    setColumns({
+      ...columns,
+      [sourceColId]: sourceList,
+      [destColId]: destList,
+    });
+
+    updateRsvpStatus.mutate({
+      userId: movedCard.userId,
+      rsvpId: movedCard.rsvpId,
+      newStatus: destColId as "waitlisted" | "approved" | "rejected",
+    });
+  };
 
   if (isLoading) {
     return <SkeletonEventDetails />;
@@ -776,16 +1148,38 @@ export default function EventDetailsPage() {
               </Button>
             )}
 
-            {hasRsvpd && googleCalendarUrl && (
-              <a
-                href={googleCalendarUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="neu-border bg-white h-12 px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
-              >
-                <Calendar aria-hidden="true" size={16} strokeWidth={2.5} />
-                Add to Calendar
-              </a>
+            {googleCalendarUrl && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="neu-border h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Add to Calendar
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="neu-border font-mono text-sm">
+                  <DropdownMenuItem asChild>
+                    <a
+                      href={googleCalendarUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <Calendar className="h-4 w-4" />
+                      Google Calendar
+                    </a>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => downloadIcs(event)}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download .ics
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
 
             {user && !isOrganizer && (
@@ -1002,18 +1396,115 @@ export default function EventDetailsPage() {
               </div>
             )}
 
-          {/* Attendee Photo Gallery (Only for past events) */}
-          {event.end_date && new Date(event.end_date).getTime() < Date.now() && (
-            <div className="mt-10 pt-10 border-t-2 border-black border-dashed">
-              <EventPhotoGallery eventId={event.id} user={user} />
+          {/* Event Gallery */}
+          <div className="mt-8 border-t-2 border-black pt-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+              <div>
+                <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
+                  Event Gallery
+                </h2>
+                <p className="font-mono text-xs text-black/60 mt-1">
+                  Photos shared from this event
+                </p>
+              </div>
+              {isOrganizer && (
+                <div>
+                  <input
+                    type="file"
+                    id="bulk-gallery-upload"
+                    multiple
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    onClick={() => document.getElementById("bulk-gallery-upload")?.click()}
+                    variant="outline"
+                    className="neu-border neu-press h-12 bg-lime text-black px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                  >
+                    📸 Upload Photos
+                  </Button>
+                </div>
+              )}
             </div>
-          )}
 
-          {/* Similar Events Recommendation Block */}
-          <SimilarEvents
-            currentEventId={event.id}
-            categoryId={(event as Record<string, unknown>).category_id as string | undefined}
-          />
+            {/* Optimistic UI & Progress for Uploading Files */}
+            {uploadingFiles.length > 0 && (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 mb-6">
+                {uploadingFiles.map((file) => (
+                  <div
+                    key={file.id}
+                    className="relative neu-border bg-white p-2 flex flex-col justify-between"
+                  >
+                    <div className="aspect-square w-full overflow-hidden bg-cream relative">
+                      <img
+                        src={file.objectUrl}
+                        alt="Uploading..."
+                        className="h-full w-full object-cover opacity-60"
+                      />
+                      {file.status === "uploading" && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/45 p-2">
+                          <span className="font-mono text-xs font-bold text-white mb-2">
+                            {file.progress}%
+                          </span>
+                          <div className="w-full bg-white/30 h-2 rounded-full overflow-hidden">
+                            <div
+                              className="bg-lime h-full transition-all duration-200"
+                              style={{ width: `${file.progress}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {file.status === "success" && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-lime/80 text-black font-display font-black text-sm uppercase">
+                          Uploaded ✓
+                        </div>
+                      )}
+                      {file.status === "error" && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-500/90 text-white p-2">
+                          <span className="font-display font-black text-xs uppercase text-center">
+                            Failed
+                          </span>
+                          <span className="font-mono text-[9px] text-center mt-1 truncate w-full">
+                            {file.errorMsg}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <p className="font-mono text-[10px] text-black/70 truncate mt-2">{file.name}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Gallery Images List */}
+            {galleryPhotos.length === 0 && uploadingFiles.length === 0 ? (
+              <div className="neu-border bg-cream p-8 text-center font-mono text-sm text-black/50 italic">
+                No photos uploaded yet for this event.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                {galleryPhotos.map((url, idx) => (
+                  <div
+                    key={url}
+                    className="neu-border bg-white p-2 hover:scale-[1.02] transition-transform duration-300 group cursor-zoom-in"
+                    onClick={() => {
+                      setLightboxSrc(url);
+                    }}
+                  >
+                    <div className="aspect-square w-full overflow-hidden bg-cream">
+                      <img
+                        src={url}
+                        alt={`Event gallery photo ${idx + 1}`}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Social Share */}
           <div className="mt-10 border-t-2 border-black pt-6">
@@ -1028,6 +1519,354 @@ export default function EventDetailsPage() {
               />
             </div>
           </div>
+
+          {/* Kanban Board for Organizer */}
+          {isOrganizer && (
+            <div className="mt-12 border-t-4 border-black pt-10">
+              <h2 className="font-display text-2xl font-black uppercase tracking-tight text-black mb-6">
+                Attendee Manager
+              </h2>
+              <DragDropContext onDragEnd={onDragEnd}>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Waitlisted Column */}
+                  <div className="flex flex-col border-4 border-black bg-amber-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <Clock size={18} className="text-amber-600" /> Waitlisted
+                      </span>
+                      <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
+                        {columns.waitlisted.length}
+                      </span>
+                    </h3>
+                    <Droppable droppableId="waitlisted">
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
+                            snapshot.isDraggingOver ? "bg-amber-100/50" : ""
+                          }`}
+                        >
+                          {columns.waitlisted.map((card, index) => (
+                            <Draggable key={card.id} draggableId={card.id} index={index}>
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
+                                    snapshot.isDragging
+                                      ? "rotate-2 scale-105 z-50 bg-amber-50/90"
+                                      : ""
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    {card.avatarUrl ? (
+                                      <img
+                                        src={card.avatarUrl}
+                                        alt={card.name}
+                                        className="h-10 w-10 border-2 border-black object-cover rounded-none"
+                                      />
+                                    ) : (
+                                      <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
+                                        {card.name.substring(0, 2)}
+                                      </div>
+                                    )}
+                                    <div className="min-w-0">
+                                      <p className="truncate font-mono text-sm font-bold text-black">
+                                        {card.name}
+                                      </p>
+                                      <p className="font-mono text-[9px] text-black/60 uppercase">
+                                        {card.rsvpId ? "Requested" : "Waitlist"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1 ml-2">
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            size="icon"
+                                            variant="outline"
+                                            className="h-7 w-7 border border-black rounded-none bg-emerald-50 hover:bg-emerald-200"
+                                            onClick={() =>
+                                              updateRsvpStatus.mutate({
+                                                userId: card.userId,
+                                                rsvpId: card.rsvpId,
+                                                newStatus: "approved",
+                                              })
+                                            }
+                                          >
+                                            <CheckCircle size={14} className="text-emerald-700" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Approve RSVP</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            size="icon"
+                                            variant="outline"
+                                            className="h-7 w-7 border border-black rounded-none bg-rose-50 hover:bg-rose-200"
+                                            onClick={() =>
+                                              updateRsvpStatus.mutate({
+                                                userId: card.userId,
+                                                rsvpId: card.rsvpId,
+                                                newStatus: "rejected",
+                                              })
+                                            }
+                                          >
+                                            <X size={14} className="text-rose-700" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Reject RSVP</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </div>
+
+                  {/* Approved Column */}
+                  <div className="flex flex-col border-4 border-black bg-emerald-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <CheckCircle size={18} className="text-emerald-600" /> Approved
+                      </span>
+                      <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
+                        {columns.approved.length}
+                      </span>
+                    </h3>
+                    <Droppable droppableId="approved">
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
+                            snapshot.isDraggingOver ? "bg-emerald-100/50" : ""
+                          }`}
+                        >
+                          {columns.approved.map((card, index) => (
+                            <Draggable key={card.id} draggableId={card.id} index={index}>
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
+                                    snapshot.isDragging
+                                      ? "rotate-2 scale-105 z-50 bg-emerald-50/90"
+                                      : ""
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    {card.avatarUrl ? (
+                                      <img
+                                        src={card.avatarUrl}
+                                        alt={card.name}
+                                        className="h-10 w-10 border-2 border-black object-cover rounded-none"
+                                      />
+                                    ) : (
+                                      <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
+                                        {card.name.substring(0, 2)}
+                                      </div>
+                                    )}
+                                    <div className="min-w-0">
+                                      <p className="truncate font-mono text-sm font-bold text-black">
+                                        {card.name}
+                                      </p>
+                                      <p className="font-mono text-[9px] text-black/60 uppercase">
+                                        Approved
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1 ml-2">
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            size="icon"
+                                            variant="outline"
+                                            className="h-7 w-7 border border-black rounded-none bg-amber-50 hover:bg-amber-200"
+                                            onClick={() =>
+                                              updateRsvpStatus.mutate({
+                                                userId: card.userId,
+                                                rsvpId: card.rsvpId,
+                                                newStatus: "waitlisted",
+                                              })
+                                            }
+                                          >
+                                            <Clock size={14} className="text-amber-700" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Move to Waitlist</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            size="icon"
+                                            variant="outline"
+                                            className="h-7 w-7 border border-black rounded-none bg-rose-50 hover:bg-rose-200"
+                                            onClick={() =>
+                                              updateRsvpStatus.mutate({
+                                                userId: card.userId,
+                                                rsvpId: card.rsvpId,
+                                                newStatus: "rejected",
+                                              })
+                                            }
+                                          >
+                                            <X size={14} className="text-rose-700" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Reject RSVP</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </div>
+
+                  {/* Rejected Column */}
+                  <div className="flex flex-col border-4 border-black bg-rose-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <X size={18} className="text-rose-600" /> Rejected
+                      </span>
+                      <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
+                        {columns.rejected.length}
+                      </span>
+                    </h3>
+                    <Droppable droppableId="rejected">
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
+                            snapshot.isDraggingOver ? "bg-rose-100/50" : ""
+                          }`}
+                        >
+                          {columns.rejected.map((card, index) => (
+                            <Draggable key={card.id} draggableId={card.id} index={index}>
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
+                                    snapshot.isDragging
+                                      ? "rotate-2 scale-105 z-50 bg-rose-50/90"
+                                      : ""
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    {card.avatarUrl ? (
+                                      <img
+                                        src={card.avatarUrl}
+                                        alt={card.name}
+                                        className="h-10 w-10 border-2 border-black object-cover rounded-none"
+                                      />
+                                    ) : (
+                                      <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
+                                        {card.name.substring(0, 2)}
+                                      </div>
+                                    )}
+                                    <div className="min-w-0">
+                                      <p className="truncate font-mono text-sm font-bold text-black">
+                                        {card.name}
+                                      </p>
+                                      <p className="font-mono text-[9px] text-black/60 uppercase">
+                                        Rejected
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1 ml-2">
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            size="icon"
+                                            variant="outline"
+                                            className="h-7 w-7 border border-black rounded-none bg-amber-50 hover:bg-amber-200"
+                                            onClick={() =>
+                                              updateRsvpStatus.mutate({
+                                                userId: card.userId,
+                                                rsvpId: card.rsvpId,
+                                                newStatus: "waitlisted",
+                                              })
+                                            }
+                                          >
+                                            <Clock size={14} className="text-amber-700" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Move to Waitlist</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            size="icon"
+                                            variant="outline"
+                                            className="h-7 w-7 border border-black rounded-none bg-emerald-50 hover:bg-emerald-200"
+                                            onClick={() =>
+                                              updateRsvpStatus.mutate({
+                                                userId: card.userId,
+                                                rsvpId: card.rsvpId,
+                                                newStatus: "approved",
+                                              })
+                                            }
+                                          >
+                                            <CheckCircle size={14} className="text-emerald-700" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Approve RSVP</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </div>
+                </div>
+              </DragDropContext>
+            </div>
+          )}
         </div>
       </section>
 
@@ -1086,6 +1925,19 @@ export default function EventDetailsPage() {
         targetType="event"
         targetId={event.id}
       />
+
+      {lightboxSrc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 cursor-zoom-out"
+          onClick={() => setLightboxSrc(null)}
+        >
+          <img
+            src={lightboxSrc}
+            alt="Enlarged gallery photo"
+            className="max-h-full max-w-full object-contain neu-border border-white"
+          />
+        </div>
+      )}
     </SiteShell>
   );
 }
