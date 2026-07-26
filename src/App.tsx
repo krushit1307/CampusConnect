@@ -8,11 +8,13 @@ import {
   Route,
 } from "react-router-dom";
 
-// Layout
+// Layout & Global Components
 import Layout from "./components/Layout";
 import { ErrorBoundary, RouteErrorBoundary } from "./components/ErrorBoundary";
 import MaintenancePage from "./components/MaintenancePage";
+import { CommandPalette } from "./components/ui/command-palette";
 import { createClient } from "./lib/supabase/client";
+
 // Pages
 import Index from "./routes/index";
 import Auth from "./routes/auth";
@@ -131,11 +133,6 @@ const DB_RETRY_INTERVAL_MS = 15000;
 
 type DbStatus = "checking" | "online" | "offline";
 
-/**
- * Pings Supabase with a cheap, RLS-open HEAD request. Returns false if the
- * client throws (bad config, connection refused, DNS failure, etc.) or if
- * the request doesn't resolve within the timeout.
- */
 async function checkDatabaseConnection(): Promise<boolean> {
   try {
     const supabase = createClient();
