@@ -28,11 +28,13 @@ Deno.serve(async (req) => {
     // Verify this is actually coming from our configured webhook, not a
     // stranger poking the public function URL.
     const webhookSecret = Deno.env.get("STORAGE_WEBHOOK_SECRET");
-    if (webhookSecret) {
-      const provided = req.headers.get("x-webhook-secret");
-      if (provided !== webhookSecret) {
-        return new Response("Unauthorized", { status: 401 });
-      }
+    if (!webhookSecret) {
+      console.error("[generate-thumbnail] STORAGE_WEBHOOK_SECRET is not configured");
+      return new Response("Server misconfigured", { status: 500 });
+    }
+    const provided = req.headers.get("x-webhook-secret");
+    if (provided !== webhookSecret) {
+      return new Response("Unauthorized", { status: 401 });
     }
 
     const payload = (await req.json()) as StorageWebhookPayload;
@@ -43,7 +45,11 @@ Deno.serve(async (req) => {
     }
 
     // Guard against infinite recursion: don't generate a thumbnail of a thumbnail.
-    if (bucket_id !== SOURCE_BUCKET || objectPath.includes(THUMB_SUFFIX)) {
+    // Parse the filename (not the full object key) so a directory or user id
+    // that happens to contain "_thumb" doesn't cause valid uploads to be skipped.
+    const lastSlash = objectPath.lastIndexOf("/");
+    const filename = lastSlash === -1 ? objectPath : objectPath.slice(lastSlash + 1);
+    if (bucket_id !== SOURCE_BUCKET || filename.endsWith(`${THUMB_SUFFIX}.jpg`)) {
       return new Response("Skipped", { status: 200 });
     }
 
@@ -75,9 +81,10 @@ Deno.serve(async (req) => {
     const thumbBytes = await thumbnail.encodeJPEG(80);
 
     // Build the thumbnail path alongside the original: "<dir>/<name>_thumb.jpg"
-    const lastDot = objectPath.lastIndexOf(".");
-    const withoutExt = lastDot === -1 ? objectPath : objectPath.slice(0, lastDot);
-    const thumbPath = `${withoutExt}${THUMB_SUFFIX}.jpg`;
+    const dir = lastSlash === -1 ? "" : objectPath.slice(0, lastSlash + 1);
+    const lastDot = filename.lastIndexOf(".");
+    const filenameWithoutExt = lastDot === -1 ? filename : filename.slice(0, lastDot);
+    const thumbPath = `${dir}${filenameWithoutExt}${THUMB_SUFFIX}.jpg`;
 
     const { error: uploadError } = await supabase.storage
       .from(bucket_id)
@@ -114,6 +121,12 @@ Deno.serve(async (req) => {
     }
     if (clubUpdate.error) {
       console.error("[generate-thumbnail] clubs update failed:", clubUpdate.error);
+    }
+
+    if (profileUpdate.error || clubUpdate.error) {
+      // Storage upload succeeded (idempotent via upsert), so a retry from
+      // the webhook is safe and won't duplicate the thumbnail file.
+      return new Response("Thumbnail generated but DB update failed", { status: 500 });
     }
 
     return new Response(JSON.stringify({ thumbUrl }), {
