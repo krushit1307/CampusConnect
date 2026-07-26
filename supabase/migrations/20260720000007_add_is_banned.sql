@@ -38,7 +38,7 @@ FOR INSERT
 TO authenticated 
 WITH CHECK (
   auth.uid() = author_id
-  AND (SELECT is_banned FROM public.profiles WHERE id = auth.uid()) = false
+  AND NOT public.is_user_banned(auth.uid())
 );
 
 DROP POLICY IF EXISTS "Users can update their own posts" ON public.posts;
@@ -49,7 +49,7 @@ FOR UPDATE
 TO authenticated 
 USING (
   auth.uid() = author_id
-  AND (SELECT is_banned FROM public.profiles WHERE id = auth.uid()) = false
+  AND NOT public.is_user_banned(auth.uid())
 );
 
 -- ------------------------------------------------------------
@@ -63,7 +63,7 @@ FOR INSERT
 TO authenticated 
 WITH CHECK (
   auth.uid() = author_id
-  AND (SELECT is_banned FROM public.profiles WHERE id = auth.uid()) = false
+  AND NOT public.is_user_banned(auth.uid())
 );
 
 DROP POLICY IF EXISTS "Users can update their own comments" ON public.comments;
@@ -74,7 +74,7 @@ FOR UPDATE
 TO authenticated 
 USING (
   auth.uid() = author_id
-  AND (SELECT is_banned FROM public.profiles WHERE id = auth.uid()) = false
+  AND NOT public.is_user_banned(auth.uid())
 );
 
 -- ------------------------------------------------------------
@@ -88,7 +88,7 @@ FOR INSERT
 TO authenticated 
 WITH CHECK (
   auth.uid() = user_id
-  AND (SELECT is_banned FROM public.profiles WHERE id = auth.uid()) = false
+  AND NOT public.is_user_banned(auth.uid())
 );
 
 DROP POLICY IF EXISTS "Users can update their own RSVPs." ON public.event_rsvps;
@@ -99,7 +99,7 @@ FOR UPDATE
 TO authenticated 
 USING (
   auth.uid() = user_id
-  AND (SELECT is_banned FROM public.profiles WHERE id = auth.uid()) = false
+  AND NOT public.is_user_banned(auth.uid())
 );
 
 -- ------------------------------------------------------------
@@ -113,7 +113,7 @@ FOR INSERT
 TO authenticated 
 WITH CHECK (
   auth.uid() = created_by
-  AND (SELECT is_banned FROM public.profiles WHERE id = auth.uid()) = false
+  AND NOT public.is_user_banned(auth.uid())
 );
 
 DROP POLICY IF EXISTS "Users can update their own events" ON public.events;
@@ -124,7 +124,7 @@ FOR UPDATE
 TO authenticated 
 USING (
   auth.uid() = created_by
-  AND (SELECT is_banned FROM public.profiles WHERE id = auth.uid()) = false
+  AND NOT public.is_user_banned(auth.uid())
 );
 
 -- ------------------------------------------------------------
@@ -138,7 +138,7 @@ FOR INSERT
 TO authenticated 
 WITH CHECK (
   auth.uid() = user_id 
-  AND (SELECT is_banned FROM public.profiles WHERE id = auth.uid()) = false
+  AND NOT public.is_user_banned(auth.uid())
 );
 
 DROP POLICY IF EXISTS "Users can update their club membership" ON public.club_members;
@@ -148,5 +148,5 @@ FOR UPDATE
 TO authenticated 
 USING (
   auth.uid() = user_id 
-  AND (SELECT is_banned FROM public.profiles WHERE id = auth.uid()) = false
+  AND NOT public.is_user_banned(auth.uid())
 );
