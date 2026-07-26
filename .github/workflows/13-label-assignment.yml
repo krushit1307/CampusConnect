@@ -1,0 +1,73 @@
+name: "13 Label-Based Auto-Assignment"
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: label-assignment-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  auto-assign:
+    if: github.event.issue.pull_request == null
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Auto-assign maintainers based on labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labelName = context.payload.label?.name?.toLowerCase() || "";
+            const issueNumber = context.issue.number;
+            const repoOwner = context.repo.owner;
+            const repoName = context.repo.repo;
+
+            // Maintainer mapping: label -> list of maintainers to assign
+            // These can be overridden via repository variables
+            const maintainerMap = {
+              "good-backend": (process.env.BACKEND_MAINTAINERS || "").split(",").filter(Boolean),
+              "good-ui": (process.env.UI_MAINTAINERS || "").split(",").filter(Boolean),
+              "backend": (process.env.BACKEND_MAINTAINERS || "").split(",").filter(Boolean),
+              "ui": (process.env.UI_MAINTAINERS || "").split(",").filter(Boolean),
+            };
+
+            // Fallback defaults if no env vars are set
+            const defaultMaintainers = {
+              "good-backend": [],
+              "good-ui": [],
+              "backend": [],
+              "ui": [],
+            };
+
+            const assignees = maintainerMap[labelName]?.length
+              ? maintainerMap[labelName]
+              : defaultMaintainers[labelName] || [];
+
+            if (assignees.length === 0) {
+              console.log(`No maintainers configured for label "${labelName}". Skipping auto-assignment.`);
+              console.log(`To configure, set repository variables:`);
+              console.log(`  BACKEND_MAINTAINERS: "user1,user2" for good-backend/backend labels`);
+              console.log(`  UI_MAINTAINERS: "user3,user4" for good-ui/ui labels`);
+              return;
+            }
+
+            console.log(`Label "${labelName}" detected. Assigning: ${assignees.join(", ")}`);
+
+            try {
+              await github.rest.issues.addAssignees({
+                owner: repoOwner,
+                repo: repoName,
+                issue_number: issueNumber,
+                assignees: assignees,
+              });
+              console.log(`Successfully assigned ${assignees.join(", ")} to issue #${issueNumber}.`);
+            } catch (error) {
+              console.log(`Could not assign maintainers: ${error.message}`);
+            }
