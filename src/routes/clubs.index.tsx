@@ -1,24 +1,34 @@
 import { Link } from "react-router-dom";
-
-import { useEffect, useRef, useState } from "react";
-
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { LayoutGrid, List, UsersRound, X } from "lucide-react";
+import { LayoutGrid, List, UsersRound } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { CreateClubDialog } from "@/components/CreateClubDialog";
+import { ClubCardSkeleton } from "@/components/ui/ClubCardSkeleton";
+import { SearchInput } from "@/components/ui/SearchInput";
+import { EmptyState } from "@/components/EmptyState";
 
 const ITEMS_PER_PAGE = 12;
 const VIEW_MODE_STORAGE_KEY = "clubs-view-mode";
 
 type ViewMode = "grid" | "list";
 
+interface ClubItem {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  club_stats?: { total_members?: number }[] | { total_members?: number } | null;
+}
+
 export default function ClubsIndex() {
   const supabase = createClient();
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const observer = useRef<IntersectionObserver | null>(null);
+
   const [user, setUser] = useState<User | null>(null);
 
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -38,7 +48,7 @@ export default function ClubsIndex() {
   }, [viewMode, viewModeLoaded]);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+    supabase.auth.getUser().then((res) => setUser(res.data?.user ?? null));
   }, [supabase]);
 
   useEffect(() => {
@@ -60,7 +70,10 @@ export default function ClubsIndex() {
 
         const { data, count } = await supabase
           .from("clubs")
-          .select(`id, name, slug, description`, { count: "exact" })
+          .select(
+            `id, name, slug, description, club_stats (total_members, total_events, total_posts)`,
+            { count: "exact" },
+          )
           .range(from, to);
 
         return {
@@ -73,7 +86,8 @@ export default function ClubsIndex() {
     });
 
   // Flatten the nested page arrays from useInfiniteQuery into a single list
-  const allClubs = data?.pages.flatMap((page) => page.clubs) || [];
+  const allClubs: ClubItem[] = (data?.pages.flatMap((page: { clubs: unknown[] }) => page.clubs) ||
+    []) as ClubItem[];
   const totalActiveCount = data?.pages[0]?.totalCount || allClubs.length;
 
   // Deriving the Top 3 Trending Clubs based on member_count
@@ -95,6 +109,26 @@ export default function ClubsIndex() {
 
   const directoryClubs = filteredClubs.filter(
     (c) => search || !trendingClubs.find((t) => t.slug === c.slug),
+  );
+  const lastClubRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (isFetchingNextPage) return;
+
+      if (observer.current) {
+        observer.current.disconnect();
+      }
+
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage && !search) {
+          fetchNextPage();
+        }
+      });
+
+      if (node) {
+        observer.current.observe(node);
+      }
+    },
+    [fetchNextPage, hasNextPage, isFetchingNextPage, search],
   );
 
   return (
@@ -139,28 +173,43 @@ export default function ClubsIndex() {
           <div className="flex-1">
             <p className="eyebrow font-bold">Club directory · {totalActiveCount} active</p>
             <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">Find your people.</h1>
-            <div className="relative mt-6 max-w-xl">
-              <input
-                ref={inputRef}
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Search clubs by name or interest..."
-                className="neu-border w-full bg-white px-4 py-3 pr-10 font-mono text-sm outline-none text-black"
-              />
-              {searchInput && (
+            <SearchInput
+              value={searchInput}
+              onChange={setSearchInput}
+              onClear={() => {
+                setSearchInput("");
+                setSearch("");
+              }}
+              placeholder="Search clubs by name or interest..."
+              className="mt-6 max-w-xl"
+            />
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="font-mono text-xs font-bold uppercase text-gray-700">
+                Category Filter:
+              </span>
+              {["All", "Tech", "Cultural", "Sports", "Academic", "Arts"].map((cat) => (
                 <button
+                  key={cat}
                   type="button"
                   onClick={() => {
-                    setSearchInput("");
-                    setSearch("");
-                    inputRef.current?.focus();
+                    if (cat === "All") {
+                      setSearchInput("");
+                      setSearch("");
+                    } else {
+                      setSearchInput(cat);
+                      setSearch(cat);
+                    }
                   }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black dark:text-gray-300 dark:hover:text-white"
-                  aria-label="Clear search"
+                  className={`neu-border px-2.5 py-0.5 font-mono text-[11px] font-bold uppercase transition-transform active:translate-y-0.5 cursor-pointer ${
+                    (cat === "All" && !searchInput) ||
+                    searchInput.toLowerCase() === cat.toLowerCase()
+                      ? "bg-black text-white"
+                      : "bg-white text-black hover:bg-yellow"
+                  }`}
                 >
-                  <X size={18} />
+                  {cat}
                 </button>
-              )}
+              ))}
             </div>
           </div>
           <div>
@@ -183,9 +232,9 @@ export default function ClubsIndex() {
                     <Link
                       key={`trending-${c.slug}`}
                       to={`/clubs/${c.slug}`}
-                      className="neu-border group relative block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000] flex flex-col justify-between"
+                      className="neu-border group relative block bg-white p-6 shadow-[4px_4px_0_0_var(--color-ink)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_var(--color-ink)] flex flex-col justify-between"
                     >
-                      <span className="absolute -right-2 -top-3 neu-border bg-yellow text-black px-2.5 py-0.5 font-mono text-[10px] font-black uppercase tracking-wider shadow-[2px_2px_0_0_#000] rotate-2">
+                      <span className="absolute -right-2 -top-3 neu-border bg-yellow text-black px-2.5 py-0.5 font-mono text-[10px] font-black uppercase tracking-wider shadow-[2px_2px_0_0_var(--color-ink)] rotate-2">
                         ✨ Trending
                       </span>
                       <div>
@@ -262,60 +311,67 @@ export default function ClubsIndex() {
             }
           >
             {isLoading ? (
-              // Initial Page Loader Skeletons
-              Array.from({ length: viewMode === "grid" ? 6 : 4 }).map((_, i) => (
-                <div
-                  key={i}
-                  className={
-                    viewMode === "grid"
-                      ? "neu-border bg-white p-6 animate-pulse h-48 flex flex-col justify-between"
-                      : "neu-border bg-white p-4 animate-pulse h-20 flex items-center gap-4"
-                  }
-                >
-                  {viewMode === "grid" ? (
-                    <>
-                      <div>
-                        <div className="h-6 bg-gray-200 w-16 mb-4 rounded neu-border border-gray-300" />
-                        <div className="h-8 bg-gray-200 w-3/4 rounded" />
-                      </div>
-                      <div className="h-4 bg-gray-200 w-full mt-4 rounded" />
-                    </>
-                  ) : (
-                    <>
-                      <div className="h-12 w-12 shrink-0 bg-gray-200 rounded neu-border border-gray-300" />
-                      <div className="flex-1">
-                        <div className="h-5 bg-gray-200 w-1/3 rounded mb-2" />
-                        <div className="h-3 bg-gray-200 w-2/3 rounded" />
-                      </div>
-                    </>
-                  )}
+              // Display a grid of exactly 6 skeleton cards for grid view, or 4 for list view
+              viewMode === "grid" ? (
+                Array.from({ length: 6 }).map((_, index) => (
+                  <ClubCardSkeleton key={`skeleton-${index}`} />
+                ))
+              ) : (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="neu-border bg-white p-4 animate-pulse h-20 flex items-center gap-4"
+                  >
+                    <div className="h-12 w-12 shrink-0 bg-gray-200 rounded neu-border border-gray-300" />
+                    <div className="flex-1">
+                      <div className="h-5 bg-gray-200 w-1/3 rounded mb-2" />
+                      <div className="h-3 bg-gray-200 w-2/3 rounded" />
+                    </div>
+                  </div>
+                ))
+              )
+            ) : directoryClubs.length === 0 ? (
+              search ? (
+                <EmptyState
+                  className="col-span-full mx-auto w-full max-w-2xl"
+                  illustration="no-results"
+                  title={`No clubs match "${search}"`}
+                  description="We couldn't find any campus clubs matching your search query. Try searching for a different keyword or category."
+                  action={{
+                    label: "Clear Search Filter",
+                    onClick: () => {
+                      setSearchInput("");
+                      setSearch("");
+                    },
+                  }}
+                />
+              ) : (
+                <div className="neu-border col-span-full mx-auto flex w-full max-w-2xl flex-col items-center bg-white px-6 py-12 text-center md:px-12 md:py-16">
+                  <div className="neu-border mb-6 flex h-20 w-20 items-center justify-center bg-lime md:h-24 md:w-24">
+                    <UsersRound className="h-10 w-10 md:h-12 md:w-12" aria-hidden="true" />
+                  </div>
+                  <p className="eyebrow font-bold text-black">Your campus community starts here</p>
+                  <h2 className="mt-2 text-3xl font-bold md:text-4xl">No clubs found</h2>
+                  <p className="mt-3 max-w-md font-mono text-sm leading-6 text-gray-700">
+                    There are no clubs in the directory yet. Create the first club and bring
+                    students with shared interests together.
+                  </p>
+                  <div className="mt-7">
+                    <CreateClubDialog user={user} />
+                  </div>
                 </div>
-              ))
-            ) : allClubs.length === 0 ? (
-              <div className="neu-border col-span-full mx-auto flex w-full max-w-2xl flex-col items-center bg-white px-6 py-12 text-center md:px-12 md:py-16">
-                <div className="neu-border mb-6 flex h-20 w-20 items-center justify-center bg-lime md:h-24 md:w-24">
-                  <UsersRound className="h-10 w-10 md:h-12 md:w-12" aria-hidden="true" />
-                </div>
-                <p className="eyebrow font-bold text-black">Your campus community starts here</p>
-                <h2 className="mt-2 text-3xl font-bold md:text-4xl">No clubs found</h2>
-                <p className="mt-3 max-w-md font-mono text-sm leading-6 text-gray-700">
-                  There are no clubs in the directory yet. Create the first club and bring students
-                  with shared interests together.
-                </p>
-                <div className="mt-7">
-                  <CreateClubDialog user={user} />
-                </div>
-              </div>
+              )
             ) : viewMode === "grid" ? (
               directoryClubs.map((c, index) => (
                 <div
+                  ref={index === directoryClubs.length - 1 ? lastClubRef : null}
                   key={`${viewMode}-${c.slug}`}
                   className="animate-fade-in-up"
                   style={{ animationDelay: `${index * 75}ms` }}
                 >
                   <Link
                     to={`/clubs/${c.slug}`}
-                    className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000] h-full"
+                    className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_var(--color-ink)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_var(--color-ink)] h-full"
                   >
                     <div
                       className={`club-logo-badge neu-border ${colors[index % colors.length]} mb-4 inline-block px-3 py-1 font-mono text-xs font-bold uppercase`}
@@ -325,7 +381,11 @@ export default function ClubsIndex() {
                     <h2 className="text-2xl font-bold">{c.name}</h2>
                     <div className="my-3 border-t-2 border-black" />
                     <div className="flex items-center justify-between font-mono text-xs">
-                      <span>Members</span>
+                      <span>
+                        {Array.isArray(c.club_stats)
+                          ? `${c.club_stats[0]?.total_members ?? 0} Members`
+                          : `${(c.club_stats as { total_members?: number } | null)?.total_members ?? 0} Members`}
+                      </span>
                       <span className="font-bold uppercase flex items-center gap-1">
                         View{" "}
                         <span className="transition-transform duration-300 group-hover:translate-x-1">
@@ -339,13 +399,14 @@ export default function ClubsIndex() {
             ) : (
               directoryClubs.map((c, index) => (
                 <div
+                  ref={index === directoryClubs.length - 1 ? lastClubRef : null}
                   key={`${viewMode}-${c.slug}`}
                   className="animate-fade-in-up"
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
                   <Link
                     to={`/clubs/${c.slug}`}
-                    className="neu-border group flex items-center gap-4 bg-white p-4 shadow-[4px_4px_0_0_#000] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_#000]"
+                    className="neu-border group flex items-center gap-4 bg-white p-4 shadow-[4px_4px_0_0_var(--color-ink)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_var(--color-ink)]"
                   >
                     <div
                       className={`club-logo-badge neu-border ${colors[index % colors.length]} flex h-12 w-12 shrink-0 items-center justify-center`}
@@ -400,20 +461,6 @@ export default function ClubsIndex() {
                 </div>
               ))}
           </div>
-
-          {/* Load More Controller */}
-          {hasNextPage && !search && (
-            <div className="mt-12 flex justify-center">
-              <button
-                type="button"
-                disabled={isFetchingNextPage}
-                onClick={() => fetchNextPage()}
-                className="neu-border neu-press bg-black px-6 py-3 font-mono text-sm font-bold uppercase text-cream hover:bg-cream hover:text-black transition-all disabled:opacity-50"
-              >
-                {isFetchingNextPage ? "Loading more..." : "Load More Clubs"}
-              </button>
-            </div>
-          )}
         </div>
       </section>
     </SiteShell>

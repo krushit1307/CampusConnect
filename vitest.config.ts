@@ -1,15 +1,17 @@
 import { defineConfig } from "vitest/config";
-import { fileURLToPath, URL } from "url";
+import path from "path";
 
 export default defineConfig({
   test: {
-    environment: "node",
+    environment: "jsdom",
     setupFiles: ["./src/test-setup.ts"],
-    exclude: ["**/node_modules/**", "**/dist/**", "**/.github/**", "**/e2e/**"],
+    globals: true,
+    include: ["src/**/*.test.{ts,tsx}"],
+    exclude: ["node_modules/**", "dist/**", "e2e/**", ".github/**", "tools/**"],
   },
   resolve: {
     alias: {
-      "@": fileURLToPath(new URL("src", import.meta.url)),
+      "@": path.resolve(__dirname, "./src"),
     },
   },
 });
