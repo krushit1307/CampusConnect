@@ -29,12 +29,14 @@ jobs:
               let mergeableState = null;
               
               // Retry loop because PR mergeable state might be null immediately after creation
+              let pr = null;
               for (let attempt = 1; attempt <= 10; attempt++) {
-                const { data: pr } = await github.rest.pulls.get({
+                const response = await github.rest.pulls.get({
                   owner,
                   repo,
                   pull_number: prNumber
                 });
+                pr = response.data;
                 
                 mergeable = pr.mergeable;
                 mergeableState = pr.mergeable_state;
@@ -46,11 +48,53 @@ jobs:
                 console.log(`Mergeable status is null, retrying (${attempt}/10) in 5 seconds...`);
                 await new Promise(r => setTimeout(r, 5000));
               }
+
+              if (!pr) return;
+
+              // Analyze PR and add good-* label
+              const currentLabels = pr.labels.map(l => l.name);
+              const hasGoodLabel = currentLabels.some(l => l.startsWith('good-'));
+              let labelAdded = hasGoodLabel;
+
+              if (!hasGoodLabel) {
+                const title = (pr.title || "").toLowerCase();
+                const body = (pr.body || "").toLowerCase();
+                const content = title + " " + body;
+                let labelToAdd = 'good-pr';
+                
+                if (content.includes('ui') || content.includes('frontend') || content.includes('design') || content.includes('css')) {
+                    labelToAdd = 'good-ui';
+                } else if (content.includes('backend') || content.includes('api') || content.includes('server') || content.includes('database')) {
+                    labelToAdd = 'good-backend';
+                } else if (content.includes('issue') || content.includes('bug')) {
+                    labelToAdd = 'good-issue';
+                }
+
+                try {
+                  await github.rest.issues.addLabels({
+                    owner,
+                    repo,
+                    issue_number: prNumber,
+                    labels: [labelToAdd]
+                  });
+                  console.log(`✅ Added label: ${labelToAdd}`);
+                  labelAdded = true;
+                } catch (err) {
+                  console.error(`❌ Failed to add label: ${err.message}`);
+                }
+              } else {
+                console.log(`PR already has a good-* label.`);
+              }
+              
+              if (!labelAdded) {
+                console.log("Good label not added successfully. Skipping merge.");
+                return;
+              }
               
               if (mergeable === false) {
                 console.log("Merge conflicts detected. Cannot merge.");
               } else {
-                console.log(`PR is mergeable. Proceeding with immediate auto-merge.`);
+                console.log(`PR is mergeable and correctly labeled. Proceeding with immediate auto-merge.`);
                 try {
                   console.log(`Auto-merging PR #${prNumber} into main...`);
                   await github.rest.pulls.merge({
