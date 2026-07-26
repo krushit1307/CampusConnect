@@ -292,7 +292,6 @@ export function CreateClubDialog({ user }: { user: User | null }) {
           </form>
         </Form>
       </DialogContent>
-
     </Dialog>
   );
 }

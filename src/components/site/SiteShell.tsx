@@ -163,11 +163,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
           confirmation link.
         </div>
       )}
-      <main
-        id="main-content"
-        tabIndex={-1}
-        className="flex-1 pb-16 md:pb-0"
-      >
+      <main id="main-content" tabIndex={-1} className="flex-1 pb-16 md:pb-0">
         {children}
       </main>
       <Footer />

@@ -63,7 +63,6 @@ export function useTypingIndicator(channelName: string, userId: string, username
       channelRef.current = null;
     };
     // Re-subscribe only if the channel or user identity changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channelName, userId]);
 
   /**

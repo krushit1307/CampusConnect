@@ -528,9 +528,7 @@ export default function DashboardOverview() {
         )}
       </div>
 
-      <ErrorBoundary
-        fallback={<WidgetError title="Upcoming events" />}
-      >
+      <ErrorBoundary fallback={<WidgetError title="Upcoming events" />}>
         <Widget title="Upcoming events" cta={{ label: "All events", to: "/events" }}>
           {isUpcomingLoading ? (
             <WidgetListSkeleton rows={3} />
@@ -574,9 +572,7 @@ export default function DashboardOverview() {
         </Widget>
       </ErrorBoundary>
 
-      <ErrorBoundary
-        fallback={<WidgetError title="Saved events" />}
-      >
+      <ErrorBoundary fallback={<WidgetError title="Saved events" />}>
         <Widget title="Saved events" cta={{ label: "Explore", to: "/events" }}>
           {isSavedLoading ? (
             <WidgetListSkeleton rows={3} />
@@ -620,9 +616,7 @@ export default function DashboardOverview() {
         </Widget>
       </ErrorBoundary>
 
-      <ErrorBoundary
-        fallback={<WidgetError title="Your clubs" />}
-      >
+      <ErrorBoundary fallback={<WidgetError title="Your clubs" />}>
         <Widget title="Your clubs" cta={{ label: "Directory", to: "/clubs" }}>
           {isClubsLoading ? (
             <WidgetListSkeleton rows={3} />
@@ -656,9 +650,7 @@ export default function DashboardOverview() {
         </Widget>
       </ErrorBoundary>
 
-      <ErrorBoundary
-        fallback={<WidgetError title="Recent activity" />}
-      >
+      <ErrorBoundary fallback={<WidgetError title="Recent activity" />}>
         <Widget title="Recent activity" className="lg:col-span-3">
           {isActivityLoading ? (
             <WidgetListSkeleton rows={4} />
