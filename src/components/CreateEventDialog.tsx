@@ -35,6 +35,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 
 import { FlyerUploader } from "@/components/FlyerUploader";
+import { ImageCropUpload } from "@/components/ImageCropUpload";
 import type { ParsedFlyer } from "@/lib/parser";
 
 import { TagMultiSelect } from "@/components/ui/TagMultiSelect";
@@ -544,13 +545,22 @@ export function CreateEventDialog({
                   name="banner"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Banner Image URL</FormLabel>
+                      <FormLabel>Banner Image</FormLabel>
+                      <ImageCropUpload
+                        aspect={16 / 9}
+                        bucket="event-banners"
+                        value={field.value || undefined}
+                        onUploaded={(url) => field.onChange(url, { shouldValidate: true })}
+                        hint="JPEG, PNG or WEBP · Max 5 MB · 16:9 crop"
+                      />
+                      <p className="mt-1 text-xs text-black/50">Or paste a URL directly:</p>
                       <FormControl>
-                        <Input placeholder="https://example.com/banner.png" {...field} />
+                        <Input
+                          placeholder="https://example.com/banner.png"
+                          {...field}
+                          value={field.value ?? ""}
+                        />
                       </FormControl>
-                      <p className="mt-1 text-xs text-black/50">
-                        Paste a link to a banner image (optional)
-                      </p>
                       <FormMessage />
                     </FormItem>
                   )}
