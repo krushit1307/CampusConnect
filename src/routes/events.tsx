@@ -903,7 +903,9 @@ export default function EventsPage() {
                   <>
                     <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
                       {isLoading ? (
-                        Array.from({ length: 4 }).map((_, i) => <EventCardSkeleton key={i} />)
+                        Array.from({ length: 6 }).map((_, i) => (
+                          <EventCardSkeleton key={i} index={i} />
+                        ))
                       ) : sortedEvents.length === 0 && filter !== "All" ? (
                         <div className="col-span-full mx-auto max-w-md text-center neu-border bg-white p-8 animate-in fade-in-0 zoom-in-95 duration-300">
                           <CalendarIcon
@@ -969,6 +971,14 @@ export default function EventsPage() {
                         ))
                       )}
                     </div>
+
+                    {isLoadingMore && (
+                      <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3 mt-8">
+                        {Array.from({ length: 3 }).map((_, i) => (
+                          <EventCardSkeleton key={`loading-more-${i}`} index={i + 6} />
+                        ))}
+                      </div>
+                    )}
 
                     {!isLoading && (
                       <div className="mt-12 text-center flex flex-col items-center justify-center gap-4">
