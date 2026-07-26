@@ -42,6 +42,8 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { parseCoordinates } from "@/lib/eventUtils";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
+import { ActivePoll } from "@/components/polls/ActivePoll";
 
 interface SimilarEventItem {
   id: string;
@@ -1137,15 +1139,18 @@ export default function EventDetailsPage() {
             </TooltipProvider>
 
             {isOrganizer && (
-              <Button
-                onClick={() => exportCsv.mutate()}
-                disabled={exportCsv.isPending}
-                variant="outline"
-                className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                {exportCsv.isPending ? "Exporting..." : "Export CSV"}
-              </Button>
+              <>
+                <Button
+                  onClick={() => exportCsv.mutate()}
+                  disabled={exportCsv.isPending}
+                  variant="outline"
+                  className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  {exportCsv.isPending ? "Exporting..." : "Export CSV"}
+                </Button>
+                <CreatePollDialog eventId={eventId} user={user!} onPollCreated={() => refetch()} />
+              </>
             )}
 
             {googleCalendarUrl && (
@@ -1272,6 +1277,11 @@ export default function EventDetailsPage() {
               />
             </div>
           )}
+
+          {/* Active Poll */}
+          <div className="mt-8">
+            <ActivePoll eventId={eventId} userId={user?.id} />
+          </div>
 
           {/* Description */}
           <div className="mt-8">
