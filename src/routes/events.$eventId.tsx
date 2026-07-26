@@ -521,6 +521,33 @@ export default function EventDetailsPage() {
     },
   });
 
+  useEffect(() => {
+    if (!eventId || eventId.startsWith("mock-") || !event) return;
+
+    const channel = supabase
+      .channel(`event-rsvps-${eventId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "event_rsvps",
+          filter: `event_id=eq.${eventId}`,
+        },
+        () => {
+          if (isOrganizer) {
+            toast.success("New RSVP received!");
+          }
+          refetch();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [eventId, event?.created_by, user?.id, supabase, refetch, isOrganizer]);
+
   const isOrganizer = user && event?.created_by === user.id;
 
   if (isLoading) {
