@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { VirtualList } from "../components/ui/VirtualList";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
+import { DirectoryCardSkeleton } from "../components/ui/DirectoryCardSkeleton";
 
 interface UserProfile {
   id: number;
@@ -14,7 +15,17 @@ interface UserProfile {
 }
 
 export default function Directory() {
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 800);
+    return () => clearTimeout(timer);
+  }, []);
+
   const users = useMemo<UserProfile[]>(() => {
+    if (loading) return [];
+
     const roles = ["Student", "Professor", "Researcher", "Alumni", "Staff"];
     const depts = ["Computer Science", "Engineering", "Business", "Biology", "Arts"];
     const majors = [
@@ -50,9 +61,7 @@ export default function Directory() {
         interests: userInterests,
       };
     });
-  }, []);
-
-  const [searchQuery, setSearchQuery] = useState("");
+  }, [loading]);
 
   const filteredUsers = useMemo(() => {
     if (!searchQuery.trim()) return users;
@@ -86,41 +95,49 @@ export default function Directory() {
       </div>
 
       <div className="border rounded-lg shadow-sm bg-card overflow-hidden">
-        <VirtualList
-          items={filteredUsers}
-          height={600}
-          itemHeight={88}
-          overscan={5}
-          renderItem={(user) => (
-            <div className="flex items-center justify-between p-4 border-b h-full hover:bg-muted/50 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
-                  {user.name.slice(0, 2).toUpperCase()}
+        {loading ? (
+          <div style={{ height: 600, overflow: "hidden" }}>
+            {Array.from({ length: 7 }, (_, i) => (
+              <DirectoryCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : (
+          <VirtualList
+            items={filteredUsers}
+            height={600}
+            itemHeight={88}
+            overscan={5}
+            renderItem={(user) => (
+              <div className="flex items-center justify-between p-4 border-b h-full hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
+                    {user.name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm">{user.name}</div>
+                    <div className="text-xs text-muted-foreground">{user.email}</div>
+                    <div className="text-xs text-muted-foreground mt-1 font-medium">{user.major}</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="font-semibold text-sm">{user.name}</div>
-                  <div className="text-xs text-muted-foreground">{user.email}</div>
-                  <div className="text-xs text-muted-foreground mt-1 font-medium">{user.major}</div>
+                <div className="text-right flex flex-col items-end">
+                  <span className="inline-block px-2 py-1 text-[10px] uppercase tracking-wider rounded bg-secondary text-secondary-foreground font-medium mb-1">
+                    {user.role}
+                  </span>
+                  <div className="flex gap-1 flex-wrap justify-end">
+                    {user.interests.map((interest, idx) => (
+                      <span
+                        key={idx}
+                        className="text-[10px] px-1.5 py-0.5 rounded-full border border-primary/20 text-primary/70"
+                      >
+                        {interest}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <div className="text-right flex flex-col items-end">
-                <span className="inline-block px-2 py-1 text-[10px] uppercase tracking-wider rounded bg-secondary text-secondary-foreground font-medium mb-1">
-                  {user.role}
-                </span>
-                <div className="flex gap-1 flex-wrap justify-end">
-                  {user.interests.map((interest, idx) => (
-                    <span
-                      key={idx}
-                      className="text-[10px] px-1.5 py-0.5 rounded-full border border-primary/20 text-primary/70"
-                    >
-                      {interest}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        />
+            )}
+          />
+        )}
       </div>
     </div>
   );
