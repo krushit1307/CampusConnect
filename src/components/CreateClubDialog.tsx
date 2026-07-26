@@ -14,6 +14,7 @@ import {
   type ClubFormInput,
 } from "@/lib/clubUtils";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { Progress } from "@/components/ui/progress";
@@ -488,34 +489,33 @@ export function CreateClubDialog({ user }: { user: User | null }) {
               <span>Zoom</span>
               <span>{Math.round(zoom * 100)}%</span>
             </div>
-            <input
-              type="range"
+            <Slider
               min={1}
               max={3}
               step={0.1}
-              value={zoom}
-              onChange={(e) => setZoom(parseFloat(e.target.value))}
-              className="w-full cursor-pointer accent-black"
+              value={[zoom]}
+              onValueChange={(vals) => setZoom(vals[0])}
+              className="w-full py-2"
             />
           </div>
           <DialogFooter className="mt-6 gap-2 sm:gap-0">
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => {
                 setCropImageSrc(null);
                 setSelectedFile(null);
               }}
-              className="neu-border bg-white text-black font-mono text-xs font-bold uppercase py-2 px-4 hover:bg-cream"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="primary"
               onClick={handleCropConfirm}
-              className="neu-border bg-black text-cream font-mono text-xs font-bold uppercase py-2 px-4 hover:bg-lime hover:text-black"
             >
               Crop & Save
-            </button>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

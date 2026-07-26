@@ -16,6 +16,17 @@ import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
 
 import { Progress } from "@/components/ui/progress";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import Cropper from "react-easy-crop";
+import { getCroppedImg, type Area } from "@/utils/cropImage";
 
 import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
@@ -791,6 +802,14 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<{ name: string; size: number } | null>(null);
+  
+  const [cropOpen, setCropOpen] = useState(false);
+  const [imageSrc, setImageSrc] = useState("");
+  const [originalFile, setOriginalFile] = useState<File | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+
   // Counts nested dragenter/dragleave events so the highlighted state doesn't
   // flicker off when the pointer passes over a child element of the drop zone.
   const dragDepthRef = useRef(0);
@@ -854,16 +873,39 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
       return;
     }
 
-    setSelectedFile({ name: file.name, size: file.size });
+    // Do NOT upload immediately. Load into cropping dialog first.
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      setImageSrc(reader.result as string);
+      setOriginalFile(file);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setCropOpen(true);
+    });
+    reader.readAsDataURL(file);
+  }
+
+  async function handleCropConfirm() {
+    if (!imageSrc || !croppedAreaPixels || !originalFile) return;
+
+    setCropOpen(false);
     setUploading(true);
 
-    // Show an immediate local preview while compression/upload run in the background.
-    const localPreviewUrl = URL.createObjectURL(file);
-    setPreview(localPreviewUrl);
-    setImageError(false);
-
+    let croppedPreviewUrl = "";
     try {
-      const avatarUrl = await uploadAvatar(file);
+      const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
+      const croppedFile = new File([croppedBlob], originalFile.name, {
+        type: originalFile.type,
+      });
+
+      setSelectedFile({ name: croppedFile.name, size: croppedFile.size });
+
+      // Show an immediate local preview while upload runs in the background.
+      croppedPreviewUrl = URL.createObjectURL(croppedBlob);
+      setPreview(croppedPreviewUrl);
+      setImageError(false);
+
+      const avatarUrl = await uploadAvatar(croppedFile);
 
       if (avatarUrl) {
         setPreview(avatarUrl);
@@ -877,10 +919,23 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
       setUploading(false);
       setUploadProgress(null);
       setSelectedFile(null);
-      URL.revokeObjectURL(localPreviewUrl);
+      if (croppedPreviewUrl) {
+        URL.revokeObjectURL(croppedPreviewUrl);
+      }
+      setImageSrc("");
+      setOriginalFile(null);
       if (inputRef.current) {
         inputRef.current.value = "";
       }
+    }
+  }
+
+  function handleCropCancel() {
+    setCropOpen(false);
+    setImageSrc("");
+    setOriginalFile(null);
+    if (inputRef.current) {
+      inputRef.current.value = "";
     }
   }
 
@@ -1078,6 +1133,67 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
           </div>
         )}
       </div>
+
+      <Dialog
+        open={cropOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCropCancel();
+          }
+        }}
+      >
+        <DialogContent className="neu-border neu-shadow bg-cream sm:max-w-md text-black max-h-[90vh] flex flex-col p-6">
+          <DialogHeader>
+            <DialogTitle className="text-black">Crop Profile Picture</DialogTitle>
+          </DialogHeader>
+          <div className="relative h-64 w-full bg-black/10 mt-2 overflow-hidden">
+            {imageSrc && (
+              <Cropper
+                image={imageSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={(
+                  _,
+                  croppedPixels: { width: number; height: number; x: number; y: number },
+                ) => setCroppedAreaPixels(croppedPixels)}
+              />
+            )}
+          </div>
+          <div className="space-y-2 mt-4">
+            <div className="flex items-center justify-between text-xs font-mono font-bold">
+              <span>Zoom</span>
+              <span>{Math.round(zoom * 100)}%</span>
+            </div>
+            <Slider
+              min={1}
+              max={3}
+              step={0.1}
+              value={[zoom]}
+              onValueChange={(vals) => setZoom(vals[0])}
+              className="w-full py-2"
+            />
+          </div>
+          <DialogFooter className="mt-6 gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCropCancel}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={handleCropConfirm}
+            >
+              Crop & Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
