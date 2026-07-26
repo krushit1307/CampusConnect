@@ -18,7 +18,7 @@ export interface GlobalState {
 }
 
 const getInitialStoredTheme = (): "light" | "dark" | "system" => {
-  if (typeof window !== "undefined") {
+  if (typeof window !== "undefined" && typeof window.localStorage?.getItem === "function") {
     const stored = window.localStorage.getItem("campusconnect-theme");
     if (stored === "light" || stored === "dark" || stored === "system") {
       return stored;

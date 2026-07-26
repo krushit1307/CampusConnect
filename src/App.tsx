@@ -14,11 +14,71 @@ import {
 import Layout from "./components/Layout";
 import { ErrorBoundary, RouteErrorBoundary } from "./components/ErrorBoundary";
 import { PageWrapper } from "./components/PageWrapper";
-import { QueryClientProvider, queryClient } from "@/hooks/useReactQueryReplacement";
-import { CommandPalette } from "./components/ui/command-palette";
-import MaintenancePage from "./components/MaintenancePage";
+
+// Pages
+import Index from "./routes/index";
+import Auth from "./routes/auth";
+import Certificates from "./routes/certificates";
+import ClubsIndex from "./routes/clubs.index";
+import ClubDetails from "./routes/clubs.$slug";
+import ClubManageRoute from "./routes/clubs.$slug.manage";
+import ClubsLayout from "./routes/clubs";
+import Dashboard from "./routes/dashboard";
+import DashboardOverview from "./routes/dashboard.index";
+import DashboardRsvps from "./routes/dashboard.rsvps";
+import DashboardBookmarks from "./routes/dashboard.bookmarks";
+import DashboardCalendar from "./routes/dashboard.calendar";
+import Feed from "./routes/feed";
+import EventsMapPage from "./routes/events.map";
+import ForgotPassword from "./routes/forgot-password";
+import ResetPassword from "./routes/reset-password";
+import Settings from "./routes/settings";
+import VerifyEmail from "./routes/verify-email";
+import PendingClubsAdmin from "./routes/admin.clubs.pending";
+import AdminReportsPage from "./routes/admin.reports";
+import AdminUsersPage from "./routes/admin.users";
 import { NotFoundPage } from "./components/NotFoundPage";
 import { createClient } from "./lib/supabase/client";
+
+const HEALTH_CHECK_URL =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_HEALTH_URL) ||
+  (typeof process !== "undefined" && process.env?.REACT_APP_API_HEALTH_URL) ||
+  "/api/health";
+
+const HEALTH_CHECK_TIMEOUT = 8000; // 8 seconds
+
+interface HealthStatus {
+  ok: boolean;
+  error?: string;
+}
+
+async function checkDatabaseHealth(): Promise<HealthStatus> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT);
+
+    const response = await fetch(HEALTH_CHECK_URL, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+      cache: "no-store",
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: `Server responded with status ${response.status} (${response.statusText})`,
+      };
+    }
+
+    return { ok: true };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message };
+  }
+}
 
 // Lazy-loaded Routes / Pages
 const Index = lazy(() => import("./routes/index"));
@@ -39,9 +99,11 @@ const ForgotPassword = lazy(() => import("./routes/forgot-password"));
 const ResetPassword = lazy(() => import("./routes/reset-password"));
 const Settings = lazy(() => import("./routes/settings"));
 const VerifyEmail = lazy(() => import("./routes/verify-email"));
+const MessagesRoute = lazy(() => import("./routes/messages"));
 const PendingClubsAdmin = lazy(() => import("./routes/admin.clubs.pending"));
 const AdminReportsPage = lazy(() => import("./routes/admin.reports"));
 const ChallengeArena = lazy(() => import("./routes/challenge"));
+const EventDashboard = lazy(() => import("./routes/events.$eventId.dashboard"));
 const Leaderboard = lazy(() =>
   import("./components/Leaderboard").then((m) => ({ default: m.Leaderboard })),
 );
@@ -170,6 +232,7 @@ const router = createBrowserRouter(
             </Suspense>
           }
         />
+        <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
         {/* Events Map View with clustering */}
         <Route path="/events/map" element={<EventsMapPage />} />
         <Route path="/challenge" element={<ChallengeArena />} />
@@ -180,8 +243,10 @@ const router = createBrowserRouter(
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/messages" element={<MessagesRoute />} />
         <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
         <Route path="/admin/reports" element={<AdminReportsPage />} />
+        <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Route>,
@@ -225,7 +290,7 @@ export default function App() {
   const [dbStatus, setDbStatus] = useState<DbStatus>("checking");
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
 
     const verify = async () => {
       const isOnline = await checkDatabaseConnection();

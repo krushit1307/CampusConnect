@@ -1,6 +1,15 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Compass, Home, Search, Settings, ShieldAlert, User, Bookmark } from "lucide-react";
+import {
+  Calendar,
+  Compass,
+  Home,
+  Search,
+  Settings,
+  ShieldAlert,
+  User,
+  Bookmark,
+} from "lucide-react";
 
 export interface CommandPaletteProps {
   open?: boolean;
@@ -18,7 +27,7 @@ export function CommandPalette({ open: externalOpen, onOpenChange }: CommandPale
       setInternalOpen(value);
       onOpenChange?.(value);
     },
-    [onOpenChange]
+    [onOpenChange],
   );
 
   // Toggle palette with Cmd+K or Ctrl+K
@@ -55,7 +64,7 @@ export function CommandPalette({ open: externalOpen, onOpenChange }: CommandPale
   ];
 
   const filteredItems = navigationItems.filter((item) =>
-    item.label.toLowerCase().includes(query.toLowerCase())
+    item.label.toLowerCase().includes(query.toLowerCase()),
   );
 
   return (

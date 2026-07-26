@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/form";
 
 import { TagMultiSelect } from "@/components/ui/TagMultiSelect";
+import { DateTimePicker } from "@/components/DateTimePicker";
 
 interface EditEventDialogProps {
   event: EventDocument;
@@ -263,7 +264,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                     <FormItem>
                       <FormLabel required>Start date</FormLabel>
                       <FormControl>
-                        <Input type="datetime-local" {...field} />
+                        <DateTimePicker value={field.value} onChange={field.onChange} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -277,7 +278,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                     <FormItem>
                       <FormLabel required>End date</FormLabel>
                       <FormControl>
-                        <Input type="datetime-local" {...field} />
+                        <DateTimePicker value={field.value} onChange={field.onChange} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

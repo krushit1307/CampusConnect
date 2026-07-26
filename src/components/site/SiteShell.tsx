@@ -5,6 +5,7 @@ import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { Joyride } from "react-joyride";
 import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
+import { MobileBottomNav } from "./MobileBottomNav";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const JoyrideComponent = Joyride as any;
@@ -162,10 +163,11 @@ export function SiteShell({ children }: { children: ReactNode }) {
           confirmation link.
         </div>
       )}
-      <main id="main-content" tabIndex={-1} className="flex-1">
+      <main id="main-content" tabIndex={-1} className="flex-1 pb-16 md:pb-0">
         {children}
       </main>
       <Footer />
+      <MobileBottomNav />
     </div>
   );
 }

@@ -21,6 +21,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
 
   const { typingUsers, broadcastTyping } = useTypingIndicator(
     `discussion-post:${postId}`,
+    currentUser?.id ?? `anon-${postId}`,
     username,
   );
 
