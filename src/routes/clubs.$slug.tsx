@@ -5,13 +5,17 @@ import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import { parse } from "@/lib/markdown";
+import type { MarkdownNodeChild, HeadingNode } from "@/lib/markdown";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowLeft, Github, Loader2, CheckCircle, Flag } from "lucide-react";
 import { ReportDialog } from "@/components/ReportDialog";
+import { EmptyState } from "@/components/EmptyState";
+import { VideoPlayer } from "@/components/VideoPlayer";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -73,6 +77,34 @@ function getInitials(name: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/[\s_]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function extractText(children: React.ReactNode): string {
+  if (typeof children === "string") return children;
+  if (typeof children === "number") return String(children);
+  if (!children) return "";
+  if (Array.isArray(children)) return children.map(extractText).join("");
+  if (typeof children === "object" && "props" in children) {
+    const el = children as React.ReactElement<{ children?: React.ReactNode }>;
+    return extractText(el.props.children);
+  }
+  return "";
+}
+
+function extractAstText(children: MarkdownNodeChild[]): string {
+  return children
+    .map((child) => (typeof child === "string" ? child : extractAstText(child.children ?? [])))
+    .join("");
 }
 
 // Mimics the club header + events/members layout below while data is fetched
@@ -140,6 +172,47 @@ export default function ClubProfile() {
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
   const [joinSuccess, setJoinSuccess] = useState(false);
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+
+  const handleTocClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+    e.preventDefault();
+    const target = document.getElementById(id);
+    if (!target) return;
+    const offset = 64;
+    const y = target.getBoundingClientRect().top + window.scrollY - offset;
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: y, behavior: prefersReduced ? "auto" : "smooth" });
+    history.pushState(null, "", `#${id}`);
+  }, []);
+
+  const mdComponents = useMemo(
+    () => ({
+      h1: ({
+        children,
+        ...props
+      }: React.HTMLAttributes<HTMLHeadingElement> & { children?: React.ReactNode }) => (
+        <h1 id={slugify(extractText(children))} {...props}>
+          {children}
+        </h1>
+      ),
+      h2: ({
+        children,
+        ...props
+      }: React.HTMLAttributes<HTMLHeadingElement> & { children?: React.ReactNode }) => (
+        <h2 id={slugify(extractText(children))} {...props}>
+          {children}
+        </h2>
+      ),
+      h3: ({
+        children,
+        ...props
+      }: React.HTMLAttributes<HTMLHeadingElement> & { children?: React.ReactNode }) => (
+        <h3 id={slugify(extractText(children))} {...props}>
+          {children}
+        </h3>
+      ),
+    }),
+    [],
+  );
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -211,6 +284,19 @@ export default function ClubProfile() {
       toast.error("Failed to leave club. Please try again.");
     },
   });
+
+  const headings = useMemo(() => {
+    if (!club?.description) return [];
+    const ast = parse(club.description);
+    return ast.children
+      .filter((node): node is HeadingNode => node.type === "heading" && node.depth <= 3)
+      .map((node) => ({
+        id: slugify(extractAstText(node.children)),
+        text: extractAstText(node.children),
+        depth: node.depth,
+      }))
+      .filter((h) => h.id);
+  }, [club?.description]);
 
   if (isLoading) return <ClubProfileSkeleton />;
   if (!club)
@@ -322,7 +408,30 @@ export default function ClubProfile() {
               )}
             </div>
             <div className="markdown-content mt-4 max-w-2xl font-mono text-sm md:text-base leading-relaxed border-b-2 border-black pb-6">
-              <ReactMarkdown>{club.description || ""}</ReactMarkdown>
+              {headings.length > 1 && (
+                <nav
+                  className="mb-4 border-2 border-black bg-cream p-4"
+                  aria-label="Table of contents"
+                >
+                  <p className="font-bold text-xs uppercase tracking-wider mb-2">
+                    Table of Contents
+                  </p>
+                  <ul className="space-y-1">
+                    {headings.map((h) => (
+                      <li key={h.id} style={{ paddingLeft: (h.depth - 1) * 16 }}>
+                        <a
+                          href={`#${h.id}`}
+                          onClick={(e) => handleTocClick(e, h.id)}
+                          className="text-blue-900 underline hover:text-black"
+                        >
+                          {h.text}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+              )}
+              <ReactMarkdown components={mdComponents}>{club.description || ""}</ReactMarkdown>
             </div>
 
             {club.promo_video_url && (
@@ -331,13 +440,8 @@ export default function ClubProfile() {
                   Featured Club Promo
                 </h3>
                 <div className="neu-border bg-black aspect-video mt-4 overflow-hidden">
-                  <video
-                    src={club.promo_video_url}
-                    controls
-                    className="w-full h-full object-cover"
-                    preload="metadata"
-                  />
-                </div>
+                  <VideoPlayer src={club.promo_video_url} title="Club Promo" />
+                </div>{" "}
               </div>
             )}
 
@@ -348,7 +452,11 @@ export default function ClubProfile() {
                 {memberList.length} members total
               </p>
               {memberList.length === 0 ? (
-                <p className="font-mono text-sm text-black">No members yet.</p>
+                <EmptyState
+                  illustration="no-members"
+                  title="No members yet."
+                  description="Be the first to join this club and help it grow."
+                />
               ) : (
                 <>
                   <div className="mb-4">
@@ -362,7 +470,12 @@ export default function ClubProfile() {
                     />
                   </div>
                   {filteredMembers.length === 0 ? (
-                    <p className="font-mono text-sm text-gray-700">No members match your search.</p>
+                    <EmptyState
+                      size="sm"
+                      bordered={false}
+                      illustration="no-results"
+                      title="No members match your search."
+                    />
                   ) : (
                     <>
                       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -542,7 +655,12 @@ export default function ClubProfile() {
                 Upcoming events
               </h2>
               {events.length === 0 ? (
-                <p className="font-mono text-sm text-black">No upcoming events.</p>
+                <EmptyState
+                  bordered={false}
+                  illustration="no-events"
+                  title="No upcoming events."
+                  description="Check back soon — this club hasn't scheduled anything yet."
+                />
               ) : (
                 <ul className="divide-y-2 divide-black">
                   {events.map((e: ClubEvent) => (

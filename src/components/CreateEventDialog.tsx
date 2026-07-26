@@ -33,25 +33,13 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
-import { FlyerUploader } from "@/components/FlyerUploader";
-import type { ParsedFlyer } from "@/lib/parser";
-
-const STEPS = [
-  { label: "Details" },
-  { label: "Logistics" },
-  { label: "FAQs" },
-  { label: "Review" },
-] as const;
-
-type Step = 0 | 1 | 2 | 3;
-
-const STEP_FIELDS: Record<Step, (keyof EventFormValues)[]> = {
-  0: ["title", "description"],
-  1: ["startDate", "endDate", "location"],
-  2: [],
-  3: [],
-};
+// Define an extended interface locally to handle the extra location field safely
+interface LocalEventFormValues extends EventFormValues {
+  location?: string;
+  requiresApproval?: boolean;
+}
 
 const defaultValues: EventFormValues = {
   title: "",
@@ -59,7 +47,7 @@ const defaultValues: EventFormValues = {
   location: "",
   startDate: "",
   endDate: "",
-  faqs: [],
+  requiresApproval: false,
 };
 
 const DRAFT_KEY = "event_draft";
@@ -77,7 +65,14 @@ function hasDraftContent(values: EventFormValues): boolean {
   );
 }
 
-export function CreateEventDialog({ user }: { user: User | null }) {
+export function CreateEventDialog({
+  user,
+  variant = "default",
+}: {
+  user: User | null;
+  /** "fab" renders a compact circular icon-only trigger for use inside ScrollAwareFab (#1232) */
+  variant?: "default" | "fab";
+}) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>(0);
   const supabase = createClient();
@@ -139,7 +134,8 @@ export function CreateEventDialog({ user }: { user: User | null }) {
         // read event_date (e.g. EventCard, event ordering) keep working.
         event_date: startDateIso,
         created_by: user.id,
-        faqs: values.faqs && values.faqs.length > 0 ? values.faqs : [],
+        club_id: myClub.id,
+        requires_approval: values.requiresApproval || false,
       });
 
       if (error) {
@@ -253,13 +249,23 @@ export function CreateEventDialog({ user }: { user: User | null }) {
       }}
     >
       <DialogTrigger asChild>
-        <button
-          type="button"
-          className="neu-border neu-press flex items-center gap-2 bg-teal-500 px-4 py-2 font-mono text-xs font-bold uppercase text-black"
-        >
-          <Plus className="h-4 w-4" />
-          Create event
-        </button>
+        {variant === "fab" ? (
+          <button
+            type="button"
+            aria-label="Create event"
+            className="neu-border neu-press flex h-14 w-14 items-center justify-center rounded-full bg-teal-500 text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+          >
+            <Plus className="h-6 w-6" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="neu-border neu-press flex items-center gap-2 bg-teal-500 px-4 py-2 font-mono text-xs font-bold uppercase text-black"
+          >
+            <Plus className="h-4 w-4" />
+            Create event
+          </button>
+        )}
       </DialogTrigger>
       <DialogContent className="neu-border neu-shadow bg-cream sm:max-w-md text-black">
         <DialogHeader>
@@ -333,6 +339,49 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="tags"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-mono text-xs font-bold uppercase text-black">
+                        Event Tags
+                      </FormLabel>
+                      <FormControl>
+                        <TagMultiSelect
+                          value={field.value || []}
+                          onChange={field.onChange}
+                          placeholder="Select or type event tags (e.g. #Tech, #Career)..."
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="isPrivate"
+                  render={({ field }) => (
+                    <FormItem className="neu-border flex items-center justify-between bg-white p-3 shadow-none">
+                      <div className="space-y-0.5">
+                        <FormLabel className="cursor-pointer font-mono text-xs font-bold uppercase text-black">
+                          Private Event (Members Only)
+                        </FormLabel>
+                        <p className="text-[11px] text-black/60">
+                          Restrict visibility to approved members of the hosting club.
+                        </p>
+                      </div>
+                      <FormControl>
+                        <input
+                          type="checkbox"
+                          checked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                          className="h-4 w-4 rounded border-2 border-black accent-teal-500 cursor-pointer"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
               </>
             )}
 
@@ -368,6 +417,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                       src={`https://maps.google.com/maps?q=${encodeURIComponent(watchedLocation)}&output=embed`}
                       title="Location preview"
                     />
+
                     <a
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(watchedLocation)}`}
                       target="_blank"
@@ -468,9 +518,52 @@ export function CreateEventDialog({ user }: { user: User | null }) {
               </>
             )}
 
-            {/* Step 3 — FAQs (optional) */}
+            {/* Step 3 — Media & Ticketing */}
             {step === 2 && (
-              <div className="space-y-4">
+              <div className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="banner"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Banner Image</FormLabel>
+                      <ImageCropUpload
+                        aspect={16 / 9}
+                        bucket="event-banners"
+                        value={field.value || undefined}
+                        onUploaded={(url) => field.onChange(url, { shouldValidate: true })}
+                        hint="JPEG, PNG or WEBP · Max 5 MB · 16:9 crop"
+                      />
+                      <p className="mt-1 text-xs text-black/50">Or paste a URL directly:</p>
+                      <FormControl>
+                        <Input
+                          placeholder="https://example.com/banner.png"
+                          {...field}
+                          value={field.value ?? ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="capacity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ticket Capacity</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={1} placeholder="e.g. 100" {...field} />
+                      </FormControl>
+                      <p className="mt-1 text-xs text-black/50">
+                        Max number of attendees (optional, leave blank for unlimited)
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <p className="font-mono text-xs font-bold text-black/50 uppercase">
                   Add frequently asked questions (optional)
                 </p>
@@ -533,64 +626,30 @@ export function CreateEventDialog({ user }: { user: User | null }) {
               </div>
             )}
 
-            {/* Step 4 — Review (confirm) */}
-            {step === 3 && (
-              <div className="neu-border space-y-3 bg-white p-4 font-mono text-sm">
-                <p className="font-bold uppercase text-black/50 text-xs">Review your event</p>
-                <div>
-                  <p className="text-xs text-black/40">Title</p>
-                  <p className="font-bold">{form.getValues("title")}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-black/40">Description</p>
-                  <p className="text-black/80">{form.getValues("description")}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-black/40">Location</p>
-                  <p>{form.getValues("location") || "—"}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <p className="text-xs text-black/40">Start</p>
-                    <p>{startDateStr ? format(parsedStart!, "MMM dd, y HH:mm") : "—"}</p>
+            <FormField
+              control={form.control}
+              name="requiresApproval"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-white p-4 shadow-sm">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="font-bold cursor-pointer">
+                      Requires Manual Approval
+                    </FormLabel>
+                    <p className="text-xs text-black/50">
+                      Organizers must manually approve attendee RSVPs.
+                    </p>
                   </div>
-                  <div>
-                    <p className="text-xs text-black/40">End</p>
-                    <p>{endDateStr ? format(parsedEnd!, "MMM dd, y HH:mm") : "—"}</p>
-                  </div>
-                </div>
-                {form.getValues("faqs") && form.getValues("faqs").length > 0 && (
-                  <div>
-                    <p className="text-xs text-black/40">FAQs</p>
-                    <p className="font-bold">{form.getValues("faqs").length} question(s)</p>
-                  </div>
-                )}
-              </div>
-            )}
+                </FormItem>
+              )}
+            />
 
-            <DialogFooter className="flex gap-2 pt-2">
-              {step > 0 && (
-                <Button type="button" variant="outline" onClick={handleBack} className="flex-1">
-                  Back
-                </Button>
-              )}
-              {step < 3 ? (
-                <Button
-                  type="button"
-                  onClick={handleNext}
-                  className="flex-1 bg-black text-cream hover:bg-black/80"
-                >
-                  Next →
-                </Button>
-              ) : (
-                <Button
-                  type="submit"
-                  disabled={createEvent.isPending}
-                  className="flex-1 bg-black text-cream hover:bg-black/80"
-                >
-                  {createEvent.isPending ? "Creating..." : "Create event"}
-                </Button>
-              )}
+            <DialogFooter className="pt-2">
+              <Button type="submit" disabled={createEvent.isPending} className="w-full sm:w-auto">
+                {createEvent.isPending ? "Creating..." : "Create event"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

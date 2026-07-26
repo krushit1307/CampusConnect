@@ -3,6 +3,8 @@ import { Star } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
+import { useHover } from "@/hooks/useHover";
+import { useFocusWithin } from "@/hooks/useFocusWithin";
 import { User } from "@supabase/supabase-js";
 
 interface EventFeedbackFormProps {
@@ -10,7 +12,52 @@ interface EventFeedbackFormProps {
   user: User | null;
 }
 
-export function EventFeedbackForm({ eventId, user }: EventFeedbackFormProps) {
+interface StarButtonProps {
+  star: number;
+  isFilled: boolean;
+  onSelect: (star: number) => void;
+  onHoverChange: (star: number) => void;
+}
+
+/**
+ * Single star button. Reads hover and keyboard-focus state via useHover /
+ * useFocusWithin instead of inline onMouseEnter/onMouseLeave handlers,
+ * treating keyboard accessibility with the same priority as mouse hover.
+ * (#1234)
+ */
+function StarButton({ star, isFilled, onSelect, onHoverChange }: StarButtonProps) {
+  const [hoverRef, isHovered] = useHover<HTMLButtonElement>();
+  const [focusRef, isFocused] = useFocusWithin<HTMLButtonElement>();
+
+  const isActive = isHovered || isFocused;
+
+  React.useEffect(() => {
+    onHoverChange(isActive ? star : 0);
+    // Only this star's own hover/focus state should trigger an update —
+    // onHoverChange/star intentionally omitted to avoid needless re-runs.
+  }, [isActive]);
+
+  return (
+    <button
+      ref={(node) => {
+        hoverRef.current = node;
+        focusRef.current = node;
+      }}
+      type="button"
+      className="focus:outline-none transition-transform hover:scale-110"
+      onClick={() => onSelect(star)}
+    >
+      <Star
+        size={32}
+        className={`${
+          isFilled ? "text-brand-orange-base fill-brand-orange-base" : "text-gray-400"
+        } transition-colors`}
+      />
+    </button>
+  );
+}
+
+export default function EventFeedbackForm({ eventId, user }: EventFeedbackFormProps) {
   const supabase = createClient();
   const [rating, setRating] = useState<number>(0);
   const [hoverRating, setHoverRating] = useState<number>(0);
@@ -112,23 +159,13 @@ export function EventFeedbackForm({ eventId, user }: EventFeedbackFormProps) {
         </label>
         <div className="flex gap-1">
           {[1, 2, 3, 4, 5].map((star) => (
-            <button
+            <StarButton
               key={star}
-              type="button"
-              className="focus:outline-none transition-transform hover:scale-110"
-              onMouseEnter={() => setHoverRating(star)}
-              onMouseLeave={() => setHoverRating(0)}
-              onClick={() => setRating(star)}
-            >
-              <Star
-                size={32}
-                className={`${
-                  star <= (hoverRating || rating)
-                    ? "text-brand-orange-base fill-brand-orange-base"
-                    : "text-gray-400"
-                } transition-colors`}
-              />
-            </button>
+              star={star}
+              isFilled={star <= (hoverRating || rating)}
+              onSelect={setRating}
+              onHoverChange={setHoverRating}
+            />
           ))}
         </div>
       </div>

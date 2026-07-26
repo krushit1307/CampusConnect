@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
+import { toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { createClient } from "@/lib/supabase/client";
@@ -54,8 +55,30 @@ export default function Layout() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setUserId(session?.user?.id || null);
+
+      if (event === "SIGNED_IN" && session) {
+        const checkedKey = `device_checked_${session.user.id}`;
+        if (!sessionStorage.getItem(checkedKey)) {
+          supabase.functions
+            .invoke("device-fingerprint-alert", {
+              headers: {
+                Authorization: `Bearer ${session.access_token}`,
+              },
+            })
+            .then(({ data, error }) => {
+              if (!error && data?.isNewDevice) {
+                toast.warning(
+                  `New Login Detected: Unrecognized device (${data.browser} on ${data.os}). We sent you a security email alert.`,
+                );
+              }
+              if (!error) {
+                sessionStorage.setItem(checkedKey, "true");
+              }
+            });
+        }
+      }
     });
 
     return () => {

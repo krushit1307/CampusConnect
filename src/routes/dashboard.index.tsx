@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import TrendingCarousel from "@/components/Clubs/TrendingCarousel";
 import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/DashboardWidgetSkeleton";
-import { SandboxedWidget } from "@/components/SandboxedWidget";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 interface SavedEventDetails {
@@ -85,7 +84,10 @@ function formatRelativeActivityTime(dateString: string): string {
 // resolve faster than this never trigger it — the widgets' own skeletons
 // (WidgetListSkeleton / TrendingCarouselSkeleton) cover that case instead.
 const PROGRESS_REVEAL_DELAY_MS = 250;
-
+// Simulated progress never crosses this ceiling on its own — the analytics
+// queries (backed by club_analytics_mat_view and friends) don't report real
+// byte-level progress, so we ease toward "almost done" and only jump to 100%
+// once the data has actually arrived.
 const PROGRESS_SOFT_CEILING = 90;
 const PROGRESS_TICK_MS = 200;
 
@@ -386,6 +388,9 @@ export default function DashboardOverview() {
 
   const colors = ["bg-lime", "bg-sky", "bg-peach"];
 
+  // Combined loading state for every analytics-backed widget below (trending
+  // clubs, your clubs, upcoming/saved events, recent activity). Profile isn't
+  // included since it's a single-row lookup, not one of the slow views.
   const isAnalyticsLoading =
     isTrendingLoading || isClubsLoading || isUpcomingLoading || isSavedLoading || isActivityLoading;
 
@@ -534,28 +539,33 @@ export default function DashboardOverview() {
               No upcoming events yet.
             </p>
           ) : (
-            <ul className="divide-y-2 divide-black">
+            <ul className="space-y-3">
               {upcomingEvents.map((r, i) => {
                 const e = r;
                 const c = Array.isArray(r.clubs) ? r.clubs[0] : r.clubs;
                 return (
-                  <li key={r.id} className="flex items-center gap-4 py-4">
-                    <div
-                      className={`neu-border ${colors[i % colors.length]} shrink-0 px-3 py-2 text-center font-mono text-xs font-bold`}
+                  <li key={r.id}>
+                    <Link
+                      to={`/events/${e.id}`}
+                      className="neu-border group flex items-center gap-4 bg-white p-3 shadow-[2px_2px_0_0_#000] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.015] hover:shadow-[6px_6px_0_0_#000]"
                     >
-                      {e?.event_date
-                        ? new Date(e.event_date)
-                            .toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                            .toUpperCase()
-                        : "TBA"}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-display text-lg font-bold">{e?.title}</p>
-                      <p className="font-mono text-xs">{c?.name}</p>
-                    </div>
-                    <span className="neu-border shrink-0 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase">
-                      RSVP'd
-                    </span>
+                      <div
+                        className={`neu-border ${colors[i % colors.length]} shrink-0 px-3 py-2 text-center font-mono text-xs font-bold transition-transform duration-300 group-hover:scale-105`}
+                      >
+                        {e?.event_date
+                          ? new Date(e.event_date)
+                              .toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                              .toUpperCase()
+                          : "TBA"}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-display text-lg font-bold">{e?.title}</p>
+                        <p className="font-mono text-xs">{c?.name}</p>
+                      </div>
+                      <span className="neu-border shrink-0 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors duration-300 group-hover:bg-lime">
+                        RSVP'd
+                      </span>
+                    </Link>
                   </li>
                 );
               })}
@@ -575,7 +585,7 @@ export default function DashboardOverview() {
               No saved events yet.
             </p>
           ) : (
-            <ul className="divide-y-2 divide-black">
+            <ul className="space-y-3">
               {savedEvents.map((item: DashboardSavedEvent, i) => {
                 const rawEvent = item.events;
                 if (!rawEvent) return null;
@@ -583,20 +593,25 @@ export default function DashboardOverview() {
                 if (!e) return null;
                 const c = Array.isArray(e.clubs) ? e.clubs[0] : e.clubs;
                 return (
-                  <li key={item.id} className="flex items-center gap-4 py-4">
-                    <div
-                      className={`neu-border ${colors[i % colors.length]} shrink-0 px-3 py-2 text-center font-mono text-xs font-bold`}
+                  <li key={item.id}>
+                    <Link
+                      to={`/events/${e.id}`}
+                      className="neu-border group flex items-center gap-4 bg-white p-3 shadow-[2px_2px_0_0_#000] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.015] hover:shadow-[6px_6px_0_0_#000]"
                     >
-                      {e?.event_date
-                        ? new Date(e.event_date)
-                            .toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                            .toUpperCase()
-                        : "TBA"}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-display text-lg font-bold">{e?.title}</p>
-                      <p className="font-mono text-xs">{c?.name}</p>
-                    </div>
+                      <div
+                        className={`neu-border ${colors[i % colors.length]} shrink-0 px-3 py-2 text-center font-mono text-xs font-bold transition-transform duration-300 group-hover:scale-105`}
+                      >
+                        {e?.event_date
+                          ? new Date(e.event_date)
+                              .toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                              .toUpperCase()
+                          : "TBA"}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-display text-lg font-bold">{e?.title}</p>
+                        <p className="font-mono text-xs">{c?.name}</p>
+                      </div>
+                    </Link>
                   </li>
                 );
               })}
@@ -639,33 +654,6 @@ export default function DashboardOverview() {
             </ul>
           )}
         </Widget>
-      </ErrorBoundary>
-
-      <ErrorBoundary
-        fallback={<WidgetError title="Custom Plugin" />}
-      >
-        <SandboxedWidget
-          title="Custom Dashboard Widget (Plugin Demo)"
-          bundleCode={`
-          const App = () => {
-            const [theme, setTheme] = React.useState('light');
-            React.useEffect(() => {
-              window.CampusConnect.getTheme().then(setTheme);
-            }, []);
-            return React.createElement('div', { 
-              style: { padding: '20px', textAlign: 'center', borderRadius: '8px', border: '2px dashed #ccc' } 
-            }, 
-              React.createElement('h3', null, 'Hello from Third-Party Plugin!'),
-              React.createElement('p', null, 'This is a securely sandboxed React component executing inside an iframe.'),
-              React.createElement('p', null, 'Current Theme from Parent RPC: ' + theme)
-            );
-          };
-          const root = ReactDOM.createRoot(document.getElementById('root'));
-          root.render(React.createElement(App));
-        `}
-          className="lg:col-span-3 mb-4"
-          height={200}
-        />
       </ErrorBoundary>
 
       <ErrorBoundary

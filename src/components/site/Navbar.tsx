@@ -114,11 +114,11 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 border-b-2 border-black bg-white text-black dark:border-cream dark:bg-black dark:text-cream">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-3 sm:px-4 md:px-6 min-w-0">
+      <div className="mx-auto flex min-w-0 max-w-7xl items-center justify-between gap-2 px-2 py-3 sm:px-4 md:px-6">
         {/* Logo */}
         <Link
           to="/"
-          className="shrink-0 min-w-0 font-display text-sm font-bold sm:text-xl md:text-2xl navbar-logo"
+          className="min-w-0 flex-1 truncate font-display text-sm font-bold sm:flex-none sm:text-xl md:text-2xl navbar-logo"
         >
           <span style={{ letterSpacing: "0.04em" }}>CAMPUS</span>
           <span className="bg-black px-1 text-cream dark:bg-cream dark:text-black">CONNECT</span>
@@ -133,6 +133,7 @@ export function Navbar() {
               <Link
                 key={link.to}
                 to={link.to}
+                id={`nav-link-${link.label.toLowerCase()}`}
                 className={`font-mono text-sm font-bold uppercase hover:underline ${
                   isActive ? "underline underline-offset-4 decoration-2" : ""
                 }`}
@@ -155,10 +156,51 @@ export function Navbar() {
 
             {user && <NavbarNotificationDropdown />}
             {user ? (
-              <UserDropdown user={user} onSignOut={handleSignOut} />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="User menu"
+                    className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-lime font-mono text-xs font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 dark:focus-visible:ring-cream"
+                  >
+                    {user.email?.[0]?.toUpperCase() ?? "U"}
+                  </button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end" className="w-56">
+                  {/* Email */}
+                  <DropdownMenuLabel className="break-all text-xs">{user.email}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+
+                  {/* Dashboard */}
+                  <DropdownMenuItem asChild>
+                    <Link to="/dashboard">Dashboard</Link>
+                  </DropdownMenuItem>
+
+                  {/* Messages */}
+                  <DropdownMenuItem asChild>
+                    <Link to="/messages">Messages</Link>
+                  </DropdownMenuItem>
+
+                  {/* Settings */}
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings">Settings</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+
+                  {/* Sign Out */}
+                  <DropdownMenuItem
+                    onClick={handleSignOut}
+                    className="cursor-pointer text-red-600 focus:text-red-600"
+                  >
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <Link
                 to="/auth"
+                id="nav-signin-button"
                 className="neu-border neu-press bg-black px-3 py-1.5 font-mono text-xs font-bold uppercase text-cream hover:bg-cream hover:text-black dark:bg-cream dark:text-black dark:hover:bg-black dark:hover:text-cream"
                 style={{ letterSpacing: "0.08em" }}
               >
