@@ -6,7 +6,8 @@ import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
-import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
+import { formatEventDateRange } from "@/lib/utils";
+import { downloadIcs, getGoogleCalendarUrl } from "@/lib/calendarUtils";
 import { formatStandardDate } from "@/utils/dateUtils";
 import { toast } from "sonner";
 import { ShareMenu } from "@/components/ui/ShareMenu";
@@ -59,6 +60,12 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface SimilarEventItem {
   id: string;
@@ -888,16 +895,38 @@ export default function EventDetailsPage() {
               </Button>
             )}
 
-            {hasRsvpd && googleCalendarUrl && (
-              <a
-                href={googleCalendarUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="neu-border bg-white h-12 px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
-              >
-                <Calendar aria-hidden="true" size={16} strokeWidth={2.5} />
-                Add to Calendar
-              </a>
+            {googleCalendarUrl && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="neu-border h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Add to Calendar
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="neu-border font-mono text-sm">
+                  <DropdownMenuItem asChild>
+                    <a
+                      href={googleCalendarUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <Calendar className="h-4 w-4" />
+                      Google Calendar
+                    </a>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => downloadIcs(event)}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download .ics
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
 
             {user && !isOrganizer && (
