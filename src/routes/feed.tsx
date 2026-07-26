@@ -1,4 +1,5 @@
 import { FeedPostSkeleton } from "@/components/FeedPostSkeleton";
+import { CommentThreadSkeleton } from "@/components/Feed/CommentSkeleton";
 import { useMutation, useQuery, useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import type { User } from "@supabase/supabase-js";
 import {
@@ -126,6 +127,12 @@ export default function Feed() {
   );
   const [reportReason, setReportReason] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  // Track which post comment sections are expanded; comments are fetched lazily on first expand
+  const [expandedPostIds, setExpandedPostIds] = useState<Set<string>>(new Set());
+  // Track per-post comment loading state (true while the first lazy fetch is in-flight)
+  const [loadingCommentPostIds, setLoadingCommentPostIds] = useState<Set<string>>(new Set());
+  // Cache of lazily-fetched comment threads keyed by postId
+  const [lazyComments, setLazyComments] = useState<Record<string, Comment[]>>({});
 
   // Attached Image States
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -282,6 +289,52 @@ export default function Feed() {
     refetchPosts();
   }, [refetchPosts]);
 
+  /** Fetch (or re-fetch) comments for a post and store them in lazyComments. */
+  const fetchCommentsForPost = useCallback(
+    (postId: string) => {
+      setLoadingCommentPostIds((ids) => new Set([...ids, postId]));
+      supabase
+        .from("comments")
+        .select(
+          "id, content, created_at, deleted_at, parent_id, parent_comment_id, profiles (id, full_name, handle)",
+        )
+        .eq("post_id", postId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true })
+        .then(({ data, error }) => {
+          if (!error && data) {
+            setLazyComments((c) => ({ ...c, [postId]: data as Comment[] }));
+          }
+          setLoadingCommentPostIds((ids) => {
+            const next = new Set(ids);
+            next.delete(postId);
+            return next;
+          });
+        });
+    },
+    [supabase],
+  );
+
+  /** Toggle a post's comment section. On first open, lazily fetches the full thread. */
+  const toggleComments = useCallback(
+    (postId: string) => {
+      setExpandedPostIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(postId)) {
+          next.delete(postId);
+        } else {
+          next.add(postId);
+          // Only fetch if not already cached
+          if (!lazyComments[postId]) {
+            fetchCommentsForPost(postId);
+          }
+        }
+        return next;
+      });
+    },
+    [fetchCommentsForPost, lazyComments],
+  );
+
   useEffect(() => {
     const channel = supabase
       .channel("realtime_feed")
@@ -296,7 +349,17 @@ export default function Feed() {
         }
         refetchPosts();
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, (payload) => {
+        // Bust the lazy cache for the affected post so the next expand re-fetches fresh data
+        const postId = (payload.new as { post_id?: string })?.post_id
+          ?? (payload.old as { post_id?: string })?.post_id;
+        if (postId) {
+          setLazyComments((prev) => {
+            const next = { ...prev };
+            delete next[postId];
+            return next;
+          });
+        }
         refetchPosts();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "post_reactions" }, () => {
@@ -447,7 +510,15 @@ export default function Feed() {
         setNewComments((prev) => ({ ...prev, [postId]: "" }));
       }
     },
-    onSuccess: () => refetchPosts(),
+    onSuccess: (_data, variables) => {
+      // Bust the lazy cache for this post so the new comment appears on re-fetch
+      setLazyComments((prev) => {
+        const next = { ...prev };
+        delete next[variables.postId];
+        return next;
+      });
+      refetchPosts();
+    },
     onError: (error) => {
       toast.error(error.message || "Failed to post comment. Please try again.");
     },
@@ -544,12 +615,18 @@ export default function Feed() {
   });
 
   const deleteCommentMutation = useMutation({
-    mutationFn: async (commentId: string) => {
+    mutationFn: async ({ commentId }: { commentId: string; postId: string }) => {
       if (!user) throw new Error("Must be logged in");
       const { error } = await supabase.from("comments").delete().eq("id", commentId);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      // Bust the lazy cache for this post so the deleted comment disappears
+      setLazyComments((prev) => {
+        const next = { ...prev };
+        delete next[variables.postId];
+        return next;
+      });
       refetchPosts();
       toast.success("Comment deleted successfully!");
     },
@@ -849,9 +926,18 @@ export default function Feed() {
 
                   const authorRole = (authorMembership?.role ?? "member") as MemberRole;
 
-                  const postComments: Comment[] = Array.isArray(post.comments)
-                    ? post.comments.filter((c) => !c.deleted_at)
-                    : [];
+                  // Prefer lazily-fetched comments (full thread); fall back to the embedded
+                  // snapshot that comes with the post query while the lazy fetch is pending.
+                  const postComments: Comment[] = (
+                    lazyComments[post.id] !== undefined
+                      ? lazyComments[post.id]
+                      : Array.isArray(post.comments)
+                        ? (post.comments as Comment[])
+                        : []
+                  ).filter((c) => !c.deleted_at);
+
+                  const isCommentsLoading = loadingCommentPostIds.has(post.id);
+                  const isCommentsExpanded = expandedPostIds.has(post.id);
 
                   if (optimisticDeletedIds.includes(post.id)) return null;
 
@@ -1067,11 +1153,32 @@ export default function Feed() {
                       </div>
 
                       <div className="mt-4 space-y-3 border-t-2 border-black pt-4">
-                        <h3 className="mb-4 flex items-center gap-2 font-mono text-xs font-bold uppercase">
-                          <MessageSquareText size={16} /> Comments ({postComments.length})
-                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => toggleComments(post.id)}
+                          className="mb-4 flex w-full items-center gap-2 font-mono text-xs font-bold uppercase hover:underline focus:outline-none"
+                          aria-expanded={isCommentsExpanded}
+                          aria-controls={`comments-${post.id}`}
+                        >
+                          <MessageSquareText size={16} />
+                          Comments ({postComments.length})
+                          <span className="ml-auto font-mono text-[10px] text-gray-400">
+                            {isCommentsExpanded ? "▲ hide" : "▼ show"}
+                          </span>
+                        </button>
 
-                        <div className="space-y-4 pl-4">
+                        {/* Skeleton — shown while the lazy comment fetch is in-flight */}
+                        {isCommentsExpanded && isCommentsLoading && (
+                          <div className="pl-4">
+                            <CommentThreadSkeleton count={3} />
+                          </div>
+                        )}
+
+                        <div
+                          id={`comments-${post.id}`}
+                          className="space-y-4 pl-4"
+                          hidden={!isCommentsExpanded || isCommentsLoading}
+                        >
                           {(() => {
                             type CommentNode = Comment & { children: CommentNode[] };
 
@@ -1173,7 +1280,10 @@ export default function Feed() {
                                                 </AlertDialogCancel>
                                                 <AlertDialogAction
                                                   onClick={() =>
-                                                    deleteCommentMutation.mutate(commentNode.id)
+                                                    deleteCommentMutation.mutate({
+                                                      commentId: commentNode.id,
+                                                      postId,
+                                                    })
                                                   }
                                                   className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
                                                 >
@@ -1292,7 +1402,7 @@ export default function Feed() {
                           })()}
                         </div>
 
-                        <div className="flex gap-2">
+                        <div className="flex gap-2" hidden={!isCommentsExpanded}>
                           <input
                             value={newComments[post.id] || ""}
                             onChange={(event) =>
