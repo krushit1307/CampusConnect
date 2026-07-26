@@ -1,6 +1,7 @@
 import { FeedPostSkeleton } from "@/components/FeedPostSkeleton";
 import { CommentThreadSkeleton } from "@/components/Feed/CommentSkeleton";
 import { useMutation, useQuery, useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
+import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import type { User } from "@supabase/supabase-js";
 import {
   Link2,
@@ -272,6 +273,14 @@ export default function Feed() {
   });
 
   const isActiveFeedLoading = feedMode === "latest" ? isLoading : isTrendingLoading;
+
+  const parentRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useWindowVirtualizer({
+    count: filteredPosts.length,
+    estimateSize: () => 300,
+    overscan: 5,
+    scrollMargin: parentRef.current?.offsetTop ?? 0,
+  });
 
   const postsRef = useRef(posts);
   const userRef = useRef(user);
@@ -912,8 +921,17 @@ export default function Feed() {
                 </div>
               </div>
             ) : (
-              <>
-                {filteredPosts.map((post: Post) => {
+              <div
+                ref={parentRef}
+                style={{
+                  height: `${rowVirtualizer.getTotalSize()}px`,
+                  width: "100%",
+                  position: "relative",
+                }}
+              >
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const post = filteredPosts[virtualRow.index];
+                  if (!post) return null;
                   const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
                   const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
                   const clubMembers: ClubMember[] = Array.isArray(club?.club_members)
@@ -947,6 +965,15 @@ export default function Feed() {
                     <article
                       id={`post-${post.id}`}
                       key={post.id}
+                      data-index={virtualRow.index}
+                      ref={rowVirtualizer.measureElement}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        transform: `translateY(${virtualRow.start - rowVirtualizer.options.scrollMargin}px)`,
+                      }}
                       className={`neu-border p-6 ${
                         post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
                       }`}
@@ -1432,7 +1459,7 @@ export default function Feed() {
                     </article>
                   );
                 })}
-              </>
+              </div>
             )}
 
             {hasNextPage && feedMode === "latest" && (
