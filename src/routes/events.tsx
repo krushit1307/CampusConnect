@@ -74,7 +74,7 @@ export default function EventsPage() {
   const [sortLoaded, setSortLoaded] = useState(false);
   const [hidePastEvents, setHidePastEvents] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-
+  const confettiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     dateRange: "all",
     categories: [],
@@ -127,6 +127,13 @@ export default function EventsPage() {
     if (!sortLoaded) return;
     sessionStorage.setItem("event-sort-order", sortOrder);
   }, [sortOrder, sortLoaded]);
+  useEffect(() => {
+    return () => {
+      if (confettiTimeoutRef.current) {
+        clearTimeout(confettiTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [searchInput, setSearchInput] = useState("");
@@ -452,7 +459,15 @@ export default function EventsPage() {
           .eq("user_id", user.id);
         if (count === 1) {
           setShowConfetti(true);
-          setTimeout(() => setShowConfetti(false), 5000);
+
+          if (confettiTimeoutRef.current) {
+            clearTimeout(confettiTimeoutRef.current);
+          }
+
+          confettiTimeoutRef.current = setTimeout(() => {
+            setShowConfetti(false);
+            confettiTimeoutRef.current = null;
+          }, 5000);
         }
       }
       refetch();
