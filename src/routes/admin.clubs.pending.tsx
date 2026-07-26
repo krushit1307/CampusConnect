@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Navigate, Link } from "react-router-dom";
-import type { User } from "@supabase/supabase-js";
 import { Check, Clock3, ShieldAlert, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
@@ -11,8 +10,8 @@ import {
   formatSubmissionDate,
   mergeClubSubmitters,
   type ClubApprovalStatus,
-  type PendingClubRegistration,
 } from "@/lib/clubModeration";
+import { useQuery, useMutation, useQueryClient } from "@/hooks/useReactQueryReplacement";
 
 interface ProfileRole {
   role: string | null;
@@ -20,108 +19,112 @@ interface ProfileRole {
 
 export default function PendingClubsAdmin() {
   const [supabase] = useState(() => createClient());
-  const [user, setUser] = useState<User | null>(null);
-  const [role, setRole] = useState<string | null>(null);
-  const [clubs, setClubs] = useState<PendingClubRegistration[]>([]);
-  const [loading, setLoading] = useState(true);
   const [moderatingId, setModeratingId] = useState<string | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
+  const queryClient = useQueryClient();
 
-  const loadPendingClubs = useCallback(async () => {
-    const { data: clubRows, error: clubError } = await supabase
-      .from("clubs")
-      .select("id, name, slug, description, created_by, created_at")
-      .eq("status", "pending")
-      .order("created_at", { ascending: true });
+  const { data: user, isLoading: isUserLoading } = useQuery({
+    queryKey: ["auth_user"],
+    queryFn: async () => {
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+      return currentUser;
+    },
+  });
 
-    if (clubError) throw new Error(clubError.message);
-
-    const creatorIds = Array.from(
-      new Set((clubRows || []).map((club) => club.created_by).filter(Boolean)),
-    ) as string[];
-
-    let profiles: { id: string; first_name: string | null; last_name: string | null }[] = [];
-    if (creatorIds.length > 0) {
-      const { data: profileRows, error: profileError } = await supabase
+  const { data: role, isLoading: isRoleLoading } = useQuery({
+    queryKey: ["user_role", user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data: profile, error } = await supabase
         .from("profiles")
-        .select("id, first_name, last_name")
-        .in("id", creatorIds);
+        .select("role")
+        .eq("id", user.id)
+        .single<ProfileRole>();
 
-      if (profileError) throw new Error(profileError.message);
-      profiles = profileRows || [];
-    }
+      if (error) throw new Error(error.message);
+      return profile.role;
+    },
+    enabled: !!user?.id,
+  });
 
-    setClubs(mergeClubSubmitters(clubRows || [], profiles));
-  }, [supabase]);
+  const isSystemAdmin = role === "system_admin";
 
-  useEffect(() => {
-    let active = true;
+  const {
+    data: clubs = [],
+    isLoading: isClubsLoading,
+    isError,
+  } = useQuery({
+    queryKey: ["pending_clubs"],
+    queryFn: async () => {
+      const { data: clubRows, error: clubError } = await supabase
+        .from("clubs")
+        .select("id, name, slug, description, created_by, created_at")
+        .eq("status", "pending")
+        .order("created_at", { ascending: true });
 
-    const initialise = async () => {
-      try {
-        const {
-          data: { user: currentUser },
-        } = await supabase.auth.getUser();
+      if (clubError) throw new Error(clubError.message);
 
-        if (!active) return;
-        setUser(currentUser);
+      const creatorIds = Array.from(
+        new Set((clubRows || []).map((club) => club.created_by).filter(Boolean)),
+      ) as string[];
 
-        if (!currentUser) return;
-
-        const { data: profile, error: profileError } = await supabase
+      let profiles: { id: string; first_name: string | null; last_name: string | null }[] = [];
+      if (creatorIds.length > 0) {
+        const { data: profileRows, error: profileError } = await supabase
           .from("profiles")
-          .select("role")
-          .eq("id", currentUser.id)
-          .single<ProfileRole>();
+          .select("id, first_name, last_name")
+          .in("id", creatorIds);
 
         if (profileError) throw new Error(profileError.message);
-        if (!active) return;
-
-        setRole(profile.role);
-        if (profile.role === "system_admin") {
-          await loadPendingClubs();
-        }
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Could not load club registrations.");
-      } finally {
-        if (active) {
-          setLoading(false);
-          setAuthChecked(true);
-        }
+        profiles = profileRows || [];
       }
-    };
 
-    void initialise();
-    return () => {
-      active = false;
-    };
-  }, [loadPendingClubs, supabase]);
+      return mergeClubSubmitters(clubRows || [], profiles);
+    },
+    enabled: isSystemAdmin,
+  });
 
-  const moderateClub = async (clubId: string, status: Exclude<ClubApprovalStatus, "pending">) => {
-    setModeratingId(clubId);
-
-    try {
+  const moderateMutation = useMutation({
+    mutationFn: async ({
+      clubId,
+      status,
+    }: {
+      clubId: string;
+      status: Exclude<ClubApprovalStatus, "pending">;
+    }) => {
+      setModeratingId(clubId);
       const { error } = await supabase.rpc("moderate_club_registration", {
         p_club_id: clubId,
         p_status: status,
       });
 
       if (error) throw new Error(error.message);
-
-      setClubs((current) => current.filter((club) => club.id !== clubId));
+      return { clubId, status };
+    },
+    onSuccess: ({ status }) => {
+      queryClient.invalidateQueries({ queryKey: ["pending_clubs"] });
       toast.success(status === "approved" ? "Club approved." : "Club rejected.");
-    } catch (error) {
+    },
+    onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Moderation action failed.");
-    } finally {
+    },
+    onSettled: () => {
       setModeratingId(null);
-    }
+    },
+  });
+
+  const moderateClub = (clubId: string, status: Exclude<ClubApprovalStatus, "pending">) => {
+    moderateMutation.mutate({ clubId, status });
   };
 
-  if (authChecked && !user) {
+  const loading = isUserLoading || isRoleLoading || (isSystemAdmin && isClubsLoading);
+
+  if (!isUserLoading && !user) {
     return <Navigate to="/auth" replace />;
   }
 
-  if (authChecked && role !== "system_admin") {
+  if (!isUserLoading && !isRoleLoading && role !== "system_admin") {
     return (
       <SiteShell>
         <section className="bg-cream px-4 py-20 md:px-6">
@@ -148,11 +151,10 @@ export default function PendingClubsAdmin() {
       <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
         <div className="mx-auto max-w-7xl">
           <p className="eyebrow font-bold text-black">System administration</p>
-          <h1 className="mt-2 text-4xl font-bold md:text-6xl text-gray-600">
-            Pending club registrations
-          </h1>
-          <p className="mt-4 max-w-2xl font-mono text-sm leading-6 text-gray-800">
-            Review newly submitted campus clubs before they appear in the public directory.
+          <h1 className="mt-2 text-4xl font-black text-black">Pending club registrations</h1>
+          <p className="mt-3 max-w-2xl font-mono text-sm leading-relaxed text-gray-800">
+            Review proposed student organizations. Approving a club makes it public and grants its
+            creator organizer permissions.
           </p>
         </div>
       </section>
@@ -160,84 +162,69 @@ export default function PendingClubsAdmin() {
       <section className="bg-cream px-4 py-12 md:px-6">
         <div className="mx-auto max-w-7xl">
           {loading ? (
-            <div className="grid gap-5 lg:grid-cols-2">
-              {[0, 1, 2, 3].map((item) => (
-                <div key={item} className="neu-border h-72 animate-pulse bg-white p-6" />
-              ))}
+            <div className="neu-border neu-shadow bg-white p-8 text-center font-mono text-sm text-gray-600">
+              Loading pending registrations...
+            </div>
+          ) : isError ? (
+            <div className="neu-border bg-peach p-8 text-center font-mono text-sm text-black">
+              Failed to load pending registrations.
             </div>
           ) : clubs.length === 0 ? (
-            <div className="neu-border neu-shadow mx-auto max-w-2xl bg-white p-10 text-center">
-              <Check className="mx-auto h-12 w-12" aria-hidden="true" />
-              <h2 className="mt-4 text-3xl font-bold text-black">Queue cleared</h2>
-              <p className="mt-3 font-mono text-sm text-gray-700">
-                There are no pending club registrations to review.
-              </p>
+            <div className="neu-border bg-white p-8 text-center font-mono text-sm text-gray-600">
+              No registrations are waiting for approval.
             </div>
           ) : (
-            <div className="grid gap-6 lg:grid-cols-2">
-              {clubs.map((club) => {
-                const isBusy = moderatingId === club.id;
-
-                return (
-                  <article
-                    key={club.id}
-                    className="neu-border neu-shadow flex flex-col bg-white p-6"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="font-mono text-xs font-bold uppercase text-gray-600">
-                          /clubs/{club.slug}
-                        </p>
-                        <h2 className="mt-1 text-2xl font-bold">{club.name}</h2>
+            <div className="space-y-6">
+              {clubs.map((club) => (
+                <article key={club.id} className="neu-border neu-shadow bg-white p-6 md:p-8">
+                  <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="neu-border inline-flex items-center gap-1.5 bg-lime px-2.5 py-1 font-mono text-xs font-bold uppercase text-black">
+                          <Clock3 className="h-3.5 w-3.5" /> Pending review
+                        </span>
+                        <span className="font-mono text-xs font-bold text-gray-500">
+                          {formatSubmissionDate(club.created_at)}
+                        </span>
                       </div>
-                      <span className="neu-border inline-flex items-center gap-1 bg-lavender px-3 py-1 font-mono text-xs font-bold uppercase">
-                        <Clock3 className="h-3.5 w-3.5" /> Pending
-                      </span>
+                      <h2 className="mt-3 text-2xl font-bold text-black">{club.name}</h2>
+                      <p className="font-mono text-xs text-gray-600">
+                        Requested by: {club.submitterName}
+                      </p>
                     </div>
 
-                    <dl className="mt-5 grid gap-2 border-y-2 border-black py-4 font-mono text-xs">
-                      <div className="flex justify-between gap-4">
-                        <dt className="font-bold uppercase text-black">Submitted by</dt>
-                        <dd className="text-right">{club.submitterName}</dd>
-                      </div>
-                      <div className="flex justify-between gap-4">
-                        <dt className="font-bold uppercase">Submitted</dt>
-                        <dd className="text-right">{formatSubmissionDate(club.created_at)}</dd>
-                      </div>
-                    </dl>
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => moderateClub(club.id, "approved")}
+                        disabled={moderatingId === club.id}
+                        className="neu-border neu-press inline-flex items-center gap-2 bg-black px-4 py-2.5 font-mono text-xs font-bold uppercase text-cream transition-colors hover:bg-lime hover:text-black disabled:opacity-50 cursor-pointer"
+                      >
+                        <Check className="h-4 w-4" /> Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moderateClub(club.id, "rejected")}
+                        disabled={moderatingId === club.id}
+                        className="neu-border neu-press inline-flex items-center gap-2 bg-white px-4 py-2.5 font-mono text-xs font-bold uppercase text-black transition-colors hover:bg-peach disabled:opacity-50 cursor-pointer"
+                      >
+                        <X className="h-4 w-4" /> Reject
+                      </button>
+                    </div>
+                  </div>
 
-                    <div className="markdown-content mt-5 line-clamp-6 min-h-24 font-mono text-sm leading-6 text-gray-700">
+                  <div className="mt-6 border-t-2 border-dashed border-black/20 pt-6">
+                    <h3 className="font-mono text-xs font-bold uppercase text-gray-500">
+                      Description
+                    </h3>
+                    <div className="prose prose-sm max-w-none font-mono text-sm leading-relaxed text-black mt-2">
                       <ReactMarkdown>
-                        {club.description || "No description was provided."}
+                        {club.description || "_No description provided._"}
                       </ReactMarkdown>
                     </div>
-
-                    <div className="mt-auto flex flex-col gap-3 pt-6 sm:flex-row sm:justify-end">
-                      <button
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() => {
-                          if (window.confirm(`Reject ${club.name}?`)) {
-                            void moderateClub(club.id, "rejected");
-                          }
-                        }}
-                        className="neu-border neu-press inline-flex items-center justify-center gap-2 bg-white px-5 py-3 font-mono text-xs font-bold uppercase disabled:cursor-wait disabled:opacity-50"
-                      >
-                        <X className="h-4 w-4 text-black" /> Reject
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() => void moderateClub(club.id, "approved")}
-                        className="neu-border neu-press inline-flex items-center justify-center gap-2 bg-lime px-5 py-3 font-mono text-xs font-bold uppercase disabled:cursor-wait disabled:opacity-50 text-gray-600"
-                      >
-                        <Check className="h-4 w-4 text-gray-600" />{" "}
-                        {isBusy ? "Updating..." : "Approve"}
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
+                  </div>
+                </article>
+              ))}
             </div>
           )}
         </div>

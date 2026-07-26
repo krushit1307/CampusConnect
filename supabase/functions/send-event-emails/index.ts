@@ -18,9 +18,9 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  // Rate Limiting: 5 requests per minute per IP
+  // Rate Limiting: 30 requests per minute per IP
   const rateLimitResponse = await limitRate(req, "send-event-emails", {
-    limit: 5,
+    limit: 30,
     windowMs: 60000,
   });
   if (rateLimitResponse) {

@@ -3,14 +3,15 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
+import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
+import { formatStandardDate } from "@/utils/dateUtils";
 import { toast } from "sonner";
-import EventSharePanel from "@/components/events/EventSharePanel";
+import { ShareMenu } from "@/components/ui/ShareMenu";
 import {
   ArrowLeft,
-  Calendar,
   Check,
   Copy,
   Download,
@@ -19,7 +20,10 @@ import {
   MapPinOff,
   Users,
   Star,
+  Calendar,
+  Flag,
 } from "lucide-react";
+import { ReportDialog } from "@/components/ReportDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
@@ -37,7 +41,16 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { parseCoordinates } from "@/lib/eventUtils";
 import { EventFeedbackForm } from "@/components/EventFeedbackForm";
+import { EventPhotoGallery } from "@/components/EventPhotoGallery";
 import { EventMap } from "@/components/EventMap";
+import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { HelpCircle } from "lucide-react";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -47,45 +60,261 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 
-function rsvpRowsToCsv(rows: { name: string; email: string; rsvp_date: string; status: string }[]) {
-  const headers = ["User Name", "Email", "RSVP Date", "Status"];
-  const escape = (val: string) => {
-    const str = String(val ?? "");
-    return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
-  };
-  const lines = [headers.join(",")];
-  for (const r of rows) {
-    lines.push([r.name, r.email, r.rsvp_date, r.status].map(escape).join(","));
-  }
-  return lines.join("\n");
+interface SimilarEventItem {
+  id: string;
+  title: string;
+  category_id?: string;
+  event_date?: string;
+  banner_url?: string;
+  description?: string;
 }
 
-function downloadCsv(csvContent: string, filename: string) {
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.setAttribute("download", filename);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+function SimilarEvents({
+  currentEventId,
+  categoryId,
+}: {
+  currentEventId: string;
+  categoryId?: string;
+}) {
+  const supabase = createClient();
+  const [similarEvents, setSimilarEvents] = useState<SimilarEventItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!categoryId) {
+      setLoading(false);
+      return;
+    }
+
+    async function fetchSimilarEvents() {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("events")
+          .select("id, title, category_id, event_date, banner_url, description")
+          .eq("category_id", categoryId)
+          .neq("id", currentEventId)
+          .limit(3);
+
+        if (error) {
+          console.error("Error fetching similar events:", error);
+        } else if (data) {
+          setSimilarEvents(data as SimilarEventItem[]);
+        }
+      } catch (err) {
+        console.error("Unexpected error fetching similar events:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchSimilarEvents();
+  }, [currentEventId, categoryId, supabase]);
+
+  if (loading || similarEvents.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-10 border-t-2 border-black pt-8">
+      <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900 mb-6">
+        Similar Events You Might Like
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {similarEvents.map((evt) => (
+          <Link
+            key={evt.id}
+            to={`/events/${evt.id}`}
+            className="neu-border group block bg-white p-4 hover:translate-x-0.5 hover:-translate-y-0.5 transition-transform"
+          >
+            {evt.banner_url ? (
+              <img
+                src={evt.banner_url}
+                alt={evt.title}
+                className="w-full h-32 object-cover border-2 border-black mb-3"
+              />
+            ) : (
+              <div className="w-full h-32 bg-peach/30 border-2 border-black mb-3 flex items-center justify-center font-mono text-xs font-bold text-black/50">
+                NO IMAGE
+              </div>
+            )}
+            <h3 className="font-mono text-sm font-bold uppercase line-clamp-1 group-hover:underline">
+              {evt.title}
+            </h3>
+            {evt.event_date && (
+              <p className="font-mono text-xs text-black/60 mt-1">
+                📅 {formatStandardDate(evt.event_date)}
+                📅 {new Date(evt.event_date).toLocaleDateString()}
+              </p>
+            )}
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function EventDetailsPage() {
   const { eventId = "" } = useParams();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
+  const emailVerified = useEmailVerification();
   const [copied, setCopied] = useState(false);
   const [idCopied, setIdCopied] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState("");
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+
+  // Safe window URL handling for SSR / hydration safety
+  const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
+
+  // Gallery States and Queries
+  interface UploadingFile {
+    id: string;
+    name: string;
+    objectUrl: string;
+    progress: number;
+    status: "uploading" | "success" | "error";
+    errorMsg?: string;
+  }
+
+  const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+
+  const { data: galleryPhotos = [], refetch: refetchGallery } = useQuery<string[]>({
+    queryKey: ["eventGallery", eventId],
+    queryFn: async () => {
+      if (eventId.startsWith("mock-")) return [];
+      const { data, error } = await supabase.storage.from("event-gallery").list(eventId);
+      if (error) {
+        console.error("Failed to list gallery files", error);
+        return [];
+      }
+      if (!data) return [];
+
+      return data
+        .filter((file) => file.name !== ".emptyFolderPlaceholder")
+        .map((file) => {
+          return supabase.storage.from("event-gallery").getPublicUrl(`${eventId}/${file.name}`).data
+            .publicUrl;
+        });
+    },
+    enabled: !!eventId,
+  });
+
+  useEffect(() => {
+    if (!lightboxSrc) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setLightboxSrc(null);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [lightboxSrc]);
+
+  useEffect(() => {
+    return () => {
+      uploadingFiles.forEach((file) => URL.revokeObjectURL(file.objectUrl));
+    };
+  }, [uploadingFiles]);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    if (files.length > 10) {
+      toast.error("You can upload a maximum of 10 photos at once.");
+      return;
+    }
+
+    const newUploads: UploadingFile[] = Array.from(files).map((file) => ({
+      id: crypto.randomUUID(),
+      name: file.name,
+      objectUrl: URL.createObjectURL(file),
+      progress: 0,
+      status: "uploading",
+    }));
+
+    setUploadingFiles((prev) => [...prev, ...newUploads]);
+
+    const uploadPromises = Array.from(files).map((file, index) => {
+      const uploadItem = newUploads[index];
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+      const filePath = `${eventId}/${fileName}`;
+
+      return new Promise<void>((resolve) => {
+        const progressInterval = setInterval(() => {
+          setUploadingFiles((prev) =>
+            prev.map((item) => {
+              if (item.id === uploadItem.id && item.status === "uploading" && item.progress < 90) {
+                return { ...item, progress: item.progress + 10 };
+              }
+              return item;
+            }),
+          );
+        }, 200);
+
+        supabase.storage
+          .from("event-gallery")
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+          })
+          .then(({ error }) => {
+            clearInterval(progressInterval);
+            if (error) {
+              setUploadingFiles((prev) =>
+                prev.map((item) =>
+                  item.id === uploadItem.id
+                    ? { ...item, status: "error", progress: 0, errorMsg: error.message }
+                    : item,
+                ),
+              );
+              toast.error(`Failed to upload ${file.name}: ${error.message}`);
+            } else {
+              setUploadingFiles((prev) =>
+                prev.map((item) =>
+                  item.id === uploadItem.id ? { ...item, status: "success", progress: 100 } : item,
+                ),
+              );
+            }
+          })
+          .catch((err: unknown) => {
+            clearInterval(progressInterval);
+            const errMsg = err instanceof Error ? err.message : "Unknown error";
+            setUploadingFiles((prev) =>
+              prev.map((item) =>
+                item.id === uploadItem.id
+                  ? { ...item, status: "error", progress: 0, errorMsg: errMsg }
+                  : item,
+              ),
+            );
+            toast.error(`Error uploading ${file.name}`);
+          })
+          .finally(() => {
+            resolve();
+          });
+      });
+    });
+
+    await Promise.all(uploadPromises);
+
+    refetchGallery();
+    setTimeout(() => {
+      setUploadingFiles((prev) => prev.filter((item) => item.status !== "success"));
+    }, 2000);
+  };
 
   const {
     data: event,
@@ -98,8 +327,9 @@ export default function EventDetailsPage() {
         .from("events")
         .select(
           `
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, max_attendees,
+          id, title, description, category_id, event_date, start_date, end_date, location, latitude, longitude, banner_url, created_by, max_attendees, faqs,
           clubs (name, slug),
+          profiles (full_name, email),
           event_rsvps (id, user_id, checked_in),
           event_waitlist (id, user_id, created_at),
           event_feedbacks (id, user_id)
@@ -113,9 +343,7 @@ export default function EventDetailsPage() {
         if (import.meta.env.DEV && eventId.startsWith("mock-")) {
           return {
             id: eventId,
-            // Mock data has no real owner; use a placeholder so this branch's
-            // type matches the real Supabase row (which always has
-            // created_by) instead of silently omitting the field.
+            category_id: "cat-1",
             created_by: "mock-user-1",
             title:
               eventId === "mock-1"
@@ -142,6 +370,8 @@ export default function EventDetailsPage() {
                   : "Student Activity Centre, IIT Bombay, Powai, Mumbai",
             banner_url: null as string | null,
             max_attendees: eventId === "mock-1" ? 1 : null,
+            latitude: eventId === "mock-1" ? 30.3564 : eventId === "mock-2" ? 28.5355 : 19.076,
+            longitude: eventId === "mock-1" ? 76.3647 : eventId === "mock-2" ? 77.209 : 72.8777,
             clubs: [
               {
                 name:
@@ -162,7 +392,9 @@ export default function EventDetailsPage() {
               eventId === "mock-1" ? [{ id: "rsvp-1", user_id: "user-1", checked_in: true }] : [],
             event_waitlist: [] as { id: string; user_id: string; created_at: string }[],
             event_feedbacks: [] as { id: string; user_id: string }[],
+            faqs: [] as { question: string; answer: string }[],
             attendee_count: eventId === "mock-1" ? 1 : 0,
+            profiles: { full_name: "Mock Organizer", email: "mock@example.com" },
           };
         }
         throw error;
@@ -223,8 +455,18 @@ export default function EventDetailsPage() {
     onSuccess: () => {
       refetch();
     },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to update RSVP. Please try again.");
+    onError: (error: (Error & { details?: string; context?: string }) | unknown) => {
+      const err = error as Record<string, unknown>;
+      if (
+        (typeof err?.message === "string" && err.message.includes("Rate limit")) ||
+        (typeof err?.details === "string" && err.details.includes("Rate limit")) ||
+        (typeof err?.context === "string" && err.context.includes("Rate limit")) ||
+        (typeof error === "string" && error.includes("Rate limit"))
+      ) {
+        toast.error("Please wait a minute before toggling RSVP again.");
+      } else {
+        toast.error((err?.message as string) || "Failed to update RSVP. Please try again.");
+      }
     },
   });
 
@@ -242,15 +484,10 @@ export default function EventDetailsPage() {
       });
 
       if (error) throw error;
-      return data as {
-        rows: { name: string; email: string; rsvp_date: string; status: string }[];
-      };
+      return data;
     },
-    onSuccess: (data) => {
-      const csv = rsvpRowsToCsv(data.rows);
-      const safeTitle = (event?.title ?? "event").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-      downloadCsv(csv, `${safeTitle}-rsvps.csv`);
-      toast.success("RSVP list exported.");
+    onSuccess: () => {
+      toast.success("We will email you shortly");
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to export RSVP list.");
@@ -313,8 +550,7 @@ export default function EventDetailsPage() {
   }
 
   const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
-  const hasRsvpd = user ? rsvps.some((r) => r.user_id === user.id) : false;
-  // Feedback specific conditions
+  const hasRsvpd = user ? rsvps.some((r: { user_id: string }) => r.user_id === user.id) : false;
   const isCheckedIn = user
     ? rsvps.some(
         (r: { user_id: string; checked_in?: boolean }) => r.user_id === user.id && r.checked_in,
@@ -323,7 +559,9 @@ export default function EventDetailsPage() {
   const hasEnded = event.end_date ? new Date() > new Date(event.end_date) : false;
   const rawFeedbacks = (event as Record<string, unknown>).event_feedbacks;
   const hasSubmittedFeedback =
-    user && Array.isArray(rawFeedbacks) ? rawFeedbacks.some((f) => f.user_id === user.id) : false;
+    user && Array.isArray(rawFeedbacks)
+      ? (rawFeedbacks as { user_id: string }[]).some((f) => f.user_id === user.id)
+      : false;
 
   const rawWaitlist = (event as Record<string, unknown>).event_waitlist;
   const waitlist = Array.isArray(rawWaitlist)
@@ -354,6 +592,10 @@ export default function EventDetailsPage() {
       toast.error("Please log in to RSVP");
       return;
     }
+    if (!emailVerified) {
+      toast.error("Please verify your email to RSVP");
+      return;
+    }
     if (hasRsvpd) {
       setConfirmOpen(true);
       return;
@@ -363,7 +605,7 @@ export default function EventDetailsPage() {
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(shareUrl || window.location.href);
       setCopied(true);
       toast.success("Event link copied to clipboard!");
       setTimeout(() => setCopied(false), 2000);
@@ -400,7 +642,7 @@ export default function EventDetailsPage() {
 
   return (
     <SiteShell>
-      {/* Breadcrumb nav — replaces the old back-link bar */}
+      {/* Breadcrumb nav */}
       <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6" aria-label="Breadcrumb">
         <div className="mx-auto max-w-4xl">
           {/* Mobile: simple back link */}
@@ -475,7 +717,7 @@ export default function EventDetailsPage() {
             >
               {event.title}
             </h1>
-            <EventSharePanel title={event.title} />
+            <ShareMenu url={shareUrl} title={event.title} />
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -505,6 +747,27 @@ export default function EventDetailsPage() {
                 {club.name}
               </Link>
             </p>
+          )}
+
+          {!club && event.profiles && (
+            <div
+              className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"} flex items-center gap-4`}
+            >
+              <span>Organized by: {(event.profiles as { full_name: string }).full_name}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  import("@/lib/vcardUtils").then(({ downloadVCard }) => {
+                    downloadVCard(event.profiles as { full_name: string; email: string });
+                  });
+                }}
+                className="neu-border h-8 bg-white/20 hover:bg-white/40 text-xs px-3"
+              >
+                <Download className="mr-2 h-3 w-3" />
+                Download Contact (vCard)
+              </Button>
+            </div>
           )}
 
           <div
@@ -539,7 +802,11 @@ export default function EventDetailsPage() {
                 <Button
                   onClick={() => {
                     if (!user) {
-                      toast.error("Please log in to join waitlist");
+                      toast.error("Please log in to join the waitlist");
+                      return;
+                    }
+                    if (!emailVerified) {
+                      toast.error("Please verify your email to join the waitlist");
                       return;
                     }
                     toggleWaitlist.mutate({ isOnWaitlist });
@@ -626,11 +893,22 @@ export default function EventDetailsPage() {
                 href={googleCalendarUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="neu-border flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                className="neu-border bg-white h-12 px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
               >
-                <Calendar aria-hidden="true" size={14} strokeWidth={3} />
-                Add to Google Calendar
+                <Calendar aria-hidden="true" size={16} strokeWidth={2.5} />
+                Add to Calendar
               </a>
+            )}
+
+            {user && !isOrganizer && (
+              <Button
+                onClick={() => setIsReportDialogOpen(true)}
+                variant="outline"
+                className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
+              >
+                <Flag className="h-4 w-4" />
+                Report Event
+              </Button>
             )}
 
             {isCheckedIn && hasEnded && (
@@ -700,6 +978,19 @@ export default function EventDetailsPage() {
             )}
           </div>
 
+          {/* Predictive Turnout (Visible to Organizer / Admins) */}
+          {isOrganizer && (
+            <div className="mt-8">
+              <PredictiveTurnout
+                rsvpCount={attendeeCount}
+                latitude={(event as Record<string, unknown>).latitude as number | null}
+                longitude={(event as Record<string, unknown>).longitude as number | null}
+                location={event.location || ""}
+                clubName={club?.name || ""}
+              />
+            </div>
+          )}
+
           {/* Description */}
           <div className="mt-8">
             <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
@@ -715,6 +1006,41 @@ export default function EventDetailsPage() {
               </p>
             )}
           </div>
+
+          {/* FAQ Section */}
+          {Array.isArray((event as Record<string, unknown>).faqs) &&
+            ((event as Record<string, unknown>).faqs as { question: string; answer: string }[])
+              .length > 0 && (
+              <div className="mt-8">
+                <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
+                  Frequently Asked Questions
+                </h2>
+                <Accordion type="single" collapsible className="mt-4 space-y-2">
+                  {(
+                    (event as Record<string, unknown>).faqs as {
+                      question: string;
+                      answer: string;
+                    }[]
+                  ).map((faq, index) => (
+                    <AccordionItem
+                      key={index}
+                      value={`faq-${index}`}
+                      className="neu-border bg-white"
+                    >
+                      <AccordionTrigger className="px-4 font-mono text-sm font-bold text-black hover:no-underline">
+                        <div className="flex items-center gap-2 text-left">
+                          <HelpCircle className="h-4 w-4 shrink-0 text-blue-900" />
+                          {faq.question}
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="px-4 pb-4 font-mono text-sm text-black/70">
+                        {faq.answer}
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </div>
+            )}
 
           {/* Interactive Map */}
           {event.location && event.location.toLowerCase() !== "online" && (
@@ -743,7 +1069,7 @@ export default function EventDetailsPage() {
                 </>
               ) : coordsCheck.isCoordinates && !coordsCheck.isValid ? (
                 <div className="neu-border mt-4 flex items-start gap-4 bg-peach/20 p-5">
-                  <div className="shrink-0 rounded-none border-2 border-black bg-white p-2 text-[#e53935]">
+                  <div className="shrink-0 rounded-none border-2 border-black bg-white p-2 text-destructive">
                     <MapPinOff className="h-6 w-6" />
                   </div>
                   <div>
@@ -772,7 +1098,7 @@ export default function EventDetailsPage() {
                   className="neu-border mt-4 inline-flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
                 >
                   <MapPin className="h-4 w-4" />
-                  Open "{event.location}" in Google Maps ↗
+                  Open &quot;{event.location}&quot; in Google Maps ↗
                 </a>
               )}
             </div>
@@ -788,37 +1114,127 @@ export default function EventDetailsPage() {
               </div>
             )}
 
-          {/* Social Share Buttons */}
+          {/* Event Gallery */}
+          <div className="mt-8 border-t-2 border-black pt-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+              <div>
+                <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
+                  Event Gallery
+                </h2>
+                <p className="font-mono text-xs text-black/60 mt-1">
+                  Photos shared from this event
+                </p>
+              </div>
+              {isOrganizer && (
+                <div>
+                  <input
+                    type="file"
+                    id="bulk-gallery-upload"
+                    multiple
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    onClick={() => document.getElementById("bulk-gallery-upload")?.click()}
+                    variant="outline"
+                    className="neu-border neu-press h-12 bg-lime text-black px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                  >
+                    📸 Upload Photos
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Optimistic UI & Progress for Uploading Files */}
+            {uploadingFiles.length > 0 && (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 mb-6">
+                {uploadingFiles.map((file) => (
+                  <div
+                    key={file.id}
+                    className="relative neu-border bg-white p-2 flex flex-col justify-between"
+                  >
+                    <div className="aspect-square w-full overflow-hidden bg-cream relative">
+                      <img
+                        src={file.objectUrl}
+                        alt="Uploading..."
+                        className="h-full w-full object-cover opacity-60"
+                      />
+                      {file.status === "uploading" && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/45 p-2">
+                          <span className="font-mono text-xs font-bold text-white mb-2">
+                            {file.progress}%
+                          </span>
+                          <div className="w-full bg-white/30 h-2 rounded-full overflow-hidden">
+                            <div
+                              className="bg-lime h-full transition-all duration-200"
+                              style={{ width: `${file.progress}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {file.status === "success" && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-lime/80 text-black font-display font-black text-sm uppercase">
+                          Uploaded ✓
+                        </div>
+                      )}
+                      {file.status === "error" && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-500/90 text-white p-2">
+                          <span className="font-display font-black text-xs uppercase text-center">
+                            Failed
+                          </span>
+                          <span className="font-mono text-[9px] text-center mt-1 truncate w-full">
+                            {file.errorMsg}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <p className="font-mono text-[10px] text-black/70 truncate mt-2">{file.name}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Gallery Images List */}
+            {galleryPhotos.length === 0 && uploadingFiles.length === 0 ? (
+              <div className="neu-border bg-cream p-8 text-center font-mono text-sm text-black/50 italic">
+                No photos uploaded yet for this event.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                {galleryPhotos.map((url, idx) => (
+                  <div
+                    key={url}
+                    className="neu-border bg-white p-2 hover:scale-[1.02] transition-transform duration-300 group cursor-zoom-in"
+                    onClick={() => {
+                      setLightboxSrc(url);
+                    }}
+                  >
+                    <div className="aspect-square w-full overflow-hidden bg-cream">
+                      <img
+                        src={url}
+                        alt={`Event gallery photo ${idx + 1}`}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Social Share */}
           <div className="mt-10 border-t-2 border-black pt-6">
             <h3 className="font-mono text-xs font-bold uppercase text-blue-900">
               Share with Friends
             </h3>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <a
-                href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-[#1DA1F2] hover:text-white transition-colors text-black"
-              >
-                Twitter
-              </a>
-              <a
-                href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-[#0A66C2] hover:text-white transition-colors text-black"
-              >
-                LinkedIn
-              </a>
-              <a
-                href={`https://wa.me/?text=${encodeURIComponent(`Check out this event: ${event.title} - ${window.location.href}`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-
-                className="neu-border px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-[#25D366] hover:text-white transition-colors text-black"
-              >
-                WhatsApp
-              </a>
+            <div className="mt-4">
+              <ShareMenu
+                url={shareUrl}
+                title={event.title}
+                text={`Check out this event: ${event.title}`}
+              />
             </div>
           </div>
         </div>
@@ -873,6 +1289,25 @@ export default function EventDetailsPage() {
         onConfirm={handleConfirmCancel}
         onCancel={() => setConfirmOpen(false)}
       />
+      <ReportDialog
+        isOpen={isReportDialogOpen}
+        onClose={() => setIsReportDialogOpen(false)}
+        targetType="event"
+        targetId={event.id}
+      />
+
+      {lightboxSrc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 cursor-zoom-out"
+          onClick={() => setLightboxSrc(null)}
+        >
+          <img
+            src={lightboxSrc}
+            alt="Enlarged gallery photo"
+            className="max-h-full max-w-full object-contain neu-border border-white"
+          />
+        </div>
+      )}
     </SiteShell>
   );
 }

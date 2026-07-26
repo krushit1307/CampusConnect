@@ -34,8 +34,6 @@ interface EventCardProps {
 }
 
 // Assumed lead time (in days) used when an event has no `created_at` available
-// (e.g. mock/dev fallback data, or a query that hasn't been updated to select it
-// yet). This keeps the progress bar meaningful instead of just hiding it.
 const ASSUMED_LEAD_TIME_DAYS = 30;
 
 interface EventProgress {
@@ -83,21 +81,20 @@ function EventProgressBar({
   createdAt: string | null | undefined;
   eventDate: string | null;
 }) {
-  // No date at all ("TBA" events) — nothing meaningful to show a timeline for.
   if (!eventDate) return null;
 
   const { percent, isPast, isEstimated } = getEventProgress(createdAt, eventDate);
 
   return (
     <div className="mt-4">
-      <div className="mb-1 flex items-center justify-between font-mono text-[10px] font-bold uppercase text-black">
+      <div className="mb-1 flex items-center justify-between font-mono text-[9px] sm:text-xs font-bold uppercase text-black">
         <span>Time to event</span>
         <span>{isPast ? "Ended" : `${Math.round(percent)}%`}</span>
       </div>
       <div className="h-4 w-full neu-border overflow-hidden bg-white p-0.5">
         {isPast ? (
           <div className="flex h-full w-full items-center justify-center bg-gray-200">
-            <span className="font-mono text-[9px] font-bold uppercase text-gray-500">
+            <span className="font-mono text-[8px] sm:text-[9px] font-bold uppercase text-gray-500">
               Event has passed
             </span>
           </div>
@@ -109,12 +106,40 @@ function EventProgressBar({
         )}
       </div>
       {isEstimated && !isPast && (
-        <p className="mt-1 font-mono text-[9px] text-gray-500">
+        <p className="mt-1 font-mono text-[8px] sm:text-[9px] text-gray-500">
           Estimated — creation date unavailable
         </p>
       )}
     </div>
   );
+}
+
+/**
+ * Helper to auto-detect and linkify http/https URLs within a text string.
+ */
+function renderLocationWithLinks(locationText: string | null) {
+  if (!locationText) return "TBA";
+
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = locationText.split(urlRegex);
+
+  return parts.map((part, i) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-blue-700 transition-colors break-all"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
 }
 
 export function EventCard({
@@ -142,7 +167,6 @@ export function EventCard({
   });
   const countdown = event.event_date ? getCountdown(event.event_date) : "TBA";
 
-  const [copied, setCopied] = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
@@ -156,18 +180,10 @@ export function EventCard({
     }
   };
 
-  const handleShare = async () => {
-    const shareUrl = `${window.location.origin}${window.location.pathname}#event-${event.id}`;
-
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      toast.success("Link copied!");
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      toast.error("Failed to copy link.");
-    }
-  };
+  const shareUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}${window.location.pathname}#event-${event.id}`
+      : "";
 
   const handleRsvpClick = () => {
     if (!user) {
@@ -233,19 +249,19 @@ export function EventCard({
           >
             <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
           </button>
-
-          <button
-            type="button"
-            onClick={handleShare}
-            aria-label="Copy event link"
-            className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black"
+          <ShareMenu
+            url={shareUrl}
+            title={event.title}
+            text={`Check out this event: ${event.title}`}
           >
-            {copied ? (
-              <Check aria-hidden="true" size={14} strokeWidth={3} />
-            ) : (
+            <button
+              type="button"
+              aria-label="Share event link"
+              className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black"
+            >
               <Share2 aria-hidden="true" size={14} strokeWidth={3} />
-            )}
-          </button>
+            </button>
+          </ShareMenu>
         </div>
       </div>
 
@@ -286,7 +302,7 @@ export function EventCard({
         </div>
         <div>
           <dt className="font-mono text-xs font-bold uppercase text-black">Venue</dt>
-          <dd className="mt-1 text-sm text-red-900">{event.location || "TBA"}</dd>
+          <dd className="mt-1 text-sm text-red-900">{renderLocationWithLinks(event.location)}</dd>
         </div>
         <div>
           <dt className="font-mono text-xs font-bold uppercase text-black">Attendees</dt>
@@ -343,31 +359,12 @@ export function EventCard({
           </Button>
         )}
       </div>
-      <div className="mt-4 flex gap-2">
-        <a
-          href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#1DA1F2] hover:text-white transition-colors"
-        >
-          Twitter
-        </a>
-        <a
-          href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#0A66C2] hover:text-white transition-colors"
-        >
-          LinkedIn
-        </a>
-        <a
-          href={`https://wa.me/?text=${encodeURIComponent(`Check out this event: ${event.title} - ${window.location.href}`)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-[#25D366] hover:text-white transition-colors"
-        >
-          WhatsApp
-        </a>
+      <div className="mt-4">
+        <ShareMenu
+          url={shareUrl}
+          title={event.title}
+          text={`Check out this event: ${event.title}`}
+        />
       </div>
       <TicketDialog
         open={ticketOpen}

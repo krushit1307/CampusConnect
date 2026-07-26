@@ -1,0 +1,34 @@
+name: "05"
+
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review]
+  issues:
+    types: [opened]
+
+permissions:
+  pull-requests: write
+  issues: write
+  contents: read
+
+concurrency:
+  group: welcome-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Welcome first-time contributor
+        uses: actions/github-script@v8
+        with:
+          script: |
+            if (context.eventName === 'issues') {
+              const { processFirstIssueWelcome } = await import(`${process.cwd()}/.github/scripts/issue-comments.js`);
+              await processFirstIssueWelcome({ github, context, core });
+            } else {
+              const { processFirstContributorWelcome } = await import(`${process.cwd()}/.github/scripts/pr.js`);
+              await processFirstContributorWelcome({ github, context, core });
+            }

@@ -1,20 +1,23 @@
-import { useEffect, useState, useCallback, lazy, Suspense } from "react";
-
+import { Suspense, lazy } from "react";
+// @ts-expect-error - framer-motion types may not be resolved in all editor settings
+import { AnimatePresence } from "framer-motion";
 import {
   createBrowserRouter,
   RouterProvider,
   createRoutesFromElements,
   Route,
+  useLocation,
+  Outlet,
 } from "react-router-dom";
 
-// Layout & Non-lazy Components
+// Layout & Core Components (Loaded eagerly)
 import Layout from "./components/Layout";
 import { ErrorBoundary, RouteErrorBoundary } from "./components/ErrorBoundary";
-import MaintenancePage from "./components/MaintenancePage";
-import { createClient } from "./lib/supabase/client";
+import { PageWrapper } from "./components/PageWrapper";
+import { QueryClientProvider, queryClient } from "@/hooks/useReactQueryReplacement";
 import { NotFoundPage } from "./components/NotFoundPage";
 
-// Lazy-loaded Pages / Components
+// Lazy-loaded Routes / Pages
 const Index = lazy(() => import("./routes/index"));
 const Auth = lazy(() => import("./routes/auth"));
 const Certificates = lazy(() => import("./routes/certificates"));
@@ -26,36 +29,79 @@ const Dashboard = lazy(() => import("./routes/dashboard"));
 const DashboardOverview = lazy(() => import("./routes/dashboard.index"));
 const DashboardRsvps = lazy(() => import("./routes/dashboard.rsvps"));
 const DashboardBookmarks = lazy(() => import("./routes/dashboard.bookmarks"));
-const EventsIndex = lazy(() => import("./routes/events"));
-const EventDetails = lazy(() => import("./routes/events.$eventId"));
+const DashboardCalendar = lazy(() => import("./routes/dashboard.calendar"));
 const Feed = lazy(() => import("./routes/feed"));
+const EventsMapPage = lazy(() => import("./routes/events.map"));
 const ForgotPassword = lazy(() => import("./routes/forgot-password"));
 const ResetPassword = lazy(() => import("./routes/reset-password"));
 const Settings = lazy(() => import("./routes/settings"));
-const PrivacyPolicy = lazy(() => import("./routes/privacy"));
-const TermsOfService = lazy(() => import("./routes/terms"));
+const VerifyEmail = lazy(() => import("./routes/verify-email"));
 const PendingClubsAdmin = lazy(() => import("./routes/admin.clubs.pending"));
-const MessagesRoute = lazy(() => import("./routes/messages"));
-const NotificationsRoute = lazy(() => import("./routes/notifications"));
-const ProfileRoute = lazy(() => import("./routes/profile.$handle"));
-const Directory = lazy(() => import("./routes/Directory"));
+const AdminReportsPage = lazy(() => import("./routes/admin.reports"));
+const ChallengeArena = lazy(() => import("./routes/challenge"));
+const Leaderboard = lazy(() =>
+  import("./components/Leaderboard").then((m) => ({ default: m.Leaderboard })),
+);
 
-const HEALTH_CHECK_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_HEALTH_URL) ||
-  (typeof process !== "undefined" && process.env?.REACT_APP_API_HEALTH_URL) ||
-  "/api/health";
+// ---------------------------------------------------------------------------
+// Micro-frontend: Events remote (loaded dynamically from Module Federation)
+// Falls back to local static imports when the remote is unavailable.
+// ---------------------------------------------------------------------------
 
-const HEALTH_CHECK_TIMEOUT = 8000; // 8 seconds
+type EventsModule = {
+  EventsPage: React.ComponentType;
+  EventDetailsPage: React.ComponentType;
+};
 
-interface HealthStatus {
-  ok: boolean;
-  error?: string;
+let eventsModulePromise: Promise<EventsModule> | null = null;
+
+async function loadEventsRemote(): Promise<EventsModule> {
+  if (!eventsModulePromise) {
+    eventsModulePromise = (async () => {
+      try {
+        const mod = await import("eventsApp/remoteEntry");
+        return {
+          EventsPage: mod.EventsPage,
+          EventDetailsPage: mod.EventDetailsPage,
+        };
+      } catch (err) {
+        console.warn("[Host] Events remote unavailable, falling back to local modules:", err);
+        const [eventsMod, eventDetailsMod] = await Promise.all([
+          import("./routes/events"),
+          import("./routes/events.$eventId"),
+        ]);
+        return {
+          EventsPage: eventsMod.default,
+          EventDetailsPage: eventDetailsMod.default,
+        };
+      }
+    })();
+  }
+  return eventsModulePromise;
 }
 
-async function checkDatabaseHealth(): Promise<HealthStatus> {
-  return {
-    ok: true,
-  };
+const LazyEventsIndex = lazy(() => loadEventsRemote().then((m) => ({ default: m.EventsPage })));
+const LazyEventDetails = lazy(() =>
+  loadEventsRemote().then((m) => ({ default: m.EventDetailsPage })),
+);
+
+function RemoteLoadingScreen() {
+  return (
+    <div
+      style={{
+        minHeight: "40vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "Inter, system-ui, sans-serif",
+        fontWeight: 800,
+        fontSize: "1rem",
+        color: "#555",
+      }}
+    >
+      Loading Events…
+    </div>
+  );
 }
 
 function PageFallback() {
@@ -66,152 +112,85 @@ function PageFallback() {
   );
 }
 
-function LoadingScreen() {
+// ---------------------------------------------------------------------------
+// Animated Outlet Wrapper for Framer Motion transitions
+// ---------------------------------------------------------------------------
+function AnimatedOutlet() {
+  const location = useLocation();
+
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#ffde00",
-        fontFamily: "Inter, system-ui, sans-serif",
-        fontWeight: 800,
-        fontSize: "1.25rem",
-        color: "#0a0a0a",
-      }}
-    >
-      <div
-        style={{
-          border: "4px solid #0a0a0a",
-          padding: "24px 40px",
-          backgroundColor: "#ffffff",
-          boxShadow: "8px 8px 0px 0px #0a0a0a",
-        }}
-      >
-        CHECKING SYSTEM STATUS...
-      </div>
-    </div>
+    <AnimatePresence mode="wait">
+      <PageWrapper key={location.pathname}>
+        <Suspense fallback={<PageFallback />}>
+          <Outlet />
+        </Suspense>
+      </PageWrapper>
+    </AnimatePresence>
   );
 }
 
 const router = createBrowserRouter(
   createRoutesFromElements(
-    <Route
-      element={
-        <Suspense fallback={<PageFallback />}>
-          <Layout />
-        </Suspense>
-      }
-      errorElement={<RouteErrorBoundary />}
-    >
-      <Route path="/" element={<Index />} />
-      <Route path="/auth" element={<Auth />} />
-      <Route path="/certificates" element={<Certificates />} />
+    <Route element={<Layout />} errorElement={<RouteErrorBoundary />}>
+      <Route element={<AnimatedOutlet />}>
+        <Route path="/" element={<Index />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/certificates" element={<Certificates />} />
 
-      <Route path="/clubs" element={<ClubsLayout />}>
-        <Route index element={<ClubsIndex />} />
-        <Route path=":slug" element={<ClubDetails />} />
-        <Route path=":slug/manage" element={<ClubManageRoute />} />
+        <Route path="/clubs" element={<ClubsLayout />}>
+          <Route index element={<ClubsIndex />} />
+          <Route path=":slug" element={<ClubDetails />} />
+          <Route path=":slug/manage" element={<ClubManageRoute />} />
+        </Route>
+
+        <Route path="/dashboard" element={<Dashboard />}>
+          <Route index element={<DashboardOverview />} />
+          <Route path="rsvps" element={<DashboardRsvps />} />
+          <Route path="bookmarks" element={<DashboardBookmarks />} />
+          <Route path="calendar" element={<DashboardCalendar />} />
+        </Route>
+
+        {/* Events — loaded from remote micro-frontend when available */}
+        <Route
+          path="/events"
+          element={
+            <Suspense fallback={<RemoteLoadingScreen />}>
+              <LazyEventsIndex />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/events/:eventId"
+          element={
+            <Suspense fallback={<RemoteLoadingScreen />}>
+              <LazyEventDetails />
+            </Suspense>
+          }
+        />
+        {/* Events Map View with clustering */}
+        <Route path="/events/map" element={<EventsMapPage />} />
+        <Route path="/challenge" element={<ChallengeArena />} />
+        <Route path="/leaderboard" element={<Leaderboard />} />
+
+        <Route path="/feed" element={<Feed />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
+        <Route path="/admin/reports" element={<AdminReportsPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
-
-      <Route path="/dashboard" element={<Dashboard />}>
-        <Route index element={<DashboardOverview />} />
-        <Route path="rsvps" element={<DashboardRsvps />} />
-        <Route path="bookmarks" element={<DashboardBookmarks />} />
-      </Route>
-
-      <Route path="/events">
-        <Route index element={<EventsIndex />} />
-        <Route path=":eventId" element={<EventDetails />} />
-      </Route>
-
-      <Route path="/feed" element={<Feed />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/settings" element={<Settings />} />
-      <Route path="/messages" element={<MessagesRoute />} />
-      <Route path="/notifications" element={<NotificationsRoute />} />
-      <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
-      <Route path="/directory" element={<Directory />} />
-      <Route path="/profile/:handle" element={<ProfileRoute />} />
-      <Route path="/privacy" element={<PrivacyPolicy />} />
-      <Route path="/terms" element={<TermsOfService />} />
-      <Route path="*" element={<NotFoundPage />} />
     </Route>,
   ),
 );
 
-const DB_HEALTH_CHECK_TIMEOUT_MS = 8000;
-const DB_RETRY_INTERVAL_MS = 15000;
-
-type DbStatus = "checking" | "online" | "offline";
-
-/**
- * Pings Supabase with a cheap, RLS-open HEAD request. Returns false if the
- * client throws (bad config, connection refused, DNS failure, etc.) or if
- * the request doesn't resolve within the timeout.
- */
-async function checkDatabaseConnection(): Promise<boolean> {
-  try {
-    const supabase = createClient();
-
-    const healthCheck = supabase.from("profiles").select("id", { count: "exact", head: true });
-
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error("Database health check timed out")),
-        DB_HEALTH_CHECK_TIMEOUT_MS,
-      ),
-    );
-
-    type HealthCheckResult = Awaited<typeof healthCheck>;
-    const { error } = (await Promise.race([healthCheck, timeout])) as HealthCheckResult;
-
-    if (error) {
-      console.error("Database health check returned an error:", error.message);
-      return false;
-    }
-
-    return true;
-  } catch (err) {
-    console.error("Database client threw while checking connection:", err);
-    return false;
-  }
-}
-
 export default function App() {
-  const [dbStatus, setDbStatus] = useState<HealthStatus | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [retryCount, setRetryCount] = useState(0);
-
-  const performHealthCheck = useCallback(async () => {
-    setIsLoading(true);
-    const result = await checkDatabaseHealth();
-    setDbStatus(result);
-    setIsLoading(false);
-  }, []);
-
-  useEffect(() => {
-    performHealthCheck();
-  }, [performHealthCheck, retryCount]);
-
-  if (isLoading) {
-    return <LoadingScreen />;
-  }
-
-  if (dbStatus && !dbStatus.ok) {
-    return (
-      <MaintenancePage
-        onRetry={() => setRetryCount((prev) => prev + 1)}
-        errorDetails={dbStatus.error}
-      />
-    );
-  }
-
   return (
-    <ErrorBoundary>
-      <RouterProvider router={router} />
-    </ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <ErrorBoundary>
+        <RouterProvider router={router} />
+      </ErrorBoundary>
+    </QueryClientProvider>
   );
 }
