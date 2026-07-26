@@ -349,19 +349,6 @@ export default function Feed() {
         }
         refetchPosts();
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, (payload) => {
-        // Bust the lazy cache for the affected post so the next expand re-fetches fresh data
-        const postId = (payload.new as { post_id?: string })?.post_id
-          ?? (payload.old as { post_id?: string })?.post_id;
-        if (postId) {
-          setLazyComments((prev) => {
-            const next = { ...prev };
-            delete next[postId];
-            return next;
-          });
-        }
-        refetchPosts();
-      })
       .on("postgres_changes", { event: "*", schema: "public", table: "post_reactions" }, () => {
         refetchPosts();
       })
@@ -371,6 +358,80 @@ export default function Feed() {
       supabase.removeChannel(channel);
     };
   }, [supabase, refetchPosts]);
+
+  // Realtime WebSocket subscriptions filtered by post_id (comments:post_id=eq.<postId>)
+  useEffect(() => {
+    const channels: ReturnType<typeof supabase.channel>[] = [];
+
+    expandedPostIds.forEach((postId) => {
+      const channelName = `comments:post_id=eq.${postId}`;
+      const channel = supabase
+        .channel(channelName)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "comments",
+            filter: `post_id=eq.${postId}`,
+          },
+          async (payload) => {
+            const newRow = payload.new as {
+              id: string;
+              content: string;
+              created_at: string;
+              deleted_at?: string | null;
+              author_id?: string;
+              parent_id?: string | null;
+              parent_comment_id?: string | null;
+            };
+
+            if (!newRow || !newRow.id) return;
+
+            let authorProfile: Profile | null = null;
+            if (newRow.author_id) {
+              const { data: prof } = await supabase
+                .from("profiles")
+                .select("id, full_name, handle")
+                .eq("id", newRow.author_id)
+                .maybeSingle();
+
+              if (prof) {
+                authorProfile = prof;
+              }
+            }
+
+            const formattedComment: Comment = {
+              id: newRow.id,
+              content: newRow.content,
+              created_at: newRow.created_at,
+              deleted_at: newRow.deleted_at || null,
+              parent_id: newRow.parent_id || newRow.parent_comment_id || null,
+              parent_comment_id: newRow.parent_comment_id || newRow.parent_id || null,
+              profiles: authorProfile,
+            };
+
+            setLazyComments((prev) => {
+              const currentList = prev[postId] || [];
+              if (currentList.some((c) => c.id === formattedComment.id)) {
+                return prev;
+              }
+              return {
+                ...prev,
+                [postId]: [...currentList, formattedComment],
+              };
+            });
+          },
+        )
+        .subscribe();
+
+      channels.push(channel);
+    });
+
+    return () => {
+      channels.forEach((ch) => supabase.removeChannel(ch));
+    };
+  }, [expandedPostIds, supabase]);
 
   useEffect(() => {
     const handleScroll = () => {
