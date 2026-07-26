@@ -13,6 +13,9 @@ export function EventCardSkeleton({ index = 0 }: { index?: number }) {
       role="status"
       aria-live="polite"
     >
+      {/* Banner placeholder */}
+      <Skeleton className="h-32 w-full mb-4 rounded-none" />
+
       {/* Top row: date + icons */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col">
@@ -72,11 +75,9 @@ export function EventCardSkeleton({ index = 0 }: { index?: number }) {
         <Skeleton className="h-9 w-28" />
       </div>
 
-      {/* Social share links */}
-      <div className="mt-4 flex gap-2">
-        <Skeleton className="h-9 w-20" />
-        <Skeleton className="h-9 w-20" />
-        <Skeleton className="h-9 w-20" />
+      {/* Social share button */}
+      <div className="mt-4">
+        <Skeleton className="h-9 w-24" />
       </div>
 
       <span className="sr-only">Loading event...</span>

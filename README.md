@@ -320,6 +320,10 @@ feat/wasm-image-compression
 <a href="https://github.com/PrathamReddy888"><img src="https://avatars.githubusercontent.com/u/219442049?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="PrathamReddy888 (5 contributions)"/></a>
 <a href="https://github.com/apps/github-actions"><img src="https://avatars.githubusercontent.com/in/15368?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="github-actions[bot] (5 contributions)"/></a>
 
+### Design Assets
+
+- [CampusConnect Onboarding Flow Wireframe (Figma)](https://www.figma.com/design/z0rOY6FzRLLfApy81vGNpm/Untitled?node-id=0-1&t=eEgiAEO0pnhJcMvg-1)
+
 <!-- END_CONTRIBUTORS_GALLERY -->
 
 main

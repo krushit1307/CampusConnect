@@ -21,7 +21,7 @@ VALUES (
         'd0000000-0000-0000-0000-000000000001',
         'authenticated',
         'authenticated',
-        'admin@campusconnect.com',
+        'admin@campusconnect.edu',
         crypt (
             'password123',
             gen_salt ('bf')
@@ -37,7 +37,7 @@ VALUES (
         'd0000000-0000-0000-0000-000000000002',
         'authenticated',
         'authenticated',
-        'student@campusconnect.com',
+        'student@campusconnect.edu',
         crypt (
             'password123',
             gen_salt ('bf')

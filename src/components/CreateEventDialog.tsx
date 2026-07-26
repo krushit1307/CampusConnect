@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 import { useMutation } from "@/hooks/useReactQueryReplacement";
-import { Plus, MapPin, CalendarIcon, Check } from "lucide-react";
+import { Plus, MapPin, CalendarIcon, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import { format } from "date-fns";
@@ -33,16 +33,13 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
-const STEPS = [{ label: "Details" }, { label: "Logistics" }, { label: "Media" }] as const;
-
-type Step = 0 | 1 | 2;
-
-const STEP_FIELDS: Record<Step, (keyof EventFormValues)[]> = {
-  0: ["title", "description"],
-  1: ["startDate", "endDate", "location"],
-  2: [],
-};
+// Define an extended interface locally to handle the extra location field safely
+interface LocalEventFormValues extends EventFormValues {
+  location?: string;
+  requiresApproval?: boolean;
+}
 
 const defaultValues: EventFormValues = {
   title: "",
@@ -50,9 +47,32 @@ const defaultValues: EventFormValues = {
   location: "",
   startDate: "",
   endDate: "",
+  requiresApproval: false,
 };
 
-export function CreateEventDialog({ user }: { user: User | null }) {
+const DRAFT_KEY = "event_draft";
+const DRAFT_AUTOSAVE_INTERVAL_MS = 5000;
+
+// Only worth saving/restoring a draft if the user actually typed something.
+function hasDraftContent(values: EventFormValues): boolean {
+  return Boolean(
+    values.title?.trim() ||
+    values.description?.trim() ||
+    values.location?.trim() ||
+    values.startDate ||
+    values.endDate ||
+    (values.faqs && values.faqs.length > 0),
+  );
+}
+
+export function CreateEventDialog({
+  user,
+  variant = "default",
+}: {
+  user: User | null;
+  /** "fab" renders a compact circular icon-only trigger for use inside ScrollAwareFab (#1232) */
+  variant?: "default" | "fab";
+}) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>(0);
   const supabase = createClient();
@@ -68,6 +88,25 @@ export function CreateEventDialog({ user }: { user: User | null }) {
     watchedLocation &&
     watchedLocation.trim().length > 0 &&
     watchedLocation.trim().toLowerCase() !== "online";
+
+  // Auto-save the in-progress draft to localStorage every 5 seconds while
+  // the dialog is open, so it survives a refresh or browser crash.
+  useEffect(() => {
+    if (!open) return;
+
+    const interval = setInterval(() => {
+      const values = form.getValues();
+      if (!hasDraftContent(values)) return;
+
+      try {
+        window.localStorage.setItem(DRAFT_KEY, JSON.stringify(values));
+      } catch (e) {
+        console.error("[CreateEventDialog] Failed to save draft to localStorage:", e);
+      }
+    }, DRAFT_AUTOSAVE_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [open, form]);
 
   const handleNext = async () => {
     const valid = await form.trigger(STEP_FIELDS[step]);
@@ -95,6 +134,8 @@ export function CreateEventDialog({ user }: { user: User | null }) {
         // read event_date (e.g. EventCard, event ordering) keep working.
         event_date: startDateIso,
         created_by: user.id,
+        club_id: myClub.id,
+        requires_approval: values.requiresApproval || false,
       });
 
       if (error) {
@@ -104,6 +145,11 @@ export function CreateEventDialog({ user }: { user: User | null }) {
     onSuccess: () => {
       toast.success("Event created!");
       window.dispatchEvent(new Event("refetchEvents"));
+      try {
+        window.localStorage.removeItem(DRAFT_KEY);
+      } catch (e) {
+        console.error("[CreateEventDialog] Failed to clear saved draft:", e);
+      }
       form.reset(defaultValues);
       setStep(0);
       setOpen(false);
@@ -116,6 +162,22 @@ export function CreateEventDialog({ user }: { user: User | null }) {
 
   const onSubmit = (values: EventFormValues) => {
     createEvent.mutate(values);
+  };
+
+  const handleDataExtracted = (data: ParsedFlyer) => {
+    if (data.title) form.setValue("title", data.title, { shouldValidate: true });
+    if (data.description) form.setValue("description", data.description, { shouldValidate: true });
+    if (data.date) {
+      try {
+        const d = new Date(data.date);
+        if (!isNaN(d.getTime())) {
+          form.setValue("startDate", `${format(d, "yyyy-MM-dd")}T12:00`, { shouldValidate: true });
+          form.setValue("endDate", `${format(d, "yyyy-MM-dd")}T14:00`, { shouldValidate: true });
+        }
+      } catch (e) {
+        console.error("Failed to parse date from flyer", e);
+      }
+    }
   };
 
   const startDateStr = form.watch("startDate");
@@ -162,20 +224,48 @@ export function CreateEventDialog({ user }: { user: User | null }) {
       open={open}
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen);
-        if (!nextOpen) {
+        if (nextOpen) {
+          try {
+            const saved = window.localStorage.getItem(DRAFT_KEY);
+            if (saved) {
+              const draftValues = JSON.parse(saved) as EventFormValues;
+              if (hasDraftContent(draftValues)) {
+                toast("You have an unsaved draft.", {
+                  description: "Would you like to resume where you left off?",
+                  action: {
+                    label: "Resume",
+                    onClick: () => form.reset(draftValues),
+                  },
+                });
+              }
+            }
+          } catch (e) {
+            console.error("[CreateEventDialog] Failed to read saved draft:", e);
+          }
+        } else {
           form.reset(defaultValues);
           setStep(0);
         }
       }}
     >
       <DialogTrigger asChild>
-        <button
-          type="button"
-          className="neu-border neu-press flex items-center gap-2 bg-teal-500 px-4 py-2 font-mono text-xs font-bold uppercase text-black"
-        >
-          <Plus className="h-4 w-4" />
-          Create event
-        </button>
+        {variant === "fab" ? (
+          <button
+            type="button"
+            aria-label="Create event"
+            className="neu-border neu-press flex h-14 w-14 items-center justify-center rounded-full bg-teal-500 text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+          >
+            <Plus className="h-6 w-6" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="neu-border neu-press flex items-center gap-2 bg-teal-500 px-4 py-2 font-mono text-xs font-bold uppercase text-black"
+          >
+            <Plus className="h-4 w-4" />
+            Create event
+          </button>
+        )}
       </DialogTrigger>
       <DialogContent className="neu-border neu-shadow bg-cream sm:max-w-md text-black">
         <DialogHeader>
@@ -218,6 +308,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
             {/* Step 1 — Details */}
             {step === 0 && (
               <>
+                <FlyerUploader onDataExtracted={handleDataExtracted} />
                 <FormField
                   control={form.control}
                   name="title"
@@ -245,6 +336,49 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                         <Textarea placeholder="What's this event about?" rows={4} {...field} />
                       </FormControl>
                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="tags"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-mono text-xs font-bold uppercase text-black">
+                        Event Tags
+                      </FormLabel>
+                      <FormControl>
+                        <TagMultiSelect
+                          value={field.value || []}
+                          onChange={field.onChange}
+                          placeholder="Select or type event tags (e.g. #Tech, #Career)..."
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="isPrivate"
+                  render={({ field }) => (
+                    <FormItem className="neu-border flex items-center justify-between bg-white p-3 shadow-none">
+                      <div className="space-y-0.5">
+                        <FormLabel className="cursor-pointer font-mono text-xs font-bold uppercase text-black">
+                          Private Event (Members Only)
+                        </FormLabel>
+                        <p className="text-[11px] text-black/60">
+                          Restrict visibility to approved members of the hosting club.
+                        </p>
+                      </div>
+                      <FormControl>
+                        <input
+                          type="checkbox"
+                          checked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                          className="h-4 w-4 rounded border-2 border-black accent-teal-500 cursor-pointer"
+                        />
+                      </FormControl>
                     </FormItem>
                   )}
                 />
@@ -283,6 +417,7 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                       src={`https://maps.google.com/maps?q=${encodeURIComponent(watchedLocation)}&output=embed`}
                       title="Location preview"
                     />
+
                     <a
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(watchedLocation)}`}
                       target="_blank"
@@ -383,58 +518,138 @@ export function CreateEventDialog({ user }: { user: User | null }) {
               </>
             )}
 
-            {/* Step 3 — Media (review + confirm) */}
+            {/* Step 3 — Media & Ticketing */}
             {step === 2 && (
-              <div className="neu-border space-y-3 bg-white p-4 font-mono text-sm">
-                <p className="font-bold uppercase text-black/50 text-xs">Review your event</p>
-                <div>
-                  <p className="text-xs text-black/40">Title</p>
-                  <p className="font-bold">{form.getValues("title")}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-black/40">Description</p>
-                  <p className="text-black/80">{form.getValues("description")}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-black/40">Location</p>
-                  <p>{form.getValues("location") || "—"}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <p className="text-xs text-black/40">Start</p>
-                    <p>{startDateStr ? format(parsedStart!, "MMM dd, y HH:mm") : "—"}</p>
+              <div className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="banner"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Banner Image</FormLabel>
+                      <ImageCropUpload
+                        aspect={16 / 9}
+                        bucket="event-banners"
+                        value={field.value || undefined}
+                        onUploaded={(url) => field.onChange(url, { shouldValidate: true })}
+                        hint="JPEG, PNG or WEBP · Max 5 MB · 16:9 crop"
+                      />
+                      <p className="mt-1 text-xs text-black/50">Or paste a URL directly:</p>
+                      <FormControl>
+                        <Input
+                          placeholder="https://example.com/banner.png"
+                          {...field}
+                          value={field.value ?? ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="capacity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ticket Capacity</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={1} placeholder="e.g. 100" {...field} />
+                      </FormControl>
+                      <p className="mt-1 text-xs text-black/50">
+                        Max number of attendees (optional, leave blank for unlimited)
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <p className="font-mono text-xs font-bold text-black/50 uppercase">
+                  Add frequently asked questions (optional)
+                </p>
+                {form.watch("faqs")?.map((_faq, index) => (
+                  <div key={index} className="neu-border space-y-2 bg-white p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-bold text-black/40">
+                        Q{index + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const current = form.getValues("faqs") || [];
+                          form.setValue(
+                            "faqs",
+                            current.filter((_: unknown, i: number) => i !== index),
+                          );
+                        }}
+                        className="text-destructive hover:text-destructive/80"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <Input
+                      placeholder="Question"
+                      value={form.watch(`faqs.${index}.question`) || ""}
+                      onChange={(e) => {
+                        const current = form.getValues("faqs") || [];
+                        const updated = [...current];
+                        updated[index] = { ...updated[index], question: e.target.value };
+                        form.setValue("faqs", updated);
+                      }}
+                      className="font-mono text-sm"
+                    />
+                    <Textarea
+                      placeholder="Answer"
+                      value={form.watch(`faqs.${index}.answer`) || ""}
+                      onChange={(e) => {
+                        const current = form.getValues("faqs") || [];
+                        const updated = [...current];
+                        updated[index] = { ...updated[index], answer: e.target.value };
+                        form.setValue("faqs", updated);
+                      }}
+                      rows={2}
+                      className="font-mono text-sm"
+                    />
                   </div>
-                  <div>
-                    <p className="text-xs text-black/40">End</p>
-                    <p>{endDateStr ? format(parsedEnd!, "MMM dd, y HH:mm") : "—"}</p>
-                  </div>
-                </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const current = form.getValues("faqs") || [];
+                    form.setValue("faqs", [...current, { question: "", answer: "" }]);
+                  }}
+                  className="w-full border-dashed font-mono text-xs font-bold"
+                >
+                  <Plus className="mr-1 h-3 w-3" /> Add Question
+                </Button>
               </div>
             )}
 
-            <DialogFooter className="flex gap-2 pt-2">
-              {step > 0 && (
-                <Button type="button" variant="outline" onClick={handleBack} className="flex-1">
-                  Back
-                </Button>
+            <FormField
+              control={form.control}
+              name="requiresApproval"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-white p-4 shadow-sm">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="font-bold cursor-pointer">
+                      Requires Manual Approval
+                    </FormLabel>
+                    <p className="text-xs text-black/50">
+                      Organizers must manually approve attendee RSVPs.
+                    </p>
+                  </div>
+                </FormItem>
               )}
-              {step < 2 ? (
-                <Button
-                  type="button"
-                  onClick={handleNext}
-                  className="flex-1 bg-black text-cream hover:bg-black/80"
-                >
-                  Next →
-                </Button>
-              ) : (
-                <Button
-                  type="submit"
-                  disabled={createEvent.isPending}
-                  className="flex-1 bg-black text-cream hover:bg-black/80"
-                >
-                  {createEvent.isPending ? "Creating..." : "Create event"}
-                </Button>
-              )}
+            />
+
+            <DialogFooter className="pt-2">
+              <Button type="submit" disabled={createEvent.isPending} className="w-full sm:w-auto">
+                {createEvent.isPending ? "Creating..." : "Create event"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

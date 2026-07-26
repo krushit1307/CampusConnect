@@ -2,6 +2,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { isRouteErrorResponse, useRouteError } from "react-router-dom";
 
 import React from "react";
+import { NotFoundPage } from "./NotFoundPage";
 
 const MAX_SOFT_RETRIES = 2;
 
@@ -100,6 +101,7 @@ function ErrorFallback({
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
+  fallback?: React.ReactNode | ((error: Error, reset: () => void) => React.ReactNode);
 }
 
 interface ErrorBoundaryState {
@@ -160,6 +162,17 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     }
 
     const { error, errorInfo, retryCount, detailsOpen } = this.state;
+    const { fallback } = this.props;
+
+    if (fallback) {
+      if (typeof fallback === "function") {
+        return (fallback as (err: Error, reset: () => void) => React.ReactNode)(
+          error ?? new Error("Unknown error"),
+          this.handleTryAgain,
+        );
+      }
+      return fallback;
+    }
 
     return (
       <ErrorFallback
@@ -187,6 +200,9 @@ export function RouteErrorBoundary() {
   let stack: string | undefined;
 
   if (isRouteErrorResponse(routeError)) {
+    if (routeError.status === 404) {
+      return <NotFoundPage />;
+    }
     message = `${routeError.status} ${routeError.statusText}`;
   } else if (routeError instanceof Error) {
     message = routeError.message;

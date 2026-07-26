@@ -14,7 +14,7 @@ const redisToken = Deno.env.get("UPSTASH_REDIS_REST_TOKEN");
 const redis = redisUrl && redisToken ? new Redis({ url: redisUrl, token: redisToken }) : null;
 
 export interface RateLimitConfig {
-  limit?: number; // Maximum requests allowed in the window (default: 5)
+  limit?: number; // Maximum requests allowed in the window (default: 60)
   windowMs?: number; // Window size in milliseconds (default: 60000 / 1 minute)
 }
 
@@ -85,7 +85,7 @@ export async function limitRate(
     return null;
   }
 
-  const limit = Math.floor(config.limit ?? 5);
+  const limit = Math.floor(config.limit ?? 60);
   const windowMs = Math.floor(config.windowMs ?? 60000);
 
   if (limit <= 0 || windowMs <= 0 || !Number.isFinite(limit) || !Number.isFinite(windowMs)) {

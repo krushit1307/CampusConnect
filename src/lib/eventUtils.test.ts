@@ -21,7 +21,13 @@ describe("eventFormSchema", () => {
   };
 
   it("accepts a fully valid payload", () => {
-    expect(eventFormSchema.safeParse(valid).success).toBe(true);
+    const parsed = eventFormSchema.parse(valid);
+    expect(parsed.isPrivate).toBe(false);
+  });
+
+  it("handles isPrivate toggle correctly when set to true", () => {
+    const parsed = eventFormSchema.parse({ ...valid, isPrivate: true });
+    expect(parsed.isPrivate).toBe(true);
   });
 
   it("rejects an empty title", () => {
