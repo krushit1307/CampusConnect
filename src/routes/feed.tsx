@@ -119,6 +119,8 @@ export default function Feed() {
   const [visibleCommentsCount, setVisibleCommentsCount] = useState<Record<string, number>>({});
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showNewPostsBanner, setShowNewPostsBanner] = useState(false);
+  const [prependedPosts, setPrependedPosts] = useState<Post[]>([]);
+  const [hiddenPosts, setHiddenPosts] = useState<Post[]>([]);
   const [confirmPostId, setConfirmPostId] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [reactionBursts, setReactionBursts] = useState<Record<string, string>>({});
@@ -227,7 +229,11 @@ export default function Feed() {
   });
 
   const allPosts = data?.pages.flatMap((page) => page.posts) ?? [];
-  const posts = [...allPosts].sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned));
+  const combinedPosts = [
+    ...prependedPosts,
+    ...allPosts.filter((ap) => !prependedPosts.some((pp) => pp.id === ap.id)),
+  ];
+  const posts = [...combinedPosts].sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned));
 
   // Trending posts — fetched lazily only when the Trending tab is active
   const { data: trendingData, isLoading: isTrendingLoading } = useQuery<Post[]>({
@@ -286,8 +292,63 @@ export default function Feed() {
 
   const handleRefetch = useCallback(() => {
     setShowNewPostsBanner(false);
+    setPrependedPosts([]);
+    setHiddenPosts([]);
     refetchPosts();
   }, [refetchPosts]);
+
+  const handleLoadNewPosts = () => {
+    setPrependedPosts((prev) => [...hiddenPosts, ...prev]);
+    setHiddenPosts([]);
+    setShowNewPostsBanner(false);
+  };
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("public-posts-insert")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "posts",
+        },
+        async (payload) => {
+          const newRawPost = payload.new;
+          // Ignore posts created by currently authenticated user
+          if (userRef.current && newRawPost.created_by === userRef.current.id) {
+            return;
+          }
+
+          // Fetch the full post with relations
+          const { data, error } = await supabase
+            .from("posts")
+            .select(`
+              id, content, created_at, club_id, is_pinned,
+              profiles (id, full_name, handle),
+              clubs (id, name, club_members (user_id, role)),
+              comments (id, content, created_at, deleted_at, parent_id, parent_comment_id, profiles (id, full_name, handle)),
+              post_reactions (emoji, user_id)
+            `)
+            .eq("id", newRawPost.id)
+            .single();
+
+          if (!error && data) {
+            const fullPost = data as unknown as Post;
+            setHiddenPosts((prev) => {
+              if (prev.some((p) => p.id === fullPost.id)) return prev;
+              return [fullPost, ...prev];
+            });
+            setShowNewPostsBanner(true);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase]);
 
   /** Fetch (or re-fetch) comments for a post and store them in lazyComments. */
   const fetchCommentsForPost = useCallback(
@@ -844,14 +905,14 @@ export default function Feed() {
             {showNewPostsBanner && feedMode === "latest" && (
               <button
                 type="button"
-                onClick={handleRefetch}
+                onClick={handleLoadNewPosts}
                 style={{
                   animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards",
                 }}
                 className="neu-border flex w-full items-center justify-center gap-2 bg-[#FFD93D] hover:bg-[#FFD93D]/90 py-3 text-center font-display text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_#000] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_#000] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[4px_4px_0_0_#000] cursor-pointer"
               >
                 <Sparkles size={16} className="animate-pulse" />
-                New posts available (Refresh)
+                Load {hiddenPosts.length} new {hiddenPosts.length === 1 ? "post" : "posts"}
               </button>
             )}
 
