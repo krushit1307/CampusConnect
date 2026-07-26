@@ -23,7 +23,7 @@ import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { calculateReadTime } from "@/utils/readTime";
-import { PullToRefresh } from "@/components/PullToRefresh";
+import { PullToRefreshContainer } from "@/components/PullToRefreshContainer";
 
 import { MarkdownEditor, type MarkdownEditorRef } from "@/components/MarkdownEditor";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
@@ -231,10 +231,11 @@ export default function Feed() {
     userRef.current = user;
   }, [user]);
 
-  const handleRefetch = useCallback(() => {
+  const handleRefetch = useCallback(async () => {
     setShowNewPostsBanner(false);
-    refetchPosts();
+    await refetchPosts();
   }, [refetchPosts]);
+
   const observer = useRef<IntersectionObserver | null>(null);
   const lastPostElementRef = useCallback(
     (node: HTMLElement | null) => {
@@ -280,6 +281,7 @@ export default function Feed() {
       supabase.removeChannel(channel);
     };
   }, [supabase, refetchPosts]);
+
   useEffect(() => {
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 300);
@@ -305,6 +307,7 @@ export default function Feed() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [lightboxSrc]);
+
   const postMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Must be logged in");
@@ -487,6 +490,7 @@ export default function Feed() {
     const minutes = Math.floor(diff / (1000 * 60));
     return rtf.format(-Math.max(1, minutes), "minute");
   };
+
   const scrollToTop = () => {
     window.scrollTo({
       top: 0,
@@ -496,7 +500,7 @@ export default function Feed() {
 
   return (
     <SiteShell>
-      <PullToRefresh isRefreshing={isLoading || isFetching} onRefresh={handleRefetch}>
+      <PullToRefreshContainer onRefresh={handleRefetch}>
         <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
           <div className="mx-auto max-w-4xl">
             <p className="eyebrow font-bold">Discussion feed</p>
@@ -778,8 +782,6 @@ export default function Feed() {
                               type="button"
                               onClick={() => {
                                 if (!user) return alert("Log in first");
-                                // Bump the burst nonce so the emoji <span> remounts
-                                // and the spring keyframe animation replays.
                                 setReactionBursts((prev) => ({
                                   ...prev,
                                   [burstKey]: (prev[burstKey] ?? 0) + 1,
@@ -790,8 +792,6 @@ export default function Feed() {
                                 isReacted ? "bg-lime" : "bg-white hover:bg-cream"
                               }`}
                             >
-                              {/* key includes burstNonce so React remounts the span
-                                   on every click, retriggering the CSS animation. */}
                               <span
                                 key={`${burstKey}-${burstNonce}`}
                                 className="reaction-burst inline-flex items-center"
@@ -807,7 +807,6 @@ export default function Feed() {
                       <div className="mt-4 flex gap-2 border-t-2 border-black pt-4">
                         <a
                           href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`}
-
                           target="_blank"
                           rel="noopener noreferrer"
                           className="neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-[#1DA1F2] hover:text-white"
@@ -1107,7 +1106,7 @@ export default function Feed() {
             )}
           </div>
         </section>
-      </PullToRefresh>
+      </PullToRefreshContainer>
       <ConfirmModal
         open={!!confirmPostId}
         onCancel={() => setConfirmPostId(null)}
