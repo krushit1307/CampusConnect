@@ -4,10 +4,11 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
-import { Award, ArrowRight, Copy, Download, X, QrCode } from "lucide-react";
+import { Award, ArrowRight, Copy, Download, Loader2, QrCode, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { formatDateOnly } from "@/lib/utils";
+import { formatStandardDate } from "@/utils/dateUtils";
+import { downloadCertificatePdf } from "@/lib/certificateUtils";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -99,7 +100,7 @@ export default function Certificates() {
             </>
           ) : certs.length === 0 ? (
             <div className="col-span-full font-mono py-10 text-neutral-600">
-              You don't have any certificates yet. Attend events to earn them!
+              You don&apos;t have any certificates yet. Attend events to earn them!
             </div>
           ) : displayedCerts.length === 0 ? (
             <div className="col-span-full">
@@ -200,7 +201,9 @@ export default function Certificates() {
                         </div>
                         <div className="flex justify-between border-b border-black/10 pb-1">
                           <span className="font-bold uppercase text-black">Issued</span>
-                          <span>{c.issued_at ? formatDateOnly(c.issued_at, "short") : "N/A"}</span>
+                          <span>
+                            {c.issued_at ? formatStandardDate(c.issued_at, "MMM d, yyyy") : "N/A"}
+                          </span>
                         </div>
                         <div className="flex justify-between pb-1">
                           <span className="font-bold uppercase text-black">Verify ID</span>
@@ -273,7 +276,7 @@ export default function Certificates() {
 
                   {/* Ticket Card */}
                   <div className="p-5 group">
-                    <div className="neu-border bg-white p-5 flex flex-col gap-4 shadow-[4px_4px_0_0_#000] transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-[6px_6px_0_0_#000]">
+                    <div className="neu-border bg-white p-5 flex flex-col gap-4 shadow-[4px_4px_0_0_var(--color-ink)] transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-[6px_6px_0_0_var(--color-ink)]">
                       {/* Header stripe */}
                       <div className="bg-lime neu-border px-3 py-2 text-center">
                         <p className="font-mono text-[10px] font-black uppercase tracking-widest">
@@ -283,7 +286,7 @@ export default function Certificates() {
 
                       {/* QR Code */}
                       <div className="flex justify-center">
-                        <div className="neu-border bg-white p-3 shadow-[3px_3px_0_0_#000]">
+                        <div className="neu-border bg-white p-3 shadow-[3px_3px_0_0_var(--color-ink)]">
                           <QRCodeSVG
                             value={ticketUrl}
                             size={140}
@@ -316,7 +319,7 @@ export default function Certificates() {
                           <span className="font-bold uppercase text-gray-500">Issued</span>
                           <span className="font-bold text-black">
                             {ticketCert.issued_at
-                              ? formatDateOnly(ticketCert.issued_at, "short")
+                              ? formatStandardDate(ticketCert.issued_at, "MMM d, yyyy")
                               : "—"}
                           </span>
                         </div>
@@ -418,7 +421,7 @@ export default function Certificates() {
                           <p className="font-bold uppercase text-gray-500">Date of Issue</p>
                           <p className="font-bold text-black">
                             {selectedCert.issued_at
-                              ? formatDateOnly(selectedCert.issued_at, "long")
+                              ? formatStandardDate(selectedCert.issued_at, "MMMM d, yyyy")
                               : "N/A"}
                           </p>
                         </div>
@@ -455,35 +458,36 @@ export default function Certificates() {
                     <button
                       onClick={async () => {
                         setOpeningId(selectedCert.id);
-                        const minDuration = new Promise((resolve) => setTimeout(resolve, 400));
+                        const minDuration = new Promise((resolve) => setTimeout(resolve, 500));
                         try {
-                          const response = await fetch(selectedCert.certificate_url);
-                          const blob = await response.blob();
-                          const blobUrl = window.URL.createObjectURL(blob);
-
-                          const link = document.createElement("a");
-                          link.href = blobUrl;
-                          const eventTitle = event?.title || "certificate";
-                          const filename = `${eventTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-certificate.pdf`;
-                          link.download = filename;
-
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
-                          window.URL.revokeObjectURL(blobUrl);
+                          await downloadCertificatePdf({
+                            certificateUrl: selectedCert.certificate_url,
+                            eventTitle: event?.title,
+                            studentName: user?.email?.split("@")[0] || "Student",
+                            issuedAt: selectedCert.issued_at,
+                            certId: selectedCert.id,
+                          });
+                          toast.success("Certificate downloaded successfully!");
                         } catch (err) {
                           console.error("PDF download failed:", err);
-                          // Fallback to opening in new window if fetch fails
-                          window.open(selectedCert.certificate_url, "_blank");
+                          toast.error("Failed to download certificate.");
+                        } finally {
+                          await minDuration;
+                          setOpeningId(null);
                         }
-                        await minDuration;
-                        setOpeningId(null);
                       }}
                       disabled={openingId === selectedCert.id}
                       className="neu-border neu-press flex-1 bg-black text-cream hover:bg-lime hover:text-black py-3 font-mono text-xs font-bold uppercase transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
                     >
-                      <Download className="h-4 w-4" />{" "}
-                      {openingId === selectedCert.id ? "Downloading..." : "Download PDF"}
+                      {openingId === selectedCert.id ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" /> Downloading PDF...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-4 w-4" /> Download PDF
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

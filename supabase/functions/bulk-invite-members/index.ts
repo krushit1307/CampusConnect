@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { parse } from "https://deno.land/std@0.168.0/encoding/csv.ts";
-
+import { verifyAuth } from "../shared/auth-middleware.ts";
 // ---------------------------------------------------------------------------
 // CORS headers – allow the Supabase dashboard and any campus frontend
 // ---------------------------------------------------------------------------
@@ -28,6 +28,8 @@ function normaliseEmail(raw: string): string | null {
  * Enforces a maximum limit of 1000 rows.
  */
 function parseEmailsFromCsv(csvText: string): string[] {
+  // Strip UTF-8 BOM (Byte Order Mark) that Excel prepends to exported CSVs
+  csvText = csvText.replace(/^\uFEFF/, "");
   let rows: string[][];
   try {
     rows = parse(csvText) as string[][];
@@ -113,30 +115,23 @@ serve(async (req: Request) => {
   // -------------------------------------------------------------------------
   // 1. Auth – verify the calling user
   // -------------------------------------------------------------------------
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    return new Response(JSON.stringify({ error: "Missing Authorization header" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
   // Service-role client for privileged inserts
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
   );
 
-  const token = authHeader.replace("Bearer ", "");
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser(token);
+  let user;
 
-  if (userError || !user) {
+  try {
+    user = await verifyAuth(req, supabase);
+  } catch {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json",
+      },
     });
   }
 

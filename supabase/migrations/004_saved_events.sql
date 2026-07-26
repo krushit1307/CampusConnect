@@ -1,0 +1,1 @@
+-- Duplicate migration removed (saved_events table is already created by upstream main migrations)

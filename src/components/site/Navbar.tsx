@@ -1,11 +1,11 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState, useRef } from "react";
+import { usePresence } from "@/hooks/usePresence";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
-import { ThemeToggle } from "../ThemeToggle";
-import { usePresence } from "@/hooks/usePresence";
-import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { UserDropdown } from "../Navigation/UserDropdown";
+import { ThemeToggle } from "../ThemeToggle";
+import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
 
 import { Menu, X } from "lucide-react";
 
@@ -13,6 +13,7 @@ const links = [
   { to: "/events", label: "Events" },
   { to: "/clubs", label: "Clubs" },
   { to: "/feed", label: "Feed" },
+  { to: "/challenge", label: "Challenge" },
   { to: "/certificates", label: "Certificates" },
   { to: "/dashboard", label: "Dashboard" },
   { to: "/messages", label: "Messages" },
@@ -113,9 +114,12 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 border-b-2 border-black bg-white text-black dark:border-cream dark:bg-black dark:text-cream">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-3 sm:px-4 md:px-6">
+      <div className="mx-auto flex min-w-0 max-w-7xl items-center justify-between gap-2 px-2 py-3 sm:px-4 md:px-6">
         {/* Logo */}
-        <Link to="/" className="shrink-0 font-display text-lg font-bold sm:text-xl md:text-2xl">
+        <Link
+          to="/"
+          className="min-w-0 flex-1 truncate font-display text-sm font-bold sm:flex-none sm:text-xl md:text-2xl navbar-logo"
+        >
           <span style={{ letterSpacing: "0.04em" }}>CAMPUS</span>
           <span className="bg-black px-1 text-cream dark:bg-cream dark:text-black">CONNECT</span>
         </Link>
@@ -129,6 +133,7 @@ export function Navbar() {
               <Link
                 key={link.to}
                 to={link.to}
+                id={`nav-link-${link.label.toLowerCase()}`}
                 className={`font-mono text-sm font-bold uppercase hover:underline ${
                   isActive ? "underline underline-offset-4 decoration-2" : ""
                 }`}
@@ -141,8 +146,8 @@ export function Navbar() {
         </nav>
 
         {/* Actions */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2">
             <div className="hidden rounded-full border border-black bg-lime px-2 py-1 text-xs font-mono font-bold md:flex dark:border-cream dark:text-black">
               🟢 {onlineUsers} online
             </div>
@@ -151,10 +156,13 @@ export function Navbar() {
 
             {user && <NavbarNotificationDropdown />}
             {user ? (
-              <UserDropdown user={user} onSignOut={handleSignOut} />
+              <div id="nav-profile-trigger">
+                <UserDropdown user={user} onSignOut={handleSignOut} />
+              </div>
             ) : (
               <Link
                 to="/auth"
+                id="nav-signin-button"
                 className="neu-border neu-press bg-black px-3 py-1.5 font-mono text-xs font-bold uppercase text-cream hover:bg-cream hover:text-black dark:bg-cream dark:text-black dark:hover:bg-black dark:hover:text-cream"
                 style={{ letterSpacing: "0.08em" }}
               >
@@ -197,7 +205,7 @@ export function Navbar() {
                   className={`neu-border w-full px-4 py-2.5 text-left font-mono text-sm font-bold uppercase ${
                     isActive
                       ? "bg-black text-cream dark:bg-cream dark:text-black"
-                      : "bg-white text-black hover:bg-lime dark:bg-[#1a1a1a] dark:text-cream"
+                      : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
                   }`}
                   style={{ letterSpacing: "0.05em" }}
                 >

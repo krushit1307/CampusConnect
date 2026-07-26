@@ -9,7 +9,7 @@ import { CommandPalette } from "./command-palette";
 expect.extend(matchers);
 
 beforeEach(() => {
-  cleanup(); // Ensure previous renders are removed from JSDOM
+  cleanup();
 
   if (typeof globalThis.ResizeObserver === "undefined") {
     globalThis.ResizeObserver = vi.fn().mockImplementation(() => ({
@@ -33,7 +33,7 @@ describe("CommandPalette", () => {
     render(
       <MemoryRouter>
         <CommandPalette />
-      </MemoryRouter>,
+      </MemoryRouter>
     );
     expect(screen.queryByPlaceholderText(/type a command or search/i)).not.toBeInTheDocument();
   });
@@ -42,10 +42,23 @@ describe("CommandPalette", () => {
     render(
       <MemoryRouter>
         <CommandPalette />
-      </MemoryRouter>,
+      </MemoryRouter>
     );
 
     fireEvent.keyDown(window, { key: "k", metaKey: true });
     expect(screen.getByPlaceholderText(/type a command or search/i)).toBeInTheDocument();
+  });
+
+  it("displays navigation items when open", () => {
+    render(
+      <MemoryRouter>
+        <CommandPalette />
+      </MemoryRouter>
+    );
+
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+
+    expect(screen.getByText("Explore Clubs")).toBeInTheDocument();
+    expect(screen.getByText("Events Calendar")).toBeInTheDocument();
   });
 });
