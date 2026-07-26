@@ -100,6 +100,7 @@ function ErrorFallback({
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
+  fallback?: React.ReactNode | ((error: Error, reset: () => void) => React.ReactNode);
 }
 
 interface ErrorBoundaryState {
@@ -160,6 +161,17 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     }
 
     const { error, errorInfo, retryCount, detailsOpen } = this.state;
+    const { fallback } = this.props;
+
+    if (fallback) {
+      if (typeof fallback === "function") {
+        return (fallback as (err: Error, reset: () => void) => React.ReactNode)(
+          error ?? new Error("Unknown error"),
+          this.handleTryAgain,
+        );
+      }
+      return fallback;
+    }
 
     return (
       <ErrorFallback
