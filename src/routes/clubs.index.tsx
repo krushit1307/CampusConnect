@@ -1,12 +1,13 @@
-import { Link } from "react-router-dom";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { SiteShell } from "@/components/site/SiteShell";
-import { useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
-import { createClient } from "@/lib/supabase/client";
 import { LayoutGrid, List, UsersRound, X } from "lucide-react";
-import type { User } from "@supabase/supabase-js";
-import { CreateClubDialog } from "@/components/CreateClubDialog";
+import { useCallback, useEffect, useRef, useState } from "react";
+
 import { ClubCardSkeleton } from "@/components/ui/ClubCardSkeleton";
+import { CreateClubDialog } from "@/components/CreateClubDialog";
+import { Link } from "react-router-dom";
+import { SiteShell } from "@/components/site/SiteShell";
+import type { User } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
+import { useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 
 const ITEMS_PER_PAGE = 12;
 const VIEW_MODE_STORAGE_KEY = "clubs-view-mode";
@@ -413,6 +414,20 @@ export default function ClubsIndex() {
                 </div>
               ))}
           </div>
+
+          {/* Load More Controller */}
+          {hasNextPage && !search && (
+            <div className="mt-12 flex justify-center">
+              <button
+                type="button"
+                disabled={isFetchingNextPage}
+                onClick={() => fetchNextPage()}
+                className="neu-border neu-press bg-black px-4 py-2 font-mono text-sm font-bold uppercase text-cream hover:bg-cream hover:text-black transition-all disabled:opacity-50"
+              >
+                {isFetchingNextPage ? "Loading more..." : "Load More Clubs"}
+              </button>
+            </div>
+          )}
         </div>
       </section>
     </SiteShell>

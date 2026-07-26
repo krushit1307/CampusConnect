@@ -221,7 +221,7 @@ export default function PendingClubsAdmin() {
                             void moderateClub(club.id, "rejected");
                           }
                         }}
-                        className="neu-border neu-press inline-flex items-center justify-center gap-2 bg-white px-5 py-3 font-mono text-xs font-bold uppercase disabled:cursor-wait disabled:opacity-50"
+                        className="neu-border neu-press inline-flex items-center justify-center gap-2 bg-white px-4 py-2 font-mono text-xs font-bold uppercase disabled:cursor-wait disabled:opacity-50"
                       >
                         <X className="h-4 w-4 text-black" /> Reject
                       </button>
@@ -229,7 +229,7 @@ export default function PendingClubsAdmin() {
                         type="button"
                         disabled={isBusy}
                         onClick={() => void moderateClub(club.id, "approved")}
-                        className="neu-border neu-press inline-flex items-center justify-center gap-2 bg-lime px-5 py-3 font-mono text-xs font-bold uppercase disabled:cursor-wait disabled:opacity-50 text-gray-600"
+                        className="neu-border neu-press inline-flex items-center justify-center gap-2 bg-lime px-4 py-2 font-mono text-xs font-bold uppercase disabled:cursor-wait disabled:opacity-50 text-gray-600"
                       >
                         <Check className="h-4 w-4 text-gray-600" />{" "}
                         {isBusy ? "Updating..." : "Approve"}
