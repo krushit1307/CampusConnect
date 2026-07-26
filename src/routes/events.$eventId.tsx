@@ -884,7 +884,6 @@ export default function EventDetailsPage() {
       toast.error("Failed to copy event ID.");
     }
   };
-
   const handleConfirmCancel = () => {
     toggleRsvp.mutate({ eventId: event.id, hasRsvpd: true });
     setConfirmOpen(false);
@@ -1223,7 +1222,9 @@ export default function EventDetailsPage() {
                             key={star}
                             type="button"
                             onClick={() => setFeedbackRating(star)}
-                            className="focus:outline-none transition-transform hover:scale-110 active:scale-95"
+                            aria-label={`Rate ${star} out of 5 stars`}
+                            aria-pressed={feedbackRating === star}
+                            className="transition-transform hover:scale-110 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
                           >
                             <Star
                               className={`h-8 w-8 ${feedbackRating >= star ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
@@ -1925,11 +1926,19 @@ export default function EventDetailsPage() {
         targetType="event"
         targetId={event.id}
       />
-
       {lightboxSrc && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 cursor-zoom-out"
+          role="button"
+          tabIndex={0}
+          aria-label="Close enlarged image"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 cursor-zoom-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           onClick={() => setLightboxSrc(null)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " " || e.key === "Escape") {
+              e.preventDefault();
+              setLightboxSrc(null);
+            }
+          }}
         >
           <img
             src={lightboxSrc}
