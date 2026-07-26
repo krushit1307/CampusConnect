@@ -662,7 +662,7 @@ export default function Feed() {
                     onClick={() => {
                       editorRef.current?.focusWrite();
                     }}
-                    className="neu-border mt-7 inline-flex items-center gap-2 bg-black px-5 py-3 font-mono text-xs font-bold uppercase text-cream transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black"
+                    className="neu-border mt-7 inline-flex items-center gap-2 bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black"
                   >
                     <PenLine className="h-4 w-4" aria-hidden="true" />
                     Start a discussion
