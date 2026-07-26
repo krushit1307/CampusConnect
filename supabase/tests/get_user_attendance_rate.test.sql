@@ -2,7 +2,8 @@
 -- Test Suite: get_user_attendance_rate.test.sql
 -- Issue: #1180
 -- Description: Verifies get_user_attendance_rate function calculation,
---              handling of future events, zero division protection, and accuracy.
+--              handling of future events, ongoing events, zero division
+--              protection, 0% with RSVPs, and calculation accuracy.
 -- ============================================================
 
 BEGIN;
@@ -10,8 +11,8 @@ BEGIN;
 -- Enable pgTAP extension if not already enabled
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
--- Plan the tests (5 tests)
-SELECT plan(5);
+-- Plan the tests (7 tests)
+SELECT plan(7);
 
 -- Test 1: Function get_user_attendance_rate exists
 SELECT has_function(
@@ -77,7 +78,6 @@ SELECT is(
 );
 
 -- Test 5: User with only future RSVP returns 0 past attendance rate
--- Add a user with ONLY a future RSVP
 INSERT INTO auth.users (id, email, aud, role, raw_user_meta_data)
 VALUES ('b0000000-0000-0000-0000-000000000009', 'future_only@test.com', 'authenticated', 'authenticated', '{"full_name": "Future User"}')
 ON CONFLICT (id) DO NOTHING;
@@ -89,6 +89,39 @@ SELECT is(
   public.get_user_attendance_rate('b0000000-0000-0000-0000-000000000009'::uuid),
   0,
   'User with only future RSVPs returns 0 percentage'
+);
+
+-- Test 6: User with past RSVPs but 0 checked-in returns 0% (non-zero denominator)
+INSERT INTO auth.users (id, email, aud, role, raw_user_meta_data)
+VALUES ('b0000000-0000-0000-0000-000000000008', 'all_missed@test.com', 'authenticated', 'authenticated', '{"full_name": "All Missed User"}')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.event_rsvps (event_id, user_id, checked_in) VALUES
+  ('b0000000-0000-0000-0000-000000000010', 'b0000000-0000-0000-0000-000000000008', FALSE),
+  ('b0000000-0000-0000-0000-000000000011', 'b0000000-0000-0000-0000-000000000008', FALSE);
+
+SELECT is(
+  public.get_user_attendance_rate('b0000000-0000-0000-0000-000000000008'::uuid),
+  0,
+  'User with 2 past RSVPs and 0 checked-in returns 0 percentage'
+);
+
+-- Test 7: Ongoing event (start_date < NOW() and end_date > NOW()) is ignored as event has not ended yet
+INSERT INTO public.events (id, club_id, title, description, location, created_by, status, start_date, end_date)
+VALUES ('b0000000-0000-0000-0000-000000000015', 'b0000000-0000-0000-0000-000000000005', 'Ongoing Event 1', 'Desc', 'Loc', 'b0000000-0000-0000-0000-000000000004', 'scheduled', NOW() - INTERVAL '1 hour', NOW() + INTERVAL '1 hour');
+
+INSERT INTO auth.users (id, email, aud, role, raw_user_meta_data)
+VALUES ('b0000000-0000-0000-0000-000000000007', 'ongoing_user@test.com', 'authenticated', 'authenticated', '{"full_name": "Ongoing User"}')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.event_rsvps (event_id, user_id, checked_in) VALUES
+  ('b0000000-0000-0000-0000-000000000010', 'b0000000-0000-0000-0000-000000000007', TRUE),
+  ('b0000000-0000-0000-0000-000000000015', 'b0000000-0000-0000-0000-000000000007', FALSE);
+
+SELECT is(
+  public.get_user_attendance_rate('b0000000-0000-0000-0000-000000000007'::uuid),
+  100,
+  'Ongoing event is not counted as past ended event, so rate remains 100 percentage'
 );
 
 SELECT * FROM finish();
