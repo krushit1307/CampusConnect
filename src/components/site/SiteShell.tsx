@@ -4,6 +4,7 @@ import type { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
+import { MobileBottomNav } from "./MobileBottomNav";
 
 export function SiteShell({ children }: { children: ReactNode }) {
   const [supabase] = useState(() => createClient());
@@ -38,10 +39,15 @@ export function SiteShell({ children }: { children: ReactNode }) {
           confirmation link.
         </div>
       )}
-      <main id="main-content" tabIndex={-1} className="flex-1">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex-1 pb-16 md:pb-0"
+      >
         {children}
       </main>
       <Footer />
+      <MobileBottomNav />
     </div>
   );
 }
