@@ -71,6 +71,12 @@ export default function AuthPage() {
 
       if (invokeError) {
         const body = await invokeError.context?.json().catch(() => null);
+        const status = invokeError.status || invokeError.context?.status;
+        if (status === 429) {
+          const retryAfterSeconds = body?.retryAfter || 900;
+          const minutes = Math.ceil(retryAfterSeconds / 60);
+          throw new Error(`Account locked, try again in ${minutes} minutes`);
+        }
         throw new Error(body?.error || invokeError.message);
       }
 
