@@ -69,17 +69,18 @@ export default function EventDetailsPage() {
   } = useQuery({
     queryKey: ["event", eventId],
     queryFn: async () => {
+      // Try to lookup by short_id first, then fall back to UUID for backwards compatibility
       const { data, error } = await supabase
         .from("club_analytics_view")
         .select(
           `
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id,
           clubs (name, slug),
           event_rsvps (id, user_id),
           attendee_count
         `,
         )
-        .eq("id", eventId)
+        .or(`short_id.eq.${eventId},id.eq.${eventId}`)
         .single();
 
       if (error) {

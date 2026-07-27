@@ -11,6 +11,7 @@ import { EventRSVPButton } from "@/components/EventRSVPButton";
 
 interface Event {
   id: string;
+  short_id?: string | null;
   title: string;
   description: string | null;
   event_date: string | null;
@@ -158,7 +159,7 @@ export function EventCard({
       </div>
 
       <p className="mt-3 font-mono text-xs font-bold uppercase text-black">Event</p>
-      <Link to={`/events/${event.id}`} className="group">
+      <Link to={`/events/${event.short_id || event.id}`} className="group">
         <h2 className="mt-1 text-2xl font-black group-hover:underline text-violet-900">
           {event.title}
         </h2>

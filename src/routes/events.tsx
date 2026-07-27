@@ -22,6 +22,7 @@ const PAGE_SIZE = 20;
 
 interface EventItem {
   id: string;
+  short_id?: string | null;
   title: string;
   description: string | null;
   event_date: string | null;

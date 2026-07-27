@@ -100,7 +100,8 @@ CREATE TABLE events (
   status TEXT NOT NULL DEFAULT 'scheduled',
   created_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  short_id TEXT UNIQUE
 );
 
 ALTER TABLE events

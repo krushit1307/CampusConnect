@@ -18,6 +18,7 @@ const localizer = dateFnsLocalizer({
 
 interface EventItem {
   id: string;
+  short_id?: string | null;
   title: string;
   description: string | null;
   event_date: string | null;
@@ -44,7 +45,7 @@ export default function EventsCalendar({ events }: EventsCalendarProps) {
     const end = e.end_date ? new Date(e.end_date) : new Date(start.getTime() + 60 * 60 * 1000);
 
     return {
-      id: e.id,
+      id: e.short_id || e.id,
       title: e.title,
       start,
       end,
