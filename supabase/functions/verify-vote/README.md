@@ -16,6 +16,7 @@ bash scripts/compile-zkp.sh
 ```
 
 This generates:
+
 - `public/zkp/vote.wasm` — WebAssembly circuit
 - `public/zkp/vote_final.zkey` — proving key
 - `verification_key.json` — verifying key (used by this function)
@@ -23,9 +24,11 @@ This generates:
 ## Circuit
 
 The voting circuit (`circuits/vote.circom`) accepts three private inputs:
+
 - `secret` — user's membership token
 - `electionId` — election identifier
 - `voteChoice` — selected option
 
 And produces one public output:
+
 - `nullifier` — hash to prevent double voting

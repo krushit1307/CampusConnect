@@ -30,6 +30,7 @@ export const eventFormSchema = z
       .positive("Capacity must be positive")
       .optional()
       .or(z.literal("")),
+    isPrivate: z.boolean().optional().default(false),
     faqs: z
       .array(
         z.object({

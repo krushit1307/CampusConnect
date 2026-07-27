@@ -1,5 +1,13 @@
 import { v4 as uuidv4 } from "uuid";
-import { getClubBySlug, getClubById, getOrCreateClubKeys, getFollowers, saveActivity, getClubKeys, getClubEvents } from "./db";
+import {
+  getClubBySlug,
+  getClubById,
+  getOrCreateClubKeys,
+  getFollowers,
+  saveActivity,
+  getClubKeys,
+  getClubEvents,
+} from "./db";
 import { deliverActivity } from "./routes";
 import { DOMAIN } from "./index";
 

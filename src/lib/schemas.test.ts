@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { profileSchema, AVATAR_THEMES } from "./schemas";
+import {
+  profileSchema,
+  AVATAR_THEMES,
+  signInSchema,
+  signUpSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+} from "./schemas";
 
 describe("profileSchema", () => {
   const validPayload = {
@@ -184,5 +191,158 @@ describe("profileSchema", () => {
       const result = profileSchema.safeParse({ ...validPayload, avatarTheme: "galaxy" });
       expect(result.success).toBe(false);
     });
+  });
+});
+
+describe("signInSchema", () => {
+  const validPayload = { email: "ada@college.edu", password: "hunter2" };
+
+  it("accepts a valid payload", () => {
+    expect(signInSchema.safeParse(validPayload).success).toBe(true);
+  });
+
+  it("rejects a missing email", () => {
+    const result = signInSchema.safeParse({ ...validPayload, email: "" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a malformed email", () => {
+    const result = signInSchema.safeParse({ ...validPayload, email: "not-an-email" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.email).toContain(
+        "Please enter a valid email address.",
+      );
+    }
+  });
+
+  it("rejects a missing password", () => {
+    const result = signInSchema.safeParse({ ...validPayload, password: "" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.password).toContain("Password is required.");
+    }
+  });
+});
+
+describe("signUpSchema", () => {
+  const validPayload = {
+    firstName: "Ada",
+    lastName: "Lovelace",
+    email: "ada@college.edu",
+    password: "Password1",
+    confirmPassword: "Password1",
+  };
+
+  it("accepts a fully valid payload", () => {
+    expect(signUpSchema.safeParse(validPayload).success).toBe(true);
+  });
+
+  it("rejects an empty first or last name", () => {
+    expect(signUpSchema.safeParse({ ...validPayload, firstName: "" }).success).toBe(false);
+    expect(signUpSchema.safeParse({ ...validPayload, lastName: "" }).success).toBe(false);
+  });
+
+  it("rejects an invalid email", () => {
+    const result = signUpSchema.safeParse({ ...validPayload, email: "invalid" });
+    expect(result.success).toBe(false);
+  });
+
+  describe("password strength", () => {
+    it("rejects passwords shorter than 8 characters", () => {
+      const result = signUpSchema.safeParse({
+        ...validPayload,
+        password: "Ab1",
+        confirmPassword: "Ab1",
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.flatten().fieldErrors.password).toContain(
+          "Password must be at least 8 characters.",
+        );
+      }
+    });
+
+    it("rejects passwords without a letter", () => {
+      const result = signUpSchema.safeParse({
+        ...validPayload,
+        password: "12345678",
+        confirmPassword: "12345678",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects passwords without a number", () => {
+      const result = signUpSchema.safeParse({
+        ...validPayload,
+        password: "Password",
+        confirmPassword: "Password",
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("password confirmation", () => {
+    it("rejects mismatched passwords", () => {
+      const result = signUpSchema.safeParse({
+        ...validPayload,
+        confirmPassword: "Different1",
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.flatten().fieldErrors.confirmPassword).toContain(
+          "Passwords do not match.",
+        );
+      }
+    });
+  });
+});
+
+describe("forgotPasswordSchema", () => {
+  it("accepts a valid email", () => {
+    expect(forgotPasswordSchema.safeParse({ email: "ada@college.edu" }).success).toBe(true);
+  });
+
+  it("rejects an empty email", () => {
+    expect(forgotPasswordSchema.safeParse({ email: "" }).success).toBe(false);
+  });
+
+  it("rejects a malformed email", () => {
+    const result = forgotPasswordSchema.safeParse({ email: "not-an-email" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.email).toContain(
+        "Please enter a valid email address.",
+      );
+    }
+  });
+});
+
+describe("resetPasswordSchema", () => {
+  const validPayload = { password: "Password1", confirmPassword: "Password1" };
+
+  it("accepts a valid payload", () => {
+    expect(resetPasswordSchema.safeParse(validPayload).success).toBe(true);
+  });
+
+  it("rejects a weak password", () => {
+    const result = resetPasswordSchema.safeParse({
+      password: "short",
+      confirmPassword: "short",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects mismatched passwords", () => {
+    const result = resetPasswordSchema.safeParse({
+      ...validPayload,
+      confirmPassword: "Different1",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.confirmPassword).toContain(
+        "Passwords do not match.",
+      );
+    }
   });
 });

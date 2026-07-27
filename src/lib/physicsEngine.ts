@@ -34,7 +34,7 @@ export interface PhysicsAvatar {
   pos: Vector2Fixed;
   vel: Vector2Fixed;
   radius: number; // fixed-point
-  mass: number;   // fixed-point
+  mass: number; // fixed-point
   restitution: number; // fixed-point (0..1)
 }
 
@@ -189,7 +189,8 @@ export class DeterministicPhysicsWorld {
       // Impulse resolution
       const kx = a.vel.x - b.vel.x;
       const ky = a.vel.y - b.vel.y;
-      const p = mulFixed(toFixed(2), mulFixed(nx, kx) + mulFixed(ny, ky)) / (toFloat(a.mass + b.mass));
+      const p =
+        mulFixed(toFixed(2), mulFixed(nx, kx) + mulFixed(ny, ky)) / toFloat(a.mass + b.mass);
 
       a.vel.x -= mulFixed(toFixed(p), mulFixed(b.mass, nx));
       a.vel.y -= mulFixed(toFixed(p), mulFixed(b.mass, ny));

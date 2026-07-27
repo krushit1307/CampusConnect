@@ -84,6 +84,7 @@ export const typeDefs = /* GraphQL */ `
     full_name: String
     handle: String
     role: String
+    is_banned: Boolean
   }
 
   type Club {
@@ -115,7 +116,12 @@ export const typeDefs = /* GraphQL */ `
     posts(limit: Int, offset: Int): [Post!]!
     post(id: ID!): Post
     clubs: [Club!]!
-    profiles: [Profile!]!
+    profiles(limit: Int, offset: Int, sortBy: String, sortOrder: String): [Profile!]!
+    totalProfiles: Int!
+  }
+
+  type Mutation {
+    suspendUsers(ids: [ID!]!): [Profile!]!
   }
 `;
 
@@ -150,8 +156,51 @@ export const resolvers = {
       if (error) throw error;
       return data || [];
     },
-    profiles: async () => {
-      const { data, error } = await supabase.from("profiles").select("*");
+    profiles: async (
+      _: unknown,
+      {
+        limit = 20,
+        offset = 0,
+        sortBy = "full_name",
+        sortOrder = "asc",
+      }: {
+        limit?: number;
+        offset?: number;
+        sortBy?: string;
+        sortOrder?: string;
+      },
+    ) => {
+      let query = supabase.from("profiles").select("*");
+
+      const allowedColumns = ["id", "full_name", "handle", "role", "is_banned"];
+      const actualSortBy = allowedColumns.includes(sortBy) ? sortBy : "full_name";
+      const actualSortOrder = sortOrder === "desc" ? "desc" : "asc";
+
+      query = query
+        .order(actualSortBy, { ascending: actualSortOrder === "asc", nullsFirst: false })
+        .range(offset, offset + limit - 1);
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+    totalProfiles: async () => {
+      const { count, error } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true });
+      if (error) throw error;
+      return count || 0;
+    },
+  },
+
+  Mutation: {
+    suspendUsers: async (_: unknown, { ids }: { ids: string[] }) => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .update({ is_banned: true })
+        .in("id", ids)
+        .select("*");
+
       if (error) throw error;
       return data || [];
     },

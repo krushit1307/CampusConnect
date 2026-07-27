@@ -36,10 +36,10 @@ export const ReportDialog: React.FC<ReportDialogProps> = ({
         return;
       }
 
-      const { error } = await supabase.from("reports").insert({
+      const { error } = await supabase.from("content_reports").insert({
         reporter_id: user.id,
         target_type: targetType,
-        target_id: targetId,
+        target_id: String(targetId),
         reason,
         details: details.trim() || null,
       });
