@@ -14,7 +14,9 @@ export function SiteShell({ children }: { children: ReactNode }) {
   const [supabase] = useState(() => createClient());
   const [user, setUser] = useState<User | null>(null);
   const emailVerified = useEmailVerification();
-  const [hasCompletedTour, setHasCompletedTour] = useState<boolean>(true); // default to true
+  const [hasCompletedTour, setHasCompletedTour] = useState<boolean>(
+    () => localStorage.getItem("hasCompletedTour") === "true",
+  );
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -30,29 +32,13 @@ export function SiteShell({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, [supabase]);
 
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("profiles")
-      .select("has_completed_tour")
-      .eq("id", user.id)
-      .single()
-      .then(({ data, error }) => {
-        if (!error && data) {
-          setHasCompletedTour(!!data.has_completed_tour);
-        } else if (error) {
-          // If profile or column doesn't exist yet, handle gracefully
-          console.log("Could not load tour status: ", error.message);
-        }
-      });
-  }, [user, supabase]);
-
   const handleJoyrideCallback = (data: Record<string, unknown>) => {
     const { status } = data as { status: string };
     const finishedStatuses: string[] = ["finished", "skipped"];
 
     if (finishedStatuses.includes(status)) {
       setHasCompletedTour(true);
+      localStorage.setItem("hasCompletedTour", "true");
       if (user) {
         supabase
           .from("profiles")
@@ -163,11 +149,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
           confirmation link.
         </div>
       )}
-      <main
-        id="main-content"
-        tabIndex={-1}
-        className="flex-1 pb-16 md:pb-0"
-      >
+      <main id="main-content" tabIndex={-1} className="flex-1 pb-16 md:pb-0">
         {children}
       </main>
       <Footer />

@@ -116,7 +116,9 @@ export default function Directory() {
                   <div>
                     <div className="font-semibold text-sm">{user.name}</div>
                     <div className="text-xs text-muted-foreground">{user.email}</div>
-                    <div className="text-xs text-muted-foreground mt-1 font-medium">{user.major}</div>
+                    <div className="text-xs text-muted-foreground mt-1 font-medium">
+                      {user.major}
+                    </div>
                   </div>
                 </div>
                 <div className="text-right flex flex-col items-end">

@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import { fileURLToPath } from "url";
 // @ts-expect-error - module-federation types may not be loaded in standard editor config
@@ -25,11 +26,10 @@ export default defineConfig({
   plugins: [
     viteReact(),
     tailwindcss(),
+    VitePWA({ registerType: "autoUpdate" }),
     federation({
       name: "host",
-      remotes: {
-        eventsApp: "http://localhost:4174/remoteEntry.js",
-      },
+      remotes: {},
       shared: {
         react: {
           singleton: true,

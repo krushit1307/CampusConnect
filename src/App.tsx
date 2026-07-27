@@ -15,7 +15,6 @@ import Layout from "./components/Layout";
 import { ErrorBoundary, RouteErrorBoundary } from "./components/ErrorBoundary";
 import { PageWrapper } from "./components/PageWrapper";
 import { QueryClientProvider, queryClient } from "@/hooks/useReactQueryReplacement";
-import { CommandPalette } from "./components/ui/command-palette";
 import MaintenancePage from "./components/MaintenancePage";
 import { NotFoundPage } from "./components/NotFoundPage";
 import { createClient } from "./lib/supabase/client";
@@ -56,8 +55,8 @@ async function checkDatabaseHealth(): Promise<HealthStatus> {
     }
 
     return { ok: true };
-  } catch (err: any) {
-    return { ok: false, error: err.message };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
@@ -88,66 +87,8 @@ const Leaderboard = lazy(() =>
   import("./components/Leaderboard").then((m) => ({ default: m.Leaderboard })),
 );
 
-// ---------------------------------------------------------------------------
-// Micro-frontend: Events remote (loaded dynamically from Module Federation)
-// Falls back to local static imports when the remote is unavailable.
-// ---------------------------------------------------------------------------
-
-type EventsModule = {
-  EventsPage: React.ComponentType;
-  EventDetailsPage: React.ComponentType;
-};
-
-let eventsModulePromise: Promise<EventsModule> | null = null;
-
-async function loadEventsRemote(): Promise<EventsModule> {
-  if (!eventsModulePromise) {
-    eventsModulePromise = (async () => {
-      try {
-        const mod = await import("eventsApp/remoteEntry");
-        return {
-          EventsPage: mod.EventsPage,
-          EventDetailsPage: mod.EventDetailsPage,
-        };
-      } catch (err) {
-        console.warn("[Host] Events remote unavailable, falling back to local modules:", err);
-        const [eventsMod, eventDetailsMod] = await Promise.all([
-          import("./routes/events"),
-          import("./routes/events.$eventId"),
-        ]);
-        return {
-          EventsPage: eventsMod.default,
-          EventDetailsPage: eventDetailsMod.default,
-        };
-      }
-    })();
-  }
-  return eventsModulePromise;
-}
-
-const LazyEventsIndex = lazy(() => loadEventsRemote().then((m) => ({ default: m.EventsPage })));
-const LazyEventDetails = lazy(() =>
-  loadEventsRemote().then((m) => ({ default: m.EventDetailsPage })),
-);
-
-function RemoteLoadingScreen() {
-  return (
-    <div
-      style={{
-        minHeight: "40vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "Inter, system-ui, sans-serif",
-        fontWeight: 800,
-        fontSize: "1rem",
-        color: "#555",
-      }}
-    >
-      Loading Events…
-    </div>
-  );
-}
+const LazyEventsIndex = lazy(() => import("./routes/events"));
+const LazyEventDetails = lazy(() => import("./routes/events.$eventId"));
 
 function PageFallback() {
   return (
@@ -195,23 +136,8 @@ const router = createBrowserRouter(
           <Route path="calendar" element={<DashboardCalendar />} />
         </Route>
 
-        {/* Events — loaded from remote micro-frontend when available */}
-        <Route
-          path="/events"
-          element={
-            <Suspense fallback={<RemoteLoadingScreen />}>
-              <LazyEventsIndex />
-            </Suspense>
-          }
-        />
-        <Route
-          path="/events/:eventId"
-          element={
-            <Suspense fallback={<RemoteLoadingScreen />}>
-              <LazyEventDetails />
-            </Suspense>
-          }
-        />
+        <Route path="/events" element={<LazyEventsIndex />} />
+        <Route path="/events/:eventId" element={<LazyEventDetails />} />
         <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
         {/* Events Map View with clustering */}
         <Route path="/events/map" element={<EventsMapPage />} />
@@ -297,7 +223,6 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
-        <CommandPalette />
         <RouterProvider router={router} />
       </ErrorBoundary>
     </QueryClientProvider>

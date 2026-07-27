@@ -350,17 +350,25 @@ export default function Feed() {
         refetchPosts();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, (payload) => {
-        // Bust the lazy cache for the affected post so the next expand re-fetches fresh data
-        const postId = (payload.new as { post_id?: string })?.post_id
-          ?? (payload.old as { post_id?: string })?.post_id;
+        const postId =
+          (payload.new as { post_id?: string })?.post_id ??
+          (payload.old as { post_id?: string })?.post_id;
         if (postId) {
-          setLazyComments((prev) => {
-            const next = { ...prev };
-            delete next[postId];
-            return next;
-          });
+          if (payload.eventType === "INSERT" && payload.new) {
+            // Merge new comment directly into state — no full refetch needed
+            setLazyComments((prev) => {
+              if (!prev[postId]) return prev; // not expanded yet, skip
+              return { ...prev, [postId]: [...prev[postId], payload.new as Comment] };
+            });
+          } else {
+            // For UPDATE/DELETE bust the cache so next expand re-fetches
+            setLazyComments((prev) => {
+              const next = { ...prev };
+              delete next[postId];
+              return next;
+            });
+          }
         }
-        refetchPosts();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "post_reactions" }, () => {
         refetchPosts();
@@ -511,13 +519,11 @@ export default function Feed() {
       }
     },
     onSuccess: (_data, variables) => {
-      // Bust the lazy cache for this post so the new comment appears on re-fetch
-      setLazyComments((prev) => {
-        const next = { ...prev };
-        delete next[variables.postId];
-        return next;
-      });
-      refetchPosts();
+      // The realtime subscription will merge the new comment into lazyComments.
+      // Only refetch posts if the comment section for this post isn't open yet.
+      if (!expandedPostIds.has(variables.postId)) {
+        refetchPosts();
+      }
     },
     onError: (error) => {
       toast.error(error.message || "Failed to post comment. Please try again.");

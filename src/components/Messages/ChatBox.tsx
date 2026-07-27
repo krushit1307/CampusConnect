@@ -69,9 +69,7 @@ export default function ChatBox() {
   const { typingUsers, broadcastTyping, clearTyping } = useTypingIndicator(
     typingChannelName,
     currentUser?.id ?? "",
-    currentUser?.user_metadata?.full_name ??
-      currentUser?.email?.split("@")[0] ??
-      "Someone",
+    currentUser?.user_metadata?.full_name ?? currentUser?.email?.split("@")[0] ?? "Someone",
   );
 
   // 1. Initialize user and their cryptographic keys
