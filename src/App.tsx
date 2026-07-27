@@ -93,6 +93,7 @@ const DashboardOverview = lazy(() => import("./routes/dashboard.index"));
 const DashboardRsvps = lazy(() => import("./routes/dashboard.rsvps"));
 const DashboardBookmarks = lazy(() => import("./routes/dashboard.bookmarks"));
 const DashboardCalendar = lazy(() => import("./routes/dashboard.calendar"));
+const GlobalCalendar = lazy(() => import("./routes/calendar"));
 const Feed = lazy(() => import("./routes/feed"));
 const EventsMapPage = lazy(() => import("./routes/events.map"));
 const ForgotPassword = lazy(() => import("./routes/forgot-password"));
@@ -214,6 +215,15 @@ const router = createBrowserRouter(
           <Route path="bookmarks" element={<DashboardBookmarks />} />
           <Route path="calendar" element={<DashboardCalendar />} />
         </Route>
+
+        <Route
+          path="/calendar"
+          element={
+            <Suspense fallback={<RemoteLoadingScreen />}>
+              <GlobalCalendar />
+            </Suspense>
+          }
+        />
 
         {/* Events — loaded from remote micro-frontend when available */}
         <Route
