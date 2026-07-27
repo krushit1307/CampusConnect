@@ -312,10 +312,27 @@ ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "System admins can view audit logs" ON audit_logs FOR SELECT TO authenticated USING (public.is_system_admin());
 
--- profiles: users can read all, update only their own row
+-- profiles: users can read all, update only their own row (with restrictions)
 CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT USING (true);
 CREATE POLICY "Users can insert their own profile." ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
-CREATE POLICY "Users can update own profile." ON profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Users can update own profile (safe fields only)." ON profiles
+FOR UPDATE
+TO authenticated
+USING (auth.uid() = id)
+WITH CHECK (
+  auth.uid() = id
+  AND (
+    -- Allow updates only if role is NOT being changed
+    -- or if the user is a system admin
+    (OLD.role IS NOT DISTINCT FROM NEW.role)
+    OR public.is_system_admin()
+  )
+);
+CREATE POLICY "System admins can update any profile." ON profiles
+FOR UPDATE
+TO authenticated
+USING (public.is_system_admin())
+WITH CHECK (public.is_system_admin());
 
 -- clubs: public clubs visible to everyone, private clubs visible only to approved members and the creator
 CREATE POLICY "Clubs are viewable by everyone." ON clubs FOR SELECT USING (
@@ -735,7 +752,40 @@ USING (
 );
 
 -- ------------------------------------------------------------
--- 6. Realtime
+-- 6. Event Short ID Generation
+-- ------------------------------------------------------------
+
+-- Create sequence for event short IDs
+CREATE SEQUENCE IF NOT EXISTS event_short_seq
+START WITH 1
+INCREMENT BY 1
+NO MINVALUE
+NO MAXVALUE
+CACHE 1;
+
+-- Create trigger function to generate short_id
+CREATE OR REPLACE FUNCTION generate_event_short_id()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Only generate short_id if it's NULL
+  IF NEW.short_id IS NULL THEN
+    NEW.short_id := 'EVT-' || 
+                    EXTRACT(YEAR FROM NOW())::TEXT || '-' || 
+                    LPAD(nextval('event_short_seq')::TEXT, 4, '0');
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create BEFORE INSERT trigger
+DROP TRIGGER IF EXISTS trg_generate_event_short_id ON events;
+CREATE TRIGGER trg_generate_event_short_id
+BEFORE INSERT ON events
+FOR EACH ROW
+EXECUTE FUNCTION generate_event_short_id();
+
+-- ------------------------------------------------------------
+-- 7. Realtime
 -- ------------------------------------------------------------
 
 ALTER PUBLICATION supabase_realtime ADD TABLE posts;
