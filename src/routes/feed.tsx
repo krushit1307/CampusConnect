@@ -1,5 +1,6 @@
 import { FeedPostSkeleton } from "@/components/FeedPostSkeleton";
 import { CommentThreadSkeleton } from "@/components/Feed/CommentSkeleton";
+import { DiscussionEmptyState } from "@/components/Feed/DiscussionEmptyState";
 import { useMutation, useQuery, useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import type { User } from "@supabase/supabase-js";
@@ -194,15 +195,18 @@ export default function Feed() {
     fetchNextPage,
     hasNextPage,
     refetch: refetchPosts,
-  } = useInfiniteQuery<{ posts: Post[]; nextPage?: number }>({
+  } = useInfiniteQuery<{ posts: Post[]; nextCursor?: { created_at: string; id: string } }>({
     queryKey: ["posts"],
-    initialPageParam: 0,
-    queryFn: async ({ pageParam = 0 }) => {
-      const from = pageParam * POSTS_PER_PAGE;
-      const to = from + POSTS_PER_PAGE - 1;
+    initialPageParam: null,
+    queryFn: async ({ pageParam = null }) => {
+      const cursor = pageParam as { created_at: string; id: string } | null;
 
       const { data, error } = await supabase
-        .from("posts")
+        .rpc("get_posts_cursor", {
+          last_created_at: cursor?.created_at || null,
+          last_id: cursor?.id || null,
+          fetch_limit: POSTS_PER_PAGE,
+        })
         .select(
           `
         id, content, created_at, club_id, is_pinned,
@@ -211,22 +215,24 @@ export default function Feed() {
         comments (id, content, created_at, deleted_at, parent_id, parent_comment_id, profiles (id, full_name, handle)),
         post_reactions (emoji, user_id)
       `,
-        )
-        .is("deleted_at", null)
-        .order("is_pinned", { ascending: false })
-        .order("created_at", { ascending: false })
-        .range(from, to);
+        );
 
       if (error) throw error;
 
       const posts = (data ?? []) as unknown as Post[];
 
+      let nextCursor: { created_at: string; id: string } | undefined;
+      if (posts.length === POSTS_PER_PAGE) {
+        const lastPost = posts[posts.length - 1];
+        nextCursor = { created_at: lastPost.created_at, id: lastPost.id };
+      }
+
       return {
         posts,
-        nextPage: posts.length === POSTS_PER_PAGE ? pageParam + 1 : undefined,
+        nextCursor,
       };
     },
-    getNextPageParam: (lastPage) => lastPage.nextPage,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
   });
 
   const allPosts = data?.pages.flatMap((page) => page.posts) ?? [];
@@ -935,6 +941,7 @@ export default function Feed() {
                 ))}
               </div>
             ) : filteredPosts.length === 0 ? (
+
               <div
                 className="neu-border relative overflow-hidden bg-white px-6 py-12 text-center sm:px-10 sm:py-16"
                 role="status"
@@ -984,6 +991,13 @@ export default function Feed() {
                   </button>
                 </div>
               </div>
+              <DiscussionEmptyState
+                searchQuery={searchQuery}
+                onStartDiscussion={() => {
+                  editorRef.current?.focusWrite();
+                }}
+              />
+
             ) : (
               <div
                 ref={parentRef}
