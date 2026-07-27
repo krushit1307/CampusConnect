@@ -2,6 +2,7 @@
 
 -- 1. Create dummy authenticated users in auth.users
 -- Default password: password123 (encrypted using blowfish crypt)
+<<<<<<< HEAD
 INSERT INTO
     auth.users (
         instance_id,
@@ -21,7 +22,7 @@ VALUES (
         'd0000000-0000-0000-0000-000000000001',
         'authenticated',
         'authenticated',
-        'admin@campusconnect.com',
+        'admin@campusconnect.edu',
         crypt (
             'password123',
             gen_salt ('bf')
@@ -37,7 +38,7 @@ VALUES (
         'd0000000-0000-0000-0000-000000000002',
         'authenticated',
         'authenticated',
-        'student@campusconnect.com',
+        'student@campusconnect.edu',
         crypt (
             'password123',
             gen_salt ('bf')
@@ -48,6 +49,47 @@ VALUES (
         NOW(),
         NOW()
     )
+=======
+INSERT INTO auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at
+) VALUES 
+(
+  '00000000-0000-0000-0000-000000000000',
+  'd0000000-0000-0000-0000-000000000001',
+  'authenticated',
+  'authenticated',
+  'admin@campusconnect.com',
+  crypt('password123', gen_salt('bf')),
+  NOW(),
+  '{"provider": "email", "providers": ["email"]}',
+  '{"full_name": "Admin User", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=Admin"}',
+  NOW(),
+  NOW()
+),
+(
+  '00000000-0000-0000-0000-000000000000',
+  'd0000000-0000-0000-0000-000000000002',
+  'authenticated',
+  'authenticated',
+  'student@campusconnect.com',
+  crypt('password123', gen_salt('bf')),
+  NOW(),
+  '{"provider": "email", "providers": ["email"]}',
+  '{"full_name": "John Doe", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=John"}',
+  NOW(),
+  NOW()
+)
+>>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
 ON CONFLICT (id) DO NOTHING;
 
 -- 2. Update profiles details (triggers automatically created them on auth.users insert)
@@ -118,6 +160,7 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- 4. Club Memberships
+<<<<<<< HEAD
 INSERT INTO
     club_members (
         id,
@@ -147,6 +190,31 @@ VALUES (
         '90000000-0000-0000-0000-000000000002',
         'approved'
     )
+=======
+INSERT INTO club_members (id, club_id, user_id, role, status)
+VALUES
+(
+  'b0000000-0000-0000-0000-000000000001',
+  'c0000000-0000-0000-0000-000000000001',
+  'd0000000-0000-0000-0000-000000000001',
+  'admin',
+  'approved'
+),
+(
+  'b0000000-0000-0000-0000-000000000002',
+  'c0000000-0000-0000-0000-000000000002',
+  'd0000000-0000-0000-0000-000000000002',
+  'admin',
+  'approved'
+),
+(
+  'b0000000-0000-0000-0000-000000000003',
+  'c0000000-0000-0000-0000-000000000001',
+  'd0000000-0000-0000-0000-000000000002',
+  'member',
+  'approved'
+)
+>>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
 ON CONFLICT (id) DO NOTHING;
 
 -- 5. Dummy Events
@@ -251,6 +319,21 @@ VALUES
 )
 ON CONFLICT (id) DO NOTHING;
 
+<<<<<<< HEAD
+INSERT INTO
+    comments (
+        id,
+        post_id,
+        author_id,
+        content
+    )
+VALUES (
+        'cc000000-0000-0000-0000-000000000001',
+        'a0000000-0000-0000-0000-000000000001',
+        'd0000000-0000-0000-0000-000000000002',
+        'Super excited! Cant wait to see what teams build.'
+    )
+=======
 -- 8. Post Comments
 INSERT INTO comments (id, post_id, author_id, content)
 VALUES
@@ -260,4 +343,5 @@ VALUES
   'd0000000-0000-0000-0000-000000000002',
   'Super excited! Cant wait to see what teams build.'
 )
+>>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
 ON CONFLICT (id) DO NOTHING;

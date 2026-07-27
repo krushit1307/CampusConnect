@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Search, X } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import NotificationItem from "./NotificationItem";
-
+import { createClient } from "../../lib/supabase/client";
+import { useSupabaseSubscription } from "@/hooks/useSupabaseSubscription";
 const mockNotifications = [
   {
     id: "1",
@@ -34,13 +36,36 @@ const mockNotifications = [
 ];
 
 export const NavbarNotificationDropdown: React.FC = () => {
+  const supabase = createClient();
   const [notifications, setNotifications] = useState(mockNotifications);
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [userId, setUserId] = useState<string | null>(null);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  // 1. Fetch current user and unread notification count from Supabase
+  useEffect(() => {
+    async function fetchUnreadCount() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        // Fallback to local mock count if no user session exists
+        setUnreadCount(notifications.filter((n) => !n.isRead).length);
+        return;
+      }
+
+      setUserId(user.id);
+    }
+
+    fetchUnreadCount();
+  }, []);
+
+  // Realtime subscription disabled until notifications table exists in schema
+  useSupabaseSubscription({ table: "notifications", enabled: false });
 
   const filteredNotifications = notifications.filter(
     (n) =>
@@ -50,8 +75,18 @@ export const NavbarNotificationDropdown: React.FC = () => {
 
   const toggleDropdown = () => setIsOpen(!isOpen);
 
-  const handleMarkAsRead = (id: string) => {
+  const handleMarkAsRead = async (id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+
+    // Decrement count locally
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+
+    // Optional: update Supabase read_at if authenticated
+  };
+
+  const handleMarkAllAsRead = async () => {
+    setNotifications(notifications.map((n) => ({ ...n, isRead: true })));
+    setUnreadCount(0);
   };
 
   useEffect(() => {
@@ -64,6 +99,9 @@ export const NavbarNotificationDropdown: React.FC = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Format badge display text ("9+" if count > 9)
+  const badgeText = unreadCount > 9 ? "9+" : unreadCount;
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -87,9 +125,10 @@ export const NavbarNotificationDropdown: React.FC = () => {
           />
         </svg>
 
+        {/* Unread Notification Badge */}
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white">
-            {unreadCount}
+          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white">
+            {badgeText}
           </span>
         )}
       </button>
@@ -101,9 +140,7 @@ export const NavbarNotificationDropdown: React.FC = () => {
               <h3 className="font-semibold text-sm text-gray-700">Notifications</h3>
               {unreadCount > 0 && (
                 <button
-                  onClick={() =>
-                    setNotifications(notifications.map((n) => ({ ...n, isRead: true })))
-                  }
+                  onClick={handleMarkAllAsRead}
                   className="text-xs text-blue-600 hover:text-blue-800 transition-colors"
                 >
                   Mark all as read
@@ -146,6 +183,16 @@ export const NavbarNotificationDropdown: React.FC = () => {
                 />
               ))
             )}
+          </div>
+
+          <div className="border-t border-gray-200 bg-gray-50 rounded-b-lg">
+            <Link
+              to="/notifications"
+              onClick={() => setIsOpen(false)}
+              className="block w-full p-3 text-center text-sm font-semibold text-blue-600 hover:text-blue-800 hover:bg-gray-100 transition-colors"
+            >
+              View All Notifications
+            </Link>
           </div>
         </div>
       )}
