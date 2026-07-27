@@ -43,6 +43,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
+import { LazyImage } from "@/components/ui/LazyImage";
 import { parseCoordinates } from "@/lib/eventUtils";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
@@ -130,7 +131,7 @@ function SimilarEvents({
             className="neu-border group block bg-white p-4 hover:translate-x-0.5 hover:-translate-y-0.5 transition-transform"
           >
             {evt.banner_url ? (
-              <img
+              <LazyImage
                 src={evt.banner_url}
                 alt={evt.title}
                 className="w-full h-32 object-cover border-2 border-black mb-3"

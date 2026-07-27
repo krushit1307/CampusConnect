@@ -45,6 +45,7 @@ import {
 } from "@/components/MarkdownEditorWithMentions";
 import { MentionRenderer } from "@/components/MentionRenderer";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { LazyImage } from "@/components/ui/LazyImage";
 import { ShareMenu } from "@/components/ui/ShareMenu";
 import {
   AlertDialog,
@@ -1179,12 +1180,11 @@ export default function Feed() {
                               return <a href={href}>{children}</a>;
                             },
                             img: ({ src, alt }) => (
-                              <img
+                              <LazyImage
                                 src={src}
                                 alt={alt || ""}
                                 onClick={() => typeof src === "string" && setLightboxSrc(src)}
                                 className="max-h-64 cursor-zoom-in rounded-none neu-border"
-                                loading="lazy"
                               />
                             ),
                             p: ({ children }) => (
@@ -1200,12 +1200,11 @@ export default function Feed() {
 
                       {post.image_url && (
                         <div className="mt-3">
-                          <img
+                          <LazyImage
                             src={post.image_url}
                             alt="Post attachment"
                             onClick={() => setLightboxSrc(post.image_url ?? null)}
                             className="max-h-96 cursor-zoom-in rounded-none neu-border object-cover"
-                            loading="lazy"
                           />
                         </div>
                       )}
