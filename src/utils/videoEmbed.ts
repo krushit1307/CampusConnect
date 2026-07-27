@@ -7,6 +7,10 @@ export function parseVideoUrl(url: string): { type: "youtube" | "vimeo"; id: str
       if (u.pathname === "/watch" && u.searchParams.get("v")) {
         return { type: "youtube", id: u.searchParams.get("v")! };
       }
+      const match = u.pathname.match(/^\/(shorts|embed|live)\/([^/?]+)/);
+      if (match && match[2]) {
+        return { type: "youtube", id: match[2] };
+      }
     }
 
     if (host === "youtu.be") {
@@ -15,8 +19,9 @@ export function parseVideoUrl(url: string): { type: "youtube" | "vimeo"; id: str
     }
 
     if (host === "vimeo.com" || host === "player.vimeo.com") {
-      const id = u.pathname.slice(1).split("/")[0];
-      if (/^\d+$/.test(id)) return { type: "vimeo", id };
+      const parts = u.pathname.split("/").filter(Boolean);
+      const id = parts[parts.length - 1];
+      if (id && /^\d+$/.test(id)) return { type: "vimeo", id };
     }
 
     return null;

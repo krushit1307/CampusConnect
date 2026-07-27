@@ -17,9 +17,14 @@ interface CommentSectionProps {
     id: string;
     name: string;
   };
+  onNewComment?: (comment: Comment) => void;
 }
 
-export const CommentSection: React.FC<CommentSectionProps> = ({ postId, currentUser }) => {
+export const CommentSection: React.FC<CommentSectionProps> = ({
+  postId,
+  currentUser,
+  onNewComment,
+}) => {
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState<Comment[]>([]);
   const username = currentUser?.name || "A user";

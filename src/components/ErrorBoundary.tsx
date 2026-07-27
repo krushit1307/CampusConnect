@@ -1,6 +1,7 @@
-import React from "react";
-import { isRouteErrorResponse, useRouteError } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { isRouteErrorResponse, useRouteError } from "react-router-dom";
+
+import React from "react";
 import { NotFoundPage } from "./NotFoundPage";
 
 const MAX_SOFT_RETRIES = 2;
@@ -65,14 +66,14 @@ function ErrorFallback({
           <button
             type="button"
             onClick={onTryAgain}
-            className="neu-border bg-lime text-black hover:bg-lime/90 font-mono font-bold uppercase tracking-wider px-6 py-3 shadow-[4px_4px_0_0_var(--color-ink)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_var(--color-ink)] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[0px_0px_0_0_var(--color-ink)]"
+            className="neu-border bg-lime text-black hover:bg-lime/90 font-mono font-bold uppercase tracking-wider px-4 py-2 shadow-[4px_4px_0_0_#000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_#000] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[0px_0px_0_0_#000]"
           >
             {tryAgainLabel}
           </button>
           <button
             type="button"
             onClick={onGoHome}
-            className="neu-border bg-white text-black hover:bg-gray-50 font-mono font-bold uppercase tracking-wider px-6 py-3 shadow-[4px_4px_0_0_var(--color-ink)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_var(--color-ink)] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[0px_0px_0_0_var(--color-ink)]"
+            className="neu-border bg-white text-black hover:bg-gray-50 font-mono font-bold uppercase tracking-wider px-4 py-2 shadow-[4px_4px_0_0_var(--color-ink)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_var(--color-ink)] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[0px_0px_0_0_var(--color-ink)]"
           >
             Go Home
           </button>

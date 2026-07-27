@@ -195,21 +195,21 @@ export default function PendingClubsAdmin() {
 
                     <div className="flex gap-3">
                       <button
-                        type="button"
-                        onClick={() => moderateClub(club.id, "approved")}
-                        disabled={moderatingId === club.id}
-                        className="neu-border neu-press inline-flex items-center gap-2 bg-black px-4 py-2.5 font-mono text-xs font-bold uppercase text-cream transition-colors hover:bg-lime hover:text-black disabled:opacity-50 cursor-pointer"
-                      >
-                        <Check className="h-4 w-4" /> Approve
-                      </button>
+  type="button"
+  onClick={() => moderateClub(club.id, "rejected")}
+  disabled={moderatingId === club.id}
+  className="neu-border neu-press inline-flex items-center gap-2 bg-white px-4 py-2 font-mono text-xs font-bold uppercase text-black transition-colors hover:bg-peach disabled:opacity-50 cursor-pointer"
+>
+  <X className="h-4 w-4" /> Reject
+</button>
                       <button
-                        type="button"
-                        onClick={() => moderateClub(club.id, "rejected")}
-                        disabled={moderatingId === club.id}
-                        className="neu-border neu-press inline-flex items-center gap-2 bg-white px-4 py-2.5 font-mono text-xs font-bold uppercase text-black transition-colors hover:bg-peach disabled:opacity-50 cursor-pointer"
-                      >
-                        <X className="h-4 w-4" /> Reject
-                      </button>
+  type="button"
+  onClick={() => moderateClub(club.id, "approved")}
+  disabled={moderatingId === club.id}
+  className="neu-border neu-press inline-flex items-center gap-2 bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream transition-colors hover:bg-lime hover:text-black disabled:opacity-50 cursor-pointer"
+>
+  <Check className="h-4 w-4" /> Approve
+</button>
                     </div>
                   </div>
 
