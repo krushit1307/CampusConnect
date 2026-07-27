@@ -1,13 +1,19 @@
-import { formatDate, formatEventDateRange, getCountdown, getGoogleCalendarUrl } from "@/lib/utils";
+import {
+  formatDate,
+  formatEventDateRange,
+  getCountdown,
+  getGoogleCalendarUrl,
+  getIcsContent,
+} from "@/lib/utils";
 import { Link } from "react-router-dom";
-import { FormEvent, useState } from "react";
+import React, { FormEvent, useState, useMemo, useEffect, useRef } from "react";
 import { Calendar, Check, Share2, X, Link as LinkIcon, Bookmark } from "lucide-react";
 import { toast } from "sonner";
 import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EventRSVPButton } from "@/components/EventRSVPButton";
-
+import { ReadMore } from "@/components/ui/ReadMore";
 interface Event {
   id: string;
   title: string;
@@ -169,8 +175,12 @@ export function EventCard({
 
   const [ticketOpen, setTicketOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const shouldTruncate = !!event.description && event.description.length > 220;
 
+  const displayedDescription =
+    shouldTruncate && !isDescriptionExpanded
+      ? `${event.description!.slice(0, 180)}...`
+      : event.description;
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -178,6 +188,32 @@ export function EventCard({
     } catch (error) {
       toast.error("Failed to copy link.");
     }
+  };
+
+  const handleDownloadIcs = () => {
+    const icsContent = getIcsContent({
+      title: event.title,
+      description: event.description,
+      event_date: event.event_date,
+      start_date: event.start_date,
+      end_date: event.end_date,
+      location: event.location,
+    });
+
+    if (!icsContent) {
+      toast.error("Failed to generate calendar file");
+      return;
+    }
+
+    const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `${event.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.ics`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const shareUrl =
@@ -277,25 +313,10 @@ export function EventCard({
         <p className="mt-1 font-mono text-sm font-bold text-blue-900">{club?.name}</p>
 
         {event.description ? (
-          <div
-            className={`mt-4 overflow-hidden transition-all duration-300 ease-in-out ${
-              isDescriptionExpanded ? "max-h-250" : "max-h-40"
-            }`}
-          >
-            <p className="text-sm leading-6 text-gray-800 inline">{displayedDescription}</p>
-
-            {shouldTruncate && (
-              <button
-                type="button"
-                onClick={() => setIsDescriptionExpanded((prev) => !prev)}
-                className="ml-1 inline font-semibold text-violet-700 hover:text-violet-900 transition-colors"
-              >
-                {isDescriptionExpanded ? "Read less" : "Read more"}
-              </button>
-            )}
+          <div className="mt-4">
+            <ReadMore text={event.description} />
           </div>
         ) : null}
-
         <EventProgressBar createdAt={event.created_at} eventDate={event.event_date} />
 
         <dl className="mt-5 grid gap-4 sm:grid-cols-3">
@@ -350,6 +371,16 @@ export function EventCard({
               <Calendar aria-hidden="true" size={14} strokeWidth={3} />
               Add to Google Calendar
             </a>
+          )}
+          {hasRsvpd && googleCalendarUrl && (
+            <button
+              onClick={handleDownloadIcs}
+              type="button"
+              className="neu-border bg-white px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2 text-black"
+            >
+              <Calendar aria-hidden="true" size={14} strokeWidth={3} />
+              Add to Apple/Outlook
+            </button>
           )}
           {hasRsvpd && myRsvp && (
             <Button

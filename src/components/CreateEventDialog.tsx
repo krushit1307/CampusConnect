@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 import { useMutation } from "@/hooks/useReactQueryReplacement";
-import { Plus, MapPin, CalendarIcon, Check, X } from "lucide-react";
+import { useUndoableState } from "@/hooks/useUndoableState";
+import { Plus, MapPin, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import { format } from "date-fns";
@@ -34,6 +35,20 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FlyerUploader } from "@/components/FlyerUploader";
+import type { ParsedFlyer } from "@/lib/parser";
+import { TagMultiSelect } from "@/components/ui/TagMultiSelect";
+import { ImageCropUpload } from "@/components/ImageCropUpload";
+
+const STEPS = [
+  { label: "Details", fields: ["title", "description"] as const },
+  { label: "Logistics", fields: ["location", "startDate", "endDate"] as const },
+  { label: "Media", fields: [] as const },
+] as const;
+
+const STEP_FIELDS = STEPS.map((s) => s.fields as unknown as (keyof EventFormValues)[]);
+
+type Step = 0 | 1 | 2;
 
 // Define an extended interface locally to handle the extra location field safely
 interface LocalEventFormValues extends EventFormValues {
@@ -75,7 +90,23 @@ export function CreateEventDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>(0);
+  const [clubId, setClubId] = useState<string | null>(null);
   const supabase = createClient();
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("club_members")
+      .select("club_id")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .eq("status", "approved")
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        if (data) setClubId(data.club_id);
+      });
+  }, [user]);
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
@@ -83,7 +114,76 @@ export function CreateEventDialog({
     mode: "onBlur",
   });
 
-  const watchedLocation = useWatch({ control: form.control, name: "location" });
+  const isUndoingRedoingRef = useRef(false);
+  const {
+    state: undoableState,
+    set: setUndoableState,
+    undo,
+    redo,
+    resetState,
+  } = useUndoableState(defaultValues, 1000);
+
+  const watchedValues = form.watch();
+
+  // Reset/initialize undoable state when the modal opens/closes
+  useEffect(() => {
+    if (open) {
+      resetState(form.getValues());
+    }
+  }, [open, resetState, form]);
+
+  // Sync form inputs to the undoable state history
+  useEffect(() => {
+    if (isUndoingRedoingRef.current) {
+      isUndoingRedoingRef.current = false;
+      return;
+    }
+    setUndoableState(watchedValues);
+  }, [watchedValues, setUndoableState]);
+
+  // Sync undoableState back to form values
+  useEffect(() => {
+    const currentFormValues = form.getValues();
+    if (JSON.stringify(currentFormValues) !== JSON.stringify(undoableState)) {
+      isUndoingRedoingRef.current = true;
+      form.reset(undoableState);
+    }
+  }, [undoableState, form]);
+
+  // Add Ctrl+Z and Ctrl+Y keydown shortcut listener
+  useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isCtrl = e.ctrlKey || e.metaKey;
+      if (isCtrl) {
+        if (e.key.toLowerCase() === "z") {
+          e.preventDefault();
+          if (e.shiftKey) {
+            redo();
+            toast.success("Redo action performed");
+          } else {
+            undo();
+            toast.success("Undo action performed");
+          }
+        } else if (e.key.toLowerCase() === "y") {
+          e.preventDefault();
+          redo();
+          toast.success("Redo action performed");
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, undo, redo]);
+
+  // Watch values via form.watch to keep TypeScript quiet about schema property limits
+  const watchedLocation = form.watch("location");
+  const watchedDescription = form.watch("description");
+
+  const currentDescription = watchedDescription || "";
+
   const showMapPreview =
     watchedLocation &&
     watchedLocation.trim().length > 0 &&
@@ -134,7 +234,7 @@ export function CreateEventDialog({
         // read event_date (e.g. EventCard, event ordering) keep working.
         event_date: startDateIso,
         created_by: user.id,
-        club_id: myClub.id,
+        club_id: clubId,
         requires_approval: values.requiresApproval || false,
       });
 
@@ -151,7 +251,7 @@ export function CreateEventDialog({
         console.error("[CreateEventDialog] Failed to clear saved draft:", e);
       }
       form.reset(defaultValues);
-      setStep(0);
+      resetState(defaultValues);
       setOpen(false);
     },
     onError: (error: Error) => {
@@ -646,10 +746,21 @@ export function CreateEventDialog({
               )}
             />
 
-            <DialogFooter className="pt-2">
-              <Button type="submit" disabled={createEvent.isPending} className="w-full sm:w-auto">
-                {createEvent.isPending ? "Creating..." : "Create event"}
-              </Button>
+            <DialogFooter className="pt-2 flex gap-2">
+              {step > 0 && (
+                <Button type="button" variant="outline" onClick={handleBack}>
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Back
+                </Button>
+              )}
+              {step < STEPS.length - 1 ? (
+                <Button type="button" onClick={handleNext} className="ml-auto">
+                  Next <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              ) : (
+                <Button type="submit" disabled={createEvent.isPending} className="ml-auto">
+                  {createEvent.isPending ? "Creating..." : "Create event"}
+                </Button>
+              )}
             </DialogFooter>
           </form>
         </Form>
