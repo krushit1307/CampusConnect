@@ -4,6 +4,7 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { Sparkle } from "@/components/site/Sparkle";
 import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
 import { Users, Calendar, GraduationCap } from "lucide-react";
+import { useExperimentStore } from "@/store/useExperimentStore";
 
 function AnimatedCounter({ value }: { value: string }) {
   const [displayValue, setDisplayValue] = useState("0");
@@ -195,6 +196,13 @@ export default function Landing() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
+  const variant = useExperimentStore((state) => state.variant);
+  const initializeVariant = useExperimentStore((state) => state.initializeVariant);
+
+  useEffect(() => {
+    initializeVariant();
+  }, [initializeVariant]);
+
   const { scrollYProgress } = useScroll();
   const prefersReducedMotion = useReducedMotion();
   const [isMobile, setIsMobile] = useState(false);
@@ -287,29 +295,60 @@ export default function Landing() {
           style={{ y: yHeroText }}
           className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center text-white z-10"
         >
-          <p className="mb-3 font-mono text-sm font-bold uppercase tracking-widest text-[#f5c66b] animate-fade-in-up animate-delay-100">
-            Student Communities Platform
-          </p>
-          <h1 className="mb-4 max-w-2xl font-display text-5xl font-bold leading-tight md:text-6xl animate-fade-in-up animate-delay-300">
-            CampusConnect
-          </h1>
-          <p className="mx-auto max-w-xl font-mono text-base leading-relaxed md:text-lg text-white/90 animate-fade-in-up animate-delay-500">
-            Clubs, events, and certificates. One open-source OS for student communities.
-          </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-4 animate-fade-in-up animate-delay-700">
-            <Link
-              to="/auth"
-              className="rounded-md bg-brand-peach-light px-8 py-3 font-mono font-bold uppercase text-brand-blue-dark transition hover:bg-white active:scale-95"
-            >
-              Get Started
-            </Link>
-            <Link
-              to="/events"
-              className="rounded-md border-2 border-white/80 px-8 py-3 font-mono font-bold uppercase text-white transition hover:bg-white/10 active:scale-95"
-            >
-              Explore Events
-            </Link>
-          </div>
+          {variant === "B" ? (
+            <>
+              <p className="mb-3 font-mono text-sm font-bold uppercase tracking-widest text-[#a3e635] animate-fade-in-up animate-delay-100">
+                Unlock Your Potential
+              </p>
+              <h1 className="mb-4 max-w-3xl font-display text-5xl font-bold leading-tight md:text-6xl animate-fade-in-up animate-delay-300">
+                Supercharge Your Campus Life
+              </h1>
+              <p className="mx-auto max-w-2xl font-mono text-base leading-relaxed md:text-lg text-white/90 animate-fade-in-up animate-delay-500">
+                Discover top student clubs, attend workshops, and earn certificates to build your
+                future.
+              </p>
+              <div className="mt-8 flex flex-wrap justify-center gap-4 animate-fade-in-up animate-delay-700">
+                <Link
+                  to="/auth"
+                  className="rounded-md bg-brand-peach-light px-8 py-3 font-mono font-bold uppercase text-brand-blue-dark transition hover:bg-white active:scale-95"
+                >
+                  Join CampusConnect
+                </Link>
+                <Link
+                  to="/events"
+                  className="rounded-md border-2 border-white/80 px-8 py-3 font-mono font-bold uppercase text-white transition hover:bg-white/10 active:scale-95"
+                >
+                  See Upcoming Events
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="mb-3 font-mono text-sm font-bold uppercase tracking-widest text-[#f5c66b] animate-fade-in-up animate-delay-100">
+                Student Communities Platform
+              </p>
+              <h1 className="mb-4 max-w-2xl font-display text-5xl font-bold leading-tight md:text-6xl animate-fade-in-up animate-delay-300">
+                CampusConnect
+              </h1>
+              <p className="mx-auto max-w-xl font-mono text-base leading-relaxed md:text-lg text-white/90 animate-fade-in-up animate-delay-500">
+                Clubs, events, and certificates. One open-source OS for student communities.
+              </p>
+              <div className="mt-8 flex flex-wrap justify-center gap-4 animate-fade-in-up animate-delay-700">
+                <Link
+                  to="/auth"
+                  className="rounded-md bg-brand-peach-light px-8 py-3 font-mono font-bold uppercase text-brand-blue-dark transition hover:bg-white active:scale-95"
+                >
+                  Get Started
+                </Link>
+                <Link
+                  to="/events"
+                  className="rounded-md border-2 border-white/80 px-8 py-3 font-mono font-bold uppercase text-white transition hover:bg-white/10 active:scale-95"
+                >
+                  Explore Events
+                </Link>
+              </div>
+            </>
+          )}
         </motion.div>
       </section>
 

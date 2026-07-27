@@ -10,6 +10,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { PasswordStrengthMeter, getPasswordStrength } from "@/components/ui/password-strength";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { useExperimentStore } from "@/store/useExperimentStore";
 import { sendVerificationEmail } from "@/lib/email/service";
 import { getFriendlyAuthError } from "@/utils/authErrors";
 import {
@@ -119,6 +120,9 @@ export default function AuthPage() {
         recipientName: `${values.firstName} ${values.lastName}`.trim(),
         verificationUrl,
       });
+
+      // Track registration A/B variant telemetry
+      useExperimentStore.getState().trackRegistration();
 
       toast.success("Account created! A verification link has been sent to your email.");
       navigate("/dashboard", { replace: true });
