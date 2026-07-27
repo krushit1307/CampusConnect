@@ -14,6 +14,7 @@ import {
 import Layout from "./components/Layout";
 import { ErrorBoundary, RouteErrorBoundary } from "./components/ErrorBoundary";
 import { PageWrapper } from "./components/PageWrapper";
+import ThemeToggle from "./components/ThemeToggle"; // <-- Added Import
 
 // Pages
 import Index from "./routes/index";
@@ -233,12 +234,19 @@ export default function App() {
   }, []);
 
   if (dbStatus === "offline") {
+    // Assuming MaintenancePage is imported somewhere else in your environment
     return <MaintenancePage />;
   }
 
   return (
+    // Assuming QueryClientProvider and queryClient are injected/imported properly
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
+        {/* Floating Dark Mode Toggle */}
+        <div className="fixed bottom-4 right-4 z-[9999]">
+          <ThemeToggle />
+        </div>
+        
         <RouterProvider router={router} />
       </ErrorBoundary>
     </QueryClientProvider>
