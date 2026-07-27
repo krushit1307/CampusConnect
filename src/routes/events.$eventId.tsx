@@ -1,11 +1,14 @@
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
+import { MapSkeleton } from "@/components/ui/MapSkeleton";
+
+const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ default: m.EventMap })));
 import { formatEventDateRange } from "@/lib/utils";
 import { downloadIcs, getGoogleCalendarUrl } from "@/lib/calendarUtils";
 import { formatStandardDate } from "@/utils/dateUtils";
@@ -1363,11 +1366,13 @@ export default function EventDetailsPage() {
               coordsCheck.lat != null &&
               coordsCheck.lng != null ? (
                 <>
-                  <EventMap
-                    lat={coordsCheck.lat}
-                    lng={coordsCheck.lng}
-                    locationName={event.location}
-                  />
+                  <Suspense fallback={<MapSkeleton className="mt-4 h-[300px] w-full" />}>
+                    <EventMap
+                      lat={coordsCheck.lat}
+                      lng={coordsCheck.lng}
+                      locationName={event.location}
+                    />
+                  </Suspense>
                   <a
                     href={`https://www.google.com/maps/search/?q=${encodeURIComponent(event.location)}`}
                     target="_blank"

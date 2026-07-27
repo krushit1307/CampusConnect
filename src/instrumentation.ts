@@ -6,14 +6,14 @@ import {
 } from "@opentelemetry/sdk-trace-base";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { CompositePropagator, W3CTraceContextPropagator } from "@opentelemetry/core";
-import { Resource } from "@opentelemetry/resources";
-import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions";
+import { resourceFromAttributes, defaultResource } from "@opentelemetry/resources";
+import { SEMRESATTRS_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
 
 export function initializeTracing() {
   // Create a resource with service name
-  const resource = Resource.default().merge(
-    new Resource({
-      [SemanticResourceAttributes.SERVICE_NAME]: "campusconnect-frontend",
+  const resource = defaultResource().merge(
+    resourceFromAttributes({
+      [SEMRESATTRS_SERVICE_NAME]: "campusconnect-frontend",
     }),
   );
 

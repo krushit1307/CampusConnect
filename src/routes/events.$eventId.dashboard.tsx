@@ -1,11 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import ReactECharts from "echarts-for-react";
+import { ChartSkeleton } from "@/components/ui/ChartSkeleton";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
+
+const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));
 
 export default function EventDashboard() {
   const { eventId } = useParams();
@@ -192,11 +194,13 @@ export default function EventDashboard() {
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
             {/* Area Chart Card */}
             <div className="neu-border bg-white p-4 transition-transform hover:-translate-y-1">
-              <ReactECharts
-                option={areaChartOption}
-                style={{ height: "400px", width: "100%" }}
-                opts={{ renderer: "svg" }}
-              />
+              <Suspense fallback={<ChartSkeleton height="400px" />}>
+                <EChartsWrapper
+                  option={areaChartOption}
+                  style={{ height: "400px", width: "100%" }}
+                  opts={{ renderer: "svg" }}
+                />
+              </Suspense>
             </div>
 
             {/* Pie Chart Card */}
@@ -223,11 +227,13 @@ export default function EventDashboard() {
                   Year
                 </button>
               </div>
-              <ReactECharts
-                option={pieChartOption}
-                style={{ height: "350px", width: "100%" }}
-                opts={{ renderer: "svg" }}
-              />
+              <Suspense fallback={<ChartSkeleton height="350px" />}>
+                <EChartsWrapper
+                  option={pieChartOption}
+                  style={{ height: "350px", width: "100%" }}
+                  opts={{ renderer: "svg" }}
+                />
+              </Suspense>
             </div>
           </div>
         </div>
