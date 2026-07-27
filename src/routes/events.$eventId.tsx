@@ -42,6 +42,8 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { parseCoordinates } from "@/lib/eventUtils";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
+import { ActivePoll } from "@/components/polls/ActivePoll";
 
 interface SimilarEventItem {
   id: string;
@@ -72,17 +74,31 @@ function SimilarEvents({
     async function fetchSimilarEvents() {
       setLoading(true);
       try {
-        const { data, error } = await supabase
+        // 1. Try pgvector similarity recommendation RPC first
+        const { data, error } = await supabase.rpc("recommend_events", {
+          p_event_id: currentEventId,
+          p_limit: 3,
+        });
+
+        if (!error && data && data.length > 0) {
+          setSimilarEvents(data as SimilarEventItem[]);
+          setLoading(false);
+          return;
+        }
+
+        // 2. Fallback to category matching if vector embeddings are not calculated yet
+        const { data: fallbackData, error: fallbackError } = await supabase
           .from("events")
           .select("id, title, category_id, event_date, banner_url, description")
           .eq("category_id", categoryId)
           .neq("id", currentEventId)
+          .eq("status", "published")
           .limit(3);
 
-        if (error) {
-          console.error("Error fetching similar events:", error);
-        } else if (data) {
-          setSimilarEvents(data as SimilarEventItem[]);
+        if (fallbackError) {
+          console.error("Error fetching fallback similar events:", fallbackError);
+        } else if (fallbackData) {
+          setSimilarEvents(fallbackData as SimilarEventItem[]);
         }
       } catch (err) {
         console.error("Unexpected error fetching similar events:", err);
@@ -137,26 +153,29 @@ function SimilarEvents({
   );
 }
 
-interface Profile {
-  first_name: string;
-  last_name: string;
-  avatar_url: string | null;
+function rsvpRowsToCsv(rows: { name: string; email: string; rsvp_date: string; status: string }[]) {
+  const headers = ["User Name", "Email", "RSVP Date", "Status"];
+  const escape = (val: string) => {
+    const str = String(val ?? "");
+    return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+  };
+  const lines = [headers.join(",")];
+  for (const r of rows) {
+    lines.push([r.name, r.email, formatStandardDate(r.rsvp_date), r.status].map(escape).join(","));
+  }
+  return lines.join("\n");
 }
 
-interface EventRsvp {
-  id: string;
-  user_id: string;
-  status: string;
-  checked_in: boolean;
-  rsvp_at: string;
-  profiles: Profile | Profile[] | null;
-}
-
-interface EventWaitlist {
-  id: string;
-  user_id: string;
-  created_at: string;
-  profiles: Profile | Profile[] | null;
+function downloadCsv(csvContent: string, filename: string) {
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 export default function EventDetailsPage() {
@@ -884,7 +903,6 @@ export default function EventDetailsPage() {
       toast.error("Failed to copy event ID.");
     }
   };
-
   const handleConfirmCancel = () => {
     toggleRsvp.mutate({ eventId: event.id, hasRsvpd: true });
     setConfirmOpen(false);
@@ -1137,15 +1155,18 @@ export default function EventDetailsPage() {
             </TooltipProvider>
 
             {isOrganizer && (
-              <Button
-                onClick={() => exportCsv.mutate()}
-                disabled={exportCsv.isPending}
-                variant="outline"
-                className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                {exportCsv.isPending ? "Exporting..." : "Export CSV"}
-              </Button>
+              <>
+                <Button
+                  onClick={() => exportCsv.mutate()}
+                  disabled={exportCsv.isPending}
+                  variant="outline"
+                  className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  {exportCsv.isPending ? "Exporting..." : "Export CSV"}
+                </Button>
+                <CreatePollDialog eventId={eventId} user={user!} onPollCreated={() => refetch()} />
+              </>
             )}
 
             {googleCalendarUrl && (
@@ -1223,7 +1244,9 @@ export default function EventDetailsPage() {
                             key={star}
                             type="button"
                             onClick={() => setFeedbackRating(star)}
-                            className="focus:outline-none transition-transform hover:scale-110 active:scale-95"
+                            aria-label={`Rate ${star} out of 5 stars`}
+                            aria-pressed={feedbackRating === star}
+                            className="transition-transform hover:scale-110 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
                           >
                             <Star
                               className={`h-8 w-8 ${feedbackRating >= star ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
@@ -1272,6 +1295,11 @@ export default function EventDetailsPage() {
               />
             </div>
           )}
+
+          {/* Active Poll */}
+          <div className="mt-8">
+            <ActivePoll eventId={eventId} userId={user?.id} />
+          </div>
 
           {/* Description */}
           <div className="mt-8">
@@ -1925,11 +1953,19 @@ export default function EventDetailsPage() {
         targetType="event"
         targetId={event.id}
       />
-
       {lightboxSrc && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 cursor-zoom-out"
+          role="button"
+          tabIndex={0}
+          aria-label="Close enlarged image"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 cursor-zoom-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           onClick={() => setLightboxSrc(null)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " " || e.key === "Escape") {
+              e.preventDefault();
+              setLightboxSrc(null);
+            }
+          }}
         >
           <img
             src={lightboxSrc}

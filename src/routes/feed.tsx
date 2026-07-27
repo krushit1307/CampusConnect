@@ -1,6 +1,7 @@
 import { FeedPostSkeleton } from "@/components/FeedPostSkeleton";
 import { CommentThreadSkeleton } from "@/components/Feed/CommentSkeleton";
 import { useMutation, useQuery, useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
+import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import type { User } from "@supabase/supabase-js";
 import {
   Link2,
@@ -119,6 +120,8 @@ export default function Feed() {
   const [visibleCommentsCount, setVisibleCommentsCount] = useState<Record<string, number>>({});
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showNewPostsBanner, setShowNewPostsBanner] = useState(false);
+  const [prependedPosts, setPrependedPosts] = useState<Post[]>([]);
+  const [hiddenPosts, setHiddenPosts] = useState<Post[]>([]);
   const [confirmPostId, setConfirmPostId] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [reactionBursts, setReactionBursts] = useState<Record<string, string>>({});
@@ -191,15 +194,18 @@ export default function Feed() {
     fetchNextPage,
     hasNextPage,
     refetch: refetchPosts,
-  } = useInfiniteQuery<{ posts: Post[]; nextPage?: number }>({
+  } = useInfiniteQuery<{ posts: Post[]; nextCursor?: { created_at: string; id: string } }>({
     queryKey: ["posts"],
-    initialPageParam: 0,
-    queryFn: async ({ pageParam = 0 }) => {
-      const from = pageParam * POSTS_PER_PAGE;
-      const to = from + POSTS_PER_PAGE - 1;
+    initialPageParam: null,
+    queryFn: async ({ pageParam = null }) => {
+      const cursor = pageParam as { created_at: string; id: string } | null;
 
       const { data, error } = await supabase
-        .from("posts")
+        .rpc("get_posts_cursor", {
+          last_created_at: cursor?.created_at || null,
+          last_id: cursor?.id || null,
+          fetch_limit: POSTS_PER_PAGE,
+        })
         .select(
           `
         id, content, created_at, club_id, is_pinned,
@@ -208,26 +214,32 @@ export default function Feed() {
         comments (id, content, created_at, deleted_at, parent_id, parent_comment_id, profiles (id, full_name, handle)),
         post_reactions (emoji, user_id)
       `,
-        )
-        .is("deleted_at", null)
-        .order("is_pinned", { ascending: false })
-        .order("created_at", { ascending: false })
-        .range(from, to);
+        );
 
       if (error) throw error;
 
       const posts = (data ?? []) as unknown as Post[];
 
+      let nextCursor: { created_at: string; id: string } | undefined;
+      if (posts.length === POSTS_PER_PAGE) {
+        const lastPost = posts[posts.length - 1];
+        nextCursor = { created_at: lastPost.created_at, id: lastPost.id };
+      }
+
       return {
         posts,
-        nextPage: posts.length === POSTS_PER_PAGE ? pageParam + 1 : undefined,
+        nextCursor,
       };
     },
-    getNextPageParam: (lastPage) => lastPage.nextPage,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
   });
 
   const allPosts = data?.pages.flatMap((page) => page.posts) ?? [];
-  const posts = [...allPosts].sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned));
+  const combinedPosts = [
+    ...prependedPosts,
+    ...allPosts.filter((ap) => !prependedPosts.some((pp) => pp.id === ap.id)),
+  ];
+  const posts = [...combinedPosts].sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned));
 
   // Trending posts — fetched lazily only when the Trending tab is active
   const { data: trendingData, isLoading: isTrendingLoading } = useQuery<Post[]>({
@@ -273,6 +285,14 @@ export default function Feed() {
 
   const isActiveFeedLoading = feedMode === "latest" ? isLoading : isTrendingLoading;
 
+  const parentRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useWindowVirtualizer({
+    count: filteredPosts.length,
+    estimateSize: () => 300,
+    overscan: 5,
+    scrollMargin: parentRef.current?.offsetTop ?? 0,
+  });
+
   const postsRef = useRef(posts);
   const userRef = useRef(user);
 
@@ -286,8 +306,65 @@ export default function Feed() {
 
   const handleRefetch = useCallback(() => {
     setShowNewPostsBanner(false);
+    setPrependedPosts([]);
+    setHiddenPosts([]);
     refetchPosts();
   }, [refetchPosts]);
+
+  const handleLoadNewPosts = () => {
+    setPrependedPosts((prev) => [...hiddenPosts, ...prev]);
+    setHiddenPosts([]);
+    setShowNewPostsBanner(false);
+  };
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("public-posts-insert")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "posts",
+        },
+        async (payload) => {
+          const newRawPost = payload.new;
+          // Ignore posts created by currently authenticated user
+          if (userRef.current && newRawPost.created_by === userRef.current.id) {
+            return;
+          }
+
+          // Fetch the full post with relations
+          const { data, error } = await supabase
+            .from("posts")
+            .select(
+              `
+              id, content, created_at, club_id, is_pinned,
+              profiles (id, full_name, handle),
+              clubs (id, name, club_members (user_id, role)),
+              comments (id, content, created_at, deleted_at, parent_id, parent_comment_id, profiles (id, full_name, handle)),
+              post_reactions (emoji, user_id)
+            `,
+            )
+            .eq("id", newRawPost.id)
+            .single();
+
+          if (!error && data) {
+            const fullPost = data as unknown as Post;
+            setHiddenPosts((prev) => {
+              if (prev.some((p) => p.id === fullPost.id)) return prev;
+              return [fullPost, ...prev];
+            });
+            setShowNewPostsBanner(true);
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase]);
 
   /** Fetch (or re-fetch) comments for a post and store them in lazyComments. */
   const fetchCommentsForPost = useCallback(
@@ -350,6 +427,7 @@ export default function Feed() {
         refetchPosts();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, (payload) => {
+        // Bust the lazy cache for the affected post so the next expand re-fetches fresh data
         const postId =
           (payload.new as { post_id?: string })?.post_id ??
           (payload.old as { post_id?: string })?.post_id;
@@ -850,14 +928,14 @@ export default function Feed() {
             {showNewPostsBanner && feedMode === "latest" && (
               <button
                 type="button"
-                onClick={handleRefetch}
+                onClick={handleLoadNewPosts}
                 style={{
                   animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards",
                 }}
                 className="neu-border flex w-full items-center justify-center gap-2 bg-[#FFD93D] hover:bg-[#FFD93D]/90 py-3 text-center font-display text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_#000] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_#000] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[4px_4px_0_0_#000] cursor-pointer"
               >
                 <Sparkles size={16} className="animate-pulse" />
-                New posts available (Refresh)
+                Load {hiddenPosts.length} new {hiddenPosts.length === 1 ? "post" : "posts"}
               </button>
             )}
 
@@ -918,8 +996,17 @@ export default function Feed() {
                 </div>
               </div>
             ) : (
-              <>
-                {filteredPosts.map((post: Post) => {
+              <div
+                ref={parentRef}
+                style={{
+                  height: `${rowVirtualizer.getTotalSize()}px`,
+                  width: "100%",
+                  position: "relative",
+                }}
+              >
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const post = filteredPosts[virtualRow.index];
+                  if (!post) return null;
                   const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
                   const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
                   const clubMembers: ClubMember[] = Array.isArray(club?.club_members)
@@ -953,6 +1040,15 @@ export default function Feed() {
                     <article
                       id={`post-${post.id}`}
                       key={post.id}
+                      data-index={virtualRow.index}
+                      ref={rowVirtualizer.measureElement}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        transform: `translateY(${virtualRow.start - rowVirtualizer.options.scrollMargin}px)`,
+                      }}
                       className={`neu-border p-6 ${
                         post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
                       }`}
@@ -1438,7 +1534,7 @@ export default function Feed() {
                     </article>
                   );
                 })}
-              </>
+              </div>
             )}
 
             {hasNextPage && feedMode === "latest" && (

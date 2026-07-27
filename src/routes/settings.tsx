@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 
 import { OptimizedImage } from "@/components/media/OptimizedImage";
-import { Switch } from "@/components/ui/switch";
 
 import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@/hooks/useReactQueryReplacement";

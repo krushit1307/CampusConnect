@@ -65,19 +65,18 @@ serve(async (req) => {
     }
 
     const hasDevices = existingDevices && existingDevices.length > 0;
-    const isKnownDevice = existingDevices && existingDevices.some((d) => d.fingerprint === fingerprint);
+    const isKnownDevice =
+      existingDevices && existingDevices.some((d) => d.fingerprint === fingerprint);
 
     if (!isKnownDevice) {
       // Register this new device
-      const { error: insertError } = await supabase
-        .from("user_devices")
-        .insert({
-          user_id: user.id,
-          fingerprint,
-          browser,
-          os,
-          last_login_at: new Date().toISOString(),
-        });
+      const { error: insertError } = await supabase.from("user_devices").insert({
+        user_id: user.id,
+        fingerprint,
+        browser,
+        os,
+        last_login_at: new Date().toISOString(),
+      });
 
       if (insertError) {
         throw insertError;
@@ -149,7 +148,9 @@ serve(async (req) => {
             console.error("Resend API failed:", await res.text());
           }
         } else {
-          console.log(`[Security Alert Mock] Sent email alert to ${email} for new device: ${browser} on ${os}`);
+          console.log(
+            `[Security Alert Mock] Sent email alert to ${email} for new device: ${browser} on ${os}`,
+          );
         }
 
         return new Response(JSON.stringify({ isNewDevice: true, browser, os }), {

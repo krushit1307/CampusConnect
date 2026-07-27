@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 import { useMutation } from "@/hooks/useReactQueryReplacement";
-import { Plus, MapPin, CalendarIcon, Check, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { useUndoableState } from "@/hooks/useUndoableState";
+import { Plus, MapPin, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import { format } from "date-fns";
@@ -113,7 +114,76 @@ export function CreateEventDialog({
     mode: "onBlur",
   });
 
-  const watchedLocation = useWatch({ control: form.control, name: "location" });
+  const isUndoingRedoingRef = useRef(false);
+  const {
+    state: undoableState,
+    set: setUndoableState,
+    undo,
+    redo,
+    resetState,
+  } = useUndoableState(defaultValues, 1000);
+
+  const watchedValues = form.watch();
+
+  // Reset/initialize undoable state when the modal opens/closes
+  useEffect(() => {
+    if (open) {
+      resetState(form.getValues());
+    }
+  }, [open, resetState, form]);
+
+  // Sync form inputs to the undoable state history
+  useEffect(() => {
+    if (isUndoingRedoingRef.current) {
+      isUndoingRedoingRef.current = false;
+      return;
+    }
+    setUndoableState(watchedValues);
+  }, [watchedValues, setUndoableState]);
+
+  // Sync undoableState back to form values
+  useEffect(() => {
+    const currentFormValues = form.getValues();
+    if (JSON.stringify(currentFormValues) !== JSON.stringify(undoableState)) {
+      isUndoingRedoingRef.current = true;
+      form.reset(undoableState);
+    }
+  }, [undoableState, form]);
+
+  // Add Ctrl+Z and Ctrl+Y keydown shortcut listener
+  useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isCtrl = e.ctrlKey || e.metaKey;
+      if (isCtrl) {
+        if (e.key.toLowerCase() === "z") {
+          e.preventDefault();
+          if (e.shiftKey) {
+            redo();
+            toast.success("Redo action performed");
+          } else {
+            undo();
+            toast.success("Undo action performed");
+          }
+        } else if (e.key.toLowerCase() === "y") {
+          e.preventDefault();
+          redo();
+          toast.success("Redo action performed");
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, undo, redo]);
+
+  // Watch values via form.watch to keep TypeScript quiet about schema property limits
+  const watchedLocation = form.watch("location");
+  const watchedDescription = form.watch("description");
+
+  const currentDescription = watchedDescription || "";
+
   const showMapPreview =
     watchedLocation &&
     watchedLocation.trim().length > 0 &&
@@ -181,7 +251,7 @@ export function CreateEventDialog({
         console.error("[CreateEventDialog] Failed to clear saved draft:", e);
       }
       form.reset(defaultValues);
-      setStep(0);
+      resetState(defaultValues);
       setOpen(false);
     },
     onError: (error: Error) => {

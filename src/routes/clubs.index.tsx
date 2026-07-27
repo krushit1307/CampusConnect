@@ -8,11 +8,20 @@ import type { User } from "@supabase/supabase-js";
 import { CreateClubDialog } from "@/components/CreateClubDialog";
 import { ClubCardSkeleton } from "@/components/ui/ClubCardSkeleton";
 import { SearchInput } from "@/components/ui/SearchInput";
+import { EmptyState } from "@/components/EmptyState";
 
 const ITEMS_PER_PAGE = 12;
 const VIEW_MODE_STORAGE_KEY = "clubs-view-mode";
 
 type ViewMode = "grid" | "list";
+
+interface ClubItem {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  club_stats?: { total_members?: number }[] | { total_members?: number } | null;
+}
 
 export default function ClubsIndex() {
   const supabase = createClient();
@@ -39,7 +48,7 @@ export default function ClubsIndex() {
   }, [viewMode, viewModeLoaded]);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+    supabase.auth.getUser().then((res) => setUser(res.data?.user ?? null));
   }, [supabase]);
 
   useEffect(() => {
@@ -77,7 +86,8 @@ export default function ClubsIndex() {
     });
 
   // Flatten the nested page arrays from useInfiniteQuery into a single list
-  const allClubs = data?.pages.flatMap((page) => page.clubs) || [];
+  const allClubs: ClubItem[] = (data?.pages.flatMap((page: { clubs: unknown[] }) => page.clubs) ||
+    []) as ClubItem[];
   const totalActiveCount = data?.pages[0]?.totalCount || allClubs.length;
 
   // Deriving the Top 3 Trending Clubs based on member_count
@@ -166,10 +176,41 @@ export default function ClubsIndex() {
             <SearchInput
               value={searchInput}
               onChange={setSearchInput}
-              onClear={() => setSearch("")}
+              onClear={() => {
+                setSearchInput("");
+                setSearch("");
+              }}
               placeholder="Search clubs by name or interest..."
               className="mt-6 max-w-xl"
             />
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="font-mono text-xs font-bold uppercase text-gray-700">
+                Category Filter:
+              </span>
+              {["All", "Tech", "Cultural", "Sports", "Academic", "Arts"].map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => {
+                    if (cat === "All") {
+                      setSearchInput("");
+                      setSearch("");
+                    } else {
+                      setSearchInput(cat);
+                      setSearch(cat);
+                    }
+                  }}
+                  className={`neu-border px-2.5 py-0.5 font-mono text-[11px] font-bold uppercase transition-transform active:translate-y-0.5 cursor-pointer ${
+                    (cat === "All" && !searchInput) ||
+                    searchInput.toLowerCase() === cat.toLowerCase()
+                      ? "bg-black text-white"
+                      : "bg-white text-black hover:bg-yellow"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
           </div>
           <div>
             <CreateClubDialog user={user} />
@@ -289,21 +330,37 @@ export default function ClubsIndex() {
                   </div>
                 ))
               )
-            ) : allClubs.length === 0 ? (
-              <div className="neu-border col-span-full mx-auto flex w-full max-w-2xl flex-col items-center bg-white px-6 py-12 text-center md:px-12 md:py-16">
-                <div className="neu-border mb-6 flex h-20 w-20 items-center justify-center bg-lime md:h-24 md:w-24">
-                  <UsersRound className="h-10 w-10 md:h-12 md:w-12" aria-hidden="true" />
+            ) : directoryClubs.length === 0 ? (
+              search ? (
+                <EmptyState
+                  className="col-span-full mx-auto w-full max-w-2xl"
+                  illustration="no-results"
+                  title={`No clubs match "${search}"`}
+                  description="We couldn't find any campus clubs matching your search query. Try searching for a different keyword or category."
+                  action={{
+                    label: "Clear Search Filter",
+                    onClick: () => {
+                      setSearchInput("");
+                      setSearch("");
+                    },
+                  }}
+                />
+              ) : (
+                <div className="neu-border col-span-full mx-auto flex w-full max-w-2xl flex-col items-center bg-white px-6 py-12 text-center md:px-12 md:py-16">
+                  <div className="neu-border mb-6 flex h-20 w-20 items-center justify-center bg-lime md:h-24 md:w-24">
+                    <UsersRound className="h-10 w-10 md:h-12 md:w-12" aria-hidden="true" />
+                  </div>
+                  <p className="eyebrow font-bold text-black">Your campus community starts here</p>
+                  <h2 className="mt-2 text-3xl font-bold md:text-4xl">No clubs found</h2>
+                  <p className="mt-3 max-w-md font-mono text-sm leading-6 text-gray-700">
+                    There are no clubs in the directory yet. Create the first club and bring
+                    students with shared interests together.
+                  </p>
+                  <div className="mt-7">
+                    <CreateClubDialog user={user} />
+                  </div>
                 </div>
-                <p className="eyebrow font-bold text-black">Your campus community starts here</p>
-                <h2 className="mt-2 text-3xl font-bold md:text-4xl">No clubs found</h2>
-                <p className="mt-3 max-w-md font-mono text-sm leading-6 text-gray-700">
-                  There are no clubs in the directory yet. Create the first club and bring students
-                  with shared interests together.
-                </p>
-                <div className="mt-7">
-                  <CreateClubDialog user={user} />
-                </div>
-              </div>
+              )
             ) : viewMode === "grid" ? (
               directoryClubs.map((c, index) => (
                 <div

@@ -14,6 +14,7 @@ import {
   type ClubFormInput,
 } from "@/lib/clubUtils";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import {
