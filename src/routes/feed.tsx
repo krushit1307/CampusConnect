@@ -289,7 +289,7 @@ export default function Feed() {
   const parentRef = useRef<HTMLDivElement>(null);
   const rowVirtualizer = useWindowVirtualizer({
     count: filteredPosts.length,
-    estimateSize: () => 300,
+    estimateSize: () => 210,
     overscan: 5,
     scrollMargin: parentRef.current?.offsetTop ?? 0,
   });
