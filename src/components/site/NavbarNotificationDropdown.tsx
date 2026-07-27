@@ -89,6 +89,30 @@ export const NavbarNotificationDropdown: React.FC = () => {
     setUnreadCount(0);
   };
 
+  const handleDeleteNotification = async (id: string) => {
+    const target = notifications.find((n) => n.id === id);
+    if (!target) return;
+
+    // Optimistic update: remove immediately, keep a snapshot to roll back if
+    // the mutation fails.
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    if (!target.isRead) setUnreadCount((prev) => Math.max(0, prev - 1));
+
+    if (!userId) return; // mock/local-only notification, nothing to persist
+
+    const { error } = await supabase
+      .from("notifications")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", userId);
+
+    if (error) {
+      // Roll back on failure
+      setNotifications((prev) => [...prev, target].sort((a, b) => (a.id < b.id ? 1 : -1)));
+      if (!target.isRead) setUnreadCount((prev) => prev + 1);
+    }
+  };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -169,7 +193,7 @@ export const NavbarNotificationDropdown: React.FC = () => {
             </div>
           </div>
 
-          <div className="divide-y divide-gray-100 max-h-[400px] overflow-y-auto">
+          <div className="divide-y divide-gray-100 max-h-[400px] overflow-y-auto overflow-x-hidden">
             {filteredNotifications.length === 0 ? (
               <div className="p-6 text-center text-sm text-gray-400">
                 {searchQuery ? "No matching notifications." : "No notifications yet."}
@@ -180,6 +204,7 @@ export const NavbarNotificationDropdown: React.FC = () => {
                   key={notification.id}
                   notification={notification}
                   onMarkAsRead={handleMarkAsRead}
+                  onDelete={handleDeleteNotification}
                 />
               ))
             )}

@@ -42,6 +42,15 @@ interface UseMutationOptions<TData, TError, TVariables, TContext> {
   mutationFn: (variables: TVariables) => Promise<TData>;
   onSuccess?: (data: TData, variables: TVariables, context: TContext | undefined) => void;
   onError?: (error: TError, variables: TVariables, context: TContext | undefined) => void;
+  // Optional: enables optimistic updates. Return a snapshot/context value here,
+  // then roll back using that same value in onError.
+  onMutate?: (variables: TVariables) => TContext | Promise<TContext>;
+  onSettled?: (
+    data: TData | undefined,
+    error: TError | null,
+    variables: TVariables,
+    context: TContext | undefined,
+  ) => void;
 }
 
 export function useMutation<TData = unknown, TError = Error, TVariables = void, TContext = unknown>(
@@ -51,6 +60,8 @@ export function useMutation<TData = unknown, TError = Error, TVariables = void, 
     mutationFn: options.mutationFn,
     onSuccess: options.onSuccess,
     onError: options.onError,
+    onMutate: options.onMutate,
+    onSettled: options.onSettled,
   });
 }
 
