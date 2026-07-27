@@ -126,8 +126,8 @@ export default function Layout() {
           <OfflineBanner />
           <TopProgressBar />
 
-        <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-        <PWAInstallPrompt />
+          <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+          <PWAInstallPrompt />
 
           <Outlet />
           <Toaster />
