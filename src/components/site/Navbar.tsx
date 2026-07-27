@@ -8,6 +8,14 @@ import { ThemeToggle } from "../ThemeToggle";
 import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
 
 import { Menu, X } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const links = [
   { to: "/events", label: "Events" },

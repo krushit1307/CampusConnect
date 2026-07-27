@@ -35,6 +35,7 @@ export default function Dashboard() {
     enabled: !!user?.id,
   });
 
+  const colors = ["bg-lime", "bg-sky", "bg-peach"];
   if (!user)
     return (
       <SiteShell>
