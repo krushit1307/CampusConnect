@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
+import { useRealtimeComments, type Comment } from "@/hooks/useRealtimeComments";
 
 interface CommentSectionProps {
   postId: string;
@@ -7,9 +8,14 @@ interface CommentSectionProps {
     id: string;
     name: string;
   };
+  onNewComment?: (comment: Comment) => void;
 }
 
-export const CommentSection: React.FC<CommentSectionProps> = ({ postId, currentUser }) => {
+export const CommentSection: React.FC<CommentSectionProps> = ({
+  postId,
+  currentUser,
+  onNewComment,
+}) => {
   const [commentText, setCommentText] = useState("");
   const username = currentUser?.name || "A user";
 
@@ -18,6 +24,17 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ postId, currentU
     currentUser?.id ?? `anon-${postId}`,
     username,
   );
+
+  // Subscribe to realtime comment events filtered by comments:post_id=eq.<postId>
+  useRealtimeComments({
+    postId,
+    enabled: !!postId,
+    onNewComment: (newComment) => {
+      if (onNewComment) {
+        onNewComment(newComment);
+      }
+    },
+  });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setCommentText(e.target.value);

@@ -1,66 +1,20 @@
-import React, { useState } from "react";
-import { Star } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
+
+import { StarRating } from "@/components/ui/star-rating";
+
 import { User } from "@supabase/supabase-js";
 
 interface EventFeedbackFormProps {
   eventId: string;
   user: User | null;
 }
-
-interface StarButtonProps {
-  star: number;
-  isFilled: boolean;
-  onSelect: (star: number) => void;
-  onHoverChange: (star: number) => void;
-}
-
-/**
- * Single star button. Reads hover and keyboard-focus state via useHover /
- * useFocusWithin instead of inline onMouseEnter/onMouseLeave handlers,
- * treating keyboard accessibility with the same priority as mouse hover.
- * (#1234)
- */
-function StarButton({ star, isFilled, onSelect, onHoverChange }: StarButtonProps) {
-  const [hoverRef, isHovered] = useHover<HTMLButtonElement>();
-  const [focusRef, isFocused] = useFocusWithin<HTMLButtonElement>();
-
-  const isActive = isHovered || isFocused;
-
-  React.useEffect(() => {
-    onHoverChange(isActive ? star : 0);
-    // Only this star's own hover/focus state should trigger an update —
-    // onHoverChange/star intentionally omitted to avoid needless re-runs.
-  }, [isActive]);
-
-  return (
-    <button
-      ref={(node) => {
-        hoverRef.current = node;
-        focusRef.current = node;
-      }}
-      type="button"
-      className="focus:outline-none transition-transform hover:scale-110"
-      onClick={() => onSelect(star)}
-    >
-      <Star
-        size={32}
-        className={`${
-          isFilled ? "text-brand-orange-base fill-brand-orange-base" : "text-gray-400"
-        } transition-colors`}
-      />
-    </button>
-  );
-}
-
 export default function EventFeedbackForm({ eventId, user }: EventFeedbackFormProps) {
   const supabase = createClient();
-  const [rating, setRating] = useState<number>(0);
-  const [hoverRating, setHoverRating] = useState<number>(0);
+const [rating, setRating] = useState<number>(0);
   const [comment, setComment] = useState("");
-
   const {
     data: existingFeedback,
     isLoading,
@@ -119,20 +73,9 @@ export default function EventFeedbackForm({ eventId, user }: EventFeedbackFormPr
     return (
       <div className="neu-border bg-brand-green-bg p-6 mb-8">
         <h3 className="font-display text-xl font-bold uppercase mb-4 text-black">Your Feedback</h3>
-        <div className="flex gap-1 mb-4">
-          {[1, 2, 3, 4, 5].map((star) => (
-            <Star
-              key={star}
-              size={24}
-              className={`${
-                star <= existingFeedback.rating
-                  ? "text-brand-orange-base fill-brand-orange-base"
-                  : "text-gray-400"
-              }`}
-            />
-          ))}
-        </div>
-        {existingFeedback.comment && (
+<div className="mb-4">
+          <StarRating value={existingFeedback.rating} readOnly size={24} />
+        </div>        {existingFeedback.comment && (
           <p className="font-mono text-sm text-gray-800 bg-white p-4 neu-border">
             {existingFeedback.comment}
           </p>
@@ -155,18 +98,15 @@ export default function EventFeedbackForm({ eventId, user }: EventFeedbackFormPr
         <label className="block font-mono text-sm font-bold mb-2 uppercase">
           Rating (Required)
         </label>
-        <div className="flex gap-1">
-          {[1, 2, 3, 4, 5].map((star) => (
-            <StarButton
-              key={star}
-              star={star}
-              isFilled={star <= (hoverRating || rating)}
-              onSelect={setRating}
-              onHoverChange={setHoverRating}
-            />
-          ))}
-        </div>
-      </div>
+<div className="flex gap-1">
+          <StarRating
+            value={rating}
+            onChange={setRating}
+            allowHalf={false}
+            size={32}
+            label="Event rating"
+          />
+        </div>      </div>
 
       <div className="mb-6">
         <label htmlFor="comment" className="block font-mono text-sm font-bold mb-2 uppercase">
