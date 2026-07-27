@@ -6,6 +6,7 @@ import { useTheme } from "@/components/theme-provider";
 import { Loader2, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { SecuritySection } from "@/components/Settings/SecuritySection";
 
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 
@@ -663,6 +664,7 @@ export default function SettingsPage() {
           </Panel>
         </div>
       </section>
+      <SecuritySection />
     </SiteShell>
   );
 }

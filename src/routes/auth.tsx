@@ -64,12 +64,21 @@ export default function AuthPage() {
     setError(null);
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: values.email,
-        password: values.password,
+      const { data, error: invokeError } = await supabase.functions.invoke("login-proxy", {
+        body: { email: values.email, password: values.password },
       });
 
-      if (signInError) throw signInError;
+      if (invokeError) {
+        const body = await invokeError.context?.json().catch(() => null);
+        throw new Error(body?.error || invokeError.message);
+      }
+
+      const { error: setSessionError } = await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
+
+      if (setSessionError) throw setSessionError;
 
       navigate("/dashboard", { replace: true });
     } catch (err: unknown) {
@@ -81,7 +90,6 @@ export default function AuthPage() {
       setLoading(false);
     }
   }
-
   async function onSignUp(values: SignUpFormValues) {
     setLoading(true);
     setError(null);

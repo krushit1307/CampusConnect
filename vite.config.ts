@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import { fileURLToPath } from "url";
 import { federation } from "@module-federation/vite";
@@ -29,9 +30,7 @@ export default defineConfig({
     VitePWA({ registerType: "autoUpdate" }),
     federation({
       name: "host",
-      remotes: {
-        eventsApp: "http://localhost:4174/remoteEntry.js",
-      },
+      remotes: {},
       shared: {
         react: {
           singleton: true,
@@ -40,10 +39,6 @@ export default defineConfig({
         "react-dom": {
           singleton: true,
           requiredVersion: "^19.2.0",
-        },
-        "react-router-dom": {
-          singleton: true,
-          requiredVersion: "^7.18.1",
         },
       },
     }),
@@ -71,6 +66,9 @@ export default defineConfig({
           if (id.includes("node_modules")) {
             if (id.includes("react") || id.includes("react-dom")) {
               return "vendor-react";
+            }
+            if (id.includes("lucide-react")) {
+              return "vendor-icons";
             }
             return "vendor";
           }

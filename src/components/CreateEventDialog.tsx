@@ -35,6 +35,20 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FlyerUploader } from "@/components/FlyerUploader";
+import type { ParsedFlyer } from "@/lib/parser";
+import { TagMultiSelect } from "@/components/ui/TagMultiSelect";
+import { ImageCropUpload } from "@/components/ImageCropUpload";
+
+const STEPS = [
+  { label: "Details", fields: ["title", "description"] as const },
+  { label: "Logistics", fields: ["location", "startDate", "endDate"] as const },
+  { label: "Media", fields: [] as const },
+] as const;
+
+const STEP_FIELDS = STEPS.map((s) => s.fields as unknown as (keyof EventFormValues)[]);
+
+type Step = 0 | 1 | 2;
 
 // Define an extended interface locally to handle the extra location field safely
 interface LocalEventFormValues extends EventFormValues {
@@ -76,7 +90,23 @@ export function CreateEventDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>(0);
+  const [clubId, setClubId] = useState<string | null>(null);
   const supabase = createClient();
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("club_members")
+      .select("club_id")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .eq("status", "approved")
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        if (data) setClubId(data.club_id);
+      });
+  }, [user]);
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
@@ -204,7 +234,7 @@ export function CreateEventDialog({
         // read event_date (e.g. EventCard, event ordering) keep working.
         event_date: startDateIso,
         created_by: user.id,
-        club_id: myClub.id,
+        club_id: clubId,
         requires_approval: values.requiresApproval || false,
       });
 
@@ -716,10 +746,21 @@ export function CreateEventDialog({
               )}
             />
 
-            <DialogFooter className="pt-2">
-              <Button type="submit" disabled={createEvent.isPending} className="w-full sm:w-auto">
-                {createEvent.isPending ? "Creating..." : "Create event"}
-              </Button>
+            <DialogFooter className="pt-2 flex gap-2">
+              {step > 0 && (
+                <Button type="button" variant="outline" onClick={handleBack}>
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Back
+                </Button>
+              )}
+              {step < STEPS.length - 1 ? (
+                <Button type="button" onClick={handleNext} className="ml-auto">
+                  Next <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              ) : (
+                <Button type="submit" disabled={createEvent.isPending} className="ml-auto">
+                  {createEvent.isPending ? "Creating..." : "Create event"}
+                </Button>
+              )}
             </DialogFooter>
           </form>
         </Form>

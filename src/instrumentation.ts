@@ -23,13 +23,15 @@ export function initializeTracing() {
     sampler: new TraceIdRatioBasedSampler(0.1), // Sample 10% of traces
   });
 
-  // Create OTLP exporter
   const exporter = new OTLPTraceExporter({
     url: import.meta.env.VITE_OTEL_COLLECTOR_URL || "http://localhost:4318/v1/traces",
   });
 
-  // Add span processor
-  tracerProvider.addSpanProcessor(new SimpleSpanProcessor(exporter));
+  const tracerProvider = new BasicTracerProvider({
+    resource,
+    sampler: new TraceIdRatioBasedSampler(0.1),
+    spanProcessors: [new SimpleSpanProcessor(exporter)],
+  });
 
   // Set up W3C Trace Context propagation
   propagation.setGlobalPropagator(
