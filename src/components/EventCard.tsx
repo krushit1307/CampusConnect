@@ -13,6 +13,9 @@ import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EventRSVPButton } from "@/components/EventRSVPButton";
+
+import { usePreloadEvent } from "@/hooks/usePreloadEvent";
+
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
 import { ShareMenu } from "@/components/ui/ShareMenu";
 import { ReadMore } from "@/components/ui/ReadMore";
@@ -160,10 +163,10 @@ export function EventCard({
   onBookmarkToggle,
   isBookmarkPending,
 }: EventCardProps) {
-  const club = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs;
+const club = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs;
   const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
   const myRsvp = user ? rsvps.find((rsvp) => rsvp.user_id === user.id) : null;
-
+  const preloadEvent = usePreloadEvent(event.id);
   const hasRsvpd = !!myRsvp;
   const colors = ["bg-lime", "bg-sky", "bg-peach"];
   const googleCalendarUrl = getGoogleCalendarUrl({
@@ -252,11 +255,12 @@ export function EventCard({
 
   return (
     <div className="group">
-      <article
+<article
         id={`event-${event.id}`}
+        onMouseEnter={preloadEvent.onMouseEnter}
+        onMouseLeave={preloadEvent.onMouseLeave}
         className={`neu-border p-5 relative ${colors[index % colors.length]} transition-transform duration-300 ease-out group-hover:scale-[1.02]`}
-      >
-        <div className="flex items-start justify-between gap-3">
+      >        <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col">
             <p className="font-mono text-xs font-bold uppercase tracking-wider pr-10 text-red-900">
               {event.event_date

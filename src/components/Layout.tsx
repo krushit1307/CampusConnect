@@ -10,7 +10,6 @@ import TopProgressBar from "@/components/TopProgressBar";
 import ShortcutsModal from "@/components/ShortcutsModal";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import { WebRTCProvider } from "@/components/VideoCall/WebRTCProvider";
-// Persistent banner shown while the browser has no network connection.
 function OfflineBanner() {
   const [isOffline, setIsOffline] = useState(
     typeof navigator !== "undefined" ? !navigator.onLine : false,
@@ -119,21 +118,24 @@ export default function Layout() {
     };
   }, []);
 
-  return (
-    <ThemeProvider>
-      <TooltipProvider delayDuration={200}>
-        <WebRTCProvider>
-          <OfflineBanner />
-          <TopProgressBar />
+ return (
+  <ThemeProvider>
+    <TooltipProvider delayDuration={200}>
+      <WebRTCProvider>
+        <OfflineBanner />
+        <TopProgressBar />
 
-          <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-          <PWAInstallPrompt />
+        <ShortcutsModal
+          open={shortcutsOpen}
+          onOpenChange={setShortcutsOpen}
+        />
 
-          <Outlet />
-          <Toaster />
-          <ScrollToTop />
-        </WebRTCProvider>
-      </TooltipProvider>
-    </ThemeProvider>
-  );
-}
+        <PWAInstallPrompt />
+
+        <Outlet />
+        <Toaster />
+        <ScrollToTop />
+      </WebRTCProvider>
+    </TooltipProvider>
+  </ThemeProvider>
+);

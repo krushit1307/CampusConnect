@@ -49,7 +49,7 @@ import { parseCoordinates } from "@/lib/eventUtils";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
 import { ActivePoll } from "@/components/polls/ActivePoll";
-
+import LiveQA from "@/components/qa/LiveQA";
 interface SimilarEventItem {
   id: string;
   title: string;
@@ -1349,6 +1349,10 @@ export default function EventDetailsPage() {
             <ActivePoll eventId={eventId} userId={user?.id} />
           </div>
 
+          {/* Live Q&A */}
+          <div className="mt-8">
+            <LiveQA eventId={eventId} userId={user?.id} isOrganizer={isOrganizer} />
+          </div>
           {/* Description */}
           <div className="mt-8">
             <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">

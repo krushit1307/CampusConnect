@@ -1,4 +1,6 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import * as Slider from '@radix-ui/react-slider';
+import { Play, Pause, Volume2, VolumeX, Maximize, Minimize } from 'lucide-react';
 
 interface VideoPlayerProps {
   src: string;
@@ -7,17 +9,19 @@ interface VideoPlayerProps {
 }
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(1);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  // State management
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [progress, setProgress] = useState<number>(0);
+  const [duration, setDuration] = useState<number>(0);
+  const [volume, setVolume] = useState<number>(1);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [showControls, setShowControls] = useState<boolean>(true);
 
-  // Toggle Play/Pause
+  // Toggle Play / Pause
   const togglePlay = useCallback(() => {
     if (!videoRef.current) return;
     if (isPlaying) {
@@ -25,203 +29,201 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) 
     } else {
       videoRef.current.play();
     }
-    setIsPlaying(!isPlaying);
   }, [isPlaying]);
-
-  // Handle Time Update
-  const handleTimeUpdate = () => {
-    if (!videoRef.current) return;
-    setCurrentTime(videoRef.current.currentTime);
-  };
-
-  // Handle Loaded Metadata (get duration)
-  const handleLoadedMetadata = () => {
-    if (!videoRef.current) return;
-    setDuration(videoRef.current.duration);
-  };
-
-  // Seek Timeline
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const time = parseFloat(e.target.value);
-    if (videoRef.current) {
-      videoRef.current.currentTime = time;
-      setCurrentTime(time);
-    }
-  };
-
-  // Volume Change
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    setVolume(val);
-    if (videoRef.current) {
-      videoRef.current.volume = val;
-      setIsMuted(val === 0);
-    }
-  };
 
   // Toggle Mute
   const toggleMute = () => {
     if (!videoRef.current) return;
-    const newMuted = !isMuted;
-    setIsMuted(newMuted);
-    videoRef.current.muted = newMuted;
+    const newMuteState = !isMuted;
+    setIsMuted(newMuteState);
+    videoRef.current.muted = newMuteState;
   };
 
-  // Toggle Fullscreen
-  const toggleFullscreen = () => {
-    if (!containerRef.current) return;
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().catch((err) => {
-        console.error("Error attempting to enable fullscreen:", err);
-      });
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
+  // Volume Change
+  const handleVolumeChange = (value: number[]) => {
+    if (!videoRef.current) return;
+    const newVolume = value[0];
+    setVolume(newVolume);
+    videoRef.current.volume = newVolume;
+    if (newVolume === 0) {
+      setIsMuted(true);
+      videoRef.current.muted = true;
+    } else if (isMuted) {
+      setIsMuted(false);
+      videoRef.current.muted = false;
     }
   };
 
-  // Keyboard Shortcuts (Space to play/pause, Left/Right arrows to seek, Up/Down for volume)
+  // Timeline Scrubber Seeking
+  const handleSeek = (value: number[]) => {
+    if (!videoRef.current) return;
+    const newTime = value[0];
+    videoRef.current.currentTime = newTime;
+    setProgress(newTime);
+  };
+
+  // Skip Forward/Backward (5s) for Keyboard Shortcuts
+  const handleSeekBy = useCallback((seconds: number) => {
+    if (!videoRef.current) return;
+    const newTime = Math.min(Math.max(videoRef.current.currentTime + seconds, 0), duration);
+    videoRef.current.currentTime = newTime;
+    setProgress(newTime);
+  }, [duration]);
+
+  // Fullscreen Toggle using standard Fullscreen API
+  const toggleFullscreen = () => {
+    if (!containerRef.current) return;
+
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(console.error);
+    } else {
+      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(console.error);
+    }
+  };
+
+  // Time Formatter Utility
+  const formatTime = (timeInSeconds: number) => {
+    if (isNaN(timeInSeconds)) return "0:00";
+    const minutes = Math.floor(timeInSeconds / 60);
+    const seconds = Math.floor(timeInSeconds % 60);
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  };
+
+  // Keyboard Navigation: Space (Play/Pause), Left/Right Arrows (Seeking)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger shortcuts if typing inside an input element
-      const activeEl = document.activeElement;
-      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
-        return;
-      }
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
 
-      if (!videoRef.current) return;
-
-      switch (e.code) {
-        case "Space":
-          e.preventDefault();
-          togglePlay();
-          break;
-        case "ArrowLeft":
-          e.preventDefault();
-          videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5);
-          break;
-        case "ArrowRight":
-          e.preventDefault();
-          videoRef.current.currentTime = Math.min(duration, videoRef.current.currentTime + 5);
-          break;
-        case "ArrowUp": {
-          e.preventDefault();
-          const volUp = Math.min(1, volume + 0.1);
-          setVolume(volUp);
-          videoRef.current.volume = volUp;
-          break;
-        }
-        case "ArrowDown": {
-          e.preventDefault();
-          const volDown = Math.max(0, volume - 0.1);
-          setVolume(volDown);
-          videoRef.current.volume = volDown;
-          break;
-        }
-        default:
-          break;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.code === 'ArrowLeft') {
+        e.preventDefault();
+        handleSeekBy(-5);
+      } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        handleSeekBy(5);
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [togglePlay, duration, volume]);
-
-  // Format Seconds to MM:SS
-  const formatTime = (timeInSeconds: number) => {
-    if (isNaN(timeInSeconds)) return "00:00";
-    const minutes = Math.floor(timeInSeconds / 60);
-    const seconds = Math.floor(timeInSeconds % 60);
-    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-  };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [togglePlay, handleSeekBy]);
 
   return (
     <div
       ref={containerRef}
-      className="relative group w-full max-w-4xl mx-auto rounded-lg overflow-hidden bg-black text-white shadow-xl focus:outline-none"
-      tabIndex={0}
+      className="relative group w-full max-w-4xl mx-auto rounded-xl overflow-hidden bg-black shadow-2xl select-none"
+      onMouseEnter={() => setShowControls(true)}
+      onMouseLeave={() => isPlaying && setShowControls(false)}
     >
       {/* Title Overlay */}
       {title && (
-        <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 to-transparent z-10">
-          <h2 className="text-sm font-semibold truncate">{title}</h2>
+        <div className={`absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 to-transparent z-10 pointer-events-none transition-opacity duration-300 ${
+          showControls || !isPlaying ? 'opacity-100' : 'opacity-0'
+        }`}>
+          <h2 className="text-sm font-semibold text-white truncate">{title}</h2>
         </div>
       )}
 
-      {/* Video Element without default controls */}
+      {/* Video Element */}
       <video
         ref={videoRef}
         src={src}
         poster={poster}
-        className="w-full h-auto cursor-pointer"
+        controls={false}
+        playsInline
+        className="w-full h-auto cursor-pointer object-cover"
         onClick={togglePlay}
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={handleLoadedMetadata}
+        onTimeUpdate={() => videoRef.current && setProgress(videoRef.current.currentTime)}
+        onLoadedMetadata={() => videoRef.current && setDuration(videoRef.current.duration)}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={() => setIsPlaying(false)}
       />
 
-      {/* Custom Controls Bar */}
-      <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col gap-2 transition-opacity duration-300 group-hover:opacity-100 opacity-90 z-10">
-        {/* Timeline Scrubber */}
-        <div className="flex items-center gap-2">
-          <input
-            type="range"
-            min={0}
+      {/* Control Overlay Bar */}
+      <div
+        className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent transition-opacity duration-300 flex flex-col gap-2 z-10 ${
+          showControls || !isPlaying ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        {/* Radix UI Timeline Scrubber */}
+        <div className="w-full flex items-center">
+          <Slider.Root
+            aria-label="Video timeline scrubber"
+            className="relative flex items-center select-none touch-none w-full h-5 cursor-pointer"
+            value={[progress]}
             max={duration || 100}
-            value={currentTime}
-            onChange={handleSeek}
-            className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-primary"
-          />
+            step={0.1}
+            onValueChange={handleSeek}
+          >
+            <Slider.Track className="bg-white/30 relative grow rounded-full h-1 overflow-hidden">
+              <Slider.Range className="absolute bg-indigo-500 rounded-full h-full" />
+            </Slider.Track>
+            <Slider.Thumb
+              className="block w-3.5 h-3.5 bg-white rounded-full hover:scale-125 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-transform"
+              aria-label="Current video position"
+            />
+          </Slider.Root>
         </div>
 
-        {/* Control Buttons */}
-        <div className="flex items-center justify-between text-xs font-medium">
+        {/* Bottom Control Buttons */}
+        <div className="flex items-center justify-between text-white text-sm pt-1">
           <div className="flex items-center gap-4">
-            {/* Play/Pause */}
+            {/* Play/Pause Button */}
             <button
-              onClick={togglePlay}
               type="button"
-              className="p-1 hover:text-primary transition-colors focus:outline-none"
-              aria-label={isPlaying ? "Pause" : "Play"}
+              onClick={togglePlay}
+              aria-label={isPlaying ? "Pause video" : "Play video"}
+              className="p-1 hover:text-indigo-400 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 rounded"
             >
-              {isPlaying ? "⏸" : "▶"}
+              {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 fill-current" />}
             </button>
 
             {/* Volume Control */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2 group/volume">
               <button
-                onClick={toggleMute}
                 type="button"
-                className="hover:text-primary focus:outline-none"
-                aria-label={isMuted ? "Unmute" : "Mute"}
+                onClick={toggleMute}
+                aria-label={isMuted ? "Unmute audio" : "Mute audio"}
+                className="p-1 hover:text-indigo-400 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 rounded"
               >
-                {isMuted || volume === 0 ? "🔇" : "🔊"}
+                {isMuted || volume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
               </button>
-              <input
-                type="range"
-                min={0}
+
+              <Slider.Root
+                aria-label="Volume level slider"
+                className="relative flex items-center select-none touch-none w-20 h-5 cursor-pointer"
+                value={[isMuted ? 0 : volume]}
                 max={1}
                 step={0.05}
-                value={isMuted ? 0 : volume}
-                onChange={handleVolumeChange}
-                className="w-16 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-primary"
-              />
+                onValueChange={handleVolumeChange}
+              >
+                <Slider.Track className="bg-white/30 relative grow rounded-full h-1 overflow-hidden">
+                  <Slider.Range className="absolute bg-white rounded-full h-full" />
+                </Slider.Track>
+                <Slider.Thumb
+                  className="block w-2.5 h-2.5 bg-white rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  aria-label="Volume slider position"
+                />
+              </Slider.Root>
             </div>
 
-            {/* Time Display */}
-            <span>
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </span>
+            {/* Timestamp Display */}
+            <div className="text-xs text-gray-300 font-mono tracking-wider">
+              {formatTime(progress)} / {formatTime(duration)}
+            </div>
           </div>
 
           {/* Fullscreen Button */}
           <button
-            onClick={toggleFullscreen}
             type="button"
-            className="p-1 hover:text-primary transition-colors focus:outline-none"
-            aria-label="Toggle Fullscreen"
+            onClick={toggleFullscreen}
+            aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+            className="p-1 hover:text-indigo-400 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 rounded"
           >
-            {isFullscreen ? "📁" : "⛶"}
+            {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
           </button>
         </div>
       </div>

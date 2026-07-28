@@ -18,6 +18,7 @@ import { getMultiIcsContent } from "@/lib/utils";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { EventFilters, FilterState } from "@/components/EventFilters";
 import { ScrollAwareFab } from "@/components/ScrollAwareFab";
+import confetti from "canvas-confetti";
 
 import {
   Select,
@@ -557,6 +558,15 @@ export default function EventsPage() {
 
     try {
       await toggleRsvp.mutateAsync({ eventId, hasRsvpd });
+
+      // Show confetti only when successfully RSVPing (not when cancelling)
+      if (!hasRsvpd) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+        });
+      }
     } catch {
       setEvents(originalEvents);
     }
