@@ -1,19 +1,21 @@
 /**
  * MarkdownUpload Component
- * 
+ *
  * Provides a clean UI for users to upload existing Markdown files,
  * which are then parsed into Tiptap JSON and loaded into the editor.
  */
 
-import * as React from 'react';
-import { Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
-import { parseMarkdownToTiptap } from '../../lib/tiptap/markdown-parser';
+import * as React from "react";
+import { Upload, FileText, AlertCircle, CheckCircle } from "lucide-react";
+import { parseMarkdownToTiptap } from "../../lib/tiptap/markdown-parser";
 
 interface MarkdownUploadProps {
   onContentLoaded: (jsonContent: Record<string, any>) => void;
 }
 
-export const MarkdownUpload: React.FC<MarkdownUploadProps> = ({ onContentLoaded }: MarkdownUploadProps) => {
+export const MarkdownUpload: React.FC<MarkdownUploadProps> = ({
+  onContentLoaded,
+}: MarkdownUploadProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +24,7 @@ export const MarkdownUpload: React.FC<MarkdownUploadProps> = ({ onContentLoaded 
 
   const handleFile = async (file: File) => {
     const { useState, useRef } = React;
-    
+
     setError(null);
     setSuccess(null);
     setIsLoading(true);
@@ -34,10 +36,10 @@ export const MarkdownUpload: React.FC<MarkdownUploadProps> = ({ onContentLoaded 
         setSuccess(`Successfully parsed "${result.fileName}"`);
         onContentLoaded(result.data);
       } else {
-        setError(result.error || 'Failed to parse the Markdown file.');
+        setError(result.error || "Failed to parse the Markdown file.");
       }
     } catch (err) {
-      setError('An unexpected error occurred while uploading.');
+      setError("An unexpected error occurred while uploading.");
     } finally {
       setIsLoading(false);
     }
@@ -46,7 +48,7 @@ export const MarkdownUpload: React.FC<MarkdownUploadProps> = ({ onContentLoaded 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
-    
+
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
       handleFile(files[0]);
@@ -82,11 +84,12 @@ export const MarkdownUpload: React.FC<MarkdownUploadProps> = ({ onContentLoaded 
         className={`
           relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
           transition-colors duration-200 ease-in-out
-          ${isDragging 
-            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-            : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 bg-gray-50 dark:bg-gray-800'
+          ${
+            isDragging
+              ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+              : "border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 bg-gray-50 dark:bg-gray-800"
           }
-          ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
+          ${isLoading ? "opacity-50 cursor-not-allowed" : ""}
         `}
       >
         <input
@@ -97,20 +100,19 @@ export const MarkdownUpload: React.FC<MarkdownUploadProps> = ({ onContentLoaded 
           className="hidden"
           disabled={isLoading}
         />
-        
+
         <div className="flex flex-col items-center justify-center space-y-3">
           {isLoading ? (
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 dark:border-blue-400"></div>
           ) : (
             <FileText className="h-10 w-10 text-gray-400 dark:text-gray-500" />
           )}
-          
+
           <div className="text-sm text-gray-600 dark:text-gray-300">
-            <span className="font-semibold text-blue-600 dark:text-blue-400">Click to upload</span> or drag and drop
+            <span className="font-semibold text-blue-600 dark:text-blue-400">Click to upload</span>{" "}
+            or drag and drop
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Markdown files only (.md)
-          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Markdown files only (.md)</p>
         </div>
       </div>
 
