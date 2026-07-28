@@ -874,6 +874,12 @@ VALUES
 ON CONFLICT (id) DO UPDATE
 SET public = EXCLUDED.public;
 
+-- Create private club-documents bucket
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('club-documents', 'club-documents', false)
+ON CONFLICT (id) DO UPDATE SET public = false;
+
+
 -- Remove existing policies if they already exist
 DROP POLICY IF EXISTS "Public Access" ON storage.objects;
 DROP POLICY IF EXISTS "Users can upload" ON storage.objects;

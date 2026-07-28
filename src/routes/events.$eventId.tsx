@@ -554,13 +554,11 @@ export default function EventDetailsPage() {
       // Return context with previous data for rollback
       return { previousEvent };
     },
-    onError: (error, variables, context) => {
+    onError: (error: unknown, _variables, context) => {
       // Rollback to previous value on error
       if (context?.previousEvent) {
         setQueryData(["event", eventId], context.previousEvent);
       }
-      toast.error(error.message || "Failed to update RSVP. Please try again.");
-    onError: (error: (Error & { details?: string; context?: string }) | unknown) => {
       const err = error as Record<string, unknown>;
       if (
         (typeof err?.message === "string" && err.message.includes("Rate limit")) ||
@@ -570,7 +568,9 @@ export default function EventDetailsPage() {
       ) {
         toast.error("Please wait a minute before toggling RSVP again.");
       } else {
-        toast.error((err?.message as string) || "Failed to update RSVP. Please try again.");
+        toast.error(
+          (err?.message as string) || error?.message || "Failed to update RSVP. Please try again.",
+        );
       }
     },
     onSuccess: () => {
