@@ -7,8 +7,14 @@ import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
-import { clubFormSchema, MAX_DESCRIPTION_LENGTH, type ClubFormValues } from "@/lib/clubUtils";
+import {
+  clubFormSchema,
+  MAX_DESCRIPTION_LENGTH,
+  type ClubFormValues,
+  type ClubFormInput,
+} from "@/lib/clubUtils";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import {
@@ -28,11 +34,13 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
+import { ImageCropUpload } from "@/components/ImageCropUpload";
 
-const defaultValues: ClubFormValues = {
+const defaultValues: ClubFormInput = {
   name: "",
   slug: "",
   description: "",
+  visibility: "public",
 };
 
 const generateSlug = (text: string) => {
@@ -48,7 +56,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
   const [open, setOpen] = useState(false);
   const supabase = createClient();
 
-  const form = useForm<ClubFormValues>({
+  const form = useForm<ClubFormInput>({
     resolver: zodResolver(clubFormSchema),
     defaultValues,
     mode: "onBlur",
@@ -89,6 +97,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
           name: values.name.trim(),
           slug: values.slug.trim(),
           description: values.description.trim(),
+          logo_url: values.logo_url || null,
           created_by: user.id,
           status: "pending",
         })
@@ -124,8 +133,9 @@ export function CreateClubDialog({ user }: { user: User | null }) {
     },
   });
 
-  const onSubmit = (values: ClubFormValues) => {
-    createClub.mutate(values);
+  const onSubmit = (values: ClubFormInput) => {
+    const parsed = clubFormSchema.parse(values);
+    createClub.mutate(parsed);
   };
 
   return (
@@ -141,7 +151,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
       <DialogTrigger asChild>
         <button
           type="button"
-          className="neu-border neu-press flex items-center gap-2 bg-sky px-5 py-3 font-mono text-sm font-bold uppercase text-black"
+          className="neu-border neu-press flex items-center gap-2 bg-sky px-4 py-2 font-mono text-sm font-bold uppercase text-black"
         >
           <Plus className="h-4 w-4" />
           Create a Club
@@ -158,6 +168,51 @@ export function CreateClubDialog({ user }: { user: User | null }) {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {/* Club Logo Uploader */}
+            <div className="flex flex-col items-center gap-3 bg-white/20 p-4 border-2 border-black sm:flex-row sm:items-center sm:gap-5">
+              <div className="relative shrink-0">
+                <div className="neu-border flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-lime">
+                  {form.watch("logo_url") ? (
+                    <img
+                      src={form.watch("logo_url")!}
+                      alt="Club Logo preview"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="font-display text-lg font-bold text-black">
+                      {form.watch("name")
+                        ? form
+                            .watch("name")
+                            .split(" ")
+                            .filter(Boolean)
+                            .map((p) => p[0])
+                            .join("")
+                            .slice(0, 2)
+                            .toUpperCase()
+                        : "CL"}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex-1">
+                <p className="eyebrow font-bold text-black mb-1">Club Logo</p>
+                <ImageCropUpload
+                  aspect={1}
+                  bucket="avatars"
+                  value={form.watch("logo_url") ?? undefined}
+                  onUploaded={(url) =>
+                    form.setValue("logo_url", url, {
+                      shouldValidate: true,
+                      shouldDirty: true,
+                    })
+                  }
+                  accept="image/jpeg,image/png,image/webp"
+                  maxSizeBytes={2 * 1024 * 1024}
+                  hint="JPG, PNG or WEBP · Max 2 MB · Fixed 1:1 crop"
+                />
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}

@@ -1,15 +1,24 @@
 import * as React from "react";
+import { motion, useReducedMotion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
+import { microInteractionTransition } from "@/lib/animations";
 
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn("rounded-xl border bg-card text-card-foreground shadow", className)}
-      {...props}
-    />
-  ),
+  ({ className, ...props }, ref) => {
+    const prefersReduced = useReducedMotion();
+
+    return (
+      <motion.div
+        ref={ref}
+        className={cn("rounded-xl border bg-card text-card-foreground shadow", className)}
+        whileHover={prefersReduced ? undefined : { scale: 1.01 }}
+        whileTap={prefersReduced ? undefined : { scale: 0.99 }}
+        transition={microInteractionTransition}
+        {...(props as React.ComponentProps<typeof motion.div>)}
+      />
+    );
+  },
 );
 Card.displayName = "Card";
 

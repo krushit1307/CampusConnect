@@ -1,11 +1,32 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  useQuery as useTanstackQuery,
+  useMutation as useTanstackMutation,
+  useInfiniteQuery as useTanstackInfiniteQuery,
+  useQueryClient,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
 
-type QueryStatus = "pending" | "success" | "error";
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes cache
+      gcTime: 1000 * 60 * 10, // 10 minutes garbage collection
+      refetchOnWindowFocus: true,
+      retry: 1,
+    },
+  },
+});
+
+export { QueryClient, QueryClientProvider, useQueryClient };
 
 interface UseQueryOptions<TData, TError> {
   queryKey: unknown[];
   queryFn: () => Promise<TData>;
   enabled?: boolean;
+  staleTime?: number;
+  refetchInterval?: number | false;
 }
 
 // Simple in-memory cache
@@ -148,28 +169,44 @@ export function useMutation<TData, TError = Error, TVariables = void, TContext =
   const mutate = (variables: TVariables) => {
     mutateAsync(variables).catch(() => {});
   };
-
-  return {
-    mutate,
-    mutateAsync,
-    data,
-    error,
-    isPending,
-    isError: error !== null,
-    isSuccess: !isPending && error === null && data !== undefined,
-    reset: () => {
-      setError(null);
-      setData(undefined);
-    },
-  };
+export function useQuery<TData = unknown, TError = Error>(options: UseQueryOptions<TData, TError>) {
+  return useTanstackQuery<TData, TError>({
+    queryKey: options.queryKey,
+    queryFn: options.queryFn,
+    enabled: options.enabled,
+    staleTime: options.staleTime,
+    refetchInterval: options.refetchInterval,
+  });
 }
 
-export function useInfiniteQuery<TData, TError = Error>({
-  queryKey,
-  queryFn,
-  initialPageParam = 0,
-  getNextPageParam,
-}: {
+interface UseMutationOptions<TData, TError, TVariables, TContext> {
+  mutationFn: (variables: TVariables) => Promise<TData>;
+  onSuccess?: (data: TData, variables: TVariables, context: TContext | undefined) => void;
+  onError?: (error: TError, variables: TVariables, context: TContext | undefined) => void;
+  // Optional: enables optimistic updates. Return a snapshot/context value here,
+  // then roll back using that same value in onError.
+  onMutate?: (variables: TVariables) => TContext | Promise<TContext>;
+  onSettled?: (
+    data: TData | undefined,
+    error: TError | null,
+    variables: TVariables,
+    context: TContext | undefined,
+  ) => void;
+}
+
+export function useMutation<TData = unknown, TError = Error, TVariables = void, TContext = unknown>(
+  options: UseMutationOptions<TData, TError, TVariables, TContext>,
+) {
+  return useTanstackMutation<TData, TError, TVariables, TContext>({
+    mutationFn: options.mutationFn,
+    onSuccess: options.onSuccess,
+    onError: options.onError,
+    onMutate: options.onMutate,
+    onSettled: options.onSettled,
+  });
+}
+
+interface UseInfiniteQueryOptions<TData, TError> {
   queryKey: unknown[];
   queryFn: (context: { pageParam: number }) => Promise<TData>;
   initialPageParam?: number;
@@ -240,15 +277,23 @@ export function useInfiniteQuery<TData, TError = Error>({
   const refetch = useCallback(() => {
     fetchPage(initialPageParam, false);
   }, [fetchPage, initialPageParam]);
+  enabled?: boolean;
+}
 
-  return {
-    data: { pages },
-    isLoading: isFetching && pages.length === 0,
-    isFetching,
-    isFetchingNextPage,
-    hasNextPage,
-    fetchNextPage,
-    refetch,
-    error,
-  };
+export function useInfiniteQuery<TData = unknown, TError = Error>(
+  options: UseInfiniteQueryOptions<TData, TError>,
+) {
+  return useTanstackInfiniteQuery<
+    TData,
+    TError,
+    { pages: TData[]; pageParams: number[] },
+    unknown[],
+    number
+  >({
+    queryKey: options.queryKey,
+    queryFn: ({ pageParam = 0 }) => options.queryFn({ pageParam: pageParam as number }),
+    initialPageParam: options.initialPageParam ?? 0,
+    getNextPageParam: (lastPage, allPages) => options.getNextPageParam(lastPage, allPages),
+    enabled: options.enabled,
+  });
 }

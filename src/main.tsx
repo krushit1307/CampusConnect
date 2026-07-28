@@ -1,10 +1,27 @@
+import { initializeTracing } from "./instrumentation";
+
+// Initialize tracing FIRST
+initializeTracing();
+
 import React from "react";
 import ReactDOM from "react-dom/client";
+// @ts-expect-error - react-helmet-async types may not be resolved in all editor settings
+import { HelmetProvider } from "react-helmet-async";
 import App from "./App";
 import "./styles.css";
+import { initOfflineCache } from "./lib/cache/offlineCache";
+import { registerSW } from "virtual:pwa-register";
 
+// Start custom client-side caching layer with O(1) LRU eviction
+initOfflineCache();
+
+if ("serviceWorker" in navigator) {
+  registerSW({ immediate: true });
+}
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <HelmetProvider>
+      <App />
+    </HelmetProvider>
   </React.StrictMode>,
 );

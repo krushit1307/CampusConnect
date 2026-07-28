@@ -80,3 +80,71 @@ export const profileSchema = z.object({
 });
 
 export type ProfileFormValues = z.infer<typeof profileSchema>;
+
+// --- Auth: sign in ---------------------------------------------------------
+
+export const signInSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .min(1, "Email is required.")
+    .email("Please enter a valid email address."),
+  password: z.string().min(1, "Password is required."),
+});
+
+export type SignInFormValues = z.infer<typeof signInSchema>;
+
+// --- Auth: sign up ----------------------------------------------------------
+
+// Shared so the "new password" rules stay identical between sign-up and the
+// password-reset flow below.
+const passwordRules = z
+  .string()
+  .min(8, "Password must be at least 8 characters.")
+  .regex(/[a-zA-Z]/, "Password must contain at least one letter.")
+  .regex(/[0-9]/, "Password must contain at least one number.");
+
+export const signUpSchema = z
+  .object({
+    firstName: z.string().trim().min(1, "First name is required."),
+    lastName: z.string().trim().min(1, "Last name is required."),
+    email: z
+      .string()
+      .trim()
+      .min(1, "Email is required.")
+      .email("Please enter a valid email address."),
+    password: passwordRules,
+    confirmPassword: z.string().min(1, "Please confirm your password."),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match.",
+    path: ["confirmPassword"],
+  });
+
+export type SignUpFormValues = z.infer<typeof signUpSchema>;
+
+// --- Forgot password ---------------------------------------------------------
+
+export const forgotPasswordSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .min(1, "Email is required.")
+    .email("Please enter a valid email address."),
+});
+
+export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
+
+// --- Reset password ----------------------------------------------------------
+
+export const resetPasswordSchema = z
+  .object({
+    password: passwordRules,
+    confirmPassword: z.string().min(1, "Please confirm your password."),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match.",
+    path: ["confirmPassword"],
+  });
+
+export type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
