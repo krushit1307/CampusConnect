@@ -353,7 +353,10 @@ export default function Landing() {
       </section>
 
       {/* FEATURED FEATURES — 4-card grid (PR 207) */}
-      <section className="bg-lime px-4 py-20 md:px-6 md:py-32 border-3 border-black">
+      <section
+        id="features"
+        className="bg-lime px-4 py-20 md:px-6 md:py-32 border-3 border-black scroll-mt-24"
+      >
         <div className="mx-auto max-w-7xl">
           <div className="mb-20 text-center">
             <h2 className="mb-6 font-display text-5xl font-bold text-red-900 md:text-6xl">
@@ -727,7 +730,10 @@ export default function Landing() {
       </section>
 
       {/* FAQ SECTION */}
-      <section className="bg-teal-100 border-t-2 border-gray-200 px-4 py-20 md:px-6">
+      <section
+        id="faq"
+        className="bg-teal-100 border-t-2 border-gray-200 px-4 py-20 md:px-6 scroll-mt-24"
+      >
         <div className="mx-auto max-w-4xl">
           <div className="mb-12 text-center">
             <SectionEyebrow>Frequently Asked Questions</SectionEyebrow>
@@ -832,6 +838,30 @@ export default function Landing() {
             </Link>
           </div>
         </ScrollReveal>
+      </section>
+      {/* CONTACT SECTION */}
+      <section
+        id="contact"
+        className="bg-white border-t-2 border-gray-200 px-4 py-20 md:px-6 scroll-mt-24"
+      >
+        <div className="mx-auto max-w-4xl text-center">
+          <SectionEyebrow>Contact</SectionEyebrow>
+
+          <h2 className="mt-2 text-4xl font-bold text-red-900 md:text-5xl">
+            Get in touch with us.
+          </h2>
+
+          <p className="mt-6 font-mono text-gray-700">
+            Have questions about CampusConnect? Reach out to our team.
+          </p>
+
+          <a
+            href="mailto:support@campusconnect.com"
+            className="mt-8 inline-block neu-border bg-lime px-6 py-3 font-mono font-bold uppercase"
+          >
+            Contact Support
+          </a>
+        </div>
       </section>
     </SiteShell>
   );

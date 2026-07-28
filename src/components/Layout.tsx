@@ -9,7 +9,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import TopProgressBar from "@/components/TopProgressBar";
 import ShortcutsModal from "@/components/ShortcutsModal";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
-
+import { WebRTCProvider } from "@/components/VideoCall/WebRTCProvider";
 // Persistent banner shown while the browser has no network connection.
 function OfflineBanner() {
   const [isOffline, setIsOffline] = useState(

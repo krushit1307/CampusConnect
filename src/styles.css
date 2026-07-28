@@ -158,7 +158,15 @@
   --border-thickness: 2px;
   --border-radius: 0px;
 }
+html {
+  scroll-behavior: smooth;
+}
 
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
 .dark {
   --background: #111111;
   --foreground: #f3f1e4;
