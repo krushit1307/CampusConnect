@@ -7,6 +7,7 @@ import type { User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
 import { eventFormSchema, TITLE_MAX_LENGTH, type EventFormValues } from "@/lib/eventUtils";
+import { useQuery } from "@/hooks/useReactQueryReplacement";
 import {
   EventDocument,
   FieldConflict,
@@ -34,6 +35,13 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface EditEventDialogProps {
   event: EventDocument;
@@ -51,11 +59,26 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
 
   const supabase = createClient();
 
+  const { data: categories = [] } = useQuery({
+    queryKey: ["eventCategories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_categories")
+        .select("id, name")
+        .order("display_order", { ascending: true })
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data as { id: string; name: string }[];
+    },
+    staleTime: 1000 * 60 * 30,
+  });
+
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
     defaultValues: {
       title: event.title || "",
       description: event.description || "",
+      category: event.category_id || "",
       location: event.location || "",
       startDate: event.start_date ? new Date(event.start_date).toISOString().slice(0, 16) : "",
       endDate: event.end_date ? new Date(event.end_date).toISOString().slice(0, 16) : "",
@@ -69,6 +92,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
       form.reset({
         title: event.title || "",
         description: event.description || "",
+        category: event.category_id || "",
         location: event.location || "",
         startDate: event.start_date ? new Date(event.start_date).toISOString().slice(0, 16) : "",
         endDate: event.end_date ? new Date(event.end_date).toISOString().slice(0, 16) : "",
@@ -86,6 +110,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
         .update({
           title: docToSave.title,
           description: docToSave.description,
+          category_id: docToSave.category_id || null,
           location: docToSave.location || null,
           start_date: docToSave.start_date,
           end_date: docToSave.end_date,
@@ -131,6 +156,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
         ...baseSnapshot,
         title: values.title.trim(),
         description: values.description.trim(),
+        category_id: values.category || null,
         location: values.location?.trim() || null,
         start_date: new Date(values.startDate).toISOString(),
         end_date: new Date(values.endDate).toISOString(),
@@ -211,6 +237,31 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                     <FormControl>
                       <Textarea placeholder="Event description" rows={3} {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel required>Category</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

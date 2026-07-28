@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
-import { useMutation } from "@/hooks/useReactQueryReplacement";
+import { useMutation, useQuery } from "@/hooks/useReactQueryReplacement";
 import { Plus, MapPin, CalendarIcon, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
@@ -30,6 +30,13 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -56,6 +63,7 @@ const STEP_FIELDS: Record<Step, (keyof EventFormValues)[]> = {
 const defaultValues: EventFormValues = {
   title: "",
   description: "",
+  category: "",
   location: "",
   startDate: "",
   endDate: "",
@@ -81,6 +89,20 @@ export function CreateEventDialog({ user }: { user: User | null }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>(0);
   const supabase = createClient();
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ["eventCategories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_categories")
+        .select("id, name")
+        .order("display_order", { ascending: true })
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data as { id: string; name: string }[];
+    },
+    staleTime: 1000 * 60 * 30,
+  });
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
@@ -132,11 +154,10 @@ export function CreateEventDialog({ user }: { user: User | null }) {
       const { error } = await supabase.from("events").insert({
         title: values.title.trim(),
         description: values.description.trim(),
+        category_id: values.category || null,
         location: values.location?.trim() || null,
         start_date: startDateIso,
         end_date: endDateIso,
-        // Kept in sync with start_date so existing views that still
-        // read event_date (e.g. EventCard, event ordering) keep working.
         event_date: startDateIso,
         created_by: user.id,
         faqs: values.faqs && values.faqs.length > 0 ? values.faqs : [],
@@ -329,6 +350,30 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                       <FormControl>
                         <Textarea placeholder="What's this event about?" rows={4} {...field} />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel required>Category</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -544,6 +589,12 @@ export function CreateEventDialog({ user }: { user: User | null }) {
                 <div>
                   <p className="text-xs text-black/40">Description</p>
                   <p className="text-black/80">{form.getValues("description")}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-black/40">Category</p>
+                  <p className="font-bold">
+                    {categories.find((c) => c.id === form.getValues("category"))?.name || "—"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-black/40">Location</p>
