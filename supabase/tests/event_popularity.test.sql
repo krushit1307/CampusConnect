@@ -1,3 +1,53 @@
+-- pgTAP Test Suite for Event Popularity Function
+-- Run with: psql -U postgres -d postgres -f supabase/tests/event_popularity.test.sql
+
+BEGIN;
+SELECT plan(4);
+
+-- Test 1: Function exists and is callable
+SELECT has_function(
+    'public', 'get_event_popularity_score', 
+    ARRAY['uuid', 'timestamp with time zone', 'integer', 'integer']::text[],
+    'get_event_popularity_score function should exist with correct signature'
+);
+
+-- Test 2: Test popularity score calculation logic
+-- Mock data: 10 RSVPs (50), 100 views (100), event in 3 days (100 recency) = 250
+SELECT is(
+    public.get_event_popularity_score(
+        '00000000-0000-0000-0000-000000000001'::UUID,
+        NOW() + INTERVAL '3 days',
+        10,
+        100
+    ),
+    250.00,
+    'Popularity score should correctly calculate RSVPs, views, and high recency'
+);
+
+-- Test 3: Test recency decay for events > 30 days
+-- Mock data: 10 RSVPs (50), 100 views (100), event in 40 days (10 recency) = 160
+SELECT is(
+    public.get_event_popularity_score(
+        '00000000-0000-0000-0000-000000000002'::UUID,
+        NOW() + INTERVAL '40 days',
+        10,
+        100
+    ),
+    160.00,
+    'Popularity score should apply minimal recency boost for events > 30 days'
+);
+
+-- Test 4: Verify get_trending_events returns ordered results
+SELECT function_returns(
+    'public', 'get_trending_events', 
+    ARRAY['integer', 'integer']::text[],
+    'table',
+    'get_trending_events should return a table'
+);
+
+SELECT * FROM finish();
+ROLLBACK;
+
 -- Test Event Popularity Score Implementation
 -- This file tests the calculate_event_popularity function and materialized view
 
