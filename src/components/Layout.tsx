@@ -7,10 +7,24 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import { createClient } from "@/lib/supabase/client";
 import { ThemeProvider } from "@/components/theme-provider";
 import TopProgressBar from "@/components/TopProgressBar";
-import ShortcutsModal from "@/components/ShortcutsModal";
-import PWAInstallPrompt from "@/components/PWAInstallPrompt";
+const [userId, setUserId] = useState<string | null>(null);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [timeoutWarningOpen, setTimeoutWarningOpen] = useState(false);
 
-// Persistent banner shown while the browser has no network connection.
+  const handleIdle = useCallback(() => {
+    const supabase = createClient();
+    supabase.auth.signOut().finally(() => {
+      window.location.href = "/auth";
+    });
+  }, []);
+
+  const handleWarning = useCallback(() => setTimeoutWarningOpen(true), []);
+
+  useIdleTimer({
+    enabled: !!userId,
+    onWarning: handleWarning,
+    onIdle: handleIdle,
+  });// Persistent banner shown while the browser has no network connection.
 function OfflineBanner() {
   const [isOffline, setIsOffline] = useState(
     typeof navigator !== "undefined" ? !navigator.onLine : false,
@@ -126,9 +140,13 @@ export default function Layout() {
           <OfflineBanner />
           <TopProgressBar />
 
-          <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+<ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
           <PWAInstallPrompt />
-
+          <SessionTimeoutModal
+            open={timeoutWarningOpen}
+            secondsLeft={300}
+            onStayLoggedIn={() => setTimeoutWarningOpen(false)}
+          />
           <Outlet />
           <Toaster />
           <ScrollToTop />
