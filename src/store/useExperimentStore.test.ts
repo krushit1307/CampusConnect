@@ -25,7 +25,7 @@ describe("useExperimentStore", () => {
     expect(useExperimentStore.getState().variant).toBe(firstAssigned);
   });
 
-  it("dispatches telemetry registration event with correct variant", () => {
+  it("dispatches telemetry registration event with correct variant", async () => {
     const mockDispatchEvent = vi.spyOn(window, "dispatchEvent");
 
     // Assign variant
@@ -33,6 +33,9 @@ describe("useExperimentStore", () => {
 
     // Track registration conversion
     useExperimentStore.getState().trackRegistration();
+
+    // Wait for the analytics queue to run
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(mockDispatchEvent).toHaveBeenCalledTimes(1);
     const lastCallArg = mockDispatchEvent.mock.calls[0][0] as CustomEvent;
