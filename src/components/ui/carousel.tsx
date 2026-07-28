@@ -44,6 +44,9 @@ const Carousel = React.forwardRef<
 >(({ orientation = "horizontal", opts, setApi, plugins, className, children, ...props }, ref) => {
   const [carouselRef, api] = useEmblaCarousel(
     {
+      watchDrag: true,
+      dragFree: true,
+      containScroll: "keepSnap",
       ...opts,
       axis: orientation === "horizontal" ? "x" : "y",
     },
@@ -137,7 +140,7 @@ const CarouselContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HT
     const { carouselRef, orientation } = useCarousel();
 
     return (
-      <div ref={carouselRef} className="overflow-hidden">
+      <div ref={carouselRef} className="overflow-hidden" style={{ touchAction: "pan-y pinch-zoom" }}>
         <div
           ref={ref}
           className={cn(
