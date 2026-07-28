@@ -3,7 +3,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 import { useMutation, useQuery } from "@/hooks/useReactQueryReplacement";
 import { useUndoableState } from "@/hooks/useUndoableState";
-import { Plus, MapPin, CalendarIcon, ChevronLeft, ChevronRight, Check, X } from "lucide-react";
+import {
+  Plus,
+  MapPin,
+  CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  X,
+  WifiOff,
+} from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import { format } from "date-fns";
@@ -11,6 +20,9 @@ import type { DateRange } from "react-day-picker";
 
 import { createClient } from "@/lib/supabase/client";
 import { eventFormSchema, TITLE_MAX_LENGTH, type EventFormValues } from "@/lib/eventUtils";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { queueOfflineEvent } from "@/lib/offlineSync";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -100,6 +112,7 @@ export function CreateEventDialog({
   const [step, setStep] = useState<Step>(0);
   const [clubId, setClubId] = useState<string | null>(null);
   const supabase = createClient();
+  const isOnline = useOnlineStatus();
 
   const { data: categories = [] } = useQuery({
     queryKey: ["eventCategories"],
@@ -246,7 +259,7 @@ export function CreateEventDialog({
       const startDateIso = new Date(values.startDate).toISOString();
       const endDateIso = new Date(values.endDate).toISOString();
 
-      const { error } = await supabase.from("events").insert({
+      const payload = {
         title: values.title.trim(),
         description: values.description.trim(),
         category_id: values.category || null,
@@ -257,14 +270,45 @@ export function CreateEventDialog({
         created_by: user.id,
         club_id: clubId,
         requires_approval: values.requiresApproval || false,
-      });
+      };
 
-      if (error) {
-        throw new Error(error.message);
+      // If user is currently offline, queue in IndexedDB & Background Sync immediately
+      if (!navigator.onLine) {
+        await queueOfflineEvent(payload);
+        return { isOffline: true };
+      }
+
+      try {
+        const { error } = await supabase.from("events").insert(payload);
+        if (error) {
+          throw new Error(error.message);
+        }
+        return { isOffline: false };
+      } catch (err: unknown) {
+        // Handle network drop / fetch failure while attempting insertion
+        const isNetworkError =
+          !navigator.onLine ||
+          (err instanceof Error &&
+            (err.message.includes("Failed to fetch") ||
+              err.message.includes("NetworkError") ||
+              err.message.includes("network")));
+
+        if (isNetworkError) {
+          await queueOfflineEvent(payload);
+          return { isOffline: true };
+        }
+        throw err;
       }
     },
-    onSuccess: () => {
-      toast.success("Event created!");
+    onSuccess: (data) => {
+      if (data?.isOffline) {
+        toast.info(
+          "Event saved offline! It will sync automatically when connectivity is restored.",
+          { duration: 6000 },
+        );
+      } else {
+        toast.success("Event created!");
+      }
       window.dispatchEvent(new Event("refetchEvents"));
       try {
         window.localStorage.removeItem(DRAFT_KEY);
@@ -390,7 +434,15 @@ export function CreateEventDialog({
       </DialogTrigger>
       <DialogContent className="neu-border neu-shadow bg-cream sm:max-w-md text-black">
         <DialogHeader>
-          <DialogTitle className="text-black">Create a new event</DialogTitle>
+          <div className="flex items-center justify-between gap-2">
+            <DialogTitle className="text-black">Create a new event</DialogTitle>
+            {!isOnline && (
+              <div className="neu-border flex items-center gap-1.5 bg-amber-200 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-black">
+                <WifiOff className="h-3 w-3 shrink-0" />
+                <span>Offline Mode</span>
+              </div>
+            )}
+          </div>
           <DialogDescription className="text-black/60">
             Step {step + 1} of {STEPS.length} — {STEPS[step].label}
           </DialogDescription>
@@ -813,25 +865,25 @@ export function CreateEventDialog({
                 </div>
 
                 <FormField
-                control={form.control}
-              name="requiresApproval"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-white p-4 shadow-sm">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel className="font-bold cursor-pointer">
-                      Requires Manual Approval
-                    </FormLabel>
-                    <p className="text-xs text-black/50">
-                      Organizers must manually approve attendee RSVPs.
-                    </p>
-                  </div>
-                </FormItem>
-              )}
-            />
-            </>
+                  control={form.control}
+                  name="requiresApproval"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-white p-4 shadow-sm">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="font-bold cursor-pointer">
+                          Requires Manual Approval
+                        </FormLabel>
+                        <p className="text-xs text-black/50">
+                          Organizers must manually approve attendee RSVPs.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              </>
             )}
 
             <DialogFooter className="pt-2 flex gap-2">

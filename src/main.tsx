@@ -10,14 +10,18 @@ import { HelmetProvider } from "react-helmet-async";
 import App from "./App";
 import "./styles.css";
 import { initOfflineCache } from "./lib/cache/offlineCache";
+import { initOfflineSync } from "./lib/offlineSync";
 import { registerSW } from "virtual:pwa-register";
 
 // Start custom client-side caching layer with O(1) LRU eviction
 initOfflineCache();
+// Start background sync manager for offline event creation & replay
+initOfflineSync();
 
 if ("serviceWorker" in navigator) {
   registerSW({ immediate: true });
 }
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <HelmetProvider>
