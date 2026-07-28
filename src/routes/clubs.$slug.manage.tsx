@@ -5,10 +5,11 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
-import { Settings, Users, Calendar, ShieldCheck, XCircle, CheckCircle } from "lucide-react";
+import { Settings, Users, Calendar } from "lucide-react";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
+import { ClubMembersTable } from "@/components/Clubs/ClubMembersTable";
 
 // ⚠️ Adjust if your Supabase Storage bucket for club banners has a different name
 const BUCKET_NAME = "club-banners";
@@ -362,78 +363,23 @@ export default function ClubManageRoute() {
                 <h2 className="font-display text-2xl font-bold border-b-2 border-black pb-2">
                   Manage Members
                 </h2>
-                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-                  {club.club_members.map(
-                    (m: {
-                      id: string;
-                      role: string;
-                      status: string;
-                      user_id: string;
-                      profiles: unknown;
-                    }) => {
-                      const profile = Array.isArray(m.profiles)
-                        ? m.profiles[0]
-                        : (m.profiles as { full_name: string; handle: string; avatar_url: string });
-                      return (
-                        <div
-                          key={m.id}
-                          className="neu-border bg-gray-50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                        >
-                          <div>
-                            <p className="font-bold font-mono">
-                              {profile?.full_name || "Unknown User"}
-                            </p>
-                            <p className="text-xs text-gray-500 font-mono">
-                              Role: {m.role} | Status: {m.status}
-                            </p>
-                          </div>
-                          <div className="flex gap-2">
-                            {m.status === "pending" && (
-                              <>
-                                <button
-                                  onClick={() =>
-                                    updateMemberMutation.mutate({
-                                      memberId: m.id,
-                                      updates: { status: "approved" },
-                                    })
-                                  }
-                                  className="neu-border bg-green-300 p-2 text-xs font-bold uppercase hover:bg-green-400"
-                                >
-                                  <CheckCircle size={16} />
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    updateMemberMutation.mutate({
-                                      memberId: m.id,
-                                      updates: { status: "rejected" },
-                                    })
-                                  }
-                                  className="neu-border bg-red-300 p-2 text-xs font-bold uppercase hover:bg-red-400"
-                                >
-                                  <XCircle size={16} />
-                                </button>
-                              </>
-                            )}
-                            {m.status === "approved" && m.user_id !== user?.id && (
-                              <button
-                                onClick={() =>
-                                  updateMemberMutation.mutate({
-                                    memberId: m.id,
-                                    updates: { role: m.role === "admin" ? "member" : "admin" },
-                                  })
-                                }
-                                className="neu-border bg-blue-200 p-2 text-xs font-bold uppercase hover:bg-blue-300"
-                                title="Toggle Role"
-                              >
-                                <ShieldCheck size={16} />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    },
-                  )}
-                </div>
+                <ClubMembersTable
+                  members={club.club_members}
+                  currentUserId={user?.id}
+                  isMutating={updateMemberMutation.isPending}
+                  onApprove={(memberId) =>
+                    updateMemberMutation.mutate({ memberId, updates: { status: "approved" } })
+                  }
+                  onReject={(memberId) =>
+                    updateMemberMutation.mutate({ memberId, updates: { status: "rejected" } })
+                  }
+                  onToggleRole={(memberId, currentRole) =>
+                    updateMemberMutation.mutate({
+                      memberId,
+                      updates: { role: currentRole === "admin" ? "member" : "admin" },
+                    })
+                  }
+                />
               </div>
             )}
 
