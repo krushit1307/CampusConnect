@@ -5,9 +5,10 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
-import { Settings, Users, Calendar, ShieldCheck, XCircle, CheckCircle } from "lucide-react";
+import { Settings, Users, Calendar, ShieldCheck, XCircle, CheckCircle, Download } from "lucide-react";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
+import { RosterExport } from "@/components/RosterExport";
 
 // ⚠️ Adjust if your Supabase Storage bucket for club banners has a different name
 const BUCKET_NAME = "club-banners";
@@ -58,7 +59,7 @@ export default function ClubManageRoute() {
         .select(
           `
           id, name, slug, description, banner_url, logo_url, visibility, github_repo_url, social_links, promo_video_url,
-          club_members (id, role, status, user_id, profiles (full_name, avatar_url, handle)),
+          club_members (id, role, status, user_id, joined_at, profiles (full_name, avatar_url, handle)),
           events (id, title, event_date, max_attendees, event_rsvps(id))
         `,
         )
@@ -476,11 +477,41 @@ export default function ClubManageRoute() {
               </div>
             )}
 
-            {activeTab === "members" && (
+            {activeTab === "members" && (() => {
+              const rosterMembers = (club?.club_members || []).map(
+                (m: {
+                  id: string;
+                  role: string;
+                  status: string;
+                  user_id: string;
+                  joined_at: string | null;
+                  profiles: unknown;
+                }) => {
+                  const profile = Array.isArray(m.profiles)
+                    ? m.profiles[0]
+                    : (m.profiles as { full_name: string; handle: string });
+                  return {
+                    id: m.id,
+                    full_name: profile?.full_name || null,
+                    handle: profile?.handle || null,
+                    role: m.role,
+                    status: m.status,
+                    joined_at: m.joined_at || null,
+                  };
+                },
+              );
+
+              return (
               <div className="neu-border bg-white p-6 space-y-6">
-                <h2 className="font-display text-2xl font-bold border-b-2 border-black pb-2">
-                  Manage Members
-                </h2>
+                <div className="flex items-center justify-between border-b-2 border-black pb-2">
+                  <h2 className="font-display text-2xl font-bold">
+                    Manage Members
+                  </h2>
+                  <RosterExport
+                    clubName={club?.name || "Club"}
+                    members={rosterMembers}
+                  />
+                </div>
                 <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
                   {club.club_members.map(
                     (m: {
@@ -554,7 +585,8 @@ export default function ClubManageRoute() {
                   )}
                 </div>
               </div>
-            )}
+            );
+            })()}
 
             {activeTab === "events" && (
               <div className="neu-border bg-white p-6 space-y-6">
