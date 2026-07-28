@@ -160,11 +160,11 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
 
     return (
       <div
-        className="neu-border bg-white dark:bg-black"
+        className="neu-border bg-white dark:bg-zinc-900 dark:border-zinc-700 transition-colors"
         aria-label="Markdown editor"
         data-color-mode={colorMode}
       >
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-black bg-sky p-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-black dark:border-zinc-700 bg-sky dark:bg-zinc-800 p-2 transition-colors">
           <div className="flex flex-wrap gap-1" role="toolbar" aria-label="Markdown formatting">
             {toolbarActions.map((action) => {
               const Icon = action.icon;
@@ -173,7 +173,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
                   key={action.label}
                   type="button"
                   onClick={() => applyMarkdown(action)}
-                  className="neu-border bg-white p-2 transition hover:-translate-y-0.5 hover:bg-lime focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                  className="neu-border bg-white dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-600 p-2 transition hover:-translate-y-0.5 hover:bg-lime dark:hover:bg-lime dark:hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black dark:focus-visible:outline-white"
                   aria-label={action.label}
                   title={action.label}
                 >
@@ -185,7 +185,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
               <button
                 type="button"
                 onClick={insertMention}
-                className="neu-border bg-white p-2 transition hover:-translate-y-0.5 hover:bg-peach focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                className="neu-border bg-white dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-600 p-2 transition hover:-translate-y-0.5 hover:bg-peach dark:hover:bg-peach dark:hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black dark:focus-visible:outline-white"
                 aria-label="Mention user"
                 title="Mention user (@)"
               >
@@ -198,8 +198,10 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
             <button
               type="button"
               onClick={() => setMode("write")}
-              className={`neu-border flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase ${
-                mode === "write" ? "bg-black text-cream" : "bg-white"
+              className={`neu-border flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase dark:border-zinc-600 transition-colors ${
+                mode === "write"
+                  ? "bg-black text-cream dark:bg-cream dark:text-black"
+                  : "bg-white text-black dark:bg-zinc-900 dark:text-zinc-100"
               }`}
               aria-pressed={mode === "write"}
             >
@@ -208,8 +210,10 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
             <button
               type="button"
               onClick={() => setMode("preview")}
-              className={`neu-border -ml-0.5 flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase ${
-                mode === "preview" ? "bg-black text-cream" : "bg-white"
+              className={`neu-border -ml-0.5 flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase dark:border-zinc-600 transition-colors ${
+                mode === "preview"
+                  ? "bg-black text-cream dark:bg-cream dark:text-black"
+                  : "bg-white text-black dark:bg-zinc-900 dark:text-zinc-100"
               }`}
               aria-pressed={mode === "preview"}
             >
@@ -231,14 +235,14 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
               id: id,
               placeholder: placeholder,
               rows: rows,
-              className: `${minHeightClass} w-full resize-y bg-white p-4 font-mono text-sm outline-none placeholder:text-gray-500 focus:bg-cream/40`,
+              className: `${minHeightClass} w-full resize-y bg-white dark:bg-zinc-900 text-black dark:text-zinc-100 p-4 font-mono text-sm outline-none placeholder:text-gray-500 dark:placeholder:text-zinc-500 focus:bg-cream/40 dark:focus:bg-zinc-800/50 transition-colors`,
               "aria-label": "Content in Markdown",
             }}
           />
         ) : (
-          <div className={`${minHeightClass} bg-white dark:bg-black p-4`} aria-live="polite">
+          <div className={`${minHeightClass} bg-white dark:bg-zinc-900 p-4 transition-colors`} aria-live="polite">
             {value.trim() ? (
-              <div className="markdown-content font-mono text-sm leading-relaxed">
+              <div className="markdown-content font-mono text-sm leading-relaxed text-black dark:text-zinc-100">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
@@ -253,9 +257,9 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
                 </ReactMarkdown>
               </div>
             ) : (
-              <div className="flex min-h-36 flex-col items-center justify-center gap-2 text-center text-gray-500">
+              <div className="flex min-h-36 flex-col items-center justify-center gap-2 text-center text-gray-500 dark:text-zinc-400">
                 <MessageSquareText size={32} aria-hidden="true" />
-                <p className="font-mono text-sm text-gray-800 dark:text-cream">
+                <p className="font-mono text-sm text-gray-800 dark:text-zinc-300">
                   Your Markdown preview will appear here.
                 </p>
               </div>
@@ -263,7 +267,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
           </div>
         )}
 
-        <div className="border-t-2 border-black bg-cream dark:bg-gray-800 dark:text-cream px-4 py-2 font-mono text-[10px] uppercase">
+        <div className="border-t-2 border-black dark:border-zinc-700 bg-cream dark:bg-zinc-800 dark:text-zinc-300 px-4 py-2 font-mono text-[10px] uppercase text-black transition-colors">
           Raw Markdown is saved. HTML is not rendered.
         </div>
       </div>
