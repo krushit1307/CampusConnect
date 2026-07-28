@@ -118,7 +118,7 @@ export default function Layout() {
     };
   }, []);
 
- return (
+return (
   <ThemeProvider>
     <TooltipProvider delayDuration={200}>
       <WebRTCProvider>
