@@ -1,8 +1,10 @@
 import * as React from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
+import { microInteractionTransition } from "@/lib/animations";
 
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-none font-mono text-sm font-bold uppercase transition-all duration-120 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 dark:focus-visible:ring-white",
@@ -37,9 +39,23 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button";
+    const prefersReduced = useReducedMotion();
+
+    if (asChild) {
+      return (
+        <Slot className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+      );
+    }
+
     return (
-      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+      <motion.button
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        whileHover={prefersReduced ? undefined : { scale: 1.02 }}
+        whileTap={prefersReduced ? undefined : { scale: 0.98 }}
+        transition={microInteractionTransition}
+        {...(props as React.ComponentProps<typeof motion.button>)}
+      />
     );
   },
 );

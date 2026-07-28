@@ -31,6 +31,7 @@ const PAGE_SIZE = 20;
 
 export interface EventItem {
   id: string;
+  short_id?: string | null;
   title: string;
   description: string | null;
   event_date: string | null;
@@ -74,7 +75,7 @@ export default function EventsPage() {
   const [sortLoaded, setSortLoaded] = useState(false);
   const [hidePastEvents, setHidePastEvents] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-
+  const confettiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     dateRange: "all",
     categories: [],
@@ -127,6 +128,13 @@ export default function EventsPage() {
     if (!sortLoaded) return;
     sessionStorage.setItem("event-sort-order", sortOrder);
   }, [sortOrder, sortLoaded]);
+  useEffect(() => {
+    return () => {
+      if (confettiTimeoutRef.current) {
+        clearTimeout(confettiTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [searchInput, setSearchInput] = useState("");
@@ -452,7 +460,15 @@ export default function EventsPage() {
           .eq("user_id", user.id);
         if (count === 1) {
           setShowConfetti(true);
-          setTimeout(() => setShowConfetti(false), 5000);
+
+          if (confettiTimeoutRef.current) {
+            clearTimeout(confettiTimeoutRef.current);
+          }
+
+          confettiTimeoutRef.current = setTimeout(() => {
+            setShowConfetti(false);
+            confettiTimeoutRef.current = null;
+          }, 5000);
         }
       }
       refetch();
@@ -678,6 +694,7 @@ export default function EventsPage() {
                       <input
                         ref={searchInputRef}
                         type="text"
+                        aria-label="Search events"
                         value={searchInput}
                         onChange={(e) => {
                           setSearchInput(e.target.value);
@@ -697,29 +714,31 @@ export default function EventsPage() {
                       <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-neutral-500 pointer-events-none" />
                       {searchInput && (
                         <button
+                          type="button"
+                          aria-label="Clear event search"
                           onClick={() => {
                             setSearchInput("");
                             setSearchQuery("");
                             searchInputRef.current?.focus();
                           }}
-                          className="absolute right-2.5 top-1.5 font-mono text-sm font-bold text-neutral-500 hover:text-black cursor-pointer"
-                        >
-                          ×
-                        </button>
+                          className="absolute right-2.5 top-1.5 font-mono text-sm font-bold text-neutral-500 hover:text-black cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                        ></button>
                       )}
                       {showRecent && recentSearches.length > 0 && (
                         <div className="absolute z-20 mt-2 w-full neu-border bg-white p-3 shadow-md">
                           <div className="mb-2 flex justify-between font-mono text-xs font-bold">
                             <span>Recent searches</span>
                             <button
+                              type="button"
                               onClick={clearSearchHistory}
-                              className="text-red-500 hover:underline"
+                              className="text-red-500 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
                             >
                               Clear History
                             </button>
                           </div>
                           {recentSearches.map((item) => (
                             <button
+                              type="button"
                               key={item}
                               onClick={() => {
                                 setSearchInput(item);
@@ -727,7 +746,7 @@ export default function EventsPage() {
                                 saveSearch(item);
                                 setShowRecent(false);
                               }}
-                              className="block w-full text-left px-2 py-1 hover:bg-cream font-mono text-xs text-black cursor-pointer"
+                              className="block w-full text-left px-2 py-1 hover:bg-cream font-mono text-xs text-black cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
                             >
                               {item}
                             </button>
@@ -752,7 +771,12 @@ export default function EventsPage() {
 
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="neu-border flex items-center gap-2 bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream text-black md:mr-2 cursor-pointer">
+                          <button
+                            type="button"
+                            aria-label="Choose event date filter"
+                            className="neu-border flex items-center gap-2 bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream text-black md:mr-2 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                          >
+                            {" "}
                             <CalendarIcon className="h-4 w-4" />
                             {dateFilterType === "all"
                               ? "Any Date"
@@ -771,29 +795,32 @@ export default function EventsPage() {
                         >
                           <div className="flex flex-col border-b-2 border-black p-2 gap-1">
                             <button
+                              type="button"
                               onClick={() => {
                                 setDateFilterType("all");
                                 setSpecificDate(undefined);
                               }}
-                              className={`text-left px-2 py-1.5 text-sm font-mono hover:bg-cream cursor-pointer ${dateFilterType === "all" ? "font-bold bg-cream" : ""}`}
+                              className={`text-left px-2 py-1.5 text-sm font-mono hover:bg-cream cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black ${dateFilterType === "all" ? "font-bold bg-cream" : ""}`}
                             >
                               Any Date
                             </button>
                             <button
+                              type="button"
                               onClick={() => {
                                 setDateFilterType("this-week");
                                 setSpecificDate(undefined);
                               }}
-                              className={`text-left px-2 py-1.5 text-sm font-mono hover:bg-cream cursor-pointer ${dateFilterType === "this-week" ? "font-bold bg-cream" : ""}`}
+                              className={`text-left px-2 py-1.5 text-sm font-mono hover:bg-cream cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black ${dateFilterType === "this-week" ? "font-bold bg-cream" : ""}`}
                             >
                               This Week
                             </button>
                             <button
+                              type="button"
                               onClick={() => {
                                 setDateFilterType("next-month");
                                 setSpecificDate(undefined);
                               }}
-                              className={`text-left px-2 py-1.5 text-sm font-mono hover:bg-cream cursor-pointer ${dateFilterType === "next-month" ? "font-bold bg-cream" : ""}`}
+                              className={`text-left px-2 py-1.5 text-sm font-mono hover:bg-cream cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black ${dateFilterType === "next-month" ? "font-bold bg-cream" : ""}`}
                             >
                               Next Month
                             </button>
@@ -819,10 +846,11 @@ export default function EventsPage() {
 
                       {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t) => (
                         <button
+                          type="button"
                           key={t}
                           onClick={() => setFilter(t)}
                           aria-pressed={filter === t}
-                          className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors duration-200 ${
+                          className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black ${
                             filter === t
                               ? filterColors[t] || "bg-black text-cream"
                               : "bg-white text-black"
@@ -833,6 +861,7 @@ export default function EventsPage() {
                       ))}
                       {(filter !== "All" || searchQuery || dateFilterType !== "all") && (
                         <button
+                          type="button"
                           onClick={() => {
                             setFilter("All");
                             setSearchInput("");
@@ -840,7 +869,7 @@ export default function EventsPage() {
                             setDateFilterType("all");
                             setSpecificDate(undefined);
                           }}
-                          className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream cursor-pointer"
+                          className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
                         >
                           Clear Filters
                         </button>
@@ -851,7 +880,8 @@ export default function EventsPage() {
                         <button
                           type="button"
                           onClick={() => setViewMode("list")}
-                          className={`px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer ${
+                          aria-pressed={viewMode === "list"}
+                          className={`px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black ${
                             viewMode === "list"
                               ? "bg-black text-cream"
                               : "bg-white text-black hover:bg-cream"
@@ -862,7 +892,8 @@ export default function EventsPage() {
                         <button
                           type="button"
                           onClick={() => setViewMode("calendar")}
-                          className={`px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer ${
+                          aria-pressed={viewMode === "calendar"}
+                          className={`px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black} ${
                             viewMode === "calendar"
                               ? "bg-black text-cream"
                               : "bg-white text-black hover:bg-cream"
@@ -875,7 +906,7 @@ export default function EventsPage() {
                       <button
                         type="button"
                         onClick={handleExportCalendar}
-                        className="neu-border flex items-center gap-2 bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream text-black cursor-pointer"
+                        className="neu-border flex items-center gap-2 bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream text-black cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
                       >
                         <Download className="h-4 w-4" />
                         Export Calendar
@@ -919,12 +950,13 @@ export default function EventsPage() {
                             Try a different category, or clear the filter to see everything.
                           </p>
                           <button
+                            type="button"
                             onClick={() => {
                               setFilter("All");
                               setDateFilterType("all");
                               setSpecificDate(undefined);
                             }}
-                            className="mt-4 neu-border bg-yellow px-5 py-2 font-mono text-xs font-bold uppercase transition-all hover:bg-black hover:text-white cursor-pointer"
+                            className="mt-4 neu-border bg-yellow px-5 py-2 font-mono text-xs font-bold uppercase transition-all hover:bg-black hover:text-white cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
                           >
                             Clear filter
                           </button>
@@ -1010,7 +1042,7 @@ export default function EventsPage() {
                             type="button"
                             onClick={handleLoadMore}
                             disabled={isLoadingMore}
-                            className="neu-border bg-yellow px-10 py-3.5 font-mono text-sm font-bold uppercase transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2.5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                            className="neu-border bg-yellow px-10 py-3.5 font-mono text-sm font-bold uppercase transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2.5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
                           >
                             {isLoadingMore ? (
                               <>

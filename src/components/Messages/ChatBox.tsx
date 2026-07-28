@@ -1,6 +1,7 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User, RealtimeChannel } from "@supabase/supabase-js";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import {
   generateECDHKeypair,
   exportPublicKey,
@@ -56,6 +57,20 @@ export default function ChatBox() {
   const [sharedKeys, setSharedKeys] = useState<Record<string, CryptoKey>>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Stable per-conversation presence channel name:
+  // sort the two participant IDs so both sides derive the same channel key
+  const typingChannelName = useMemo(() => {
+    if (!currentUser?.id || !activeRecipient?.id) return "";
+    const ids = [currentUser.id, activeRecipient.id].sort().join("_");
+    return `chat_typing:${ids}`;
+  }, [currentUser?.id, activeRecipient?.id]);
+
+  const { typingUsers, broadcastTyping, clearTyping } = useTypingIndicator(
+    typingChannelName,
+    currentUser?.id ?? "",
+    currentUser?.user_metadata?.full_name ?? currentUser?.email?.split("@")[0] ?? "Someone",
+  );
 
   // 1. Initialize user and their cryptographic keys
   useEffect(() => {
@@ -367,6 +382,7 @@ export default function ChatBox() {
 
       const textToSend = inputMessage;
       setInputMessage("");
+      clearTyping();
 
       // Encrypt message on client side
       const { ciphertext, iv } = await encryptMessage(textToSend, sharedKey);
@@ -636,22 +652,46 @@ export default function ChatBox() {
               {!recipientKeyError && (
                 <form
                   onSubmit={handleSendMessage}
-                  className="border-t-2 border-black p-3 bg-white dark:bg-zinc-900 dark:border-cream flex gap-2"
+                  className="border-t-2 border-black p-3 bg-white dark:bg-zinc-900 dark:border-cream flex flex-col gap-2"
                 >
-                  <input
-                    type="text"
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder="Type a secure message..."
-                    className="flex-1 border-2 border-black px-3 py-2 font-mono text-sm focus:outline-none dark:bg-zinc-800 dark:border-cream dark:text-cream"
-                  />
-                  <Button
-                    type="submit"
-                    size="icon"
-                    className="h-10 w-10 border-2 border-black bg-lime text-black neu-border neu-press"
+                  {/* Typing indicator — visible only when someone else is typing */}
+                  <div
+                    className="min-h-[1.25rem] flex items-center gap-1.5"
+                    aria-live="polite"
+                    aria-atomic="true"
                   >
-                    <Send className="h-4 w-4" />
-                  </Button>
+                    {typingUsers.length > 0 && (
+                      <p className="font-mono text-[11px] text-gray-500 dark:text-gray-400 italic animate-pulse">
+                        💬{" "}
+                        {typingUsers.length === 1
+                          ? `${typingUsers[0]} is typing…`
+                          : typingUsers.length === 2
+                            ? `${typingUsers[0]} and ${typingUsers[1]} are typing…`
+                            : "Several people are typing…"}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={inputMessage}
+                      onChange={(e) => {
+                        setInputMessage(e.target.value);
+                        broadcastTyping();
+                      }}
+                      onFocus={broadcastTyping}
+                      placeholder="Type a secure message..."
+                      className="flex-1 border-2 border-black px-3 py-2 font-mono text-sm focus:outline-none dark:bg-zinc-800 dark:border-cream dark:text-cream"
+                    />
+                    <Button
+                      type="submit"
+                      size="icon"
+                      className="h-10 w-10 border-2 border-black bg-lime text-black neu-border neu-press"
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </form>
               )}
             </>

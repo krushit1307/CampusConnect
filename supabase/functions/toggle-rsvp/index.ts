@@ -20,7 +20,6 @@ serve(async (req: Request) => {
 
   try {
     // Rate Limiting Logic using Redis Upstash (60 requests per minute)
-    // Applied inside try block to ensure errors are caught gracefully
     const rateLimitResponse = await limitRate(req, "toggle-rsvp", { limit: 60, windowMs: 60000 });
     if (rateLimitResponse) {
       return rateLimitResponse;
@@ -32,7 +31,6 @@ serve(async (req: Request) => {
     );
 
     let user;
-
     try {
       user = await verifyAuth(req, supabase);
     } catch {
@@ -51,9 +49,8 @@ serve(async (req: Request) => {
       });
     }
 
-    // Execute RSVP logic securely with concurrency protection
-    let status = "cancelled";
     if (hasRsvpd) {
+      // 1. Cancel RSVP: delete from RSVPs and waitlist
       const { error: rsvpErr } = await supabase
         .from("event_rsvps")
         .delete()
@@ -71,26 +68,72 @@ serve(async (req: Request) => {
       if (waitlistErr) {
         throw waitlistErr;
       }
-    } else {
-      const { data, error } = await supabase.rpc("safe_rsvp", {
-        target_event_id: eventId,
-        target_user_id: user.id,
+
+      return new Response(JSON.stringify({ success: true, status: "cancelled" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
       });
+    } else {
+      // 2. highly concurrent checkout flow utilizing PG advisory locks and backoff retry mechanism
+      let attempts = 0;
+      const maxAttempts = 5;
+      let delay = 50; // initial wait time in milliseconds
 
-      if (error) {
-        throw error;
+      while (attempts < maxAttempts) {
+        const { data, error } = await supabase.rpc("secure_event_checkout", {
+          p_event_id: eventId,
+          p_user_id: user.id,
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        if (data === "SUCCESS") {
+          return new Response(JSON.stringify({ success: true, status: "approved" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200,
+          });
+        }
+
+        if (data === "ALREADY_RSVPED") {
+          return new Response(JSON.stringify({ error: "You have already RSVPed to this event." }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400,
+          });
+        }
+
+        if (data === "FULL") {
+          return new Response(JSON.stringify({ error: "Event capacity has been reached." }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 409,
+          });
+        }
+
+        if (data === "BUSY") {
+          attempts++;
+          if (attempts < maxAttempts) {
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            delay *= 2; // exponential backoff multiplier
+            continue;
+          }
+        }
       }
-      status = data;
-    }
 
-    return new Response(JSON.stringify({ success: true, status }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
+      // Lock acquisition failed after max retries
+      return new Response(
+        JSON.stringify({ error: "Server is busy processing checkouts. Please try again." }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429,
+        },
+      );
+    }
   } catch (error) {
     console.error("Internal RSVP Error:", error);
+    const errorMsg = error instanceof Error ? error.message : String(error);
     return new Response(
-      JSON.stringify({ error: "An unexpected error occurred processing your RSVP." }),
+      JSON.stringify({ error: `An unexpected error occurred processing your RSVP: ${errorMsg}` }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,

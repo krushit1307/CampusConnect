@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ThemeProvider } from "@/components/theme-provider";
 import TopProgressBar from "@/components/TopProgressBar";
 import ShortcutsModal from "@/components/ShortcutsModal";
-import { WebRTCProvider } from "@/components/VideoCall/WebRTCProvider";
+import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 
 // Persistent banner shown while the browser has no network connection.
 function OfflineBanner() {
@@ -63,9 +63,7 @@ export default function Layout() {
         if (!sessionStorage.getItem(checkedKey)) {
           supabase.functions
             .invoke("device-fingerprint-alert", {
-              headers: {
-                Authorization: `Bearer ${session.access_token}`,
-              },
+              headers: { Authorization: `Bearer ${session.access_token}` },
             })
             .then(({ data, error }) => {
               if (!error && data?.isNewDevice) {
@@ -73,9 +71,10 @@ export default function Layout() {
                   `New Login Detected: Unrecognized device (${data.browser} on ${data.os}). We sent you a security email alert.`,
                 );
               }
-              if (!error) {
-                sessionStorage.setItem(checkedKey, "true");
-              }
+              if (!error) sessionStorage.setItem(checkedKey, "true");
+            })
+            .catch(() => {
+              // Edge function not deployed or CORS blocked in local dev — ignore silently
             });
         }
       }
@@ -128,6 +127,7 @@ export default function Layout() {
           <TopProgressBar />
 
           <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+          <PWAInstallPrompt />
 
           <Outlet />
           <Toaster />

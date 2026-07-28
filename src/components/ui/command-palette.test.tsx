@@ -33,7 +33,7 @@ describe("CommandPalette", () => {
     render(
       <MemoryRouter>
         <CommandPalette />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
     expect(screen.queryByPlaceholderText(/type a command or search/i)).not.toBeInTheDocument();
   });
@@ -42,7 +42,7 @@ describe("CommandPalette", () => {
     render(
       <MemoryRouter>
         <CommandPalette />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     fireEvent.keyDown(window, { key: "k", metaKey: true });
@@ -53,7 +53,7 @@ describe("CommandPalette", () => {
     render(
       <MemoryRouter>
         <CommandPalette />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     fireEvent.keyDown(window, { key: "k", metaKey: true });

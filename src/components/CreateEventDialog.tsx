@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 import { useMutation } from "@/hooks/useReactQueryReplacement";
-import { Plus, MapPin, CalendarIcon, Check, X } from "lucide-react";
+import { useUndoableState } from "@/hooks/useUndoableState";
+import { Plus, MapPin, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import { format } from "date-fns";
@@ -33,24 +34,27 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-
+import { Checkbox } from "@/components/ui/checkbox";
 import { FlyerUploader } from "@/components/FlyerUploader";
 import type { ParsedFlyer } from "@/lib/parser";
-
 import { TagMultiSelect } from "@/components/ui/TagMultiSelect";
+import { ImageCropUpload } from "@/components/ImageCropUpload";
 
 const STEPS = [
-  { label: "Details" },
-  { label: "Logistics" },
-  { label: "Media & Ticketing" },
+  { label: "Details", fields: ["title", "description"] as const },
+  { label: "Logistics", fields: ["location", "startDate", "endDate"] as const },
+  { label: "Media", fields: [] as const },
 ] as const;
 
+const STEP_FIELDS = STEPS.map((s) => s.fields as unknown as (keyof EventFormValues)[]);
+
 type Step = 0 | 1 | 2;
-const STEP_FIELDS: Record<Step, (keyof EventFormValues)[]> = {
-  0: ["title", "description", "tags"],
-  1: ["startDate", "endDate", "location"],
-  2: ["banner", "capacity", "faqs"],
-};
+
+// Define an extended interface locally to handle the extra location field safely
+interface LocalEventFormValues extends EventFormValues {
+  location?: string;
+  requiresApproval?: boolean;
+}
 
 const defaultValues: EventFormValues = {
   title: "",
@@ -58,11 +62,7 @@ const defaultValues: EventFormValues = {
   location: "",
   startDate: "",
   endDate: "",
-  banner: "",
-  capacity: "",
-  faqs: [],
-  tags: [],
-  isPrivate: false,
+  requiresApproval: false,
 };
 
 const DRAFT_KEY = "event_draft";
@@ -90,7 +90,23 @@ export function CreateEventDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>(0);
+  const [clubId, setClubId] = useState<string | null>(null);
   const supabase = createClient();
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("club_members")
+      .select("club_id")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .eq("status", "approved")
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        if (data) setClubId(data.club_id);
+      });
+  }, [user]);
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
@@ -98,7 +114,76 @@ export function CreateEventDialog({
     mode: "onBlur",
   });
 
-  const watchedLocation = useWatch({ control: form.control, name: "location" });
+  const isUndoingRedoingRef = useRef(false);
+  const {
+    state: undoableState,
+    set: setUndoableState,
+    undo,
+    redo,
+    resetState,
+  } = useUndoableState(defaultValues, 1000);
+
+  const watchedValues = form.watch();
+
+  // Reset/initialize undoable state when the modal opens/closes
+  useEffect(() => {
+    if (open) {
+      resetState(form.getValues());
+    }
+  }, [open, resetState, form]);
+
+  // Sync form inputs to the undoable state history
+  useEffect(() => {
+    if (isUndoingRedoingRef.current) {
+      isUndoingRedoingRef.current = false;
+      return;
+    }
+    setUndoableState(watchedValues);
+  }, [watchedValues, setUndoableState]);
+
+  // Sync undoableState back to form values
+  useEffect(() => {
+    const currentFormValues = form.getValues();
+    if (JSON.stringify(currentFormValues) !== JSON.stringify(undoableState)) {
+      isUndoingRedoingRef.current = true;
+      form.reset(undoableState);
+    }
+  }, [undoableState, form]);
+
+  // Add Ctrl+Z and Ctrl+Y keydown shortcut listener
+  useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isCtrl = e.ctrlKey || e.metaKey;
+      if (isCtrl) {
+        if (e.key.toLowerCase() === "z") {
+          e.preventDefault();
+          if (e.shiftKey) {
+            redo();
+            toast.success("Redo action performed");
+          } else {
+            undo();
+            toast.success("Undo action performed");
+          }
+        } else if (e.key.toLowerCase() === "y") {
+          e.preventDefault();
+          redo();
+          toast.success("Redo action performed");
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, undo, redo]);
+
+  // Watch values via form.watch to keep TypeScript quiet about schema property limits
+  const watchedLocation = form.watch("location");
+  const watchedDescription = form.watch("description");
+
+  const currentDescription = watchedDescription || "";
+
   const showMapPreview =
     watchedLocation &&
     watchedLocation.trim().length > 0 &&
@@ -149,11 +234,8 @@ export function CreateEventDialog({
         // read event_date (e.g. EventCard, event ordering) keep working.
         event_date: startDateIso,
         created_by: user.id,
-        banner: values.banner?.trim() || null,
-        capacity: values.capacity || null,
-        is_private: values.isPrivate ?? false,
-        faqs: values.faqs && values.faqs.length > 0 ? values.faqs : [],
-        tags: values.tags && values.tags.length > 0 ? values.tags : [],
+        club_id: clubId,
+        requires_approval: values.requiresApproval || false,
       });
 
       if (error) {
@@ -169,7 +251,7 @@ export function CreateEventDialog({
         console.error("[CreateEventDialog] Failed to clear saved draft:", e);
       }
       form.reset(defaultValues);
-      setStep(0);
+      resetState(defaultValues);
       setOpen(false);
     },
     onError: (error: Error) => {
@@ -544,13 +626,22 @@ export function CreateEventDialog({
                   name="banner"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Banner Image URL</FormLabel>
+                      <FormLabel>Banner Image</FormLabel>
+                      <ImageCropUpload
+                        aspect={16 / 9}
+                        bucket="event-banners"
+                        value={field.value || undefined}
+                        onUploaded={(url) => field.onChange(url, { shouldValidate: true })}
+                        hint="JPEG, PNG or WEBP · Max 5 MB · 16:9 crop"
+                      />
+                      <p className="mt-1 text-xs text-black/50">Or paste a URL directly:</p>
                       <FormControl>
-                        <Input placeholder="https://example.com/banner.png" {...field} />
+                        <Input
+                          placeholder="https://example.com/banner.png"
+                          {...field}
+                          value={field.value ?? ""}
+                        />
                       </FormControl>
-                      <p className="mt-1 text-xs text-black/50">
-                        Paste a link to a banner image (optional)
-                      </p>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -635,26 +726,38 @@ export function CreateEventDialog({
               </div>
             )}
 
-            <DialogFooter className="flex gap-2 pt-2">
+            <FormField
+              control={form.control}
+              name="requiresApproval"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-white p-4 shadow-sm">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="font-bold cursor-pointer">
+                      Requires Manual Approval
+                    </FormLabel>
+                    <p className="text-xs text-black/50">
+                      Organizers must manually approve attendee RSVPs.
+                    </p>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            <DialogFooter className="pt-2 flex gap-2">
               {step > 0 && (
-                <Button type="button" variant="outline" onClick={handleBack} className="flex-1">
-                  Back
+                <Button type="button" variant="outline" onClick={handleBack}>
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Back
                 </Button>
               )}
-              {step < 2 ? (
-                <Button
-                  type="button"
-                  onClick={handleNext}
-                  className="flex-1 bg-black text-cream hover:bg-black/80"
-                >
-                  Next →
+              {step < STEPS.length - 1 ? (
+                <Button type="button" onClick={handleNext} className="ml-auto">
+                  Next <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               ) : (
-                <Button
-                  type="submit"
-                  disabled={createEvent.isPending}
-                  className="flex-1 bg-black text-cream hover:bg-black/80"
-                >
+                <Button type="submit" disabled={createEvent.isPending} className="ml-auto">
                   {createEvent.isPending ? "Creating..." : "Create event"}
                 </Button>
               )}
