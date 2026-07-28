@@ -43,6 +43,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { TagMultiSelect } from "@/components/ui/TagMultiSelect";
+import { DateTimePicker } from "@/components/DateTimePicker";
+
 interface EditEventDialogProps {
   event: EventDocument;
   user: User | null;
@@ -82,6 +85,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
       location: event.location || "",
       startDate: event.start_date ? new Date(event.start_date).toISOString().slice(0, 16) : "",
       endDate: event.end_date ? new Date(event.end_date).toISOString().slice(0, 16) : "",
+      tags: event.tags || [],
     },
     mode: "onBlur",
   });
@@ -96,6 +100,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
         location: event.location || "",
         startDate: event.start_date ? new Date(event.start_date).toISOString().slice(0, 16) : "",
         endDate: event.end_date ? new Date(event.end_date).toISOString().slice(0, 16) : "",
+        tags: event.tags || [],
       });
     }
   }, [open, event, form]);
@@ -160,6 +165,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
         location: values.location?.trim() || null,
         start_date: new Date(values.startDate).toISOString(),
         end_date: new Date(values.endDate).toISOString(),
+        tags: values.tags || [],
         version_vector: (baseSnapshot.version_vector || {}) as VersionVector,
       };
 
@@ -244,6 +250,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
 
               <FormField
                 control={form.control}
+<<<<<<< HEAD
                 name="category"
                 render={({ field }) => (
                   <FormItem>
@@ -262,6 +269,21 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                         ))}
                       </SelectContent>
                     </Select>
+=======
+                name="tags"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-mono text-xs font-bold uppercase text-black">
+                      Event Tags
+                    </FormLabel>
+                    <FormControl>
+                      <TagMultiSelect
+                        value={field.value || []}
+                        onChange={field.onChange}
+                        placeholder="Select or type event tags (e.g. #Tech, #Career)..."
+                      />
+                    </FormControl>
+>>>>>>> upstream/main
                     <FormMessage />
                   </FormItem>
                 )}
@@ -289,7 +311,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                     <FormItem>
                       <FormLabel required>Start date</FormLabel>
                       <FormControl>
-                        <Input type="datetime-local" {...field} />
+                        <DateTimePicker value={field.value} onChange={field.onChange} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -303,7 +325,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                     <FormItem>
                       <FormLabel required>End date</FormLabel>
                       <FormControl>
-                        <Input type="datetime-local" {...field} />
+                        <DateTimePicker value={field.value} onChange={field.onChange} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

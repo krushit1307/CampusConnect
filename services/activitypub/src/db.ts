@@ -22,11 +22,7 @@ export async function getClubBySlug(slug: string): Promise<ClubRecord | null> {
 }
 
 export async function getClubById(id: string): Promise<ClubRecord | null> {
-  const { data } = await supabase
-    .from("clubs")
-    .select("*")
-    .eq("id", id)
-    .single();
+  const { data } = await supabase.from("clubs").select("*").eq("id", id).single();
   return data as ClubRecord | null;
 }
 
@@ -55,10 +51,7 @@ export async function getOrCreateClubKeys(clubId: string): Promise<KeyRecord> {
 }
 
 export async function getFollowers(clubId: string): Promise<FollowerRecord[]> {
-  const { data } = await supabase
-    .from("activitypub_followers")
-    .select("*")
-    .eq("club_id", clubId);
+  const { data } = await supabase.from("activitypub_followers").select("*").eq("club_id", clubId);
   return (data as FollowerRecord[]) || [];
 }
 
@@ -80,7 +73,9 @@ export async function getActivityById(activityId: string): Promise<ActivityRecor
   return data as ActivityRecord | null;
 }
 
-export async function saveActivity(record: Omit<ActivityRecord, "id" | "created_at" | "delivered">): Promise<void> {
+export async function saveActivity(
+  record: Omit<ActivityRecord, "id" | "created_at" | "delivered">,
+): Promise<void> {
   await supabase.from("activitypub_activities").insert(record);
 }
 
@@ -91,7 +86,12 @@ export async function markActivityDelivered(activityId: string): Promise<void> {
     .eq("activity_id", activityId);
 }
 
-export async function saveInboxItem(clubId: string, actorId: string, activityType: string, raw: Record<string, unknown>): Promise<void> {
+export async function saveInboxItem(
+  clubId: string,
+  actorId: string,
+  activityType: string,
+  raw: Record<string, unknown>,
+): Promise<void> {
   await supabase.from("activitypub_inbox").insert({
     club_id: clubId,
     actor_id: actorId,
