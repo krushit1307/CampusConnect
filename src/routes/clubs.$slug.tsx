@@ -16,6 +16,7 @@ import { ArrowLeft, Github, Loader2, CheckCircle, Flag } from "lucide-react";
 import { ReportDialog } from "@/components/ReportDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { VideoPlayer } from "@/components/VideoPlayer";
+import { AudioReactiveBackground } from "@/components/media/AudioReactiveBackground";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -359,7 +360,15 @@ export default function ClubProfile() {
       </Helmet>
 
       <SiteShell>
-        <section className="border-b-2 border-black px-4 py-14 md:px-6">
+        {/* Audio Reactive WebGL Hero Background */}
+        <section className="relative border-b-2 border-black px-4 py-8 md:px-6 bg-slate-950 overflow-hidden">
+          <div className="mx-auto max-w-6xl relative z-10">
+            <AudioReactiveBackground
+              className="h-64 md:h-80 mb-6 border-2 border-black rounded-lg shadow-xl"
+              defaultPreset="neonPulse"
+              interactive={true}
+            />
+          </div>
           <div className="mx-auto max-w-6xl">
             {/* Breadcrumb — full on sm+, back-link only on mobile */}
             <Link

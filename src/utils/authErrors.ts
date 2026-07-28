@@ -5,6 +5,10 @@
 export function getFriendlyAuthError(error: unknown): string {
   if (!error) return "An unknown authentication error occurred.";
 
+  if (error && typeof error === "object" && (error as { status?: number }).status === 429) {
+    return "Account locked, try again in 15 minutes";
+  }
+
   let message = "";
   if (error instanceof Error) {
     message = error.message;

@@ -48,13 +48,13 @@ interface ActivityPostRow {
 
 interface ActivityRsvpRow {
   id: string;
-  created_at: string;
+  rsvp_at: string;
   events: { id: string; title: string } | { id: string; title: string }[] | null;
 }
 
 interface ActivityClubMemberRow {
   id: string;
-  created_at: string;
+  joined_at: string;
   clubs: { name: string } | { name: string }[] | null;
 }
 
@@ -207,7 +207,7 @@ export default function DashboardOverview() {
       const { data, error } = await supabase
         .from("clubs")
         .select("*")
-        .order("member_count", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(5);
       if (error) throw error;
       return data || [];
@@ -257,14 +257,7 @@ export default function DashboardOverview() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("club_members")
-        .select(
-          `
-          role,
-          clubs (
-            id, name, slug
-          )
-        `,
-        )
+        .select(`role, clubs (id, name, slug)`)
         .eq("user_id", user?.id)
         .eq("status", "approved");
       if (error) throw error;
@@ -278,15 +271,7 @@ export default function DashboardOverview() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
-        .select(
-          `
-          *,
-          clubs (name),
-          event_rsvps!inner (
-            id, user_id
-          )
-        `,
-        )
+        .select(`*, clubs (name), event_rsvps!inner (id, user_id)`)
         .eq("event_rsvps.user_id", user?.id)
         .gte("event_date", new Date().toISOString())
         .order("event_date", { ascending: true })
@@ -336,16 +321,16 @@ export default function DashboardOverview() {
           .limit(5),
         supabase
           .from("event_rsvps")
-          .select("id, created_at, events(id, title)")
+          .select("id, rsvp_at, events(id, title)")
           .eq("user_id", user?.id)
-          .order("created_at", { ascending: false })
+          .order("rsvp_at", { ascending: false })
           .limit(5),
         supabase
           .from("club_members")
-          .select("id, created_at, clubs(name)")
+          .select("id, joined_at, clubs(name)")
           .eq("user_id", user?.id)
           .eq("status", "approved")
-          .order("created_at", { ascending: false })
+          .order("joined_at", { ascending: false })
           .limit(5),
       ]);
 
@@ -365,7 +350,7 @@ export default function DashboardOverview() {
           id: `rsvp-${r.id}`,
           type: "rsvp",
           description: event?.title ? `You RSVP'd to ${event.title}` : "You RSVP'd to an event",
-          created_at: r.created_at,
+          created_at: r.rsvp_at,
         };
       });
 
@@ -375,7 +360,7 @@ export default function DashboardOverview() {
           id: `club-${m.id}`,
           type: "club_join",
           description: club?.name ? `You joined ${club.name}` : "You joined a club",
-          created_at: m.created_at,
+          created_at: m.joined_at,
         };
       });
 

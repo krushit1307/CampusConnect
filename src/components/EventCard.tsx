@@ -1,4 +1,10 @@
-import { formatDate, formatEventDateRange, getCountdown, getGoogleCalendarUrl, getIcsContent } from "@/lib/utils";
+import {
+  formatDate,
+  formatEventDateRange,
+  getCountdown,
+  getGoogleCalendarUrl,
+  getIcsContent,
+} from "@/lib/utils";
 import { Link } from "react-router-dom";
 import React, { FormEvent, useState, useMemo, useEffect, useRef } from "react";
 import { Calendar, Check, Share2, X, Link as LinkIcon, Bookmark } from "lucide-react";
@@ -7,9 +13,15 @@ import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EventRSVPButton } from "@/components/EventRSVPButton";
+
 import { usePreloadEvent } from "@/hooks/usePreloadEvent";
+
+import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
+
+
 interface Event {
   id: string;
+  short_id?: string | null;
   title: string;
   description: string | null;
   event_date: string | null;
@@ -18,6 +30,7 @@ interface Event {
   location: string | null;
   banner_url?: string | null;
   created_at?: string | null;
+  max_attendees?: number | null;
   clubs: { name: string } | { name: string }[] | null;
   event_rsvps: { id: string; user_id: string }[] | null;
   saved_events: { id: string; user_id: string }[] | null;
@@ -141,7 +154,6 @@ function renderLocationWithLinks(locationText: string | null) {
     return part;
   });
 }
-
 export function EventCard({
   event,
   index,
@@ -169,8 +181,12 @@ const club = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs;
 
   const [ticketOpen, setTicketOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const shouldTruncate = !!event.description && event.description.length > 220;
 
+  const displayedDescription =
+    shouldTruncate && !isDescriptionExpanded
+      ? `${event.description!.slice(0, 180)}...`
+      : event.description;
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -199,7 +215,7 @@ const club = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs;
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `${event.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.ics`);
+    link.setAttribute("download", `${event.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.ics`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -269,6 +285,22 @@ const club = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs;
             )}
           </div>
 
+      <p className="mt-3 font-mono text-xs font-bold uppercase text-black">Event</p>
+      <Link to={`/events/${event.short_id || event.id}`} className="group">
+        <h2 className="mt-1 text-2xl font-black group-hover:underline text-violet-900">
+          {event.title}
+        </h2>
+      </Link>
+      <p className="mt-1 font-mono text-sm font-bold text-blue-900">{club?.name}</p>
+
+      {event.description ? (
+        <p className="mt-4 text-sm leading-6 text-gray-800">{event.description}</p>
+      ) : null}
+
+      <dl className="mt-5 grid gap-4 sm:grid-cols-3">
+        <div>
+          <dt className="font-mono text-xs font-bold uppercase text-black">Date &amp; Time</dt>
+          <dd className="mt-1 text-sm text-red-900">{formatEventDateRange(event)}</dd>
           <div className="flex gap-2 relative z-10">
             <button
               type="button"
@@ -304,26 +336,20 @@ const club = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs;
         <p className="mt-1 font-mono text-sm font-bold text-blue-900">{club?.name}</p>
 
         {event.description ? (
-          <div
-            className={`mt-4 overflow-hidden transition-all duration-300 ease-in-out ${
-              isDescriptionExpanded ? "max-h-250" : "max-h-40"
-            }`}
-          >
-            <p className="text-sm leading-6 text-gray-800 inline">{displayedDescription}</p>
-
-            {shouldTruncate && (
-              <button
-                type="button"
-                onClick={() => setIsDescriptionExpanded((prev) => !prev)}
-                className="ml-1 inline font-semibold text-violet-700 hover:text-violet-900 transition-colors"
-              >
-                {isDescriptionExpanded ? "Read less" : "Read more"}
-              </button>
-            )}
+          <div className="mt-4">
+            <ReadMore text={event.description} />
           </div>
         ) : null}
-
         <EventProgressBar createdAt={event.created_at} eventDate={event.event_date} />
+
+        <div className="mt-4">
+          <EventCapacityGauge
+            eventId={event.id}
+            initialCapacity={rsvps.length}
+            maxAttendees={event.max_attendees || null}
+            showDetails={true}
+          />
+        </div>
 
         <dl className="mt-5 grid gap-4 sm:grid-cols-3">
           <div>
