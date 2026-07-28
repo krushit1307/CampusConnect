@@ -70,11 +70,12 @@ export default function ClubsIndex() {
         const to = from + ITEMS_PER_PAGE - 1;
 
         const { data, count } = await supabase
-          .from("clubs")
+          .from("vw_active_clubs")
           .select(
             `id, name, slug, description, club_stats (total_members, total_events, total_posts)`,
             { count: "exact" },
           )
+          .order("is_active", { ascending: false })
           .range(from, to);
 
         return {

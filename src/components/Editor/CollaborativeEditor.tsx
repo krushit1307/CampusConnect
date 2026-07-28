@@ -21,6 +21,19 @@ import {
 } from "lucide-react";
 import type { User, RealtimeChannel } from "@supabase/supabase-js";
 
+class LocalOriginTrackSet extends Set<unknown> {
+  has(value: unknown) {
+    return value !== "remote" && value !== "initial";
+  }
+  add() {
+    return this;
+  }
+  delete() {
+    return false;
+  }
+  clear() {}
+}
+
 // Safe base64 conversion for Uint8Array
 function uint8ArrayToBase64(arr: Uint8Array): string {
   let bin = "";
@@ -73,6 +86,17 @@ export function CollaborativeEditor({ eventId, user, onSave }: CollaborativeEdit
   // States
   const [doc] = useState(() => new Y.Doc());
   const [awareness] = useState(() => new Awareness(doc));
+  const [undoManager] = useState(
+    () =>
+      new Y.UndoManager(doc.getXmlFragment("default"), {
+        trackedOrigins: new LocalOriginTrackSet(),
+        captureTimeout: 500,
+      }),
+  );
+
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
   const [syncStatus, setSyncStatus] = useState<"connecting" | "syncing" | "synced" | "offline">(
     "connecting",
   );
@@ -339,6 +363,59 @@ export function CollaborativeEditor({ eventId, user, onSave }: CollaborativeEdit
     };
   }, [isLoaded, userProfile, eventId, doc, awareness]);
 
+  // Setup UndoManager Limits and React State
+  useEffect(() => {
+    const handleStackChange = () => {
+      // Limit the undo history to approximately 100 operations
+      while (undoManager.undoStack.length > 100) {
+        undoManager.undoStack.shift();
+      }
+      while (undoManager.redoStack.length > 100) {
+        undoManager.redoStack.shift();
+      }
+
+      setCanUndo(undoManager.undoStack.length > 0);
+      setCanRedo(undoManager.redoStack.length > 0);
+    };
+
+    handleStackChange();
+
+    undoManager.on("stack-item-added", handleStackChange);
+    undoManager.on("stack-item-popped", handleStackChange);
+
+    return () => {
+      undoManager.off("stack-item-added", handleStackChange);
+      undoManager.off("stack-item-popped", handleStackChange);
+    };
+  }, [undoManager]);
+
+  // Setup Keyboard Shortcuts for Undo/Redo
+  useEffect(() => {
+    if (!editor || !editor.view.dom) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl + Z -> Undo
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undoManager.undo();
+        editor.commands.focus();
+      }
+      // Cmd/Ctrl + Shift + Z or Cmd/Ctrl + Y -> Redo
+      else if (
+        (e.metaKey || e.ctrlKey) &&
+        ((e.key.toLowerCase() === "z" && e.shiftKey) || e.key.toLowerCase() === "y")
+      ) {
+        e.preventDefault();
+        undoManager.redo();
+        editor.commands.focus();
+      }
+    };
+
+    const editorDOM = editor.view.dom;
+    editorDOM.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () => editorDOM.removeEventListener("keydown", handleKeyDown, { capture: true });
+  }, [editor, undoManager]);
+
   // 4. Setup Tiptap Editor
   const editor = useEditor(
     {
@@ -547,8 +624,11 @@ export function CollaborativeEditor({ eventId, user, onSave }: CollaborativeEdit
           <div className="h-6 w-[1px] bg-black/30 mx-1"></div>
           <button
             type="button"
-            onClick={() => editor.chain().focus().undo().run()}
-            disabled={!editor.can().undo()}
+            onClick={() => {
+              undoManager.undo();
+              editor.commands.focus();
+            }}
+            disabled={!canUndo}
             className="p-1.5 rounded border border-black bg-white text-black transition-all hover:bg-teal-200 hover:scale-105 disabled:opacity-50 disabled:pointer-events-none"
             title="Undo"
           >
@@ -556,8 +636,11 @@ export function CollaborativeEditor({ eventId, user, onSave }: CollaborativeEdit
           </button>
           <button
             type="button"
-            onClick={() => editor.chain().focus().redo().run()}
-            disabled={!editor.can().redo()}
+            onClick={() => {
+              undoManager.redo();
+              editor.commands.focus();
+            }}
+            disabled={!canRedo}
             className="p-1.5 rounded border border-black bg-white text-black transition-all hover:bg-teal-200 hover:scale-105 disabled:opacity-50 disabled:pointer-events-none"
             title="Redo"
           >

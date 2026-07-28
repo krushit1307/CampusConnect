@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 import { useMutation } from "@/hooks/useReactQueryReplacement";
 import { useUndoableState } from "@/hooks/useUndoableState";
-import { Plus, MapPin, CalendarIcon } from "lucide-react";
+import { Plus, MapPin, CalendarIcon, ChevronLeft, ChevronRight, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import { format } from "date-fns";

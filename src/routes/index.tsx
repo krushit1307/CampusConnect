@@ -5,6 +5,10 @@ import { Sparkle } from "@/components/site/Sparkle";
 import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
 import { Users, Calendar, GraduationCap } from "lucide-react";
 import { useExperimentStore } from "@/store/useExperimentStore";
+import { useQuery } from "@/hooks/useReactQueryReplacement";
+import { createClient } from "@/lib/supabase/client";
+import { FeaturedEvents } from "@/components/home/FeaturedEvents";
+import { EventCardSkeleton } from "@/components/EventCardSkeleton";
 
 function AnimatedCounter({ value }: { value: string }) {
   const [displayValue, setDisplayValue] = useState("0");
@@ -196,6 +200,32 @@ export default function Landing() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
+  const supabase = createClient();
+  const { data: featuredEvents, isLoading: isLoadingEvents } = useQuery({
+    queryKey: ["featured-events"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select(
+          `
+          id,
+          title,
+          description,
+          event_date,
+          banner_url,
+          clubs(name)
+        `,
+        )
+        .neq("status", "archived")
+        .gte("event_date", new Date().toISOString())
+        .order("event_date", { ascending: true })
+        .limit(5);
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const variant = useExperimentStore((state) => state.variant);
   const initializeVariant = useExperimentStore((state) => state.initializeVariant);
 
@@ -352,8 +382,54 @@ export default function Landing() {
         </motion.div>
       </section>
 
+      {/* FEATURED EVENTS — Magazine layout */}
+      <section className="bg-cream px-4 py-20 md:px-6 md:py-28 border-t-2 border-black">
+        <div className="mx-auto max-w-7xl">
+          <ScrollReveal>
+            <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+              <div>
+                <SectionEyebrow>Upcoming</SectionEyebrow>
+                <h2 className="mt-2 font-display text-4xl font-bold text-brand-blue-dark md:text-5xl">
+                  Featured Events
+                </h2>
+              </div>
+              <Link
+                to="/events"
+                className="neu-border inline-flex items-center justify-center bg-white px-6 py-3 font-mono text-sm font-bold uppercase transition hover:bg-brand-peach-light"
+              >
+                View all events
+              </Link>
+            </div>
+          </ScrollReveal>
+
+          <ScrollReveal delay={150}>
+            {isLoadingEvents ? (
+              <div className="grid grid-cols-1 md:grid-cols-4 md:grid-rows-2 gap-4 h-[500px] md:h-[600px]">
+                <div className="md:col-span-2 md:row-span-2 relative h-full">
+                  <EventCardSkeleton />
+                </div>
+                <div className="md:col-span-2 md:row-span-1 relative h-full">
+                  <EventCardSkeleton />
+                </div>
+                <div className="md:col-span-1 md:row-span-1 relative h-full">
+                  <EventCardSkeleton />
+                </div>
+                <div className="md:col-span-1 md:row-span-1 relative h-full">
+                  <EventCardSkeleton />
+                </div>
+              </div>
+            ) : (
+              <FeaturedEvents events={featuredEvents || []} />
+            )}
+          </ScrollReveal>
+        </div>
+      </section>
+
       {/* FEATURED FEATURES — 4-card grid (PR 207) */}
-      <section className="bg-lime px-4 py-20 md:px-6 md:py-32 border-3 border-black">
+      <section
+        id="features"
+        className="bg-lime px-4 py-20 md:px-6 md:py-32 border-3 border-black scroll-mt-24"
+      >
         <div className="mx-auto max-w-7xl">
           <div className="mb-20 text-center">
             <h2 className="mb-6 font-display text-5xl font-bold text-red-900 md:text-6xl">
@@ -727,7 +803,10 @@ export default function Landing() {
       </section>
 
       {/* FAQ SECTION */}
-      <section className="bg-teal-100 border-t-2 border-gray-200 px-4 py-20 md:px-6">
+      <section
+        id="faq"
+        className="bg-teal-100 border-t-2 border-gray-200 px-4 py-20 md:px-6 scroll-mt-24"
+      >
         <div className="mx-auto max-w-4xl">
           <div className="mb-12 text-center">
             <SectionEyebrow>Frequently Asked Questions</SectionEyebrow>
@@ -832,6 +911,30 @@ export default function Landing() {
             </Link>
           </div>
         </ScrollReveal>
+      </section>
+      {/* CONTACT SECTION */}
+      <section
+        id="contact"
+        className="bg-white border-t-2 border-gray-200 px-4 py-20 md:px-6 scroll-mt-24"
+      >
+        <div className="mx-auto max-w-4xl text-center">
+          <SectionEyebrow>Contact</SectionEyebrow>
+
+          <h2 className="mt-2 text-4xl font-bold text-red-900 md:text-5xl">
+            Get in touch with us.
+          </h2>
+
+          <p className="mt-6 font-mono text-gray-700">
+            Have questions about CampusConnect? Reach out to our team.
+          </p>
+
+          <a
+            href="mailto:support@campusconnect.com"
+            className="mt-8 inline-block neu-border bg-lime px-6 py-3 font-mono font-bold uppercase"
+          >
+            Contact Support
+          </a>
+        </div>
       </section>
     </SiteShell>
   );

@@ -13,8 +13,12 @@ import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EventRSVPButton } from "@/components/EventRSVPButton";
-import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
 
+import { usePreloadEvent } from "@/hooks/usePreloadEvent";
+
+import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
+import { ShareMenu } from "@/components/ui/ShareMenu";
+import { ReadMore } from "@/components/ui/ReadMore";
 interface Event {
   id: string;
   short_id?: string | null;
@@ -159,10 +163,10 @@ export function EventCard({
   onBookmarkToggle,
   isBookmarkPending,
 }: EventCardProps) {
-  const club = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs;
+const club = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs;
   const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
   const myRsvp = user ? rsvps.find((rsvp) => rsvp.user_id === user.id) : null;
-
+  const preloadEvent = usePreloadEvent(event.id);
   const hasRsvpd = !!myRsvp;
   const colors = ["bg-lime", "bg-sky", "bg-peach"];
   const googleCalendarUrl = getGoogleCalendarUrl({
@@ -177,6 +181,7 @@ export function EventCard({
 
   const [ticketOpen, setTicketOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const shouldTruncate = !!event.description && event.description.length > 220;
 
   const displayedDescription =
@@ -248,20 +253,14 @@ export function EventCard({
     onBookmarkToggle?.(event.id, isSaved);
   };
 
-  const shouldTruncate = !!event.description && event.description.length > 220;
-
-  const displayedDescription =
-    shouldTruncate && !isDescriptionExpanded
-      ? `${event.description!.slice(0, 180)}...`
-      : event.description;
-
   return (
     <div className="group">
-      <article
+<article
         id={`event-${event.id}`}
+        onMouseEnter={preloadEvent.onMouseEnter}
+        onMouseLeave={preloadEvent.onMouseLeave}
         className={`neu-border p-5 relative ${colors[index % colors.length]} transition-transform duration-300 ease-out group-hover:scale-[1.02]`}
-      >
-        <div className="flex items-start justify-between gap-3">
+      >        <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col">
             <p className="font-mono text-xs font-bold uppercase tracking-wider pr-10 text-red-900">
               {event.event_date
@@ -279,24 +278,18 @@ export function EventCard({
               </span>
             )}
           </div>
+        </div>
 
-      <p className="mt-3 font-mono text-xs font-bold uppercase text-black">Event</p>
-      <Link to={`/events/${event.short_id || event.id}`} className="group">
-        <h2 className="mt-1 text-2xl font-black group-hover:underline text-violet-900">
-          {event.title}
-        </h2>
-      </Link>
-      <p className="mt-1 font-mono text-sm font-bold text-blue-900">{club?.name}</p>
+        {event.description ? (
+          <p className="mt-4 text-sm leading-6 text-gray-800">{event.description}</p>
+        ) : null}
 
-      {event.description ? (
-        <p className="mt-4 text-sm leading-6 text-gray-800">{event.description}</p>
-      ) : null}
+        <div className="mt-5">
+          <div>
+            <p className="font-mono text-xs font-bold uppercase text-black">Date &amp; Time</p>
+            <p className="mt-1 text-sm text-red-900">{formatEventDateRange(event)}</p>
 
-      <dl className="mt-5 grid gap-4 sm:grid-cols-3">
-        <div>
-          <dt className="font-mono text-xs font-bold uppercase text-black">Date &amp; Time</dt>
-          <dd className="mt-1 text-sm text-red-900">{formatEventDateRange(event)}</dd>
-          <div className="flex gap-2 relative z-10">
+            <div className="mt-3 flex gap-2 relative z-10"></div>
             <button
               type="button"
               onClick={handleBookmarkClick}

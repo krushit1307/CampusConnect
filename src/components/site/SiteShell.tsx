@@ -5,10 +5,7 @@ import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { Joyride } from "react-joyride";
 import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
-import { MobileBottomNav } from "./MobileBottomNav";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const JoyrideComponent = Joyride as any;
+import { BugReportWidget } from "@/components/BugReportWidget";
 
 export function SiteShell({ children }: { children: ReactNode }) {
   const [supabase] = useState(() => createClient());
@@ -153,7 +150,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
         {children}
       </main>
       <Footer />
-      <MobileBottomNav />
+      <BugReportWidget />
     </div>
   );
 }

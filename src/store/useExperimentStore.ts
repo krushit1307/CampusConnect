@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { enqueueAnalytics } from "@/lib/analyticsQueue";
 
 export type Variant = "A" | "B";
 
@@ -29,8 +30,13 @@ export const useExperimentStore = create<ExperimentState>()(
         console.log(`[Telemetry] Registration success under variant: ${variant}`);
         if (typeof window !== "undefined") {
           // Emit telemetry / custom analytics event
-          const event = new CustomEvent("experiment_registration", { detail: { variant } });
-          window.dispatchEvent(event);
+          enqueueAnalytics(() => {
+            const event = new CustomEvent("experiment_registration", {
+              detail: { variant },
+            });
+
+            window.dispatchEvent(event);
+          });
         }
       },
     }),

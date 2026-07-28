@@ -112,13 +112,23 @@ jobs:
                   }
                 }
               } else {
-                if (!hasClosingKeyword) {
-                  console.log(`PR #${prNumber} does not contain closing/fixing keywords (e.g. 'closes #123'). Skipping auto-merge/update.`);
+                const hasAssignees = prData.assignees && prData.assignees.length > 0;
+                const hasECSoCLabel = currentLabels.some(l => l.toLowerCase().replace(/[^a-z0-9]/g, '').includes('ecsoc26'));
+
+                if (!hasClosingKeyword || !hasAssignees || !hasECSoCLabel) {
+                  let missing = [];
+                  if (!hasClosingKeyword) missing.push("a closing keyword");
+                  if (!hasAssignees) missing.push("an assignee");
+                  if (!hasECSoCLabel) missing.push("the ECSoC26 label");
+                  
+                  console.log(`PR #${prNumber} is missing: ${missing.join(', ')}. Skipping auto-merge.`);
+                  
                   if (!missingKeywordPRs.has(prNumber)) {
                     const assigneesToTag = prData.assignees && prData.assignees.length > 0 
                       ? prData.assignees.map(a => `@${a.login}`).join(" ") 
                       : `@${prData.user.login}`;
-                    const missingMsg = `${assigneesToTag} This PR does not contain a closing keyword (e.g. \`closes #123\`) in the description. Please add it so the PR can be auto-merged.`;
+                    const missingMsg = `${assigneesToTag} This PR cannot be auto-merged because it is missing: **${missing.join(', ')}**. Please ensure the PR has a linked issue with an assignee and the ECSoC26 label, and that the PR description contains the closing keyword.`;
+                    
                     try {
                       await github.rest.issues.createComment({
                         owner,
@@ -128,7 +138,7 @@ jobs:
                       });
                       missingKeywordPRs.add(prNumber);
                     } catch (e) {
-                      console.error(`Failed to comment on missing keyword for PR #${prNumber}:`, e.message);
+                      console.error(`Failed to comment on missing requirements for PR #${prNumber}:`, e.message);
                     }
                   }
                   return false;
@@ -190,12 +200,7 @@ jobs:
                   const wasMerged = await processPR(pr.number, pr.body);
                   if (wasMerged) {
                     anyMerged = true;
-                    // Randomize time between 60 and 90 seconds (60000ms to 90000ms)
-                    const min = 60000;
-                    const max = 90000;
-                    const waitTime = Math.floor(Math.random() * (max - min + 1)) + min;
-                    console.log(`Waiting for ${Math.round(waitTime / 1000)} seconds before evaluating the next PR...`);
-                    await new Promise(r => setTimeout(r, waitTime));
+                    console.log(`✅ Evaluating next PR immediately without waiting...`);
                   }
                 }
                 
