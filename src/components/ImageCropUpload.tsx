@@ -123,8 +123,8 @@ export function ImageCropUpload({
 
     try {
       const croppedBlob = await getCroppedImg(cropImageSrc, croppedAreaPixels);
-      const croppedFile = new File([croppedBlob], selectedFile.name, {
-        type: "image/jpeg",
+      const croppedFile = new File([croppedBlob], "avatar.webp", {
+        type: "image/webp",
       });
 
       const publicUrl = await uploadFile(croppedFile);
