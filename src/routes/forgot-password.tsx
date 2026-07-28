@@ -34,11 +34,17 @@ export default function ForgotPasswordPage() {
     setError(null);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+      const { error: invokeError } = await supabase.functions.invoke("request-password-reset", {
+        body: {
+          email: values.email,
+          redirectTo: `${window.location.origin}/reset-password`,
+        },
       });
 
-      if (error) throw error;
+      if (invokeError) {
+        const body = await invokeError.context?.json().catch(() => null);
+        throw new Error(body?.error || invokeError.message);
+      }
 
       // Always show the same success state, whether or not the email exists,
       // so we don't leak which addresses have an account.
@@ -51,7 +57,6 @@ export default function ForgotPasswordPage() {
       setLoading(false);
     }
   }
-
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-cream px-4 py-16">
       <Sparkle className="absolute left-8 top-8" size={20} />

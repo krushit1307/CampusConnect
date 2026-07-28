@@ -21,7 +21,8 @@ function extractMetadata(html: string): { title?: string; description?: string; 
   const metadata: { title?: string; description?: string; image?: string } = {};
 
   // Extract og:title, og:description, og:image
-  const metaRegex = /<meta\s+[^>]*\b(?:property|name)\s*=\s*["']og:(title|description|image)["'][^>]*>/gi;
+  const metaRegex =
+    /<meta\s+[^>]*\b(?:property|name)\s*=\s*["']og:(title|description|image)["'][^>]*>/gi;
 
   let match;
   while ((match = metaRegex.exec(html)) !== null) {
@@ -97,10 +98,13 @@ serve(async (req: Request) => {
         throw new Error("Invalid protocol");
       }
     } catch {
-      return new Response(JSON.stringify({ error: "Invalid URL format or unsupported protocol." }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Invalid URL format or unsupported protocol." }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // Protection using AbortController with an 8-second timeout
@@ -112,8 +116,9 @@ serve(async (req: Request) => {
       const response = await fetch(parsedUrl.toString(), {
         signal: controller.signal,
         headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9",
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9",
         },
       });
 
@@ -123,7 +128,7 @@ serve(async (req: Request) => {
           {
             status: 502,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
+          },
         );
       }
 
@@ -147,10 +152,13 @@ serve(async (req: Request) => {
     const metadata = extractMetadata(html);
 
     if (!metadata.title && !metadata.description && !metadata.image) {
-      return new Response(JSON.stringify({ error: "No OpenGraph or title metadata found on the target page." }), {
-        status: 422,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "No OpenGraph or title metadata found on the target page." }),
+        {
+          status: 422,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     return new Response(JSON.stringify({ url: parsedUrl.toString(), ...metadata }), {

@@ -32,6 +32,7 @@ interface EventCategory {
 
 interface EventItem {
   id: string;
+  short_id?: string | null;
   title: string;
   description: string | null;
   event_date: string | null;
@@ -97,7 +98,7 @@ export default function EventsCalendar({ events }: EventsCalendarProps) {
       : new Date(start.getTime() + 60 * 60 * 1000);
 
     return {
-      id: event.id,
+      id: event.short_id || event.id,
       title: event.title,
       start,
       end,

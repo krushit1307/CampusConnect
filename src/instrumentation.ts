@@ -6,14 +6,14 @@ import {
 } from "@opentelemetry/sdk-trace-base";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { CompositePropagator, W3CTraceContextPropagator } from "@opentelemetry/core";
-import { Resource } from "@opentelemetry/resources";
-import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions";
+import { resourceFromAttributes, defaultResource } from "@opentelemetry/resources";
+import { SEMRESATTRS_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
 
 export function initializeTracing() {
   // Create a resource with service name
-  const resource = Resource.default().merge(
-    new Resource({
-      [SemanticResourceAttributes.SERVICE_NAME]: "campusconnect-frontend",
+  const resource = defaultResource().merge(
+    resourceFromAttributes({
+      [SEMRESATTRS_SERVICE_NAME]: "campusconnect-frontend",
     }),
   );
 
@@ -23,13 +23,15 @@ export function initializeTracing() {
     sampler: new TraceIdRatioBasedSampler(0.1), // Sample 10% of traces
   });
 
-  // Create OTLP exporter
   const exporter = new OTLPTraceExporter({
     url: import.meta.env.VITE_OTEL_COLLECTOR_URL || "http://localhost:4318/v1/traces",
   });
 
-  // Add span processor
-  tracerProvider.addSpanProcessor(new SimpleSpanProcessor(exporter));
+  const tracerProvider = new BasicTracerProvider({
+    resource,
+    sampler: new TraceIdRatioBasedSampler(0.1),
+    spanProcessors: [new SimpleSpanProcessor(exporter)],
+  });
 
   // Set up W3C Trace Context propagation
   propagation.setGlobalPropagator(
