@@ -1,5 +1,5 @@
 import { Link, useParams } from "react-router-dom";
-import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
+import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
@@ -158,11 +158,41 @@ export default function EventDetailsPage() {
 
       if (error) throw error;
     },
-    onSuccess: () => {
-      refetch();
+    onMutate: async ({ hasRsvpd }) => {
+      // Snapshot the previous value
+      const previousEvent = event;
+
+      // Optimistically update the cache
+      if (event) {
+        const eventRsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
+        const updatedRsvps = hasRsvpd
+          ? eventRsvps.filter((r) => r.user_id !== user?.id)
+          : [...eventRsvps, { id: `temp-${Date.now()}`, user_id: user?.id || "" }];
+
+        const updatedEvent = {
+          ...event,
+          event_rsvps: updatedRsvps,
+          attendee_count: hasRsvpd
+            ? (event.attendee_count || 0) - 1
+            : (event.attendee_count || 0) + 1,
+        };
+
+        setQueryData(["event", eventId], updatedEvent);
+      }
+
+      // Return context with previous data for rollback
+      return { previousEvent };
     },
-    onError: (error: Error) => {
+    onError: (error, variables, context) => {
+      // Rollback to previous value on error
+      if (context?.previousEvent) {
+        setQueryData(["event", eventId], context.previousEvent);
+      }
       toast.error(error.message || "Failed to update RSVP. Please try again.");
+    },
+    onSuccess: () => {
+      // Refetch to ensure server state matches
+      refetch();
     },
   });
 

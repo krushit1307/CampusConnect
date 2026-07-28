@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 type QueryStatus = "pending" | "success" | "error";
 
@@ -8,38 +8,91 @@ interface UseQueryOptions<TData, TError> {
   enabled?: boolean;
 }
 
+// Simple in-memory cache
+const queryCache = new Map<string, { data: unknown; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Cache helpers
+export function getQueryData<T>(queryKey: unknown[]): T | undefined {
+  const key = JSON.stringify(queryKey);
+  const cached = queryCache.get(key);
+  if (!cached) return undefined;
+  if (Date.now() - cached.timestamp > CACHE_TTL) {
+    queryCache.delete(key);
+    return undefined;
+  }
+  return cached.data as T;
+}
+
+export function setQueryData(queryKey: unknown[], data: unknown): void {
+  const key = JSON.stringify(queryKey);
+  queryCache.set(key, { data, timestamp: Date.now() });
+}
+
+export function invalidateQueries(predicate?: (key: string) => boolean): void {
+  if (predicate) {
+    for (const key of queryCache.keys()) {
+      if (predicate(key)) {
+        queryCache.delete(key);
+      }
+    }
+  } else {
+    queryCache.clear();
+  }
+}
+
 export function useQuery<TData, TError = Error>({
   queryKey,
   queryFn,
   enabled = true,
 }: UseQueryOptions<TData, TError>) {
-  const [data, setData] = useState<TData | undefined>(undefined);
+  const [data, setData] = useState<TData | undefined>(() => getQueryData<TData>(queryKey));
   const [error, setError] = useState<TError | null>(null);
   const [status, setStatus] = useState<QueryStatus>("pending");
   const [isFetching, setIsFetching] = useState(false);
 
   const queryKeyString = JSON.stringify(queryKey);
+  const mountedRef = useRef(true);
 
   const fetchQuery = useCallback(async () => {
-    if (!enabled) return;
+    if (!enabled || !mountedRef.current) return;
     setIsFetching(true);
     setStatus("pending");
     try {
       const result = await queryFn();
-      setData(result);
-      setStatus("success");
-      setError(null);
+      if (mountedRef.current) {
+        setData(result);
+        setQueryData(queryKey, result);
+        setStatus("success");
+        setError(null);
+      }
     } catch (err) {
-      setError(err as TError);
-      setStatus("error");
+      if (mountedRef.current) {
+        setError(err as TError);
+        setStatus("error");
+      }
     } finally {
-      setIsFetching(false);
+      if (mountedRef.current) {
+        setIsFetching(false);
+      }
     }
-  }, [queryKeyString, enabled]); // Serialize queryKey to avoid infinite loops
+  }, [queryKeyString, enabled, queryKey, queryFn]); // Serialize queryKey to avoid infinite loops
 
   useEffect(() => {
-    fetchQuery();
-  }, [fetchQuery]);
+    mountedRef.current = true;
+    // Check cache first
+    const cached = getQueryData<TData>(queryKey);
+    if (cached && enabled) {
+      setData(cached);
+      setStatus("success");
+      setIsFetching(false);
+    } else {
+      fetchQuery();
+    }
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [queryKeyString, enabled]); // Only refetch when queryKey or enabled changes
 
   return {
     data,
@@ -57,10 +110,12 @@ export function useMutation<TData, TError = Error, TVariables = void, TContext =
   mutationFn,
   onSuccess,
   onError,
+  onMutate,
 }: {
   mutationFn: (variables: TVariables) => Promise<TData>;
   onSuccess?: (data: TData, variables: TVariables, context: TContext | undefined) => void;
   onError?: (error: TError, variables: TVariables, context: TContext | undefined) => void;
+  onMutate?: (variables: TVariables) => TContext | Promise<TContext>;
 }) {
   const [data, setData] = useState<TData | undefined>(undefined);
   const [error, setError] = useState<TError | null>(null);
@@ -69,14 +124,21 @@ export function useMutation<TData, TError = Error, TVariables = void, TContext =
   const mutateAsync = async (variables: TVariables): Promise<TData> => {
     setIsPending(true);
     setError(null);
+    let context: TContext | undefined = undefined;
+
     try {
+      // Run onMutate for optimistic updates
+      if (onMutate) {
+        context = await onMutate(variables);
+      }
+
       const result = await mutationFn(variables);
       setData(result);
-      if (onSuccess) onSuccess(result, variables, undefined);
+      if (onSuccess) onSuccess(result, variables, context);
       return result;
     } catch (err) {
       setError(err as TError);
-      if (onError) onError(err as TError, variables, undefined);
+      if (onError) onError(err as TError, variables, context);
       throw err;
     } finally {
       setIsPending(false);
@@ -119,6 +181,7 @@ export function useInfiniteQuery<TData, TError = Error>({
   const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [nextPageParam, setNextPageParam] = useState<number | undefined>(initialPageParam);
+  const mountedRef = useRef(true);
 
   const fetchPage = useCallback(
     async (param: number, isNext: boolean) => {
@@ -127,23 +190,45 @@ export function useInfiniteQuery<TData, TError = Error>({
 
       try {
         const data = await queryFn({ pageParam: param });
-        setPages((prev) => (isNext ? [...prev, data] : [data]));
-        const next = getNextPageParam(data, isNext ? [...pages, data] : [data]);
-        setNextPageParam(next);
-        setHasNextPage(next !== undefined);
-        setError(null);
+        if (mountedRef.current) {
+          setPages((prev) => (isNext ? [...prev, data] : [data]));
+          const next = getNextPageParam(data, isNext ? [...pages, data] : [data]);
+          setNextPageParam(next);
+          setHasNextPage(next !== undefined);
+          setError(null);
+          // Cache the pages
+          setQueryData(queryKey, { pages: isNext ? [...pages, data] : [data] });
+        }
       } catch (err) {
-        setError(err as TError);
+        if (mountedRef.current) {
+          setError(err as TError);
+        }
       } finally {
-        if (isNext) setIsFetchingNextPage(false);
-        else setIsFetching(false);
+        if (mountedRef.current) {
+          if (isNext) setIsFetchingNextPage(false);
+          else setIsFetching(false);
+        }
       }
     },
-    [queryFn, getNextPageParam, pages],
+    [queryFn, getNextPageParam, pages, queryKey],
   );
 
   useEffect(() => {
-    fetchPage(initialPageParam, false);
+    mountedRef.current = true;
+    // Check cache first
+    const cached = getQueryData<{ pages: TData[] }>(queryKey);
+    if (cached) {
+      setPages(cached.pages);
+      const lastPage = cached.pages[cached.pages.length - 1];
+      const next = getNextPageParam(lastPage, cached.pages);
+      setNextPageParam(next);
+      setHasNextPage(next !== undefined);
+    } else {
+      fetchPage(initialPageParam, false);
+    }
+    return () => {
+      mountedRef.current = false;
+    };
   }, []); // Only fetch initial on mount
 
   const fetchNextPage = useCallback(() => {

@@ -1,5 +1,5 @@
 import { FeedPostSkeleton } from "@/components/FeedPostSkeleton";
-import { useMutation, useQuery, useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
+import { useMutation, useQuery, useInfiniteQuery, setQueryData, invalidateQueries } from "@/hooks/useReactQueryReplacement";
 import type { User } from "@supabase/supabase-js";
 import {
   Link2,
@@ -317,7 +317,55 @@ export default function Feed() {
         if (error) throw error;
       }
     },
-    onSuccess: () => refetchPosts(),
+    onMutate: async ({ postId, emoji, isReacted }) => {
+      // Cancel any outgoing refetches
+      // (not needed in this custom implementation, but kept for pattern consistency)
+
+      // Snapshot the previous value
+      const previousData = data?.pages.flatMap((page) => page.posts) ?? [];
+
+      // Optimistically update the cache
+      const updatedPosts = previousData.map((post) => {
+        if (post.id === postId) {
+          const postReactions: PostReaction[] = Array.isArray(post.post_reactions)
+            ? post.post_reactions
+            : [];
+          if (isReacted) {
+            // Remove reaction optimistically
+            return {
+              ...post,
+              post_reactions: postReactions.filter(
+                (r) => !(r.emoji === emoji && r.user_id === user?.id),
+              ),
+            };
+          } else {
+            // Add reaction optimistically
+            return {
+              ...post,
+              post_reactions: [...postReactions, { emoji, user_id: user?.id || "" }],
+            };
+          }
+        }
+        return post;
+      });
+
+      // Update cache with optimistic data
+      setQueryData(["posts"], { pages: [{ posts: updatedPosts }] });
+
+      // Return context with previous data for rollback
+      return { previousData };
+    },
+    onError: (error, variables, context) => {
+      // Rollback to previous value on error
+      if (context?.previousData) {
+        setQueryData(["posts"], { pages: [{ posts: context.previousData }] });
+      }
+      toast.error(error.message || "Failed to update reaction. Please try again.");
+    },
+    onSuccess: () => {
+      // Refetch to ensure server state matches
+      refetchPosts();
+    },
   });
 
   const deletePostMutation = useMutation({
