@@ -162,7 +162,8 @@ const router = createBrowserRouter(
         <Route
           path="/calendar"
           element={
-            <Suspense fallback={<RemoteLoadingScreen />}>
+            <Suspense fallback={<PageFallback />}>
+              {" "}
               <GlobalCalendar />
             </Suspense>
           }
@@ -256,7 +257,7 @@ export default function App() {
         <div className="fixed bottom-4 right-4 z-[9999]">
           <ThemeToggle />
         </div>
-        
+
         <RouterProvider router={router} />
       </ErrorBoundary>
     </QueryClientProvider>

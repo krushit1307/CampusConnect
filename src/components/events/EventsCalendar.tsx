@@ -85,27 +85,24 @@ function getCategoryClass(category: string) {
 export default function EventsCalendar({ events }: EventsCalendarProps) {
   const [view, setView] = useState<View>("month");
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
+  const formattedEvents: CalendarEvent[] = events
+    .filter((event) => event.start_date || event.event_date)
+    .map((event) => {
+      const start = new Date(event.start_date ?? event.event_date!);
 
-  const formattedEvents: CalendarEvent[] = events.map((event) => {
-    const start = event.start_date
-      ? new Date(event.start_date)
-      : event.event_date
-        ? new Date(event.event_date)
-        : new Date();
+      const end = event.end_date
+        ? new Date(event.end_date)
+        : new Date(start.getTime() + 60 * 60 * 1000);
 
-    const end = event.end_date
-      ? new Date(event.end_date)
-      : new Date(start.getTime() + 60 * 60 * 1000);
-
-    return {
-      id: event.short_id || event.id,
-      title: event.title,
-      start,
-      end,
-      allDay: false,
-      resource: event,
-    };
-  });
+      return {
+        id: event.short_id || event.id,
+        title: event.title,
+        start,
+        end,
+        allDay: false,
+        resource: event,
+      };
+    });
 
   const selectedStart = selectedEvent
     ? new Date(selectedEvent.start_date ?? selectedEvent.event_date ?? "")
