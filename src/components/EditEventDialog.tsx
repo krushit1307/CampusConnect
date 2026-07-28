@@ -250,7 +250,6 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
 
               <FormField
                 control={form.control}
-<<<<<<< HEAD
                 name="category"
                 render={({ field }) => (
                   <FormItem>
@@ -269,7 +268,12 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                         ))}
                       </SelectContent>
                     </Select>
-=======
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
                 name="tags"
                 render={({ field }) => (
                   <FormItem>
@@ -283,7 +287,6 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                         placeholder="Select or type event tags (e.g. #Tech, #Career)..."
                       />
                     </FormControl>
->>>>>>> upstream/main
                     <FormMessage />
                   </FormItem>
                 )}
