@@ -1,6 +1,33 @@
+import { createPubSub } from "@graphql-yoga/subscription";
 import { createClient } from "../../src/lib/supabase/client";
 
 const supabase = createClient();
+
+// ── PubSub for GraphQL Subscriptions ──
+// Keyed by channel name → topic (userId) for per-user delivery.
+export const pubsub = createPubSub<{
+  NOTIFICATION_RECEIVED: [userId: string, payload: NotificationRecord];
+}>();
+
+// ── Notification Record Interface ──
+export interface NotificationRecord {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  message: string;
+  link: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+/**
+ * Publish a notification so any active subscription for that user receives it.
+ * Call this from server-side triggers (e.g. mention detector, event update handler).
+ */
+export function publishNotification(notification: NotificationRecord): void {
+  pubsub.publish("NOTIFICATION_RECEIVED", notification.user_id, notification);
+}
 
 // ── Lightweight Batch Loader Class ──
 
@@ -206,6 +233,29 @@ export const typeDefs = /* GraphQL */ `
     totalCount: Int!
   }
 
+  """
+  Notification types emitted via GraphQL Subscriptions.
+  """
+  enum NotificationType {
+    MENTION
+    EVENT_UPDATE
+    GENERIC
+  }
+
+  """
+  A notification delivered to a specific user.
+  """
+  type Notification {
+    id: ID!
+    userId: ID!
+    type: NotificationType!
+    title: String!
+    message: String!
+    link: String
+    isRead: Boolean!
+    createdAt: String!
+  }
+
   type Query {
     posts(limit: Int, offset: Int): [Post!]!
     post(id: ID!): Post
@@ -218,6 +268,15 @@ export const typeDefs = /* GraphQL */ `
 
   type Mutation {
     suspendUsers(ids: [ID!]!): [Profile!]!
+  }
+
+  """
+  Subscribe to real-time notifications for a specific user.
+  Clients receive events when they are mentioned in discussions
+  or when an event they RSVP'd to is updated.
+  """
+  type Subscription {
+    notificationReceived(userId: ID!): Notification!
   }
 `;
 
@@ -381,4 +440,56 @@ export const resolvers = {
       return parent.created_by ? profileLoader.load(parent.created_by) : null;
     },
   },
+
+  Subscription: {
+    notificationReceived: {
+      /**
+       * subscribe() returns an AsyncIterable that yields each notification
+       * published to the NOTIFICATION_RECEIVED channel for this userId.
+       *
+       * GraphQL Yoga + @graphql-yoga/subscription handles SSE transport
+       * automatically — no additional WebSocket configuration required.
+       */
+      subscribe: (_: unknown, { userId }: { userId: string }) =>
+        pubsub.subscribe("NOTIFICATION_RECEIVED", userId),
+
+      /**
+       * resolve() maps the raw NotificationRecord (snake_case from Supabase)
+       * to the GraphQL Notification type (camelCase fields).
+       */
+      resolve: (payload: NotificationRecord) => ({
+        id: payload.id,
+        userId: payload.user_id,
+        type: mapNotificationType(payload.type),
+        title: payload.title,
+        message: payload.message,
+        link: payload.link ?? null,
+        isRead: payload.is_read,
+        createdAt: payload.created_at,
+      }),
+    },
+  },
+
+  /**
+   * Notification field resolvers for camelCase ↔ snake_case mapping.
+   * These handle the case when Notification is returned in other Query fields.
+   */
+  Notification: {
+    userId: (parent: NotificationRecord) => parent.user_id,
+    isRead: (parent: NotificationRecord) => parent.is_read,
+    createdAt: (parent: NotificationRecord) => parent.created_at,
+    type: (parent: NotificationRecord) => mapNotificationType(parent.type),
+  },
 };
+
+// ── Notification type mapper ──
+
+/**
+ * Maps raw `type` string from the notifications table to the
+ * GraphQL NotificationType enum value.
+ */
+function mapNotificationType(type: string): "MENTION" | "EVENT_UPDATE" | "GENERIC" {
+  if (type === "mention") return "MENTION";
+  if (type === "event_update") return "EVENT_UPDATE";
+  return "GENERIC";
+}
