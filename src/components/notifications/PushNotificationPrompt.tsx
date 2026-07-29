@@ -1,23 +1,23 @@
 /**
  * PushNotificationPrompt Component
- * 
+ *
  * A clean, non-intrusive UI prompt that asks the user to enable Web Push Notifications
  * for direct messages. It respects user choice and persists the dismissal state.
  */
 
-import * as React from 'react';
-import { Bell, X, Check } from 'lucide-react';
-import { isPushSupported, subscribeToPushNotifications } from '../../lib/push-notifications';
+import * as React from "react";
+import { Bell, X, Check } from "lucide-react";
+import { isPushSupported, subscribeToPushNotifications } from "../../lib/push-notifications";
 
 export const PushNotificationPrompt: React.FC = () => {
   const [showPrompt, setShowPrompt] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
 
   React.useEffect(() => {
     // Check if the user has already dismissed the prompt or enabled notifications
-    const hasSeenPrompt = localStorage.getItem('cc_push_prompt_seen');
-    const isSubscribed = localStorage.getItem('cc_push_subscribed');
+    const hasSeenPrompt = localStorage.getItem("cc_push_prompt_seen");
+    const isSubscribed = localStorage.getItem("cc_push_subscribed");
 
     if (!hasSeenPrompt && !isSubscribed && isPushSupported()) {
       // Show prompt after a short delay to not interrupt initial load
@@ -29,13 +29,13 @@ export const PushNotificationPrompt: React.FC = () => {
   const handleEnable = async () => {
     setIsLoading(true);
     const result = await subscribeToPushNotifications();
-    
+
     if (result.success) {
-      setStatus('success');
-      localStorage.setItem('cc_push_subscribed', 'true');
+      setStatus("success");
+      localStorage.setItem("cc_push_subscribed", "true");
       setTimeout(() => setShowPrompt(false), 2000);
     } else {
-      setStatus('error');
+      setStatus("error");
       console.error(result.error);
     }
     setIsLoading(false);
@@ -43,7 +43,7 @@ export const PushNotificationPrompt: React.FC = () => {
 
   const handleDismiss = () => {
     setShowPrompt(false);
-    localStorage.setItem('cc_push_prompt_seen', 'true');
+    localStorage.setItem("cc_push_prompt_seen", "true");
   };
 
   if (!showPrompt) return null;
@@ -60,7 +60,8 @@ export const PushNotificationPrompt: React.FC = () => {
               Never miss a message
             </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Enable push notifications to get alerts for new direct messages, even when the app is closed.
+              Enable push notifications to get alerts for new direct messages, even when the app is
+              closed.
             </p>
           </div>
         </div>
@@ -83,19 +84,20 @@ export const PushNotificationPrompt: React.FC = () => {
         </button>
         <button
           onClick={handleEnable}
-          disabled={isLoading || status === 'success'}
+          disabled={isLoading || status === "success"}
           className={`
             flex items-center space-x-1 px-3 py-1.5 text-xs font-medium text-white rounded-md transition-colors
-            ${status === 'success' 
-              ? 'bg-green-600 hover:bg-green-700' 
-              : 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600'
+            ${
+              status === "success"
+                ? "bg-green-600 hover:bg-green-700"
+                : "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
             }
-            ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}
+            ${isLoading ? "opacity-70 cursor-not-allowed" : ""}
           `}
         >
           {isLoading ? (
             <span className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-          ) : status === 'success' ? (
+          ) : status === "success" ? (
             <>
               <Check className="h-3 w-3" />
               <span>Enabled</span>
@@ -106,7 +108,7 @@ export const PushNotificationPrompt: React.FC = () => {
         </button>
       </div>
 
-      {status === 'error' && (
+      {status === "error" && (
         <p className="mt-2 text-xs text-red-500 dark:text-red-400">
           Failed to enable. Please check your browser settings.
         </p>

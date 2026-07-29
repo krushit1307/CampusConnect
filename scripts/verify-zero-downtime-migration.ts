@@ -14,7 +14,9 @@ export async function verifyZeroDowntimeMigration() {
   ];
 
   for (const step of phases) {
-    console.log(`[Phase ${step.phase}]: ${step.name} -> ${step.status} (${step.lockDurationMs}ms lock)`);
+    console.log(
+      `[Phase ${step.phase}]: ${step.name} -> ${step.status} (${step.lockDurationMs}ms lock)`,
+    );
     if (step.lockDurationMs > 3000) {
       throw new Error(`Lock duration exceeded 3000ms limit in phase ${step.phase}!`);
     }

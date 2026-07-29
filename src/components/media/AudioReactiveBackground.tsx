@@ -1,9 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import {
-  ShaderPipeline,
-  ShaderPreset,
-  AudioData,
-} from "@/lib/webgl/shaderPipeline";
+import { ShaderPipeline, ShaderPreset, AudioData } from "@/lib/webgl/shaderPipeline";
 import {
   Mic,
   Upload,
@@ -48,7 +44,9 @@ export const AudioReactiveBackground: React.FC<AudioReactiveBackgroundProps> = (
   // Audio Context & Analyser refs
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const sourceNodeRef = useRef<MediaStreamAudioSourceNode | MediaElementAudioSourceNode | null>(null);
+  const sourceNodeRef = useRef<MediaStreamAudioSourceNode | MediaElementAudioSourceNode | null>(
+    null,
+  );
   const micStreamRef = useRef<MediaStream | null>(null);
 
   // State
@@ -72,7 +70,7 @@ export const AudioReactiveBackground: React.FC<AudioReactiveBackgroundProps> = (
       if (canvasRef.current && pipelineRef.current) {
         pipelineRef.current.resize(
           canvasRef.current.parentElement?.clientWidth || window.innerWidth,
-          canvasRef.current.parentElement?.clientHeight || window.innerHeight
+          canvasRef.current.parentElement?.clientHeight || window.innerHeight,
         );
       }
     };
@@ -96,7 +94,9 @@ export const AudioReactiveBackground: React.FC<AudioReactiveBackgroundProps> = (
   // Audio analyzer setup
   const initAudioContext = useCallback(() => {
     if (!audioCtxRef.current) {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       audioCtxRef.current = new AudioCtx();
     }
     if (audioCtxRef.current.state === "suspended") {
@@ -251,7 +251,7 @@ export const AudioReactiveBackground: React.FC<AudioReactiveBackgroundProps> = (
     <div
       className={cn(
         "relative w-full h-full min-h-[350px] overflow-hidden rounded-xl bg-slate-950 border border-slate-800 shadow-2xl",
-        className
+        className,
       )}
     >
       <canvas
@@ -279,9 +279,7 @@ export const AudioReactiveBackground: React.FC<AudioReactiveBackgroundProps> = (
               <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-purple-400" />
-                  <span className="text-sm font-semibold text-slate-100">
-                    Shader Visualizer
-                  </span>
+                  <span className="text-sm font-semibold text-slate-100">Shader Visualizer</span>
                 </div>
                 <span className="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
                   60 FPS GPU
@@ -290,13 +288,8 @@ export const AudioReactiveBackground: React.FC<AudioReactiveBackgroundProps> = (
 
               {/* Preset Selector */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-slate-400">
-                  GLSL Preset
-                </label>
-                <Select
-                  value={preset}
-                  onValueChange={(v) => setPreset(v as ShaderPreset)}
-                >
+                <label className="text-xs font-medium text-slate-400">GLSL Preset</label>
+                <Select value={preset} onValueChange={(v) => setPreset(v as ShaderPreset)}>
                   <SelectTrigger className="bg-slate-800/80 border-slate-700 text-xs text-slate-200">
                     <SelectValue placeholder="Select Shader" />
                   </SelectTrigger>
@@ -311,9 +304,7 @@ export const AudioReactiveBackground: React.FC<AudioReactiveBackgroundProps> = (
 
               {/* Source Selector */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-slate-400">
-                  Audio Source
-                </label>
+                <label className="text-xs font-medium text-slate-400">Audio Source</label>
                 <div className="grid grid-cols-3 gap-1.5">
                   <Button
                     size="sm"
@@ -323,7 +314,7 @@ export const AudioReactiveBackground: React.FC<AudioReactiveBackgroundProps> = (
                       "text-xs px-2 h-8",
                       sourceType === "demo"
                         ? "bg-purple-600 hover:bg-purple-700 text-white"
-                        : "bg-slate-800 border-slate-700 text-slate-300"
+                        : "bg-slate-800 border-slate-700 text-slate-300",
                     )}
                   >
                     Demo
@@ -337,7 +328,7 @@ export const AudioReactiveBackground: React.FC<AudioReactiveBackgroundProps> = (
                       "text-xs px-2 h-8 gap-1",
                       sourceType === "microphone"
                         ? "bg-purple-600 hover:bg-purple-700 text-white"
-                        : "bg-slate-800 border-slate-700 text-slate-300"
+                        : "bg-slate-800 border-slate-700 text-slate-300",
                     )}
                   >
                     <Mic className="w-3 h-3 text-cyan-400" /> Mic
@@ -355,7 +346,7 @@ export const AudioReactiveBackground: React.FC<AudioReactiveBackgroundProps> = (
                         "inline-flex items-center justify-center rounded-md text-xs font-medium h-8 w-full border px-2 gap-1 transition-colors",
                         sourceType === "file"
                           ? "bg-purple-600 border-purple-500 text-white"
-                          : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
+                          : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700",
                       )}
                     >
                       <Upload className="w-3 h-3 text-emerald-400" /> File

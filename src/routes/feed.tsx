@@ -1,5 +1,11 @@
 import { FeedPostSkeleton } from "@/components/FeedPostSkeleton";
-import { useMutation, useQuery, useInfiniteQuery, setQueryData, invalidateQueries } from "@/hooks/useReactQueryReplacement";
+import {
+  useMutation,
+  useQuery,
+  useInfiniteQuery,
+  setQueryData,
+  invalidateQueries,
+} from "@/hooks/useReactQueryReplacement";
 import { CommentThreadSkeleton } from "@/components/Feed/CommentSkeleton";
 import { DiscussionEmptyState } from "@/components/Feed/DiscussionEmptyState";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
@@ -875,7 +881,9 @@ export default function Feed() {
                     className="hidden"
                   />
 
-                  <AnimatedTooltip content={!emailVerified ? "Please verify your email to post" : null}>
+                  <AnimatedTooltip
+                    content={!emailVerified ? "Please verify your email to post" : null}
+                  >
                     <button
                       type="button"
                       onClick={() => {

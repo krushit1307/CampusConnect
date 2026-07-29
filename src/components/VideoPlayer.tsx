@@ -1,6 +1,6 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
-import * as Slider from '@radix-ui/react-slider';
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize } from 'lucide-react';
+import React, { useRef, useState, useEffect, useCallback } from "react";
+import * as Slider from "@radix-ui/react-slider";
+import { Play, Pause, Volume2, VolumeX, Maximize, Minimize } from "lucide-react";
 
 interface VideoPlayerProps {
   src: string;
@@ -63,21 +63,30 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) 
   };
 
   // Skip Forward/Backward (5s) for Keyboard Shortcuts
-  const handleSeekBy = useCallback((seconds: number) => {
-    if (!videoRef.current) return;
-    const newTime = Math.min(Math.max(videoRef.current.currentTime + seconds, 0), duration);
-    videoRef.current.currentTime = newTime;
-    setProgress(newTime);
-  }, [duration]);
+  const handleSeekBy = useCallback(
+    (seconds: number) => {
+      if (!videoRef.current) return;
+      const newTime = Math.min(Math.max(videoRef.current.currentTime + seconds, 0), duration);
+      videoRef.current.currentTime = newTime;
+      setProgress(newTime);
+    },
+    [duration],
+  );
 
   // Fullscreen Toggle using standard Fullscreen API
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
 
     if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(console.error);
+      containerRef.current
+        .requestFullscreen()
+        .then(() => setIsFullscreen(true))
+        .catch(console.error);
     } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(console.error);
+      document
+        .exitFullscreen()
+        .then(() => setIsFullscreen(false))
+        .catch(console.error);
     }
   };
 
@@ -86,28 +95,28 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) 
     if (isNaN(timeInSeconds)) return "0:00";
     const minutes = Math.floor(timeInSeconds / 60);
     const seconds = Math.floor(timeInSeconds % 60);
-    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   };
 
   // Keyboard Navigation: Space (Play/Pause), Left/Right Arrows (Seeking)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+      if (["INPUT", "TEXTAREA"].includes((e.target as HTMLElement)?.tagName)) return;
 
-      if (e.code === 'Space') {
+      if (e.code === "Space") {
         e.preventDefault();
         togglePlay();
-      } else if (e.code === 'ArrowLeft') {
+      } else if (e.code === "ArrowLeft") {
         e.preventDefault();
         handleSeekBy(-5);
-      } else if (e.code === 'ArrowRight') {
+      } else if (e.code === "ArrowRight") {
         e.preventDefault();
         handleSeekBy(5);
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [togglePlay, handleSeekBy]);
 
   return (
@@ -119,9 +128,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) 
     >
       {/* Title Overlay */}
       {title && (
-        <div className={`absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 to-transparent z-10 pointer-events-none transition-opacity duration-300 ${
-          showControls || !isPlaying ? 'opacity-100' : 'opacity-0'
-        }`}>
+        <div
+          className={`absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 to-transparent z-10 pointer-events-none transition-opacity duration-300 ${
+            showControls || !isPlaying ? "opacity-100" : "opacity-0"
+          }`}
+        >
           <h2 className="text-sm font-semibold text-white truncate">{title}</h2>
         </div>
       )}
@@ -145,7 +156,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) 
       {/* Control Overlay Bar */}
       <div
         className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent transition-opacity duration-300 flex flex-col gap-2 z-10 ${
-          showControls || !isPlaying ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          showControls || !isPlaying ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
       >
         {/* Radix UI Timeline Scrubber */}
@@ -178,7 +189,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) 
               aria-label={isPlaying ? "Pause video" : "Play video"}
               className="p-1 hover:text-indigo-400 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 rounded"
             >
-              {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 fill-current" />}
+              {isPlaying ? (
+                <Pause className="w-6 h-6" />
+              ) : (
+                <Play className="w-6 h-6 fill-current" />
+              )}
             </button>
 
             {/* Volume Control */}
@@ -189,7 +204,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) 
                 aria-label={isMuted ? "Unmute audio" : "Mute audio"}
                 className="p-1 hover:text-indigo-400 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 rounded"
               >
-                {isMuted || volume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                {isMuted || volume === 0 ? (
+                  <VolumeX className="w-5 h-5" />
+                ) : (
+                  <Volume2 className="w-5 h-5" />
+                )}
               </button>
 
               <Slider.Root

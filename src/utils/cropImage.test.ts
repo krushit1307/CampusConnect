@@ -29,7 +29,7 @@ describe("cropImage Utility", () => {
     });
 
     const crop: Area = { x: 0, y: 0, width: 50, height: 50 };
-    
+
     // Stub global Image load
     vi.spyOn(globalThis, "Image").mockImplementation(() => {
       const img = {} as HTMLImageElement;

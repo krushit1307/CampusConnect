@@ -5,7 +5,7 @@
 
 export interface AudioData {
   bass: number; // 0.0 - 1.0 (Low frequencies)
-  mid: number;  // 0.0 - 1.0 (Mid frequencies)
+  mid: number; // 0.0 - 1.0 (Mid frequencies)
   treble: number; // 0.0 - 1.0 (High frequencies)
   fftArray: Float32Array | Uint8Array; // Raw FFT bins
 }
@@ -147,7 +147,7 @@ export const FRAGMENT_SHADERS: Record<ShaderPreset, string> = {
 
       gl_FragColor = vec4(color, 1.0);
     }
-  `
+  `,
 };
 
 export class ShaderPipeline {
@@ -171,7 +171,9 @@ export class ShaderPipeline {
   }
 
   private initWebGL() {
-    this.gl = this.canvas.getContext("webgl") || (this.canvas.getContext("experimental-webgl") as WebGLRenderingContext | null);
+    this.gl =
+      this.canvas.getContext("webgl") ||
+      (this.canvas.getContext("experimental-webgl") as WebGLRenderingContext | null);
     if (!this.gl) {
       console.warn("WebGL not supported on this context");
       return;
@@ -180,14 +182,7 @@ export class ShaderPipeline {
     // Set up full-screen quad buffer
     this.positionBuffer = this.gl.createBuffer();
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer);
-    const positions = new Float32Array([
-      -1, -1,
-       1, -1,
-      -1,  1,
-      -1,  1,
-       1, -1,
-       1,  1,
-    ]);
+    const positions = new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]);
     this.gl.bufferData(this.gl.ARRAY_BUFFER, positions, this.gl.STATIC_DRAW);
   }
 

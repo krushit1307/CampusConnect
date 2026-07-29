@@ -247,19 +247,19 @@ export default function App() {
   }
 
   return (
-<ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-  <TooltipProvider>
-    <QueryClientProvider client={queryClient}>
-      <ErrorBoundary>
-        {/* Floating Dark Mode Toggle */}
-        <div className="fixed bottom-4 right-4 z-[9999]">
-          <ThemeToggle />
-        </div>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <TooltipProvider>
+        <QueryClientProvider client={queryClient}>
+          <ErrorBoundary>
+            {/* Floating Dark Mode Toggle */}
+            <div className="fixed bottom-4 right-4 z-[9999]">
+              <ThemeToggle />
+            </div>
 
-        <RouterProvider router={router} />
-      </ErrorBoundary>
-    </QueryClientProvider>
-  </TooltipProvider>
-</ThemeProvider>
+            <RouterProvider router={router} />
+          </ErrorBoundary>
+        </QueryClientProvider>
+      </TooltipProvider>
+    </ThemeProvider>
   );
 }
