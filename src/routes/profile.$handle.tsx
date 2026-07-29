@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MapPin, Link2, Calendar, Award, Building, CalendarPlus, ArrowRight } from "lucide-react";
 import { NotFoundPage } from "@/components/NotFoundPage";
 import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
+import { UserProfileSkeleton } from "@/components/UserProfileSkeleton";
 
 function getInitials(name: string) {
   return name
@@ -15,28 +16,6 @@ function getInitials(name: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
-}
-
-function Bone({ className = "" }: { className?: string }) {
-  return <div className={`animate-pulse rounded-none bg-black/10 ${className}`} />;
-}
-
-function ProfileSkeleton() {
-  return (
-    <SiteShell>
-      <section className="border-b-2 border-black bg-cream px-4 py-14 md:px-6">
-        <div className="mx-auto max-w-4xl flex flex-col md:flex-row items-center md:items-start gap-8">
-          <Bone className="h-32 w-32 rounded-full border-4 border-black" />
-          <div className="flex-1 text-center md:text-left">
-            <Bone className="h-10 w-48 mb-2 mx-auto md:mx-0" />
-            <Bone className="h-4 w-32 mb-4 mx-auto md:mx-0" />
-            <Bone className="h-4 w-64 mb-2 mx-auto md:mx-0" />
-            <Bone className="h-4 w-56 mx-auto md:mx-0" />
-          </div>
-        </div>
-      </section>
-    </SiteShell>
-  );
 }
 
 export default function Profile() {
@@ -120,7 +99,7 @@ export default function Profile() {
     enabled: !!profile?.id,
   });
 
-  if (isLoading) return <ProfileSkeleton />;
+  if (isLoading) return <UserProfileSkeleton />;
   if (isError || !profile) return <NotFoundPage />;
 
   return (
