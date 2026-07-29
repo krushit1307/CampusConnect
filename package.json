@@ -20,6 +20,7 @@
     "format": "prettier --write .",
     "test": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",
+    "test:integration": "vitest run --config vitest.config.integration.ts",
     "test:e2e": "playwright test",
     "test:edge": "deno test --allow-env --allow-net --allow-read supabase/functions",
     "test:cypress": "cypress run",
