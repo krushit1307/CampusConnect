@@ -3,8 +3,10 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MapPin, Link2, Calendar, Award, Building } from "lucide-react";
+import { MapPin, Link2, Calendar, Award, Building, CalendarPlus, ArrowRight } from "lucide-react";
 import { NotFoundPage } from "@/components/NotFoundPage";
+import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
+import { UserProfileSkeleton } from "@/components/UserProfileSkeleton";
 
 function getInitials(name: string) {
   return name
@@ -14,28 +16,6 @@ function getInitials(name: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
-}
-
-function Bone({ className = "" }: { className?: string }) {
-  return <div className={`animate-pulse rounded-none bg-black/10 ${className}`} />;
-}
-
-function ProfileSkeleton() {
-  return (
-    <SiteShell>
-      <section className="border-b-2 border-black bg-cream px-4 py-14 md:px-6">
-        <div className="mx-auto max-w-4xl flex flex-col md:flex-row items-center md:items-start gap-8">
-          <Bone className="h-32 w-32 rounded-full border-4 border-black" />
-          <div className="flex-1 text-center md:text-left">
-            <Bone className="h-10 w-48 mb-2 mx-auto md:mx-0" />
-            <Bone className="h-4 w-32 mb-4 mx-auto md:mx-0" />
-            <Bone className="h-4 w-64 mb-2 mx-auto md:mx-0" />
-            <Bone className="h-4 w-56 mx-auto md:mx-0" />
-          </div>
-        </div>
-      </section>
-    </SiteShell>
-  );
 }
 
 export default function Profile() {
@@ -103,6 +83,8 @@ export default function Profile() {
     enabled: !!profile?.id,
   });
 
+  const { presenceMap } = usePresence(profile?.id);
+
   const { data: certificates = [] } = useQuery({
     queryKey: ["profileCertificates", profile?.id],
     queryFn: async () => {
@@ -117,19 +99,27 @@ export default function Profile() {
     enabled: !!profile?.id,
   });
 
-  if (isLoading) return <ProfileSkeleton />;
+  if (isLoading) return <UserProfileSkeleton />;
   if (isError || !profile) return <NotFoundPage />;
 
   return (
     <SiteShell>
       <section className="border-b-2 border-black bg-cream px-4 py-12 md:px-6">
         <div className="mx-auto max-w-4xl flex flex-col md:flex-row items-center md:items-start gap-8">
-          <Avatar className="h-32 w-32 border-4 border-black rounded-full shrink-0">
-            <AvatarImage src={profile.avatar_url || undefined} className="object-cover" />
-            <AvatarFallback className="bg-lime text-3xl font-display font-bold">
-              {getInitials(profile.full_name || "Unknown User")}
-            </AvatarFallback>
-          </Avatar>
+          <div className="relative h-32 w-32 shrink-0">
+            <Avatar className="h-32 w-32 border-4 border-black rounded-full">
+              <AvatarImage src={profile.avatar_url || undefined} className="object-cover" />
+              <AvatarFallback className="bg-lime text-3xl font-display font-bold">
+                {getInitials(profile.full_name || "Unknown User")}
+              </AvatarFallback>
+            </Avatar>
+            <span className="absolute bottom-1 right-1 rounded-full border-2 border-white bg-white p-1">
+              <span
+                className={getPresenceBadgeClass(presenceMap[profile.id]?.status ?? "offline")}
+                aria-hidden="true"
+              />
+            </span>
+          </div>
 
           <div className="flex-1 text-center md:text-left space-y-4">
             <div>
@@ -142,7 +132,7 @@ export default function Profile() {
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 font-mono text-sm text-black">
               {profile.college && (
                 <div className="flex items-center gap-1.5">
-                  <MapPin size={16} className="text-[#F59E0B]" />
+                  <MapPin size={16} className="text-brand-amber-base" />
                   {profile.college}
                 </div>
               )}
@@ -226,7 +216,24 @@ export default function Profile() {
               <h2>Upcoming Events</h2>
             </div>
             {upcomingEvents.length === 0 ? (
-              <p className="font-mono text-sm text-gray-500">No upcoming events RSVP'd.</p>
+              <div className="neu-border neu-shadow-sm flex flex-col items-center gap-4 bg-cream p-8 text-center md:p-10">
+                <div className="neu-border inline-flex items-center justify-center bg-lime/40 p-4">
+                  <CalendarPlus size={32} className="text-black" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-display text-xl font-bold">No Events RSVP'd Yet</h3>
+                  <p className="mx-auto max-w-sm font-mono text-sm text-gray-600">
+                    No upcoming events RSVP&apos;d yet. Browse what&apos;s happening on campus and
+                    find something worth joining.
+                  </p>
+                </div>
+                <Link
+                  to="/events"
+                  className="neu-border neu-press inline-flex items-center gap-2 bg-black px-6 py-3 font-mono text-xs font-bold uppercase text-cream transition-colors hover:bg-lime hover:text-black"
+                >
+                  Browse Events <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
             ) : (
               <ul className="divide-y-2 divide-black">
                 {upcomingEvents.map(
@@ -272,7 +279,7 @@ export default function Profile() {
           {/* Certificates Section */}
           <div className="space-y-6">
             <div className="flex items-center gap-2 border-b-2 border-black pb-2 text-xl font-bold font-display">
-              <Award size={24} className="text-[#F59E0B]" />
+              <Award size={24} className="text-brand-amber-base" />
               <h2>Certificates</h2>
             </div>
             {certificates.length === 0 ? (

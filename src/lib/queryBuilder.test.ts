@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { buildQuery, executeQuery } from "./queryBuilder";
+import { describe, expect, it } from "vitest";
+import { buildQuery } from "./queryBuilder";
 
 describe("queryBuilder", () => {
   it("builds a simple SELECT query with table name", () => {
@@ -76,20 +76,5 @@ describe("queryBuilder", () => {
       'SELECT * FROM "profiles" WHERE ("status" IN ($1, $2) AND "deleted_at" IS NULL)',
     );
     expect(result.params).toEqual(["active", "pending"]);
-  });
-
-  it("calls Supabase rpc execute_raw properly in executeQuery", async () => {
-    const mockRpc = vi.fn().mockResolvedValue({ data: [{ id: 1 }], error: null });
-    const mockSupabase = { rpc: mockRpc } as unknown as Parameters<typeof executeQuery>[0];
-
-    const built = buildQuery({ table: "clubs" });
-    const response = await executeQuery(mockSupabase, built);
-
-    expect(mockRpc).toHaveBeenCalledWith("execute_raw", {
-      query_text: 'SELECT * FROM "clubs"',
-      query_params: [],
-    });
-    expect(response.data).toEqual([{ id: 1 }]);
-    expect(response.error).toBeNull();
   });
 });

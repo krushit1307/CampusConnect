@@ -14,7 +14,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req: Request) => {
+export const handler = async (req: Request) => {
   // Handle CORS
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -40,7 +40,14 @@ serve(async (req: Request) => {
     // The public signals typically contain:
     // [0]: nullifier hash (to prevent double voting)
     // [1]: election ID (to ensure proof is for this election)
-    const isValid = await snarkjs.groth16.verify(vKey, publicSignals, proof);
+    type SnarkJSGroth16 = {
+      groth16: {
+        verify: (vKey: unknown, publicSignals: unknown, proof: unknown) => Promise<boolean>;
+      };
+    };
+
+    const snark = snarkjs as unknown as SnarkJSGroth16;
+    const isValid = await snark.groth16.verify(vKey, publicSignals, proof);
     if (!isValid) {
       return new Response(JSON.stringify({ error: "Invalid ZKP proof" }), {
         status: 401,
@@ -97,4 +104,6 @@ serve(async (req: Request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-});
+};
+
+serve(handler);

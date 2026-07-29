@@ -1,6 +1,8 @@
+import { Link } from "react-router-dom";
+import { CalendarPlus } from "lucide-react";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { EventCard } from "@/components/EventCard";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
@@ -10,7 +12,8 @@ export default function DashboardRsvps() {
   const [supabase] = useState(() => createClient());
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
-
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
@@ -18,6 +21,13 @@ export default function DashboardRsvps() {
       }
     });
   }, [supabase]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Fetch events the user has RSVP'd to, including all RSVPs for total count
   const {
@@ -112,12 +122,37 @@ export default function DashboardRsvps() {
   const upcomingRsvps = events.filter((e) => e.event_date && e.event_date >= now);
   const pastRsvps = events.filter((e) => !e.event_date || e.event_date < now);
 
-  const displayedEvents = activeTab === "upcoming" ? upcomingRsvps : pastRsvps;
+  const displayedEvents = useMemo(() => {
+    const eventsToDisplay = activeTab === "upcoming" ? upcomingRsvps : pastRsvps;
+
+    const query = debouncedSearch.trim().toLowerCase();
+
+    if (!query) return eventsToDisplay;
+
+    return eventsToDisplay.filter((event) => {
+      const title = event.title?.toLowerCase() ?? "";
+      const location = event.location?.toLowerCase() ?? "";
+
+      return title.includes(query) || location.includes(query);
+    });
+  }, [activeTab, upcomingRsvps, pastRsvps, debouncedSearch]);
 
   if (!user) return null;
 
   return (
     <div className="space-y-6">
+      {/* Search Bar */}
+      <div className="max-w-md">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search RSVP'd events..."
+          aria-label="Search RSVP'd events"
+          className="neu-border w-full bg-white px-4 py-3 font-mono text-sm outline-none dark:bg-black"
+        />
+      </div>
+
       {/* Filtering Tabs */}
       <div className="flex gap-2 border-b-2 border-black pb-4 dark:border-cream">
         <button
@@ -147,15 +182,35 @@ export default function DashboardRsvps() {
       {isLoading ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <EventCardSkeleton key={i} />
+            <EventCardSkeleton key={i} index={i} />
           ))}
         </div>
       ) : displayedEvents.length === 0 ? (
-        <div className="neu-border bg-white p-8 text-center dark:bg-[#1a1a1a]">
-          <p className="font-mono text-sm text-gray-500 dark:text-gray-300">
-            No {activeTab} RSVPs found.
+        <section className="neu-border relative overflow-hidden bg-lavender px-6 py-14 text-center sm:px-10 dark:bg-brand-gray-base-800">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border-2 border-black bg-white shadow-[4px_4px_0_0_var(--color-ink)]">
+            <CalendarPlus aria-hidden="true" size={30} strokeWidth={2.5} />
+          </div>
+          <h3 className="mt-6 text-2xl font-black">
+            {debouncedSearch
+              ? "No matching RSVP events"
+              : activeTab === "upcoming"
+                ? "No upcoming RSVPs yet"
+                : "No past RSVPs yet"}
+          </h3>
+          <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-gray-700 dark:text-gray-300">
+            {debouncedSearch
+              ? "Try searching using a different event title or location."
+              : activeTab === "upcoming"
+                ? "You haven't RSVP'd to any upcoming events. Browse what's happening on campus and find something worth joining."
+                : "Events you've attended will show up here once they've passed."}
           </p>
-        </div>
+          <Link
+            to="/events"
+            className="neu-border neu-press mt-6 inline-flex bg-black px-5 py-3 font-mono text-xs font-bold uppercase tracking-wider text-cream"
+          >
+            Browse events →
+          </Link>
+        </section>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {displayedEvents.map((e, index) => (

@@ -1,17 +1,14 @@
-import { Skeleton } from "@/components/ui/skeleton";
-
+/**
+ * Skeleton loader displayed during auth hydration to prevent
+ * the flash of "Login/Signup" buttons before the user session is validated.
+ */
 export function ProfileHeaderSkeleton() {
   return (
-    <div className="animate-pulse" role="status" aria-live="polite">
-      <div className="flex items-center gap-4">
-        <Skeleton className="h-16 w-16 rounded-full" />
-        <div className="space-y-2">
-          <Skeleton className="h-3 w-24" />
-          <Skeleton className="h-8 w-56" />
-          <Skeleton className="h-3 w-44" />
-        </div>
-      </div>
-      <span className="sr-only">Loading profile...</span>
+    <div className="flex items-center gap-3">
+      {/* Pulsating circle for Avatar */}
+      <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
+      {/* Pulsating rectangle for Username/Chevron */}
+      <div className="hidden h-4 w-20 animate-pulse rounded bg-muted md:block" />
     </div>
   );
 }
