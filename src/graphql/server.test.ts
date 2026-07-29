@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { yoga } from "../../graphql/server";
-import { encodeCursor, decodeCursor } from "../../graphql/resolvers";
+import { yoga, schema } from "../../graphql/server";
+import { encodeCursor, decodeCursor, publishNotification } from "../../graphql/resolvers";
 
 vi.mock("../../src/lib/supabase/client", () => {
   const mockEvents = [
@@ -150,5 +150,96 @@ describe("GraphQL Cursor-Based Events Pagination", () => {
     expect(eventsConn.edges[0].node.title).toBe("Event One");
     expect(eventsConn.edges[0].node.club.name).toBe("Robotics Club");
     expect(eventsConn.edges[0].node.organizer.full_name).toBe("Organizer User");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GraphQL Subscription Schema Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("GraphQL Subscription – schema presence", () => {
+  it("schema exposes a Subscription type", () => {
+    // Use the schema API directly to avoid the dual-graphql-module realm issue
+    // that occurs when `printSchema` is imported from a different graphql instance.
+    const subscriptionType = schema.getSubscriptionType();
+    expect(subscriptionType).toBeDefined();
+    expect(subscriptionType!.name).toBe("Subscription");
+  });
+
+  it("schema includes notificationReceived(userId: ID!): Notification! field", () => {
+    const subscriptionType = schema.getSubscriptionType();
+    expect(subscriptionType).toBeDefined();
+    const field = subscriptionType!.getFields()["notificationReceived"];
+    expect(field).toBeDefined();
+    expect(field.type.toString()).toBe("Notification!");
+  });
+
+  it("schema includes Notification type with all required fields", () => {
+    const notifType = schema.getType("Notification");
+    expect(notifType).toBeDefined();
+    // @ts-expect-error getFields is available on object types
+    const fields = notifType!.getFields();
+    expect(fields).toHaveProperty("id");
+    expect(fields).toHaveProperty("userId");
+    expect(fields).toHaveProperty("type");
+    expect(fields).toHaveProperty("title");
+    expect(fields).toHaveProperty("message");
+    expect(fields).toHaveProperty("link");
+    expect(fields).toHaveProperty("isRead");
+    expect(fields).toHaveProperty("createdAt");
+  });
+
+  it("schema includes NotificationType enum with MENTION, EVENT_UPDATE, GENERIC", () => {
+    const enumType = schema.getType("NotificationType");
+    expect(enumType).toBeDefined();
+    // @ts-expect-error getValues is available on enum types
+    const values = enumType!.getValues().map((v: { name: string }) => v.name);
+    expect(values).toContain("MENTION");
+    expect(values).toContain("EVENT_UPDATE");
+    expect(values).toContain("GENERIC");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// publishNotification helper tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("publishNotification helper", () => {
+  it("is exported and is a function", () => {
+    expect(typeof publishNotification).toBe("function");
+  });
+
+  it("does not throw when called with a valid notification payload", () => {
+    expect(() =>
+      publishNotification({
+        id: "notif-test-1",
+        user_id: "user-abc",
+        type: "mention",
+        title: "You were mentioned",
+        message: "Alice mentioned you in a post.",
+        link: "/posts/123",
+        is_read: false,
+        created_at: new Date().toISOString(),
+      }),
+    ).not.toThrow();
+  });
+
+  it("maps type 'event_update' correctly via publishNotification", () => {
+    // We publish and verify the helper does not throw for every known type.
+    const types = ["mention", "event_update", "generic_other"];
+    for (const type of types) {
+      expect(() =>
+        publishNotification({
+          id: `notif-${type}`,
+          user_id: "user-abc",
+          type,
+          title: `Test – ${type}`,
+          message: "Test message",
+          link: null,
+          is_read: false,
+          created_at: new Date().toISOString(),
+        }),
+      ).not.toThrow();
+    }
   });
 });

@@ -46,10 +46,13 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { LazyImage } from "@/components/ui/LazyImage";
 import { parseCoordinates } from "@/lib/eventUtils";
+import { isCaptchaConfigured, shouldRequireCaptcha } from "@/lib/captcha";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
 import { ActivePoll } from "@/components/polls/ActivePoll";
-import LiveQA from "@/components/qa/LiveQA";
+import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
+import { CaptchaWidget } from "@/components/CaptchaWidget";
+
 interface SimilarEventItem {
   id: string;
   title: string;
@@ -191,6 +194,7 @@ export default function EventDetailsPage() {
   const [copied, setCopied] = useState(false);
   const [idCopied, setIdCopied] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | undefined>(undefined);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState("");
@@ -498,7 +502,15 @@ export default function EventDetailsPage() {
   });
 
   const toggleRsvp = useMutation({
-    mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
+    mutationFn: async ({
+      eventId,
+      hasRsvpd,
+      captchaToken,
+    }: {
+      eventId: string;
+      hasRsvpd: boolean;
+      captchaToken?: string;
+    }) => {
       if (!user) throw new Error("Please log in to RSVP");
       if (eventId.startsWith("mock-")) {
         return;
@@ -509,7 +521,7 @@ export default function EventDetailsPage() {
       } = await supabase.auth.getSession();
 
       const { error } = await supabase.functions.invoke("toggle-rsvp", {
-        body: { eventId, hasRsvpd },
+        body: { eventId, hasRsvpd, captchaToken },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
         },
@@ -588,6 +600,57 @@ export default function EventDetailsPage() {
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to export RSVP list.");
+    },
+  });
+
+  const checkInRsvp = useMutation({
+    mutationFn: async ({ rsvpId }: { rsvpId: string }) => {
+      if (!user) throw new Error("Please log in to check in attendees");
+      if (!event || eventId.startsWith("mock-")) {
+        return { alreadyCheckedIn: false };
+      }
+
+      const { data: existingRsvp, error: fetchError } = await supabase
+        .from("event_rsvps")
+        .select("checked_in")
+        .eq("id", rsvpId)
+        .eq("event_id", eventId)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+      if (existingRsvp?.checked_in) {
+        return { alreadyCheckedIn: true };
+      }
+
+      const { error } = await supabase
+        .from("event_rsvps")
+        .update({ checked_in: true })
+        .eq("id", rsvpId)
+        .eq("event_id", eventId);
+
+      if (error) throw error;
+
+      try {
+        await supabase.from("event_attendance_logs").insert({
+          rsvp_id: rsvpId,
+          recorded_by: user.id,
+        });
+      } catch {
+        // Attendance logging is optional if the table is unavailable in the current environment.
+      }
+
+      return { alreadyCheckedIn: false };
+    },
+    onSuccess: (result) => {
+      if (result?.alreadyCheckedIn) {
+        toast.success("This attendee is already checked in.");
+      } else {
+        toast.success("Attendee checked in successfully.");
+      }
+      refetch();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to check in attendee.");
     },
   });
 
@@ -905,6 +968,13 @@ export default function EventDetailsPage() {
     location: event.location || "",
   });
 
+  const captchaSiteKey =
+    import.meta.env.VITE_TURNSTILE_SITE_KEY || import.meta.env.VITE_HCAPTCHA_SITE_KEY;
+  const captchaSecretKey =
+    import.meta.env.VITE_TURNSTILE_SECRET_KEY || import.meta.env.VITE_HCAPTCHA_SECRET_KEY;
+  const captchaEnabled = isCaptchaConfigured(captchaSiteKey, captchaSecretKey);
+  const captchaProvider = import.meta.env.VITE_TURNSTILE_SITE_KEY ? "turnstile" : "hcaptcha";
+
   const handleRsvpClick = () => {
     if (!user) {
       toast.error("Please log in to RSVP");
@@ -918,7 +988,13 @@ export default function EventDetailsPage() {
       setConfirmOpen(true);
       return;
     }
-    toggleRsvp.mutate({ eventId: event.id, hasRsvpd: false });
+
+    if (captchaEnabled && !shouldRequireCaptcha(captchaSiteKey, captchaSecretKey, captchaToken)) {
+      toast.error("Please complete the CAPTCHA challenge to RSVP.");
+      return;
+    }
+
+    toggleRsvp.mutate({ eventId: event.id, hasRsvpd: false, captchaToken });
   };
 
   const handleCopyLink = async () => {
@@ -1156,14 +1232,32 @@ export default function EventDetailsPage() {
                 )}
               </div>
             ) : (
-              <Button
-                onClick={handleRsvpClick}
-                disabled={toggleRsvp.isPending}
-                variant="primary"
-                size="lg"
-              >
-                {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
-              </Button>
+              <div className="flex flex-col gap-1">
+                <Button
+                  onClick={handleRsvpClick}
+                  disabled={toggleRsvp.isPending}
+                  variant="primary"
+                  size="lg"
+                >
+                  {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
+                </Button>
+                {captchaEnabled && (
+                  <div className="flex flex-col gap-2">
+                    <span
+                      className={`font-mono text-xs font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
+                    >
+                      Verification required before RSVP
+                    </span>
+                    <CaptchaWidget
+                      siteKey={captchaSiteKey}
+                      provider={captchaProvider}
+                      onToken={(token) => setCaptchaToken(token)}
+                      onError={() => setCaptchaToken(undefined)}
+                      onExpire={() => setCaptchaToken(undefined)}
+                    />
+                  </div>
+                )}
+              </div>
             )}
             <span
               className={`font-mono text-sm font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
@@ -1608,6 +1702,26 @@ export default function EventDetailsPage() {
               <h2 className="font-display text-2xl font-black uppercase tracking-tight text-black mb-6">
                 Attendee Manager
               </h2>
+              <div className="mb-8 rounded-2xl border-4 border-black bg-white p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-display text-xl font-black uppercase tracking-tight text-black">
+                      QR Check-in
+                    </h3>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Verify a signed ticket from the camera or an uploaded image to mark the
+                      attendee as checked in.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-5">
+                  <SteganographicQRScanner
+                    onVerificationSuccess={(payload) => {
+                      checkInRsvp.mutate({ rsvpId: payload.rsvpId });
+                    }}
+                  />
+                </div>
+              </div>
               <DragDropContext onDragEnd={onDragEnd}>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {/* Waitlisted Column */}

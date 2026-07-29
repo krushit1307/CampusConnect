@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
-import { useMutation } from "@/hooks/useReactQueryReplacement";
+import { useMutation, useQuery } from "@/hooks/useReactQueryReplacement";
 import { useUndoableState } from "@/hooks/useUndoableState";
 import { Plus, MapPin, CalendarIcon, ChevronLeft, ChevronRight, Check, X } from "lucide-react";
 import { toast } from "sonner";
@@ -31,6 +31,13 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -59,6 +66,7 @@ interface LocalEventFormValues extends EventFormValues {
 const defaultValues: EventFormValues = {
   title: "",
   description: "",
+  category: "",
   location: "",
   startDate: "",
   endDate: "",
@@ -92,6 +100,20 @@ export function CreateEventDialog({
   const [step, setStep] = useState<Step>(0);
   const [clubId, setClubId] = useState<string | null>(null);
   const supabase = createClient();
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ["eventCategories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_categories")
+        .select("id, name")
+        .order("display_order", { ascending: true })
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data as { id: string; name: string }[];
+    },
+    staleTime: 1000 * 60 * 30,
+  });
 
   useEffect(() => {
     if (!user) return;
@@ -227,11 +249,10 @@ export function CreateEventDialog({
       const { error } = await supabase.from("events").insert({
         title: values.title.trim(),
         description: values.description.trim(),
+        category_id: values.category || null,
         location: values.location?.trim() || null,
         start_date: startDateIso,
         end_date: endDateIso,
-        // Kept in sync with start_date so existing views that still
-        // read event_date (e.g. EventCard, event ordering) keep working.
         event_date: startDateIso,
         created_by: user.id,
         club_id: clubId,
@@ -435,6 +456,30 @@ export function CreateEventDialog({
                       <FormControl>
                         <Textarea placeholder="What's this event about?" rows={4} {...field} />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel required>Category</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -726,8 +771,49 @@ export function CreateEventDialog({
               </div>
             )}
 
-            <FormField
-              control={form.control}
+            {/* Step 4 — Review (confirm) */}
+            {step === 3 && (
+              <>
+                <div className="neu-border space-y-3 bg-white p-4 font-mono text-sm">
+                  <p className="font-bold uppercase text-black/50 text-xs">Review your event</p>
+                  <div>
+                    <p className="text-xs text-black/40">Title</p>
+                    <p className="font-bold">{form.getValues("title")}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-black/40">Description</p>
+                    <p className="text-black/80">{form.getValues("description")}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-black/40">Category</p>
+                    <p className="font-bold">
+                      {categories.find((c) => c.id === form.getValues("category"))?.name || "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-black/40">Location</p>
+                    <p>{form.getValues("location") || "—"}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-xs text-black/40">Start</p>
+                      <p>{startDateStr ? format(parsedStart!, "MMM dd, y HH:mm") : "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-black/40">End</p>
+                      <p>{endDateStr ? format(parsedEnd!, "MMM dd, y HH:mm") : "—"}</p>
+                    </div>
+                  </div>
+                  {form.getValues("faqs") && form.getValues("faqs").length > 0 && (
+                    <div>
+                      <p className="text-xs text-black/40">FAQs</p>
+                      <p className="font-bold">{form.getValues("faqs").length} question(s)</p>
+                    </div>
+                  )}
+                </div>
+
+                <FormField
+                control={form.control}
               name="requiresApproval"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-white p-4 shadow-sm">
@@ -745,6 +831,8 @@ export function CreateEventDialog({
                 </FormItem>
               )}
             />
+            </>
+            )}
 
             <DialogFooter className="pt-2 flex gap-2">
               {step > 0 && (

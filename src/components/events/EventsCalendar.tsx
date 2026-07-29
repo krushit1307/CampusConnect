@@ -1,6 +1,7 @@
 import { format, getDay, parse, startOfWeek } from "date-fns";
 import { enUS } from "date-fns/locale";
-import { Calendar, dateFnsLocalizer, View } from "react-big-calendar";
+import { useNavigate } from "react-router-dom";
+import { useEffect, useRef } from "react";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { useState } from "react";
 import { CalendarDays, MapPin } from "lucide-react";

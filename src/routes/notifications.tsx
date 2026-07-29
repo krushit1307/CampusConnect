@@ -1,18 +1,124 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { Bell, Calendar, Building, Info, MessageSquare, CheckCircle2 } from "lucide-react";
+import {
+  Bell,
+  Calendar,
+  Building,
+  Info,
+  MessageSquare,
+  CheckCircle2,
+  Wifi,
+  WifiOff,
+} from "lucide-react";
 import { toast } from "sonner";
 import { format, isToday, isYesterday, isThisWeek } from "date-fns";
 import { SwipeToDismiss } from "@/components/ui/SwipeToDismiss";
+import { useGraphQLSubscription } from "@/hooks/useGraphQLSubscription";
+
+/** GraphQL subscription document for real-time notifications. */
+const NOTIFICATION_SUBSCRIPTION = /* GraphQL */ `
+  subscription NotificationReceived($userId: ID!) {
+    notificationReceived(userId: $userId) {
+      id
+      userId
+      type
+      title
+      message
+      link
+      isRead
+      createdAt
+    }
+  }
+`;
+
+/** Shape of a Notification from the GraphQL subscription payload. */
+interface GQLNotification {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  link: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
 
 const NOTIFICATIONS_PER_PAGE = 20;
 
 export default function NotificationsRoute() {
   const supabase = createClient();
   const queryClient = useQueryClient();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Resolve the authenticated user's ID for the subscription.
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentUserId(data.user?.id ?? null);
+    });
+  }, [supabase.auth]);
+
+  // ── Real-time GraphQL Subscription ──
+  // Subscribes to notificationReceived(userId) via SSE when the user is known.
+  const subscriptionOperation = currentUserId
+    ? {
+        query: NOTIFICATION_SUBSCRIPTION,
+        variables: { userId: currentUserId },
+      }
+    : null;
+
+  const { data: subscriptionPayload, connected: subscriptionConnected } = useGraphQLSubscription<{
+    notificationReceived: GQLNotification;
+  }>(subscriptionOperation, { skip: !currentUserId });
+
+  // When a new notification arrives via subscription, prepend it to the
+  // TanStack Query cache and show a toast so the user is immediately aware.
+  const seenSubscriptionIds = useRef(new Set<string>());
+
+  useEffect(() => {
+    const notification = subscriptionPayload?.notificationReceived;
+    if (!notification) return;
+    // Guard against duplicate SSE frames delivering the same notification.
+    if (seenSubscriptionIds.current.has(notification.id)) return;
+    seenSubscriptionIds.current.add(notification.id);
+
+    // Map GraphQL shape → DB row shape so it merges cleanly with the cached list.
+    const dbRow = {
+      id: notification.id,
+      user_id: notification.userId,
+      type: notification.type,
+      title: notification.title,
+      message: notification.message,
+      link: notification.link,
+      is_read: notification.isRead,
+      created_at: notification.createdAt,
+    };
+
+    queryClient.setQueryData(
+      ["notifications"],
+      (old: Parameters<typeof queryClient.setQueryData>[1]) => {
+        if (!old || typeof old !== "object" || !("pages" in (old as object))) return old;
+        const typedOld = old as {
+          pages: Array<{ notifications: (typeof dbRow)[]; nextPage?: number }>;
+          pageParams: unknown[];
+        };
+        return {
+          ...typedOld,
+          pages: typedOld.pages.map((page, i) =>
+            i === 0 ? { ...page, notifications: [dbRow, ...page.notifications] } : page,
+          ),
+        };
+      },
+    );
+
+    // Show a contextual toast for the incoming notification.
+    toast.info(notification.title, {
+      description: notification.message,
+      duration: 5000,
+    });
+  }, [subscriptionPayload, queryClient]);
 
   const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage, refetch } =
     useInfiniteQuery({
@@ -158,6 +264,21 @@ export default function NotificationsRoute() {
             <h1 className="text-3xl font-bold font-display uppercase tracking-widest text-black">
               Notifications
             </h1>
+            {/* Real-time connection status badge */}
+            <span
+              title={
+                subscriptionConnected
+                  ? "Real-time updates active"
+                  : "Connecting to real-time updates…"
+              }
+              className="flex items-center gap-1 font-mono text-xs font-bold uppercase"
+            >
+              {subscriptionConnected ? (
+                <Wifi size={14} className="text-green-600" aria-hidden />
+              ) : (
+                <WifiOff size={14} className="text-gray-400 animate-pulse" aria-hidden />
+              )}
+            </span>
           </div>
           {hasUnread && (
             <button

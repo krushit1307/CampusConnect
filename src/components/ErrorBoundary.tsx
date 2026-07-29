@@ -1,5 +1,6 @@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { isRouteErrorResponse, useRouteError } from "react-router-dom";
+import { trace, SpanStatusCode } from "@opentelemetry/api";
 
 import React from "react";
 import { NotFoundPage } from "./NotFoundPage";
@@ -131,6 +132,20 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("ErrorBoundary caught an error:", error, errorInfo.componentStack);
 
+    try {
+      const tracer = trace.getTracer("campusconnect-frontend");
+      const span = tracer.startSpan("react.error_boundary", {
+        attributes: {
+          "component.stack": errorInfo.componentStack ?? "",
+        },
+      });
+      span.recordException(error);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+      span.end();
+    } catch {
+      // Don't let telemetry errors crash the app
+    }
+
     this.setState({ errorInfo });
   }
 
@@ -188,12 +203,29 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 }
 
+function reportRouteError(error: unknown) {
+  try {
+    const tracer = trace.getTracer("campusconnect-frontend");
+    const span = tracer.startSpan("react.route_error");
+    if (error instanceof Error) {
+      span.recordException(error);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+    } else {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(error) });
+    }
+    span.end();
+  } catch {
+    // Don't let telemetry errors crash the app
+  }
+}
+
 export function RouteErrorBoundary() {
   const [detailsOpen, setDetailsOpen] = React.useState(false);
   const routeError = useRouteError();
 
   React.useEffect(() => {
     console.error("RouteErrorBoundary caught an error:", routeError);
+    reportRouteError(routeError);
   }, [routeError]);
 
   let message = "Unknown error";

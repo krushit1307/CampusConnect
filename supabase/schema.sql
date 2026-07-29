@@ -62,6 +62,7 @@ CREATE TABLE clubs (
   created_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
+  version INT NOT NULL DEFAULT 1,
   CONSTRAINT check_clubs_slug_format CHECK (slug ~ '^[a-z0-9-]+$'),
   CONSTRAINT check_clubs_github_repo_url CHECK (github_repo_url IS NULL OR github_repo_url LIKE 'https://github.com/%'),
   CONSTRAINT check_clubs_social_links_valid CHECK (public.is_valid_social_links(social_links))
