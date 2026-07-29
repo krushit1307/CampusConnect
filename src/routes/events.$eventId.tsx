@@ -46,6 +46,13 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { LazyImage } from "@/components/ui/LazyImage";
 import { parseCoordinates } from "@/lib/eventUtils";
+import {
+  buildKanbanColumns,
+  buildRsvpStatus,
+  buildFeedbackStatus,
+  buildWaitlistInfo,
+  buildGoogleMapsSearchUrl,
+} from "@/lib/eventTransformUtils";
 import { isCaptchaConfigured, shouldRequireCaptcha } from "@/lib/captcha";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
@@ -554,7 +561,7 @@ export default function EventDetailsPage() {
       // Return context with previous data for rollback
       return { previousEvent };
     },
-    onError: (error: unknown, _variables, context) => {
+    onError: (error: unknown, _variables: unknown, context: { previousEvent: unknown } | undefined) => {
       // Rollback to previous value on error
       if (context?.previousEvent) {
         setQueryData(["event", eventId], context.previousEvent);
@@ -743,60 +750,7 @@ export default function EventDetailsPage() {
       event_rsvps: EventRsvp[];
     };
 
-    const waitlistCards = (typedEvent.event_waitlist || []).map((w: EventWaitlist) => {
-      const profile = (Array.isArray(w.profiles) ? w.profiles[0] : w.profiles) as Profile | null;
-      return {
-        id: `waitlist-${w.id}`,
-        userId: w.user_id,
-        name: profile ? `${profile.first_name} ${profile.last_name}` : "Unknown User",
-        avatarUrl: profile?.avatar_url || null,
-      };
-    });
-
-    const rsvpWaitlistCards = (typedEvent.event_rsvps || [])
-      .filter((r: EventRsvp) => r.status === "waitlisted")
-      .map((r: EventRsvp) => {
-        const profile = (Array.isArray(r.profiles) ? r.profiles[0] : r.profiles) as Profile | null;
-        return {
-          id: `rsvp-${r.id}`,
-          userId: r.user_id,
-          rsvpId: r.id,
-          name: profile ? `${profile.first_name} ${profile.last_name}` : "Unknown User",
-          avatarUrl: profile?.avatar_url || null,
-        };
-      });
-
-    const approvedCards = (typedEvent.event_rsvps || [])
-      .filter((r: EventRsvp) => r.status === "approved" || !r.status)
-      .map((r: EventRsvp) => {
-        const profile = (Array.isArray(r.profiles) ? r.profiles[0] : r.profiles) as Profile | null;
-        return {
-          id: `rsvp-${r.id}`,
-          userId: r.user_id,
-          rsvpId: r.id,
-          name: profile ? `${profile.first_name} ${profile.last_name}` : "Unknown User",
-          avatarUrl: profile?.avatar_url || null,
-        };
-      });
-
-    const rejectedCards = (typedEvent.event_rsvps || [])
-      .filter((r: EventRsvp) => r.status === "rejected")
-      .map((r: EventRsvp) => {
-        const profile = (Array.isArray(r.profiles) ? r.profiles[0] : r.profiles) as Profile | null;
-        return {
-          id: `rsvp-${r.id}`,
-          userId: r.user_id,
-          rsvpId: r.id,
-          name: profile ? `${profile.first_name} ${profile.last_name}` : "Unknown User",
-          avatarUrl: profile?.avatar_url || null,
-        };
-      });
-
-    setColumns({
-      waitlisted: [...waitlistCards, ...rsvpWaitlistCards],
-      approved: approvedCards,
-      rejected: rejectedCards,
-    });
+    setColumns(buildKanbanColumns(typedEvent.event_waitlist || [], typedEvent.event_rsvps || []));
   }, [event]);
 
   const updateRsvpStatus = useMutation({
@@ -930,29 +884,16 @@ export default function EventDetailsPage() {
     );
   }
 
-  const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
-  const hasRsvpd = user ? rsvps.some((r: { user_id: string }) => r.user_id === user.id) : false;
-  const isCheckedIn = user
-    ? rsvps.some(
-        (r: { user_id: string; checked_in?: boolean }) => r.user_id === user.id && r.checked_in,
-      )
-    : false;
-  const hasEnded = event.end_date ? new Date() > new Date(event.end_date) : false;
+  const rsvps = Array.isArray(event.event_rsvps) ? (event.event_rsvps as EventRsvp[]) : [];
+  const { hasRsvpd, isCheckedIn, hasEnded } = buildRsvpStatus(rsvps, user?.id, event.end_date);
   const rawFeedbacks = (event as Record<string, unknown>).event_feedbacks;
-  const hasSubmittedFeedback =
-    user && Array.isArray(rawFeedbacks)
-      ? (rawFeedbacks as { user_id: string }[]).some((f) => f.user_id === user.id)
-      : false;
+  const { hasSubmittedFeedback } = buildFeedbackStatus(
+    Array.isArray(rawFeedbacks) ? (rawFeedbacks as { user_id: string }[]) : undefined,
+    user?.id,
+  );
 
   const rawWaitlist = (event as Record<string, unknown>).event_waitlist;
-  const waitlist = Array.isArray(rawWaitlist)
-    ? [...(rawWaitlist as { id: string; user_id: string; created_at?: string }[])].sort(
-        (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime(),
-      )
-    : [];
-  const isOnWaitlist = user ? waitlist.some((w) => w.user_id === user.id) : false;
-  const waitlistPosition =
-    user && isOnWaitlist ? waitlist.findIndex((w) => w.user_id === user.id) + 1 : 0;
+  const { waitlist, isOnWaitlist, waitlistPosition } = buildWaitlistInfo(rawWaitlist, user?.id);
 
   const club = event.clubs ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
   const coordsCheck = event.location
@@ -1517,7 +1458,7 @@ export default function EventDetailsPage() {
                     />
                   </Suspense>
                   <a
-                    href={`https://www.google.com/maps/search/?q=${encodeURIComponent(event.location)}`}
+                    href={buildGoogleMapsSearchUrl(event.location)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-2 inline-block font-mono text-xs font-bold underline text-blue-500"
@@ -1539,7 +1480,7 @@ export default function EventDetailsPage() {
                       must be between -90 and 90, and Longitude between -180 and 180.
                     </p>
                     <a
-                      href={`https://www.google.com/maps/search/?q=${encodeURIComponent(event.location)}`}
+                      href={buildGoogleMapsSearchUrl(event.location)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 font-mono text-xs font-bold underline hover:no-underline text-black"
@@ -1550,7 +1491,7 @@ export default function EventDetailsPage() {
                 </div>
               ) : (
                 <a
-                  href={`https://www.google.com/maps/search/?q=${encodeURIComponent(event.location)}`}
+                  href={buildGoogleMapsSearchUrl(event.location)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="neu-border mt-4 inline-flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"

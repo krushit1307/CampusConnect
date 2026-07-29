@@ -42,6 +42,14 @@ import {
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { calculateReadTime } from "@/utils/readTime";
+import {
+  timeAgo,
+  combinePosts,
+  filterPostsBySearch,
+  buildCommentTree,
+  computeReaction,
+  type CommentNode,
+} from "@/lib/feedUtils";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import PullToRefresh from "@/components/PullToRefresh";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
@@ -242,11 +250,7 @@ export default function Feed() {
   });
 
   const allPosts = data?.pages.flatMap((page) => page.posts) ?? [];
-  const combinedPosts = [
-    ...prependedPosts,
-    ...allPosts.filter((ap) => !prependedPosts.some((pp) => pp.id === ap.id)),
-  ];
-  const posts = [...combinedPosts].sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned));
+  const posts = combinePosts(prependedPosts, allPosts);
 
   // Trending posts — fetched lazily only when the Trending tab is active
   const { data: trendingData, isLoading: isTrendingLoading } = useQuery<Post[]>({
@@ -275,20 +279,7 @@ export default function Feed() {
   const trendingPosts: Post[] = trendingData ?? [];
   const activePosts = feedMode === "latest" ? posts : trendingPosts;
 
-  const filteredPosts = activePosts.filter((post) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-
-    const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
-    const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
-
-    const contentMatch = post.content?.toLowerCase().includes(q);
-    const authorMatch =
-      author?.full_name?.toLowerCase().includes(q) || author?.handle?.toLowerCase().includes(q);
-    const clubMatch = club?.name?.toLowerCase().includes(q);
-
-    return contentMatch || authorMatch || clubMatch;
-  });
+  const filteredPosts = filterPostsBySearch(activePosts, searchQuery);
 
   const isActiveFeedLoading = feedMode === "latest" ? isLoading : isTrendingLoading;
 
@@ -770,20 +761,6 @@ export default function Feed() {
     onError: (error) => toast.error(error.message || "Failed to update pin."),
   });
 
-  const timeAgo = (dateString: string) => {
-    const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-    const diff = new Date().getTime() - new Date(dateString).getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (days > 0) return rtf.format(-days, "day");
-
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    if (hours > 0) return rtf.format(-hours, "hour");
-
-    const minutes = Math.floor(diff / (1000 * 60));
-    return rtf.format(-Math.max(1, minutes), "minute");
-  };
-
   const scrollToTop = () => {
     window.scrollTo({
       top: 0,
@@ -814,108 +791,102 @@ export default function Feed() {
                   clubId={selectedClubId}
                 />
 
-                {imagePreviewUrl && (
-                  <div className="relative inline-block mt-2">
-                    <img
-                      src={imagePreviewUrl}
-                      alt="Attached preview"
-                      className="max-h-40 neu-border object-cover"
-                    />
+              {imagePreviewUrl && (
+                <div className="relative inline-block mt-2">
+                  <img
+                    src={imagePreviewUrl}
+                    alt="Attached preview"
+                    className="max-h-40 neu-border object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAttachedImage(null);
+                      setImagePreviewUrl(null);
+                    }}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 border-2 border-black hover:bg-red-600 flex items-center justify-center h-6 w-6"
+                    title="Remove image"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                  {compressing && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-mono text-xs">
+                      Compressing...
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                <Select
+                  value={selectedClubId}
+                  onValueChange={setSelectedClubId}
+                  disabled={userClubs.length === 0}
+                >
+                  <SelectTrigger
+                    className="w-full border-none bg-transparent font-mono text-xs shadow-none sm:w-auto"
+                    aria-label="Choose club for post"
+                  >
+                    <SelectValue placeholder="No clubs joined" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {userClubs.map((userClub) => {
+                      const club = Array.isArray(userClub.clubs)
+                        ? userClub.clubs[0]
+                        : userClub.clubs;
+                      return club ? (
+                        <SelectItem key={club.id} value={club.id}>
+                          Posting to · {club.name}
+                        </SelectItem>
+                      ) : null;
+                    })}
+                  </SelectContent>
+                </Select>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={postMutation.isPending || compressing}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-cream flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    📷 Attach Image
+                  </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImageSelect}
+                    accept="image/*"
+                    className="hidden"
+                  />
+
+                  <AnimatedTooltip
+                    content={!emailVerified ? "Please verify your email to post" : null}
+                  >
                     <button
                       type="button"
                       onClick={() => {
-                        setAttachedImage(null);
-                        setImagePreviewUrl(null);
+                        if (!user) return alert("Log in first");
+                        if (!emailVerified) return alert("Please verify your email to post");
+                        if (!selectedClubId) return alert("Join or select a club first");
+                        if (newPost.trim()) postMutation.mutate();
                       }}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 border-2 border-black hover:bg-red-600 flex items-center justify-center h-6 w-6"
-                      title="Remove image"
+                      disabled={
+                        !newPost.trim() ||
+                        !selectedClubId ||
+                        postMutation.isPending ||
+                        !emailVerified ||
+                        compressing
+                      }
+                      className={`neu-border neu-press px-5 py-2 font-mono text-xs font-bold uppercase disabled:cursor-not-allowed disabled:opacity-50 ${
+                        emailVerified ? "bg-black text-cream" : "bg-gray-400 text-gray-700"
+                      }`}
                     >
-                      <Trash2 size={12} />
+                      {postMutation.isPending ? "Posting…" : "Post Markdown"}
                     </button>
-                    {compressing && (
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-mono text-xs">
-                        Compressing...
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
-                  <Select
-                    value={selectedClubId}
-                    onValueChange={setSelectedClubId}
-                    disabled={userClubs.length === 0}
-                  >
-                    <SelectTrigger
-                      className="w-full border-none bg-transparent font-mono text-xs shadow-none sm:w-auto"
-                      aria-label="Choose club for post"
-                    >
-                      <SelectValue placeholder="No clubs joined" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {userClubs.map((userClub) => {
-                        const club = Array.isArray(userClub.clubs)
-                          ? userClub.clubs[0]
-                          : userClub.clubs;
-                        return club ? (
-                          <SelectItem key={club.id} value={club.id}>
-                            Posting to · {club.name}
-                          </SelectItem>
-                        ) : null;
-                      })}
-                    </SelectContent>
-                  </Select>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={postMutation.isPending || compressing}
-                      onClick={() => fileInputRef.current?.click()}
-                      className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-cream flex items-center gap-1.5 disabled:opacity-50"
-                    >
-                      📷 Attach Image
-                    </button>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleImageSelect}
-                      accept="image/*"
-                      className="hidden"
-                    />
-
-                    <AnimatedTooltip
-                      content={!emailVerified ? "Please verify your email to post" : null}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!user) return alert("Log in first");
-                          if (!emailVerified) return alert("Please verify your email to post");
-                          if (!selectedClubId) return alert("Join or select a club first");
-                          if (newPost.trim()) postMutation.mutate();
-                        }}
-                        disabled={
-                          !newPost.trim() ||
-                          !selectedClubId ||
-                          postMutation.isPending ||
-                          !emailVerified ||
-                          compressing
-                        }
-                        className={`neu-border neu-press px-5 py-2 font-mono text-xs font-bold uppercase disabled:cursor-not-allowed disabled:opacity-50 ${
-                          emailVerified ? "bg-black text-cream" : "bg-gray-400 text-gray-700"
-                        }`}
-                      >
-                        {postMutation.isPending ? "Posting…" : "Post Markdown"}
-                      </button>
-                    </AnimatedTooltip>
-                  </div>
+                  </AnimatedTooltip>
                 </div>
-
-                {postMutation.isError && (
-                  <p className="neu-border bg-peach p-3 font-mono text-xs" role="alert">
-                    Could not publish the post. Please try again.
-                  </p>
-                )}
+              </div>
               </div>
 
               <style>{`
@@ -1125,13 +1096,19 @@ export default function Feed() {
                               >
                                 <Flag size={14} strokeWidth={2.5} />
                               </button>
-                            )}
+)}
                             {(user?.id === author?.id || userProfile?.role === "system_admin") && (
                               <button
                                 type="button"
                                 onClick={() => setConfirmPostId(post.id)}
                                 className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 hover:bg-[#FF6B6B]"
                                 aria-label="Delete post"
+                              >
+                                <Trash2 size={14} strokeWidth={2.5} />
+                              </button>
+                            )}
+                          </div>
+                        </header>
                               >
                                 <Trash2 size={14} strokeWidth={2.5} />
                               </button>
@@ -1430,21 +1407,7 @@ function PostComments({ postId, user, userProfile, clubMembers, timeAgo }: PostC
 
   const activeComments = comments.filter((c) => !c.deleted_at);
 
-  type CommentNode = Comment & { children: CommentNode[] };
-
-  const buildCommentTree = (commentsList: Comment[]) => {
-    const map = new Map<string, CommentNode>();
-    commentsList.forEach((c) => map.set(c.id, { ...c, children: [] }));
-    const roots: CommentNode[] = [];
-    commentsList.forEach((c) => {
-      if (c.parent_comment_id && map.has(c.parent_comment_id)) {
-        map.get(c.parent_comment_id)!.children.push(map.get(c.id)!);
-      } else {
-        roots.push(map.get(c.id)!);
-      }
-    });
-    return roots;
-  };
+  type CommentNode = import("@/lib/feedUtils").CommentNode;
 
   const renderCommentNode = (commentNode: CommentNode, depth: number) => {
     const commentAuthor = Array.isArray(commentNode.profiles)
