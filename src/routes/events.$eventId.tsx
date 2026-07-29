@@ -2,6 +2,7 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect, lazy, Suspense, useMemo } from "react";
+import { motion } from "framer-motion";
 import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
 import { TableOfContents } from "@/components/events/TableOfContents";
 import NotFound from "./NotFound";
@@ -1136,7 +1137,7 @@ export default function EventDetailsPage() {
       {/* Hero Section */}
       <section className="relative w-full overflow-hidden border-b-2 border-black bg-peach/30">
         {event.banner_url ? (
-          <div className="absolute inset-0">
+          <motion.div layoutId={`event-image-${event.id}`} className="absolute inset-0">
             <OptimizedImage
               src={event.banner_url}
               alt={`${event.title} event banner`}
@@ -1151,9 +1152,9 @@ export default function EventDetailsPage() {
               }
             />
             <div className="absolute inset-0 bg-black/50" />
-          </div>
+          </motion.div>
         ) : (
-          <div className="absolute inset-0 bg-linear-to-br from-peach via-pink-200 to-lime/40" />
+          <motion.div layoutId={`event-image-${event.id}`} className="absolute inset-0 bg-linear-to-br from-peach via-pink-200 to-lime/40" />
         )}
 
         <div className="relative mx-auto flex min-h-[50vh] max-w-4xl flex-col justify-end px-4 py-16 md:min-h-[60vh] md:px-6 md:py-24">

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import { formatDate } from "@/lib/utils";
 
 interface FeaturedEvent {
@@ -49,13 +50,17 @@ export function FeaturedEvents({ events }: FeaturedEventsProps) {
             className={`group relative overflow-hidden rounded-xl neu-border transition-transform duration-300 hover:-translate-y-1 hover:shadow-lg bg-gray-900 ${spanClass}`}
           >
             {event.banner_url ? (
-              <img
+              <motion.img
+                layoutId={`event-image-${event.id}`}
                 src={event.banner_url}
                 alt={event.title}
                 className="absolute inset-0 h-full w-full object-cover opacity-60 transition-transform duration-500 group-hover:scale-105"
               />
             ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-brand-blue-dark to-violet-900 opacity-80" />
+              <motion.div
+                layoutId={`event-image-${event.id}`}
+                className="absolute inset-0 bg-gradient-to-br from-brand-blue-dark to-violet-900 opacity-80"
+              />
             )}
 
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
