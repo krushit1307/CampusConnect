@@ -4,12 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ClubCardSkeleton } from "@/components/ui/ClubCardSkeleton";
 import { CreateClubDialog } from "@/components/CreateClubDialog";
 import { EmptyState } from "@/components/EmptyState";
+import { HoverLink } from "@/components/ui/HoverLink";
 import { SearchInput } from "@/components/ui/SearchInput";
-import { Link } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
+import { queryClient } from "@/hooks/useReactQueryReplacement";
+import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
 
 const ITEMS_PER_PAGE = 12;
 const VIEW_MODE_STORAGE_KEY = "clubs-view-mode";
@@ -102,6 +104,13 @@ export default function ClubsIndex() {
   }, [refetch]);
 
   const colors = ["bg-lime", "bg-sky", "bg-lavender", "bg-peach"];
+
+  const prefetchClubProfile = useCallback(
+    (slug: string) => {
+      void queryClient.prefetchQuery(createClubProfileQueryOptions(supabase, slug));
+    },
+    [supabase],
+  );
 
   const filteredClubs = allClubs.filter(
     (c) =>
@@ -231,9 +240,10 @@ export default function ClubsIndex() {
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {trendingClubs.map((c) => {
                   return (
-                    <Link
+                    <HoverLink
                       key={`trending-${c.slug}`}
                       to={`/clubs/${c.slug}`}
+                      prefetch={() => prefetchClubProfile(c.slug)}
                       className="neu-border group relative block bg-white p-6 shadow-[4px_4px_0_0_var(--color-ink)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_var(--color-ink)] flex flex-col justify-between"
                     >
                       <span className="absolute -right-2 -top-3 neu-border bg-yellow text-black px-2.5 py-0.5 font-mono text-[10px] font-black uppercase tracking-wider shadow-[2px_2px_0_0_var(--color-ink)] rotate-2">
@@ -262,7 +272,7 @@ export default function ClubsIndex() {
                           </span>
                         </div>
                       </div>
-                    </Link>
+                    </HoverLink>
                   );
                 })}
               </div>
@@ -371,8 +381,9 @@ export default function ClubsIndex() {
                   className="animate-fade-in-up h-full"
                   style={{ animationDelay: `${index * 75}ms` }}
                 >
-                  <Link
+                  <HoverLink
                     to={`/clubs/${c.slug}`}
+                    prefetch={() => prefetchClubProfile(c.slug)}
                     className="neu-border group flex h-full flex-col bg-white p-6 shadow-[4px_4px_0_0_var(--color-ink)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_var(--color-ink)]"
                   >
                     <div
@@ -400,7 +411,7 @@ export default function ClubsIndex() {
                         </span>
                       </div>
                     </div>
-                  </Link>
+                  </HoverLink>
                 </div>
               ))
             ) : (
@@ -411,8 +422,9 @@ export default function ClubsIndex() {
                   className="animate-fade-in-up"
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  <Link
+                  <HoverLink
                     to={`/clubs/${c.slug}`}
+                    prefetch={() => prefetchClubProfile(c.slug)}
                     className="neu-border group flex items-center gap-4 bg-white p-4 shadow-[4px_4px_0_0_var(--color-ink)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_var(--color-ink)]"
                   >
                     <div
@@ -432,7 +444,7 @@ export default function ClubsIndex() {
                         →
                       </span>
                     </span>
-                  </Link>
+                  </HoverLink>
                 </div>
               ))
             )}

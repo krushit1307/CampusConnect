@@ -39,6 +39,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
 
 interface ClubMemberProfile {
   full_name: string;
@@ -227,24 +228,11 @@ export default function ClubProfile() {
   const {
     data: club,
     isLoading,
+    isError,
     refetch,
   } = useQuery({
-    queryKey: ["club", slug],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("clubs")
-        .select(
-          `
-          id, name, slug, description, github_repo_url, visibility, promo_video_url,
-          club_members (id, role, status, user_id, profiles (full_name, avatar_url, handle)),
-          events (id, title, event_date)
-        `,
-        )
-        .eq("slug", slug)
-        .eq("status", "approved")
-        .single();
-      return data;
-    },
+    ...createClubProfileQueryOptions(supabase, slug ?? ""),
+    enabled: Boolean(slug),
   });
 
   const joinMutation = useMutation({
@@ -304,8 +292,8 @@ export default function ClubProfile() {
       .filter((h) => h.id);
   }, [club?.description]);
 
-  if (isLoading) return <PageLoader />;
-  if (error || !club) return <NotFound />;
+  if (isLoading) return <ClubProfileSkeleton />;
+  if (isError || !club) return <NotFound />;
   if (!club)
     return (
       <SiteShell>
