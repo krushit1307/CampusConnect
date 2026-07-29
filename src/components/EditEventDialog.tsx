@@ -123,7 +123,6 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
           tags: docToSave.tags || [],
           version_vector: docToSave.version_vector || {},
           version: (docToSave.version || 1) + 1,
-          updated_at: new Date().toISOString(),
         })
         .eq("id", event.id);
 

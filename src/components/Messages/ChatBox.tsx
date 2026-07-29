@@ -116,7 +116,6 @@ export default function ChatBox() {
           const { error } = await supabase.from("user_public_keys").upsert({
             user_id: user.id,
             public_key: pubJwk,
-            updated_at: new Date().toISOString(),
           });
 
           if (error) {
@@ -484,7 +483,6 @@ export default function ChatBox() {
       const { error } = await supabase.from("user_public_keys").upsert({
         user_id: currentUser.id,
         public_key: pubJwk,
-        updated_at: new Date().toISOString(),
       });
 
       if (error) throw error;

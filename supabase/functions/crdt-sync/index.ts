@@ -113,7 +113,6 @@ serve(async (req: Request) => {
           .from("event_crdt_states")
           .update({
             state: mergedStateBase64,
-            updated_at: new Date().toISOString(),
           })
           .eq("event_id", eventId);
 
