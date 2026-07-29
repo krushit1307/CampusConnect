@@ -240,7 +240,10 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
             }}
           />
         ) : (
-          <div className={`${minHeightClass} bg-white dark:bg-zinc-900 p-4 transition-colors`} aria-live="polite">
+          <div
+            className={`${minHeightClass} bg-white dark:bg-zinc-900 p-4 transition-colors`}
+            aria-live="polite"
+          >
             {value.trim() ? (
               <div className="markdown-content font-mono text-sm leading-relaxed text-black dark:text-zinc-100">
                 <ReactMarkdown

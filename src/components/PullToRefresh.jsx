@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import React, { useState } from "react";
+import { RefreshCw } from "lucide-react";
 
 export default function PullToRefresh({ children, onRefresh }) {
   const [startY, setStartY] = useState(0);
@@ -36,7 +36,7 @@ export default function PullToRefresh({ children, onRefresh }) {
 
       // Wait for the data fetching Promise to resolve
       await onRefresh();
-      
+
       setIsRefreshing(false);
     }
     // Spring back to the top
@@ -45,31 +45,31 @@ export default function PullToRefresh({ children, onRefresh }) {
   };
 
   return (
-    <div 
+    <div
       className="relative w-full h-full"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
       {/* Hidden Loading Indicator */}
-      <div 
+      <div
         className="absolute left-0 right-0 flex justify-center items-center overflow-hidden transition-opacity duration-300 z-10"
-        style={{ 
-          height: `${pullThreshold}px`, 
-          top: `-${pullThreshold}px`, 
+        style={{
+          height: `${pullThreshold}px`,
+          top: `-${pullThreshold}px`,
           transform: `translateY(${pullChange}px)`,
-          opacity: pullChange > 10 ? 1 : 0 
+          opacity: pullChange > 10 ? 1 : 0,
         }}
       >
-        <RefreshCw 
-          className={`text-gray-500 w-6 h-6 ${isRefreshing ? 'animate-spin' : ''}`} 
+        <RefreshCw
+          className={`text-gray-500 w-6 h-6 ${isRefreshing ? "animate-spin" : ""}`}
           style={{ transform: `rotate(${pullChange * 2}deg)` }}
         />
       </div>
 
       {/* Main Feed Content */}
-      <div 
-        className="transition-transform duration-200 ease-out" 
+      <div
+        className="transition-transform duration-200 ease-out"
         style={{ transform: `translateY(${pullChange}px)` }}
       >
         {children}

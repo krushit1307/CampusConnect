@@ -29,6 +29,67 @@ export function publishNotification(notification: NotificationRecord): void {
   pubsub.publish("NOTIFICATION_RECEIVED", notification.user_id, notification);
 }
 
+// ── In-Memory LRU Cache Class ──
+export class LRUCache<K, V> {
+  private max: number;
+  private cache: Map<K, V>;
+
+  constructor(max: number = 100) {
+    this.max = max;
+    this.cache = new Map<K, V>();
+  }
+
+  get(key: K): V | undefined {
+    const item = this.cache.get(key);
+    if (item !== undefined) {
+      this.cache.delete(key);
+      this.cache.set(key, item);
+    }
+    return item;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.max) {
+      const oldestKey = this.cache.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.cache.delete(oldestKey);
+      }
+    }
+    this.cache.set(key, value);
+  }
+
+  delete(key: K): boolean {
+    return this.cache.delete(key);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  size(): number {
+    return this.cache.size;
+  }
+}
+
+export interface ClubRecord {
+  id: string;
+  name: string;
+}
+
+// Cache for global clubs directory
+export const clubsCache = new LRUCache<string, ClubRecord[]>(5);
+export const CLUBS_CACHE_KEY = "all_clubs";
+
+// Subscribe to real-time updates for clubs to invalidate cache when a club is created/updated/deleted
+supabase
+  .channel("clubs-cache-invalidation")
+  .on("postgres_changes", { event: "*", schema: "public", table: "clubs" }, () => {
+    clubsCache.delete(CLUBS_CACHE_KEY);
+  })
+  .subscribe();
+
 // ── Lightweight Batch Loader Class ──
 
 class SimpleDataLoader<K extends string, V> {
@@ -59,10 +120,6 @@ interface ProfileRecord {
   role: string | null;
 }
 
-interface ClubRecord {
-  id: string;
-  name: string;
-}
 
 interface CommentRecord {
   id: string;
@@ -210,6 +267,11 @@ export const typeDefs = /* GraphQL */ `
     created_at: String
     updated_at: String
     is_private: Boolean
+    max_attendees: Int
+    maxAttendees: Int
+    available_spots: Int
+    availableSpots: Int
+    version: Int
     club: Club
     organizer: Profile
   }
@@ -266,8 +328,26 @@ export const typeDefs = /* GraphQL */ `
     event(id: ID!): Event
   }
 
+  """
+  Result payload returned by event RSVP mutation.
+  """
+  type RsvpPayload {
+    success: Boolean!
+    code: String!
+    message: String!
+    availableSpots: Int
+    status: String
+    version: Int
+  }
+
   type Mutation {
     suspendUsers(ids: [ID!]!): [Profile!]!
+    """
+    Manage event RSVPs with strict row-level locking (SELECT FOR UPDATE)
+    and optimistic concurrency control (version increments).
+    Prevents race conditions and overbooking.
+    """
+    rsvpToEvent(eventId: ID!, userId: ID, action: String): RsvpPayload!
   }
 
   """
@@ -307,9 +387,15 @@ export const resolvers = {
       return data;
     },
     clubs: async () => {
+      const cached = clubsCache.get(CLUBS_CACHE_KEY);
+      if (cached) {
+        return cached;
+      }
       const { data, error } = await supabase.from("clubs").select("*");
       if (error) throw error;
-      return data || [];
+      const result = data || [];
+      clubsCache.set(CLUBS_CACHE_KEY, result);
+      return result;
     },
     profiles: async (
       _: unknown,
@@ -412,6 +498,27 @@ export const resolvers = {
       if (error) throw error;
       return data || [];
     },
+    rsvpToEvent: async (
+      _: unknown,
+      { eventId, userId, action = "RSVP" }: { eventId: string; userId?: string; action?: string },
+    ) => {
+      const { data, error } = await supabase.rpc("manage_event_rsvp", {
+        p_event_id: eventId,
+        p_user_id: userId || null,
+        p_action: action,
+      });
+
+      if (error) throw new Error(error.message);
+
+      return {
+        success: data?.success ?? false,
+        code: data?.code ?? "ERROR",
+        message: data?.message ?? "An error occurred during RSVP processing.",
+        availableSpots: data?.available_spots ?? null,
+        status: data?.status ?? null,
+        version: data?.version ?? null,
+      };
+    },
   },
 
   Post: {
@@ -439,6 +546,8 @@ export const resolvers = {
     organizer: (parent: { created_by: string }) => {
       return parent.created_by ? profileLoader.load(parent.created_by) : null;
     },
+    maxAttendees: (parent: { max_attendees?: number | null }) => parent.max_attendees ?? null,
+    availableSpots: (parent: { available_spots?: number | null }) => parent.available_spots ?? null,
   },
 
   Subscription: {

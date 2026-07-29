@@ -50,7 +50,7 @@ export const EventCapacityGauge: React.FC<EventCapacityGaugeProps> = ({
           } else if (payload.eventType === "DELETE") {
             setCurrentCapacity((prev) => Math.max(0, prev - 1));
           }
-        }
+        },
       )
       .subscribe();
 
@@ -91,7 +91,12 @@ export const EventCapacityGauge: React.FC<EventCapacityGaugeProps> = ({
   }
 
   return (
-    <div className={cn("flex flex-col gap-2 p-3 rounded-lg border-2 border-black bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]", className)}>
+    <div
+      className={cn(
+        "flex flex-col gap-2 p-3 rounded-lg border-2 border-black bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]",
+        className,
+      )}
+    >
       <div className="flex items-center justify-between text-xs font-mono font-bold">
         <div className="flex items-center gap-1.5">
           <Icon className="w-4 h-4 text-brand-blue-dark" />
@@ -101,7 +106,7 @@ export const EventCapacityGauge: React.FC<EventCapacityGaugeProps> = ({
           className={cn(
             "px-2 py-0.5 rounded text-[11px] uppercase tracking-wider border transition-all duration-300",
             badgeColor,
-            isAnimating && "scale-110"
+            isAnimating && "scale-110",
           )}
         >
           {statusText}

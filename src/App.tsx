@@ -1,5 +1,3 @@
-import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "@/hooks/useReactQueryReplacement";
 import { Suspense, lazy, useEffect, useState } from "react";
 
 import { AnimatePresence } from "framer-motion";
@@ -16,14 +14,17 @@ import {
 import Layout from "./components/Layout";
 import { ErrorBoundary, RouteErrorBoundary } from "./components/ErrorBoundary";
 import { PageWrapper } from "./components/PageWrapper";
-import { ThemeToggle } from "@/components/ThemeToggle";
 // <-- Added Import
 import { ThemeProvider } from "@/components/theme-provider";
-import { TooltipProvider } from "@/components/ui/tooltip";
-// Pages
-
-import { NotFoundPage } from "./components/NotFoundPage";
+import LanguageRouter from "./components/LanguageRouter";
 import { createClient } from "./lib/supabase/client";
+import { ThemeToggle } from "./components/ThemeToggle";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Navigate } from "react-router-dom";
+
+import { QueryClientProvider, queryClient } from "@/hooks/useReactQueryReplacement";
+import MaintenancePage from "./components/MaintenancePage";
+
 
 const HEALTH_CHECK_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_HEALTH_URL) ||
@@ -59,6 +60,8 @@ async function checkDatabaseHealth(): Promise<HealthStatus> {
     }
 
     return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err.message };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return { ok: false, error: message };
@@ -78,17 +81,20 @@ const DashboardOverview = lazy(() => import("./routes/dashboard.index"));
 const DashboardRsvps = lazy(() => import("./routes/dashboard.rsvps"));
 const DashboardBookmarks = lazy(() => import("./routes/dashboard.bookmarks"));
 const DashboardCalendar = lazy(() => import("./routes/dashboard.calendar"));
-const GlobalCalendar = lazy(() => import("./routes/calendar"));
 const Feed = lazy(() => import("./routes/feed"));
 const EventsMapPage = lazy(() => import("./routes/events.map"));
 const ForgotPassword = lazy(() => import("./routes/forgot-password"));
 const ResetPassword = lazy(() => import("./routes/reset-password"));
 const Settings = lazy(() => import("./routes/settings"));
 const VerifyEmail = lazy(() => import("./routes/verify-email"));
+const Directory = lazy(() => import("./routes/Directory"));
 const MessagesRoute = lazy(() => import("./routes/messages"));
 const PendingClubsAdmin = lazy(() => import("./routes/admin.clubs.pending"));
+const AnalyticsAdmin = lazy(() => import("./routes/admin.analytics"));
 const AdminReportsPage = lazy(() => import("./routes/admin.reports"));
 const AdminUsersPage = lazy(() => import("./routes/admin.users"));
+const AdminRestorePage = lazy(() => import("./routes/admin.restore"));
+const NotFound = lazy(() => import("./routes/NotFound"));
 const ChallengeArena = lazy(() => import("./routes/challenge"));
 const EventDashboard = lazy(() => import("./routes/events.$eventId.dashboard"));
 const Leaderboard = lazy(() =>
@@ -127,65 +133,69 @@ const router = createBrowserRouter(
   createRoutesFromElements(
     <Route element={<Layout />} errorElement={<RouteErrorBoundary />}>
       <Route element={<AnimatedOutlet />}>
-        <Route path="/" element={<Index />} />
-        <Route path="/auth" element={<Auth />} />
-        <Route path="/certificates" element={<Certificates />} />
+        <Route path="/:lang" element={<LanguageRouter />}></Route>
+        <Route index element={<Index />} />
+        <Route path="auth" element={<Auth />} />
+        <Route path="certificates" element={<Certificates />} />
+        <Route path="*" element={<Navigate to="/en" replace />} />
 
-        <Route path="/clubs" element={<ClubsLayout />}>
+        <Route path="clubs" element={<ClubsLayout />}>
           <Route index element={<ClubsIndex />} />
           <Route path=":slug" element={<ClubDetails />} />
           <Route path=":slug/manage" element={<ClubManageRoute />} />
         </Route>
 
-        <Route path="/dashboard" element={<Dashboard />}>
+        <Route path="dashboard" element={<Dashboard />}>
           <Route index element={<DashboardOverview />} />
           <Route path="rsvps" element={<DashboardRsvps />} />
           <Route path="bookmarks" element={<DashboardBookmarks />} />
           <Route path="calendar" element={<DashboardCalendar />} />
         </Route>
 
+        {/* Events — loaded from remote micro-frontend when available */}
         <Route
-          path="/calendar"
-          element={
-            <Suspense fallback={<PageFallback />}>
-              {" "}
-              <GlobalCalendar />
-            </Suspense>
-          }
-        />
+  path="/events"
+  element={
+    <Suspense fallback={<PageFallback />}>
+      <LazyEventsIndex />
+    </Suspense>
+  }
+/>
 
-        <Route path="/events" element={<LazyEventsIndex />} />
-        <Route path="/events/:eventId" element={<LazyEventDetails />} />
-        <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
+<Route
+  path="/events/:eventId"
+  element={
+    <Suspense fallback={<PageFallback />}>
+      <LazyEventDetails />
+    </Suspense>
+  }
+/>
+
+<Route
+  path="/events/:eventId/dashboard"
+  element={<EventDashboard />}
+/>
         {/* Events Map View with clustering */}
-        <Route path="/events/map" element={<EventsMapPage />} />
-        <Route path="/challenge" element={<ChallengeArena />} />
-        <Route path="/leaderboard" element={<Leaderboard />} />
+        <Route path="events/map" element={<EventsMapPage />} />
+        <Route path="challenge" element={<ChallengeArena />} />
+        <Route path="leaderboard" element={<Leaderboard />} />
 
-        <Route path="/feed" element={<Feed />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/verify-email" element={<VerifyEmail />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route
-          path="/admin/clubs/pending"
-          element={
-            <Suspense fallback={<div className="h-64 bg-cream animate-pulse" />}>
-              <PendingClubsAdmin />
-            </Suspense>
-          }
-        />
-        <Route
-          path="/admin/reports"
-          element={
-            <Suspense fallback={<div className="h-64 bg-cream animate-pulse" />}>
-              <AdminReportsPage />
-            </Suspense>
-          }
-        />
-        <Route path="*" element={<NotFoundPage />} />
-      </Route>
+      <Route path="/feed" element={<Feed />} />
+      <Route path="/directory" element={<Directory />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/settings" element={<Settings />} />
+      <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
+      <Route path="/admin/analytics" element={<AnalyticsAdmin />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/messages" element={<MessagesRoute />} />
+      <Route path="/admin/reports" element={<AdminReportsPage />} />
+      <Route path="/admin/users" element={<AdminUsersPage />} />
+      <Route path="/admin/restore" element={<AdminRestorePage />} />
+      {/* Catch-all route for 404 errors */}
+      <Route path="*" element={<NotFound />} />
     </Route>,
+    </Route>
   ),
 );
 
@@ -247,19 +257,19 @@ export default function App() {
   }
 
   return (
-<ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-  <TooltipProvider>
-    <QueryClientProvider client={queryClient}>
-      <ErrorBoundary>
-        {/* Floating Dark Mode Toggle */}
-        <div className="fixed bottom-4 right-4 z-[9999]">
-          <ThemeToggle />
-        </div>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <TooltipProvider>
+        <QueryClientProvider client={queryClient}>
+          <ErrorBoundary>
+            {/* Floating Dark Mode Toggle */}
+            <div className="fixed bottom-4 right-4 z-[9999]">
+              <ThemeToggle />
+            </div>
 
-        <RouterProvider router={router} />
-      </ErrorBoundary>
-    </QueryClientProvider>
-  </TooltipProvider>
-</ThemeProvider>
+            <RouterProvider router={router} />
+          </ErrorBoundary>
+        </QueryClientProvider>
+      </TooltipProvider>
+    </ThemeProvider>
   );
 }

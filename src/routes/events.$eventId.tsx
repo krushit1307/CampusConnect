@@ -1,7 +1,11 @@
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense, useMemo } from "react";
+import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
+import { TableOfContents } from "@/components/events/TableOfContents";
+import NotFound from "./NotFound";
+import LazyHydrate from "@/components/LazyHydrate";
 import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
@@ -27,6 +31,7 @@ import {
   X,
   CheckCircle,
   Clock,
+  RotateCcw,
 } from "lucide-react";
 import { ReportDialog } from "@/components/ReportDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -46,6 +51,13 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { LazyImage } from "@/components/ui/LazyImage";
 import { parseCoordinates } from "@/lib/eventUtils";
+import {
+  buildKanbanColumns,
+  buildRsvpStatus,
+  buildFeedbackStatus,
+  buildWaitlistInfo,
+  buildGoogleMapsSearchUrl,
+} from "@/lib/eventTransformUtils";
 import { isCaptchaConfigured, shouldRequireCaptcha } from "@/lib/captcha";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
@@ -213,8 +225,10 @@ export default function EventDetailsPage() {
     name: string;
     objectUrl: string;
     progress: number;
-    status: "uploading" | "success" | "error";
+    status: "uploading" | "success" | "error" | "cancelled";
     errorMsg?: string;
+    abortController?: AbortController;
+    file?: File;
   }
 
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
@@ -240,6 +254,35 @@ export default function EventDetailsPage() {
     },
     enabled: !!eventId,
   });
+
+    // Extract headings from HTML description for TOC
+  const tocItems = useMemo(() => {
+    if (!event?.description) return [];
+    
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(event.description, "text/html");
+    const headings = doc.querySelectorAll("h2, h3");
+    
+    return Array.from(headings).map((heading) => {
+      const text = heading.textContent || "";
+      // Simple slugify for ID
+      const id = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      return { id, text, level: heading.tagName === "H2" ? 2 : 3 };
+    });
+  }, [event?.description]);
+
+  // Inject IDs into the rendered DOM nodes so the TOC can scroll to them
+  useEffect(() => {
+    const container = document.getElementById("event-description-container");
+    if (!container) return;
+
+    const headings = container.querySelectorAll("h2, h3");
+    headings.forEach((heading) => {
+      const text = heading.textContent || "";
+      const id = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      heading.id = id;
+    });
+  }, [event?.description]);
 
   useEffect(() => {
     if (!lightboxSrc) return;
@@ -270,83 +313,160 @@ export default function EventDetailsPage() {
       return;
     }
 
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast.error("You must be logged in to upload photos.");
+      return;
+    }
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    
     const newUploads: UploadingFile[] = Array.from(files).map((file) => ({
       id: crypto.randomUUID(),
       name: file.name,
       objectUrl: URL.createObjectURL(file),
       progress: 0,
       status: "uploading",
+      abortController: new AbortController(),
+      file,
     }));
 
     setUploadingFiles((prev) => [...prev, ...newUploads]);
 
-    const uploadPromises = Array.from(files).map((file, index) => {
-      const uploadItem = newUploads[index];
-      const fileExt = file.name.split(".").pop();
+    const uploadPromises = newUploads.map((uploadItem) => {
+      const fileExt = uploadItem.file!.name.split(".").pop();
       const fileName = `${crypto.randomUUID()}.${fileExt}`;
       const filePath = `${eventId}/${fileName}`;
 
-      return new Promise<void>((resolve) => {
-        const progressInterval = setInterval(() => {
+      return uploadFileWithProgress(
+        supabaseUrl,
+        session.access_token,
+        "event-gallery",
+        filePath,
+        uploadItem.file!,
+        (percent) => {
           setUploadingFiles((prev) =>
-            prev.map((item) => {
-              if (item.id === uploadItem.id && item.status === "uploading" && item.progress < 90) {
-                return { ...item, progress: item.progress + 10 };
-              }
-              return item;
-            }),
+            prev.map((item) =>
+              item.id === uploadItem.id ? { ...item, progress: percent } : item
+            )
           );
-        }, 200);
-
-        supabase.storage
-          .from("event-gallery")
-          .upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: false,
-          })
-          .then(({ error }) => {
-            clearInterval(progressInterval);
-            if (error) {
-              setUploadingFiles((prev) =>
-                prev.map((item) =>
-                  item.id === uploadItem.id
-                    ? { ...item, status: "error", progress: 0, errorMsg: error.message }
-                    : item,
-                ),
-              );
-              toast.error(`Failed to upload ${file.name}: ${error.message}`);
-            } else {
-              setUploadingFiles((prev) =>
-                prev.map((item) =>
-                  item.id === uploadItem.id ? { ...item, status: "success", progress: 100 } : item,
-                ),
-              );
-            }
-          })
-          .catch((err: unknown) => {
-            clearInterval(progressInterval);
-            const errMsg = err instanceof Error ? err.message : "Unknown error";
+        },
+        uploadItem.abortController?.signal
+      )
+        .then(() => {
+          setUploadingFiles((prev) =>
+            prev.map((item) =>
+              item.id === uploadItem.id ? { ...item, status: "success", progress: 100 } : item
+            )
+          );
+        })
+        .catch((error) => {
+          if (error.message === "Upload cancelled") {
+            setUploadingFiles((prev) =>
+              prev.map((item) =>
+                item.id === uploadItem.id ? { ...item, status: "cancelled", progress: 0 } : item
+              )
+            );
+            toast.info(`Upload cancelled for ${uploadItem.name}`);
+          } else {
             setUploadingFiles((prev) =>
               prev.map((item) =>
                 item.id === uploadItem.id
-                  ? { ...item, status: "error", progress: 0, errorMsg: errMsg }
-                  : item,
-              ),
+                  ? { ...item, status: "error", progress: 0, errorMsg: error.message }
+                  : item
+              )
             );
-            toast.error(`Error uploading ${file.name}`);
-          })
-          .finally(() => {
-            resolve();
-          });
-      });
+            toast.error(`Failed to upload ${uploadItem.name}: ${error.message}`);
+          }
+        });
     });
 
     await Promise.all(uploadPromises);
 
     refetchGallery();
     setTimeout(() => {
-      setUploadingFiles((prev) => prev.filter((item) => item.status !== "success"));
+      setUploadingFiles((prev) => prev.filter((item) => item.status !== "success" && item.status !== "cancelled"));
     }, 2000);
+  };
+
+  const handleCancelUpload = (id: string) => {
+    setUploadingFiles((prev) => {
+      const file = prev.find((f) => f.id === id);
+      if (file && file.status === "uploading" && file.abortController) {
+        file.abortController.abort();
+      }
+      return prev;
+    });
+  };
+
+  const handleRetryUpload = async (id: string) => {
+    // Cannot access latest uploadingFiles reliably from closure if not using functional update
+    // We'll extract it using a ref or just grab the file from the state directly
+    setUploadingFiles((prev) => {
+      const fileItem = prev.find((f) => f.id === id);
+      if (!fileItem || !fileItem.file) return prev;
+      
+      // Perform async operations outside
+      retryUploadTask(fileItem);
+      
+      return prev.map((item) =>
+        item.id === id
+          ? { ...item, status: "uploading", progress: 0, errorMsg: undefined, abortController: new AbortController() }
+          : item
+      );
+    });
+  };
+
+  const retryUploadTask = async (fileItem: UploadingFile) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    
+    // We need the newly created abortController, so we get it from the latest state
+    let abortSignal: AbortSignal | undefined;
+    setUploadingFiles((prev) => {
+      const updatedItem = prev.find((f) => f.id === fileItem.id);
+      abortSignal = updatedItem?.abortController?.signal;
+      return prev;
+    });
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const fileExt = fileItem.file!.name.split(".").pop();
+    const fileName = `${crypto.randomUUID()}.${fileExt}`;
+    const filePath = `${eventId}/${fileName}`;
+
+    uploadFileWithProgress(
+      supabaseUrl,
+      session.access_token,
+      "event-gallery",
+      filePath,
+      fileItem.file!,
+      (percent) => {
+        setUploadingFiles((prev) =>
+          prev.map((item) => (item.id === fileItem.id ? { ...item, progress: percent } : item))
+        );
+      },
+      abortSignal
+    )
+      .then(() => {
+        setUploadingFiles((prev) =>
+          prev.map((item) => (item.id === fileItem.id ? { ...item, status: "success", progress: 100 } : item))
+        );
+        refetchGallery();
+        setTimeout(() => {
+          setUploadingFiles((prev) => prev.filter((item) => item.status !== "success" && item.status !== "cancelled"));
+        }, 2000);
+      })
+      .catch((error) => {
+        if (error.message === "Upload cancelled") {
+          setUploadingFiles((prev) =>
+            prev.map((item) => (item.id === fileItem.id ? { ...item, status: "cancelled", progress: 0 } : item))
+          );
+        } else {
+          setUploadingFiles((prev) =>
+            prev.map((item) => (item.id === fileItem.id ? { ...item, status: "error", progress: 0, errorMsg: error.message } : item))
+          );
+        }
+      });
   };
 
   const {
@@ -554,13 +674,16 @@ export default function EventDetailsPage() {
       // Return context with previous data for rollback
       return { previousEvent };
     },
-    onError: (error, variables, context) => {
+    onError: (
+      error: unknown,
+      _variables: unknown,
+      context: { previousEvent: unknown } | undefined,
+    ) => {
       // Rollback to previous value on error
       if (context?.previousEvent) {
         setQueryData(["event", eventId], context.previousEvent);
       }
-      toast.error(error.message || "Failed to update RSVP. Please try again.");
-    onError: (error: (Error & { details?: string; context?: string }) | unknown) => {
+
       const err = error as Record<string, unknown>;
       if (
         (typeof err?.message === "string" && err.message.includes("Rate limit")) ||
@@ -570,7 +693,9 @@ export default function EventDetailsPage() {
       ) {
         toast.error("Please wait a minute before toggling RSVP again.");
       } else {
-        toast.error((err?.message as string) || "Failed to update RSVP. Please try again.");
+        toast.error(
+          (err?.message as string) || error?.message || "Failed to update RSVP. Please try again.",
+        );
       }
     },
     onSuccess: () => {
@@ -743,60 +868,7 @@ export default function EventDetailsPage() {
       event_rsvps: EventRsvp[];
     };
 
-    const waitlistCards = (typedEvent.event_waitlist || []).map((w: EventWaitlist) => {
-      const profile = (Array.isArray(w.profiles) ? w.profiles[0] : w.profiles) as Profile | null;
-      return {
-        id: `waitlist-${w.id}`,
-        userId: w.user_id,
-        name: profile ? `${profile.first_name} ${profile.last_name}` : "Unknown User",
-        avatarUrl: profile?.avatar_url || null,
-      };
-    });
-
-    const rsvpWaitlistCards = (typedEvent.event_rsvps || [])
-      .filter((r: EventRsvp) => r.status === "waitlisted")
-      .map((r: EventRsvp) => {
-        const profile = (Array.isArray(r.profiles) ? r.profiles[0] : r.profiles) as Profile | null;
-        return {
-          id: `rsvp-${r.id}`,
-          userId: r.user_id,
-          rsvpId: r.id,
-          name: profile ? `${profile.first_name} ${profile.last_name}` : "Unknown User",
-          avatarUrl: profile?.avatar_url || null,
-        };
-      });
-
-    const approvedCards = (typedEvent.event_rsvps || [])
-      .filter((r: EventRsvp) => r.status === "approved" || !r.status)
-      .map((r: EventRsvp) => {
-        const profile = (Array.isArray(r.profiles) ? r.profiles[0] : r.profiles) as Profile | null;
-        return {
-          id: `rsvp-${r.id}`,
-          userId: r.user_id,
-          rsvpId: r.id,
-          name: profile ? `${profile.first_name} ${profile.last_name}` : "Unknown User",
-          avatarUrl: profile?.avatar_url || null,
-        };
-      });
-
-    const rejectedCards = (typedEvent.event_rsvps || [])
-      .filter((r: EventRsvp) => r.status === "rejected")
-      .map((r: EventRsvp) => {
-        const profile = (Array.isArray(r.profiles) ? r.profiles[0] : r.profiles) as Profile | null;
-        return {
-          id: `rsvp-${r.id}`,
-          userId: r.user_id,
-          rsvpId: r.id,
-          name: profile ? `${profile.first_name} ${profile.last_name}` : "Unknown User",
-          avatarUrl: profile?.avatar_url || null,
-        };
-      });
-
-    setColumns({
-      waitlisted: [...waitlistCards, ...rsvpWaitlistCards],
-      approved: approvedCards,
-      rejected: rejectedCards,
-    });
+    setColumns(buildKanbanColumns(typedEvent.event_waitlist || [], typedEvent.event_rsvps || []));
   }, [event]);
 
   const updateRsvpStatus = useMutation({
@@ -930,29 +1002,16 @@ export default function EventDetailsPage() {
     );
   }
 
-  const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
-  const hasRsvpd = user ? rsvps.some((r: { user_id: string }) => r.user_id === user.id) : false;
-  const isCheckedIn = user
-    ? rsvps.some(
-        (r: { user_id: string; checked_in?: boolean }) => r.user_id === user.id && r.checked_in,
-      )
-    : false;
-  const hasEnded = event.end_date ? new Date() > new Date(event.end_date) : false;
+  const rsvps = Array.isArray(event.event_rsvps) ? (event.event_rsvps as EventRsvp[]) : [];
+  const { hasRsvpd, isCheckedIn, hasEnded } = buildRsvpStatus(rsvps, user?.id, event.end_date);
   const rawFeedbacks = (event as Record<string, unknown>).event_feedbacks;
-  const hasSubmittedFeedback =
-    user && Array.isArray(rawFeedbacks)
-      ? (rawFeedbacks as { user_id: string }[]).some((f) => f.user_id === user.id)
-      : false;
+  const { hasSubmittedFeedback } = buildFeedbackStatus(
+    Array.isArray(rawFeedbacks) ? (rawFeedbacks as { user_id: string }[]) : undefined,
+    user?.id,
+  );
 
   const rawWaitlist = (event as Record<string, unknown>).event_waitlist;
-  const waitlist = Array.isArray(rawWaitlist)
-    ? [...(rawWaitlist as { id: string; user_id: string; created_at?: string }[])].sort(
-        (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime(),
-      )
-    : [];
-  const isOnWaitlist = user ? waitlist.some((w) => w.user_id === user.id) : false;
-  const waitlistPosition =
-    user && isOnWaitlist ? waitlist.findIndex((w) => w.user_id === user.id) + 1 : 0;
+  const { waitlist, isOnWaitlist, waitlistPosition } = buildWaitlistInfo(rawWaitlist, user?.id);
 
   const club = event.clubs ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
   const coordsCheck = event.location
@@ -1452,15 +1511,28 @@ export default function EventDetailsPage() {
             <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
               About the Event
             </h2>
-            {event.description ? (
-              <p className="mt-4 whitespace-pre-line text-base leading-7 text-black/80">
-                {event.description}
-              </p>
-            ) : (
-              <p className="mt-4 font-mono text-sm italic text-black/40">
-                No description provided for this event.
-              </p>
-            )}
+            <div className="flex flex-col gap-8 lg:flex-row">
+              <main className="flex-1 min-w-0">
+                {event.description ? (
+                  <p className="mt-4 whitespace-pre-line text-base leading-7 text-black/80">
+                    {event.description}
+                  </p>
+                ) : (
+                  <p className="mt-4 font-mono text-sm italic text-black/40">
+                    No description provided for this event.
+                  </p>
+                )}
+            
+                <div 
+                  id="event-description-container" 
+                  className="prose prose-lg max-w-none dark:prose-invert prose-headings:scroll-mt-24"
+                  dangerouslySetInnerHTML={{ __html: event.description }} 
+                />
+              </main>
+              <aside className="lg:w-64 shrink-0">
+                <TableOfContents items={tocItems} />
+              </aside>
+            </div>
           </div>
 
           {/* FAQ Section */}
@@ -1509,15 +1581,17 @@ export default function EventDetailsPage() {
               coordsCheck.lat != null &&
               coordsCheck.lng != null ? (
                 <>
-                  <Suspense fallback={<MapSkeleton className="mt-4 h-[300px] w-full" />}>
-                    <EventMap
-                      lat={coordsCheck.lat}
-                      lng={coordsCheck.lng}
-                      locationName={event.location}
-                    />
-                  </Suspense>
+                  <LazyHydrate height="300px" placeholder={<MapSkeleton className="mt-4 h-[300px] w-full" />}>
+                    <Suspense fallback={<MapSkeleton className="mt-4 h-[300px] w-full" />}>
+                      <EventMap
+                        lat={coordsCheck.lat}
+                        lng={coordsCheck.lng}
+                        locationName={event.location}
+                      />
+                    </Suspense>
+                  </LazyHydrate>
                   <a
-                    href={`https://www.google.com/maps/search/?q=${encodeURIComponent(event.location)}`}
+                    href={buildGoogleMapsSearchUrl(event.location)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-2 inline-block font-mono text-xs font-bold underline text-blue-500"
@@ -1539,7 +1613,7 @@ export default function EventDetailsPage() {
                       must be between -90 and 90, and Longitude between -180 and 180.
                     </p>
                     <a
-                      href={`https://www.google.com/maps/search/?q=${encodeURIComponent(event.location)}`}
+                      href={buildGoogleMapsSearchUrl(event.location)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 font-mono text-xs font-bold underline hover:no-underline text-black"
@@ -1550,7 +1624,7 @@ export default function EventDetailsPage() {
                 </div>
               ) : (
                 <a
-                  href={`https://www.google.com/maps/search/?q=${encodeURIComponent(event.location)}`}
+                  href={buildGoogleMapsSearchUrl(event.location)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="neu-border mt-4 inline-flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
@@ -1619,16 +1693,23 @@ export default function EventDetailsPage() {
                         className="h-full w-full object-cover opacity-60"
                       />
                       {file.status === "uploading" && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/45 p-2">
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/45 p-2 group">
                           <span className="font-mono text-xs font-bold text-white mb-2">
                             {file.progress}%
                           </span>
-                          <div className="w-full bg-white/30 h-2 rounded-full overflow-hidden">
+                          <div className="w-full bg-white/30 h-2 rounded-full overflow-hidden mb-2">
                             <div
                               className="bg-lime h-full transition-all duration-200"
                               style={{ width: `${file.progress}%` }}
                             />
                           </div>
+                          <button
+                            onClick={() => handleCancelUpload(file.id)}
+                            className="bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            aria-label="Cancel upload"
+                          >
+                            <X size={14} />
+                          </button>
                         </div>
                       )}
                       {file.status === "success" && (
@@ -1641,9 +1722,30 @@ export default function EventDetailsPage() {
                           <span className="font-display font-black text-xs uppercase text-center">
                             Failed
                           </span>
-                          <span className="font-mono text-[9px] text-center mt-1 truncate w-full">
+                          <span className="font-mono text-[9px] text-center mt-1 truncate w-full mb-2">
                             {file.errorMsg}
                           </span>
+                          <button
+                            onClick={() => handleRetryUpload(file.id)}
+                            className="bg-white text-red-500 rounded-full p-1 hover:bg-gray-200 transition-colors"
+                            aria-label="Retry upload"
+                          >
+                            <RotateCcw size={14} />
+                          </button>
+                        </div>
+                      )}
+                      {file.status === "cancelled" && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-500/90 text-white p-2">
+                          <span className="font-display font-black text-xs uppercase text-center">
+                            Cancelled
+                          </span>
+                          <button
+                            onClick={() => handleRetryUpload(file.id)}
+                            className="mt-2 bg-white text-gray-700 rounded-full p-1 hover:bg-gray-200 transition-colors"
+                            aria-label="Retry upload"
+                          >
+                            <RotateCcw size={14} />
+                          </button>
                         </div>
                       )}
                     </div>

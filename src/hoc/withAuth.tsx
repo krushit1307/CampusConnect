@@ -20,7 +20,7 @@ export interface WithAuthOptions {
  */
 export function withAuth<P extends object>(
   WrappedComponent: ComponentType<P & WithAuthProps>,
-  options: WithAuthOptions = {}
+  options: WithAuthOptions = {},
 ) {
   const WithAuthComponent: React.FC<P> = (props) => {
     const [user, setUser] = useState<User | null>(null);

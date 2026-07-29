@@ -1,6 +1,7 @@
 import { ImagePlus, Loader2, Send, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { useMutation } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,8 +15,9 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useMutation } from "@/hooks/useReactQueryReplacement";
+import { Progress } from "@/components/ui/progress";
 import { createClient } from "@/lib/supabase/client";
+import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
 
 const MAX_DESCRIPTION_LENGTH = 2000;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -36,14 +38,14 @@ interface BugReportModalProps {
 }
 
 export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
-  const [category, setCategory] = useState("bug"); // NEW: Category state
+  const [category, setCategory] = useState("bug");
   const [description, setDescription] = useState("");
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
 
-  // NEW: Dynamic text engine based on category
   const contentMap: Record<
     string,
     { title: string; subtitle: string; label: string; placeholder: string }
@@ -85,14 +87,23 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
         let screenshotUrl: string | null = null;
 
         if (screenshot) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) throw new Error("Must be logged in to upload");
+
           const ext = screenshot.name.split(".").pop()?.toLowerCase() ?? "png";
           const filePath = `${user.id}/${crypto.randomUUID()}.${ext}`;
           uploadedPath = filePath;
 
-          const { error: uploadError } = await supabase.storage
-            .from("bug-screenshots")
-            .upload(filePath, screenshot, { contentType: screenshot.type });
-          if (uploadError) throw new Error(uploadError.message);
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          
+          await uploadFileWithProgress(
+            supabaseUrl,
+            session.access_token,
+            "bug-screenshots",
+            filePath,
+            screenshot,
+            setUploadProgress
+          );
 
           const {
             data: { publicUrl },
@@ -110,7 +121,6 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
         });
         if (insertError) throw new Error(insertError.message);
       } catch (err) {
-        // Best-effort cleanup: remove orphaned screenshot on failure
         if (uploadedPath) {
           await supabase.storage
             .from("bug-screenshots")
@@ -129,6 +139,9 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
       console.error("[BugReportModal] Submit failed:", error);
       toast.error(error.message || "Failed to submit report. Please try again.");
     },
+    onSettled: () => {
+      setUploadProgress(null);
+    }
   });
 
   function resetForm() {
@@ -136,6 +149,7 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
     setDescription("");
     setScreenshot(null);
     setPreviewDataUrl(null);
+    setUploadProgress(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -159,12 +173,6 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
     } catch {
       toast.error("Failed to read screenshot. Please try again.");
     }
-  }
-
-  function removeScreenshot() {
-    setScreenshot(null);
-    setPreviewDataUrl(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   const canSubmit = description.trim().length > 0 && !submitReport.isPending;
@@ -193,7 +201,6 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* NEW: Category Dropdown */}
           <div className="space-y-2">
             <Label htmlFor="feedback-category" className="text-red-900">
               Feedback Type
@@ -232,20 +239,31 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
             <Label className="text-red-900">Screenshot (optional)</Label>
 
             {previewDataUrl ? (
-              <div className="relative inline-block">
+              <div className="relative mt-3 inline-block overflow-hidden neu-border bg-black">
                 <img
                   src={previewDataUrl}
                   alt="Screenshot preview"
-                  className="max-h-40 rounded-md border-2 border-black object-contain"
+                  className="max-h-48 w-auto object-contain"
                 />
                 <button
                   type="button"
                   aria-label="Remove screenshot"
-                  onClick={removeScreenshot}
-                  className="absolute -right-2 -top-2 rounded-full bg-black p-1 text-white hover:bg-red-600"
+                  onClick={() => {
+                    setScreenshot(null);
+                    setPreviewDataUrl(null);
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                  }}
+                  className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border-2 border-black bg-red-500 text-white hover:bg-red-600"
+                  disabled={submitReport.isPending}
                 >
-                  <X className="h-3 w-3" />
+                  <X size={12} />
                 </button>
+                {uploadProgress !== null && (
+                  <div className="absolute inset-x-0 bottom-0 bg-black/50 p-2">
+                    <span className="font-mono text-[10px] font-bold text-white mb-1 block">Uploading {uploadProgress}%</span>
+                    <Progress value={uploadProgress} className="h-1.5" />
+                  </div>
+                )}
               </div>
             ) : (
               <div>

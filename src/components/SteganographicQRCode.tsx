@@ -21,7 +21,9 @@ export function SteganographicQRCode({
   const [isSigned, setIsSigned] = useState(false);
 
   const onPayloadGeneratedRef = useRef(onPayloadGenerated);
-  onPayloadGeneratedRef.current = onPayloadGenerated;
+  useEffect(() => {
+    onPayloadGeneratedRef.current = onPayloadGenerated;
+  }, [onPayloadGenerated]);
 
   useEffect(() => {
     let isMounted = true;
@@ -65,15 +67,10 @@ export function SteganographicQRCode({
           if (isMounted) setIsSigned(true);
         };
 
-        const encoder = new TextEncoder();
-        const uint8Array = encoder.encode(svgData);
-        let binary = "";
-        for (let i = 0; i < uint8Array.length; i++) {
-          binary += String.fromCharCode(uint8Array[i]);
-        }
-        const base64 = btoa(binary);
-
-        img.src = `data:image/svg+xml;base64,${base64}`;
+        const encodedSvg = encodeURIComponent(svgData).replace(/%([0-9A-F]{2})/g, (_, p1) =>
+          String.fromCharCode(parseInt(p1, 16)),
+        );
+        img.src = "data:image/svg+xml;base64," + btoa(encodedSvg);
       }, 100);
     }
 

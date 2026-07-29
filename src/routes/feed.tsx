@@ -32,6 +32,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { AnimatedTooltip } from "@/components/ui/AnimatedTooltip";
 import { toast } from "sonner";
 import { RoleBadge } from "@/components/RoleBadge";
+import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -42,9 +44,19 @@ import {
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { calculateReadTime } from "@/utils/readTime";
+import {
+  timeAgo,
+  combinePosts,
+  filterPostsBySearch,
+  buildCommentTree,
+  computeReaction,
+} from "@/utils/helpers";
+import { useActionQueue } from "@/store/actionQueue";
+import { type CommentNode } from "@/lib/feedUtils";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import PullToRefresh from "@/components/PullToRefresh";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
+import { announce } from "@/store/ariaAnnouncer";
 import { ReportDialog } from "@/components/ReportDialog";
 import CompressWorker from "@/workers/compress.worker?worker";
 
@@ -124,7 +136,7 @@ export default function Feed() {
   const [user, setUser] = useState<User | null>(null);
   const emailVerified = useEmailVerification();
   const [newPost, setNewPost] = useState("");
-  const editorRef = useRef<MarkdownEditorRef>(null);
+  const editorRef = useRef<MarkdownEditorWithMentionsRef>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showNewPostsBanner, setShowNewPostsBanner] = useState(false);
   const [prependedPosts, setPrependedPosts] = useState<Post[]>([]);
@@ -149,6 +161,7 @@ export default function Feed() {
   const [attachedImage, setAttachedImage] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [compressing, setCompressing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -201,7 +214,11 @@ export default function Feed() {
     fetchNextPage,
     hasNextPage,
     refetch: refetchPosts,
-  } = useInfiniteQuery<{ posts: Post[]; nextCursor?: { created_at: string; id: string } }>({
+  } = useInfiniteQuery<
+    { posts: Post[]; nextCursor?: { created_at: string; id: string } },
+    Error,
+    { created_at: string; id: string } | null
+  >({
     queryKey: ["posts"],
     initialPageParam: null,
     queryFn: async ({ pageParam = null }) => {
@@ -242,11 +259,7 @@ export default function Feed() {
   });
 
   const allPosts = data?.pages.flatMap((page) => page.posts) ?? [];
-  const combinedPosts = [
-    ...prependedPosts,
-    ...allPosts.filter((ap) => !prependedPosts.some((pp) => pp.id === ap.id)),
-  ];
-  const posts = [...combinedPosts].sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned));
+  const posts = combinePosts(prependedPosts, allPosts);
 
   // Trending posts — fetched lazily only when the Trending tab is active
   const { data: trendingData, isLoading: isTrendingLoading } = useQuery<Post[]>({
@@ -275,20 +288,7 @@ export default function Feed() {
   const trendingPosts: Post[] = trendingData ?? [];
   const activePosts = feedMode === "latest" ? posts : trendingPosts;
 
-  const filteredPosts = activePosts.filter((post) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-
-    const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
-    const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
-
-    const contentMatch = post.content?.toLowerCase().includes(q);
-    const authorMatch =
-      author?.full_name?.toLowerCase().includes(q) || author?.handle?.toLowerCase().includes(q);
-    const clubMatch = club?.name?.toLowerCase().includes(q);
-
-    return contentMatch || authorMatch || clubMatch;
-  });
+  const filteredPosts = filterPostsBySearch(activePosts, searchQuery);
 
   const isActiveFeedLoading = feedMode === "latest" ? isLoading : isTrendingLoading;
 
@@ -427,14 +427,27 @@ export default function Feed() {
   );
 
   useEffect(() => {
+    return () => observer.current?.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const channelName = "realtime_feed";
+    // Prevent duplicate subscriptions by removing any existing channel with this topic
+    supabase.getChannels().forEach((c) => {
+      if (c.topic === `realtime:${channelName}` || c.topic === channelName) {
+        void supabase.removeChannel(c);
+      }
+    });
+
     const channel = supabase
-      .channel("realtime_feed")
+      .channel(channelName)
       .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, (payload) => {
         if (payload.eventType === "INSERT") {
           const isOwnPost = payload.new && payload.new.author_id === userRef.current?.id;
           const alreadyExists = postsRef.current.some((p) => p.id === payload.new.id);
           if (!isOwnPost && !alreadyExists) {
             setShowNewPostsBanner(true);
+            announce("New post in feed");
             return;
           }
         }
@@ -468,7 +481,8 @@ export default function Feed() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      void channel.unsubscribe();
+      void supabase.removeChannel(channel);
     };
   }, [supabase, refetchPosts]);
 
@@ -620,12 +634,20 @@ export default function Feed() {
 
       let imageUrl = null;
       if (attachedImage) {
-        const filePath = `${user.id}/${crypto.randomUUID()}-${attachedImage.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from("post-attachments")
-          .upload(filePath, attachedImage);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error("Must be logged in");
 
-        if (uploadError) throw uploadError;
+        const filePath = `${user.id}/${crypto.randomUUID()}-${attachedImage.name}`;
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+        await uploadFileWithProgress(
+          supabaseUrl,
+          session.access_token,
+          "post-attachments",
+          filePath,
+          attachedImage,
+          setUploadProgress
+        );
 
         const {
           data: { publicUrl },
@@ -647,7 +669,12 @@ export default function Feed() {
       setAttachedImage(null);
       setImagePreviewUrl(null);
     },
-    onSuccess: () => refetchPosts(),
+    onSettled: () => {
+      setUploadProgress(null);
+    },
+    onSuccess: () => {
+      refetchPosts();
+    },
     onError: (error) => {
       toast.error(error.message || "Failed to publish post.");
     },
@@ -685,14 +712,20 @@ export default function Feed() {
       }
     },
     onMutate: async ({ postId, emoji, isReacted }) => {
+      // Cancel any outgoing refetches
+      // (not needed in this custom implementation, but kept for pattern consistency)
+
+      // Snapshot the previous value
       const previousData = data?.pages.flatMap((page) => page.posts) ?? [];
 
+      // Optimistically update the cache
       const updatedPosts = previousData.map((post) => {
         if (post.id === postId) {
           const postReactions: PostReaction[] = Array.isArray(post.post_reactions)
             ? post.post_reactions
             : [];
           if (isReacted) {
+            // Remove reaction optimistically
             return {
               ...post,
               post_reactions: postReactions.filter(
@@ -700,6 +733,7 @@ export default function Feed() {
               ),
             };
           } else {
+            // Add reaction optimistically
             return {
               ...post,
               post_reactions: [...postReactions, { emoji, user_id: user?.id || "" }],
@@ -709,29 +743,22 @@ export default function Feed() {
         return post;
       });
 
+      // Update cache with optimistic data
       setQueryData(["posts"], { pages: [{ posts: updatedPosts }] });
+
+      // Return context with previous data for rollback
       return { previousData };
     },
-    onSuccess: (_data, variables) => {
-      const key = `${variables.postId}-${variables.emoji}`;
-      setOptimisticReactions((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-      refetchPosts();
-    },
     onError: (error, variables, context) => {
+      // Rollback to previous value on error
       if (context?.previousData) {
         setQueryData(["posts"], { pages: [{ posts: context.previousData }] });
       }
-      const key = `${variables.postId}-${variables.emoji}`;
-      setOptimisticReactions((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-      toast.error(error.message || "Failed to update reaction.");
+      toast.error(error.message || "Failed to update reaction. Please try again.");
+    },
+    onSuccess: () => {
+      // Refetch to ensure server state matches
+      refetchPosts();
     },
   });
 
@@ -770,20 +797,6 @@ export default function Feed() {
     onError: (error) => toast.error(error.message || "Failed to update pin."),
   });
 
-  const timeAgo = (dateString: string) => {
-    const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-    const diff = new Date().getTime() - new Date(dateString).getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (days > 0) return rtf.format(-days, "day");
-
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    if (hours > 0) return rtf.format(-hours, "hour");
-
-    const minutes = Math.floor(diff / (1000 * 60));
-    return rtf.format(-Math.max(1, minutes), "minute");
-  };
-
   const scrollToTop = () => {
     window.scrollTo({
       top: 0,
@@ -792,133 +805,128 @@ export default function Feed() {
   };
 
   return (
-    <ErrorBoundary>
-      <SiteShell>
-        <PullToRefresh onRefresh={handleRefetch}>
-          <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
-            <div className="mx-auto max-w-4xl">
-              <p className="eyebrow font-bold">Discussion feed</p>
-              <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">
-                What clubs are talking about.
-              </h1>
-            </div>
-          </section>
+    <SiteShell>
+      <PullToRefresh onRefresh={handleRefetch}>
+        <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
+          <div className="mx-auto max-w-4xl">
+            <p className="eyebrow font-bold">Discussion feed</p>
+            <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">
+              What clubs are talking about.
+            </h1>
+          </div>
+        </section>
 
-          <section className="bg-cream px-4 py-12 md:px-6">
-            <div className="mx-auto max-w-4xl space-y-6">
-              <div className="space-y-3">
-                <MarkdownEditorWithMentions
-                  ref={editorRef}
-                  value={newPost}
-                  onChange={setNewPost}
-                  clubId={selectedClubId}
-                />
+        <section className="bg-cream px-4 py-12 md:px-6">
+          <div className="mx-auto max-w-4xl space-y-6">
+            <div className="space-y-3">
+              <MarkdownEditorWithMentions
+                ref={editorRef}
+                value={newPost}
+                onChange={setNewPost}
+                clubId={selectedClubId}
+              />
 
-                {imagePreviewUrl && (
-                  <div className="relative inline-block mt-2">
-                    <img
-                      src={imagePreviewUrl}
-                      alt="Attached preview"
-                      className="max-h-40 neu-border object-cover"
-                    />
+              {imagePreviewUrl && (
+                <div className="relative mt-4 overflow-hidden neu-border w-fit max-w-full">
+                  <img src={imagePreviewUrl} alt="Preview" className="max-h-96 w-auto" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAttachedImage(null);
+                      setImagePreviewUrl(null);
+                    }}
+                    className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white hover:bg-black"
+                    disabled={postMutation.isPending}
+                  >
+                    <X size={16} />
+                  </button>
+                  {uploadProgress !== null && (
+                    <div className="absolute inset-x-0 bottom-0 bg-black/50 p-2">
+                      <span className="font-mono text-xs font-bold text-white mb-1 block">Uploading {uploadProgress}%</span>
+                      <Progress value={uploadProgress} className="h-1.5" />
+                    </div>
+                  )}
+                  {compressing && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-mono text-xs">
+                      Compressing...
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                <Select
+                  value={selectedClubId}
+                  onValueChange={setSelectedClubId}
+                  disabled={userClubs.length === 0}
+                >
+                  <SelectTrigger
+                    className="w-full border-none bg-transparent font-mono text-xs shadow-none sm:w-auto"
+                    aria-label="Choose club for post"
+                  >
+                    <SelectValue placeholder="No clubs joined" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {userClubs.map((userClub) => {
+                      const club = Array.isArray(userClub.clubs)
+                        ? userClub.clubs[0]
+                        : userClub.clubs;
+                      return club ? (
+                        <SelectItem key={club.id} value={club.id}>
+                          Posting to · {club.name}
+                        </SelectItem>
+                      ) : null;
+                    })}
+                  </SelectContent>
+                </Select>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={postMutation.isPending || compressing}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-cream flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    📷 Attach Image
+                  </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImageSelect}
+                    accept="image/*"
+                    className="hidden"
+                  />
+
+                  <AnimatedTooltip
+                    content={!emailVerified ? "Please verify your email to post" : null}
+                  >
                     <button
                       type="button"
                       onClick={() => {
-                        setAttachedImage(null);
-                        setImagePreviewUrl(null);
+                        if (!user) return alert("Log in first");
+                        if (!emailVerified) return alert("Please verify your email to post");
+                        if (!selectedClubId) return alert("Join or select a club first");
+                        if (newPost.trim()) postMutation.mutate();
                       }}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 border-2 border-black hover:bg-red-600 flex items-center justify-center h-6 w-6"
-                      title="Remove image"
+                      disabled={
+                        !newPost.trim() ||
+                        !selectedClubId ||
+                        postMutation.isPending ||
+                        !emailVerified ||
+                        compressing
+                      }
+                      className={`neu-border neu-press px-5 py-2 font-mono text-xs font-bold uppercase disabled:cursor-not-allowed disabled:opacity-50 ${
+                        emailVerified ? "bg-black text-cream" : "bg-gray-400 text-gray-700"
+                      }`}
                     >
-                      <Trash2 size={12} />
+                      {postMutation.isPending ? "Posting…" : "Post Markdown"}
                     </button>
-                    {compressing && (
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-mono text-xs">
-                        Compressing...
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
-                  <Select
-                    value={selectedClubId}
-                    onValueChange={setSelectedClubId}
-                    disabled={userClubs.length === 0}
-                  >
-                    <SelectTrigger
-                      className="w-full border-none bg-transparent font-mono text-xs shadow-none sm:w-auto"
-                      aria-label="Choose club for post"
-                    >
-                      <SelectValue placeholder="No clubs joined" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {userClubs.map((userClub) => {
-                        const club = Array.isArray(userClub.clubs)
-                          ? userClub.clubs[0]
-                          : userClub.clubs;
-                        return club ? (
-                          <SelectItem key={club.id} value={club.id}>
-                            Posting to · {club.name}
-                          </SelectItem>
-                        ) : null;
-                      })}
-                    </SelectContent>
-                  </Select>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={postMutation.isPending || compressing}
-                      onClick={() => fileInputRef.current?.click()}
-                      className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-cream flex items-center gap-1.5 disabled:opacity-50"
-                    >
-                      📷 Attach Image
-                    </button>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleImageSelect}
-                      accept="image/*"
-                      className="hidden"
-                    />
-
-                    <AnimatedTooltip
-                      content={!emailVerified ? "Please verify your email to post" : null}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!user) return alert("Log in first");
-                          if (!emailVerified) return alert("Please verify your email to post");
-                          if (!selectedClubId) return alert("Join or select a club first");
-                          if (newPost.trim()) postMutation.mutate();
-                        }}
-                        disabled={
-                          !newPost.trim() ||
-                          !selectedClubId ||
-                          postMutation.isPending ||
-                          !emailVerified ||
-                          compressing
-                        }
-                        className={`neu-border neu-press px-5 py-2 font-mono text-xs font-bold uppercase disabled:cursor-not-allowed disabled:opacity-50 ${
-                          emailVerified ? "bg-black text-cream" : "bg-gray-400 text-gray-700"
-                        }`}
-                      >
-                        {postMutation.isPending ? "Posting…" : "Post Markdown"}
-                      </button>
-                    </AnimatedTooltip>
-                  </div>
+                  </AnimatedTooltip>
                 </div>
-
-                {postMutation.isError && (
-                  <p className="neu-border bg-peach p-3 font-mono text-xs" role="alert">
-                    Could not publish the post. Please try again.
-                  </p>
-                )}
               </div>
+            </div>
 
-              <style>{`
+            <style>{`
               @keyframes slideDown {
                 from {
                   opacity: 0;
@@ -1125,7 +1133,7 @@ export default function Feed() {
                               >
                                 <Flag size={14} strokeWidth={2.5} />
                               </button>
-                            )}
+)}
                             {(user?.id === author?.id || userProfile?.role === "system_admin") && (
                               <button
                                 type="button"
@@ -1295,33 +1303,32 @@ export default function Feed() {
                   </div>
                 ))}
 
-              {!hasNextPage && posts.length > 0 && (
-                <div className="py-10 text-center font-mono text-sm font-bold text-gray-500 dark:text-gray-300 uppercase">
-                  You're all caught up! 🎉
-                </div>
-              )}
-            </div>
-          </section>
-        </PullToRefresh>
-        <ConfirmModal
-          open={!!confirmPostId}
-          onCancel={() => setConfirmPostId(null)}
-          title="Delete post?"
-          description="Are you sure you want to delete this post? This action cannot be undone."
-          confirmText="Yes, delete"
-          onConfirm={() => {
-            if (confirmPostId) deletePostMutation.mutate(confirmPostId);
-            setConfirmPostId(null);
-          }}
-        />
-        <ReportDialog
-          isOpen={!!reportTarget}
-          onClose={() => setReportTarget(null)}
-          targetType={reportTarget?.type || "post"}
-          targetId={reportTarget?.id || ""}
-        />
-      </SiteShell>
-    </ErrorBoundary>
+            {!hasNextPage && posts.length > 0 && (
+              <div className="py-10 text-center font-mono text-sm font-bold text-gray-500 dark:text-gray-300 uppercase">
+                You're all caught up! 🎉
+              </div>
+            )}
+          </div>
+        </section>
+      </PullToRefreshContainer>
+      <ConfirmModal
+        open={!!confirmPostId}
+        onCancel={() => setConfirmPostId(null)}
+        title="Delete post?"
+        description="Are you sure you want to delete this post? This action cannot be undone."
+        confirmText="Yes, delete"
+        onConfirm={() => {
+          if (confirmPostId) deletePostMutation.mutate(confirmPostId);
+          setConfirmPostId(null);
+        }}
+      />
+      <ReportDialog
+        isOpen={!!reportTarget}
+        onClose={() => setReportTarget(null)}
+        targetType={reportTarget?.type || "post"}
+        targetId={reportTarget?.id || ""}
+      />
+    </SiteShell>
   );
 }
 
@@ -1416,35 +1423,55 @@ function PostComments({ postId, user, userProfile, clubMembers, timeAgo }: PostC
   const deleteCommentMutation = useMutation({
     mutationFn: async (commentId: string) => {
       if (!user) throw new Error("Must be logged in");
-      const { error } = await supabase.from("comments").delete().eq("id", commentId);
+      const { error } = await supabase
+        .from("comments")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", commentId);
       if (error) throw error;
     },
     onSuccess: () => {
       refetchComments();
-      toast.success("Comment deleted successfully!");
     },
     onError: () => {
       toast.error("Failed to delete comment.");
     },
   });
 
-  const activeComments = comments.filter((c) => !c.deleted_at);
+  const queuedActions = useActionQueue((state) => state.actions);
+  const enqueueAction = useActionQueue((state) => state.enqueue);
 
-  type CommentNode = Comment & { children: CommentNode[] };
+  const activeComments = comments.filter((c) => !c.deleted_at && !queuedActions.has(c.id));
 
-  const buildCommentTree = (commentsList: Comment[]) => {
-    const map = new Map<string, CommentNode>();
-    commentsList.forEach((c) => map.set(c.id, { ...c, children: [] }));
-    const roots: CommentNode[] = [];
-    commentsList.forEach((c) => {
-      if (c.parent_comment_id && map.has(c.parent_comment_id)) {
-        map.get(c.parent_comment_id)!.children.push(map.get(c.id)!);
-      } else {
-        roots.push(map.get(c.id)!);
-      }
+  const handleDeleteComment = (commentId: string) => {
+    const timeoutId = setTimeout(() => {
+      deleteCommentMutation.mutate(commentId);
+      useActionQueue.getState().remove(commentId);
+    }, 5000);
+
+    enqueueAction({
+      id: commentId,
+      timeoutId,
+      execute: async () => { deleteCommentMutation.mutate(commentId); },
+      rollback: () => {},
     });
-    return roots;
+
+    toast("Comment deleted", {
+      description: "The comment will be permanently deleted in 5 seconds.",
+      action: {
+        label: "Undo",
+        onClick: () => {
+          const action = useActionQueue.getState().actions.get(commentId);
+          if (action) {
+            clearTimeout(action.timeoutId);
+            action.rollback();
+            useActionQueue.getState().remove(commentId);
+          }
+        },
+      },
+    });
   };
+
+  type CommentNode = import("@/lib/feedUtils").CommentNode;
 
   const renderCommentNode = (commentNode: CommentNode, depth: number) => {
     const commentAuthor = Array.isArray(commentNode.profiles)
@@ -1468,38 +1495,14 @@ function PostComments({ postId, user, userProfile, clubMembers, timeAgo }: PostC
                 {timeAgo(commentNode.created_at)}
               </p>
               {(user?.id === commentAuthor?.id || userProfile?.role === "system_admin") && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <button
-                      type="button"
-                      className="text-[#FF6B6B] hover:text-[#FF8787] uppercase font-bold font-mono text-[10px]"
-                      aria-label="Delete comment"
-                    >
-                      Delete
-                    </button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent className="neu-border bg-white rounded-none p-6">
-                    <AlertDialogHeader>
-                      <AlertDialogTitle className="font-display text-xl font-bold">
-                        Delete comment?
-                      </AlertDialogTitle>
-                      <AlertDialogDescription className="font-mono text-sm text-gray-700">
-                        Are you sure you want to delete this comment?
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
-                      <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
-                        Cancel
-                      </AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => deleteCommentMutation.mutate(commentNode.id)}
-                        className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
-                      >
-                        Confirm
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteComment(commentNode.id)}
+                  className="text-[#FF6B6B] hover:text-[#FF8787] uppercase font-bold font-mono text-[10px]"
+                  aria-label="Delete comment"
+                >
+                  Delete
+                </button>
               )}
             </div>
           </div>

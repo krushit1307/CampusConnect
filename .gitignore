@@ -37,3 +37,4 @@ scripts/create-backend-issues.ts
 scripts/remove-assignees.ts
 .env
 .env.*
+coverage/

@@ -12,7 +12,11 @@ type SessionTimeoutModalProps = {
   onStayLoggedIn: () => void;
 };
 
-export default function SessionTimeoutModal({ open, secondsLeft, onStayLoggedIn }: SessionTimeoutModalProps) {
+export default function SessionTimeoutModal({
+  open,
+  secondsLeft,
+  onStayLoggedIn,
+}: SessionTimeoutModalProps) {
   // Dialog showing "Your session will expire in 5 minutes. Click to stay logged in."
   // with a button that calls onStayLoggedIn
 }

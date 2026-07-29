@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { format } from "date-fns";
 import {
   startOfWeek,
   endOfWeek,
@@ -118,6 +119,100 @@ export function parseCoordinates(locationStr: string): {
     }
   }
   return { isCoordinates: false, isValid: true };
+}
+
+export type FaqEntry = { question: string; answer: string };
+
+export function hasDraftContent(values: EventFormValues): boolean {
+  return Boolean(
+    values.title?.trim() ||
+    values.description?.trim() ||
+    values.location?.trim() ||
+    values.startDate ||
+    values.endDate ||
+    (values.faqs && values.faqs.length > 0),
+  );
+}
+
+export function eventFormToDbPayload(
+  values: EventFormValues,
+  userId: string,
+  clubId: string | null,
+) {
+  const startDateIso = new Date(values.startDate).toISOString();
+  const endDateIso = new Date(values.endDate).toISOString();
+
+  return {
+    title: values.title.trim(),
+    description: values.description.trim(),
+    category_id: values.category || null,
+    location: values.location?.trim() || null,
+    start_date: startDateIso,
+    end_date: endDateIso,
+    event_date: startDateIso,
+    created_by: userId,
+    club_id: clubId,
+    requires_approval: values.requiresApproval || false,
+  };
+}
+
+export function parseFlyerDate(dateStr: string): { startDate: string; endDate: string } | null {
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return null;
+    return {
+      startDate: `${format(d, "yyyy-MM-dd")}T12:00`,
+      endDate: `${format(d, "yyyy-MM-dd")}T14:00`,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function applyDateRangeSelection(
+  range: { from?: Date | undefined; to?: Date | undefined } | undefined,
+  currentStartStr: string,
+  currentEndStr: string,
+): { startDate: string; endDate: string } {
+  if (!range) return { startDate: "", endDate: "" };
+
+  const existingStartTime =
+    currentStartStr && currentStartStr.includes("T") ? currentStartStr.split("T")[1] : "00:00";
+  const startDate = range.from ? `${format(range.from, "yyyy-MM-dd")}T${existingStartTime}` : "";
+
+  let endDate = "";
+  if (range.to) {
+    const existingEndTime =
+      currentEndStr && currentEndStr.includes("T") ? currentEndStr.split("T")[1] : "23:59";
+    endDate = `${format(range.to, "yyyy-MM-dd")}T${existingEndTime}`;
+  }
+
+  return { startDate, endDate };
+}
+
+export function updateTimeInDate(dateStr: string, time: string): string {
+  if (!dateStr) return dateStr;
+  const datePart = dateStr.split("T")[0];
+  return `${datePart}T${time}`;
+}
+
+export function addFaq(faqs: FaqEntry[]): FaqEntry[] {
+  return [...faqs, { question: "", answer: "" }];
+}
+
+export function removeFaq(faqs: FaqEntry[], index: number): FaqEntry[] {
+  return faqs.filter((_: unknown, i: number) => i !== index);
+}
+
+export function updateFaq(
+  faqs: FaqEntry[],
+  index: number,
+  field: keyof FaqEntry,
+  value: string,
+): FaqEntry[] {
+  const updated = [...faqs];
+  updated[index] = { ...updated[index], [field]: value };
+  return updated;
 }
 
 export function matchesDateFilter(

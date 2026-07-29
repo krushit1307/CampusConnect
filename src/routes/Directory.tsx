@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { VirtualList } from "../components/ui/VirtualList";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
@@ -108,10 +108,18 @@ export default function Directory() {
             itemHeight={88}
             overscan={5}
             renderItem={(user) => (
-              <div className="flex items-center justify-between p-4 border-b h-full hover:bg-muted/50 transition-colors">
+              <div
+                key={user.id}
+                className="flex items-center justify-between p-4 border-b h-full hover:bg-muted/50 transition-colors"
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
-                    {user.name.slice(0, 2).toUpperCase()}
+                    {user.name
+                      .split(" ")
+                      .map((part) => part[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase()}
                   </div>
                   <div>
                     <div className="font-semibold text-sm">{user.name}</div>
@@ -126,9 +134,9 @@ export default function Directory() {
                     {user.role}
                   </span>
                   <div className="flex gap-1 flex-wrap justify-end">
-                    {user.interests.map((interest, idx) => (
+                    {user.interests.map((interest) => (
                       <span
-                        key={idx}
+                        key={`${user.id}-${interest}`}
                         className="text-[10px] px-1.5 py-0.5 rounded-full border border-primary/20 text-primary/70"
                       >
                         {interest}

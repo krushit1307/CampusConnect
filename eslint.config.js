@@ -16,6 +16,7 @@ export default tseslint.config(
   {
     ignores: [
       "dist",
+      "dist-events",
       ".output",
       ".vinxi",
       "supabase/functions",
