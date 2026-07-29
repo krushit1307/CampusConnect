@@ -93,7 +93,10 @@ registerRoute(
   ({ request }) => request.mode === "navigate",
   async ({ event }) => {
     try {
-      return await new NetworkOnly().handle({ event, request: event.request } as never);
+      return await new NetworkOnly().handle({
+        event,
+        request: (event as unknown as FetchEvent).request,
+      } as never);
     } catch {
       const cache = await caches.open("offline-fallback-cache");
       const cachedResponse = await cache.match(OFFLINE_URL);

@@ -19,7 +19,6 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EventFilters, FilterState } from "@/components/EventFilters";
 import { ScrollAwareFab } from "@/components/ScrollAwareFab";
-import confetti from "canvas-confetti";
 
 import {
   Select,
@@ -579,11 +578,17 @@ export default function EventsPage() {
 
       // Show confetti only when successfully RSVPing (not when cancelling)
       if (!hasRsvpd) {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
+        // @ts-expect-error - canvas-confetti lacks type declarations
+        import("canvas-confetti")
+          .then((m) => {
+            const fireConfetti = m.default || m;
+            fireConfetti({
+              particleCount: 100,
+              spread: 70,
+              origin: { y: 0.6 },
+            });
+          })
+          .catch(() => {});
       }
     } catch {
       setEvents(originalEvents);
@@ -696,7 +701,12 @@ export default function EventsPage() {
           ))}
         </div>
       )}
-      <PullToRefresh isRefreshing={isFetching} onRefresh={() => refetch()}>
+      <PullToRefresh
+        isRefreshing={isFetching}
+        onRefresh={async () => {
+          await refetch();
+        }}
+      >
         <SidebarProvider>
           <div className="flex flex-col md:flex-row w-full bg-cream">
             <ErrorBoundary

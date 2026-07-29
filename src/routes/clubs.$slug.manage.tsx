@@ -5,7 +5,15 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
-import { Settings, Users, Calendar, ShieldCheck, XCircle, CheckCircle, Download } from "lucide-react";
+import {
+  Settings,
+  Users,
+  Calendar,
+  ShieldCheck,
+  XCircle,
+  CheckCircle,
+  Download,
+} from "lucide-react";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { RosterExport } from "@/components/RosterExport";
@@ -42,7 +50,7 @@ export default function ClubManageRoute() {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [promoVideoUrl, setPromoVideoUrl] = useState("");
   const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
-  const [serverClub, setServerClub] = useState<Club | null>(null);
+  const [serverClub, setServerClub] = useState<any>(null);
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
@@ -160,7 +168,7 @@ export default function ClubManageRoute() {
 
   const updateClubMutation = useMutation<void, Error, boolean | undefined>({
     mutationFn: async (force?: boolean) => {
-      if (!club) throw new Error("Club not found");
+      if (!user || !club) throw new Error("Club not found");
 
       const githubRepo = githubRepoUrl.trim() || null;
       if (githubRepo && !githubRepo.startsWith("https://github.com/")) {
@@ -339,7 +347,7 @@ export default function ClubManageRoute() {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    updateClubMutation.mutate();
+                    updateClubMutation.mutate(undefined);
                   }}
                   className="space-y-4"
                 >

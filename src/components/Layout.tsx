@@ -10,8 +10,6 @@ import { createClient } from "@/lib/supabase/client";
 import { ThemeProvider } from "@/components/theme-provider";
 import TopProgressBar from "@/components/TopProgressBar";
 import ShortcutsModal from "@/components/ShortcutsModal";
-import { WebRTCProvider } from "@/components/VideoCall/WebRTCProvider";
-import { OfflineBanner } from "@/components/OfflineBanner";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import { showAnnouncementToast } from "@/lib/announcements/sse";
 
