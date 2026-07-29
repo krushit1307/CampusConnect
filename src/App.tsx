@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
   createBrowserRouter,
@@ -13,6 +13,13 @@ import {
 import Layout from "./components/Layout";
 import { ErrorBoundary, RouteErrorBoundary } from "./components/ErrorBoundary";
 import { PageWrapper } from "./components/PageWrapper";
+
+declare global {
+  interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    dataLayer: any[];
+  }
+}
 
 // Pages
 import Index from "./routes/index";
@@ -166,6 +173,31 @@ const router = createBrowserRouter(
 );
 
 export default function App() {
+  useEffect(() => {
+    const loadAnalytics = () => {
+      const script = document.createElement("script");
+      script.src = "https://www.googletagmanager.com/gtag/js?id=GA_ID";
+      script.async = true;
+      document.body.appendChild(script);
+
+      window.dataLayer = window.dataLayer || [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      function gtag(...args: any[]) {
+        window.dataLayer.push(args);
+      }
+      gtag("js", new Date());
+      gtag("config", "GA_ID");
+    };
+
+    if ("requestIdleCallback" in window) {
+      requestIdleCallback(loadAnalytics);
+    } else {
+      window.addEventListener("load", loadAnalytics, {
+        once: true,
+      });
+    }
+  }, []);
+
   return (
     <ErrorBoundary>
       <RouterProvider router={router} />
