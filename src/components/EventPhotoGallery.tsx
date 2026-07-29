@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Camera, Loader2, Trash2 } from "lucide-react";
 import { SwipeableLightbox } from "./SwipeableLightbox";
 import { useVirtualGrid } from "@/hooks/useVirtualGrid";
+import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
 
 interface EventPhotoGalleryProps {
   eventId: string;
@@ -23,6 +24,7 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   const {
@@ -47,14 +49,21 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
     mutationFn: async (file: File) => {
       if (!user) throw new Error("Must be logged in to upload");
 
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Must be logged in to upload");
+
       const fileExt = file.name.split(".").pop();
       const fileName = `${eventId}/${user.id}-${Date.now()}.${fileExt}`;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
-      const { error: uploadError } = await supabase.storage
-        .from("event-galleries")
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
+      await uploadFileWithProgress(
+        supabaseUrl,
+        session.access_token,
+        "event-galleries",
+        fileName,
+        file,
+        setUploadProgress
+      );
 
       const { data: publicUrlData } = supabase.storage
         .from("event-galleries")
@@ -77,6 +86,7 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
     },
     onSettled: () => {
       setUploading(false);
+      setUploadProgress(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     },
   });
@@ -164,7 +174,7 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
               className="neu-border neu-press flex items-center gap-2 bg-[#FFD166] px-4 py-2 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 disabled:opacity-50"
             >
               {uploading ? <Loader2 className="animate-spin" size={18} /> : <Camera size={18} />}
-              {uploading ? "Uploading..." : "Add Photo"}
+              {uploading ? (uploadProgress !== null ? `Uploading ${uploadProgress}%` : "Uploading...") : "Add Photo"}
             </button>
           </div>
         )}

@@ -32,6 +32,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { AnimatedTooltip } from "@/components/ui/AnimatedTooltip";
 import { toast } from "sonner";
 import { RoleBadge } from "@/components/RoleBadge";
+import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -134,7 +136,7 @@ export default function Feed() {
   const [user, setUser] = useState<User | null>(null);
   const emailVerified = useEmailVerification();
   const [newPost, setNewPost] = useState("");
-  const editorRef = useRef<MarkdownEditorRef>(null);
+  const editorRef = useRef<MarkdownEditorWithMentionsRef>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showNewPostsBanner, setShowNewPostsBanner] = useState(false);
   const [prependedPosts, setPrependedPosts] = useState<Post[]>([]);
@@ -159,6 +161,7 @@ export default function Feed() {
   const [attachedImage, setAttachedImage] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [compressing, setCompressing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -631,12 +634,20 @@ export default function Feed() {
 
       let imageUrl = null;
       if (attachedImage) {
-        const filePath = `${user.id}/${crypto.randomUUID()}-${attachedImage.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from("post-attachments")
-          .upload(filePath, attachedImage);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error("Must be logged in");
 
-        if (uploadError) throw uploadError;
+        const filePath = `${user.id}/${crypto.randomUUID()}-${attachedImage.name}`;
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+        await uploadFileWithProgress(
+          supabaseUrl,
+          session.access_token,
+          "post-attachments",
+          filePath,
+          attachedImage,
+          setUploadProgress
+        );
 
         const {
           data: { publicUrl },
@@ -658,7 +669,12 @@ export default function Feed() {
       setAttachedImage(null);
       setImagePreviewUrl(null);
     },
-    onSuccess: () => refetchPosts(),
+    onSettled: () => {
+      setUploadProgress(null);
+    },
+    onSuccess: () => {
+      refetchPosts();
+    },
     onError: (error) => {
       toast.error(error.message || "Failed to publish post.");
     },
@@ -811,23 +827,25 @@ export default function Feed() {
               />
 
               {imagePreviewUrl && (
-                <div className="relative inline-block mt-2">
-                  <img
-                    src={imagePreviewUrl}
-                    alt="Attached preview"
-                    className="max-h-40 neu-border object-cover"
-                  />
+                <div className="relative mt-4 overflow-hidden neu-border w-fit max-w-full">
+                  <img src={imagePreviewUrl} alt="Preview" className="max-h-96 w-auto" />
                   <button
                     type="button"
                     onClick={() => {
                       setAttachedImage(null);
                       setImagePreviewUrl(null);
                     }}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 border-2 border-black hover:bg-red-600 flex items-center justify-center h-6 w-6"
-                    title="Remove image"
+                    className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white hover:bg-black"
+                    disabled={postMutation.isPending}
                   >
-                    <Trash2 size={12} />
+                    <X size={16} />
                   </button>
+                  {uploadProgress !== null && (
+                    <div className="absolute inset-x-0 bottom-0 bg-black/50 p-2">
+                      <span className="font-mono text-xs font-bold text-white mb-1 block">Uploading {uploadProgress}%</span>
+                      <Progress value={uploadProgress} className="h-1.5" />
+                    </div>
+                  )}
                   {compressing && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-mono text-xs">
                       Compressing...

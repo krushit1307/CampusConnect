@@ -12,6 +12,7 @@ export function uploadFileWithProgress(
   path: string,
   file: File,
   onProgress: (percent: number) => void,
+  abortSignal?: AbortSignal,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -19,6 +20,13 @@ export function uploadFileWithProgress(
     xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
     xhr.setRequestHeader("x-upsert", "true");
     xhr.setRequestHeader("Content-Type", file.type);
+
+    if (abortSignal) {
+      abortSignal.addEventListener("abort", () => {
+        xhr.abort();
+        reject(new Error("Upload cancelled"));
+      });
+    }
 
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
