@@ -1,4 +1,4 @@
-import { SiteShell } from "@/components/site/SiteShell";
+// Removed SiteShell import
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
@@ -49,6 +49,7 @@ export interface EventItem {
 }
 
 import EventsCalendar from "@/components/events/EventsCalendar";
+import { useParams } from "react-router-dom";
 
 // Helper: Check if two event date ranges overlap
 function eventsOverlap(
@@ -65,8 +66,9 @@ function eventsOverlap(
   return startA < endB && startB < endA;
 }
 
-export default function EventsPage() {
+export default function EventsList() {
   const supabase = createClient();
+  const { eventId } = useParams();
 
   const [user, setUser] = useState<User | null>(null);
   const emailVerified = useEmailVerification();
@@ -688,7 +690,7 @@ export default function EventsPage() {
   }, [sortedEvents]);
 
   return (
-    <SiteShell>
+    <>
       {showConfetti && (
         <div className="confetti-container" aria-hidden="true">
           {Array.from({ length: 30 }).map((_, i) => (
@@ -1025,6 +1027,7 @@ export default function EventsPage() {
                             event={e}
                             index={index}
                             user={user}
+                            active={e.id === eventId}
                             onRsvpToggle={(eventId, hasRsvpd) =>
                               handleRsvpToggle(eventId, hasRsvpd)
                             }
@@ -1116,6 +1119,6 @@ export default function EventsPage() {
           </ScrollAwareFab>
         </SidebarProvider>
       </PullToRefresh>
-    </SiteShell>
+    </>
   );
 }

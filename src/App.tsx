@@ -120,8 +120,10 @@ const Leaderboard = lazy(() =>
   import("./components/Leaderboard").then((m) => ({ default: m.Leaderboard })),
 );
 
-const LazyEventsIndex = lazy(() => import("./routes/events"));
-const LazyEventDetails = lazy(() => import("./routes/events.$eventId"));
+const EventsLayout = lazy(() => import("./pages/Events/EventsLayout"));
+const LazyEventsIndex = lazy(() => import("./pages/Events/EventsList"));
+const LazyEventDetails = lazy(() => import("./pages/Events/EventDetail"));
+const EmptyState = lazy(() => import("./pages/Events/EmptyState"));
 
 function PageFallback() {
   return (
@@ -174,20 +176,27 @@ const router = createBrowserRouter(
           path="/events"
           element={
             <Suspense fallback={<RemoteLoadingScreen />}>
-              <LazyEventsIndex />
+              <EventsLayout />
             </Suspense>
           }
-        />
-        <Route
-          path="/events/:eventId"
-          element={
-            <Suspense fallback={<RemoteLoadingScreen />}>
-              <LazyEventDetails />
-            </Suspense>
-          }
-        />
-        <Route path="/events" element={<LazyEventsIndex />} />
-        <Route path="/events/:eventId" element={<LazyEventDetails />} />
+        >
+          <Route
+            index
+            element={
+              <Suspense fallback={<RemoteLoadingScreen />}>
+                <EmptyState />
+              </Suspense>
+            }
+          />
+          <Route
+            path=":eventId"
+            element={
+              <Suspense fallback={<RemoteLoadingScreen />}>
+                <LazyEventDetails />
+              </Suspense>
+            }
+          />
+        </Route>
         <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
         {/* Events Map View with clustering */}
         <Route path="/events/map" element={<EventsMapPage />} />
