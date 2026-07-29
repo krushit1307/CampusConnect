@@ -1,11 +1,19 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+  type MouseEvent,
+} from "react";
 
 export type Theme = "light" | "dark" | "system";
 
 type ThemeContextValue = {
   theme: Theme;
-  toggleTheme: () => void;
+  toggleTheme: (event?: MouseEvent<HTMLElement> | React.MouseEvent<HTMLElement>) => void;
   setTheme: (theme: Theme) => void;
 };
 
@@ -63,10 +71,55 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, [theme]);
 
+  const toggleTheme = (event?: MouseEvent<HTMLElement> | React.MouseEvent<HTMLElement>) => {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+
+    const isSupported = typeof document !== "undefined" && "startViewTransition" in document;
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (!isSupported || prefersReducedMotion || !event) {
+      setThemeState(nextTheme);
+      return;
+    }
+
+    const x = event.clientX;
+    const y = event.clientY;
+
+    const endRadius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y),
+    );
+
+    const doc = document as Document & {
+      startViewTransition: (callback: () => void) => { ready: Promise<void> };
+    };
+
+    const transition = doc.startViewTransition(() => {
+      setThemeState(nextTheme);
+      applyTheme(nextTheme);
+    });
+
+    transition.ready.then(() => {
+      document.documentElement.animate(
+        [
+          { clipPath: `circle(0px at ${x}px ${y}px)` },
+          { clipPath: `circle(${endRadius}px at ${x}px ${y}px)` },
+        ],
+        {
+          duration: 500,
+          easing: "ease-in-out",
+          pseudoElement: "::view-transition-new(root)",
+        },
+      );
+    });
+  };
+
   const value = useMemo(
     () => ({
       theme,
-      toggleTheme: () => setThemeState((current) => (current === "dark" ? "light" : "dark")),
+      toggleTheme,
       setTheme: (nextTheme: Theme) => setThemeState(nextTheme),
     }),
     [theme],

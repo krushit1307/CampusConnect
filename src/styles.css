@@ -747,3 +747,18 @@
     }
   }
 }
+
+/* Disable default fade transition for root view transitions */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Ensure the new snapshot layers on top during clip-path expansion */
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 9999;
+}
