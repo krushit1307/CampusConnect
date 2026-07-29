@@ -210,6 +210,11 @@ export const typeDefs = /* GraphQL */ `
     created_at: String
     updated_at: String
     is_private: Boolean
+    max_attendees: Int
+    maxAttendees: Int
+    available_spots: Int
+    availableSpots: Int
+    version: Int
     club: Club
     organizer: Profile
   }
@@ -266,8 +271,26 @@ export const typeDefs = /* GraphQL */ `
     event(id: ID!): Event
   }
 
+  """
+  Result payload returned by event RSVP mutation.
+  """
+  type RsvpPayload {
+    success: Boolean!
+    code: String!
+    message: String!
+    availableSpots: Int
+    status: String
+    version: Int
+  }
+
   type Mutation {
     suspendUsers(ids: [ID!]!): [Profile!]!
+    """
+    Manage event RSVPs with strict row-level locking (SELECT FOR UPDATE)
+    and optimistic concurrency control (version increments).
+    Prevents race conditions and overbooking.
+    """
+    rsvpToEvent(eventId: ID!, userId: ID, action: String): RsvpPayload!
   }
 
   """
@@ -412,6 +435,27 @@ export const resolvers = {
       if (error) throw error;
       return data || [];
     },
+    rsvpToEvent: async (
+      _: unknown,
+      { eventId, userId, action = "RSVP" }: { eventId: string; userId?: string; action?: string },
+    ) => {
+      const { data, error } = await supabase.rpc("manage_event_rsvp", {
+        p_event_id: eventId,
+        p_user_id: userId || null,
+        p_action: action,
+      });
+
+      if (error) throw new Error(error.message);
+
+      return {
+        success: data?.success ?? false,
+        code: data?.code ?? "ERROR",
+        message: data?.message ?? "An error occurred during RSVP processing.",
+        availableSpots: data?.available_spots ?? null,
+        status: data?.status ?? null,
+        version: data?.version ?? null,
+      };
+    },
   },
 
   Post: {
@@ -439,6 +483,8 @@ export const resolvers = {
     organizer: (parent: { created_by: string }) => {
       return parent.created_by ? profileLoader.load(parent.created_by) : null;
     },
+    maxAttendees: (parent: { max_attendees?: number | null }) => parent.max_attendees ?? null,
+    availableSpots: (parent: { available_spots?: number | null }) => parent.available_spots ?? null,
   },
 
   Subscription: {

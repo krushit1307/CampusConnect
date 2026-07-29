@@ -99,6 +99,8 @@ CREATE TABLE events (
   latitude DOUBLE PRECISION,
   longitude DOUBLE PRECISION,
   max_attendees INTEGER,
+  available_spots INTEGER,
+  version INTEGER NOT NULL DEFAULT 1,
   status TEXT NOT NULL DEFAULT 'scheduled',
   created_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),

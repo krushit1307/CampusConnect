@@ -75,6 +75,38 @@ vi.mock("../../src/lib/supabase/client", () => {
         }
         return { select: vi.fn() };
       }),
+      rpc: vi
+        .fn()
+        .mockImplementation(
+          (fnName: string, args: { p_event_id: string; p_user_id: string; p_action: string }) => {
+            if (fnName === "manage_event_rsvp") {
+              if (args.p_event_id === "evt-full") {
+                return Promise.resolve({
+                  data: {
+                    success: false,
+                    code: "EVENT_FULL",
+                    message: "Event is fully booked. No available spots remaining.",
+                    available_spots: 0,
+                    version: 5,
+                  },
+                  error: null,
+                });
+              }
+              return Promise.resolve({
+                data: {
+                  success: true,
+                  code: "RSVP_SUCCESS",
+                  message: "RSVP confirmed!",
+                  status: "CONFIRMED",
+                  available_spots: 10,
+                  version: 2,
+                },
+                error: null,
+              });
+            }
+            return Promise.resolve({ data: null, error: null });
+          },
+        ),
     })),
   };
 });
@@ -241,5 +273,92 @@ describe("publishNotification helper", () => {
         }),
       ).not.toThrow();
     }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GraphQL rsvpToEvent Mutation Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("GraphQL rsvpToEvent Mutation", () => {
+  it("schema includes rsvpToEvent mutation field and RsvpPayload type", () => {
+    const mutationType = schema.getMutationType();
+    expect(mutationType).toBeDefined();
+    const field = mutationType!.getFields()["rsvpToEvent"];
+    expect(field).toBeDefined();
+    expect(field.type.toString()).toBe("RsvpPayload!");
+
+    const payloadType = schema.getType("RsvpPayload");
+    expect(payloadType).toBeDefined();
+    // @ts-expect-error getFields is available on object types
+    const fields = payloadType!.getFields();
+    expect(fields).toHaveProperty("success");
+    expect(fields).toHaveProperty("code");
+    expect(fields).toHaveProperty("message");
+    expect(fields).toHaveProperty("availableSpots");
+    expect(fields).toHaveProperty("status");
+    expect(fields).toHaveProperty("version");
+  });
+
+  it("executes rsvpToEvent mutation successfully via GraphQL Yoga", async () => {
+    const query = /* GraphQL */ `
+      mutation RsvpTest {
+        rsvpToEvent(eventId: "evt-1", userId: "usr-1", action: "RSVP") {
+          success
+          code
+          message
+          availableSpots
+          status
+          version
+        }
+      }
+    `;
+
+    const response = await yoga.fetch("http://localhost:4000/api/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+
+    const result = await response.json();
+    expect(result.errors).toBeUndefined();
+    expect(result.data.rsvpToEvent).toEqual({
+      success: true,
+      code: "RSVP_SUCCESS",
+      message: "RSVP confirmed!",
+      availableSpots: 10,
+      status: "CONFIRMED",
+      version: 2,
+    });
+  });
+
+  it("returns EVENT_FULL code when event is fully booked", async () => {
+    const query = /* GraphQL */ `
+      mutation RsvpFullTest {
+        rsvpToEvent(eventId: "evt-full", userId: "usr-99", action: "RSVP") {
+          success
+          code
+          message
+          availableSpots
+          version
+        }
+      }
+    `;
+
+    const response = await yoga.fetch("http://localhost:4000/api/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+
+    const result = await response.json();
+    expect(result.errors).toBeUndefined();
+    expect(result.data.rsvpToEvent).toEqual({
+      success: false,
+      code: "EVENT_FULL",
+      message: "Event is fully booked. No available spots remaining.",
+      availableSpots: 0,
+      version: 5,
+    });
   });
 });
