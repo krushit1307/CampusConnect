@@ -19,7 +19,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { AudioReactiveBackground } from "@/components/media/AudioReactiveBackground";
 import LazyHydrate from "@/components/LazyHydrate";
-import NotFound from "./NotFound";
+import { NotFoundPage as NotFound } from "@/components/NotFoundPage";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -409,6 +409,14 @@ export default function ClubProfile() {
                     className="neu-border neu-press bg-brand-blue-base text-white px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
                   >
                     Tasks
+                  </Link>
+                )}
+                {membership && (
+                  <Link
+                    to={`/clubs/${club.slug}/notes`}
+                    className="neu-border neu-press bg-lime px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
+                  >
+                    Meeting Notes
                   </Link>
                 )}
                 {membership?.role === "admin" && (
