@@ -1,4 +1,4 @@
-import { usePresence } from "@/hooks/usePresence";
+import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useEffect, useRef, useState } from "react";
@@ -39,7 +39,7 @@ export function Navbar() {
   const supabase = createClient();
 
   const [user, setUser] = useState<User | null>(null);
-  const onlineUsers = usePresence(user?.id);
+  const { onlineUsers } = usePresence(user?.id);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const hamburgerRef = useRef<HTMLButtonElement>(null);

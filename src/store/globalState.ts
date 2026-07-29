@@ -10,17 +10,22 @@ export interface UserProfile {
 
 export interface GlobalState {
   user: UserProfile | null;
-  theme: "light" | "dark" | "system";
+  theme: "light" | "dark" | "system" | "high-contrast";
   notificationsCount: number;
   unreadMessagesCount: number;
   activeTab: string;
   isSidebarOpen: boolean;
 }
 
-const getInitialStoredTheme = (): "light" | "dark" | "system" => {
+const getInitialStoredTheme = (): "light" | "dark" | "system" | "high-contrast" => {
   if (typeof window !== "undefined" && typeof window.localStorage?.getItem === "function") {
     const stored = window.localStorage.getItem("campusconnect-theme");
-    if (stored === "light" || stored === "dark" || stored === "system") {
+    if (
+      stored === "light" ||
+      stored === "dark" ||
+      stored === "system" ||
+      stored === "high-contrast"
+    ) {
       return stored;
     }
   }
@@ -29,9 +34,9 @@ const getInitialStoredTheme = (): "light" | "dark" | "system" => {
 
 // Fine-grained signal declarations for global state variables
 export const [userSignal, setUserSignal] = createSignal<UserProfile | null>(null);
-export const [themeSignal, setThemeSignal] = createSignal<"light" | "dark" | "system">(
-  getInitialStoredTheme(),
-);
+export const [themeSignal, setThemeSignal] = createSignal<
+  "light" | "dark" | "system" | "high-contrast"
+>(getInitialStoredTheme());
 export const [notificationsCountSignal, setNotificationsCountSignal] = createSignal<number>(0);
 export const [unreadMessagesCountSignal, setUnreadMessagesCountSignal] = createSignal<number>(0);
 export const [activeTabSignal, setActiveTabSignal] = createSignal<string>("overview");
@@ -57,7 +62,7 @@ export function setUser(user: UserProfile | null): void {
 /**
  * Updates the current theme in global state signals and store.
  */
-export function setTheme(theme: "light" | "dark" | "system"): void {
+export function setTheme(theme: "light" | "dark" | "system" | "high-contrast"): void {
   setThemeSignal(theme);
   globalState.theme = theme;
   if (typeof window !== "undefined") {

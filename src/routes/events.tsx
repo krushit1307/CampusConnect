@@ -16,6 +16,7 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addMonths } f
 import { matchesDateFilter } from "@/lib/eventUtils";
 import { getMultiIcsContent } from "@/lib/utils";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EventFilters, FilterState } from "@/components/EventFilters";
 import { ScrollAwareFab } from "@/components/ScrollAwareFab";
 import confetti from "canvas-confetti";
@@ -426,7 +427,15 @@ export default function EventsPage() {
   }, [supabase, refetch]);
 
   const toggleRsvp = useMutation({
-    mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
+    mutationFn: async ({
+      eventId,
+      hasRsvpd,
+      captchaToken,
+    }: {
+      eventId: string;
+      hasRsvpd: boolean;
+      captchaToken?: string;
+    }) => {
       if (!user) throw new Error("Must be logged in");
       if (eventId.startsWith("mock-")) {
         return;
@@ -440,6 +449,7 @@ export default function EventsPage() {
         body: {
           eventId,
           hasRsvpd,
+          captchaToken,
         },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
@@ -681,7 +691,13 @@ export default function EventsPage() {
       <PullToRefresh isRefreshing={isFetching} onRefresh={() => refetch()}>
         <SidebarProvider>
           <div className="flex flex-col md:flex-row w-full bg-cream">
-            <EventFilters filters={filters} setFilters={setFilters} />
+            <ErrorBoundary
+              fallback={
+                <div className="p-4 font-mono text-xs text-red-500">Filters unavailable</div>
+              }
+            >
+              <EventFilters filters={filters} setFilters={setFilters} />
+            </ErrorBoundary>
             <div className="flex-1 w-full flex flex-col min-h-screen">
               <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
                 <div className="mx-auto flex max-w-7xl flex-col gap-5">

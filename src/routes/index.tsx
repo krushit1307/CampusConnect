@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { Sparkle } from "@/components/site/Sparkle";
 import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
+import { Icon } from "@/components/ui/icon";
 import { Users, Calendar, GraduationCap } from "lucide-react";
 import { useExperimentStore } from "@/store/useExperimentStore";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
@@ -443,65 +444,24 @@ export default function Landing() {
           <div className="grid gap-12 md:grid-cols-4">
             {[
               {
-                icon: (
-                  <svg viewBox="0 0 100 100" className="h-16 w-16 stroke-brand-blue-dark fill-none">
-                    <circle cx="30" cy="25" r="8" />
-                    <path
-                      d="M20 38h20a2 2 0 012 2v12a2 2 0 01-2 2H20a2 2 0 01-2-2V40a2 2 0 012-2z"
-                      strokeWidth="2"
-                    />
-                    <circle cx="70" cy="25" r="8" />
-                    <path
-                      d="M60 38h20a2 2 0 012 2v12a2 2 0 01-2 2H60a2 2 0 01-2-2V40a2 2 0 012-2z"
-                      strokeWidth="2"
-                    />
-                    <circle cx="50" cy="60" r="8" />
-                    <path
-                      d="M40 73h20a2 2 0 012 2v8a2 2 0 01-2 2H40a2 2 0 01-2-2v-8a2 2 0 012-2z"
-                      strokeWidth="2"
-                    />
-                  </svg>
-                ),
+                icon: <Icon name="club-management" className="h-16 w-16 text-brand-blue-dark" />,
                 title: "Club Management",
                 desc: "Create pages, manage rosters, and organize your club—without the spreadsheet chaos.",
               },
               {
-                icon: (
-                  <svg
-                    viewBox="0 0 100 100"
-                    className="h-16 w-16 stroke-brand-peach-light fill-none"
-                  >
-                    <rect x="15" y="20" width="70" height="60" rx="4" strokeWidth="3" />
-                    <line x1="15" y1="35" x2="85" y2="35" strokeWidth="3" />
-                    <line x1="30" y1="45" x2="30" y2="75" strokeWidth="2" />
-                    <line x1="50" y1="45" x2="50" y2="75" strokeWidth="2" />
-                    <line x1="70" y1="45" x2="70" y2="75" strokeWidth="2" />
-                  </svg>
-                ),
+                icon: <Icon name="event-planning" className="h-16 w-16 text-brand-peach-light" />,
                 title: "Event Planning",
                 desc: "RSVPs, check-ins, feedback forms, and post-event reports in one flow.",
               },
               {
                 icon: (
-                  <svg
-                    viewBox="0 0 100 100"
-                    className="h-16 w-16 stroke-brand-emerald-base fill-none"
-                  >
-                    <rect x="10" y="15" width="80" height="60" rx="4" strokeWidth="3" />
-                    <circle cx="50" cy="45" r="12" strokeWidth="2" />
-                    <path d="M45 35 L55 55 M55 35 L45 55" strokeWidth="2" />
-                    <line x1="10" y1="80" x2="90" y2="80" strokeWidth="3" />
-                  </svg>
+                  <Icon name="digital-interaction" className="h-16 w-16 text-brand-emerald-base" />
                 ),
                 title: "Digital Interaction",
                 desc: "Interactive registration, real-time updates, and seamless member engagement.",
               },
               {
-                icon: (
-                  <svg viewBox="0 0 100 100" className="h-16 w-16 fill-brand-blue-base-500">
-                    <path d="M50 10 L65 40 L95 45 L70 65 L80 95 L50 75 L20 95 L30 65 L5 45 L35 40 Z" />
-                  </svg>
-                ),
+                icon: <Icon name="star" className="h-16 w-16 text-brand-blue-base-500" />,
                 title: "Certificates & Proof",
                 desc: "Auto-generate signed certificates and portable profiles for any workshop or event.",
               },
@@ -609,16 +569,7 @@ export default function Landing() {
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-3">
                       <span className="mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-black bg-brand-blue-dark text-brand-yellow-bg-alt">
-                        <svg
-                          viewBox="0 0 24 24"
-                          width="12"
-                          height="12"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        >
-                          <path d="M4 12l6 6L20 6" />
-                        </svg>
+                        <Icon name="check" size={12} />
                       </span>
                       <span className="font-mono text-sm font-semibold text-indigo-900">
                         {item}
@@ -849,31 +800,9 @@ export default function Landing() {
                     <span className="text-base md:text-lg">{faq.question}</span>
                     <span className="ml-4 shrink-0 transition-transform duration-300">
                       {isOpen ? (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          strokeWidth={2.5}
-                          stroke="currentColor"
-                          className="w-5 h-5"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
-                        </svg>
+                        <Icon name="minus" className="w-5 h-5" />
                       ) : (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          strokeWidth={2.5}
-                          stroke="currentColor"
-                          className="w-5 h-5"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M12 4.5v15m7.5-7.5h-15"
-                          />
-                        </svg>
+                        <Icon name="plus" className="w-5 h-5" />
                       )}
                     </span>
                   </button>

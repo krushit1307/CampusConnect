@@ -40,10 +40,45 @@ serve(async (req: Request) => {
       });
     }
 
-    const { eventId, hasRsvpd } = await req.json();
+    const { eventId, hasRsvpd, captchaToken } = await req.json();
+
+    const siteKey = Deno.env.get("TURNSTILE_SITE_KEY") || Deno.env.get("HCAPTCHA_SITE_KEY");
+    const secretKey = Deno.env.get("TURNSTILE_SECRET_KEY") || Deno.env.get("HCAPTCHA_SECRET_KEY");
+    const captchaEnabled = Boolean(siteKey && secretKey);
 
     if (!eventId) {
       return new Response(JSON.stringify({ error: "Missing eventId" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (captchaEnabled && typeof captchaToken === "string" && captchaToken.trim()) {
+      const provider = Deno.env.get("TURNSTILE_SECRET_KEY") ? "turnstile" : "hcaptcha";
+      const verificationUrl =
+        provider === "turnstile"
+          ? "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+          : "https://hcaptcha.com/siteverify";
+
+      const verificationResponse = await fetch(verificationUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          secret: secretKey ?? "",
+          response: captchaToken,
+          remoteip: req.headers.get("x-forwarded-for") ?? "",
+        }).toString(),
+      });
+
+      const verificationResult = await verificationResponse.json();
+      if (!verificationResult?.success) {
+        return new Response(JSON.stringify({ error: "CAPTCHA verification failed." }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    } else if (captchaEnabled) {
+      return new Response(JSON.stringify({ error: "CAPTCHA verification required." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
