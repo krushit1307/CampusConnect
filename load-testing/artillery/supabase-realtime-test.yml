@@ -1,5 +1,5 @@
 # Artillery Load Testing Configuration for Supabase Realtime
-# 
+#
 # This configuration simulates high-frequency message sending and receiving
 # over WebSocket connections to validate the chat architecture under load.
 #

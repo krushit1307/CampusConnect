@@ -8,8 +8,9 @@ import { createClient } from "@/lib/supabase/client";
 import { ThemeProvider } from "@/components/theme-provider";
 import TopProgressBar from "@/components/TopProgressBar";
 import ShortcutsModal from "@/components/ShortcutsModal";
+import { WebRTCProvider } from "@/components/VideoCall/WebRTCProvider";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
-import { showAnnouncementToast } from "@/lib/announcements/sse";
 
 // Persistent banner shown while the browser has no network connection.
 function OfflineBanner() {
@@ -117,35 +118,6 @@ export default function Layout() {
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.EventSource === "undefined") {
-      return;
-    }
-
-    const sseUrl =
-      import.meta.env.VITE_SSE_URL ||
-      import.meta.env.VITE_LIVE_FEED_URL ||
-      "http://localhost:8081/events";
-    const eventSource = new window.EventSource(sseUrl);
-
-    const handleEvent = (event: MessageEvent<string>) => {
-      if (!event.data) return;
-      showAnnouncementToast(event.data);
-    };
-
-    eventSource.addEventListener("announcement", handleEvent as EventListener);
-    eventSource.onmessage = handleEvent;
-    eventSource.onerror = () => {
-      if (eventSource.readyState === window.EventSource.CLOSED) {
-        console.warn("SSE connection closed", sseUrl);
-      }
-    };
-
-    return () => {
-      eventSource.close();
     };
   }, []);
 

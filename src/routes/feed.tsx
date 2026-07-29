@@ -53,6 +53,7 @@ import {
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import PullToRefresh from "@/components/PullToRefresh";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
+import { announce } from "@/store/ariaAnnouncer";
 import { ReportDialog } from "@/components/ReportDialog";
 import CompressWorker from "@/workers/compress.worker?worker";
 
@@ -209,7 +210,11 @@ export default function Feed() {
     fetchNextPage,
     hasNextPage,
     refetch: refetchPosts,
-  } = useInfiniteQuery<{ posts: Post[]; nextCursor?: { created_at: string; id: string } }>({
+  } = useInfiniteQuery<
+    { posts: Post[]; nextCursor?: { created_at: string; id: string } },
+    Error,
+    { created_at: string; id: string } | null
+  >({
     queryKey: ["posts"],
     initialPageParam: null,
     queryFn: async ({ pageParam = null }) => {
@@ -418,14 +423,27 @@ export default function Feed() {
   );
 
   useEffect(() => {
+    return () => observer.current?.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const channelName = "realtime_feed";
+    // Prevent duplicate subscriptions by removing any existing channel with this topic
+    supabase.getChannels().forEach((c) => {
+      if (c.topic === `realtime:${channelName}` || c.topic === channelName) {
+        void supabase.removeChannel(c);
+      }
+    });
+
     const channel = supabase
-      .channel("realtime_feed")
+      .channel(channelName)
       .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, (payload) => {
         if (payload.eventType === "INSERT") {
           const isOwnPost = payload.new && payload.new.author_id === userRef.current?.id;
           const alreadyExists = postsRef.current.some((p) => p.id === payload.new.id);
           if (!isOwnPost && !alreadyExists) {
             setShowNewPostsBanner(true);
+            announce("New post in feed");
             return;
           }
         }
@@ -459,7 +477,8 @@ export default function Feed() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      void channel.unsubscribe();
+      void supabase.removeChannel(channel);
     };
   }, [supabase, refetchPosts]);
 
@@ -676,14 +695,20 @@ export default function Feed() {
       }
     },
     onMutate: async ({ postId, emoji, isReacted }) => {
+      // Cancel any outgoing refetches
+      // (not needed in this custom implementation, but kept for pattern consistency)
+
+      // Snapshot the previous value
       const previousData = data?.pages.flatMap((page) => page.posts) ?? [];
 
+      // Optimistically update the cache
       const updatedPosts = previousData.map((post) => {
         if (post.id === postId) {
           const postReactions: PostReaction[] = Array.isArray(post.post_reactions)
             ? post.post_reactions
             : [];
           if (isReacted) {
+            // Remove reaction optimistically
             return {
               ...post,
               post_reactions: postReactions.filter(
@@ -691,6 +716,7 @@ export default function Feed() {
               ),
             };
           } else {
+            // Add reaction optimistically
             return {
               ...post,
               post_reactions: [...postReactions, { emoji, user_id: user?.id || "" }],
@@ -700,29 +726,22 @@ export default function Feed() {
         return post;
       });
 
+      // Update cache with optimistic data
       setQueryData(["posts"], { pages: [{ posts: updatedPosts }] });
+
+      // Return context with previous data for rollback
       return { previousData };
     },
-    onSuccess: (_data, variables) => {
-      const key = `${variables.postId}-${variables.emoji}`;
-      setOptimisticReactions((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-      refetchPosts();
-    },
     onError: (error, variables, context) => {
+      // Rollback to previous value on error
       if (context?.previousData) {
         setQueryData(["posts"], { pages: [{ posts: context.previousData }] });
       }
-      const key = `${variables.postId}-${variables.emoji}`;
-      setOptimisticReactions((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-      toast.error(error.message || "Failed to update reaction.");
+      toast.error(error.message || "Failed to update reaction. Please try again.");
+    },
+    onSuccess: () => {
+      // Refetch to ensure server state matches
+      refetchPosts();
     },
   });
 
@@ -1271,33 +1290,32 @@ export default function Feed() {
                   </div>
                 ))}
 
-              {!hasNextPage && posts.length > 0 && (
-                <div className="py-10 text-center font-mono text-sm font-bold text-gray-500 dark:text-gray-300 uppercase">
-                  You're all caught up! 🎉
-                </div>
-              )}
-            </div>
-          </section>
-        </PullToRefresh>
-        <ConfirmModal
-          open={!!confirmPostId}
-          onCancel={() => setConfirmPostId(null)}
-          title="Delete post?"
-          description="Are you sure you want to delete this post? This action cannot be undone."
-          confirmText="Yes, delete"
-          onConfirm={() => {
-            if (confirmPostId) deletePostMutation.mutate(confirmPostId);
-            setConfirmPostId(null);
-          }}
-        />
-        <ReportDialog
-          isOpen={!!reportTarget}
-          onClose={() => setReportTarget(null)}
-          targetType={reportTarget?.type || "post"}
-          targetId={reportTarget?.id || ""}
-        />
-      </SiteShell>
-    </ErrorBoundary>
+            {!hasNextPage && posts.length > 0 && (
+              <div className="py-10 text-center font-mono text-sm font-bold text-gray-500 dark:text-gray-300 uppercase">
+                You're all caught up! 🎉
+              </div>
+            )}
+          </div>
+        </section>
+      </PullToRefreshContainer>
+      <ConfirmModal
+        open={!!confirmPostId}
+        onCancel={() => setConfirmPostId(null)}
+        title="Delete post?"
+        description="Are you sure you want to delete this post? This action cannot be undone."
+        confirmText="Yes, delete"
+        onConfirm={() => {
+          if (confirmPostId) deletePostMutation.mutate(confirmPostId);
+          setConfirmPostId(null);
+        }}
+      />
+      <ReportDialog
+        isOpen={!!reportTarget}
+        onClose={() => setReportTarget(null)}
+        targetType={reportTarget?.type || "post"}
+        targetId={reportTarget?.id || ""}
+      />
+    </SiteShell>
   );
 }
 

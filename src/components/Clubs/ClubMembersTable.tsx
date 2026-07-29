@@ -8,6 +8,8 @@ import {
 } from "@tanstack/react-table";
 import { CheckCircle, ShieldCheck, XCircle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { MemberIdentity } from "./MemberIdentity";
+import { MemberContextMenu } from "./MemberContextMenu";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { EmptyState } from "@/components/EmptyState";
 
@@ -285,32 +287,36 @@ export function ClubMembersTable({
                 {rows.map((row) => {
                   const member = row.original;
                   return (
-                    <tr
+                    <MemberContextMenu
                       key={member.id}
-                      className="border-b border-black/10 last:border-b-0 hover:bg-gray-50"
+                      member={member}
+                      onToggleRole={onToggleRole}
+                      onKick={onReject}
                     >
-                      <td className="p-3">
-                        <MemberIdentity member={member} />
-                      </td>
-                      <td className="p-3">
-                        <RoleBadge role={member.role} />
-                      </td>
-                      <td className="p-3">
-                        <StatusBadge status={member.status} />
-                      </td>
-                      <td className="p-3 text-right">
-                        <div className="flex justify-end">
-                          <MemberActions
-                            member={member}
-                            currentUserId={currentUserId}
-                            isMutating={isMutating}
-                            onApprove={onApprove}
-                            onReject={onReject}
-                            onToggleRole={onToggleRole}
-                          />
-                        </div>
-                      </td>
-                    </tr>
+                      <tr className="border-b border-black/10 last:border-b-0 hover:bg-gray-50">
+                        <td className="p-3">
+                          <MemberIdentity member={member} />
+                        </td>
+                        <td className="p-3">
+                          <RoleBadge role={member.role} />
+                        </td>
+                        <td className="p-3">
+                          <StatusBadge status={member.status} />
+                        </td>
+                        <td className="p-3 text-right">
+                          <div className="flex justify-end">
+                            <MemberActions
+                              member={member}
+                              currentUserId={currentUserId}
+                              isMutating={isMutating}
+                              onApprove={onApprove}
+                              onReject={onReject}
+                              onToggleRole={onToggleRole}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    </MemberContextMenu>
                   );
                 })}
               </tbody>
@@ -322,23 +328,30 @@ export function ClubMembersTable({
             {rows.map((row) => {
               const member = row.original;
               return (
-                <div key={member.id} className="neu-border bg-gray-50 p-4 space-y-3">
-                  <MemberIdentity member={member} />
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex gap-2">
-                      <RoleBadge role={member.role} />
-                      <StatusBadge status={member.status} />
+                <MemberContextMenu
+                  key={member.id}
+                  member={member}
+                  onToggleRole={onToggleRole}
+                  onKick={onReject}
+                >
+                  <div className="neu-border bg-gray-50 p-4 space-y-3">
+                    <MemberIdentity member={member} />
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex gap-2">
+                        <RoleBadge role={member.role} />
+                        <StatusBadge status={member.status} />
+                      </div>
+                      <MemberActions
+                        member={member}
+                        currentUserId={currentUserId}
+                        isMutating={isMutating}
+                        onApprove={onApprove}
+                        onReject={onReject}
+                        onToggleRole={onToggleRole}
+                      />
                     </div>
-                    <MemberActions
-                      member={member}
-                      currentUserId={currentUserId}
-                      isMutating={isMutating}
-                      onApprove={onApprove}
-                      onReject={onReject}
-                      onToggleRole={onToggleRole}
-                    />
                   </div>
-                </div>
+                </MemberContextMenu>
               );
             })}
           </div>
