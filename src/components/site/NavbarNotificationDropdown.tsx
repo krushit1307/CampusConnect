@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import NotificationItem from "./NotificationItem";
-
+import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 const mockNotifications = [
   {
     id: "1",
@@ -53,7 +53,39 @@ export const NavbarNotificationDropdown: React.FC = () => {
   const handleMarkAsRead = (id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
   };
+  const handleMarkAllAsRead = async () => {
+    // Optimistic UI update
+    setNotifications((prev) =>
+      prev.map((notification) => ({
+        ...notification,
+        isRead: true,
+      })),
+    );
 
+    try {
+      const supabase = createSupabaseClient();
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const { error } = await supabase
+        .from("notifications")
+        .update({
+          is_read: true,
+        })
+        .eq("user_id", user.id)
+        .eq("is_read", false);
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      console.error("Failed to mark all notifications as read:", error);
+    }
+  };
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -101,9 +133,7 @@ export const NavbarNotificationDropdown: React.FC = () => {
               <h3 className="font-semibold text-sm text-gray-700">Notifications</h3>
               {unreadCount > 0 && (
                 <button
-                  onClick={() =>
-                    setNotifications(notifications.map((n) => ({ ...n, isRead: true })))
-                  }
+                  onClick={handleMarkAllAsRead}
                   className="text-xs text-blue-600 hover:text-blue-800 transition-colors"
                 >
                   Mark all as read
