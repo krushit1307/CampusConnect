@@ -13,6 +13,9 @@ export function EventCardSkeleton({ index = 0 }: { index?: number }) {
       role="status"
       aria-live="polite"
     >
+      {/* Banner placeholder */}
+      <Skeleton className="h-32 w-full mb-4 rounded-none" />
+
       {/* Top row: date + icons */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col">

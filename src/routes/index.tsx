@@ -2,6 +2,13 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { Sparkle } from "@/components/site/Sparkle";
+import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
+import { Users, Calendar, GraduationCap } from "lucide-react";
+import { useExperimentStore } from "@/store/useExperimentStore";
+import { useQuery } from "@/hooks/useReactQueryReplacement";
+import { createClient } from "@/lib/supabase/client";
+import { FeaturedEvents } from "@/components/home/FeaturedEvents";
+import { EventCardSkeleton } from "@/components/EventCardSkeleton";
 
 function AnimatedCounter({ value }: { value: string }) {
   const [displayValue, setDisplayValue] = useState("0");
@@ -193,6 +200,76 @@ export default function Landing() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
+  const supabase = createClient();
+  const { data: featuredEvents, isLoading: isLoadingEvents } = useQuery({
+    queryKey: ["featured-events"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select(
+          `
+          id,
+          title,
+          description,
+          event_date,
+          banner_url,
+          clubs(name)
+        `,
+        )
+        .neq("status", "archived")
+        .gte("event_date", new Date().toISOString())
+        .order("event_date", { ascending: true })
+        .limit(5);
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const variant = useExperimentStore((state) => state.variant);
+  const initializeVariant = useExperimentStore((state) => state.initializeVariant);
+
+  useEffect(() => {
+    initializeVariant();
+  }, [initializeVariant]);
+
+  const { scrollYProgress } = useScroll();
+  const prefersReducedMotion = useReducedMotion();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.matchMedia("(max-width: 768px)").matches);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  const shouldDisableParallax = prefersReducedMotion || isMobile;
+
+  // Map scrollYProgress to Y translations for parallax
+  const bgY1Raw = useTransform(scrollYProgress, [0, 1], [0, 180]);
+  const bgY2Raw = useTransform(scrollYProgress, [0, 1], [0, -120]);
+  const bgY3Raw = useTransform(scrollYProgress, [0, 1], [0, 80]);
+
+  const floatY1Raw = useTransform(scrollYProgress, [0, 1], [0, -250]);
+  const floatY2Raw = useTransform(scrollYProgress, [0, 1], [0, 120]);
+  const floatY3Raw = useTransform(scrollYProgress, [0, 1], [0, -180]);
+
+  const heroTextYRaw = useTransform(scrollYProgress, [0, 1], [0, -40]);
+
+  // Fallbacks for disabled parallax (0 translations)
+  const yBg1 = shouldDisableParallax ? 0 : bgY1Raw;
+  const yBg2 = shouldDisableParallax ? 0 : bgY2Raw;
+  const yBg3 = shouldDisableParallax ? 0 : bgY3Raw;
+
+  const yFloat1 = shouldDisableParallax ? 0 : floatY1Raw;
+  const yFloat2 = shouldDisableParallax ? 0 : floatY2Raw;
+  const yFloat3 = shouldDisableParallax ? 0 : floatY3Raw;
+
+  const yHeroText = shouldDisableParallax ? 0 : heroTextYRaw;
+
   const filteredFAQs =
     activeCategory === "All"
       ? FAQ_ITEMS
@@ -205,45 +282,154 @@ export default function Landing() {
         {/* Dynamic Animated Blobs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
           {/* Blob 1 (Accent Color) */}
-          <div className="absolute -top-[10%] -left-[10%] w-[300px] h-[300px] rounded-full bg-brand-peach-light/22 blur-[80px] animate-blob-1 mix-blend-screen md:w-[450px] md:h-[450px]" />
+          <motion.div
+            style={{ y: yBg1 }}
+            className="absolute -top-[10%] -left-[10%] w-[300px] h-[300px] rounded-full bg-[#f5c66b]/22 blur-[80px] animate-blob-1 mix-blend-screen md:w-[450px] md:h-[450px]"
+          />
           {/* Blob 2 (Primary Darker Tone) */}
-          <div className="absolute bottom-[10%] right-[5%] w-[350px] h-[350px] rounded-full bg-brand-blue-base/55 blur-[90px] animate-blob-2 mix-blend-screen md:w-[500px] md:h-[500px]" />
+          <motion.div
+            style={{ y: yBg2 }}
+            className="absolute bottom-[10%] right-[5%] w-[350px] h-[350px] rounded-full bg-[#1e5c8a]/55 blur-[90px] animate-blob-2 mix-blend-screen md:w-[500px] md:h-[500px]"
+          />
           {/* Blob 3 (Accent Color Variant) */}
-          <div className="absolute top-[30%] left-[30%] w-[250px] h-[250px] rounded-full bg-brand-peach-light/18 blur-[70px] animate-blob-3 mix-blend-screen md:w-[350px] md:h-[350px]" />
+          <motion.div
+            style={{ y: yBg3 }}
+            className="absolute top-[30%] left-[30%] w-[250px] h-[250px] rounded-full bg-[#f5c66b]/18 blur-[70px] animate-blob-3 mix-blend-screen md:w-[350px] md:h-[350px]"
+          />
         </div>
+
+        {/* Floating community icons (visible only on desktop for parallax depth) */}
+        <motion.div
+          style={{ y: yFloat1 }}
+          className="absolute left-[8%] top-[30%] z-10 hidden md:flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/20 text-[#f5c66b] shadow-lg opacity-75 pointer-events-none"
+        >
+          <Users size={32} />
+        </motion.div>
+        <motion.div
+          style={{ y: yFloat2 }}
+          className="absolute right-[8%] top-[20%] z-10 hidden md:flex items-center justify-center w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/20 text-[#10B981] shadow-lg opacity-75 pointer-events-none"
+        >
+          <Calendar size={28} />
+        </motion.div>
+        <motion.div
+          style={{ y: yFloat3 }}
+          className="absolute left-[15%] bottom-[10%] z-10 hidden md:flex items-center justify-center w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/20 text-[#f5c66b] shadow-lg opacity-60 pointer-events-none"
+        >
+          <GraduationCap size={24} />
+        </motion.div>
 
         {/* Ambient Overlay for text contrast */}
         <div className="absolute inset-0 bg-gradient-to-br from-brand-blue-dark/70 via-brand-blue-dark/55 to-brand-blue-muted/45 z-0 pointer-events-none" />
 
-        <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center text-white z-10">
-          <p className="mb-3 font-mono text-sm font-bold uppercase tracking-widest text-brand-peach-light animate-fade-in-up animate-delay-100">
-            Student Communities Platform
-          </p>
-          <h1 className="mb-4 max-w-2xl font-display text-5xl font-bold leading-tight md:text-6xl animate-fade-in-up animate-delay-300">
-            CampusConnect
-          </h1>
-          <p className="mx-auto max-w-xl font-mono text-base leading-relaxed md:text-lg text-white/90 animate-fade-in-up animate-delay-500">
-            Clubs, events, and certificates. One open-source OS for student communities.
-          </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-4 animate-fade-in-up animate-delay-700">
-            <Link
-              to="/auth"
-              className="rounded-md bg-brand-peach-light px-8 py-3 font-mono font-bold uppercase text-brand-blue-dark transition hover:bg-white active:scale-95"
-            >
-              Get Started
-            </Link>
-            <Link
-              to="/events"
-              className="rounded-md border-2 border-white/80 px-8 py-3 font-mono font-bold uppercase text-white transition hover:bg-white/10 active:scale-95"
-            >
-              Explore Events
-            </Link>
-          </div>
+        <motion.div
+          style={{ y: yHeroText }}
+          className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center text-white z-10"
+        >
+          {variant === "B" ? (
+            <>
+              <p className="mb-3 font-mono text-sm font-bold uppercase tracking-widest text-[#a3e635] animate-fade-in-up animate-delay-100">
+                Unlock Your Potential
+              </p>
+              <h1 className="mb-4 max-w-3xl font-display text-5xl font-bold leading-tight md:text-6xl animate-fade-in-up animate-delay-300">
+                Supercharge Your Campus Life
+              </h1>
+              <p className="mx-auto max-w-2xl font-mono text-base leading-relaxed md:text-lg text-white/90 animate-fade-in-up animate-delay-500">
+                Discover top student clubs, attend workshops, and earn certificates to build your
+                future.
+              </p>
+              <div className="mt-8 flex flex-wrap justify-center gap-4 animate-fade-in-up animate-delay-700">
+                <Link
+                  to="/auth"
+                  className="rounded-md bg-brand-peach-light px-8 py-3 font-mono font-bold uppercase text-brand-blue-dark transition hover:bg-white active:scale-95"
+                >
+                  Join CampusConnect
+                </Link>
+                <Link
+                  to="/events"
+                  className="rounded-md border-2 border-white/80 px-8 py-3 font-mono font-bold uppercase text-white transition hover:bg-white/10 active:scale-95"
+                >
+                  See Upcoming Events
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="mb-3 font-mono text-sm font-bold uppercase tracking-widest text-[#f5c66b] animate-fade-in-up animate-delay-100">
+                Student Communities Platform
+              </p>
+              <h1 className="mb-4 max-w-2xl font-display text-5xl font-bold leading-tight md:text-6xl animate-fade-in-up animate-delay-300">
+                CampusConnect
+              </h1>
+              <p className="mx-auto max-w-xl font-mono text-base leading-relaxed md:text-lg text-white/90 animate-fade-in-up animate-delay-500">
+                Clubs, events, and certificates. One open-source OS for student communities.
+              </p>
+              <div className="mt-8 flex flex-wrap justify-center gap-4 animate-fade-in-up animate-delay-700">
+                <Link
+                  to="/auth"
+                  className="rounded-md bg-brand-peach-light px-8 py-3 font-mono font-bold uppercase text-brand-blue-dark transition hover:bg-white active:scale-95"
+                >
+                  Get Started
+                </Link>
+                <Link
+                  to="/events"
+                  className="rounded-md border-2 border-white/80 px-8 py-3 font-mono font-bold uppercase text-white transition hover:bg-white/10 active:scale-95"
+                >
+                  Explore Events
+                </Link>
+              </div>
+            </>
+          )}
+        </motion.div>
+      </section>
+
+      {/* FEATURED EVENTS — Magazine layout */}
+      <section className="bg-cream px-4 py-20 md:px-6 md:py-28 border-t-2 border-black">
+        <div className="mx-auto max-w-7xl">
+          <ScrollReveal>
+            <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+              <div>
+                <SectionEyebrow>Upcoming</SectionEyebrow>
+                <h2 className="mt-2 font-display text-4xl font-bold text-brand-blue-dark md:text-5xl">
+                  Featured Events
+                </h2>
+              </div>
+              <Link
+                to="/events"
+                className="neu-border inline-flex items-center justify-center bg-white px-6 py-3 font-mono text-sm font-bold uppercase transition hover:bg-brand-peach-light"
+              >
+                View all events
+              </Link>
+            </div>
+          </ScrollReveal>
+
+          <ScrollReveal delay={150}>
+            {isLoadingEvents ? (
+              <div className="grid grid-cols-1 md:grid-cols-4 md:grid-rows-2 gap-4 h-[500px] md:h-[600px]">
+                <div className="md:col-span-2 md:row-span-2 relative h-full">
+                  <EventCardSkeleton />
+                </div>
+                <div className="md:col-span-2 md:row-span-1 relative h-full">
+                  <EventCardSkeleton />
+                </div>
+                <div className="md:col-span-1 md:row-span-1 relative h-full">
+                  <EventCardSkeleton />
+                </div>
+                <div className="md:col-span-1 md:row-span-1 relative h-full">
+                  <EventCardSkeleton />
+                </div>
+              </div>
+            ) : (
+              <FeaturedEvents events={featuredEvents || []} />
+            )}
+          </ScrollReveal>
         </div>
       </section>
 
       {/* FEATURED FEATURES — 4-card grid (PR 207) */}
-      <section className="bg-lime px-4 py-20 md:px-6 md:py-32 border-3 border-black">
+      <section
+        id="features"
+        className="bg-lime px-4 py-20 md:px-6 md:py-32 border-3 border-black scroll-mt-24"
+      >
         <div className="mx-auto max-w-7xl">
           <div className="mb-20 text-center">
             <h2 className="mb-6 font-display text-5xl font-bold text-red-900 md:text-6xl">
@@ -617,7 +803,10 @@ export default function Landing() {
       </section>
 
       {/* FAQ SECTION */}
-      <section className="bg-teal-100 border-t-2 border-gray-200 px-4 py-20 md:px-6">
+      <section
+        id="faq"
+        className="bg-teal-100 border-t-2 border-gray-200 px-4 py-20 md:px-6 scroll-mt-24"
+      >
         <div className="mx-auto max-w-4xl">
           <div className="mb-12 text-center">
             <SectionEyebrow>Frequently Asked Questions</SectionEyebrow>
@@ -722,6 +911,30 @@ export default function Landing() {
             </Link>
           </div>
         </ScrollReveal>
+      </section>
+      {/* CONTACT SECTION */}
+      <section
+        id="contact"
+        className="bg-white border-t-2 border-gray-200 px-4 py-20 md:px-6 scroll-mt-24"
+      >
+        <div className="mx-auto max-w-4xl text-center">
+          <SectionEyebrow>Contact</SectionEyebrow>
+
+          <h2 className="mt-2 text-4xl font-bold text-red-900 md:text-5xl">
+            Get in touch with us.
+          </h2>
+
+          <p className="mt-6 font-mono text-gray-700">
+            Have questions about CampusConnect? Reach out to our team.
+          </p>
+
+          <a
+            href="mailto:support@campusconnect.com"
+            className="mt-8 inline-block neu-border bg-lime px-6 py-3 font-mono font-bold uppercase"
+          >
+            Contact Support
+          </a>
+        </div>
       </section>
     </SiteShell>
   );

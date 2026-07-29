@@ -33,7 +33,10 @@ export function TicketDialog({ open, onOpenChange, event, rsvpId }: TicketDialog
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md neu-border bg-cream max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-md neu-border bg-cream max-sm:pb-8 max-h-[90vh] overflow-y-auto">
+        {/* Mobile drag handle indicator */}
+        <div className="mx-auto -mt-2 mb-2 h-1.5 w-10 rounded-full bg-muted-foreground/30 sm:hidden" />
+
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-2xl font-black">Event Ticket</DialogTitle>

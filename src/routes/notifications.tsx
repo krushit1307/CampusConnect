@@ -1,16 +1,18 @@
 import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
-import { useInfiniteQuery, useMutation } from "@/hooks/useReactQueryReplacement";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { Bell, Calendar, Building, Info, MessageSquare, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { format, isToday, isYesterday, isThisWeek } from "date-fns";
+import { SwipeToDismiss } from "@/components/ui/SwipeToDismiss";
 
 const NOTIFICATIONS_PER_PAGE = 20;
 
 export default function NotificationsRoute() {
   const supabase = createClient();
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage, refetch } =
     useInfiniteQuery({
@@ -58,6 +60,44 @@ export default function NotificationsRoute() {
       refetch();
     },
     onError: () => toast.error("Failed to mark all as read"),
+  });
+
+  // Swipe-to-dismiss triggers this: the card is already off-screen by the
+  // time this fires, so we optimistically drop it from the cache and only
+  // roll back (and toast) if the delete actually fails server-side.
+  const deleteNotificationMutation = useMutation<
+    void,
+    Error,
+    string,
+    { previous: ReturnType<typeof queryClient.getQueryData> }
+  >({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("notifications").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ["notifications"] });
+      const previous = queryClient.getQueryData(["notifications"]);
+
+      queryClient.setQueryData(["notifications"], (old: typeof data) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            notifications: page.notifications.filter((n: { id: string }) => n.id !== id),
+          })),
+        };
+      });
+
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["notifications"], context.previous);
+      }
+      toast.error("Couldn't delete that notification. Restored it.");
+    },
   });
 
   const allNotifications = data?.pages.flatMap((page) => page.notifications) || [];
@@ -157,36 +197,41 @@ export default function NotificationsRoute() {
                       const wrapperProps = n.link ? { to: n.link } : {};
 
                       return (
-                        <Wrapper
+                        <SwipeToDismiss
                           key={n.id}
-                          {...wrapperProps}
-                          ref={isLast ? lastElementRef : undefined}
-                          className={`neu-border flex items-start gap-4 p-4 transition-all ${
-                            n.link ? "hover:-translate-y-1 cursor-pointer" : ""
-                          } ${!n.is_read ? "bg-blue-50" : "bg-white"}`}
+                          onDismiss={() => deleteNotificationMutation.mutate(n.id)}
+                          ariaLabel={`Swipe to dismiss notification: ${n.title}`}
                         >
-                          <div className="mt-1 flex-shrink-0 bg-white p-2 rounded-full border-2 border-black">
-                            {getIcon(n.type)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <h3
-                                className={`font-display text-base truncate ${!n.is_read ? "font-bold text-black" : "font-semibold text-gray-800"}`}
-                              >
-                                {n.title}
-                              </h3>
-                              {!n.is_read && (
-                                <span className="h-2 w-2 rounded-full bg-blue-600 mt-2 shrink-0" />
-                              )}
+                          <Wrapper
+                            {...wrapperProps}
+                            ref={isLast ? lastElementRef : undefined}
+                            className={`neu-border flex items-start gap-4 p-4 transition-all ${
+                              n.link ? "hover:-translate-y-1 cursor-pointer" : ""
+                            } ${!n.is_read ? "bg-blue-50" : "bg-white"}`}
+                          >
+                            <div className="mt-1 flex-shrink-0 bg-white p-2 rounded-full border-2 border-black">
+                              {getIcon(n.type)}
                             </div>
-                            <p className="font-mono text-sm text-gray-600 mt-1 line-clamp-2">
-                              {n.message}
-                            </p>
-                            <p className="font-mono text-[10px] text-gray-400 mt-2">
-                              {format(new Date(n.created_at), "MMM d, h:mm a")}
-                            </p>
-                          </div>
-                        </Wrapper>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2">
+                                <h3
+                                  className={`font-display text-base truncate ${!n.is_read ? "font-bold text-black" : "font-semibold text-gray-800"}`}
+                                >
+                                  {n.title}
+                                </h3>
+                                {!n.is_read && (
+                                  <span className="h-2 w-2 rounded-full bg-blue-600 mt-2 shrink-0" />
+                                )}
+                              </div>
+                              <p className="font-mono text-sm text-gray-600 mt-1 line-clamp-2">
+                                {n.message}
+                              </p>
+                              <p className="font-mono text-[10px] text-gray-400 mt-2">
+                                {format(new Date(n.created_at), "MMM d, h:mm a")}
+                              </p>
+                            </div>
+                          </Wrapper>
+                        </SwipeToDismiss>
                       );
                     })}
                   </div>

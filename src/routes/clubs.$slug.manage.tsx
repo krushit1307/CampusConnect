@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
@@ -9,11 +9,10 @@ import { Settings, Users, Calendar, ShieldCheck, XCircle, CheckCircle, Download 
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { RosterExport } from "@/components/RosterExport";
+import { ImageCropUpload } from "@/components/ImageCropUpload";
 
 // ⚠️ Adjust if your Supabase Storage bucket for club banners has a different name
 const BUCKET_NAME = "club-banners";
-const ACCEPTED_BANNER_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_BANNER_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
 export default function ClubManageRoute() {
   const { slug = "" } = useParams();
@@ -33,13 +32,6 @@ export default function ClubManageRoute() {
   const [instagramUrl, setInstagramUrl] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [promoVideoUrl, setPromoVideoUrl] = useState("");
-
-  // Banner drag-and-drop upload state
-  const [bannerPreview, setBannerPreview] = useState("");
-  const [isDraggingBanner, setIsDraggingBanner] = useState(false);
-  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
-  const [bannerError, setBannerError] = useState("");
-  const bannerInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -95,86 +87,6 @@ export default function ClubManageRoute() {
       setPromoVideoUrl(club.promo_video_url || "");
     }
   }, [club]);
-
-  const validateBannerFile = (file: File): string | null => {
-    if (!ACCEPTED_BANNER_TYPES.includes(file.type)) {
-      return "Only JPEG, PNG, or WEBP images are allowed.";
-    }
-    if (file.size > MAX_BANNER_SIZE_BYTES) {
-      return "File must be smaller than 5MB.";
-    }
-    return null;
-  };
-
-  const uploadBannerFile = async (file: File) => {
-    const validationError = validateBannerFile(file);
-    if (validationError) {
-      setBannerError(validationError);
-      return;
-    }
-    setBannerError("");
-
-    // Instant local preview before the actual Supabase Storage upload happens
-    const localPreviewUrl = URL.createObjectURL(file);
-    setBannerPreview(localPreviewUrl);
-
-    setIsUploadingBanner(true);
-    try {
-      if (!club?.id) throw new Error("Club not loaded yet");
-
-      const ext = file.name.split(".").pop();
-      const filePath = `${club.id}/banner-${Date.now()}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET_NAME)
-        .upload(filePath, file, { cacheControl: "3600", upsert: false });
-
-      if (uploadError) throw uploadError;
-
-      const { data: publicUrlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
-
-      setBannerUrl(publicUrlData.publicUrl);
-      toast.success("Banner uploaded");
-    } catch (err) {
-      setBannerError("Upload failed. Please try again.");
-      toast.error(err instanceof Error ? err.message : "Failed to upload banner");
-    } finally {
-      setIsUploadingBanner(false);
-      URL.revokeObjectURL(localPreviewUrl);
-    }
-  };
-
-  const handleBannerDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingBanner(true);
-  };
-
-  const handleBannerDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingBanner(true);
-  };
-
-  const handleBannerDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingBanner(false);
-  };
-
-  const handleBannerDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingBanner(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) uploadBannerFile(file);
-  };
-
-  const handleBannerFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) uploadBannerFile(file);
-    e.target.value = "";
-  };
 
   const updateClubMutation = useMutation({
     mutationFn: async () => {
@@ -348,44 +260,13 @@ export default function ClubManageRoute() {
                       <label className="font-mono text-sm font-bold uppercase mb-1 block">
                         Banner Image
                       </label>
-                      <div
-                        onClick={() => bannerInputRef.current?.click()}
-                        onDragEnter={handleBannerDragEnter}
-                        onDragOver={handleBannerDragOver}
-                        onDragLeave={handleBannerDragLeave}
-                        onDrop={handleBannerDrop}
-                        className={`neu-border cursor-pointer p-4 font-mono text-sm transition-all flex flex-col items-center justify-center gap-2 min-h-[120px] ${
-                          isDraggingBanner
-                            ? "bg-lime/40 -translate-y-1"
-                            : "bg-white hover:bg-gray-50"
-                        }`}
-                      >
-                        <input
-                          ref={bannerInputRef}
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          className="hidden"
-                          onChange={handleBannerFileSelect}
-                        />
-                        {isUploadingBanner ? (
-                          <p className="text-xs uppercase font-bold">Uploading...</p>
-                        ) : bannerPreview || bannerUrl ? (
-                          <img
-                            src={bannerPreview || bannerUrl}
-                            alt="Banner preview"
-                            className="max-h-24 object-cover rounded"
-                          />
-                        ) : (
-                          <p className="text-xs text-gray-500 text-center">
-                            Drag & drop an image here, or click to browse
-                            <br />
-                            <span className="text-[10px]">JPEG, PNG, WEBP — max 5MB</span>
-                          </p>
-                        )}
-                      </div>
-                      {bannerError && (
-                        <p className="text-xs text-red-500 font-mono mt-1">{bannerError}</p>
-                      )}
+                      <ImageCropUpload
+                        aspect={16 / 9}
+                        bucket={BUCKET_NAME}
+                        value={bannerUrl || undefined}
+                        onUploaded={(url) => setBannerUrl(url)}
+                        hint="JPEG, PNG, WEBP — max 5MB · 16:9 crop"
+                      />
                     </div>
                     <div>
                       <label className="font-mono text-sm font-bold uppercase mb-1 block">
@@ -606,7 +487,7 @@ export default function ClubManageRoute() {
                       }) => (
                         <div
                           key={e.id}
-                          className="neu-border p-4 flex items-center justify-between hover:bg-gray-50"
+                          className="neu-border p-4 flex items-center justify-between hover:bg-gray-50 flex-wrap gap-4"
                         >
                           <div>
                             <p className="font-bold font-display text-lg">{e.title}</p>
@@ -614,12 +495,20 @@ export default function ClubManageRoute() {
                               RSVPs: {e.event_rsvps?.length || 0} / {e.max_attendees || "∞"}
                             </p>
                           </div>
-                          <button
-                            onClick={() => navigate(`/events/${e.id}`)}
-                            className="neu-border neu-press bg-black text-white px-4 py-2 font-mono text-xs font-bold uppercase hover:-translate-y-1 transition-transform"
-                          >
-                            View Event
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => navigate(`/events/${e.id}/dashboard`)}
+                              className="neu-border neu-press bg-lime text-black px-4 py-2 font-mono text-xs font-bold uppercase hover:-translate-y-1 transition-transform"
+                            >
+                              Insights
+                            </button>
+                            <button
+                              onClick={() => navigate(`/events/${e.id}`)}
+                              className="neu-border neu-press bg-black text-white px-4 py-2 font-mono text-xs font-bold uppercase hover:-translate-y-1 transition-transform"
+                            >
+                              View Event
+                            </button>
+                          </div>
                         </div>
                       ),
                     )

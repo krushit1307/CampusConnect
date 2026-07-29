@@ -1,10 +1,11 @@
 import { defineConfig } from "vite";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import { fileURLToPath } from "url";
-// @ts-expect-error - module-federation types may not be loaded in standard editor config
 import { federation } from "@module-federation/vite";
+import { visualizer } from "rollup-plugin-visualizer";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,11 +26,10 @@ export default defineConfig({
   plugins: [
     viteReact(),
     tailwindcss(),
+    VitePWA({ registerType: "autoUpdate" }),
     federation({
       name: "host",
-      remotes: {
-        eventsApp: "http://localhost:4174/remoteEntry.js",
-      },
+      remotes: {},
       shared: {
         react: {
           singleton: true,
@@ -39,17 +39,22 @@ export default defineConfig({
           singleton: true,
           requiredVersion: "^19.2.0",
         },
-        "react-router-dom": {
-          singleton: true,
-          requiredVersion: "^7.18.1",
-        },
       },
+    }),
+    visualizer({
+      filename: "stats.html",
+      gzipSize: true,
+      brotliSize: true,
     }),
   ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "pdf-lib": path.resolve(__dirname, "./node_modules/pdf-lib/dist/pdf-lib.esm.js"),
     },
+  },
+  optimizeDeps: {
+    include: ["pdf-lib"],
   },
   build: {
     target: "esnext",
@@ -60,6 +65,9 @@ export default defineConfig({
           if (id.includes("node_modules")) {
             if (id.includes("react") || id.includes("react-dom")) {
               return "vendor-react";
+            }
+            if (id.includes("lucide-react")) {
+              return "vendor-icons";
             }
             return "vendor";
           }
