@@ -108,18 +108,6 @@ export function CreateClubDialog({ user }: { user: User | null }) {
         throw new Error(error.message);
       }
 
-      // Automatically add creator as admin member
-      if (newClub) {
-        const { error: memberError } = await supabase.from("club_members").insert({
-          club_id: newClub.id,
-          user_id: user.id,
-          role: "admin",
-          status: "approved",
-        });
-        if (memberError) {
-          console.error("[CreateClubDialog] Failed to add creator as member:", memberError);
-        }
-      }
     },
     onSuccess: () => {
       toast.success("Club submitted for administrator review.");
