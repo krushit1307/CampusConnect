@@ -9,7 +9,7 @@ import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Github, Loader2, CheckCircle } from "lucide-react";
+import { ArrowLeft, Github, Loader2, CheckCircle, Copy } from "lucide-react";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -223,6 +223,20 @@ export default function ClubProfile() {
       : "Check out this club on CampusConnect."
   ).slice(0, 160);
   const currentUrl = typeof window !== "undefined" ? window.location.href : "";
+  const copyInvite = async () => {
+    const invite = `# ${club.name}
+
+  ${club.description || "Join this club on CampusConnect."}
+
+  Join here: ${currentUrl}`;
+
+    try {
+      await navigator.clipboard.writeText(invite);
+      toast.success("Markdown invite copied!");
+    } catch {
+      toast.error("Failed to copy invite.");
+    }
+  };
 
   return (
     <>
@@ -390,6 +404,13 @@ export default function ClubProfile() {
             </div>
 
             <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                onClick={copyInvite}
+                className="neu-border neu-press inline-flex items-center gap-2 bg-white px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-lime/20"
+              >
+                <Copy className="h-4 w-4" />
+                Copy Invite
+              </button>
               {membership?.status === "approved" ? (
                 <button
                   onClick={() => {
