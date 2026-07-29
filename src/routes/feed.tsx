@@ -48,8 +48,9 @@ import {
   filterPostsBySearch,
   buildCommentTree,
   computeReaction,
-  type CommentNode,
-} from "@/lib/feedUtils";
+} from "@/utils/helpers";
+import { useActionQueue } from "@/store/actionQueue";
+import { type CommentNode } from "@/lib/feedUtils";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import PullToRefresh from "@/components/PullToRefresh";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
@@ -1412,14 +1413,45 @@ function PostComments({ postId, user, userProfile, clubMembers, timeAgo }: PostC
     },
     onSuccess: () => {
       refetchComments();
-      toast.success("Comment deleted successfully!");
     },
     onError: () => {
       toast.error("Failed to delete comment.");
     },
   });
 
-  const activeComments = comments.filter((c) => !c.deleted_at);
+  const queuedActions = useActionQueue((state) => state.actions);
+  const enqueueAction = useActionQueue((state) => state.enqueue);
+
+  const activeComments = comments.filter((c) => !c.deleted_at && !queuedActions.has(c.id));
+
+  const handleDeleteComment = (commentId: string) => {
+    const timeoutId = setTimeout(() => {
+      deleteCommentMutation.mutate(commentId);
+      useActionQueue.getState().remove(commentId);
+    }, 5000);
+
+    enqueueAction({
+      id: commentId,
+      timeoutId,
+      execute: async () => { deleteCommentMutation.mutate(commentId); },
+      rollback: () => {},
+    });
+
+    toast("Comment deleted", {
+      description: "The comment will be permanently deleted in 5 seconds.",
+      action: {
+        label: "Undo",
+        onClick: () => {
+          const action = useActionQueue.getState().actions.get(commentId);
+          if (action) {
+            clearTimeout(action.timeoutId);
+            action.rollback();
+            useActionQueue.getState().remove(commentId);
+          }
+        },
+      },
+    });
+  };
 
   type CommentNode = import("@/lib/feedUtils").CommentNode;
 
@@ -1445,38 +1477,14 @@ function PostComments({ postId, user, userProfile, clubMembers, timeAgo }: PostC
                 {timeAgo(commentNode.created_at)}
               </p>
               {(user?.id === commentAuthor?.id || userProfile?.role === "system_admin") && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <button
-                      type="button"
-                      className="text-[#FF6B6B] hover:text-[#FF8787] uppercase font-bold font-mono text-[10px]"
-                      aria-label="Delete comment"
-                    >
-                      Delete
-                    </button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent className="neu-border bg-white rounded-none p-6">
-                    <AlertDialogHeader>
-                      <AlertDialogTitle className="font-display text-xl font-bold">
-                        Delete comment?
-                      </AlertDialogTitle>
-                      <AlertDialogDescription className="font-mono text-sm text-gray-700">
-                        Are you sure you want to delete this comment?
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
-                      <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
-                        Cancel
-                      </AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => deleteCommentMutation.mutate(commentNode.id)}
-                        className="neu-border bg-[#FF6B6B] text-black hover:bg-[#FF8787] rounded-none font-mono text-xs font-bold uppercase"
-                      >
-                        Confirm
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteComment(commentNode.id)}
+                  className="text-[#FF6B6B] hover:text-[#FF8787] uppercase font-bold font-mono text-[10px]"
+                  aria-label="Delete comment"
+                >
+                  Delete
+                </button>
               )}
             </div>
           </div>
