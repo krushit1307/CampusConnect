@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Navigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { ShieldAlert, CheckCircle, XCircle } from "lucide-react";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
+
+const AdminCharts = lazy(() => import("@/components/AdminCharts"));
 
 interface Profile {
   full_name: string | null;
@@ -222,6 +224,12 @@ export default function AdminReportsPage() {
         </header>
 
         <div className="max-w-5xl mx-auto px-4 py-8">
+          <div className="mb-8">
+            <Suspense fallback={<div className="h-[300px] neu-border bg-white animate-pulse" />}>
+              <AdminCharts />
+            </Suspense>
+          </div>
+
           <div className="flex flex-wrap gap-2 mb-6 border-b-2 border-black pb-4">
             {(["all", "pending", "resolved", "dismissed"] as const).map((tab) => (
               <button

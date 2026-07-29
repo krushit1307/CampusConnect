@@ -20,6 +20,9 @@ export function SteganographicQRCode({
   const [signedPayload, setSignedPayload] = useState<TicketPayload | null>(null);
   const [isSigned, setIsSigned] = useState(false);
 
+  const onPayloadGeneratedRef = useRef(onPayloadGenerated);
+  onPayloadGeneratedRef.current = onPayloadGenerated;
+
   useEffect(() => {
     let isMounted = true;
 
@@ -28,8 +31,8 @@ export function SteganographicQRCode({
       if (!isMounted) return;
 
       setSignedPayload(payload);
-      if (onPayloadGenerated) {
-        onPayloadGenerated(payload);
+      if (onPayloadGeneratedRef.current) {
+        onPayloadGeneratedRef.current(payload);
       }
 
       // Convert SVG to Canvas and embed LSB Steganography
@@ -62,7 +65,15 @@ export function SteganographicQRCode({
           if (isMounted) setIsSigned(true);
         };
 
-        img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+        const encoder = new TextEncoder();
+        const uint8Array = encoder.encode(svgData);
+        let binary = "";
+        for (let i = 0; i < uint8Array.length; i++) {
+          binary += String.fromCharCode(uint8Array[i]);
+        }
+        const base64 = btoa(binary);
+
+        img.src = `data:image/svg+xml;base64,${base64}`;
       }, 100);
     }
 
@@ -71,7 +82,7 @@ export function SteganographicQRCode({
     return () => {
       isMounted = false;
     };
-  }, [rsvpId, size, onPayloadGenerated]);
+  }, [rsvpId, size]);
 
   const handleDownloadPNG = () => {
     if (!canvasRef.current) return;

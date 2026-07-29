@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useInView } from "react-intersection-observer";
 import { supabase } from "@/lib/supabase/client";
+import { Flag } from "lucide-react";
+import { ReportDialog } from "@/components/ReportDialog";
 
 const PAGE_SIZE = 10;
 
@@ -15,9 +17,10 @@ interface Post {
 
 export const PostList = () => {
   const [posts, setPosts] = useState<Post[]>([]);
-  const [page, setPage] = useState(0);
+  const [cursor, setCursor] = useState<{ created_at: string; id: string } | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [reportPostId, setReportPostId] = useState<string | null>(null);
 
   // IntersectionObserver hook setup
   const { ref: sentinelRef, inView } = useInView({
@@ -25,28 +28,32 @@ export const PostList = () => {
   });
 
   const fetchPosts = useCallback(
-    async (pageNumber: number) => {
+    async (currentCursor: { created_at: string; id: string } | null) => {
       if (isLoading) return;
       setIsLoading(true);
 
-      const start = pageNumber * PAGE_SIZE;
-      const end = start + PAGE_SIZE - 1;
-
-      // Fetch range of posts using Supabase pagination
-      const { data, error } = await supabase
-        .from("posts")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .range(start, end);
+      const { data, error } = await supabase.rpc("get_posts_cursor", {
+        last_created_at: currentCursor?.created_at || null,
+        last_id: currentCursor?.id || null,
+        fetch_limit: PAGE_SIZE,
+      });
 
       if (error) {
         console.error("Error fetching posts:", error);
       } else if (data) {
-        setPosts((prevPosts) => (pageNumber === 0 ? data : [...prevPosts, ...data]));
+        setPosts((prevPosts) =>
+          currentCursor === null
+            ? (data as unknown as Post[])
+            : [...prevPosts, ...(data as unknown as Post[])],
+        );
 
-        // If less than PAGE_SIZE returned, we reached the end of the feed
         if (data.length < PAGE_SIZE) {
           setHasMore(false);
+        }
+
+        if (data.length > 0) {
+          const lastPost = data[data.length - 1];
+          setCursor({ created_at: lastPost.created_at, id: lastPost.id });
         }
       }
 
@@ -57,29 +64,37 @@ export const PostList = () => {
 
   // Initial load on component mount
   useEffect(() => {
-    fetchPosts(0);
+    fetchPosts(null);
   }, []);
 
   // Trigger fetch when scrolling down to the sentinel
   useEffect(() => {
-    if (inView && hasMore && !isLoading && page > 0) {
-      fetchPosts(page);
+    if (inView && hasMore && !isLoading && cursor) {
+      fetchPosts(cursor);
     }
-  }, [inView, hasMore, isLoading, page, fetchPosts]);
-
-  // Advance page counter when sentinel comes into view
-  useEffect(() => {
-    if (inView && hasMore && !isLoading) {
-      setPage((prevPage) => prevPage + 1);
-    }
-  }, [inView, hasMore, isLoading]);
+  }, [inView, hasMore, isLoading, cursor, fetchPosts]);
 
   return (
     <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full p-4">
       {posts.map((post) => (
-        <div key={post.id} className="p-4 border rounded-lg shadow-sm bg-card text-card-foreground">
-          <h3 className="font-bold text-lg">{post.title || "Untitled Post"}</h3>
-          <p className="mt-2 text-muted-foreground">{post.content}</p>
+        <div
+          key={post.id}
+          className="p-4 border rounded-lg shadow-sm bg-card text-card-foreground flex flex-col justify-between"
+        >
+          <div>
+            <h3 className="font-bold text-lg">{post.title || "Untitled Post"}</h3>
+            <p className="mt-2 text-muted-foreground">{post.content}</p>
+          </div>
+          <div className="mt-3 flex items-center justify-end border-t pt-2">
+            <button
+              type="button"
+              onClick={() => setReportPostId(String(post.id))}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+              aria-label={`Report post ${post.title || post.id}`}
+            >
+              <Flag size={14} /> Report
+            </button>
+          </div>
         </div>
       ))}
 
@@ -90,6 +105,13 @@ export const PostList = () => {
           <p className="text-sm text-muted-foreground">You've reached the end of the feed!</p>
         )}
       </div>
+
+      <ReportDialog
+        isOpen={!!reportPostId}
+        onClose={() => setReportPostId(null)}
+        targetType="post"
+        targetId={reportPostId || ""}
+      />
     </div>
   );
 };

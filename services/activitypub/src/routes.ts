@@ -1,7 +1,13 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
-import { getClubBySlug, getOrCreateClubKeys, getFollowers, getClubEvents, saveInboxItem } from "./db";
+import {
+  getClubBySlug,
+  getOrCreateClubKeys,
+  getFollowers,
+  getClubEvents,
+  saveInboxItem,
+} from "./db";
 import { signatureMiddleware } from "./signature";
 import { DOMAIN } from "./index";
 import type { ClubRecord } from "./types";
@@ -17,12 +23,17 @@ function getSlug(req: Request): string {
   return Array.isArray(s) ? s[0] : s;
 }
 
-function buildActor(slug: string, club: { name: string; description: string | null; logo_url: string | null; banner_url: string | null }) {
+function buildActor(
+  slug: string,
+  club: {
+    name: string;
+    description: string | null;
+    logo_url: string | null;
+    banner_url: string | null;
+  },
+) {
   return {
-    "@context": [
-      "https://www.w3.org/ns/activitystreams",
-      "https://w3id.org/security/v1",
-    ],
+    "@context": ["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"],
     id: actorUrl(slug),
     type: "Group",
     preferredUsername: slug,
@@ -42,15 +53,18 @@ function buildActor(slug: string, club: { name: string; description: string | nu
   };
 }
 
-function buildEventNote(event: {
-  id: string;
-  title: string;
-  description: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  location: string | null;
-  banner_url: string | null;
-}, clubSlug: string): Record<string, unknown> {
+function buildEventNote(
+  event: {
+    id: string;
+    title: string;
+    description: string | null;
+    start_date: string | null;
+    end_date: string | null;
+    location: string | null;
+    banner_url: string | null;
+  },
+  clubSlug: string,
+): Record<string, unknown> {
   const eventId = `https://${DOMAIN}/events/${event.id}`;
   const note: Record<string, unknown> = {
     id: eventId,
@@ -164,30 +178,37 @@ router.get("/actors/:slug/following", async (req: Request, res: Response) => {
   res.json(collection);
 });
 
-router.post("/actors/:slug/inbox", signatureMiddleware(false), async (req: Request, res: Response) => {
-  const slug = getSlug(req);
-  const club = await getClubBySlug(slug);
-  if (!club) {
-    res.status(404).json({ error: "Actor not found" });
-    return;
-  }
+router.post(
+  "/actors/:slug/inbox",
+  signatureMiddleware(false),
+  async (req: Request, res: Response) => {
+    const slug = getSlug(req);
+    const club = await getClubBySlug(slug);
+    if (!club) {
+      res.status(404).json({ error: "Actor not found" });
+      return;
+    }
 
-  const activity = req.body as Record<string, unknown>;
-  const actorId = (req as unknown as Record<string, unknown>).verifiedActorId as string || activity.actor as string || ((activity.object as Record<string, unknown>)?.attributedTo as string);
+    const activity = req.body as Record<string, unknown>;
+    const actorId =
+      ((req as unknown as Record<string, unknown>).verifiedActorId as string) ||
+      (activity.actor as string) ||
+      ((activity.object as Record<string, unknown>)?.attributedTo as string);
 
-  if (!actorId) {
-    res.status(400).json({ error: "Could not verify actor" });
-    return;
-  }
+    if (!actorId) {
+      res.status(400).json({ error: "Could not verify actor" });
+      return;
+    }
 
-  await saveInboxItem(club.id, actorId, (activity.type as string) || "Unknown", activity);
+    await saveInboxItem(club.id, actorId, (activity.type as string) || "Unknown", activity);
 
-  if (activity.type === "Follow") {
-    await handleFollowActivity(club, slug, actorId, activity);
-  }
+    if (activity.type === "Follow") {
+      await handleFollowActivity(club, slug, actorId, activity);
+    }
 
-  res.status(202).json({});
-});
+    res.status(202).json({});
+  },
+);
 
 router.get("/actors/:slug/inbox", async (req: Request, res: Response) => {
   const slug = getSlug(req);
@@ -219,7 +240,9 @@ async function handleFollowActivity(
 
   const actorDoc = await fetch(actorId, {
     headers: { Accept: "application/activity+json" },
-  }).then(async (r) => (await r.json()) as Record<string, unknown>).catch(() => null);
+  })
+    .then(async (r) => (await r.json()) as Record<string, unknown>)
+    .catch(() => null);
 
   if (!actorDoc) return;
 
@@ -230,14 +253,17 @@ async function handleFollowActivity(
 
   if (!inboxUrl) return;
 
-  await supabase.from("activitypub_followers").upsert({
-    club_id: club.id,
-    actor_id: actorId,
-    inbox_url: inboxUrl,
-    shared_inbox_url: (actorDoc.sharedInbox as string) || null,
-    username: preferredUsername,
-    domain,
-  }, { onConflict: "club_id, actor_id" });
+  await supabase.from("activitypub_followers").upsert(
+    {
+      club_id: club.id,
+      actor_id: actorId,
+      inbox_url: inboxUrl,
+      shared_inbox_url: (actorDoc.sharedInbox as string) || null,
+      username: preferredUsername,
+      domain,
+    },
+    { onConflict: "club_id, actor_id" },
+  );
 
   const acceptActivity: Record<string, unknown> = {
     "@context": "https://www.w3.org/ns/activitystreams",
