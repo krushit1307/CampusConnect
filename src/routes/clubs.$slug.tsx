@@ -7,6 +7,7 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
+import { usePresenceCount } from "@/hooks/use-presence-count";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { parse } from "@/lib/markdown";
@@ -246,6 +247,8 @@ export default function ClubProfile() {
     },
   });
 
+  const { count: onlineCount, ready: presenceReady } = usePresenceCount(club?.id);
+
   const joinMutation = useMutation({
     mutationFn: async () => {
       if (!user || !club) throw new Error("Must be logged in");
@@ -410,9 +413,17 @@ export default function ClubProfile() {
             </Breadcrumb>
             <p className="eyebrow font-bold text-blue-900">Club</p>
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-              <h1 className="mt-2 text-5xl font-bold text-brand-blue-dark md:text-7xl">
-                {club.name}
-              </h1>
+              <div className="flex flex-wrap items-center gap-3 mt-2">
+                <h1 className="text-5xl font-bold text-brand-blue-dark md:text-7xl">
+                  {club.name}
+                </h1>
+                {presenceReady ? (
+                  <span className="flex items-center gap-1.5 rounded-full bg-white/70 px-3 py-1 font-mono text-xs font-bold text-black">
+                    <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" aria-hidden="true" />
+                    {onlineCount} {onlineCount === 1 ? "member" : "members"} online
+                  </span>
+                ) : null}
+              </div>
               {membership?.role === "admin" && (
                 <Link
                   to={`/clubs/${club.slug}/manage`}

@@ -4,6 +4,7 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
+import { AudioEngine } from "@/lib/audio/audioEngine";
 import { microInteractionTransition } from "@/lib/animations";
 
 const buttonVariants = cva(
@@ -38,12 +39,22 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, onClick, ...props }, ref) => {
     const prefersReduced = useReducedMotion();
+
+    const handleClick: React.MouseEventHandler<HTMLButtonElement> = (event) => {
+      AudioEngine.playClick();
+      onClick?.(event);
+    };
 
     if (asChild) {
       return (
-        <Slot className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+        <Slot 
+          className={cn(buttonVariants({ variant, size, className }))} 
+          ref={ref} 
+          onClick={handleClick}
+          {...props} 
+        />
       );
     }
 
@@ -51,6 +62,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <motion.button
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
+        onClick={handleClick}
         whileHover={prefersReduced ? undefined : { scale: 1.02 }}
         whileTap={prefersReduced ? undefined : { scale: 0.98 }}
         transition={microInteractionTransition}

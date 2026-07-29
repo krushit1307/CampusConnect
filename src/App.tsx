@@ -1,5 +1,8 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/hooks/useReactQueryReplacement";
+import { wireToastSounds } from "@/lib/audio/wireToastSounds";
+
+wireToastSounds();
 import { Suspense, lazy, useEffect, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
