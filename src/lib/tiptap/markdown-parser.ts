@@ -6,7 +6,7 @@ import { supabase } from "../supabase/client";
 
 export interface TiptapParseResponse {
   success: boolean;
-  data?: any;
+  data?: Record<string, unknown>;
   error?: string;
   fileName?: string;
 }

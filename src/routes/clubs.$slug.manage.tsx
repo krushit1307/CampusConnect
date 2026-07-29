@@ -5,15 +5,7 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
-import {
-  Settings,
-  Users,
-  Calendar,
-  ShieldCheck,
-  XCircle,
-  CheckCircle,
-  Download,
-} from "lucide-react";
+import { Settings, Users, Calendar, ShieldCheck, XCircle, CheckCircle, Download } from "lucide-react";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { RosterExport } from "@/components/RosterExport";

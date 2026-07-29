@@ -29,6 +29,67 @@ export function publishNotification(notification: NotificationRecord): void {
   pubsub.publish("NOTIFICATION_RECEIVED", notification.user_id, notification);
 }
 
+// ── In-Memory LRU Cache Class ──
+export class LRUCache<K, V> {
+  private max: number;
+  private cache: Map<K, V>;
+
+  constructor(max: number = 100) {
+    this.max = max;
+    this.cache = new Map<K, V>();
+  }
+
+  get(key: K): V | undefined {
+    const item = this.cache.get(key);
+    if (item !== undefined) {
+      this.cache.delete(key);
+      this.cache.set(key, item);
+    }
+    return item;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.max) {
+      const oldestKey = this.cache.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.cache.delete(oldestKey);
+      }
+    }
+    this.cache.set(key, value);
+  }
+
+  delete(key: K): boolean {
+    return this.cache.delete(key);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  size(): number {
+    return this.cache.size;
+  }
+}
+
+export interface ClubRecord {
+  id: string;
+  name: string;
+}
+
+// Cache for global clubs directory
+export const clubsCache = new LRUCache<string, ClubRecord[]>(5);
+export const CLUBS_CACHE_KEY = "all_clubs";
+
+// Subscribe to real-time updates for clubs to invalidate cache when a club is created/updated/deleted
+supabase
+  .channel("clubs-cache-invalidation")
+  .on("postgres_changes", { event: "*", schema: "public", table: "clubs" }, () => {
+    clubsCache.delete(CLUBS_CACHE_KEY);
+  })
+  .subscribe();
+
 // ── Lightweight Batch Loader Class ──
 
 class SimpleDataLoader<K extends string, V> {
@@ -59,10 +120,6 @@ interface ProfileRecord {
   role: string | null;
 }
 
-interface ClubRecord {
-  id: string;
-  name: string;
-}
 
 interface CommentRecord {
   id: string;
@@ -330,9 +387,15 @@ export const resolvers = {
       return data;
     },
     clubs: async () => {
+      const cached = clubsCache.get(CLUBS_CACHE_KEY);
+      if (cached) {
+        return cached;
+      }
       const { data, error } = await supabase.from("clubs").select("*");
       if (error) throw error;
-      return data || [];
+      const result = data || [];
+      clubsCache.set(CLUBS_CACHE_KEY, result);
+      return result;
     },
     profiles: async (
       _: unknown,

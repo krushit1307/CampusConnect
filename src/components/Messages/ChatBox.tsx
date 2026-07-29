@@ -13,8 +13,10 @@ import {
   decryptMessage,
 } from "@/lib/crypto";
 import { toast } from "sonner";
-import { ShieldCheck, Send, Search, Lock, AlertTriangle, RefreshCw } from "lucide-react";
+import { ShieldCheck, Send, Search, Lock, AlertTriangle, RefreshCw, Smile } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import EmojiPicker from "emoji-picker-react";
 
 interface Profile {
   id: string;
@@ -30,7 +32,6 @@ interface Message {
   encrypted_content: string;
   iv: string;
   created_at: string;
-  read_at: string | null;
   content?: string;
   decryptFailed?: boolean;
 }
@@ -57,7 +58,6 @@ export default function ChatBox() {
   } | null>(null);
   const [sharedKeys, setSharedKeys] = useState<Record<string, CryptoKey>>({});
 
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Stable per-conversation presence channel name:
@@ -116,6 +116,7 @@ export default function ChatBox() {
           const { error } = await supabase.from("user_public_keys").upsert({
             user_id: user.id,
             public_key: pubJwk,
+            updated_at: new Date().toISOString(),
           });
 
           if (error) {
@@ -278,54 +279,6 @@ export default function ChatBox() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 5b. Mark received messages as read
-  const markMessagesAsRead = async () => {
-    if (!currentUser || !activeRecipient) return;
-
-    const unreadIds = messages
-      .filter((m) => m.receiver_id === currentUser.id && !m.read_at)
-      .map((m) => m.id);
-
-    if (unreadIds.length === 0) return;
-
-    try {
-      const { error } = await supabase
-        .from("direct_messages")
-        .update({ read_at: new Date().toISOString() })
-        .in("id", unreadIds);
-
-      if (error) throw error;
-
-      setMessages((prev) =>
-        prev.map((m) =>
-          unreadIds.includes(m.id) ? { ...m, read_at: new Date().toISOString() } : m,
-        ),
-      );
-    } catch (err) {
-      console.error("Failed to mark messages as read:", err);
-    }
-  };
-
-  useEffect(() => {
-    if (!messages.length || !currentUser) return;
-
-    const hasUnread = messages.some(
-      (m) => m.receiver_id === currentUser.id && !m.read_at,
-    );
-
-    if (!hasUnread) return;
-
-    const container = messagesContainerRef.current;
-    if (!container) return;
-
-    const isAtBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-
-    if (isAtBottom) {
-      markMessagesAsRead();
-    }
-  }, [messages, currentUser, activeRecipient]);
-
   // 6. Subscribing to real-time updates for direct messages
   useEffect(() => {
     if (!activeRecipient || !currentUser || !userKeys) return;
@@ -483,6 +436,7 @@ export default function ChatBox() {
       const { error } = await supabase.from("user_public_keys").upsert({
         user_id: currentUser.id,
         public_key: pubJwk,
+        updated_at: new Date().toISOString(),
       });
 
       if (error) throw error;
@@ -630,10 +584,7 @@ export default function ChatBox() {
               </div>
 
               {/* Messages Area */}
-              <div
-                ref={messagesContainerRef}
-                className="flex-1 h-[420px] overflow-y-auto bg-slate-50 dark:bg-zinc-950 p-4 space-y-3"
-              >
+              <div className="flex-1 h-[420px] overflow-y-auto bg-slate-50 dark:bg-zinc-950 p-4 space-y-3">
                 {recipientKeyError ? (
                   <div className="flex h-full items-center justify-center p-4">
                     <div className="max-w-md border-2 border-black bg-yellow-50 p-6 text-center text-black shadow-md">
@@ -686,24 +637,8 @@ export default function ChatBox() {
                             <div className="mt-1.5 flex items-center justify-between gap-4 font-mono text-[9px] uppercase opacity-60">
                               <span>{time}</span>
                               <span className="flex items-center gap-0.5">
-                                {isMe ? (
-                                  msg.read_at ? (
-                                    <span className="flex items-center gap-0.5 text-blue-600" title="Read">
-                                      <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
-                                        <path d="M1 5.5L4 8.5L9 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                        <path d="M6 5.5L9 8.5L13 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                      </svg>
-                                    </span>
-                                  ) : (
-                                    <span className="flex items-center gap-0.5" title="Sent">
-                                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                                        <path d="M1 5L4 8L9 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                      </svg>
-                                    </span>
-                                  )
-                                ) : (
-                                  <Lock size={8} />
-                                )}
+                                <Lock size={8} />
+                                E2EE
                               </span>
                             </div>
                           </div>
@@ -721,6 +656,34 @@ export default function ChatBox() {
                   onSubmit={handleSendMessage}
                   className="border-t-2 border-black p-3 bg-white dark:bg-zinc-900 dark:border-cream flex flex-col gap-2"
                 >
+                  <input
+                    type="text"
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    placeholder="Type a secure message..."
+                    className="flex-1 border-2 border-black px-3 py-2 font-mono text-sm focus:outline-none dark:bg-zinc-800 dark:border-cream dark:text-cream"
+                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        className="h-10 w-10 border-2 border-black bg-yellow-300 text-black neu-border neu-press"
+                      >
+                        <Smile className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent side="top" align="end" className="p-0 border-2 border-black">
+                      <EmojiPicker 
+                        onEmojiClick={(emojiData) => setInputMessage(prev => prev + emojiData.emoji)}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <Button
+                    type="submit"
+                    size="icon"
+                    className="h-10 w-10 border-2 border-black bg-lime text-black neu-border neu-press"
                   {/* Typing indicator — visible only when someone else is typing */}
                   <div
                     className="min-h-[1.25rem] flex items-center gap-1.5"

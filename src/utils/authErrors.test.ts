@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { getFriendlyAuthError } from "./authErrors";
 
 describe("getFriendlyAuthError", () => {
@@ -50,5 +50,15 @@ describe("getFriendlyAuthError", () => {
     expect(getFriendlyAuthError("Invalid token")).toBe(
       "This password reset link is invalid. Please request a new one.",
     );
+  });
+
+  it("returns user-friendly message for unconfirmed email", () => {
+    const error = { message: "Email not confirmed" };
+    expect(getFriendlyAuthError(error)).toBe("Please verify your email address before signing in.");
+  });
+
+  it("passes through unmapped custom error messages", () => {
+    const customError = new Error("Custom server database connection timeout");
+    expect(getFriendlyAuthError(customError)).toBe("Custom server database connection timeout");
   });
 });

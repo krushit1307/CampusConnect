@@ -19,6 +19,7 @@ import { usePreloadEvent } from "@/hooks/usePreloadEvent";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
 import { ShareMenu } from "@/components/ui/ShareMenu";
 import { ReadMore } from "@/components/ui/ReadMore";
+
 interface Event {
   id: string;
   short_id?: string | null;
@@ -181,13 +182,7 @@ export function EventCard({
 
   const [ticketOpen, setTicketOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const shouldTruncate = !!event.description && event.description.length > 220;
 
-  const displayedDescription =
-    shouldTruncate && !isDescriptionExpanded
-      ? `${event.description!.slice(0, 180)}...`
-      : event.description;
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);

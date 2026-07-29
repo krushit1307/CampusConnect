@@ -1,7 +1,10 @@
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense, useMemo } from "react";
+import { TableOfContents } from "@/components/events/TableOfContents";
+import NotFound from "./NotFound";
+import LazyHydrate from "@/components/LazyHydrate";
 import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
@@ -247,6 +250,35 @@ export default function EventDetailsPage() {
     },
     enabled: !!eventId,
   });
+
+    // Extract headings from HTML description for TOC
+  const tocItems = useMemo(() => {
+    if (!event?.description) return [];
+    
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(event.description, "text/html");
+    const headings = doc.querySelectorAll("h2, h3");
+    
+    return Array.from(headings).map((heading) => {
+      const text = heading.textContent || "";
+      // Simple slugify for ID
+      const id = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      return { id, text, level: heading.tagName === "H2" ? 2 : 3 };
+    });
+  }, [event?.description]);
+
+  // Inject IDs into the rendered DOM nodes so the TOC can scroll to them
+  useEffect(() => {
+    const container = document.getElementById("event-description-container");
+    if (!container) return;
+
+    const headings = container.querySelectorAll("h2, h3");
+    headings.forEach((heading) => {
+      const text = heading.textContent || "";
+      const id = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      heading.id = id;
+    });
+  }, [event?.description]);
 
   useEffect(() => {
     if (!lightboxSrc) return;
@@ -570,6 +602,7 @@ export default function EventDetailsPage() {
       if (context?.previousEvent) {
         setQueryData(["event", eventId], context.previousEvent);
       }
+
       const err = error as Record<string, unknown>;
       if (
         (typeof err?.message === "string" && err.message.includes("Rate limit")) ||
@@ -1397,15 +1430,28 @@ export default function EventDetailsPage() {
             <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
               About the Event
             </h2>
-            {event.description ? (
-              <p className="mt-4 whitespace-pre-line text-base leading-7 text-black/80">
-                {event.description}
-              </p>
-            ) : (
-              <p className="mt-4 font-mono text-sm italic text-black/40">
-                No description provided for this event.
-              </p>
-            )}
+            <div className="flex flex-col gap-8 lg:flex-row">
+              <main className="flex-1 min-w-0">
+                {event.description ? (
+                  <p className="mt-4 whitespace-pre-line text-base leading-7 text-black/80">
+                    {event.description}
+                  </p>
+                ) : (
+                  <p className="mt-4 font-mono text-sm italic text-black/40">
+                    No description provided for this event.
+                  </p>
+                )}
+            
+                <div 
+                  id="event-description-container" 
+                  className="prose prose-lg max-w-none dark:prose-invert prose-headings:scroll-mt-24"
+                  dangerouslySetInnerHTML={{ __html: event.description }} 
+                />
+              </main>
+              <aside className="lg:w-64 shrink-0">
+                <TableOfContents items={tocItems} />
+              </aside>
+            </div>
           </div>
 
           {/* FAQ Section */}
@@ -1454,13 +1500,15 @@ export default function EventDetailsPage() {
               coordsCheck.lat != null &&
               coordsCheck.lng != null ? (
                 <>
-                  <Suspense fallback={<MapSkeleton className="mt-4 h-[300px] w-full" />}>
-                    <EventMap
-                      lat={coordsCheck.lat}
-                      lng={coordsCheck.lng}
-                      locationName={event.location}
-                    />
-                  </Suspense>
+                  <LazyHydrate height="300px" placeholder={<MapSkeleton className="mt-4 h-[300px] w-full" />}>
+                    <Suspense fallback={<MapSkeleton className="mt-4 h-[300px] w-full" />}>
+                      <EventMap
+                        lat={coordsCheck.lat}
+                        lng={coordsCheck.lng}
+                        locationName={event.location}
+                      />
+                    </Suspense>
+                  </LazyHydrate>
                   <a
                     href={buildGoogleMapsSearchUrl(event.location)}
                     target="_blank"

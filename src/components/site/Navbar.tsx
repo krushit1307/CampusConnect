@@ -10,6 +10,8 @@ import { ThemeToggle } from "../ThemeToggle";
 import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
 
 import { Menu, X } from "lucide-react";
+import { useAuthHydration } from "@/hooks/useAuthHydration";
+import { ProfileHeaderSkeleton } from "@/components/ProfileHeaderSkeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function Navbar() {
+  const { user, isInitializing } = useAuthHydration();
   const location = useLocation();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
@@ -66,7 +69,6 @@ export function Navbar() {
   const currentPath = location.pathname;
   const supabase = createClient();
 
-  const [user, setUser] = useState<User | null>(null);
   const { onlineUsers } = usePresence(user?.id);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -123,20 +125,6 @@ export function Navbar() {
       };
     }
   }, [mobileMenuOpen]);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -210,7 +198,9 @@ export function Navbar() {
             <ThemeToggle />
 
             {user && <NavbarNotificationDropdown />}
-            {user ? (
+            {isInitializing ? (
+                <ProfileHeaderSkeleton />
+              ) : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -261,7 +251,7 @@ export function Navbar() {
               >
                 {t("navbar.signin")}
               </Link>
-            )}
+          )}
           </div>
 
           {/* Mobile menu toggle button */}

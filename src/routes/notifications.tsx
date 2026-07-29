@@ -17,6 +17,11 @@ import { toast } from "sonner";
 import { format, isToday, isYesterday, isThisWeek } from "date-fns";
 import { SwipeToDismiss } from "@/components/ui/SwipeToDismiss";
 import { useGraphQLSubscription } from "@/hooks/useGraphQLSubscription";
+import {
+  NotificationFilterToolbar,
+  type NotificationCategory,
+} from "@/components/notifications/NotificationFilterToolbar";
+import { NotificationPreferenceModal } from "@/components/notifications/NotificationPreferenceModal";
 
 /** GraphQL subscription document for real-time notifications. */
 const NOTIFICATION_SUBSCRIPTION = /* GraphQL */ `
@@ -52,6 +57,9 @@ export default function NotificationsRoute() {
   const supabase = createClient();
   const queryClient = useQueryClient();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState<NotificationCategory>("all");
+  const [isPrefModalOpen, setIsPrefModalOpen] = useState(false);
 
   // Resolve the authenticated user's ID for the subscription.
   useEffect(() => {
@@ -206,7 +214,24 @@ export default function NotificationsRoute() {
     },
   });
 
-  const allNotifications = data?.pages.flatMap((page) => page.notifications) || [];
+  const rawNotifications = data?.pages.flatMap((page) => page.notifications) || [];
+
+  const allNotifications = rawNotifications.filter((n) => {
+    if (activeCategory === "unread" && n.is_read) return false;
+    if (activeCategory === "event" && n.type !== "event") return false;
+    if (activeCategory === "club" && n.type !== "club") return false;
+    if (activeCategory === "reply" && n.type !== "reply") return false;
+    if (activeCategory === "security" && n.type !== "security") return false;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const titleMatch = n.title?.toLowerCase().includes(q);
+      const messageMatch = n.message?.toLowerCase().includes(q);
+      return titleMatch || messageMatch;
+    }
+
+    return true;
+  });
 
   const observer = useRef<IntersectionObserver | null>(null);
   const lastElementRef = (node: HTMLElement | null) => {
@@ -240,7 +265,8 @@ export default function NotificationsRoute() {
   };
 
   const grouped = groupNotifications();
-  const hasUnread = allNotifications.some((n) => !n.is_read);
+  const unreadCount = rawNotifications.filter((n) => !n.is_read).length;
+  const hasUnread = unreadCount > 0;
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -293,7 +319,17 @@ export default function NotificationsRoute() {
       </section>
 
       <section className="bg-white px-4 py-8 md:px-6 min-h-screen">
-        <div className="mx-auto max-w-3xl space-y-10">
+        <div className="mx-auto max-w-3xl space-y-6">
+          <NotificationFilterToolbar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            activeCategory={activeCategory}
+            onCategoryChange={setActiveCategory}
+            unreadCount={unreadCount}
+            onMarkAllRead={() => markAllAsReadMutation.mutate()}
+            onOpenPreferences={() => setIsPrefModalOpen(true)}
+          />
+
           {isLoading ? (
             <div className="space-y-4">
               {[1, 2, 3, 4].map((i) => (
@@ -301,7 +337,9 @@ export default function NotificationsRoute() {
               ))}
             </div>
           ) : allNotifications.length === 0 ? (
-            <div className="text-center py-20 font-mono text-gray-500">No notifications yet.</div>
+            <div className="text-center py-20 font-mono text-gray-500 border-2 border-dashed border-gray-300 p-8">
+              No notifications matching your current filter.
+            </div>
           ) : (
             Object.entries(grouped).map(([label, items]) => {
               if (items.length === 0) return null;
@@ -365,6 +403,11 @@ export default function NotificationsRoute() {
           )}
         </div>
       </section>
+
+      <NotificationPreferenceModal
+        isOpen={isPrefModalOpen}
+        onClose={() => setIsPrefModalOpen(false)}
+      />
     </SiteShell>
   );
 }

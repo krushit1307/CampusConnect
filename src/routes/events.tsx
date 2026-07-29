@@ -392,7 +392,22 @@ export default function EventsPage() {
   }, [hasMore, isLoadingMore, handleLoadMore]);
 
   useEffect(() => {
+    const channelName = "realtime_changes";
+    // Prevent duplicate subscriptions by removing any existing channel with this topic
+    supabase.getChannels().forEach((c) => {
+      if (c.topic === `realtime:${channelName}` || c.topic === channelName) {
+        void supabase.removeChannel(c);
+      }
+    });
+
     const channel = supabase
+      .channel(channelName)
+      .on("postgres_changes", { event: "*", schema: "public", table: "event_rsvps" }, () => {
+        refetch();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
+        refetch();
+      })
       .channel("events-update")
       .on(
         "postgres_changes",
@@ -414,7 +429,8 @@ export default function EventsPage() {
       )
       .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      void channel.unsubscribe();
+      void supabase.removeChannel(channel);
     };
   }, [supabase, refetch]);
 
