@@ -18,6 +18,7 @@ import { ReportDialog } from "@/components/ReportDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { AudioReactiveBackground } from "@/components/media/AudioReactiveBackground";
+import NotFound from "./NotFound";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -302,7 +303,8 @@ export default function ClubProfile() {
       .filter((h) => h.id);
   }, [club?.description]);
 
-  if (isLoading) return <ClubProfileSkeleton />;
+  if (isLoading) return <PageLoader />;
+  if (error || !club) return <NotFound />;
   if (!club)
     return (
       <SiteShell>
