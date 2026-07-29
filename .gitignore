@@ -38,3 +38,19 @@ scripts/remove-assignees.ts
 .env
 .env.*
 coverage/
+
+# Local debug/build output (should not be committed)
+build_error*.txt
+checks*.json
+db-help.txt
+deploy-help.txt
+last_commit_diff.txt
+log.txt
+query-help.txt
+query-out*.txt
+test_results.txt
+test_run_output*.txt
+typecheck*.txt
+ts_deps.txt
+stats.html
+rustup-init.exe
