@@ -1,23 +1,33 @@
-import { Link } from "react-router-dom";
+import { LayoutGrid, List, UsersRound, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+
+import { ClubCardSkeleton } from "@/components/ui/ClubCardSkeleton";
+import { CreateClubDialog } from "@/components/CreateClubDialog";
+import { EmptyState } from "@/components/EmptyState";
+import { SearchInput } from "@/components/ui/SearchInput";
+import { Link } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { LayoutGrid, List, UsersRound, X } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
-import { CreateClubDialog } from "@/components/CreateClubDialog";
-import { ClubCardSkeleton } from "@/components/ui/ClubCardSkeleton";
 
 const ITEMS_PER_PAGE = 12;
 const VIEW_MODE_STORAGE_KEY = "clubs-view-mode";
 
 type ViewMode = "grid" | "list";
 
+interface ClubItem {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  club_stats?: { total_members?: number }[] | { total_members?: number } | null;
+}
+
 export default function ClubsIndex() {
   const supabase = createClient();
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
   const observer = useRef<IntersectionObserver | null>(null);
 
   const [user, setUser] = useState<User | null>(null);
@@ -39,7 +49,7 @@ export default function ClubsIndex() {
   }, [viewMode, viewModeLoaded]);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+    supabase.auth.getUser().then((res) => setUser(res.data?.user ?? null));
   }, [supabase]);
 
   useEffect(() => {
@@ -60,8 +70,12 @@ export default function ClubsIndex() {
         const to = from + ITEMS_PER_PAGE - 1;
 
         const { data, count } = await supabase
-          .from("clubs")
-          .select(`id, name, slug, description`, { count: "exact" })
+          .from("vw_active_clubs")
+          .select(
+            `id, name, slug, description, club_stats (total_members, total_events, total_posts)`,
+            { count: "exact" },
+          )
+          .order("is_active", { ascending: false })
           .range(from, to);
 
         return {
@@ -74,7 +88,8 @@ export default function ClubsIndex() {
     });
 
   // Flatten the nested page arrays from useInfiniteQuery into a single list
-  const allClubs = data?.pages.flatMap((page) => page.clubs) || [];
+  const allClubs: ClubItem[] = (data?.pages.flatMap((page: { clubs: unknown[] }) => page.clubs) ||
+    []) as ClubItem[];
   const totalActiveCount = data?.pages[0]?.totalCount || allClubs.length;
 
   // Deriving the Top 3 Trending Clubs based on member_count
@@ -160,28 +175,43 @@ export default function ClubsIndex() {
           <div className="flex-1">
             <p className="eyebrow font-bold">Club directory · {totalActiveCount} active</p>
             <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">Find your people.</h1>
-            <div className="relative mt-6 max-w-xl">
-              <input
-                ref={inputRef}
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Search clubs by name or interest..."
-                className="neu-border w-full bg-white px-4 py-3 pr-10 font-mono text-sm outline-none text-black"
-              />
-              {searchInput && (
+            <SearchInput
+              value={searchInput}
+              onChange={setSearchInput}
+              onClear={() => {
+                setSearchInput("");
+                setSearch("");
+              }}
+              placeholder="Search clubs by name or interest..."
+              className="mt-6 max-w-xl"
+            />
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="font-mono text-xs font-bold uppercase text-gray-700">
+                Category Filter:
+              </span>
+              {["All", "Tech", "Cultural", "Sports", "Academic", "Arts"].map((cat) => (
                 <button
+                  key={cat}
                   type="button"
                   onClick={() => {
-                    setSearchInput("");
-                    setSearch("");
-                    inputRef.current?.focus();
+                    if (cat === "All") {
+                      setSearchInput("");
+                      setSearch("");
+                    } else {
+                      setSearchInput(cat);
+                      setSearch(cat);
+                    }
                   }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black dark:text-gray-300 dark:hover:text-white"
-                  aria-label="Clear search"
+                  className={`neu-border px-2.5 py-0.5 font-mono text-[11px] font-bold uppercase transition-transform active:translate-y-0.5 cursor-pointer ${
+                    (cat === "All" && !searchInput) ||
+                    searchInput.toLowerCase() === cat.toLowerCase()
+                      ? "bg-black text-white"
+                      : "bg-white text-black hover:bg-yellow"
+                  }`}
                 >
-                  <X size={18} />
+                  {cat}
                 </button>
-              )}
+              ))}
             </div>
           </div>
           <div>
@@ -302,21 +332,37 @@ export default function ClubsIndex() {
                   </div>
                 ))
               )
-            ) : allClubs.length === 0 ? (
-              <div className="neu-border col-span-full mx-auto flex w-full max-w-2xl flex-col items-center bg-white px-6 py-12 text-center md:px-12 md:py-16">
-                <div className="neu-border mb-6 flex h-20 w-20 items-center justify-center bg-lime md:h-24 md:w-24">
-                  <UsersRound className="h-10 w-10 md:h-12 md:w-12" aria-hidden="true" />
+            ) : directoryClubs.length === 0 ? (
+              search ? (
+                <EmptyState
+                  className="col-span-full mx-auto w-full max-w-2xl"
+                  illustration="no-results"
+                  title={`No clubs match "${search}"`}
+                  description="We couldn't find any campus clubs matching your search query. Try searching for a different keyword or category."
+                  action={{
+                    label: "Clear Search Filter",
+                    onClick: () => {
+                      setSearchInput("");
+                      setSearch("");
+                    },
+                  }}
+                />
+              ) : (
+                <div className="neu-border col-span-full mx-auto flex w-full max-w-2xl flex-col items-center bg-white px-6 py-12 text-center md:px-12 md:py-16">
+                  <div className="neu-border mb-6 flex h-20 w-20 items-center justify-center bg-lime md:h-24 md:w-24">
+                    <UsersRound className="h-10 w-10 md:h-12 md:w-12" aria-hidden="true" />
+                  </div>
+                  <p className="eyebrow font-bold text-black">Your campus community starts here</p>
+                  <h2 className="mt-2 text-3xl font-bold md:text-4xl">No clubs found</h2>
+                  <p className="mt-3 max-w-md font-mono text-sm leading-6 text-gray-700">
+                    There are no clubs in the directory yet. Create the first club and bring
+                    students with shared interests together.
+                  </p>
+                  <div className="mt-7">
+                    <CreateClubDialog user={user} />
+                  </div>
                 </div>
-                <p className="eyebrow font-bold text-black">Your campus community starts here</p>
-                <h2 className="mt-2 text-3xl font-bold md:text-4xl">No clubs found</h2>
-                <p className="mt-3 max-w-md font-mono text-sm leading-6 text-gray-700">
-                  There are no clubs in the directory yet. Create the first club and bring students
-                  with shared interests together.
-                </p>
-                <div className="mt-7">
-                  <CreateClubDialog user={user} />
-                </div>
-              </div>
+              )
             ) : viewMode === "grid" ? (
               directoryClubs.map((c, index) => (
                 <div
@@ -337,7 +383,11 @@ export default function ClubsIndex() {
                     <h2 className="text-2xl font-bold">{c.name}</h2>
                     <div className="my-3 border-t-2 border-black" />
                     <div className="flex items-center justify-between font-mono text-xs">
-                      <span>Members</span>
+                      <span>
+                        {Array.isArray(c.club_stats)
+                          ? `${c.club_stats[0]?.total_members ?? 0} Members`
+                          : `${(c.club_stats as { total_members?: number } | null)?.total_members ?? 0} Members`}
+                      </span>
                       <span className="font-bold uppercase flex items-center gap-1">
                         View{" "}
                         <span className="transition-transform duration-300 group-hover:translate-x-1">
@@ -413,6 +463,20 @@ export default function ClubsIndex() {
                 </div>
               ))}
           </div>
+
+          {/* Load More Controller */}
+          {hasNextPage && !search && (
+            <div className="mt-12 flex justify-center">
+              <button
+                type="button"
+                disabled={isFetchingNextPage}
+                onClick={() => fetchNextPage()}
+                className="neu-border neu-press bg-black px-4 py-2 font-mono text-sm font-bold uppercase text-cream hover:bg-cream hover:text-black transition-all disabled:opacity-50"
+              >
+                {isFetchingNextPage ? "Loading more..." : "Load More Clubs"}
+              </button>
+            </div>
+          )}
         </div>
       </section>
     </SiteShell>

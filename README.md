@@ -131,7 +131,7 @@ erDiagram
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/krushit1307/CampusConnect.git
+   git clone [https://github.com/krushit1307/CampusConnect.git](https://github.com/krushit1307/CampusConnect.git)
    cd CampusConnect
    ```
 2. **Install dependencies:**
@@ -175,37 +175,7 @@ Open `.env.local` and replace the placeholder values with your own Supabase proj
 
 ### 🐳 Running with Docker
 
-Alternatively, you can run the project containerized using Docker. This allows you to build and run the application without needing Node/npm installed locally on your host machine.
-
-#### Local Development (with Hot-Reloading / HMR)
-
-1. **Set up environment variables:**
-
-   ```bash
-   cp .env.example .env.local
-   ```
-
-   Fill in your Supabase URL and Anon Key in `.env.local`.
-
-2. **Start the development container:**
-   ```bash
-   docker compose up --build
-   ```
-   This will build the dev image and launch the Vite dev server inside the container. The application will be accessible at `http://localhost:8080` with volume-mounted hot-reloading (HMR) fully functional.
-
-#### Production Build & Run
-
-1. **Build the production Docker image:**
-
-   ```bash
-   docker build --target runner -t campusconnect:latest .
-   ```
-
-2. **Run the production container:**
-   ```bash
-   docker run -d -p 3000:3000 --env-file .env.local --name campusconnect campusconnect:latest
-   ```
-   The production-built SPA will be served via the static file server (`serve -s dist -l 3000`) on `http://localhost:3000`.
+For local development and production builds using Docker, please refer to our [Docker Setup Guide](docs/DOCKER_SETUP.md).
 
 ### 🗄️ Supabase Local Development & Seeding
 
@@ -279,8 +249,8 @@ feat/wasm-image-compression
 
 ### 🏆 Hall of Fame (Top 5)
 
-| Rank |                                                                                              Contributor                                                                                               | Contributions |
-| :--: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-----------: |
+| Rank |                                                                                                                                                                                                        Contributor                                                                                                                                                                                                         | Contributions |
+| :--: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-----------: |
 |  🥇  |  <a href="https://github.com/krushit1307"><img src="https://avatars.githubusercontent.com/u/196679210?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>krushit1307</b></sub></a>  |      159      |
 |  🥈  | <a href="https://github.com/Aryanbuha890"><img src="https://avatars.githubusercontent.com/u/273169945?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>Aryanbuha890</b></sub></a> |      37       |
 |  🥉  |  <a href="https://github.com/Jivan-Patel"><img src="https://avatars.githubusercontent.com/u/225341922?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>Jivan-Patel</b></sub></a>  |      32       |
@@ -320,6 +290,8 @@ feat/wasm-image-compression
 <a href="https://github.com/PrathamReddy888"><img src="https://avatars.githubusercontent.com/u/219442049?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="PrathamReddy888 (5 contributions)"/></a>
 <a href="https://github.com/apps/github-actions"><img src="https://avatars.githubusercontent.com/in/15368?v=4" width="40" height="40" style="border-radius:50%; margin:3px;" title="github-actions[bot] (5 contributions)"/></a>
 
-<!-- END_CONTRIBUTORS_GALLERY -->
+### Design Assets
 
-main
+- [CampusConnect Onboarding Flow Wireframe (Figma)](https://www.figma.com/design/z0rOY6FzRLLfApy81vGNpm/Untitled?node-id=0-1&t=eEgiAEO0pnhJcMvg-1)
+
+<!-- END_CONTRIBUTORS_GALLERY -->

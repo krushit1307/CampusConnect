@@ -28,6 +28,8 @@ function normaliseEmail(raw: string): string | null {
  * Enforces a maximum limit of 1000 rows.
  */
 function parseEmailsFromCsv(csvText: string): string[] {
+  // Strip UTF-8 BOM (Byte Order Mark) that Excel prepends to exported CSVs
+  csvText = csvText.replace(/^\uFEFF/, "");
   let rows: string[][];
   try {
     rows = parse(csvText) as string[][];

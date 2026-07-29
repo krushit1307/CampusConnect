@@ -1,7 +1,11 @@
-import { useState } from "react";
-import { EventClusterMap } from "@/components/EventClusterMap";
+import { useState, lazy, Suspense } from "react";
 import { SiteShell } from "@/components/site/SiteShell";
+import { MapSkeleton } from "@/components/ui/MapSkeleton";
 import { Map, List } from "lucide-react";
+
+const EventClusterMap = lazy(() =>
+  import("@/components/EventClusterMap").then((m) => ({ default: m.EventClusterMap })),
+);
 
 export default function EventsMapPage() {
   const [mapView, setMapView] = useState<"cluster" | "list">("cluster");
@@ -48,11 +52,13 @@ export default function EventsMapPage() {
         <section className="flex-1">
           {mapView === "cluster" ? (
             <div className="h-[calc(100vh-200px)] min-h-[600px]">
-              <EventClusterMap
-                initialCenter={[40.7128, -74.006]}
-                initialZoom={14}
-                className="h-full w-full"
-              />
+              <Suspense fallback={<MapSkeleton className="h-full w-full min-h-[600px]" />}>
+                <EventClusterMap
+                  initialCenter={[40.7128, -74.006]}
+                  initialZoom={14}
+                  className="h-full w-full"
+                />
+              </Suspense>
             </div>
           ) : (
             <div className="mx-auto max-w-7xl p-6">

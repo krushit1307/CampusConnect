@@ -165,6 +165,7 @@ export default function DashboardCalendar() {
                   <span>{cat.name}</span>
                 </label>
               ))}
+
               {categories.length === 0 && (
                 <p className="font-mono text-xs text-gray-500">No categories found.</p>
               )}
@@ -201,9 +202,16 @@ export default function DashboardCalendar() {
           </p>
         </div>
       ) : (
-        <Suspense fallback={<CalendarSkeleton />}>
-          <EventsCalendar events={filteredEvents} />
-        </Suspense>
+        <>
+          <div className="mb-3 flex items-center gap-2 font-mono text-xs text-gray-500">
+            <span className="h-3 w-3 rounded bg-primary" />
+            <span>RSVP'd events</span>
+          </div>
+
+          <Suspense fallback={<CalendarSkeleton />}>
+            <EventsCalendar events={filteredEvents} />
+          </Suspense>
+        </>
       )}
     </div>
   );

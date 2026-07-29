@@ -39,11 +39,24 @@ serve(async (req: Request) => {
     }
 
     // Securely query only the records belonging to the authenticated user
-    const [profileRes, postsRes, commentsRes, rsvpsRes] = await Promise.all([
+    const [
+      profileRes,
+      postsRes,
+      commentsRes,
+      rsvpsRes,
+      savedEventsRes,
+      notificationsRes,
+      certificatesRes,
+      feedbacksRes,
+    ] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
       supabase.from("posts").select("*").eq("author_id", user.id),
       supabase.from("comments").select("*").eq("author_id", user.id),
       supabase.from("event_rsvps").select("*").eq("user_id", user.id),
+      supabase.from("saved_events").select("*").eq("user_id", user.id),
+      supabase.from("notifications").select("*").eq("user_id", user.id),
+      supabase.from("certificates").select("*").eq("user_id", user.id),
+      supabase.from("event_feedbacks").select("*").eq("user_id", user.id),
     ]);
 
     // Handle database query failures gracefully
@@ -51,6 +64,10 @@ serve(async (req: Request) => {
     if (postsRes.error) throw postsRes.error;
     if (commentsRes.error) throw commentsRes.error;
     if (rsvpsRes.error) throw rsvpsRes.error;
+    if (savedEventsRes.error) throw savedEventsRes.error;
+    if (notificationsRes.error) throw notificationsRes.error;
+    if (certificatesRes.error) throw certificatesRes.error;
+    if (feedbacksRes.error) throw feedbacksRes.error;
 
     // Compile all fetched personal data
     const compiledData = {
@@ -58,6 +75,10 @@ serve(async (req: Request) => {
       posts: postsRes.data ?? [],
       comments: commentsRes.data ?? [],
       rsvps: rsvpsRes.data ?? [],
+      saved_events: savedEventsRes.data ?? [],
+      notifications: notificationsRes.data ?? [],
+      certificates: certificatesRes.data ?? [],
+      event_feedbacks: feedbacksRes.data ?? [],
       exported_at: new Date().toISOString(),
     };
 

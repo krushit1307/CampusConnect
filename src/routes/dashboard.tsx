@@ -1,25 +1,13 @@
-import { NavLink, useNavigate, Outlet } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState } from "react";
-import { User } from "@supabase/supabase-js";
+import { useState } from "react";
 import { ProfileHeaderSkeleton } from "@/components/ProfileHeaderSkeleton";
+import { withAuth, WithAuthProps } from "@/hoc/withAuth";
 
-export default function Dashboard() {
+function DashboardContent({ user }: WithAuthProps) {
   const [supabase] = useState(() => createClient());
-  const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) {
-        navigate("/auth", { replace: true });
-      } else {
-        setUser(user);
-      }
-    });
-  }, [navigate, supabase]);
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ["profile", user?.id],
@@ -34,17 +22,6 @@ export default function Dashboard() {
     },
     enabled: !!user?.id,
   });
-
-  if (!user)
-    return (
-      <SiteShell>
-        <section className="border-b-2 border-black bg-lime px-4 py-10 md:px-6">
-          <div className="mx-auto max-w-7xl">
-            <ProfileHeaderSkeleton />
-          </div>
-        </section>
-      </SiteShell>
-    );
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
@@ -126,3 +103,5 @@ export default function Dashboard() {
     </SiteShell>
   );
 }
+
+export default withAuth(DashboardContent);

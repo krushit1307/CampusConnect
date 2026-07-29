@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import TrendingCarousel from "@/components/Clubs/TrendingCarousel";
 import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/DashboardWidgetSkeleton";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 interface SavedEventDetails {
   id: string;
@@ -47,13 +48,13 @@ interface ActivityPostRow {
 
 interface ActivityRsvpRow {
   id: string;
-  created_at: string;
+  rsvp_at: string;
   events: { id: string; title: string } | { id: string; title: string }[] | null;
 }
 
 interface ActivityClubMemberRow {
   id: string;
-  created_at: string;
+  joined_at: string;
   clubs: { name: string } | { name: string }[] | null;
 }
 
@@ -83,7 +84,10 @@ function formatRelativeActivityTime(dateString: string): string {
 // resolve faster than this never trigger it — the widgets' own skeletons
 // (WidgetListSkeleton / TrendingCarouselSkeleton) cover that case instead.
 const PROGRESS_REVEAL_DELAY_MS = 250;
-
+// Simulated progress never crosses this ceiling on its own — the analytics
+// queries (backed by club_analytics_mat_view and friends) don't report real
+// byte-level progress, so we ease toward "almost done" and only jump to 100%
+// once the data has actually arrived.
 const PROGRESS_SOFT_CEILING = 90;
 const PROGRESS_TICK_MS = 200;
 
@@ -203,7 +207,7 @@ export default function DashboardOverview() {
       const { data, error } = await supabase
         .from("clubs")
         .select("*")
-        .order("member_count", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(5);
       if (error) throw error;
       return data || [];
@@ -253,14 +257,7 @@ export default function DashboardOverview() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("club_members")
-        .select(
-          `
-          role,
-          clubs (
-            id, name, slug
-          )
-        `,
-        )
+        .select(`role, clubs (id, name, slug)`)
         .eq("user_id", user?.id)
         .eq("status", "approved");
       if (error) throw error;
@@ -274,15 +271,7 @@ export default function DashboardOverview() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
-        .select(
-          `
-          *,
-          clubs (name),
-          event_rsvps!inner (
-            id, user_id
-          )
-        `,
-        )
+        .select(`*, clubs (name), event_rsvps!inner (id, user_id)`)
         .eq("event_rsvps.user_id", user?.id)
         .gte("event_date", new Date().toISOString())
         .order("event_date", { ascending: true })
@@ -332,16 +321,16 @@ export default function DashboardOverview() {
           .limit(5),
         supabase
           .from("event_rsvps")
-          .select("id, created_at, events(id, title)")
+          .select("id, rsvp_at, events(id, title)")
           .eq("user_id", user?.id)
-          .order("created_at", { ascending: false })
+          .order("rsvp_at", { ascending: false })
           .limit(5),
         supabase
           .from("club_members")
-          .select("id, created_at, clubs(name)")
+          .select("id, joined_at, clubs(name)")
           .eq("user_id", user?.id)
           .eq("status", "approved")
-          .order("created_at", { ascending: false })
+          .order("joined_at", { ascending: false })
           .limit(5),
       ]);
 
@@ -361,7 +350,7 @@ export default function DashboardOverview() {
           id: `rsvp-${r.id}`,
           type: "rsvp",
           description: event?.title ? `You RSVP'd to ${event.title}` : "You RSVP'd to an event",
-          created_at: r.created_at,
+          created_at: r.rsvp_at,
         };
       });
 
@@ -371,7 +360,7 @@ export default function DashboardOverview() {
           id: `club-${m.id}`,
           type: "club_join",
           description: club?.name ? `You joined ${club.name}` : "You joined a club",
-          created_at: m.created_at,
+          created_at: m.joined_at,
         };
       });
 
@@ -384,6 +373,9 @@ export default function DashboardOverview() {
 
   const colors = ["bg-lime", "bg-sky", "bg-peach"];
 
+  // Combined loading state for every analytics-backed widget below (trending
+  // clubs, your clubs, upcoming/saved events, recent activity). Profile isn't
+  // included since it's a single-row lookup, not one of the slow views.
   const isAnalyticsLoading =
     isTrendingLoading || isClubsLoading || isUpcomingLoading || isSavedLoading || isActivityLoading;
 
@@ -521,142 +513,160 @@ export default function DashboardOverview() {
         )}
       </div>
 
-      <Widget title="Upcoming events" cta={{ label: "All events", to: "/events" }}>
-        {isUpcomingLoading ? (
-          <WidgetListSkeleton rows={3} />
-        ) : upcomingEvents.length === 0 ? (
-          <p className="py-4 font-mono text-sm text-gray-500 dark:text-gray-300">
-            No upcoming events yet.
-          </p>
-        ) : (
-          <ul className="divide-y-2 divide-black">
-            {upcomingEvents.map((r, i) => {
-              const e = r;
-              const c = Array.isArray(r.clubs) ? r.clubs[0] : r.clubs;
-              return (
-                <li key={r.id} className="flex items-center gap-4 py-4">
-                  <div
-                    className={`neu-border ${colors[i % colors.length]} shrink-0 px-3 py-2 text-center font-mono text-xs font-bold`}
+      <ErrorBoundary fallback={<WidgetError title="Upcoming events" />}>
+        <Widget title="Upcoming events" cta={{ label: "All events", to: "/events" }}>
+          {isUpcomingLoading ? (
+            <WidgetListSkeleton rows={3} />
+          ) : upcomingEvents.length === 0 ? (
+            <p className="py-4 font-mono text-sm text-gray-500 dark:text-gray-300">
+              No upcoming events yet.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {upcomingEvents.map((r, i) => {
+                const e = r;
+                const c = Array.isArray(r.clubs) ? r.clubs[0] : r.clubs;
+                return (
+                  <li key={r.id}>
+                    <Link
+                      to={`/events/${e.id}`}
+                      className="neu-border group flex items-center gap-4 bg-white p-3 shadow-[2px_2px_0_0_#000] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.015] hover:shadow-[6px_6px_0_0_#000]"
+                    >
+                      <div
+                        className={`neu-border ${colors[i % colors.length]} shrink-0 px-3 py-2 text-center font-mono text-xs font-bold transition-transform duration-300 group-hover:scale-105`}
+                      >
+                        {e?.event_date
+                          ? new Date(e.event_date)
+                              .toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                              .toUpperCase()
+                          : "TBA"}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-display text-lg font-bold">{e?.title}</p>
+                        <p className="font-mono text-xs">{c?.name}</p>
+                      </div>
+                      <span className="neu-border shrink-0 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors duration-300 group-hover:bg-lime">
+                        RSVP'd
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Widget>
+      </ErrorBoundary>
+
+      <ErrorBoundary fallback={<WidgetError title="Saved events" />}>
+        <Widget title="Saved events" cta={{ label: "Explore", to: "/events" }}>
+          {isSavedLoading ? (
+            <WidgetListSkeleton rows={3} />
+          ) : savedEvents.length === 0 ? (
+            <p className="py-4 font-mono text-sm text-gray-500 dark:text-gray-300">
+              No saved events yet.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {savedEvents.map((item: DashboardSavedEvent, i) => {
+                const rawEvent = item.events;
+                if (!rawEvent) return null;
+                const e = Array.isArray(rawEvent) ? rawEvent[0] : rawEvent;
+                if (!e) return null;
+                const c = Array.isArray(e.clubs) ? e.clubs[0] : e.clubs;
+                return (
+                  <li key={item.id}>
+                    <Link
+                      to={`/events/${e.id}`}
+                      className="neu-border group flex items-center gap-4 bg-white p-3 shadow-[2px_2px_0_0_#000] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.015] hover:shadow-[6px_6px_0_0_#000]"
+                    >
+                      <div
+                        className={`neu-border ${colors[i % colors.length]} shrink-0 px-3 py-2 text-center font-mono text-xs font-bold transition-transform duration-300 group-hover:scale-105`}
+                      >
+                        {e?.event_date
+                          ? new Date(e.event_date)
+                              .toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                              .toUpperCase()
+                          : "TBA"}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-display text-lg font-bold">{e?.title}</p>
+                        <p className="font-mono text-xs">{c?.name}</p>
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Widget>
+      </ErrorBoundary>
+
+      <ErrorBoundary fallback={<WidgetError title="Your clubs" />}>
+        <Widget title="Your clubs" cta={{ label: "Directory", to: "/clubs" }}>
+          {isClubsLoading ? (
+            <WidgetListSkeleton rows={3} />
+          ) : userClubs.length === 0 ? (
+            <p className="font-mono text-sm text-gray-500 dark:text-gray-300">
+              You haven't joined any clubs yet.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {userClubs.map((c) => {
+                const club = Array.isArray(c.clubs) ? c.clubs[0] : c.clubs;
+                return (
+                  <li
+                    key={club?.id}
+                    className="neu-border flex items-center justify-between bg-cream p-3"
                   >
-                    {e?.event_date
-                      ? new Date(e.event_date)
-                          .toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                          .toUpperCase()
-                      : "TBA"}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-display text-lg font-bold">{e?.title}</p>
-                    <p className="font-mono text-xs">{c?.name}</p>
-                  </div>
-                  <span className="neu-border shrink-0 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase">
-                    RSVP'd
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Widget>
-
-      <Widget title="Saved events" cta={{ label: "Explore", to: "/events" }}>
-        {isSavedLoading ? (
-          <WidgetListSkeleton rows={3} />
-        ) : savedEvents.length === 0 ? (
-          <p className="py-4 font-mono text-sm text-gray-500 dark:text-gray-300">
-            No saved events yet.
-          </p>
-        ) : (
-          <ul className="divide-y-2 divide-black">
-            {savedEvents.map((item: DashboardSavedEvent, i) => {
-              const rawEvent = item.events;
-              if (!rawEvent) return null;
-              const e = Array.isArray(rawEvent) ? rawEvent[0] : rawEvent;
-              if (!e) return null;
-              const c = Array.isArray(e.clubs) ? e.clubs[0] : e.clubs;
-              return (
-                <li key={item.id} className="flex items-center gap-4 py-4">
-                  <div
-                    className={`neu-border ${colors[i % colors.length]} shrink-0 px-3 py-2 text-center font-mono text-xs font-bold`}
-                  >
-                    {e?.event_date
-                      ? new Date(e.event_date)
-                          .toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                          .toUpperCase()
-                      : "TBA"}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-display text-lg font-bold">{e?.title}</p>
-                    <p className="font-mono text-xs">{c?.name}</p>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Widget>
-
-      <Widget title="Your clubs" cta={{ label: "Directory", to: "/clubs" }}>
-        {isClubsLoading ? (
-          <WidgetListSkeleton rows={3} />
-        ) : userClubs.length === 0 ? (
-          <p className="font-mono text-sm text-gray-500 dark:text-gray-300">
-            You haven't joined any clubs yet.
-          </p>
-        ) : (
-          <ul className="space-y-3">
-            {userClubs.map((c) => {
-              const club = Array.isArray(c.clubs) ? c.clubs[0] : c.clubs;
-              return (
-                <li
-                  key={club?.id}
-                  className="neu-border flex items-center justify-between bg-cream p-3"
-                >
-                  <div>
-                    <p className="font-display font-bold">
-                      <Link to={`/clubs/${club?.slug || ""}`}>{club?.name}</Link>
-                    </p>
-                    <p className="font-mono text-xs">Active</p>
-                  </div>
-                  <span className="neu-border bg-lime px-2 py-1 font-mono text-[10px] font-bold uppercase">
-                    {c.role}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Widget>
-
-      <Widget title="Recent activity" className="lg:col-span-3">
-        {isActivityLoading ? (
-          <WidgetListSkeleton rows={4} />
-        ) : recentActivity.length === 0 ? (
-          <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
-            <li className="flex items-start gap-2">
-              <span className="mt-2 inline-block h-2 w-2 shrink-0 bg-black" />
-              No recent activity yet.
-            </li>
-          </ul>
-        ) : (
-          <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
-            {recentActivity.map((item) => {
-              const Icon =
-                item.type === "rsvp" ? Calendar : item.type === "post" ? MessageCircle : Users;
-              return (
-                <li key={item.id} className="flex items-start gap-2">
-                  <Icon className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>
-                    {item.description}
-                    <span className="ml-2 text-black/50">
-                      {formatRelativeActivityTime(item.created_at)}
+                    <div>
+                      <p className="font-display font-bold">
+                        <Link to={`/clubs/${club?.slug || ""}`}>{club?.name}</Link>
+                      </p>
+                      <p className="font-mono text-xs">Active</p>
+                    </div>
+                    <span className="neu-border bg-lime px-2 py-1 font-mono text-[10px] font-bold uppercase">
+                      {c.role}
                     </span>
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Widget>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Widget>
+      </ErrorBoundary>
+
+      <ErrorBoundary fallback={<WidgetError title="Recent activity" />}>
+        <Widget title="Recent activity" className="lg:col-span-3">
+          {isActivityLoading ? (
+            <WidgetListSkeleton rows={4} />
+          ) : recentActivity.length === 0 ? (
+            <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
+              <li className="flex items-start gap-2">
+                <span className="mt-2 inline-block h-2 w-2 shrink-0 bg-black" />
+                No recent activity yet.
+              </li>
+            </ul>
+          ) : (
+            <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
+              {recentActivity.map((item) => {
+                const Icon =
+                  item.type === "rsvp" ? Calendar : item.type === "post" ? MessageCircle : Users;
+                return (
+                  <li key={item.id} className="flex items-start gap-2">
+                    <Icon className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                      {item.description}
+                      <span className="ml-2 text-black/50">
+                        {formatRelativeActivityTime(item.created_at)}
+                      </span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Widget>
+      </ErrorBoundary>
     </div>
   );
 }
@@ -683,6 +693,19 @@ function Widget({
         )}
       </div>
       {children}
+    </div>
+  );
+}
+
+function WidgetError({ title }: { title: string }) {
+  return (
+    <div className="neu-border bg-red-50 p-4 sm:p-6">
+      <div className="mb-4 flex items-center justify-between border-b-2 border-red-200 pb-3">
+        <h2 className="text-xl font-bold">{title}</h2>
+      </div>
+      <p className="font-mono text-sm text-red-600">
+        This widget failed to load. Other sections remain unaffected.
+      </p>
     </div>
   );
 }

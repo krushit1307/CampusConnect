@@ -19,7 +19,7 @@ export const eventFormSchema = z
       .min(1, "Title is required.")
       .max(TITLE_MAX_LENGTH, `Title must be ${TITLE_MAX_LENGTH} characters or fewer.`),
     description: z.string().trim().min(1, "Description is required."),
-    category: z.string().trim().optional(),
+    category: z.string().trim().min(1, "Category is required."),
     location: z.string().trim().optional(),
     startDate: z.string().min(1, "Start date is required."),
     endDate: z.string().min(1, "End date is required."),
@@ -30,6 +30,7 @@ export const eventFormSchema = z
       .positive("Capacity must be positive")
       .optional()
       .or(z.literal("")),
+    isPrivate: z.boolean().optional().default(false),
     faqs: z
       .array(
         z.object({
@@ -39,6 +40,7 @@ export const eventFormSchema = z
       )
       .optional()
       .default([]),
+    tags: z.array(z.string()).optional().default([]),
   })
   .refine((data) => new Date(data.endDate) > new Date(data.startDate), {
     message: "End date must be after the start date.",

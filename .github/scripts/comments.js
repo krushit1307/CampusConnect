@@ -23,7 +23,7 @@ export const comments = {
 
   invalidClaim: ({ user }) =>
     `Hi @${user}, thanks for wanting to jump in! 😊\n\n` +
-    `To claim an issue, please comment exactly \`${COMMANDS.claim}\` (no extra text).\n\n` +
+    `To claim this issue, please comment exactly \`${COMMANDS.claim}\` (no extra text) to automatically assign it to yourself.\n\n` +
     `If you're new here, **CONTRIBUTING.md** has the full contribution workflow to help you get started smoothly.`,
 
   wrongIssueAuthorClaimAttempt: ({ user, issueAuthor }) =>
@@ -65,7 +65,7 @@ export const comments = {
     withMarker(
       AUTOMATION.firstIssueWelcomeMarker,
       `Hey @${user}, welcome to the **CampusConnect** community! 🎉\n\n` +
-        `We are thrilled to have you! A great place to start is **CONTRIBUTING.md**. If you get stuck, don't hesitate to ask for help in Discussions.\n\n` +
+        `We are thrilled to have you! A great place to start is **CONTRIBUTING.md**. If you want to take up an issue, simply comment \`${COMMANDS.claim}\` on it! If you get stuck, don't hesitate to ask for help in Discussions.\n\n` +
         `Can't wait to see your awesome contributions! 🌟`,
     ),
 
@@ -106,13 +106,13 @@ export const comments = {
     withMarker(
       AUTOMATION.firstWelcomeMarker,
       `Hey @${user}, a massive welcome to **CampusConnect**! 🎉\n\n` +
-        `Congratulations on your first contribution! 🎉 Check out **CONTRIBUTING.md** if you haven't already, and use Discussions if you ever need help or feedback.\n\n` +
+        `Congratulations on your first contribution! 🎉 Check out **CONTRIBUTING.md** if you haven't already. Remember, you can always use the \`${COMMANDS.claim}\` command to claim issues you'd like to work on! Use Discussions if you ever need help or feedback.\n\n` +
         `So glad to have you with us. Cheers to many more! 🌟`,
     ),
 
   naturalLanguageClaimGuidance: ({ user }) =>
     `Hi @${user}, thanks so much for your interest in this issue! 😊\n\n` +
-    `To claim it, just comment exactly \`${COMMANDS.claim}\`.\n\n` +
+    `To claim it, just comment exactly \`${COMMANDS.claim}\` to automatically assign it to yourself.\n\n` +
     `You can also check out **CONTRIBUTING.md** for the full contribution flow. We're excited to see you get started!`,
 
   issueAlreadyClaimed: ({ user }) =>
