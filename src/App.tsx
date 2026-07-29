@@ -18,7 +18,10 @@ import { PageWrapper } from "./components/PageWrapper";
 import { ThemeToggle } from "@/components/ThemeToggle";
 // <-- Added Import
 import { ThemeProvider } from "@/components/theme-provider";
+import LanguageRouter from "./components/LanguageRouter";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { createClient } from "@/lib/supabase/client";
+import { Navigate } from "react-router-dom";
 
 declare global {
   interface Window {
@@ -26,25 +29,6 @@ declare global {
     dataLayer: any[];
   }
 }
-// Pages
-import Index from "./routes/index";
-import Auth from "./routes/auth";
-import Certificates from "./routes/certificates";
-import ClubsIndex from "./routes/clubs.index";
-import ClubDetails from "./routes/clubs.$slug";
-import ClubsLayout from "./routes/clubs";
-import Dashboard from "./routes/dashboard";
-import DashboardOverview from "./routes/dashboard.index";
-import DashboardRsvps from "./routes/dashboard.rsvps";
-import DashboardBookmarks from "./routes/dashboard.bookmarks";
-import EventsIndex from "./routes/events";
-import EventDetails from "./routes/events.$eventId";
-import Feed from "./routes/feed";
-import ForgotPassword from "./routes/forgot-password";
-import ResetPassword from "./routes/reset-password";
-import Settings from "./routes/settings";
-import PendingClubsAdmin from "./routes/admin.clubs.pending";
-import AnalyticsAdmin from "./routes/admin.analytics";
 
 const HEALTH_CHECK_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_HEALTH_URL) ||
@@ -106,8 +90,10 @@ const ForgotPassword = lazy(() => import("./routes/forgot-password"));
 const ResetPassword = lazy(() => import("./routes/reset-password"));
 const Settings = lazy(() => import("./routes/settings"));
 const VerifyEmail = lazy(() => import("./routes/verify-email"));
+const Directory = lazy(() => import("./routes/Directory"));
 const MessagesRoute = lazy(() => import("./routes/messages"));
 const PendingClubsAdmin = lazy(() => import("./routes/admin.clubs.pending"));
+const AnalyticsAdmin = lazy(() => import("./routes/admin.analytics"));
 const AdminReportsPage = lazy(() => import("./routes/admin.reports"));
 const AdminUsersPage = lazy(() => import("./routes/admin.users"));
 const ChallengeArena = lazy(() => import("./routes/challenge"));
@@ -148,17 +134,19 @@ const router = createBrowserRouter(
   createRoutesFromElements(
     <Route element={<Layout />} errorElement={<RouteErrorBoundary />}>
       <Route element={<AnimatedOutlet />}>
-        <Route path="/" element={<Index />} />
-        <Route path="/auth" element={<Auth />} />
-        <Route path="/certificates" element={<Certificates />} />
+        <Route path="/:lang" element={<LanguageRouter />}></Route>
+        <Route index element={<Index />} />
+        <Route path="auth" element={<Auth />} />
+        <Route path="certificates" element={<Certificates />} />
+        <Route path="*" element={<Navigate to="/en" replace />} />
 
-        <Route path="/clubs" element={<ClubsLayout />}>
+        <Route path="clubs" element={<ClubsLayout />}>
           <Route index element={<ClubsIndex />} />
           <Route path=":slug" element={<ClubDetails />} />
           <Route path=":slug/manage" element={<ClubManageRoute />} />
         </Route>
 
-        <Route path="/dashboard" element={<Dashboard />}>
+        <Route path="dashboard" element={<Dashboard />}>
           <Route index element={<DashboardOverview />} />
           <Route path="rsvps" element={<DashboardRsvps />} />
           <Route path="bookmarks" element={<DashboardBookmarks />} />
@@ -166,7 +154,7 @@ const router = createBrowserRouter(
         </Route>
 
         <Route
-          path="/calendar"
+          path="calendar"
           element={
             <Suspense fallback={<PageFallback />}>
               {" "}
@@ -175,20 +163,23 @@ const router = createBrowserRouter(
           }
         />
 
-        <Route path="/events" element={<LazyEventsIndex />} />
-        <Route path="/events/:eventId" element={<LazyEventDetails />} />
-        <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
+        <Route path="events" element={<LazyEventsIndex />} />
+        <Route path="events/:eventId" element={<LazyEventDetails />} />
+        <Route path="events/:eventId/dashboard" element={<EventDashboard />} />
         {/* Events Map View with clustering */}
-        <Route path="/events/map" element={<EventsMapPage />} />
-        <Route path="/challenge" element={<ChallengeArena />} />
-        <Route path="/leaderboard" element={<Leaderboard />} />
+        <Route path="events/map" element={<EventsMapPage />} />
+        <Route path="challenge" element={<ChallengeArena />} />
+        <Route path="leaderboard" element={<Leaderboard />} />
 
-      <Route path="/feed" element={<Feed />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/settings" element={<Settings />} />
-      <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
-      <Route path="/admin/analytics" element={<AnalyticsAdmin />} />
+        <Route path="feed" element={<Feed />} />
+        <Route path="directory" element={<Directory />} />
+        <Route path="forgot-password" element={<ForgotPassword />} />
+        <Route path="reset-password" element={<ResetPassword />} />
+        <Route path="settings" element={<Settings />} />
+        <Route path="admin/clubs/pending" element={<PendingClubsAdmin />} />
+        <Route path="admin/analytics" element={<AnalyticsAdmin />} />
+      </Route>
+      ,
     </Route>,
   ),
 );

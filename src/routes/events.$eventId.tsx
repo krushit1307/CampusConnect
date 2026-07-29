@@ -561,7 +561,11 @@ export default function EventDetailsPage() {
       // Return context with previous data for rollback
       return { previousEvent };
     },
-    onError: (error: unknown, _variables: unknown, context: { previousEvent: unknown } | undefined) => {
+    onError: (
+      error: unknown,
+      _variables: unknown,
+      context: { previousEvent: unknown } | undefined,
+    ) => {
       // Rollback to previous value on error
       if (context?.previousEvent) {
         setQueryData(["event", eventId], context.previousEvent);

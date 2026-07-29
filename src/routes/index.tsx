@@ -10,6 +10,7 @@ import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { FeaturedEvents } from "@/components/home/FeaturedEvents";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
+import { useTranslation } from "react-i18next";
 
 function AnimatedCounter({ value }: { value: string }) {
   const [displayValue, setDisplayValue] = useState("0");
@@ -198,6 +199,7 @@ const FAQ_ITEMS: FAQItem[] = [
 ];
 
 export default function Landing() {
+  const { t } = useTranslation();
   const [activeCategory, setActiveCategory] = useState("All");
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
