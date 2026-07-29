@@ -1,7 +1,9 @@
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense, useMemo } from "react";
+import { TableOfContents } from "@/components/events/TableOfContents";
+import NotFound from "./NotFound";
 import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
@@ -46,10 +48,20 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { LazyImage } from "@/components/ui/LazyImage";
 import { parseCoordinates } from "@/lib/eventUtils";
+import {
+  buildKanbanColumns,
+  buildRsvpStatus,
+  buildFeedbackStatus,
+  buildWaitlistInfo,
+  buildGoogleMapsSearchUrl,
+} from "@/lib/eventTransformUtils";
+import { isCaptchaConfigured, shouldRequireCaptcha } from "@/lib/captcha";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
 import { ActivePoll } from "@/components/polls/ActivePoll";
-import LiveQA from "@/components/qa/LiveQA";
+import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
+import { CaptchaWidget } from "@/components/CaptchaWidget";
+
 interface SimilarEventItem {
   id: string;
   title: string;
@@ -191,6 +203,7 @@ export default function EventDetailsPage() {
   const [copied, setCopied] = useState(false);
   const [idCopied, setIdCopied] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | undefined>(undefined);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState("");
@@ -236,6 +249,35 @@ export default function EventDetailsPage() {
     },
     enabled: !!eventId,
   });
+
+    // Extract headings from HTML description for TOC
+  const tocItems = useMemo(() => {
+    if (!event?.description) return [];
+    
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(event.description, "text/html");
+    const headings = doc.querySelectorAll("h2, h3");
+    
+    return Array.from(headings).map((heading) => {
+      const text = heading.textContent || "";
+      // Simple slugify for ID
+      const id = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      return { id, text, level: heading.tagName === "H2" ? 2 : 3 };
+    });
+  }, [event?.description]);
+
+  // Inject IDs into the rendered DOM nodes so the TOC can scroll to them
+  useEffect(() => {
+    const container = document.getElementById("event-description-container");
+    if (!container) return;
+
+    const headings = container.querySelectorAll("h2, h3");
+    headings.forEach((heading) => {
+      const text = heading.textContent || "";
+      const id = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      heading.id = id;
+    });
+  }, [event?.description]);
 
   useEffect(() => {
     if (!lightboxSrc) return;
@@ -498,7 +540,15 @@ export default function EventDetailsPage() {
   });
 
   const toggleRsvp = useMutation({
-    mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
+    mutationFn: async ({
+      eventId,
+      hasRsvpd,
+      captchaToken,
+    }: {
+      eventId: string;
+      hasRsvpd: boolean;
+      captchaToken?: string;
+    }) => {
       if (!user) throw new Error("Please log in to RSVP");
       if (eventId.startsWith("mock-")) {
         return;
@@ -509,7 +559,7 @@ export default function EventDetailsPage() {
       } = await supabase.auth.getSession();
 
       const { error } = await supabase.functions.invoke("toggle-rsvp", {
-        body: { eventId, hasRsvpd },
+        body: { eventId, hasRsvpd, captchaToken },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
         },
@@ -542,13 +592,12 @@ export default function EventDetailsPage() {
       // Return context with previous data for rollback
       return { previousEvent };
     },
-    onError: (error, variables, context) => {
+    onError: (error: unknown, _variables: unknown, context: { previousEvent: unknown } | undefined) => {
       // Rollback to previous value on error
       if (context?.previousEvent) {
         setQueryData(["event", eventId], context.previousEvent);
       }
-      toast.error(error.message || "Failed to update RSVP. Please try again.");
-    onError: (error: (Error & { details?: string; context?: string }) | unknown) => {
+
       const err = error as Record<string, unknown>;
       if (
         (typeof err?.message === "string" && err.message.includes("Rate limit")) ||
@@ -558,7 +607,9 @@ export default function EventDetailsPage() {
       ) {
         toast.error("Please wait a minute before toggling RSVP again.");
       } else {
-        toast.error((err?.message as string) || "Failed to update RSVP. Please try again.");
+        toast.error(
+          (err?.message as string) || error?.message || "Failed to update RSVP. Please try again.",
+        );
       }
     },
     onSuccess: () => {
@@ -588,6 +639,57 @@ export default function EventDetailsPage() {
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to export RSVP list.");
+    },
+  });
+
+  const checkInRsvp = useMutation({
+    mutationFn: async ({ rsvpId }: { rsvpId: string }) => {
+      if (!user) throw new Error("Please log in to check in attendees");
+      if (!event || eventId.startsWith("mock-")) {
+        return { alreadyCheckedIn: false };
+      }
+
+      const { data: existingRsvp, error: fetchError } = await supabase
+        .from("event_rsvps")
+        .select("checked_in")
+        .eq("id", rsvpId)
+        .eq("event_id", eventId)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+      if (existingRsvp?.checked_in) {
+        return { alreadyCheckedIn: true };
+      }
+
+      const { error } = await supabase
+        .from("event_rsvps")
+        .update({ checked_in: true })
+        .eq("id", rsvpId)
+        .eq("event_id", eventId);
+
+      if (error) throw error;
+
+      try {
+        await supabase.from("event_attendance_logs").insert({
+          rsvp_id: rsvpId,
+          recorded_by: user.id,
+        });
+      } catch {
+        // Attendance logging is optional if the table is unavailable in the current environment.
+      }
+
+      return { alreadyCheckedIn: false };
+    },
+    onSuccess: (result) => {
+      if (result?.alreadyCheckedIn) {
+        toast.success("This attendee is already checked in.");
+      } else {
+        toast.success("Attendee checked in successfully.");
+      }
+      refetch();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to check in attendee.");
     },
   });
 
@@ -680,60 +782,7 @@ export default function EventDetailsPage() {
       event_rsvps: EventRsvp[];
     };
 
-    const waitlistCards = (typedEvent.event_waitlist || []).map((w: EventWaitlist) => {
-      const profile = (Array.isArray(w.profiles) ? w.profiles[0] : w.profiles) as Profile | null;
-      return {
-        id: `waitlist-${w.id}`,
-        userId: w.user_id,
-        name: profile ? `${profile.first_name} ${profile.last_name}` : "Unknown User",
-        avatarUrl: profile?.avatar_url || null,
-      };
-    });
-
-    const rsvpWaitlistCards = (typedEvent.event_rsvps || [])
-      .filter((r: EventRsvp) => r.status === "waitlisted")
-      .map((r: EventRsvp) => {
-        const profile = (Array.isArray(r.profiles) ? r.profiles[0] : r.profiles) as Profile | null;
-        return {
-          id: `rsvp-${r.id}`,
-          userId: r.user_id,
-          rsvpId: r.id,
-          name: profile ? `${profile.first_name} ${profile.last_name}` : "Unknown User",
-          avatarUrl: profile?.avatar_url || null,
-        };
-      });
-
-    const approvedCards = (typedEvent.event_rsvps || [])
-      .filter((r: EventRsvp) => r.status === "approved" || !r.status)
-      .map((r: EventRsvp) => {
-        const profile = (Array.isArray(r.profiles) ? r.profiles[0] : r.profiles) as Profile | null;
-        return {
-          id: `rsvp-${r.id}`,
-          userId: r.user_id,
-          rsvpId: r.id,
-          name: profile ? `${profile.first_name} ${profile.last_name}` : "Unknown User",
-          avatarUrl: profile?.avatar_url || null,
-        };
-      });
-
-    const rejectedCards = (typedEvent.event_rsvps || [])
-      .filter((r: EventRsvp) => r.status === "rejected")
-      .map((r: EventRsvp) => {
-        const profile = (Array.isArray(r.profiles) ? r.profiles[0] : r.profiles) as Profile | null;
-        return {
-          id: `rsvp-${r.id}`,
-          userId: r.user_id,
-          rsvpId: r.id,
-          name: profile ? `${profile.first_name} ${profile.last_name}` : "Unknown User",
-          avatarUrl: profile?.avatar_url || null,
-        };
-      });
-
-    setColumns({
-      waitlisted: [...waitlistCards, ...rsvpWaitlistCards],
-      approved: approvedCards,
-      rejected: rejectedCards,
-    });
+    setColumns(buildKanbanColumns(typedEvent.event_waitlist || [], typedEvent.event_rsvps || []));
   }, [event]);
 
   const updateRsvpStatus = useMutation({
@@ -867,29 +916,16 @@ export default function EventDetailsPage() {
     );
   }
 
-  const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
-  const hasRsvpd = user ? rsvps.some((r: { user_id: string }) => r.user_id === user.id) : false;
-  const isCheckedIn = user
-    ? rsvps.some(
-        (r: { user_id: string; checked_in?: boolean }) => r.user_id === user.id && r.checked_in,
-      )
-    : false;
-  const hasEnded = event.end_date ? new Date() > new Date(event.end_date) : false;
+  const rsvps = Array.isArray(event.event_rsvps) ? (event.event_rsvps as EventRsvp[]) : [];
+  const { hasRsvpd, isCheckedIn, hasEnded } = buildRsvpStatus(rsvps, user?.id, event.end_date);
   const rawFeedbacks = (event as Record<string, unknown>).event_feedbacks;
-  const hasSubmittedFeedback =
-    user && Array.isArray(rawFeedbacks)
-      ? (rawFeedbacks as { user_id: string }[]).some((f) => f.user_id === user.id)
-      : false;
+  const { hasSubmittedFeedback } = buildFeedbackStatus(
+    Array.isArray(rawFeedbacks) ? (rawFeedbacks as { user_id: string }[]) : undefined,
+    user?.id,
+  );
 
   const rawWaitlist = (event as Record<string, unknown>).event_waitlist;
-  const waitlist = Array.isArray(rawWaitlist)
-    ? [...(rawWaitlist as { id: string; user_id: string; created_at?: string }[])].sort(
-        (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime(),
-      )
-    : [];
-  const isOnWaitlist = user ? waitlist.some((w) => w.user_id === user.id) : false;
-  const waitlistPosition =
-    user && isOnWaitlist ? waitlist.findIndex((w) => w.user_id === user.id) + 1 : 0;
+  const { waitlist, isOnWaitlist, waitlistPosition } = buildWaitlistInfo(rawWaitlist, user?.id);
 
   const club = event.clubs ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
   const coordsCheck = event.location
@@ -905,6 +941,13 @@ export default function EventDetailsPage() {
     location: event.location || "",
   });
 
+  const captchaSiteKey =
+    import.meta.env.VITE_TURNSTILE_SITE_KEY || import.meta.env.VITE_HCAPTCHA_SITE_KEY;
+  const captchaSecretKey =
+    import.meta.env.VITE_TURNSTILE_SECRET_KEY || import.meta.env.VITE_HCAPTCHA_SECRET_KEY;
+  const captchaEnabled = isCaptchaConfigured(captchaSiteKey, captchaSecretKey);
+  const captchaProvider = import.meta.env.VITE_TURNSTILE_SITE_KEY ? "turnstile" : "hcaptcha";
+
   const handleRsvpClick = () => {
     if (!user) {
       toast.error("Please log in to RSVP");
@@ -918,7 +961,13 @@ export default function EventDetailsPage() {
       setConfirmOpen(true);
       return;
     }
-    toggleRsvp.mutate({ eventId: event.id, hasRsvpd: false });
+
+    if (captchaEnabled && !shouldRequireCaptcha(captchaSiteKey, captchaSecretKey, captchaToken)) {
+      toast.error("Please complete the CAPTCHA challenge to RSVP.");
+      return;
+    }
+
+    toggleRsvp.mutate({ eventId: event.id, hasRsvpd: false, captchaToken });
   };
 
   const handleCopyLink = async () => {
@@ -1156,14 +1205,32 @@ export default function EventDetailsPage() {
                 )}
               </div>
             ) : (
-              <Button
-                onClick={handleRsvpClick}
-                disabled={toggleRsvp.isPending}
-                variant="primary"
-                size="lg"
-              >
-                {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
-              </Button>
+              <div className="flex flex-col gap-1">
+                <Button
+                  onClick={handleRsvpClick}
+                  disabled={toggleRsvp.isPending}
+                  variant="primary"
+                  size="lg"
+                >
+                  {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
+                </Button>
+                {captchaEnabled && (
+                  <div className="flex flex-col gap-2">
+                    <span
+                      className={`font-mono text-xs font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
+                    >
+                      Verification required before RSVP
+                    </span>
+                    <CaptchaWidget
+                      siteKey={captchaSiteKey}
+                      provider={captchaProvider}
+                      onToken={(token) => setCaptchaToken(token)}
+                      onError={() => setCaptchaToken(undefined)}
+                      onExpire={() => setCaptchaToken(undefined)}
+                    />
+                  </div>
+                )}
+              </div>
             )}
             <span
               className={`font-mono text-sm font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
@@ -1358,15 +1425,28 @@ export default function EventDetailsPage() {
             <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
               About the Event
             </h2>
-            {event.description ? (
-              <p className="mt-4 whitespace-pre-line text-base leading-7 text-black/80">
-                {event.description}
-              </p>
-            ) : (
-              <p className="mt-4 font-mono text-sm italic text-black/40">
-                No description provided for this event.
-              </p>
-            )}
+            <div className="flex flex-col gap-8 lg:flex-row">
+              <main className="flex-1 min-w-0">
+                {event.description ? (
+                  <p className="mt-4 whitespace-pre-line text-base leading-7 text-black/80">
+                    {event.description}
+                  </p>
+                ) : (
+                  <p className="mt-4 font-mono text-sm italic text-black/40">
+                    No description provided for this event.
+                  </p>
+                )}
+            
+                <div 
+                  id="event-description-container" 
+                  className="prose prose-lg max-w-none dark:prose-invert prose-headings:scroll-mt-24"
+                  dangerouslySetInnerHTML={{ __html: event.description }} 
+                />
+              </main>
+              <aside className="lg:w-64 shrink-0">
+                <TableOfContents items={tocItems} />
+              </aside>
+            </div>
           </div>
 
           {/* FAQ Section */}
@@ -1423,7 +1503,7 @@ export default function EventDetailsPage() {
                     />
                   </Suspense>
                   <a
-                    href={`https://www.google.com/maps/search/?q=${encodeURIComponent(event.location)}`}
+                    href={buildGoogleMapsSearchUrl(event.location)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-2 inline-block font-mono text-xs font-bold underline text-blue-500"
@@ -1445,7 +1525,7 @@ export default function EventDetailsPage() {
                       must be between -90 and 90, and Longitude between -180 and 180.
                     </p>
                     <a
-                      href={`https://www.google.com/maps/search/?q=${encodeURIComponent(event.location)}`}
+                      href={buildGoogleMapsSearchUrl(event.location)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 font-mono text-xs font-bold underline hover:no-underline text-black"
@@ -1456,7 +1536,7 @@ export default function EventDetailsPage() {
                 </div>
               ) : (
                 <a
-                  href={`https://www.google.com/maps/search/?q=${encodeURIComponent(event.location)}`}
+                  href={buildGoogleMapsSearchUrl(event.location)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="neu-border mt-4 inline-flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
@@ -1608,6 +1688,26 @@ export default function EventDetailsPage() {
               <h2 className="font-display text-2xl font-black uppercase tracking-tight text-black mb-6">
                 Attendee Manager
               </h2>
+              <div className="mb-8 rounded-2xl border-4 border-black bg-white p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-display text-xl font-black uppercase tracking-tight text-black">
+                      QR Check-in
+                    </h3>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Verify a signed ticket from the camera or an uploaded image to mark the
+                      attendee as checked in.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-5">
+                  <SteganographicQRScanner
+                    onVerificationSuccess={(payload) => {
+                      checkInRsvp.mutate({ rsvpId: payload.rsvpId });
+                    }}
+                  />
+                </div>
+              </div>
               <DragDropContext onDragEnd={onDragEnd}>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {/* Waitlisted Column */}

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { getFriendlyAuthError } from "./authErrors";
 
 describe("getFriendlyAuthError", () => {
@@ -28,5 +28,37 @@ describe("getFriendlyAuthError", () => {
     expect(getFriendlyAuthError("Rate limit exceeded")).toBe(
       "Too many requests. Please try again in a few minutes.",
     );
+  });
+
+  it("maps weak password", () => {
+    expect(getFriendlyAuthError("Password is too weak")).toBe("Please choose a stronger password.");
+  });
+
+  it("maps same password", () => {
+    expect(getFriendlyAuthError("New password should be different")).toBe(
+      "Your new password must be different from your current password.",
+    );
+  });
+
+  it("maps expired reset token", () => {
+    expect(getFriendlyAuthError("Token has expired")).toBe(
+      "This reset link has expired. Please request a new password reset email.",
+    );
+  });
+
+  it("maps invalid reset token", () => {
+    expect(getFriendlyAuthError("Invalid token")).toBe(
+      "This password reset link is invalid. Please request a new one.",
+    );
+  });
+
+  it("returns user-friendly message for unconfirmed email", () => {
+    const error = { message: "Email not confirmed" };
+    expect(getFriendlyAuthError(error)).toBe("Please verify your email address before signing in.");
+  });
+
+  it("passes through unmapped custom error messages", () => {
+    const customError = new Error("Custom server database connection timeout");
+    expect(getFriendlyAuthError(customError)).toBe("Custom server database connection timeout");
   });
 });

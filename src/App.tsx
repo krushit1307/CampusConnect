@@ -1,5 +1,3 @@
-import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "@/hooks/useReactQueryReplacement";
 import { Suspense, lazy, useEffect, useState } from "react";
 
 import { AnimatePresence } from "framer-motion";
@@ -16,12 +14,37 @@ import {
 import Layout from "./components/Layout";
 import { ErrorBoundary, RouteErrorBoundary } from "./components/ErrorBoundary";
 import { PageWrapper } from "./components/PageWrapper";
-import { ThemeToggle } from "@/components/ThemeToggle";
-// <-- Added Import
-import { ThemeProvider } from "@/components/theme-provider";
-import { TooltipProvider } from "@/components/ui/tooltip";
-// Pages
+import { QueryClientProvider, queryClient } from "@/hooks/useReactQueryReplacement";
+import { CommandPalette } from "./components/ui/command-palette";
+import MaintenancePage from "./components/MaintenancePage";
+import { NotFoundPage } from "./components/NotFoundPage";
+import { createClient } from "./lib/supabase/client";
+// Pages are mostly lazy-loaded below
+import MessagesRoute from "./routes/messages";
+import ThemeToggle from "./components/ThemeToggle"; // <-- Added Import
 
+// Pages
+import Index from "./routes/index";
+import Auth from "./routes/auth";
+import Certificates from "./routes/certificates";
+import ClubsIndex from "./routes/clubs.index";
+import ClubDetails from "./routes/clubs.$slug";
+import ClubManageRoute from "./routes/clubs.$slug.manage";
+import ClubsLayout from "./routes/clubs";
+import Dashboard from "./routes/dashboard";
+import DashboardOverview from "./routes/dashboard.index";
+import DashboardRsvps from "./routes/dashboard.rsvps";
+import DashboardBookmarks from "./routes/dashboard.bookmarks";
+import DashboardCalendar from "./routes/dashboard.calendar";
+import Feed from "./routes/feed";
+import EventsMapPage from "./routes/events.map";
+import ForgotPassword from "./routes/forgot-password";
+import ResetPassword from "./routes/reset-password";
+import Settings from "./routes/settings";
+import VerifyEmail from "./routes/verify-email";
+import PendingClubsAdmin from "./routes/admin.clubs.pending";
+import AdminReportsPage from "./routes/admin.reports";
+import AdminUsersPage from "./routes/admin.users";
 import { NotFoundPage } from "./components/NotFoundPage";
 import { createClient } from "./lib/supabase/client";
 
@@ -59,6 +82,8 @@ async function checkDatabaseHealth(): Promise<HealthStatus> {
     }
 
     return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err.message };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return { ok: false, error: message };
@@ -78,7 +103,6 @@ const DashboardOverview = lazy(() => import("./routes/dashboard.index"));
 const DashboardRsvps = lazy(() => import("./routes/dashboard.rsvps"));
 const DashboardBookmarks = lazy(() => import("./routes/dashboard.bookmarks"));
 const DashboardCalendar = lazy(() => import("./routes/dashboard.calendar"));
-const GlobalCalendar = lazy(() => import("./routes/calendar"));
 const Feed = lazy(() => import("./routes/feed"));
 const EventsMapPage = lazy(() => import("./routes/events.map"));
 const ForgotPassword = lazy(() => import("./routes/forgot-password"));
@@ -89,6 +113,7 @@ const MessagesRoute = lazy(() => import("./routes/messages"));
 const PendingClubsAdmin = lazy(() => import("./routes/admin.clubs.pending"));
 const AdminReportsPage = lazy(() => import("./routes/admin.reports"));
 const AdminUsersPage = lazy(() => import("./routes/admin.users"));
+const NotFound = lazy(() => import("./routes/NotFound"));
 const ChallengeArena = lazy(() => import("./routes/challenge"));
 const EventDashboard = lazy(() => import("./routes/events.$eventId.dashboard"));
 const Leaderboard = lazy(() =>
@@ -144,16 +169,23 @@ const router = createBrowserRouter(
           <Route path="calendar" element={<DashboardCalendar />} />
         </Route>
 
+        {/* Events — loaded from remote micro-frontend when available */}
         <Route
-          path="/calendar"
+          path="/events"
           element={
-            <Suspense fallback={<PageFallback />}>
-              {" "}
-              <GlobalCalendar />
+            <Suspense fallback={<RemoteLoadingScreen />}>
+              <LazyEventsIndex />
             </Suspense>
           }
         />
-
+        <Route
+          path="/events/:eventId"
+          element={
+            <Suspense fallback={<RemoteLoadingScreen />}>
+              <LazyEventDetails />
+            </Suspense>
+          }
+        />
         <Route path="/events" element={<LazyEventsIndex />} />
         <Route path="/events/:eventId" element={<LazyEventDetails />} />
         <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
@@ -162,29 +194,20 @@ const router = createBrowserRouter(
         <Route path="/challenge" element={<ChallengeArena />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
 
-        <Route path="/feed" element={<Feed />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/verify-email" element={<VerifyEmail />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route
-          path="/admin/clubs/pending"
-          element={
-            <Suspense fallback={<div className="h-64 bg-cream animate-pulse" />}>
-              <PendingClubsAdmin />
-            </Suspense>
-          }
-        />
-        <Route
-          path="/admin/reports"
-          element={
-            <Suspense fallback={<div className="h-64 bg-cream animate-pulse" />}>
-              <AdminReportsPage />
-            </Suspense>
-          }
-        />
-        <Route path="*" element={<NotFoundPage />} />
-      </Route>
+      <Route path="/feed" element={<Feed />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/settings" element={<Settings />} />
+      <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
+      <Route path="/admin/analytics" element={<AnalyticsAdmin />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/messages" element={<MessagesRoute />} />
+      <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
+      <Route path="/admin/reports" element={<AdminReportsPage />} />
+      <Route path="/admin/users" element={<AdminUsersPage />} />
+      <Route path="*" element={<NotFoundPage />} />
+      {/* Catch-all route for 404 errors */}
+      <Route path="*" element={<NotFound />} />
     </Route>,
   ),
 );

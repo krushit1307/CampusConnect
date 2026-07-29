@@ -10,6 +10,7 @@ import { Upload, FileText, AlertCircle, CheckCircle } from "lucide-react";
 import { parseMarkdownToTiptap } from "../../lib/tiptap/markdown-parser";
 
 interface MarkdownUploadProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onContentLoaded: (jsonContent: Record<string, any>) => void;
 }
 

@@ -154,7 +154,6 @@ export class ShaderPipeline {
   private gl: WebGLRenderingContext | null = null;
   private program: WebGLProgram | null = null;
   private positionBuffer: WebGLBuffer | null = null;
-  private animationFrameId: number | null = null;
   private startTime: number = Date.now();
 
   private uniforms: {
@@ -274,11 +273,18 @@ export class ShaderPipeline {
   }
 
   public destroy() {
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId);
-    }
-    if (this.gl && this.program) {
+    if (!this.gl) return;
+
+    if (this.program) {
       this.gl.deleteProgram(this.program);
+      this.program = null;
     }
+
+    if (this.positionBuffer) {
+      this.gl.deleteBuffer(this.positionBuffer);
+      this.positionBuffer = null;
+    }
+
+    this.gl = null;
   }
 }

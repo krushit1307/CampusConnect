@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import TrendingCarousel from "@/components/Clubs/TrendingCarousel";
 import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/DashboardWidgetSkeleton";
+import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 interface SavedEventDetails {
@@ -627,6 +628,17 @@ export default function DashboardOverview() {
                     <span className="neu-border bg-lime px-2 py-1 font-mono text-[10px] font-bold uppercase">
                       {c.role}
                     </span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Widget>
+
+      <Widget title="Campus Engagement Map" className="lg:col-span-3">
+        <AttendanceHeatmap userId={user.id} />
+      </Widget>
                   </li>
                 );
               })}

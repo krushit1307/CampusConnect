@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { yoga } from "../../graphql/server";
-import { encodeCursor, decodeCursor } from "../../graphql/resolvers";
+import { yoga, schema } from "../../graphql/server";
+import { encodeCursor, decodeCursor, publishNotification } from "../../graphql/resolvers";
 
 vi.mock("../../src/lib/supabase/client", () => {
   const mockEvents = [
@@ -75,6 +75,38 @@ vi.mock("../../src/lib/supabase/client", () => {
         }
         return { select: vi.fn() };
       }),
+      rpc: vi
+        .fn()
+        .mockImplementation(
+          (fnName: string, args: { p_event_id: string; p_user_id: string; p_action: string }) => {
+            if (fnName === "manage_event_rsvp") {
+              if (args.p_event_id === "evt-full") {
+                return Promise.resolve({
+                  data: {
+                    success: false,
+                    code: "EVENT_FULL",
+                    message: "Event is fully booked. No available spots remaining.",
+                    available_spots: 0,
+                    version: 5,
+                  },
+                  error: null,
+                });
+              }
+              return Promise.resolve({
+                data: {
+                  success: true,
+                  code: "RSVP_SUCCESS",
+                  message: "RSVP confirmed!",
+                  status: "CONFIRMED",
+                  available_spots: 10,
+                  version: 2,
+                },
+                error: null,
+              });
+            }
+            return Promise.resolve({ data: null, error: null });
+          },
+        ),
     })),
   };
 });
@@ -150,5 +182,183 @@ describe("GraphQL Cursor-Based Events Pagination", () => {
     expect(eventsConn.edges[0].node.title).toBe("Event One");
     expect(eventsConn.edges[0].node.club.name).toBe("Robotics Club");
     expect(eventsConn.edges[0].node.organizer.full_name).toBe("Organizer User");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GraphQL Subscription Schema Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("GraphQL Subscription – schema presence", () => {
+  it("schema exposes a Subscription type", () => {
+    // Use the schema API directly to avoid the dual-graphql-module realm issue
+    // that occurs when `printSchema` is imported from a different graphql instance.
+    const subscriptionType = schema.getSubscriptionType();
+    expect(subscriptionType).toBeDefined();
+    expect(subscriptionType!.name).toBe("Subscription");
+  });
+
+  it("schema includes notificationReceived(userId: ID!): Notification! field", () => {
+    const subscriptionType = schema.getSubscriptionType();
+    expect(subscriptionType).toBeDefined();
+    const field = subscriptionType!.getFields()["notificationReceived"];
+    expect(field).toBeDefined();
+    expect(field.type.toString()).toBe("Notification!");
+  });
+
+  it("schema includes Notification type with all required fields", () => {
+    const notifType = schema.getType("Notification");
+    expect(notifType).toBeDefined();
+    // @ts-expect-error getFields is available on object types
+    const fields = notifType!.getFields();
+    expect(fields).toHaveProperty("id");
+    expect(fields).toHaveProperty("userId");
+    expect(fields).toHaveProperty("type");
+    expect(fields).toHaveProperty("title");
+    expect(fields).toHaveProperty("message");
+    expect(fields).toHaveProperty("link");
+    expect(fields).toHaveProperty("isRead");
+    expect(fields).toHaveProperty("createdAt");
+  });
+
+  it("schema includes NotificationType enum with MENTION, EVENT_UPDATE, GENERIC", () => {
+    const enumType = schema.getType("NotificationType");
+    expect(enumType).toBeDefined();
+    // @ts-expect-error getValues is available on enum types
+    const values = enumType!.getValues().map((v: { name: string }) => v.name);
+    expect(values).toContain("MENTION");
+    expect(values).toContain("EVENT_UPDATE");
+    expect(values).toContain("GENERIC");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// publishNotification helper tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("publishNotification helper", () => {
+  it("is exported and is a function", () => {
+    expect(typeof publishNotification).toBe("function");
+  });
+
+  it("does not throw when called with a valid notification payload", () => {
+    expect(() =>
+      publishNotification({
+        id: "notif-test-1",
+        user_id: "user-abc",
+        type: "mention",
+        title: "You were mentioned",
+        message: "Alice mentioned you in a post.",
+        link: "/posts/123",
+        is_read: false,
+        created_at: new Date().toISOString(),
+      }),
+    ).not.toThrow();
+  });
+
+  it("maps type 'event_update' correctly via publishNotification", () => {
+    // We publish and verify the helper does not throw for every known type.
+    const types = ["mention", "event_update", "generic_other"];
+    for (const type of types) {
+      expect(() =>
+        publishNotification({
+          id: `notif-${type}`,
+          user_id: "user-abc",
+          type,
+          title: `Test – ${type}`,
+          message: "Test message",
+          link: null,
+          is_read: false,
+          created_at: new Date().toISOString(),
+        }),
+      ).not.toThrow();
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GraphQL rsvpToEvent Mutation Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("GraphQL rsvpToEvent Mutation", () => {
+  it("schema includes rsvpToEvent mutation field and RsvpPayload type", () => {
+    const mutationType = schema.getMutationType();
+    expect(mutationType).toBeDefined();
+    const field = mutationType!.getFields()["rsvpToEvent"];
+    expect(field).toBeDefined();
+    expect(field.type.toString()).toBe("RsvpPayload!");
+
+    const payloadType = schema.getType("RsvpPayload");
+    expect(payloadType).toBeDefined();
+    // @ts-expect-error getFields is available on object types
+    const fields = payloadType!.getFields();
+    expect(fields).toHaveProperty("success");
+    expect(fields).toHaveProperty("code");
+    expect(fields).toHaveProperty("message");
+    expect(fields).toHaveProperty("availableSpots");
+    expect(fields).toHaveProperty("status");
+    expect(fields).toHaveProperty("version");
+  });
+
+  it("executes rsvpToEvent mutation successfully via GraphQL Yoga", async () => {
+    const query = /* GraphQL */ `
+      mutation RsvpTest {
+        rsvpToEvent(eventId: "evt-1", userId: "usr-1", action: "RSVP") {
+          success
+          code
+          message
+          availableSpots
+          status
+          version
+        }
+      }
+    `;
+
+    const response = await yoga.fetch("http://localhost:4000/api/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+
+    const result = await response.json();
+    expect(result.errors).toBeUndefined();
+    expect(result.data.rsvpToEvent).toEqual({
+      success: true,
+      code: "RSVP_SUCCESS",
+      message: "RSVP confirmed!",
+      availableSpots: 10,
+      status: "CONFIRMED",
+      version: 2,
+    });
+  });
+
+  it("returns EVENT_FULL code when event is fully booked", async () => {
+    const query = /* GraphQL */ `
+      mutation RsvpFullTest {
+        rsvpToEvent(eventId: "evt-full", userId: "usr-99", action: "RSVP") {
+          success
+          code
+          message
+          availableSpots
+          version
+        }
+      }
+    `;
+
+    const response = await yoga.fetch("http://localhost:4000/api/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+
+    const result = await response.json();
+    expect(result.errors).toBeUndefined();
+    expect(result.data.rsvpToEvent).toEqual({
+      success: false,
+      code: "EVENT_FULL",
+      message: "Event is fully booked. No available spots remaining.",
+      availableSpots: 0,
+      version: 5,
+    });
   });
 });

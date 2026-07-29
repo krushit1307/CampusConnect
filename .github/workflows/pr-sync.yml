@@ -125,6 +125,14 @@ jobs:
                 retries++;
               }
               
+              // Filter out issue-specific labels like 'good-ui' and 'ECSoC26-L1'
+              labels = labels.filter(label => 
+                !label.toLowerCase().startsWith('good-') && 
+                !label.match(/-L\d+$/i) &&
+                label.toLowerCase() !== 'blue'
+              );
+
+              
               if (labels.length > 0) {
                 console.log(`Adding labels to PR: ${labels.join(', ')}`);
                 try {

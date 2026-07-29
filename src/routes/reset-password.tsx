@@ -9,6 +9,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { PasswordStrengthMeter, getPasswordStrength } from "@/components/ui/password-strength";
 import { toast } from "sonner";
 import { resetPasswordSchema, type ResetPasswordFormValues } from "@/lib/schemas";
+import { getFriendlyAuthError } from "@/utils/authErrors";
 import {
   Form,
   FormField,
@@ -78,8 +79,8 @@ export default function ResetPasswordPage() {
       await supabase.auth.signOut();
       navigate("/auth", { replace: true });
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      const message = getFriendlyAuthError(err);
+
       setError(message);
       toast.error(message);
     } finally {

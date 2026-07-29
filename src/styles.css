@@ -57,6 +57,7 @@
 }
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant high-contrast (&:is(.high-contrast *));
 
 @theme inline {
   --color-brand-social-linkedin: var(--brand-social-linkedin);
@@ -247,7 +248,76 @@ html {
   --sidebar-accent: #1f1f1f;
   --sidebar-accent-foreground: #f3f1e4;
   --sidebar-border: #f3f1e4;
-  --sidebar-ring: #dff25c;
+}
+
+.high-contrast {
+  --background: #ffffff;
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #000000;
+  --primary-foreground: #ffffff;
+  --secondary: #ffffff;
+  --secondary-foreground: #000000;
+  --muted: #ffffff;
+  --muted-foreground: #000000;
+  --accent: #ffffff;
+  --accent-foreground: #000000;
+  --destructive: #000000;
+  --destructive-foreground: #ffffff;
+  --border: #000000;
+  --input: #000000;
+  --ring: #ffd700;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #000000;
+  --sidebar-primary: #000000;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ffffff;
+  --sidebar-accent-foreground: #000000;
+  --sidebar-border: #000000;
+  --sidebar-ring: #ffd700;
+  --ink: #000000;
+  --cream: #ffffff;
+}
+
+/* Global High Contrast Overrides for low-contrast Tailwind classes */
+.high-contrast [class*="text-gray-300"],
+.high-contrast [class*="text-gray-400"],
+.high-contrast [class*="text-gray-500"],
+.high-contrast [class*="text-gray-600"],
+.high-contrast [class*="text-gray-700"],
+.high-contrast [class*="text-muted-foreground"] {
+  color: var(--foreground) !important;
+}
+
+.high-contrast [class*="bg-gray-300"],
+.high-contrast [class*="bg-gray-400"],
+.high-contrast [class*="bg-gray-500"],
+.high-contrast [class*="bg-gray-600"],
+.high-contrast [class*="bg-gray-700"] {
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+  border: 2px solid var(--border) !important;
+}
+
+.high-contrast [class*="border-gray-300"],
+.high-contrast [class*="border-gray-400"],
+.high-contrast [class*="border-gray-500"],
+.high-contrast [class*="border-gray-600"],
+.high-contrast [class*="border-gray-700"],
+.high-contrast [class*="border-transparent"] {
+  border-color: var(--border) !important;
+}
+
+/* Force opacity to 1 on semi-transparent utility classes unless hidden */
+.high-contrast [class*="opacity-50"],
+.high-contrast [class*="opacity-60"],
+.high-contrast [class*="opacity-70"],
+.high-contrast [class*="opacity-80"],
+.high-contrast [class*="opacity-90"] {
+  opacity: 1 !important;
 }
 
 @layer base {

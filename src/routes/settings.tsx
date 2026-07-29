@@ -1,10 +1,10 @@
 import { useNavigate, useBlocker } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SiteShell } from "@/components/site/SiteShell";
-import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
-import { useTheme } from "@/components/theme-provider";
-import { Loader2, X, Plus } from "lucide-react";
+import { useEffect, useRef, useState, useId, type ChangeEvent, type KeyboardEvent } from "react";
+import { Camera, Loader2, X, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { announce } from "@/store/ariaAnnouncer";
 import { createClient } from "@/lib/supabase/client";
 import { withAuth, WithAuthProps } from "@/hoc/withAuth";
 
@@ -28,7 +28,7 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
-import { ImageCropUpload } from "@/components/ImageCropUpload";
+import { PasskeyManager } from "@/components/PasskeyManager";
 
 const FONT_SIZE_KEY = "campusconnect-font-size";
 
@@ -233,8 +233,10 @@ function SettingsPageContent({ user }: WithAuthProps) {
         });
         if (authError) throw authError;
         toast.success("Profile updated! Verification email sent to your new address.");
+        announce("Profile updated! Verification email sent to your new address.");
       } else {
         toast.success("Profile updated successfully!");
+        announce("Profile updated successfully");
       }
 
       refetch();
@@ -544,19 +546,37 @@ function SettingsPageContent({ user }: WithAuthProps) {
               {/* Theme Toggle */}
               <div className="space-y-2">
                 <label className="eyebrow font-bold text-black dark:text-cream">Theme Mode</label>
-
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <label className="eyebrow font-bold text-black dark:text-cream">
-                      Dark Mode
-                    </label>
-
-                    <p className="font-mono text-xs text-muted-foreground">
-                      Toggle between light and dark theme
-                    </p>
-                  </div>
-
-                  <ThemeToggle theme={theme} setTheme={setTheme} />
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setTheme("light")}
+                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${theme === "light"
+                      ? "bg-black text-cream dark:bg-cream dark:text-black"
+                      : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
+                      }`}
+                  >
+                    ☀️ Light
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTheme("dark")}
+                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${theme === "dark"
+                      ? "bg-black text-cream dark:bg-cream dark:text-black"
+                      : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
+                      }`}
+                  >
+                    🌙 Dark
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTheme("system")}
+                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${theme === "system"
+                      ? "bg-black text-cream dark:bg-cream dark:text-black"
+                      : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
+                      }`}
+                  >
+                    💻 System
+                  </button>
                 </div>
               </div>
 
@@ -627,6 +647,10 @@ function SettingsPageContent({ user }: WithAuthProps) {
             </div>
           </Panel>
 
+          <Panel title="Passkeys">
+            <PasskeyManager />
+          </Panel>
+
           <Panel title="Notifications">
             <Toggle label="Email me about upcoming RSVPs" defaultChecked />
             <Toggle label="Weekly digest of club activity" defaultChecked />
@@ -694,11 +718,17 @@ function AvatarThemePicker({
 }) {
   return (
     <div className="space-y-2 border-b-2 border-black pb-6">
-      <p className="eyebrow font-bold">Avatar theme</p>
-      <p className="font-mono text-xs text-muted-foreground">
+      <p className="eyebrow font-bold" id="avatar-theme-label">
+        Avatar theme
+      </p>
+      <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
         Pick a gradient background to use when you don&apos;t have a custom photo.
       </p>
-      <div className="flex flex-wrap gap-3 pt-1">
+      <div
+        className="flex flex-wrap gap-3 pt-1"
+        role="radiogroup"
+        aria-labelledby="avatar-theme-label"
+      >
         {AVATAR_THEMES.map((theme) => {
           const isSelected = selected === theme.id;
           return (
@@ -706,14 +736,14 @@ function AvatarThemePicker({
               key={theme.id}
               type="button"
               onClick={() => onSelect(theme.id)}
+              role="radio"
+              aria-checked={isSelected}
               aria-label={`${theme.label} gradient`}
-              aria-pressed={isSelected}
               title={theme.label}
-              className={`h-10 w-10 rounded-full border-2 border-black transition-transform ${theme.gradient} ${
-                isSelected
-                  ? "scale-110 ring-4 ring-black ring-offset-2 ring-offset-white"
-                  : "hover:scale-105"
-              }`}
+              className={`h-10 w-10 rounded-full border-2 border-black transition-transform ${theme.gradient} ${isSelected
+                ? "scale-110 ring-4 ring-black ring-offset-2 ring-offset-white"
+                : "hover:scale-105"
+                }`}
             />
           );
         })}
@@ -799,6 +829,8 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
     <div className="flex flex-col gap-4 border-b-2 border-black pb-6 sm:flex-row sm:items-start">
       <div className="relative mx-auto shrink-0 sm:mx-0">
         <div
+          role="img"
+          aria-label={`${name}'s avatar profile picture`}
           className={`neu-border flex h-24 w-24 items-center justify-center overflow-hidden rounded-full ${backgroundClass}`}
         >
           {preview && !imageError ? (
@@ -825,16 +857,94 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
           <p className="eyebrow font-bold text-black">Profile picture</p>
         </div>
 
-        <ImageCropUpload
-          aspect={1}
-          bucket="avatars"
-          value={preview ?? undefined}
-          onUploaded={handleUploaded}
-          accept="image/jpeg,image/png,image/webp"
-          maxSizeBytes={2 * 1024 * 1024}
-          label="profile picture"
-          hint="JPG, PNG or WEBP · Max 2 MB · Square images look best"
-        />
+        {/* Neubrutalist drag-and-drop zone — replaces the raw <input type="file"> trigger */}
+        <div
+          onClick={() => !uploading && inputRef.current?.click()}
+          onDragEnter={handleDragEnter}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if ((event.key === "Enter" || event.key === " ") && !uploading) {
+              event.preventDefault();
+              inputRef.current?.click();
+            }
+          }}
+          aria-label="Upload profile picture. Click to browse, or drag and drop an image."
+          className={`neu-border flex cursor-pointer flex-col items-center justify-center gap-1.5 border-2 border-dashed p-5 text-center transition-colors duration-150 ${uploading
+            ? "cursor-not-allowed border-black bg-gray-100 opacity-70"
+            : isDragging
+              ? "border-black bg-lime/40 scale-[1.01]"
+              : "border-black bg-white hover:bg-cream"
+            }`}
+        >
+          {uploading ? (
+            <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
+          ) : (
+            <UploadCloud className="h-6 w-6" aria-hidden="true" />
+          )}
+          <p className="font-mono text-xs font-bold uppercase">
+            {uploading
+              ? "Uploading..."
+              : isDragging
+                ? "Drop to upload"
+                : "Drag & drop or click to upload"}
+          </p>
+          <p className="font-mono text-[10px] text-gray-500 dark:text-gray-400">
+            JPG, PNG or WEBP · Max 2 MB · Square images look best
+          </p>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+        </div>
+
+        {/* Selected file name + size preview */}
+        {selectedFile && (
+          <div className="neu-border flex items-center justify-between gap-3 bg-white px-3 py-2 font-mono text-xs">
+            <span className="flex items-center gap-2 truncate">
+              <Camera className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span className="truncate" title={selectedFile.name}>
+                {selectedFile.name}
+              </span>
+            </span>
+            <span className="shrink-0 font-bold text-gray-600 dark:text-gray-300">
+              {formatFileSize(selectedFile.size)}
+            </span>
+          </div>
+        )}
+
+        {uploadProgress !== null && (
+          <div className="w-full space-y-1">
+            <Progress value={uploadProgress} className="h-2" />
+            <p className="font-mono text-xs text-gray-500 dark:text-gray-300">{uploadProgress}%</p>
+          </div>
+        )}
+      </div>
+      <div className="text-center sm:text-left">
+        <p className="eyebrow font-bold text-black">Profile picture</p>
+        <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+          JPG, PNG or WEBP. Max 2 MB. Square images look best.
+        </p>
+        {uploadProgress !== null && (
+          <div className="mt-2 w-full space-y-1">
+            <Progress
+              value={uploadProgress}
+              className="h-2"
+              role="progressbar"
+              aria-valuenow={uploadProgress}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Upload progress"
+            />
+            <p className="font-mono text-xs text-gray-500 dark:text-gray-300">{uploadProgress}%</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -846,30 +956,42 @@ function ThemeToggle({
   theme: "light" | "dark" | "system";
   setTheme: (theme: "light" | "dark" | "system") => void;
 }) {
-  const isDark =
-    theme === "dark" ||
-    (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-
-  const handleToggle = (checked: boolean) => {
-    setTheme(checked ? "dark" : "light");
-  };
-
+  const id = useId();
   return (
-    <Switch
-      checked={isDark}
-      onCheckedChange={handleToggle}
-      aria-label="Toggle dark mode"
-      className="data-[state=checked]:bg-black data-[state=unchecked]:bg-gray-200 h-7 w-14 [&>span]:h-5 [&>span]:w-5 data-[state=checked]:[&>span]:translate-x-7 data-[state=unchecked]:[&>span]:translate-x-1 border-2 border-black"
-    />
+    <div className="block">
+      <label htmlFor={id} className="eyebrow mb-1 block font-bold">
+        {label}
+        {required && (
+          <span className="text-destructive ml-1" aria-hidden="true">
+            *
+          </span>
+        )}
+      </label>
+      <input
+        id={id}
+        defaultValue={defaultValue}
+        required={required}
+        aria-required={required}
+        className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+      />
+    </div>
   );
 }
 
 function Toggle({ label, defaultChecked }: { label: string; defaultChecked?: boolean }) {
+  const id = useId();
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-3">
-      <span className="font-mono text-sm">{label}</span>
-      <input type="checkbox" defaultChecked={defaultChecked} className="h-5 w-5 accent-black" />
-    </label>
+    <div className="flex cursor-pointer items-center justify-between gap-3">
+      <label htmlFor={id} className="font-mono text-sm">
+        {label}
+      </label>
+      <input
+        id={id}
+        type="checkbox"
+        defaultChecked={defaultChecked}
+        className="h-5 w-5 accent-black"
+      />
+    </div>
   );
 }
 

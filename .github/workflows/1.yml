@@ -127,7 +127,7 @@ jobs:
                     const assigneesToTag = prData.assignees && prData.assignees.length > 0 
                       ? prData.assignees.map(a => `@${a.login}`).join(" ") 
                       : `@${prData.user.login}`;
-                    const missingMsg = `${assigneesToTag} This PR cannot be auto-merged because it is missing: **${missing.join(', ')}**. Please ensure the PR has a linked issue with an assignee and the ECSoC26 label, and that the PR description contains the closing keyword.`;
+                    const missingMsg = `${assigneesToTag} This PR cannot be merged because it is missing: **${missing.join(', ')}**. Please ensure the PR has a linked issue with an assignee and the ECSoC26 label, and that the PR description contains the closing keyword.`;
                     
                     try {
                       await github.rest.issues.createComment({

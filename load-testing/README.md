@@ -3,12 +3,15 @@
 This directory contains load testing scripts to validate the scalability of the Supabase Realtime chat architecture under massive concurrent spikes.
 
 ## 🎯 Objectives
+
 - Simulate hundreds of concurrent WebSocket connections.
 - Measure connection latency and message round-trip times.
 - Identify the maximum concurrent connections before latency spikes > 500ms.
 
 ## 📊 Findings & Maximum Concurrent Connections
+
 Based on local testing against a standard Supabase local instance (Docker):
+
 - **100 concurrent users**: Avg latency ~45ms, 0% error rate.
 - **300 concurrent users**: Avg latency ~120ms, 0% error rate.
 - **500 concurrent users**: Avg latency ~280ms, p95 latency ~410ms, 0.5% error rate.
@@ -19,6 +22,7 @@ Based on local testing against a standard Supabase local instance (Docker):
 ## 🚀 How to Run
 
 ### Option A: k6 (Recommended)
+
 1. Install k6: `brew install k6` or download from [k6.io](https://k6.io).
 2. Export your environment variables:
    ```bash
@@ -32,6 +36,7 @@ Based on local testing against a standard Supabase local instance (Docker):
    ```
 
 ### Option B: Artillery
+
 1. Install Artillery: `npm install -g artillery`
 2. Export the same environment variables as above.
 3. Run the test:
@@ -39,7 +44,7 @@ Based on local testing against a standard Supabase local instance (Docker):
    artillery run load-testing/artillery/supabase-realtime-test.yml
    ```
 
-
 ## ⚠️ Important Notes
+
 - Do not run these tests against production environments without prior approval.
 - Ensure your local Supabase instance has adequate resources (CPU/RAM) allocated in Docker before testing.

@@ -19,6 +19,7 @@ import { usePreloadEvent } from "@/hooks/usePreloadEvent";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
 import { ShareMenu } from "@/components/ui/ShareMenu";
 import { ReadMore } from "@/components/ui/ReadMore";
+
 interface Event {
   id: string;
   short_id?: string | null;
@@ -181,13 +182,7 @@ export function EventCard({
 
   const [ticketOpen, setTicketOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const shouldTruncate = !!event.description && event.description.length > 220;
 
-  const displayedDescription =
-    shouldTruncate && !isDescriptionExpanded
-      ? `${event.description!.slice(0, 180)}...`
-      : event.description;
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -289,29 +284,30 @@ export function EventCard({
             <p className="font-mono text-xs font-bold uppercase text-black">Date &amp; Time</p>
             <p className="mt-1 text-sm text-red-900">{formatEventDateRange(event)}</p>
 
-            <div className="mt-3 flex gap-2 relative z-10"></div>
-            <button
-              type="button"
-              onClick={handleBookmarkClick}
-              disabled={isBookmarkPending}
-              className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60"
-              aria-label={isSaved ? "Unsave event" : "Save event"}
-            >
-              <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
-            </button>
-            <ShareMenu
-              url={shareUrl}
-              title={event.title}
-              text={`Check out this event: ${event.title}`}
-            >
+            <div className="mt-3 flex gap-2 relative z-10">
               <button
                 type="button"
-                aria-label="Share event link"
-                className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black"
+                onClick={handleBookmarkClick}
+                disabled={isBookmarkPending}
+                className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label={isSaved ? "Unsave event" : "Save event"}
               >
-                <Share2 aria-hidden="true" size={14} strokeWidth={3} />
+                <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
               </button>
-            </ShareMenu>
+              <ShareMenu
+                url={shareUrl}
+                title={event.title}
+                text={`Check out this event: ${event.title}`}
+              >
+                <button
+                  type="button"
+                  aria-label="Share event link"
+                  className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black"
+                >
+                  <Share2 aria-hidden="true" size={14} strokeWidth={3} />
+                </button>
+              </ShareMenu>
+            </div>
           </div>
         </div>
         <p className="mt-3 font-mono text-xs font-bold uppercase text-black">Event</p>
@@ -407,13 +403,6 @@ export function EventCard({
               View Ticket
             </Button>
           )}
-        </div>
-        <div className="mt-4">
-          <ShareMenu
-            url={shareUrl}
-            title={event.title}
-            text={`Check out this event: ${event.title}`}
-          />
         </div>
         <TicketDialog
           open={ticketOpen}

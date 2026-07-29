@@ -1,43 +1,45 @@
-import { ArrowUp } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowUp, ChevronsUp } from "lucide-react";
+import { useCallback } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-
-const SCROLL_THRESHOLD = 300;
+import { useScrollVelocity } from "@/hooks/useScrollVelocity";
 
 // Circle geometry for the scroll-progress ring (#274)
 const RING_RADIUS = 26;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
+/**
+ * Dynamic Back-to-Top button that tracks scroll velocity and direction.
+ *
+ * Behaviour (per #1779):
+ * - Hidden while the user scrolls **downward** — avoids obscuring content.
+ * - Appears only when the user flicks **upward** past 1000px depth,
+ *   signalling intent to navigate back.
+ * - Hides instantly on any downward scroll.
+ * - iOS Safari rubber-banding is handled — negative scrollY is clamped at 0
+ *   so the button never flashes at the top of the page.
+ * - Uses requestAnimationFrame + throttle so scroll perf is never degraded.
+ */
 export function ScrollToTop() {
-  const [isVisible, setIsVisible] = useState(false);
-  const [scrollProgress, setScrollProgress] = useState(0);
+  const {
+    shouldShowBackToTop: isVisible,
+    scrollProgress,
+    velocity,
+    direction,
+  } = useScrollVelocity({
+    threshold: 10,
+    visibilityDepth: 1000,
+    throttleMs: 50,
+  });
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsVisible(window.scrollY > SCROLL_THRESHOLD);
-
-      // How far down the page we are, as a 0–1 fraction, driving the ring fill (#274)
-      const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
-      const progress = scrollableHeight > 0 ? window.scrollY / scrollableHeight : 0;
-      setScrollProgress(Math.min(1, Math.max(0, progress)));
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    window.addEventListener("resize", handleScroll, { passive: true });
-    handleScroll();
-
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("resize", handleScroll);
-    };
+  const scrollToTop = useCallback(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
   const ringOffset = RING_CIRCUMFERENCE * (1 - scrollProgress);
+
+  // Use double-chevron icon when user is scrolling up fast (> 1200 px/s)
+  const isFastScroll = direction === "up" && velocity > 1200;
 
   return (
     <Tooltip>
@@ -80,9 +82,14 @@ export function ScrollToTop() {
             type="button"
             onClick={scrollToTop}
             aria-label="Back to top"
-            className="neu-border neu-press absolute inset-0 m-auto flex h-12 w-12 items-center justify-center rounded-full bg-cream text-black transition-colors hover:bg-black hover:text-white dark:bg-black dark:text-white dark:hover:bg-white dark:hover:text-black"
+            className={cn(
+              "neu-border neu-press absolute inset-0 m-auto flex h-12 w-12 items-center justify-center rounded-full transition-colors",
+              "bg-cream text-black hover:bg-black hover:text-white",
+              "dark:bg-black dark:text-white dark:hover:bg-white dark:hover:text-black",
+              isFastScroll && "animate-pulse",
+            )}
           >
-            <ArrowUp className="h-5 w-5" />
+            {isFastScroll ? <ChevronsUp className="h-5 w-5" /> : <ArrowUp className="h-5 w-5" />}
           </button>
         </div>
       </TooltipTrigger>

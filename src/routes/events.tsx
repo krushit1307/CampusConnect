@@ -16,6 +16,7 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addMonths } f
 import { matchesDateFilter } from "@/lib/eventUtils";
 import { getMultiIcsContent } from "@/lib/utils";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EventFilters, FilterState } from "@/components/EventFilters";
 import { ScrollAwareFab } from "@/components/ScrollAwareFab";
 import confetti from "canvas-confetti";
@@ -169,60 +170,51 @@ export default function EventsPage() {
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ["events", filters.dateRange, filters.categories],
+    queryKey: ["events", user?.id ?? "anonymous", searchQuery],
     queryFn: async () => {
-      let selectString = `
-          id,
-          title,
-          description,
-          event_date,
-          start_date,
-          end_date,
-          location,
-          banner_url,
-          created_at,
-          max_attendees,
-          clubs(name),
-          event_rsvps(id,user_id),
-          saved_events(id,user_id)
-      `;
+      let fetchedData: unknown[] | null = null;
+      let fetchedCount: number | null = null;
 
-      if (filters.categories.length > 0) {
-        selectString += `, event_categories!inner(name)`;
+      if (searchQuery.trim()) {
+        const { data, error } = await supabase
+          .rpc("search_events", { query_text: searchQuery })
+          .select(
+            `
+            id, title, description, event_date, start_date, end_date, location, banner_url,
+            clubs (name),
+            event_rsvps (id, user_id),
+            saved_events (id, user_id)
+          `,
+          );
+        if (error) throw error;
+        const results = (data || []) as unknown[];
+        fetchedData = results;
+        fetchedCount = results.length;
       } else {
-        selectString += `, event_categories(name)`;
+        const { data, count, error } = await supabase
+          .from("club_analytics_view")
+          .select(
+            `
+            id, title, description, event_date, start_date, end_date, location, banner_url,
+            clubs (name),
+            event_rsvps (id, user_id),
+            saved_events (id, user_id)
+          `,
+            { count: "exact" },
+          )
+          .order("event_date", { ascending: true })
+          .range(0, PAGE_SIZE - 1);
+        if (error) throw error;
+        fetchedData = data as unknown[];
+        fetchedCount = count;
       }
 
-      let query = supabase
-        .from("events")
-        .select(selectString, { count: "exact" })
-        .neq("status", "archived");
-
-      if (filters.dateRange === "this-week") {
-        const now = new Date();
-        query = query
-          .gte("start_date", startOfWeek(now).toISOString())
-          .lte("start_date", endOfWeek(now).toISOString());
-      } else if (filters.dateRange === "next-month") {
-        const nextMonth = addMonths(new Date(), 1);
-        query = query
-          .gte("start_date", startOfMonth(nextMonth).toISOString())
-          .lte("start_date", endOfMonth(nextMonth).toISOString());
+      if (fetchedCount !== null) {
+        setTotalCount(fetchedCount);
       }
 
-      if (filters.categories.length > 0) {
-        query = query.in("event_categories.name", filters.categories);
-      }
-
-      query = query.order("event_date", { ascending: true }).range(0, PAGE_SIZE - 1);
-
-      const { data, count, error } = await query;
-
-      if (count !== null) {
-        setTotalCount(count);
-      }
-
-      if (import.meta.env.DEV && (!data || data.length === 0)) {
+      // Fallback to mock data in development if database is empty
+      if (import.meta.env.DEV && (!fetchedData || fetchedData.length === 0)) {
         return [
           {
             id: "mock-1",
@@ -271,7 +263,8 @@ export default function EventsPage() {
           },
         ];
       }
-      return data as unknown as EventItem[];
+
+      return (fetchedData || []) as unknown as EventItem[];
     },
   });
 
@@ -303,13 +296,13 @@ export default function EventsPage() {
     if (queryData) {
       setEvents(queryData);
       setPage(0);
-      if (queryData.length < PAGE_SIZE) {
+      if (searchQuery.trim() || queryData.length < PAGE_SIZE) {
         setHasMore(false);
       } else {
         setHasMore(true);
       }
     }
-  }, [queryData]);
+  }, [queryData, searchQuery]);
 
   const handleLoadMore = useCallback(async () => {
     if (isLoadingMore || !hasMore) return;
@@ -399,7 +392,22 @@ export default function EventsPage() {
   }, [hasMore, isLoadingMore, handleLoadMore]);
 
   useEffect(() => {
+    const channelName = "realtime_changes";
+    // Prevent duplicate subscriptions by removing any existing channel with this topic
+    supabase.getChannels().forEach((c) => {
+      if (c.topic === `realtime:${channelName}` || c.topic === channelName) {
+        void supabase.removeChannel(c);
+      }
+    });
+
     const channel = supabase
+      .channel(channelName)
+      .on("postgres_changes", { event: "*", schema: "public", table: "event_rsvps" }, () => {
+        refetch();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
+        refetch();
+      })
       .channel("events-update")
       .on(
         "postgres_changes",
@@ -421,12 +429,21 @@ export default function EventsPage() {
       )
       .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      void channel.unsubscribe();
+      void supabase.removeChannel(channel);
     };
   }, [supabase, refetch]);
 
   const toggleRsvp = useMutation({
-    mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
+    mutationFn: async ({
+      eventId,
+      hasRsvpd,
+      captchaToken,
+    }: {
+      eventId: string;
+      hasRsvpd: boolean;
+      captchaToken?: string;
+    }) => {
       if (!user) throw new Error("Must be logged in");
       if (eventId.startsWith("mock-")) {
         return;
@@ -440,6 +457,7 @@ export default function EventsPage() {
         body: {
           eventId,
           hasRsvpd,
+          captchaToken,
         },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
@@ -681,7 +699,13 @@ export default function EventsPage() {
       <PullToRefresh isRefreshing={isFetching} onRefresh={() => refetch()}>
         <SidebarProvider>
           <div className="flex flex-col md:flex-row w-full bg-cream">
-            <EventFilters filters={filters} setFilters={setFilters} />
+            <ErrorBoundary
+              fallback={
+                <div className="p-4 font-mono text-xs text-red-500">Filters unavailable</div>
+              }
+            >
+              <EventFilters filters={filters} setFilters={setFilters} />
+            </ErrorBoundary>
             <div className="flex-1 w-full flex flex-col min-h-screen">
               <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
                 <div className="mx-auto flex max-w-7xl flex-col gap-5">

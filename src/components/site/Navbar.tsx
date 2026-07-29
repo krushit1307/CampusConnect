@@ -1,4 +1,4 @@
-import { usePresence } from "@/hooks/usePresence";
+import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useEffect, useRef, useState } from "react";
@@ -8,6 +8,8 @@ import { ThemeToggle } from "../ThemeToggle";
 import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
 
 import { Menu, X } from "lucide-react";
+import { useAuthHydration } from "@/hooks/useAuthHydration";
+import { ProfileHeaderSkeleton } from "@/components/ProfileHeaderSkeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,13 +35,13 @@ const landingLinks = [
 ] as const;
 
 export function Navbar() {
+  const { user, isInitializing } = useAuthHydration();
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
   const supabase = createClient();
 
-  const [user, setUser] = useState<User | null>(null);
-  const onlineUsers = usePresence(user?.id);
+  const { onlineUsers } = usePresence(user?.id);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const hamburgerRef = useRef<HTMLButtonElement>(null);
@@ -95,20 +97,6 @@ export function Navbar() {
       };
     }
   }, [mobileMenuOpen]);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -182,7 +170,9 @@ export function Navbar() {
             <ThemeToggle />
 
             {user && <NavbarNotificationDropdown />}
-            {user ? (
+            {isInitializing ? (
+                <ProfileHeaderSkeleton />
+              ) : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -233,7 +223,7 @@ export function Navbar() {
               >
                 Sign in
               </Link>
-            )}
+          )}
           </div>
 
           {/* Mobile menu toggle button */}
