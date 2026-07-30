@@ -263,8 +263,7 @@ export default function App() {
   }
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-      <TooltipProvider>
+<ThemeProvider>      <TooltipProvider>
         <QueryClientProvider client={queryClient}>
           <ErrorBoundary>
             {/* Floating Dark Mode Toggle */}
