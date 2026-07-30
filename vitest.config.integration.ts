@@ -18,6 +18,7 @@ export default defineConfig({
     testTimeout: 60000,
     hookTimeout: 60000,
     teardownTimeout: 60000,
+    globalSetupTimeout: 300000,
   },
   resolve: {
     alias: {

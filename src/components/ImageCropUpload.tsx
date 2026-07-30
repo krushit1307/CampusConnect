@@ -168,7 +168,11 @@ export function ImageCropUpload({
     }
 
     const supabaseUrl = getSupabaseUrl();
-    const compressedFile = await compressImage(file, { maxWidth: 1920, maxHeight: 1080, quality: 0.8 });
+    const compressedFile = await compressImage(file, {
+      maxWidth: 1920,
+      maxHeight: 1080,
+      quality: 0.8,
+    });
     const extension = compressedFile.name.split(".").pop()?.toLowerCase() ?? "webp";
     const filePath = `${user.id}/${crypto.randomUUID()}.${extension}`;
 

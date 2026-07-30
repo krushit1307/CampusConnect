@@ -66,9 +66,7 @@ export function LikeIcon({ liked }: { liked: boolean }) {
           transition={{ duration: 0.2 }}
         />
       </motion.svg>
-      <AnimatePresence>
-        {isExploding && <Sparks />}
-      </AnimatePresence>
+      <AnimatePresence>{isExploding && <Sparks />}</AnimatePresence>
     </div>
   );
 }

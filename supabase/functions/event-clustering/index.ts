@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { verifyAuth } from "../shared/auth-middleware";
+import { verifyAuth } from "../shared/auth-middleware.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

@@ -1,4 +1,4 @@
-import { SiteShell } from "@/components/site/SiteShell";
+// Removed SiteShell import
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
@@ -50,6 +50,7 @@ export interface EventItem {
 }
 
 import EventsCalendar from "@/components/events/EventsCalendar";
+import { useParams } from "react-router-dom";
 
 // Helper: Check if two event date ranges overlap
 function eventsOverlap(
@@ -66,8 +67,9 @@ function eventsOverlap(
   return startA < endB && startB < endA;
 }
 
-export default function EventsPage() {
+export default function EventsList() {
   const supabase = createClient();
+  const { eventId } = useParams();
 
   const [user, setUser] = useState<User | null>(null);
   const emailVerified = useEmailVerification();
@@ -177,9 +179,8 @@ export default function EventsPage() {
       let fetchedCount: number | null = null;
 
       if (searchQuery.trim()) {
-        const { data, error } = await supabase
-          .rpc("search_events", { query_text: searchQuery })
-          .select(
+const { data, error } = await supabase
+          .rpc("search_events_advanced", { query_string: searchQuery })          .select(
             `
             id, title, description, event_date, start_date, end_date, location, banner_url,
             clubs (name),
@@ -663,6 +664,10 @@ export default function EventsPage() {
     });
 
   const sortedEvents = [...filteredEvents].sort((a, b) => {
+    // If we have an active search query, preserve the relevance-ranked order from the DB
+    if (searchQuery.trim()) {
+      return 0;
+    }
     if (!a.event_date) return 1;
     if (!b.event_date) return -1;
     const dateA = new Date(a.event_date).getTime();
@@ -689,7 +694,7 @@ export default function EventsPage() {
   }, [sortedEvents]);
 
   return (
-    <SiteShell>
+    <>
       {showConfetti && (
         <div className="confetti-container" aria-hidden="true">
           {Array.from({ length: 30 }).map((_, i) => (
@@ -1033,6 +1038,7 @@ export default function EventsPage() {
                             event={e}
                             index={index}
                             user={user}
+                            active={e.id === eventId}
                             onRsvpToggle={(eventId, hasRsvpd) =>
                               handleRsvpToggle(eventId, hasRsvpd)
                             }
@@ -1124,6 +1130,6 @@ export default function EventsPage() {
           </ScrollAwareFab>
         </SidebarProvider>
       </PullToRefresh>
-    </SiteShell>
+    </>
   );
 }

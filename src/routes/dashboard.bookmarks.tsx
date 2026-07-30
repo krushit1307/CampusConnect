@@ -79,7 +79,7 @@ export default function DashboardBookmarks() {
 
   useEffect(() => {
     if (!user?.id) return;
-    
+
     const channelName = `bookmarks-${user.id}`;
     // Prevent duplicate subscriptions by removing any existing channel with this topic
     supabase.getChannels().forEach((c) => {

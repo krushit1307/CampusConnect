@@ -9,7 +9,7 @@ import NotFound from "./NotFound";
 import LazyHydrate from "@/components/LazyHydrate";
 import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
-import { SiteShell } from "@/components/site/SiteShell";
+// Removed SiteShell import
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { MapSkeleton } from "@/components/ui/MapSkeleton";
 
@@ -65,6 +65,8 @@ import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
 import { ActivePoll } from "@/components/polls/ActivePoll";
 import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
 import { CaptchaWidget } from "@/components/CaptchaWidget";
+import { SeatingChart } from "@/components/events/SeatingChart";
+import { useEventSeats } from "@/hooks/useEventSeats";
 
 interface SimilarEventItem {
   id: string;
@@ -256,18 +258,21 @@ export default function EventDetailsPage() {
     enabled: !!eventId,
   });
 
-    // Extract headings from HTML description for TOC
+  // Extract headings from HTML description for TOC
   const tocItems = useMemo(() => {
     if (!event?.description) return [];
-    
+
     const parser = new DOMParser();
     const doc = parser.parseFromString(event.description, "text/html");
     const headings = doc.querySelectorAll("h2, h3");
-    
+
     return Array.from(headings).map((heading) => {
       const text = heading.textContent || "";
       // Simple slugify for ID
-      const id = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const id = text
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
       return { id, text, level: heading.tagName === "H2" ? 2 : 3 };
     });
   }, [event?.description]);
@@ -280,7 +285,10 @@ export default function EventDetailsPage() {
     const headings = container.querySelectorAll("h2, h3");
     headings.forEach((heading) => {
       const text = heading.textContent || "";
-      const id = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const id = text
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
       heading.id = id;
     });
   }, [event?.description]);
@@ -314,14 +322,16 @@ export default function EventDetailsPage() {
       return;
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session) {
       toast.error("You must be logged in to upload photos.");
       return;
     }
 
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    
+
     const newUploads: UploadingFile[] = Array.from(files).map((file) => ({
       id: crypto.randomUUID(),
       name: file.name,
@@ -347,26 +357,24 @@ export default function EventDetailsPage() {
         uploadItem.file!,
         (percent) => {
           setUploadingFiles((prev) =>
-            prev.map((item) =>
-              item.id === uploadItem.id ? { ...item, progress: percent } : item
-            )
+            prev.map((item) => (item.id === uploadItem.id ? { ...item, progress: percent } : item)),
           );
         },
-        uploadItem.abortController?.signal
+        uploadItem.abortController?.signal,
       )
         .then(() => {
           setUploadingFiles((prev) =>
             prev.map((item) =>
-              item.id === uploadItem.id ? { ...item, status: "success", progress: 100 } : item
-            )
+              item.id === uploadItem.id ? { ...item, status: "success", progress: 100 } : item,
+            ),
           );
         })
         .catch((error) => {
           if (error.message === "Upload cancelled") {
             setUploadingFiles((prev) =>
               prev.map((item) =>
-                item.id === uploadItem.id ? { ...item, status: "cancelled", progress: 0 } : item
-              )
+                item.id === uploadItem.id ? { ...item, status: "cancelled", progress: 0 } : item,
+              ),
             );
             toast.info(`Upload cancelled for ${uploadItem.name}`);
           } else {
@@ -374,8 +382,8 @@ export default function EventDetailsPage() {
               prev.map((item) =>
                 item.id === uploadItem.id
                   ? { ...item, status: "error", progress: 0, errorMsg: error.message }
-                  : item
-              )
+                  : item,
+              ),
             );
             toast.error(`Failed to upload ${uploadItem.name}: ${error.message}`);
           }
@@ -386,7 +394,9 @@ export default function EventDetailsPage() {
 
     refetchGallery();
     setTimeout(() => {
-      setUploadingFiles((prev) => prev.filter((item) => item.status !== "success" && item.status !== "cancelled"));
+      setUploadingFiles((prev) =>
+        prev.filter((item) => item.status !== "success" && item.status !== "cancelled"),
+      );
     }, 2000);
   };
 
@@ -406,22 +416,30 @@ export default function EventDetailsPage() {
     setUploadingFiles((prev) => {
       const fileItem = prev.find((f) => f.id === id);
       if (!fileItem || !fileItem.file) return prev;
-      
+
       // Perform async operations outside
       retryUploadTask(fileItem);
-      
+
       return prev.map((item) =>
         item.id === id
-          ? { ...item, status: "uploading", progress: 0, errorMsg: undefined, abortController: new AbortController() }
-          : item
+          ? {
+              ...item,
+              status: "uploading",
+              progress: 0,
+              errorMsg: undefined,
+              abortController: new AbortController(),
+            }
+          : item,
       );
     });
   };
 
   const retryUploadTask = async (fileItem: UploadingFile) => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session) return;
-    
+
     // We need the newly created abortController, so we get it from the latest state
     let abortSignal: AbortSignal | undefined;
     setUploadingFiles((prev) => {
@@ -443,28 +461,38 @@ export default function EventDetailsPage() {
       fileItem.file!,
       (percent) => {
         setUploadingFiles((prev) =>
-          prev.map((item) => (item.id === fileItem.id ? { ...item, progress: percent } : item))
+          prev.map((item) => (item.id === fileItem.id ? { ...item, progress: percent } : item)),
         );
       },
-      abortSignal
+      abortSignal,
     )
       .then(() => {
         setUploadingFiles((prev) =>
-          prev.map((item) => (item.id === fileItem.id ? { ...item, status: "success", progress: 100 } : item))
+          prev.map((item) =>
+            item.id === fileItem.id ? { ...item, status: "success", progress: 100 } : item,
+          ),
         );
         refetchGallery();
         setTimeout(() => {
-          setUploadingFiles((prev) => prev.filter((item) => item.status !== "success" && item.status !== "cancelled"));
+          setUploadingFiles((prev) =>
+            prev.filter((item) => item.status !== "success" && item.status !== "cancelled"),
+          );
         }, 2000);
       })
       .catch((error) => {
         if (error.message === "Upload cancelled") {
           setUploadingFiles((prev) =>
-            prev.map((item) => (item.id === fileItem.id ? { ...item, status: "cancelled", progress: 0 } : item))
+            prev.map((item) =>
+              item.id === fileItem.id ? { ...item, status: "cancelled", progress: 0 } : item,
+            ),
           );
         } else {
           setUploadingFiles((prev) =>
-            prev.map((item) => (item.id === fileItem.id ? { ...item, status: "error", progress: 0, errorMsg: error.message } : item))
+            prev.map((item) =>
+              item.id === fileItem.id
+                ? { ...item, status: "error", progress: 0, errorMsg: error.message }
+                : item,
+            ),
           );
         }
       });
@@ -702,6 +730,12 @@ export default function EventDetailsPage() {
     onSuccess: () => {
       // Refetch to ensure server state matches
       refetch();
+      // Reserve selected seats after successful RSVP
+      if (hasSeats && selectedSeats.length > 0) {
+        selectedSeats.forEach((seatId) => {
+          supabase.rpc("reserve_seat", { p_seat_id: seatId });
+        });
+      }
     },
   });
 
@@ -983,7 +1017,7 @@ export default function EventDetailsPage() {
 
   if (!event) {
     return (
-      <SiteShell>
+      <>
         <section className="bg-cream px-4 py-20 md:px-6">
           <div className="mx-auto max-w-md neu-border bg-white p-8 text-center">
             <h1 className="text-3xl font-black">Event Not Found</h1>
@@ -999,7 +1033,7 @@ export default function EventDetailsPage() {
             </Link>
           </div>
         </section>
-      </SiteShell>
+      </>
     );
   }
 
@@ -1013,6 +1047,15 @@ export default function EventDetailsPage() {
 
   const rawWaitlist = (event as Record<string, unknown>).event_waitlist;
   const { waitlist, isOnWaitlist, waitlistPosition } = buildWaitlistInfo(rawWaitlist, user?.id);
+
+  const {
+    seats: seatData,
+    reservedSeatIds,
+    selectedSeats,
+    toggleSeat,
+    hasSeats,
+    isLoading: isSeatsLoading,
+  } = useEventSeats(event?.id && !event.id.startsWith("mock-") ? event.id : undefined);
 
   const club = event.clubs ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
   const coordsCheck = event.location
@@ -1051,6 +1094,11 @@ export default function EventDetailsPage() {
 
     if (captchaEnabled && !shouldRequireCaptcha(captchaSiteKey, captchaSecretKey, captchaToken)) {
       toast.error("Please complete the CAPTCHA challenge to RSVP.");
+      return;
+    }
+
+    if (hasSeats && selectedSeats.length === 0) {
+      toast.error("Please select at least one seat before RSVPing.");
       return;
     }
 
@@ -1094,7 +1142,7 @@ export default function EventDetailsPage() {
     attendeeCount >= maxAttendees;
 
   return (
-    <SiteShell>
+    <>
       {/* Breadcrumb nav */}
       <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6" aria-label="Breadcrumb">
         <div className="mx-auto max-w-4xl">
@@ -1154,7 +1202,10 @@ export default function EventDetailsPage() {
             <div className="absolute inset-0 bg-black/50" />
           </motion.div>
         ) : (
-          <motion.div layoutId={`event-image-${event.id}`} className="absolute inset-0 bg-linear-to-br from-peach via-pink-200 to-lime/40" />
+          <motion.div
+            layoutId={`event-image-${event.id}`}
+            className="absolute inset-0 bg-linear-to-br from-peach via-pink-200 to-lime/40"
+          />
         )}
 
         <div className="relative mx-auto flex min-h-[50vh] max-w-4xl flex-col justify-end px-4 py-16 md:min-h-[60vh] md:px-6 md:py-24">
@@ -1248,6 +1299,26 @@ export default function EventDetailsPage() {
               showDetails={true}
             />
           </div>
+
+          {hasSeats && !isSeatsLoading && (
+            <div className="mt-8">
+              <h3 className="font-display text-lg font-bold uppercase mb-3">
+                {hasRsvpd ? "Your Reserved Seats" : "Select Your Seats"}
+              </h3>
+              <SeatingChart
+                seats={seatData}
+                reservedSeats={reservedSeatIds}
+                selectedSeats={hasRsvpd ? [] : selectedSeats}
+                onSeatClick={hasRsvpd ? () => {} : toggleSeat}
+                maxSeats={maxAttendees || 4}
+              />
+              {!hasRsvpd && selectedSeats.length > 0 && (
+                <p className="font-mono text-sm mt-2">
+                  {selectedSeats.length} seat{selectedSeats.length > 1 ? "s" : ""} selected
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="mt-8 hidden items-center gap-4 md:flex">
             {hasRsvpd ? (
@@ -1523,11 +1594,11 @@ export default function EventDetailsPage() {
                     No description provided for this event.
                   </p>
                 )}
-            
-                <div 
-                  id="event-description-container" 
+
+                <div
+                  id="event-description-container"
                   className="prose prose-lg max-w-none dark:prose-invert prose-headings:scroll-mt-24"
-                  dangerouslySetInnerHTML={{ __html: event.description }} 
+                  dangerouslySetInnerHTML={{ __html: event.description }}
                 />
               </main>
               <aside className="lg:w-64 shrink-0">
@@ -1582,7 +1653,10 @@ export default function EventDetailsPage() {
               coordsCheck.lat != null &&
               coordsCheck.lng != null ? (
                 <>
-                  <LazyHydrate height="300px" placeholder={<MapSkeleton className="mt-4 h-[300px] w-full" />}>
+                  <LazyHydrate
+                    height="300px"
+                    placeholder={<MapSkeleton className="mt-4 h-[300px] w-full" />}
+                  >
                     <Suspense fallback={<MapSkeleton className="mt-4 h-[300px] w-full" />}>
                       <EventMap
                         lat={coordsCheck.lat}
@@ -2245,6 +2319,6 @@ export default function EventDetailsPage() {
           />
         </div>
       )}
-    </SiteShell>
+    </>
   );
 }

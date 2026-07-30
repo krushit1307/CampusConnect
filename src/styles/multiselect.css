@@ -1,0 +1,8 @@
+/* Add any custom animations or overrides for the MultiSelect here if Tailwind isn't enough */
+
+[cmdk-input-wrapper] {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding: 0 12px;
+}

@@ -4,6 +4,7 @@
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant high-contrast (&:is(.high-contrast *));
 
 @theme inline {
   --radius-sm: 0px;
@@ -129,6 +130,36 @@
   --sidebar-accent-foreground: #f3f1e4;
   --sidebar-border: #f3f1e4;
   --sidebar-ring: #dff25c;
+}
+
+.high-contrast {
+  --background: #ffffff;
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #000000;
+  --primary-foreground: #ffffff;
+  --secondary: #ffffff;
+  --secondary-foreground: #000000;
+  --muted: #ffffff;
+  --muted-foreground: #000000;
+  --accent: #000000;
+  --accent-foreground: #ffffff;
+  --destructive: #cc0000;
+  --destructive-foreground: #ffffff;
+  --border: #000000;
+  --input: #000000;
+  --ring: #000000;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #000000;
+  --sidebar-primary: #000000;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #000000;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #000000;
+  --sidebar-ring: #000000;
 }
 
 @layer base {
@@ -814,3 +845,19 @@
 .ProseMirror:focus {
   outline: none;
 }
+
+/* High Contrast accessibility overrides */
+.high-contrast body {
+  background: #ffffff !important;
+}
+
+.high-contrast a {
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+}
+
+.high-contrast a:hover {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+

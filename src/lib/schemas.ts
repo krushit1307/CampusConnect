@@ -115,6 +115,7 @@ export const signUpSchema = z
       .email("Please enter a valid email address."),
     password: passwordRules,
     confirmPassword: z.string().min(1, "Please confirm your password."),
+    newsletterOptIn: z.boolean().default(false),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match.",

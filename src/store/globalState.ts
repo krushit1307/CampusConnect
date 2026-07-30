@@ -1,13 +1,29 @@
-import { createSignal, createReactiveObject } from "../lib/signals";
+// ─── Re-export signals and slice helpers ─────────────────────────────
+export type { UserProfile } from "./createAuthSlice";
+export { userSignal, setUserSignal, resetAuthSlice } from "./createAuthSlice";
+export {
+  themeSignal,
+  setThemeSignal,
+  activeTabSignal,
+  setActiveTabSignal,
+  resetUISlice,
+} from "./createUISlice";
+export {
+  notificationsCountSignal,
+  setNotificationsCountSignal,
+  unreadMessagesCountSignal,
+  setUnreadMessagesCountSignal,
+  resetCacheSlice,
+} from "./createCacheSlice";
 
-export interface UserProfile {
-  id: string;
-  name: string;
-  email: string;
-  avatarUrl?: string;
-  role?: string;
-}
+// ─── Internal imports ─────────────────────────────────────────────────
+import { createReactiveObject } from "../lib/signals";
+import type { UserProfile } from "./createAuthSlice";
+import { createAuthSlice, type AuthSlice } from "./createAuthSlice";
+import { createUISlice, type UISlice } from "./createUISlice";
+import { createCacheSlice, type CacheSlice } from "./createCacheSlice";
 
+// ─── Types ────────────────────────────────────────────────────────────
 export interface GlobalState {
   user: UserProfile | null;
   theme: "light" | "dark" | "system" | "high-contrast";
@@ -51,12 +67,31 @@ export const globalState = createReactiveObject<GlobalState>({
   isSidebarOpen: true,
 });
 
-/**
- * Updates the current authenticated user in global state signals and store.
- */
+// ─── Bounded store (slices pattern) ──────────────────────────────────
+function createStore(): Store {
+  let state: Store = {} as Store;
+
+  const set = (partial: Partial<Store> | ((prev: Store) => Partial<Store>)): void => {
+    const patch = typeof partial === "function" ? partial(state) : partial;
+    state = { ...state, ...patch };
+    Object.assign(globalState, patch);
+  };
+
+  const authSlice = createAuthSlice(set as Parameters<typeof createAuthSlice>[0]);
+  const uiSlice = createUISlice(set as Parameters<typeof createUISlice>[0]);
+  const cacheSlice = createCacheSlice(set as Parameters<typeof createCacheSlice>[0]);
+
+  state = { ...authSlice, ...uiSlice, ...cacheSlice };
+  state.theme = getInitialStoredTheme();
+
+  return state;
+}
+
+export const store = createStore();
+
+// ─── Public action API ────────────────────────────────────────────────
 export function setUser(user: UserProfile | null): void {
-  setUserSignal(user);
-  globalState.user = user;
+  store.setUser(user);
 }
 
 /**
@@ -70,38 +105,21 @@ export function setTheme(theme: "light" | "dark" | "system" | "high-contrast"): 
   }
 }
 
-/**
- * Updates the notifications count in global state signals and store.
- */
 export function setNotificationsCount(count: number): void {
-  setNotificationsCountSignal(count);
-  globalState.notificationsCount = count;
+  store.setNotificationsCount(count);
 }
 
-/**
- * Updates the unread messages count in global state signals and store.
- */
 export function setUnreadMessagesCount(count: number): void {
-  setUnreadMessagesCountSignal(count);
-  globalState.unreadMessagesCount = count;
+  store.setUnreadMessagesCount(count);
 }
 
-/**
- * Updates the active tab in global state signals and store.
- */
 export function setActiveTab(tab: string): void {
-  setActiveTabSignal(tab);
-  globalState.activeTab = tab;
+  store.setActiveTab(tab);
 }
 
-/**
- * Resets the entire global state to default initial values.
- */
 export function resetGlobalState(): void {
-  setUser(null);
-  setTheme("light");
-  setNotificationsCount(0);
-  setUnreadMessagesCount(0);
-  setActiveTab("overview");
+  store.resetAuthSlice();
+  store.resetUISlice();
+  store.resetCacheSlice();
   globalState.isSidebarOpen = true;
 }

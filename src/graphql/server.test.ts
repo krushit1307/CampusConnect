@@ -1,6 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import { yoga, schema } from "../../graphql/server";
-import { encodeCursor, decodeCursor, publishNotification, LRUCache, clubsCache, CLUBS_CACHE_KEY } from "../../graphql/resolvers";
+import {
+  encodeCursor,
+  decodeCursor,
+  publishNotification,
+  LRUCache,
+  clubsCache,
+  CLUBS_CACHE_KEY,
+} from "../../graphql/resolvers";
 
 vi.mock("../../src/lib/supabase/client", () => {
   const mockEvents = [
@@ -458,4 +465,3 @@ describe("GraphQL clubs Query Cached Resolver", () => {
     expect(body3.data.clubs[0].name).toBe("Robotics Club");
   });
 });
-

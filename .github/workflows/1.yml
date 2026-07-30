@@ -114,6 +114,12 @@ jobs:
               } else {
                 const hasAssignees = prData.assignees && prData.assignees.length > 0;
                 const hasECSoCLabel = currentLabels.some(l => l.toLowerCase().replace(/[^a-z0-9]/g, '').includes('ecsoc26'));
+                const hasDoNotMergeLabel = currentLabels.some(l => l.toLowerCase() === 'do-not-merge');
+
+                if (hasDoNotMergeLabel) {
+                  console.log(`PR #${prNumber} has 'do-not-merge' label. Skipping auto-merge.`);
+                  return false;
+                }
 
                 if (!hasClosingKeyword || !hasAssignees || !hasECSoCLabel) {
                   let missing = [];

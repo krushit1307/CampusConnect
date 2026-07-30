@@ -99,8 +99,10 @@ const Leaderboard = lazy(() =>
   import("./components/Leaderboard").then((m) => ({ default: m.Leaderboard })),
 );
 
-const LazyEventsIndex = lazy(() => import("./routes/events"));
-const LazyEventDetails = lazy(() => import("./routes/events.$eventId"));
+const EventsLayout = lazy(() => import("./pages/Events/EventsLayout"));
+const LazyEventsIndex = lazy(() => import("./pages/Events/EventsList"));
+const LazyEventDetails = lazy(() => import("./pages/Events/EventDetail"));
+const EmptyState = lazy(() => import("./pages/Events/EmptyState"));
 
 function PageFallback() {
   return (
@@ -254,8 +256,7 @@ export default function App() {
   }
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-      <TooltipProvider>
+<ThemeProvider>      <TooltipProvider>
         <QueryClientProvider client={queryClient}>
           <ErrorBoundary>
             {/* Floating Dark Mode Toggle */}

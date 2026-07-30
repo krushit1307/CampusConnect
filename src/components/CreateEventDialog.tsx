@@ -142,6 +142,21 @@ export function CreateEventDialog({
       });
   }, [user]);
 
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("club_members")
+      .select("club_id")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .eq("status", "approved")
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        if (data) setClubId(data.club_id);
+      });
+  }, [user]);
+
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
     defaultValues,
