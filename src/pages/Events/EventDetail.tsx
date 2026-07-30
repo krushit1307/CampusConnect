@@ -12,6 +12,27 @@ import { useEmailVerification } from "@/hooks/useEmailVerification";
 // Removed SiteShell import
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { MapSkeleton } from "@/components/ui/MapSkeleton";
+import EventFeedbackForm from "@/components/EventFeedbackForm";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ default: m.EventMap })));
 import { formatEventDateRange } from "@/lib/utils";
@@ -33,6 +54,10 @@ import {
   CheckCircle,
   Clock,
   RotateCcw,
+  HelpCircle,
+  Flag,
+  Star,
+  Calendar,
 } from "lucide-react";
 import { ReportDialog } from "@/components/ReportDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -691,8 +716,8 @@ export default function EventDetailsPage() {
           ...event,
           event_rsvps: updatedRsvps,
           attendee_count: hasRsvpd
-            ? (event.attendee_count || 0) - 1
-            : (event.attendee_count || 0) + 1,
+            ? (((event as Record<string, unknown>).attendee_count as number) || 0) - 1
+            : (((event as Record<string, unknown>).attendee_count as number) || 0) + 1,
         };
 
         setQueryData(["event", eventId], updatedEvent);
@@ -720,9 +745,7 @@ export default function EventDetailsPage() {
       ) {
         toast.error("Please wait a minute before toggling RSVP again.");
       } else {
-        toast.error(
-          (err?.message as string) || error?.message || "Failed to update RSVP. Please try again.",
-        );
+        toast.error((err?.message as string) || "Failed to update RSVP. Please try again.");
       }
     },
     onSuccess: () => {
@@ -858,9 +881,9 @@ export default function EventDetailsPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [eventId, event?.created_by, user?.id, supabase, refetch, isOrganizer]);
+  }, [eventId, event?.created_by, user?.id, supabase, refetch]);
 
-  const isOrganizer = user && event?.created_by === user.id;
+  const isOrganizer = Boolean(user && event?.created_by === user.id);
 
   // Local state for optimistic updates during dragging
   const [columns, setColumns] = useState<{
@@ -891,11 +914,16 @@ export default function EventDetailsPage() {
     if (!event) return;
 
     const typedEvent = event as unknown as {
-      event_waitlist: EventWaitlist[];
-      event_rsvps: EventRsvp[];
+      event_waitlist: unknown[];
+      event_rsvps: unknown[];
     };
 
-    setColumns(buildKanbanColumns(typedEvent.event_waitlist || [], typedEvent.event_rsvps || []));
+    setColumns(
+      buildKanbanColumns(
+        typedEvent.event_waitlist || [],
+        typedEvent.event_rsvps || [],
+      ) as unknown as typeof columns,
+    );
   }, [event]);
 
   const updateRsvpStatus = useMutation({
@@ -1029,7 +1057,7 @@ export default function EventDetailsPage() {
     );
   }
 
-  const rsvps = Array.isArray(event.event_rsvps) ? (event.event_rsvps as EventRsvp[]) : [];
+  const rsvps = Array.isArray(event.event_rsvps) ? (event.event_rsvps as unknown[]) : [];
   const { hasRsvpd, isCheckedIn, hasEnded } = buildRsvpStatus(rsvps, user?.id, event.end_date);
   const rawFeedbacks = (event as Record<string, unknown>).event_feedbacks;
   const { hasSubmittedFeedback } = buildFeedbackStatus(
@@ -1231,17 +1259,25 @@ export default function EventDetailsPage() {
             </p>
           )}
 
-          {!club && event.profiles && (
+          {!club && (event as Record<string, unknown>).profiles && (
             <div
               className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"} flex items-center gap-4`}
             >
-              <span>Organized by: {(event.profiles as { full_name: string }).full_name}</span>
+              <span>
+                Organized by:{" "}
+                {((event as Record<string, unknown>).profiles as { full_name: string }).full_name}
+              </span>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
                   import("@/lib/vcardUtils").then(({ downloadVCard }) => {
-                    downloadVCard(event.profiles as { full_name: string; email: string });
+                    downloadVCard(
+                      (event as Record<string, unknown>).profiles as {
+                        full_name: string;
+                        email: string;
+                      },
+                    );
                   });
                 }}
                 className="neu-border h-8 bg-white/20 hover:bg-white/40 text-xs px-3"
@@ -1514,27 +1550,9 @@ export default function EventDetailsPage() {
             )}
           </div>
 
-          {/* Predictive Turnout (Visible to Organizer / Admins) */}
-          {isOrganizer && (
-            <div className="mt-8">
-              <PredictiveTurnout
-                rsvpCount={attendeeCount}
-                latitude={(event as Record<string, unknown>).latitude as number | null}
-                longitude={(event as Record<string, unknown>).longitude as number | null}
-                location={event.location || ""}
-                clubName={club?.name || ""}
-              />
-            </div>
-          )}
-
           {/* Active Poll */}
           <div className="mt-8">
             <ActivePoll eventId={eventId} userId={user?.id} />
-          </div>
-
-          {/* Live Q&A */}
-          <div className="mt-8">
-            <LiveQA eventId={eventId} userId={user?.id} isOrganizer={isOrganizer} />
           </div>
           {/* Description */}
           <div className="mt-8">

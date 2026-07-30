@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { announce } from "@/store/ariaAnnouncer";
 import { createClient } from "@/lib/supabase/client";
 import { withAuth, WithAuthProps } from "@/hoc/withAuth";
+import { useTheme } from "@/components/theme-provider";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 
@@ -721,7 +723,6 @@ function SettingsPageContent({ user }: WithAuthProps) {
           </Panel>
         </div>
       </section>
-      <SecuritySection />
     </SiteShell>
   );
 }
@@ -975,20 +976,6 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
         <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
           JPG, PNG or WEBP. Max 2 MB. Square images look best.
         </p>
-        {uploadProgress !== null && (
-          <div className="mt-2 w-full space-y-1">
-            <Progress
-              value={uploadProgress}
-              className="h-2"
-              role="progressbar"
-              aria-valuenow={uploadProgress}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label="Upload progress"
-            />
-            <p className="font-mono text-xs text-gray-500 dark:text-gray-300">{uploadProgress}%</p>
-          </div>
-        )}
       </div>
     </div>
   );

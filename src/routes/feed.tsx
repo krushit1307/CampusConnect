@@ -55,7 +55,7 @@ import {
 import { useActionQueue } from "@/store/actionQueue";
 import { type CommentNode } from "@/lib/feedUtils";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import PullToRefresh from "@/components/PullToRefresh";
+import { PullToRefresh } from "@/components/PullToRefresh";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { announce } from "@/store/ariaAnnouncer";
 import { ReportDialog } from "@/components/ReportDialog";
@@ -144,6 +144,7 @@ export default function Feed() {
   const [hiddenPosts, setHiddenPosts] = useState<Post[]>([]);
   const [confirmPostId, setConfirmPostId] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [optimisticReactions, setOptimisticReactions] = useState<Record<string, unknown>>({});
   const [reactionBursts, setReactionBursts] = useState<Record<string, string>>({});
   const [reportTarget, setReportTarget] = useState<{ type: "post" | "comment"; id: string } | null>(
     null,
@@ -244,15 +245,11 @@ export default function Feed() {
     fetchNextPage,
     hasNextPage,
     refetch: refetchPosts,
-  } = useInfiniteQuery<
-    { posts: Post[]; nextCursor?: { created_at: string; id: string } },
-    Error,
-    { created_at: string; id: string } | null
-  >({
+  } = useInfiniteQuery<unknown>({
     queryKey: ["posts"],
-    initialPageParam: null,
-    queryFn: async ({ pageParam = null }) => {
-      const cursor = pageParam as { created_at: string; id: string } | null;
+    initialPageParam: undefined,
+    queryFn: async ({ pageParam }) => {
+      const cursor = pageParam as unknown as { created_at: string; id: string } | null;
 
       const { data, error } = await supabase
         .rpc("get_posts_cursor", {
@@ -855,7 +852,7 @@ export default function Feed() {
 
   return (
     <SiteShell>
-      <PullToRefresh onRefresh={handleRefetch}>
+      <PullToRefresh isRefreshing={isFetching} onRefresh={handleRefetch}>
         <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
           <div className="mx-auto max-w-4xl">
             <p className="eyebrow font-bold">Discussion feed</p>

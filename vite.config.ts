@@ -5,7 +5,6 @@ import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import { fileURLToPath } from "url";
 import { federation } from "@module-federation/vite";
-import { visualizer } from "rollup-plugin-visualizer";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -105,11 +104,6 @@ export default defineConfig({
         },
       },
     }),
-    visualizer({
-      filename: "stats.html",
-      gzipSize: true,
-      brotliSize: true,
-    }),
   ],
   resolve: {
     alias: {
@@ -118,25 +112,10 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ["pdf-lib"],
+    include: ["pdf-lib", "@tanstack/react-virtual"],
   },
   build: {
     target: "esnext",
     chunkSizeWarningLimit: 1000,
-    rolldownOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes("node_modules")) {
-            if (id.includes("react") || id.includes("react-dom")) {
-              return "vendor-react";
-            }
-            if (id.includes("lucide-react")) {
-              return "vendor-icons";
-            }
-            return "vendor";
-          }
-        },
-      },
-    },
   },
 });
