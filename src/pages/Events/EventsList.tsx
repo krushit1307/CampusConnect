@@ -178,9 +178,8 @@ export default function EventsList() {
       let fetchedCount: number | null = null;
 
       if (searchQuery.trim()) {
-        const { data, error } = await supabase
-          .rpc("search_events", { query_text: searchQuery })
-          .select(
+const { data, error } = await supabase
+          .rpc("search_events_advanced", { query_string: searchQuery })          .select(
             `
             id, title, description, event_date, start_date, end_date, location, banner_url,
             clubs (name),
