@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
 import { ClubHeader } from "@/components/Clubs/ClubHeader";
+import { ClubJobsSection } from "@/components/Clubs/ClubJobsSection";
 
 interface ClubMemberProfile {
   full_name: string;
@@ -731,6 +732,8 @@ export default function ClubProfile() {
             </div>
           </div>
         </section>
+        <ClubJobsSection clubId={club.id} />
+
         <section className="px-4 py-12 md:px-6">
           <div className="mx-auto max-w-6xl">
             <div className="neu-border bg-white p-6">

@@ -25,6 +25,8 @@ import { RosterExport } from "@/components/RosterExport";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { ClubMembersTable } from "@/components/Clubs/ClubMembersTable";
 import { ClubAnalyticsDashboard } from "@/components/Clubs/ClubAnalyticsDashboard";
+import { ClubBudgetDashboard } from "@/components/Clubs/ClubBudgetDashboard";
+import { ClubRecruitmentManage } from "@/components/Clubs/ClubRecruitmentManage";
 import {
   AlertDialog,
   AlertDialogContent,
