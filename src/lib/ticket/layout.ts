@@ -21,8 +21,7 @@ import { formatTicketDate, formatTicketDateRange } from "./format";
 export function buildTicketDocDefinition(input: TicketPdfInput): TDocumentDefinitions {
   const { event, attendee, ticketId, qrCodeDataUrl } = input;
 
-  const attendeeName =
-    attendee.fullName?.trim() || attendee.email?.trim() || "Guest";
+  const attendeeName = attendee.fullName?.trim() || attendee.email?.trim() || "Guest";
 
   const when = formatTicketDateRange(event.startDate, event.endDate);
   const singleDate = formatTicketDate(event.startDate);
@@ -148,8 +147,7 @@ export function buildTicketDocDefinition(input: TicketPdfInput): TDocumentDefini
         ],
       },
       {
-        text:
-          "Present this ticket at the door for check-in. Keep it safe — the QR code is your proof of registration.",
+        text: "Present this ticket at the door for check-in. Keep it safe — the QR code is your proof of registration.",
         fontSize: 8,
         color: "#888888",
         margin: [0, 6, 0, 0],

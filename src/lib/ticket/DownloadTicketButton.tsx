@@ -37,7 +37,6 @@ export function DownloadTicketButton({
       await downloadTicketPDF(ticket);
       toast.success("Ticket downloaded");
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error("DownloadTicketButton: failed to generate PDF", err);
       toast.error("Couldn't generate the PDF. Please try again.");
     } finally {

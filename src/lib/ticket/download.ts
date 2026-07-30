@@ -30,8 +30,7 @@ export async function downloadTicketPDF(input: TicketPdfInput): Promise<void> {
   // support both shapes defensively because @types/pdfmake has lagged
   // the runtime API across versions.
   const vfs =
-    (fontsModule as { default?: { vfs?: unknown }; pdfMakeVfs?: unknown })
-      .default?.vfs ??
+    (fontsModule as { default?: { vfs?: unknown }; pdfMakeVfs?: unknown }).default?.vfs ??
     (fontsModule as { default?: { pdfMakeVfs?: unknown } }).default?.pdfMakeVfs ??
     (fontsModule as { pdfMakeVfs?: unknown }).pdfMakeVfs ??
     (pdfMake as unknown as { vfs?: unknown }).vfs;

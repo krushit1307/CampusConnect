@@ -66,9 +66,10 @@ describe("DownloadTicketButton (issue #1913)", () => {
   it("is disabled while the download is in flight", async () => {
     let resolveDownload: () => void = () => {};
     mockDownload.mockImplementationOnce(
-      () => new Promise<void>((resolve) => {
-        resolveDownload = resolve;
-      }),
+      () =>
+        new Promise<void>((resolve) => {
+          resolveDownload = resolve;
+        }),
     );
     render(<DownloadTicketButton ticket={sampleTicket} />);
     const btn = screen.getByRole("button");
@@ -85,10 +86,7 @@ describe("DownloadTicketButton (issue #1913)", () => {
     render(<DownloadTicketButton ticket={sampleTicket} />);
     // The button has an SVG icon (lucide Download). Verify it's there
     // by checking the data-testid we set.
-    expect(screen.getByTestId("download-ticket-button")).toHaveAttribute(
-      "data-state",
-      "idle",
-    );
+    expect(screen.getByTestId("download-ticket-button")).toHaveAttribute("data-state", "idle");
   });
 
   it("renders aria-busy=false when idle", () => {
@@ -99,9 +97,10 @@ describe("DownloadTicketButton (issue #1913)", () => {
   it("does not call downloadTicketPDF on a second click while one is in flight", async () => {
     let resolveDownload: () => void = () => {};
     mockDownload.mockImplementationOnce(
-      () => new Promise<void>((resolve) => {
-        resolveDownload = resolve;
-      }),
+      () =>
+        new Promise<void>((resolve) => {
+          resolveDownload = resolve;
+        }),
     );
     render(<DownloadTicketButton ticket={sampleTicket} />);
     const btn = screen.getByRole("button");

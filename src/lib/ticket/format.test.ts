@@ -77,8 +77,6 @@ describe("formatTicketDateRange (issue #1913)", () => {
 
   it("ignores unparseable inputs (treats them as missing)", () => {
     expect(formatTicketDateRange("not-a-date", "also-not-a-date")).toBe("TBA");
-    expect(formatTicketDateRange("not-a-date", "2026-09-15T12:00:00Z")).toContain(
-      "September 15",
-    );
+    expect(formatTicketDateRange("not-a-date", "2026-09-15T12:00:00Z")).toContain("September 15");
   });
 });

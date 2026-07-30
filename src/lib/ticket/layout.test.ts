@@ -98,7 +98,10 @@ describe("buildTicketDocDefinition (issue #1913)", () => {
   });
 
   it("falls back to 'TBA' for missing venue", () => {
-    const def = buildTicketDocDefinition({ ...baseInput, event: { ...baseInput.event, location: null } });
+    const def = buildTicketDocDefinition({
+      ...baseInput,
+      event: { ...baseInput.event, location: null },
+    });
     const contentStr = JSON.stringify(def.content);
     expect(contentStr).toContain("TBA");
   });
