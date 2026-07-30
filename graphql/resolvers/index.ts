@@ -326,6 +326,7 @@ export const typeDefs = /* GraphQL */ `
     totalProfiles: Int!
     events(first: Int, after: String): EventConnection!
     event(id: ID!): Event
+    allUsers: [Profile!]! @auth(requires: ADMIN)
   }
 
   """
@@ -484,6 +485,11 @@ export const resolvers = {
 
       if (error) throw error;
       return data;
+    },
+    allUsers: async () => {
+      const { data, error } = await supabase.from("profiles").select("*");
+      if (error) throw error;
+      return data || [];
     },
   },
 
