@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-// @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // AudioEngine is a singleton created at module load time, so we need a
@@ -31,6 +30,7 @@ class MockAudioContext {
 
 beforeEach(() => {
   vi.resetModules();
+  window.localStorage.setItem("sound_enabled", "true");
   (window as unknown as { AudioContext: typeof AudioContext }).AudioContext =
     MockAudioContext as unknown as typeof AudioContext;
 });
@@ -51,11 +51,39 @@ describe("AudioEngine", () => {
     expect(() => AudioEngine.playError()).not.toThrow();
   });
 
+  it("plays toggle and like sound profiles", async () => {
+    const { AudioEngine } = await import("./audioEngine");
+    expect(() => AudioEngine.playToggle()).not.toThrow();
+    expect(() => AudioEngine.playLike()).not.toThrow();
+  });
+
+  it("uses localStorage as the UI sound preference gate", async () => {
+    const { AudioEngine } = await import("./audioEngine");
+
+    AudioEngine.setEnabled(false);
+    expect(AudioEngine.isEnabled()).toBe(false);
+
+    AudioEngine.setEnabled(true);
+    expect(AudioEngine.isEnabled()).toBe(true);
+  });
+
   it("does not throw when AudioContext is unavailable (unsupported browser)", async () => {
     // @ts-expect-error simulating an environment with no Web Audio support
     delete window.AudioContext;
     const { AudioEngine } = await import("./audioEngine");
     expect(() => AudioEngine.playClick()).not.toThrow();
+  });
+
+  it("does not initialize audio when sounds are disabled", async () => {
+    window.localStorage.setItem("sound_enabled", "false");
+    const audioContextSpy = vi.fn(() => new MockAudioContext());
+    (window as unknown as { AudioContext: typeof AudioContext }).AudioContext =
+      audioContextSpy as unknown as typeof AudioContext;
+
+    const { AudioEngine } = await import("./audioEngine");
+    AudioEngine.playClick();
+
+    expect(audioContextSpy).not.toHaveBeenCalled();
   });
 
   it("reuses the same AudioContext across multiple play calls (singleton)", async () => {

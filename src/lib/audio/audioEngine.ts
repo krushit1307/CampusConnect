@@ -22,9 +22,21 @@ type EnvelopeStage = {
   type?: OscillatorType;
 };
 
+export const SOUND_ENABLED_KEY = "sound_enabled";
+
 class AudioEngineImpl {
   private ctx: AudioContext | null = null;
   private unlockAttached = false;
+
+  isEnabled(): boolean {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(SOUND_ENABLED_KEY) === "true";
+  }
+
+  setEnabled(enabled: boolean): void {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(SOUND_ENABLED_KEY, String(enabled));
+  }
 
   /** Lazily create the AudioContext on first use (never at module load). */
   private getContext(): AudioContext | null {
@@ -82,6 +94,8 @@ class AudioEngineImpl {
       stageDuration?: number;
     } = {},
   ): void {
+    if (!this.isEnabled()) return;
+
     const ctx = this.getContext();
     if (!ctx) return;
 
@@ -128,6 +142,35 @@ class AudioEngineImpl {
       });
     } catch {
       /* decorative only — never let a sound failure surface to the UI */
+    }
+  }
+
+  /** Soft low thump for toggles and state changes. */
+  playToggle(): void {
+    try {
+      this.playEnvelope([{ frequency: 180, type: "triangle" }], {
+        attack: 0.003,
+        decay: 0.07,
+        release: 0.05,
+        peakGain: 0.1,
+      });
+    } catch {
+      /* decorative only */
+    }
+  }
+
+  /** Tiny upward pop for likes and positive reactions. */
+  playLike(): void {
+    try {
+      this.playEnvelope(
+        [
+          { frequency: 760, type: "sine" },
+          { frequency: 1180, type: "triangle" },
+        ],
+        { attack: 0.002, decay: 0.04, release: 0.04, peakGain: 0.09, stageDuration: 0.045 },
+      );
+    } catch {
+      /* decorative only */
     }
   }
 

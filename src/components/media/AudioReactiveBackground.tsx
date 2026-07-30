@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { useOnScreen } from "@/hooks/useOnScreen";
 import { ShaderPipeline, ShaderPreset, AudioData } from "@/lib/webgl/shaderPipeline";
 import {
   Mic,
@@ -40,6 +41,7 @@ export const AudioReactiveBackground: React.FC<AudioReactiveBackgroundProps> = (
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const pipelineRef = useRef<ShaderPipeline | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const [containerRef, isVisible] = useOnScreen<HTMLDivElement>();
 
   // Audio Context & Analyser refs
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -244,8 +246,16 @@ export const AudioReactiveBackground: React.FC<AudioReactiveBackgroundProps> = (
     setIsMuted(!isMuted);
   };
 
-  // 60FPS Render loop
+  // 60FPS Render loop — paused when off-screen
   useEffect(() => {
+    if (!isVisible) {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+      return;
+    }
+
     const dataArray = new Uint8Array(64);
 
     const renderLoop = () => {
@@ -300,12 +310,14 @@ export const AudioReactiveBackground: React.FC<AudioReactiveBackgroundProps> = (
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
     };
-  }, [isPlaying, sourceType, sensitivity, isWebGLCrashed]);
+  }, [isPlaying, sourceType, sensitivity, isWebGLCrashed, isVisible]);
 
   return (
     <div
+      ref={containerRef}
       className={cn(
         "relative w-full h-full min-h-[350px] overflow-hidden rounded-xl bg-slate-950 border border-slate-800 shadow-2xl",
         className,

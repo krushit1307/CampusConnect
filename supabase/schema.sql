@@ -1,3 +1,6 @@
+-- 0. Enable extensions
+CREATE EXTENSION IF NOT EXISTS postgis;
+
 -- 1. Create custom types
 CREATE TYPE user_role AS ENUM ('student', 'club_admin', 'system_admin');
 CREATE TYPE member_role AS ENUM ('member', 'admin');
@@ -98,6 +101,7 @@ CREATE TABLE events (
   location TEXT,
   latitude DOUBLE PRECISION,
   longitude DOUBLE PRECISION,
+  location_geo GEOGRAPHY(Point, 4326),
   max_attendees INTEGER,
   available_spots INTEGER,
   version INTEGER NOT NULL DEFAULT 1,
@@ -116,6 +120,7 @@ CHECK (
 
 CREATE INDEX idx_events_category ON events(category_id);
 CREATE INDEX idx_events_start_date ON events(start_date);
+CREATE INDEX idx_events_location_geo_gist ON events USING GIST (location_geo);
 
 ALTER TABLE events
 ADD CONSTRAINT events_latitude_valid
@@ -158,7 +163,7 @@ CREATE TABLE event_waitlist (
 CREATE TABLE posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   club_id UUID REFERENCES clubs(id) ON DELETE CASCADE,
-  author_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  author_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
   content TEXT NOT NULL,
   pinned BOOLEAN NOT NULL DEFAULT FALSE,
   like_count INTEGER NOT NULL DEFAULT 0,
@@ -194,10 +199,11 @@ CREATE POLICY "Users can delete their own likes."
 CREATE TABLE comments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
-    author_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    author_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
     content TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE certificates (
@@ -210,18 +216,12 @@ CREATE TABLE certificates (
 
 CREATE TABLE saved_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-<<<<<<< HEAD
   event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-=======
-  event_id UUID REFERENCES events(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
->>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
   saved_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(event_id, user_id)
 );
 
-<<<<<<< HEAD
 CREATE TABLE polls (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
@@ -363,9 +363,6 @@ AS $$
 $$;
 
 GRANT EXECUTE ON FUNCTION public.get_upcoming_events_feed(UUID) TO authenticated;
-
-=======
->>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
 -- 3. Row Level Security (RLS)
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
@@ -378,7 +375,6 @@ ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE certificates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saved_events ENABLE ROW LEVEL SECURITY;
-<<<<<<< HEAD
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE polls ENABLE ROW LEVEL SECURITY;
@@ -397,8 +393,6 @@ CREATE POLICY "Primary club admins can delete co-hosts." ON event_co_hosts FOR D
 );
 
 CREATE POLICY "System admins can view audit logs" ON audit_logs FOR SELECT TO authenticated USING (public.is_system_admin());
-=======
->>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
 
 -- profiles: users can read all, update only their own row (with restrictions)
 CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT USING (true);
@@ -488,23 +482,23 @@ CREATE POLICY "Club admins can update RSVPs (check in)." ON event_rsvps FOR UPDA
   EXISTS (SELECT 1 FROM clubs WHERE id = (SELECT club_id FROM events WHERE id = event_rsvps.event_id) AND created_by = auth.uid())
 );
 
--- posts/comments: club members can read/write within their club, authors can edit/delete their own
-CREATE POLICY "Anyone can read posts." ON posts FOR SELECT USING (true);
+-- posts/comments: club members can read/write within their club, authors/admins can edit/soft-delete their own
+CREATE POLICY "Anyone can read posts." ON posts FOR SELECT USING (deleted_at IS NULL OR public.is_system_admin());
 CREATE POLICY "Club members can insert posts." ON posts FOR INSERT WITH CHECK (
   EXISTS (SELECT 1 FROM club_members WHERE club_id = posts.club_id AND user_id = auth.uid() AND status = 'approved') OR
   EXISTS (SELECT 1 FROM clubs WHERE id = posts.club_id AND created_by = auth.uid())
 );
-CREATE POLICY "Authors can update own posts." ON posts FOR UPDATE USING (auth.uid() = author_id);
-CREATE POLICY "Authors can delete own posts." ON posts FOR DELETE USING (auth.uid() = author_id);
+CREATE POLICY "Authors or system admins can update posts." ON posts FOR UPDATE USING (auth.uid() = author_id OR public.is_system_admin());
+CREATE POLICY "System admins can delete posts." ON posts FOR DELETE USING (public.is_system_admin());
 
-CREATE POLICY "Anyone can read comments." ON comments FOR SELECT USING (true);
+CREATE POLICY "Anyone can read comments." ON comments FOR SELECT USING (deleted_at IS NULL OR public.is_system_admin());
 CREATE POLICY "Club members can insert comments." ON comments FOR INSERT WITH CHECK (
   EXISTS (SELECT 1 FROM club_members WHERE club_id = (SELECT club_id FROM posts WHERE id = comments.post_id) AND user_id = auth.uid() AND status = 'approved') OR
   EXISTS (SELECT 1 FROM clubs WHERE id = (SELECT club_id FROM posts WHERE id = comments.post_id) AND created_by = auth.uid())
 );
-CREATE POLICY "Authors can update own comments." ON comments FOR UPDATE USING (auth.uid() = author_id);
-CREATE POLICY "Authors or club admins can delete comments." ON comments FOR DELETE USING (
+CREATE POLICY "Authors or club admins or system admins can update comments." ON comments FOR UPDATE USING (
   auth.uid() = author_id OR
+  public.is_system_admin() OR
   public.is_club_admin((SELECT club_id FROM posts WHERE id = comments.post_id), auth.uid()) OR
   EXISTS (
     SELECT 1 FROM clubs
@@ -512,6 +506,7 @@ CREATE POLICY "Authors or club admins can delete comments." ON comments FOR DELE
       AND created_by = auth.uid()
   )
 );
+CREATE POLICY "System admins can delete comments." ON comments FOR DELETE USING (public.is_system_admin());
 
 -- certificates: users can read only their own
 CREATE POLICY "Users can read own certificates." ON certificates FOR SELECT USING (auth.uid() = user_id);
@@ -861,6 +856,79 @@ CREATE TRIGGER set_updated_at_comments
 BEFORE UPDATE ON comments
 FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
 
+-- Trigger to cascade soft-delete to user's posts & comments on profile deletion
+CREATE OR REPLACE FUNCTION public.handle_profile_soft_delete_cascade()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE public.posts
+  SET deleted_at = NOW()
+  WHERE author_id = OLD.id;
+
+  UPDATE public.comments
+  SET deleted_at = NOW()
+  WHERE author_id = OLD.id;
+
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trigger_profile_soft_delete_cascade
+BEFORE DELETE ON profiles
+FOR EACH ROW
+EXECUTE FUNCTION public.handle_profile_soft_delete_cascade();
+
+-- Trigger function to request chat message moderation
+CREATE OR REPLACE FUNCTION public.handle_new_chat_message_moderation()
+RETURNS TRIGGER AS $$
+DECLARE
+    function_url TEXT := 'http://localhost:54321/functions/v1/chat-moderation';
+    payload JSONB;
+BEGIN
+    payload := jsonb_build_object(
+        'type', 'INSERT',
+        'table', 'chat_messages',
+        'record', jsonb_build_object(
+            'id', NEW.id,
+            'content', NEW.content,
+            'sender_id', NEW.sender_id,
+            'receiver_id', NEW.receiver_id,
+            'created_at', NEW.created_at
+        )
+    );
+
+    IF EXISTS (
+        SELECT 1 FROM pg_proc p 
+        JOIN pg_namespace n ON p.pronamespace = n.oid 
+        WHERE p.proname = 'http_post' AND n.nspname = 'net'
+    ) THEN
+        PERFORM net.http_post(
+            url := function_url,
+            headers := '{"Content-Type": "application/json"}'::jsonb,
+            body := payload
+        );
+    ELSIF EXISTS (
+        SELECT 1 FROM pg_proc p 
+        JOIN pg_namespace n ON p.pronamespace = n.oid 
+        WHERE p.proname = 'http_post' AND n.nspname = 'extensions'
+    ) THEN
+        PERFORM extensions.http_post(
+            url := function_url,
+            headers := '{"Content-Type": "application/json"}'::jsonb,
+            body := payload
+        );
+    END IF;
+
+    RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_chat_message_created_moderation
+AFTER INSERT ON public.chat_messages
+FOR EACH ROW
+EXECUTE FUNCTION public.handle_new_chat_message_moderation();
+
 -- ------------------------------------------------------------
 -- 5. Storage Buckets & Policies
 -- ------------------------------------------------------------
@@ -1000,7 +1068,6 @@ EXECUTE FUNCTION generate_event_short_id();
 ALTER PUBLICATION supabase_realtime ADD TABLE posts;
 ALTER PUBLICATION supabase_realtime ADD TABLE comments;
 ALTER PUBLICATION supabase_realtime ADD TABLE event_rsvps;
-<<<<<<< HEAD
 ALTER PUBLICATION supabase_realtime ADD TABLE saved_events;
 ALTER PUBLICATION supabase_realtime ADD TABLE poll_votes;
 
@@ -1026,11 +1093,97 @@ SELECT
     END
   ),
   raw_user_meta_data->>'avatar_url'
-=======
-
--- Backfill any missing profiles for existing authenticated users
-INSERT INTO public.profiles (id, full_name, avatar_url)
-SELECT id, raw_user_meta_data->>'full_name', raw_user_meta_data->>'avatar_url'
->>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
 FROM auth.users
 ON CONFLICT (id) DO NOTHING;
+
+-- ------------------------------------------------------------
+-- 8. PostGIS Geospatial Queries (#1860)
+-- ------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.sync_events_location_geo()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NEW.latitude IS NOT NULL AND NEW.longitude IS NOT NULL THEN
+        NEW.location_geo := ST_SetSRID(ST_MakePoint(NEW.longitude, NEW.latitude), 4326)::geography;
+    ELSE
+        NEW.location_geo := NULL;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_sync_events_location_geo ON public.events;
+CREATE TRIGGER trg_sync_events_location_geo
+BEFORE INSERT OR UPDATE OF latitude, longitude ON public.events
+FOR EACH ROW
+EXECUTE FUNCTION public.sync_events_location_geo();
+
+CREATE OR REPLACE FUNCTION public.get_events_nearby(
+    user_lat DOUBLE PRECISION,
+    user_lng DOUBLE PRECISION,
+    radius_meters DOUBLE PRECISION DEFAULT 8046.72
+)
+RETURNS TABLE (
+    id UUID,
+    club_id UUID,
+    category_id UUID,
+    title TEXT,
+    description TEXT,
+    banner_url TEXT,
+    event_date TIMESTAMPTZ,
+    start_date TIMESTAMPTZ,
+    end_date TIMESTAMPTZ,
+    location TEXT,
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    max_attendees INTEGER,
+    available_spots INTEGER,
+    status TEXT,
+    created_at TIMESTAMPTZ,
+    distance_meters DOUBLE PRECISION
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    user_geo GEOGRAPHY := ST_SetSRID(ST_MakePoint(user_lng, user_lat), 4326)::geography;
+BEGIN
+    RETURN QUERY
+    SELECT 
+        e.id,
+        e.club_id,
+        e.category_id,
+        e.title,
+        e.description,
+        e.banner_url,
+        e.event_date,
+        e.start_date,
+        e.end_date,
+        e.location,
+        e.latitude,
+        e.longitude,
+        e.max_attendees,
+        e.available_spots,
+        e.status,
+        e.created_at,
+        ST_Distance(
+            COALESCE(e.location_geo, ST_SetSRID(ST_MakePoint(e.longitude, e.latitude), 4326)::geography),
+            user_geo
+        ) AS distance_meters
+    FROM public.events e
+    WHERE (e.location_geo IS NOT NULL OR (e.latitude IS NOT NULL AND e.longitude IS NOT NULL))
+      AND ST_DWithin(
+          COALESCE(e.location_geo, ST_SetSRID(ST_MakePoint(e.longitude, e.latitude), 4326)::geography),
+          user_geo,
+          radius_meters
+      )
+    ORDER BY distance_meters ASC;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_events_nearby(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION) TO authenticated, anon;
+

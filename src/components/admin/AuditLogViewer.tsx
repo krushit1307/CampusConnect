@@ -49,10 +49,14 @@ export function AuditLogViewer() {
 
   const getActionBadgeColor = (action: string) => {
     switch (action) {
-      case "INSERT": return "bg-green-500 text-white border-black";
-      case "UPDATE": return "bg-yellow-500 text-black border-black";
-      case "DELETE": return "bg-red-500 text-white border-black";
-      default: return "bg-gray-500 text-white border-black";
+      case "INSERT":
+        return "bg-green-500 text-white border-black";
+      case "UPDATE":
+        return "bg-yellow-500 text-black border-black";
+      case "DELETE":
+        return "bg-red-500 text-white border-black";
+      default:
+        return "bg-gray-500 text-white border-black";
     }
   };
 
@@ -116,7 +120,7 @@ export function AuditLogViewer() {
             </TableBody>
           </Table>
         </div>
-        
+
         <div className="flex items-center justify-between border-t-2 border-black p-4 bg-muted/10">
           <div className="font-mono text-sm">
             Page {page} of {totalPages} ({totalCount} total logs)
@@ -125,7 +129,7 @@ export function AuditLogViewer() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPage(p => Math.max(1, p - 1))}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
               className="border-2 border-black font-mono shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
             >
@@ -134,7 +138,7 @@ export function AuditLogViewer() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
               className="border-2 border-black font-mono shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
             >

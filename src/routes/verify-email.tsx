@@ -108,7 +108,9 @@ export default function VerifyEmailPage() {
                   onClick={async () => {
                     try {
                       await registerPasskey("Passkey");
-                      toast.success("Passkey registered successfully! You can now sign in without a password.");
+                      toast.success(
+                        "Passkey registered successfully! You can now sign in without a password.",
+                      );
                     } catch (e) {
                       console.error("Passkey enrollment skipped", e);
                     }
@@ -116,7 +118,9 @@ export default function VerifyEmailPage() {
                   }}
                   className="neu-border neu-press flex w-full flex-col items-center justify-center bg-black py-3 text-cream cursor-pointer"
                 >
-                  <span className="font-mono text-sm font-bold uppercase">Enable FaceID / TouchID</span>
+                  <span className="font-mono text-sm font-bold uppercase">
+                    Enable FaceID / TouchID
+                  </span>
                   <span className="text-xs text-gray-400">Sign in instantly next time</span>
                 </button>
 

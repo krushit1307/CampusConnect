@@ -3,92 +3,10 @@
 @source "../src";
 @import "tw-animate-css";
 
-/* Space Grotesk Custom Font Declarations */
-@font-face {
-  font-family: "Space Grotesk";
-  src: url("/fonts/space-grotesk-latin-400-normal.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Space Grotesk";
-  src: url("/fonts/space-grotesk-latin-700-normal.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Space Mono Custom Font Declarations */
-@font-face {
-  font-family: "Space Mono";
-  src: url("/fonts/space-mono-latin-400-normal.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Space Mono";
-  src: url("/fonts/space-mono-latin-700-normal.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Fallback Metric Override font-faces to eliminate Layout Shift (CLS) */
-@font-face {
-  font-family: "Space Grotesk Fallback";
-  src: local("Arial");
-  size-adjust: 102.5%;
-  ascent-override: 95%;
-  descent-override: 23%;
-  line-gap-override: 0%;
-}
-
-@font-face {
-  font-family: "Space Mono Fallback";
-  src: local("Courier New");
-  size-adjust: 91.5%;
-  ascent-override: 104%;
-  descent-override: 24%;
-  line-gap-override: 0%;
-}
-
 @custom-variant dark (&:is(.dark *));
 @custom-variant high-contrast (&:is(.high-contrast *));
 
 @theme inline {
-  --color-brand-social-linkedin: var(--brand-social-linkedin);
-  --color-brand-emerald-base: var(--brand-emerald-base);
-  --color-brand-gray-base-900: var(--brand-gray-base-900);
-  --color-brand-blue-muted: var(--brand-blue-muted);
-  --color-brand-blue-dark: var(--brand-blue-dark);
-  --color-brand-gray-base-800: var(--brand-gray-base-800);
-  --color-brand-blue-alt: var(--brand-blue-alt);
-  --color-brand-social-twitter: var(--brand-social-twitter);
-  --color-brand-blue-base: var(--brand-blue-base);
-  --color-brand-social-whatsapp: var(--brand-social-whatsapp);
-  --color-brand-blue-base-500: var(--brand-blue-base-500);
-  --color-brand-amber-dark: var(--brand-amber-dark);
-  --color-brand-blue-light: var(--brand-blue-light);
-  --color-brand-green-bg: var(--brand-green-bg);
-  --color-brand-gray-base-100: var(--brand-gray-base-100);
-  --color-brand-amber-base: var(--brand-amber-base);
-  --color-brand-peach-light: var(--brand-peach-light);
-  --color-brand-yellow-bg-alt: var(--brand-yellow-bg-alt);
-  --color-brand-red-ios: var(--brand-red-ios);
-  --color-brand-red-ios-dark: var(--brand-red-ios-dark);
-  --color-brand-red-light: var(--brand-red-light);
-  --color-brand-red-lighter: var(--brand-red-lighter);
-  --color-brand-orange-base: var(--brand-orange-base);
-  --color-brand-yellow-base: var(--brand-yellow-base);
-  --color-brand-yellow-alt: var(--brand-yellow-alt);
-  --color-brand-yellow-bright: var(--brand-yellow-bright);
-  --color-brand-red-bg: var(--brand-red-bg);
-  --color-brand-yellow-bg: var(--brand-yellow-bg);
-  --color-brand-yellow-bg-light: var(--brand-yellow-bg-light);
   --radius-sm: 0px;
   --radius-md: 0px;
   --radius-lg: 0px;
@@ -135,40 +53,11 @@
   --color-lavender: var(--lavender);
   --color-peach: var(--peach);
   --color-ink: var(--ink);
-  --font-display: "Space Grotesk", "Space Grotesk Fallback", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Space Mono", "Space Mono Fallback", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
 :root {
-  --brand-social-linkedin: #0a66c2;
-  --brand-emerald-base: #10b981;
-  --brand-gray-base-900: #111111;
-  --brand-blue-muted: #114c73;
-  --brand-blue-dark: #123a57;
-  --brand-gray-base-800: #1a1a1a;
-  --brand-blue-alt: #1a5a8c;
-  --brand-social-twitter: #1da1f2;
-  --brand-blue-base: #1e5c8a;
-  --brand-social-whatsapp: #25d366;
-  --brand-blue-base-500: #3b82f6;
-  --brand-amber-dark: #b45309;
-  --brand-blue-light: #bce3f2;
-  --brand-green-bg: #d3f4e6;
-  --brand-gray-base-100: #f3f4f6;
-  --brand-amber-base: #f59e0b;
-  --brand-peach-light: #f5c66b;
-  --brand-yellow-bg-alt: #fef8eb;
-  --brand-red-ios: #ff3b30;
-  --brand-red-ios-dark: #ff453a;
-  --brand-red-light: #ff6b6b;
-  --brand-red-lighter: #ff8787;
-  --brand-orange-base: #ffb800;
-  --brand-yellow-base: #ffd166;
-  --brand-yellow-alt: #ffd93d;
-  --brand-yellow-bright: #ffde00;
-  --brand-red-bg: #ffe3e3;
-  --brand-yellow-bg: #fffbea;
-  --brand-yellow-bg-light: #fffdf9;
   --font-size-base: 16px;
   --radius: 0px;
   --cream: #f3f1e4;
@@ -176,51 +65,43 @@
   --sky: #08b3ca;
   --lavender: #d9cdeb;
   --peach: #e37c2d;
-  --ink: var(--color-ink);
+  --ink: #000000;
   --background: #f3f1e4;
-  --foreground: var(--color-ink);
+  --foreground: #000000;
   --card: #ffffff;
-  --card-foreground: var(--color-ink);
+  --card-foreground: #000000;
   --popover: #ffffff;
-  --popover-foreground: var(--color-ink);
-  --primary: var(--color-ink);
+  --popover-foreground: #000000;
+  --primary: #000000;
   --primary-foreground: #f3f1e4;
   --secondary: #f3f1e4;
-  --secondary-foreground: var(--color-ink);
+  --secondary-foreground: #000000;
   --muted: #f3f1e4;
   --muted-foreground: #333333;
   --accent: #dff25c;
-  --accent-foreground: var(--color-ink);
+  --accent-foreground: #000000;
   --destructive: #e53935;
   --destructive-foreground: #ffffff;
-  --border: var(--color-ink);
-  --input: var(--color-ink);
-  --ring: var(--color-ink);
-  --chart-1: var(--lime);
-  --chart-2: var(--sky);
-  --chart-3: var(--peach);
-  --chart-4: var(--lavender);
-  --chart-5: var(--brand-yellow-base);
+  --border: #000000;
+  --input: #000000;
+  --ring: #000000;
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: #f3f1e4;
-  --sidebar-foreground: var(--color-ink);
-  --sidebar-primary: var(--color-ink);
+  --sidebar-foreground: #000000;
+  --sidebar-primary: #000000;
   --sidebar-primary-foreground: #f3f1e4;
   --sidebar-accent: #dff25c;
-  --sidebar-accent-foreground: var(--color-ink);
-  --sidebar-border: var(--color-ink);
-  --sidebar-ring: var(--color-ink);
+  --sidebar-accent-foreground: #000000;
+  --sidebar-border: #000000;
+  --sidebar-ring: #000000;
   --border-thickness: 2px;
   --border-radius: 0px;
 }
-html {
-  scroll-behavior: smooth;
-}
 
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-}
 .dark {
   --background: #111111;
   --foreground: #f3f1e4;
@@ -248,6 +129,7 @@ html {
   --sidebar-accent: #1f1f1f;
   --sidebar-accent-foreground: #f3f1e4;
   --sidebar-border: #f3f1e4;
+  --sidebar-ring: #dff25c;
 }
 
 .high-contrast {
@@ -263,61 +145,21 @@ html {
   --secondary-foreground: #000000;
   --muted: #ffffff;
   --muted-foreground: #000000;
-  --accent: #ffffff;
-  --accent-foreground: #000000;
-  --destructive: #000000;
+  --accent: #000000;
+  --accent-foreground: #ffffff;
+  --destructive: #cc0000;
   --destructive-foreground: #ffffff;
   --border: #000000;
   --input: #000000;
-  --ring: #ffd700;
+  --ring: #000000;
   --sidebar: #ffffff;
   --sidebar-foreground: #000000;
   --sidebar-primary: #000000;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #ffffff;
-  --sidebar-accent-foreground: #000000;
+  --sidebar-accent: #000000;
+  --sidebar-accent-foreground: #ffffff;
   --sidebar-border: #000000;
-  --sidebar-ring: #ffd700;
-  --ink: #000000;
-  --cream: #ffffff;
-}
-
-/* Global High Contrast Overrides for low-contrast Tailwind classes */
-.high-contrast [class*="text-gray-300"],
-.high-contrast [class*="text-gray-400"],
-.high-contrast [class*="text-gray-500"],
-.high-contrast [class*="text-gray-600"],
-.high-contrast [class*="text-gray-700"],
-.high-contrast [class*="text-muted-foreground"] {
-  color: var(--foreground) !important;
-}
-
-.high-contrast [class*="bg-gray-300"],
-.high-contrast [class*="bg-gray-400"],
-.high-contrast [class*="bg-gray-500"],
-.high-contrast [class*="bg-gray-600"],
-.high-contrast [class*="bg-gray-700"] {
-  background-color: var(--background) !important;
-  color: var(--foreground) !important;
-  border: 2px solid var(--border) !important;
-}
-
-.high-contrast [class*="border-gray-300"],
-.high-contrast [class*="border-gray-400"],
-.high-contrast [class*="border-gray-500"],
-.high-contrast [class*="border-gray-600"],
-.high-contrast [class*="border-gray-700"],
-.high-contrast [class*="border-transparent"] {
-  border-color: var(--border) !important;
-}
-
-/* Force opacity to 1 on semi-transparent utility classes unless hidden */
-.high-contrast [class*="opacity-50"],
-.high-contrast [class*="opacity-60"],
-.high-contrast [class*="opacity-70"],
-.high-contrast [class*="opacity-80"],
-.high-contrast [class*="opacity-90"] {
-  opacity: 1 !important;
+  --sidebar-ring: #000000;
 }
 
 @layer base {
@@ -437,15 +279,15 @@ html {
 }
 
 @utility neu-border {
-  border: 2px solid var(--color-ink);
+  border: 2px solid #000000;
 }
 
 @utility neu-shadow {
-  box-shadow: 6px 6px 0 0 var(--color-ink);
+  box-shadow: 6px 6px 0 0 #000000;
 }
 
 @utility neu-shadow-sm {
-  box-shadow: 3px 3px 0 0 var(--color-ink);
+  box-shadow: 3px 3px 0 0 #000000;
 }
 
 @utility neu-press {
@@ -454,11 +296,11 @@ html {
     box-shadow 120ms ease;
   &:hover {
     transform: translate(-2px, -2px);
-    box-shadow: 8px 8px 0 0 var(--color-ink);
+    box-shadow: 8px 8px 0 0 #000000;
   }
   &:active {
     transform: translate(2px, 2px);
-    box-shadow: 2px 2px 0 0 var(--color-ink);
+    box-shadow: 2px 2px 0 0 #000000;
   }
 }
 
@@ -497,14 +339,14 @@ html {
 
   code {
     background: var(--cream);
-    border: 2px solid var(--color-ink);
+    border: 2px solid #000000;
     padding: 0 0.3em;
     font-size: 0.9em;
   }
 
   pre {
     background: var(--cream);
-    border: 2px solid var(--color-ink);
+    border: 2px solid #000000;
     padding: 0.75em;
     overflow-x: auto;
     margin: 0.5em 0;
@@ -530,7 +372,7 @@ html {
   }
 
   blockquote {
-    border-left: 3px solid var(--color-ink);
+    border-left: 3px solid #000000;
     padding-left: 0.75em;
     margin: 0.5em 0;
     font-style: italic;
@@ -540,7 +382,6 @@ html {
   h2,
   h3 {
     margin: 0.6em 0 0.3em;
-    scroll-margin-top: 4rem;
   }
 }
 
@@ -698,25 +539,25 @@ html {
 .rbc-calendar {
   font-family: var(--font-mono);
   background-color: #ea7272;
-  color: var(--color-ink);
+  color: #000000;
 }
 
 .rbc-month-view {
-  border: 2px solid var(--color-ink) !important;
+  border: 2px solid #000000 !important;
   border-radius: 0px !important;
 }
 
 .rbc-day-bg {
-  border-left: 2px solid var(--color-ink) !important;
+  border-left: 2px solid #000000 !important;
 }
 
 .rbc-month-row {
-  border-bottom: 2px solid var(--color-ink) !important;
+  border-bottom: 2px solid #000000 !important;
 }
 
 .rbc-header {
-  border-bottom: 2px solid var(--color-ink) !important;
-  border-left: 2px solid var(--color-ink) !important;
+  border-bottom: 2px solid #000000 !important;
+  border-left: 2px solid #000000 !important;
   font-family: var(--font-display) !important;
   font-weight: 700 !important;
   text-transform: uppercase !important;
@@ -742,20 +583,20 @@ html {
 }
 
 .rbc-event {
-  border: 2px solid var(--color-ink) !important;
+  border: 2px solid #000000 !important;
   border-radius: 0px !important;
   background-color: var(--peach) !important;
-  color: var(--color-ink) !important;
+  color: #000000 !important;
   font-family: var(--font-mono) !important;
   font-size: 11px !important;
   font-weight: 700 !important;
-  box-shadow: 2px 2px 0px 0px var(--color-ink) !important;
+  box-shadow: 2px 2px 0px 0px #000000 !important;
   transition: transform 120ms ease;
 }
 
 .rbc-event:hover {
   transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0px 0px var(--color-ink) !important;
+  box-shadow: 3px 3px 0px 0px #000000 !important;
 }
 
 .rbc-toolbar {
@@ -772,10 +613,10 @@ html {
 }
 
 .rbc-toolbar button {
-  border: 2px solid var(--color-ink) !important;
+  border: 2px solid #000000 !important;
   border-radius: 0px !important;
   background-color: #ffffff !important;
-  color: var(--color-ink) !important;
+  color: #000000 !important;
   font-family: var(--font-mono) !important;
   font-weight: 700 !important;
   text-transform: uppercase !important;
@@ -783,22 +624,22 @@ html {
   padding: 6px 12px !important;
   transition: all 120ms ease !important;
   cursor: pointer !important;
-  box-shadow: 3px 3px 0px 0px var(--color-ink) !important;
+  box-shadow: 3px 3px 0px 0px #000000 !important;
 }
 
 .rbc-toolbar button:hover {
   background-color: var(--cream) !important;
   transform: translate(-1px, -1px) !important;
-  box-shadow: 4px 4px 0px 0px var(--color-ink) !important;
+  box-shadow: 4px 4px 0px 0px #000000 !important;
 }
 
 .rbc-toolbar button:active {
   transform: translate(2px, 2px) !important;
-  box-shadow: 1px 1px 0px 0px var(--color-ink) !important;
+  box-shadow: 1px 1px 0px 0px #000000 !important;
 }
 
 .rbc-toolbar button.rbc-active {
-  background-color: var(--color-ink) !important;
+  background-color: #000000 !important;
 
   color: #ffffff !important;
   box-shadow: none !important;
@@ -890,7 +731,7 @@ html {
 /* Neubrutalist scrollbars, applied globally */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-ink) var(--cream);
+  scrollbar-color: #000000 var(--cream);
 }
 
 *::-webkit-scrollbar {
@@ -899,12 +740,12 @@ html {
 
 *::-webkit-scrollbar-track {
   background-color: var(--cream);
-  border-left: 2px solid var(--color-ink);
+  border-left: 2px solid #000000;
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: var(--color-ink);
-  border: 2px solid var(--color-ink);
+  background-color: #000000;
+  border: 2px solid #000000;
   border-radius: 0px;
 }
 
@@ -912,17 +753,110 @@ html {
   background-color: #1f1f1f;
 }
 
-@keyframes slide-up {
-  from {
-    transform: translateY(100%);
-    opacity: 0;
+/* --- Neubrutalist Custom Component Animation System --- */
+@theme {
+  --animate-wiggle: wiggle 3s ease-in-out infinite;
+  --animate-subtle-bounce: subtle-bounce 2s ease-in-out infinite;
+
+  @keyframes wiggle {
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-6px) rotate(2deg);
+    }
   }
-  to {
-    transform: translateY(0);
-    opacity: 1;
+
+  @keyframes subtle-bounce {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
   }
 }
 
-.animate-slide-up {
-  animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+/* Disable default fade transition for root view transitions */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Ensure the new snapshot layers on top during clip-path expansion */
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 9999;
+}
+
+/* ─── Tiptap Collaboration Cursors ──────────────────────────────────────────── */
+
+.collaboration-cursor__caret {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 2px solid var(--color, #000);
+  border-right: none;
+  word-break: normal;
+  pointer-events: none;
+}
+
+.collaboration-cursor__label {
+  position: absolute;
+  top: -1.4em;
+  left: -1px;
+  font-size: 11px;
+  font-family: monospace;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  padding: 2px 6px;
+  border-radius: 2px;
+  border: 2px solid #000;
+  background-color: var(--color, #000);
+  color: #fff;
+  user-select: none;
+  pointer-events: none;
+  transform: translateY(-2px);
+  box-shadow: 2px 2px 0 #000;
+}
+
+/* ─── Tiptap editor base styles ─────────────────────────────────────────────── */
+
+.ProseMirror {
+  outline: none;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #aaa;
+  pointer-events: none;
+  height: 0;
+  font-family: monospace;
+}
+
+/* Neobrutalist editor focus ring */
+.ProseMirror:focus {
+  outline: none;
+}
+
+/* High Contrast accessibility overrides */
+.high-contrast body {
+  background: #ffffff !important;
+}
+
+.high-contrast a {
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+}
+
+.high-contrast a:hover {
+  background-color: #000000 !important;
+  color: #ffffff !important;
 }

@@ -146,7 +146,7 @@ jobs:
 
                 console.log(`PR mergeable state is: ${mergeableState}`);
                 
-                if (mergeableState === "clean") {
+                if (mergeable === true) {
                   console.log("No merge conflicts and requirements met. Proceeding with auto-merge.");
                   await addLabel("Blue");
                   
@@ -163,17 +163,8 @@ jobs:
                   } catch (e) {
                     console.error(`❌ Failed to auto-merge PR #${prNumber}:`, e.message);
                   }
-                } else if (mergeableState === "behind") {
-                  await removeLabel("Blue");
-                  console.log("🔄 PR is behind base branch, attempting to update branch...");
-                  try {
-                    await github.rest.pulls.updateBranch({ owner, repo, pull_number: prNumber });
-                    console.log(`✅ PR #${prNumber} branch successfully updated. It will re-trigger checks.`);
-                  } catch (updateError) {
-                    console.error(`❌ Failed to update branch: ${updateError.message}`);
-                  }
                 } else {
-                  console.log(`PR is not ready to merge yet (state: ${mergeableState}). Waiting for checks/approvals.`);
+                  console.log(`PR is not ready to merge yet (mergeable is ${mergeable}). Waiting for checks/approvals.`);
                   await removeLabel("Blue");
                 }
               }

@@ -13,6 +13,7 @@ import { HeroBackground } from "@/components/home/HeroBackground";
 import { HeroMidground } from "@/components/home/HeroMidground";
 import { HeroForeground } from "@/components/home/HeroForeground";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
+import { useTranslation } from "react-i18next";
 
 function AnimatedCounter({ value }: { value: string }) {
   const [displayValue, setDisplayValue] = useState("0");
@@ -201,6 +202,7 @@ const FAQ_ITEMS: FAQItem[] = [
 ];
 
 export default function Landing() {
+  const { t } = useTranslation();
   const [activeCategory, setActiveCategory] = useState("All");
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
@@ -208,6 +210,9 @@ export default function Landing() {
   const { data: featuredEvents, isLoading: isLoadingEvents } = useQuery({
     queryKey: ["featured-events"],
     queryFn: async () => {
+      // The magazine grid (issue #1852) ranks cards by popularity_score so
+      // we ask the DB to do that ordering for us. is_featured is surfaced as
+      // a tie-breaker; see sortFeaturedEvents() in <FeaturedEvents />.
       const { data, error } = await supabase
         .from("events")
         .select(
@@ -217,11 +222,14 @@ export default function Landing() {
           description,
           event_date,
           banner_url,
+          popularity_score,
+          is_featured,
           clubs(name)
         `,
         )
         .neq("status", "archived")
         .gte("event_date", new Date().toISOString())
+        .order("popularity_score", { ascending: false, nullsFirst: false })
         .order("event_date", { ascending: true })
         .limit(5);
 
