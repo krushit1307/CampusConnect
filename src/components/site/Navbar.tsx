@@ -1,13 +1,17 @@
-import { usePresence } from "@/hooks/usePresence";
+import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { UserDropdown } from "../Navigation/UserDropdown";
+import { useTranslation } from "react-i18next";
+import { localizedPath } from "@/lib/i18n";
+
 import { ThemeToggle } from "../ThemeToggle";
 import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
 
 import { Menu, X } from "lucide-react";
+import { useAuthHydration } from "@/hooks/useAuthHydration";
+import { ProfileHeaderSkeleton } from "@/components/ProfileHeaderSkeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,13 +32,54 @@ const links = [
 ] as const;
 
 export function Navbar() {
+  const { user, isInitializing } = useAuthHydration();
   const location = useLocation();
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  const links = [
+    {
+      to: localizedPath(i18n.language, "/events"),
+      label: t("navbar.events"),
+    },
+    {
+      to: localizedPath(i18n.language, "/clubs"),
+      label: t("navbar.clubs"),
+    },
+    {
+      to: localizedPath(i18n.language, "/feed"),
+      label: t("navbar.feed"),
+    },
+    {
+      to: localizedPath(i18n.language, "/directory"),
+      label: t("navbar.directory"),
+    },
+    {
+      to: localizedPath(i18n.language, "/challenge"),
+      label: t("navbar.challenge"),
+    },
+    {
+      to: localizedPath(i18n.language, "/certificates"),
+      label: t("navbar.certificates"),
+    },
+    {
+      to: localizedPath(i18n.language, "/dashboard"),
+      label: t("navbar.dashboard"),
+    },
+    {
+      to: localizedPath(i18n.language, "/messages"),
+      label: t("navbar.messages"),
+    },
+  ];
+
+  const landingLinks = [
+    { href: "#features", label: t("navbar.features") },
+    { href: "#faq", label: t("navbar.faq") },
+    { href: "#contact", label: t("navbar.contact") },
+  ];
   const currentPath = location.pathname;
   const supabase = createClient();
 
-  const [user, setUser] = useState<User | null>(null);
-  const onlineUsers = usePresence(user?.id);
+  const { onlineUsers } = usePresence(user?.id);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const hamburgerRef = useRef<HTMLButtonElement>(null);
@@ -92,20 +137,6 @@ export function Navbar() {
   }, [mobileMenuOpen]);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
 
@@ -125,7 +156,7 @@ export function Navbar() {
       <div className="mx-auto flex min-w-0 max-w-7xl items-center justify-between gap-2 px-2 py-3 sm:px-4 md:px-6">
         {/* Logo */}
         <Link
-          to="/"
+          to={localizedPath(i18n.language, "/")}
           className="min-w-0 flex-1 truncate font-display text-sm font-bold sm:flex-none sm:text-xl md:text-2xl navbar-logo"
         >
           <span style={{ letterSpacing: "0.04em" }}>CAMPUS</span>
@@ -134,6 +165,20 @@ export function Navbar() {
 
         {/* Desktop Navbar */}
         <nav aria-label="Main navigation" className="hidden items-center gap-6 md:flex">
+          {/* Landing page section links */}
+          {currentPath === "/" &&
+            landingLinks.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className="font-mono text-sm font-bold uppercase hover:underline"
+                style={{ letterSpacing: "0.05em" }}
+              >
+                {link.label}
+              </a>
+            ))}
+
+          {/* Route links */}
           {links.map((link) => {
             const isActive = currentPath === link.to || currentPath.startsWith(link.to + "/");
 
@@ -163,7 +208,9 @@ export function Navbar() {
             <ThemeToggle />
 
             {user && <NavbarNotificationDropdown />}
-            {user ? (
+            {isInitializing ? (
+              <ProfileHeaderSkeleton />
+            ) : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -207,12 +254,12 @@ export function Navbar() {
               </DropdownMenu>
             ) : (
               <Link
-                to="/auth"
+                to={localizedPath(i18n.language, "/auth")}
                 id="nav-signin-button"
                 className="neu-border neu-press bg-black px-3 py-1.5 font-mono text-xs font-bold uppercase text-cream hover:bg-cream hover:text-black dark:bg-cream dark:text-black dark:hover:bg-black dark:hover:text-cream"
                 style={{ letterSpacing: "0.08em" }}
               >
-                Sign in
+                {t("navbar.signin")}
               </Link>
             )}
           </div>
@@ -241,6 +288,18 @@ export function Navbar() {
           className="border-t-2 border-black bg-cream p-4 dark:border-cream dark:bg-black md:hidden"
         >
           <div className="flex flex-col gap-2">
+            {currentPath === "/" &&
+              landingLinks.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className="neu-border w-full px-4 py-2.5 text-left font-mono text-sm font-bold uppercase bg-white text-black hover:bg-lime"
+                  style={{ letterSpacing: "0.05em" }}
+                >
+                  {link.label}
+                </a>
+              ))}
+
             {links.map((link) => {
               const isActive = currentPath === link.to || currentPath.startsWith(link.to + "/");
 

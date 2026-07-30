@@ -1,0 +1,80 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/sants/OneDrive/Desktop/CampusConnect[39m
+
+ [31m❯[39m src/components/ui/input.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31m❯[39m src/components/ui/button.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [32m✓[39m src/lib/queryBuilder.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 35[2mms[22m[39m
+(node:33960) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [31m❯[39m src/components/theme-provider.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+(node:40812) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [31m❯[39m src/components/ThemeToggle.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+(node:18164) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m src/lib/schemas.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 62[2mms[22m[39m
+ [31m❯[39m src/components/ui/badge.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31m❯[39m src/store/globalState.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [32m✓[39m src/lib/crypto.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 79[2mms[22m[39m
+ [32m✓[39m src/lib/signals.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 38[2mms[22m[39m
+ [32m✓[39m src/lib/clubUtils.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 43[2mms[22m[39m
+ [32m✓[39m src/components/EventRSVPButton.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 59[2mms[22m[39m
+ [32m✓[39m src/lib/utils.test.ts [2m([22m[2m59 tests[22m[2m)[22m[32m 186[2mms[22m[39m
+ [32m✓[39m src/components/EventDateBadge.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 86[2mms[22m[39m
+ [32m✓[39m src/lib/eventUtils.test.ts [2m([22m[2m39 tests[22m[2m)[22m[32m 111[2mms[22m[39m
+ [32m✓[39m src/lib/webauthn.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 33[2mms[22m[39m
+ [32m✓[39m src/lib/email/service.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m src/lib/bookmarks.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/lib/imageOptimization.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/lib/parser.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/lib/ocr.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/lib/clubModeration.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/components/Navigation/UserDropdown.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 36[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Suites 6 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/components/theme-provider.test.tsx[2m [ src/components/theme-provider.test.tsx ][22m
+[41m[1m FAIL [22m[49m src/components/ThemeToggle.test.tsx[2m [ src/components/ThemeToggle.test.tsx ][22m
+[31m[1mTypeError[22m: window.localStorage.getItem is not a function[39m
+[36m [2m❯[22m getInitialStoredTheme src/store/globalState.ts:[2m22:40[22m[39m
+    [90m 20|[39m [35mconst[39m getInitialStoredTheme [33m=[39m ()[33m:[39m [32m"light"[39m [33m|[39m [32m"dark"[39m [33m|[39m [32m"system"[39m [33m=>[39m {
+    [90m 21|[39m   [35mif[39m ([35mtypeof[39m window [33m!==[39m [32m"undefined"[39m) {
+    [90m 22|[39m     [35mconst[39m stored [33m=[39m window[33m.[39mlocalStorage[33m.[39m[34mgetItem[39m([32m"campusconnect-theme"[39m)[33m;[39m
+    [90m   |[39m                                        [31m^[39m
+    [90m 23|[39m     if (stored === "light" || stored === "dark" || stored === "system"…
+    [90m 24|[39m       [35mreturn[39m stored[33m;[39m
+[90m [2m❯[22m src/store/globalState.ts:[2m33:3[22m[39m
+[90m [2m❯[22m src/components/theme-provider.tsx:[2m3:1[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/store/globalState.test.ts[2m [ src/store/globalState.test.ts ][22m
+[31m[1mTypeError[22m: window.localStorage.getItem is not a function[39m
+[36m [2m❯[22m getInitialStoredTheme src/store/globalState.ts:[2m22:40[22m[39m
+    [90m 20|[39m [35mconst[39m getInitialStoredTheme [33m=[39m ()[33m:[39m [32m"light"[39m [33m|[39m [32m"dark"[39m [33m|[39m [32m"system"[39m [33m=>[39m {
+    [90m 21|[39m   [35mif[39m ([35mtypeof[39m window [33m!==[39m [32m"undefined"[39m) {
+    [90m 22|[39m     [35mconst[39m stored [33m=[39m window[33m.[39mlocalStorage[33m.[39m[34mgetItem[39m([32m"campusconnect-theme"[39m)[33m;[39m
+    [90m   |[39m                                        [31m^[39m
+    [90m 23|[39m     if (stored === "light" || stored === "dark" || stored === "system"…
+    [90m 24|[39m       [35mreturn[39m stored[33m;[39m
+[90m [2m❯[22m src/store/globalState.ts:[2m33:3[22m[39m
+[90m [2m❯[22m src/store/globalState.test.ts:[2m2:1[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/components/ui/badge.test.tsx[2m [ src/components/ui/badge.test.tsx ][22m
+[41m[1m FAIL [22m[49m src/components/ui/button.test.tsx[2m [ src/components/ui/button.test.tsx ][22m
+[41m[1m FAIL [22m[49m src/components/ui/input.test.tsx[2m [ src/components/ui/input.test.tsx ][22m
+[31m[1mError[22m: Cannot find module '@testing-library/dom'
+Require stack:
+- C:\Users\sants\OneDrive\Desktop\CampusConnect\node_modules\@testing-library\react\dist\pure.js[39m
+[90m [2m❯[22m Object.<anonymous> node_modules/@testing-library/react/dist/pure.js:[2m46:12[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m6 failed[39m[22m[2m | [22m[1m[32m17 passed[39m[22m[90m (23)[39m
+[2m      Tests [22m [1m[32m184 passed[39m[22m[90m (184)[39m
+[2m   Start at [22m 19:27:44
+[2m   Duration [22m 16.96s[2m (transform 3.78s, setup 17.60s, import 24.34s, tests 836ms, environment 107.15s)[22m
+

@@ -67,7 +67,7 @@ async fn sse_handler(
     let event_stream = stream.filter_map(move |msg| match msg {
         Ok(broadcast_msg) => {
             let sse_event = Event::default()
-                .event("message")
+                .event("announcement")
                 .data(broadcast_msg.payload.as_ref());
             Some(Ok(sse_event))
         }

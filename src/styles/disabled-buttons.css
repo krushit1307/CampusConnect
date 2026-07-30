@@ -40,3 +40,21 @@ button[aria-disabled="true"]:focus-visible {
   outline: 2px solid #6366f1;
   outline-offset: 2px;
 }
+
+/* High contrast mode disabled buttons */
+.high-contrast button:disabled,
+.high-contrast .btn:disabled,
+.high-contrast button[aria-disabled="true"],
+.high-contrast button[data-disabled="true"],
+.high-contrast [data-disabled] {
+  color: #000000 !important;
+  background-color: #ffffff !important;
+  border: 2px dashed #000000 !important;
+  opacity: 1 !important;
+}
+
+.high-contrast button:focus-visible:disabled,
+.high-contrast button[aria-disabled="true"]:focus-visible {
+  outline: 4px solid #ffd700 !important;
+  outline-offset: 2px !important;
+}

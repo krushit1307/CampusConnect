@@ -6,14 +6,16 @@ import {
 } from "@opentelemetry/sdk-trace-base";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { CompositePropagator, W3CTraceContextPropagator } from "@opentelemetry/core";
-import { resourceFromAttributes } from "@opentelemetry/resources";
-import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
+import { resourceFromAttributes, defaultResource } from "@opentelemetry/resources";
+import { SEMRESATTRS_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
 
 export function initializeTracing() {
   // Create a resource with service name
-  const resource = resourceFromAttributes({
-    [ATTR_SERVICE_NAME]: "campusconnect-frontend",
-  });
+  const resource = defaultResource().merge(
+    resourceFromAttributes({
+      [SEMRESATTRS_SERVICE_NAME]: "campusconnect-frontend",
+    }),
+  );
 
   const exporter = new OTLPTraceExporter({
     url: import.meta.env.VITE_OTEL_COLLECTOR_URL || "http://localhost:4318/v1/traces",

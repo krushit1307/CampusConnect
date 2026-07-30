@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
+import { useRealtimeComments } from "@/hooks/useRealtimeComments";
 import { useSupabaseSubscription } from "@/hooks/useSupabaseSubscription";
 import { supabase } from "@/lib/supabase/client";
 
@@ -17,9 +18,14 @@ interface CommentSectionProps {
     id: string;
     name: string;
   };
+  onNewComment?: (comment: Comment) => void;
 }
 
-export const CommentSection: React.FC<CommentSectionProps> = ({ postId, currentUser }) => {
+export const CommentSection: React.FC<CommentSectionProps> = ({
+  postId,
+  currentUser,
+  onNewComment,
+}) => {
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState<Comment[]>([]);
   const username = currentUser?.name || "A user";
@@ -41,14 +47,13 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ postId, currentU
       });
   }, [postId]);
 
-  useSupabaseSubscription<Comment>({
-    table: "comments",
-    event: "INSERT",
-    filter: `post_id=eq.${postId}`,
-    channelName: `comments:post_id=eq.${postId}`,
-    onData: (payload) => {
-      if (payload.new && "id" in payload.new) {
-        setComments((prev) => [...prev, payload.new as Comment]);
+  useRealtimeComments({
+    postId,
+    enabled: !!postId,
+    onNewComment: (newComment) => {
+      setComments((prev) => [...prev, newComment]);
+      if (onNewComment) {
+        onNewComment(newComment);
       }
     },
   });

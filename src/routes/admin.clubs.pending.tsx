@@ -150,12 +150,23 @@ export default function PendingClubsAdmin() {
     <SiteShell>
       <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
         <div className="mx-auto max-w-7xl">
-          <p className="eyebrow font-bold text-black">System administration</p>
-          <h1 className="mt-2 text-4xl font-black text-black">Pending club registrations</h1>
-          <p className="mt-3 max-w-2xl font-mono text-sm leading-relaxed text-gray-800">
-            Review proposed student organizations. Approving a club makes it public and grants its
-            creator organizer permissions.
-          </p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="eyebrow font-bold text-black">System administration</p>
+              <h1 className="mt-2 text-4xl font-bold md:text-6xl text-gray-600">
+                Pending club registrations
+              </h1>
+              <p className="mt-4 max-w-2xl font-mono text-sm leading-6 text-gray-800">
+                Review newly submitted campus clubs before they appear in the public directory.
+              </p>
+            </div>
+            <Link
+              to="/admin/analytics"
+              className="neu-border text-center bg-white px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-cream"
+            >
+              System Analytics
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -196,19 +207,19 @@ export default function PendingClubsAdmin() {
                     <div className="flex gap-3">
                       <button
                         type="button"
-                        onClick={() => moderateClub(club.id, "approved")}
+                        onClick={() => moderateClub(club.id, "rejected")}
                         disabled={moderatingId === club.id}
-                        className="neu-border neu-press inline-flex items-center gap-2 bg-black px-4 py-2.5 font-mono text-xs font-bold uppercase text-cream transition-colors hover:bg-lime hover:text-black disabled:opacity-50 cursor-pointer"
+                        className="neu-border neu-press inline-flex items-center gap-2 bg-white px-4 py-2 font-mono text-xs font-bold uppercase text-black transition-colors hover:bg-peach disabled:opacity-50 cursor-pointer"
                       >
-                        <Check className="h-4 w-4" /> Approve
+                        <X className="h-4 w-4" /> Reject
                       </button>
                       <button
                         type="button"
-                        onClick={() => moderateClub(club.id, "rejected")}
+                        onClick={() => moderateClub(club.id, "approved")}
                         disabled={moderatingId === club.id}
-                        className="neu-border neu-press inline-flex items-center gap-2 bg-white px-4 py-2.5 font-mono text-xs font-bold uppercase text-black transition-colors hover:bg-peach disabled:opacity-50 cursor-pointer"
+                        className="neu-border neu-press inline-flex items-center gap-2 bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream transition-colors hover:bg-lime hover:text-black disabled:opacity-50 cursor-pointer"
                       >
-                        <X className="h-4 w-4" /> Reject
+                        <Check className="h-4 w-4" /> Approve
                       </button>
                     </div>
                   </div>

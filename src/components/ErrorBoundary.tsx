@@ -1,6 +1,8 @@
-import React from "react";
-import { isRouteErrorResponse, useRouteError } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { isRouteErrorResponse, useRouteError } from "react-router-dom";
+import { trace, SpanStatusCode } from "@opentelemetry/api";
+
+import React from "react";
 import { NotFoundPage } from "./NotFoundPage";
 
 const MAX_SOFT_RETRIES = 2;
@@ -65,14 +67,14 @@ function ErrorFallback({
           <button
             type="button"
             onClick={onTryAgain}
-            className="neu-border bg-lime text-black hover:bg-lime/90 font-mono font-bold uppercase tracking-wider px-6 py-3 shadow-[4px_4px_0_0_var(--color-ink)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_var(--color-ink)] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[0px_0px_0_0_var(--color-ink)]"
+            className="neu-border bg-lime text-black hover:bg-lime/90 font-mono font-bold uppercase tracking-wider px-4 py-2 shadow-[4px_4px_0_0_#000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_#000] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[0px_0px_0_0_#000]"
           >
             {tryAgainLabel}
           </button>
           <button
             type="button"
             onClick={onGoHome}
-            className="neu-border bg-white text-black hover:bg-gray-50 font-mono font-bold uppercase tracking-wider px-6 py-3 shadow-[4px_4px_0_0_var(--color-ink)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_var(--color-ink)] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[0px_0px_0_0_var(--color-ink)]"
+            className="neu-border bg-white text-black hover:bg-gray-50 font-mono font-bold uppercase tracking-wider px-4 py-2 shadow-[4px_4px_0_0_var(--color-ink)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_var(--color-ink)] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[0px_0px_0_0_var(--color-ink)]"
           >
             Go Home
           </button>
@@ -100,6 +102,7 @@ function ErrorFallback({
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
+  fallback?: React.ReactNode | ((error: Error, reset: () => void) => React.ReactNode);
 }
 
 interface ErrorBoundaryState {
@@ -128,6 +131,20 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("ErrorBoundary caught an error:", error, errorInfo.componentStack);
+
+    try {
+      const tracer = trace.getTracer("campusconnect-frontend");
+      const span = tracer.startSpan("react.error_boundary", {
+        attributes: {
+          "component.stack": errorInfo.componentStack ?? "",
+        },
+      });
+      span.recordException(error);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+      span.end();
+    } catch {
+      // Don't let telemetry errors crash the app
+    }
 
     this.setState({ errorInfo });
   }
@@ -160,6 +177,17 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     }
 
     const { error, errorInfo, retryCount, detailsOpen } = this.state;
+    const { fallback } = this.props;
+
+    if (fallback) {
+      if (typeof fallback === "function") {
+        return (fallback as (err: Error, reset: () => void) => React.ReactNode)(
+          error ?? new Error("Unknown error"),
+          this.handleTryAgain,
+        );
+      }
+      return fallback;
+    }
 
     return (
       <ErrorFallback
@@ -175,12 +203,29 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 }
 
+function reportRouteError(error: unknown) {
+  try {
+    const tracer = trace.getTracer("campusconnect-frontend");
+    const span = tracer.startSpan("react.route_error");
+    if (error instanceof Error) {
+      span.recordException(error);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+    } else {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(error) });
+    }
+    span.end();
+  } catch {
+    // Don't let telemetry errors crash the app
+  }
+}
+
 export function RouteErrorBoundary() {
   const [detailsOpen, setDetailsOpen] = React.useState(false);
   const routeError = useRouteError();
 
   React.useEffect(() => {
     console.error("RouteErrorBoundary caught an error:", routeError);
+    reportRouteError(routeError);
   }, [routeError]);
 
   let message = "Unknown error";
