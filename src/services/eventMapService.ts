@@ -33,7 +33,7 @@ export const eventMapService = {
           lat,
           lng,
           rsvpCount: event.rsvp_count || 0,
-          status: "active",
+          status: (event.status || "active") as "draft" | "active" | "cancelled" | "expired",
         };
       })
       .filter((e) => e.lat !== 0 && e.lng !== 0); // Keep only items with coords
