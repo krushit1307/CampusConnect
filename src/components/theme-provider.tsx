@@ -9,7 +9,7 @@ import {
   type MouseEvent,
 } from "react";
 
-export type Theme = "light" | "dark" | "system";
+export type Theme = "light" | "dark" | "system" | "high-contrast";
 
 type ThemeContextValue = {
   theme: Theme;
@@ -25,11 +25,15 @@ function getStoredTheme(): Theme | null {
   if (typeof window === "undefined") return null;
 
   const stored = window.localStorage.getItem(STORAGE_KEY);
-  return stored === "light" || stored === "dark" || stored === "system" ? stored : null;
+  return stored === "light" || stored === "dark" || stored === "system" || stored === "high-contrast" ? stored : null;
 }
 
 function getPreferredTheme(): Theme {
   if (typeof window === "undefined") return "light";
+
+  if (window.matchMedia("(prefers-contrast: more)").matches) {
+    return "high-contrast";
+  }
 
   if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
     return "dark";
@@ -41,12 +45,17 @@ function getPreferredTheme(): Theme {
 function applyTheme(theme: Theme) {
   if (typeof document === "undefined") return;
 
+  const isHighContrast =
+    theme === "high-contrast" ||
+    (theme === "system" && window.matchMedia("(prefers-contrast: more)").matches);
+
   const isDark =
     theme === "dark" ||
-    (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    (theme === "system" && !isHighContrast && window.matchMedia("(prefers-color-scheme: dark)").matches);
 
-  document.documentElement.classList.toggle("dark", isDark);
-  document.documentElement.style.colorScheme = isDark ? "dark" : "light";
+  document.documentElement.classList.toggle("high-contrast", isHighContrast);
+  document.documentElement.classList.toggle("dark", isDark && !isHighContrast);
+  document.documentElement.style.colorScheme = isHighContrast ? "dark" : isDark ? "dark" : "light";
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -63,16 +72,24 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     window.localStorage.setItem(STORAGE_KEY, theme);
 
     if (theme === "system") {
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      const colorSchemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      const contrastQuery = window.matchMedia("(prefers-contrast: more)");
       const handleChange = () => applyTheme("system");
 
-      mediaQuery.addEventListener("change", handleChange);
-      return () => mediaQuery.removeEventListener("change", handleChange);
+      colorSchemeQuery.addEventListener("change", handleChange);
+      contrastQuery.addEventListener("change", handleChange);
+      return () => {
+        colorSchemeQuery.removeEventListener("change", handleChange);
+        contrastQuery.removeEventListener("change", handleChange);
+      };
     }
   }, [theme]);
 
   const toggleTheme = (event?: MouseEvent<HTMLElement> | React.MouseEvent<HTMLElement>) => {
-    const nextTheme = theme === "dark" ? "light" : "dark";
+    const nextTheme =
+      theme === "light" ? "dark" :
+      theme === "dark" ? "high-contrast" :
+      theme === "high-contrast" ? "system" : "light";
 
     const isSupported = typeof document !== "undefined" && "startViewTransition" in document;
     const prefersReducedMotion =

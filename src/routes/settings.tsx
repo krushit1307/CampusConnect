@@ -2,6 +2,7 @@ import { useNavigate, useBlocker } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, useId, type ChangeEvent, type KeyboardEvent } from "react";
+import { useTheme } from "@/components/theme-provider";
 import { Camera, Loader2, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { announce } from "@/store/ariaAnnouncer";
@@ -577,6 +578,16 @@ function SettingsPageContent({ user }: WithAuthProps) {
                   >
                     💻 System
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setTheme("high-contrast")}
+                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${theme === "high-contrast"
+                      ? "bg-black text-cream dark:bg-cream dark:text-black"
+                      : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
+                      }`}
+                  >
+                    ⬛ High Contrast
+                  </button>
                 </div>
               </div>
 
@@ -949,35 +960,6 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
     </div>
   );
 }
-function ThemeToggle({
-  theme,
-  setTheme,
-}: {
-  theme: "light" | "dark" | "system";
-  setTheme: (theme: "light" | "dark" | "system") => void;
-}) {
-  const id = useId();
-  return (
-    <div className="block">
-      <label htmlFor={id} className="eyebrow mb-1 block font-bold">
-        {label}
-        {required && (
-          <span className="text-destructive ml-1" aria-hidden="true">
-            *
-          </span>
-        )}
-      </label>
-      <input
-        id={id}
-        defaultValue={defaultValue}
-        required={required}
-        aria-required={required}
-        className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
-      />
-    </div>
-  );
-}
-
 function Toggle({ label, defaultChecked }: { label: string; defaultChecked?: boolean }) {
   const id = useId();
   return (
