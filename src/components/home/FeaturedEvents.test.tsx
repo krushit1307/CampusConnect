@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
+import { FeaturedEvents } from "./FeaturedEvents";
 import {
-  FeaturedEvents,
   pickFeaturedSlot,
   sortFeaturedEvents,
   FEATURED_SLOT_CLASSES,
   type FeaturedEvent,
-} from "./FeaturedEvents";
+} from "./featuredGrid";
 
 // Mock framer-motion to a passthrough so we don't need a real animation
 // environment in jsdom — keeps the test focused on layout/classes.
@@ -15,10 +15,18 @@ import {
 // unknown DOM attributes during the render assertions.
 vi.mock("framer-motion", () => ({
   motion: {
-    img: ({ children, layoutId, ...props }: React.ImgHTMLAttributes<HTMLImageElement> & { layoutId?: string }) => (
+    img: ({
+      children,
+      layoutId,
+      ...props
+    }: React.ImgHTMLAttributes<HTMLImageElement> & { layoutId?: string }) => (
       <img {...props}>{children}</img>
     ),
-    div: ({ children, layoutId, ...props }: React.HTMLAttributes<HTMLDivElement> & { layoutId?: string }) => (
+    div: ({
+      children,
+      layoutId,
+      ...props
+    }: React.HTMLAttributes<HTMLDivElement> & { layoutId?: string }) => (
       <div {...props}>{children}</div>
     ),
   },
@@ -90,10 +98,7 @@ describe("FeaturedEvents — magazine grid (#1852)", () => {
 
   describe("sortFeaturedEvents", () => {
     it("promotes explicitly featured events to the top regardless of score", () => {
-      const events = [
-        makeEvent({ id: "low" }),
-        makeEvent({ id: "featured", is_featured: true }),
-      ];
+      const events = [makeEvent({ id: "low" }), makeEvent({ id: "featured", is_featured: true })];
       const sorted = sortFeaturedEvents(events);
       expect(sorted[0].id).toBe("featured");
       expect(sorted[1].id).toBe("low");
