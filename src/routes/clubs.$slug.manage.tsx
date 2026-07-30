@@ -1,16 +1,26 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
-import { Settings, Users, Calendar, ShieldCheck, XCircle, CheckCircle, Download } from "lucide-react";
+import {
+  Settings,
+  Users,
+  Calendar,
+  ShieldCheck,
+  XCircle,
+  CheckCircle,
+  Download,
+  BarChart2,
+} from "lucide-react";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { RosterExport } from "@/components/RosterExport";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { ClubMembersTable } from "@/components/Clubs/ClubMembersTable";
+import { ClubAnalyticsDashboard } from "@/components/Clubs/ClubAnalyticsDashboard";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -26,9 +36,19 @@ const BUCKET_NAME = "club-banners";
 export default function ClubManageRoute() {
   const { slug = "" } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<"settings" | "members" | "events">("settings");
+  const initialTab = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState<"settings" | "members" | "events" | "analytics">(
+    initialTab === "analytics"
+      ? "analytics"
+      : initialTab === "members"
+        ? "members"
+        : initialTab === "events"
+          ? "events"
+          : "settings",
+  );
 
   // Form State
   const [name, setName] = useState("");
@@ -327,6 +347,16 @@ export default function ClubManageRoute() {
               >
                 <Calendar size={18} /> Events
               </button>
+              <button
+                onClick={() => setActiveTab("analytics")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "analytics"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <BarChart2 size={18} /> Analytics
+              </button>
             </nav>
           </aside>
 
@@ -562,6 +592,7 @@ export default function ClubManageRoute() {
                 </div>
               </div>
             )}
+            {activeTab === "analytics" && <ClubAnalyticsDashboard clubId={club.id} />}
           </main>
         </div>
       </div>

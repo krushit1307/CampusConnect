@@ -25,7 +25,6 @@ import { Navigate } from "react-router-dom";
 import { QueryClientProvider, queryClient } from "@/hooks/useReactQueryReplacement";
 import MaintenancePage from "./components/MaintenancePage";
 
-
 const HEALTH_CHECK_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_HEALTH_URL) ||
   (typeof process !== "undefined" && process.env?.REACT_APP_API_HEALTH_URL) ||
@@ -60,8 +59,6 @@ async function checkDatabaseHealth(): Promise<HealthStatus> {
     }
 
     return { ok: true };
-  } catch (err: any) {
-    return { ok: false, error: err.message };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return { ok: false, error: message };
@@ -154,48 +151,46 @@ const router = createBrowserRouter(
 
         {/* Events — loaded from remote micro-frontend when available */}
         <Route
-  path="/events"
-  element={
-    <Suspense fallback={<PageFallback />}>
-      <LazyEventsIndex />
-    </Suspense>
-  }
-/>
+          path="/events"
+          element={
+            <Suspense fallback={<PageFallback />}>
+              <LazyEventsIndex />
+            </Suspense>
+          }
+        />
 
-<Route
-  path="/events/:eventId"
-  element={
-    <Suspense fallback={<PageFallback />}>
-      <LazyEventDetails />
-    </Suspense>
-  }
-/>
+        <Route
+          path="/events/:eventId"
+          element={
+            <Suspense fallback={<PageFallback />}>
+              <LazyEventDetails />
+            </Suspense>
+          }
+        />
 
-<Route
-  path="/events/:eventId/dashboard"
-  element={<EventDashboard />}
-/>
+        <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
         {/* Events Map View with clustering */}
         <Route path="events/map" element={<EventsMapPage />} />
         <Route path="challenge" element={<ChallengeArena />} />
         <Route path="leaderboard" element={<Leaderboard />} />
 
-      <Route path="/feed" element={<Feed />} />
-      <Route path="/directory" element={<Directory />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/settings" element={<Settings />} />
-      <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
-      <Route path="/admin/analytics" element={<AnalyticsAdmin />} />
-      <Route path="/verify-email" element={<VerifyEmail />} />
-      <Route path="/messages" element={<MessagesRoute />} />
-      <Route path="/admin/reports" element={<AdminReportsPage />} />
-      <Route path="/admin/users" element={<AdminUsersPage />} />
-      <Route path="/admin/restore" element={<AdminRestorePage />} />
-      {/* Catch-all route for 404 errors */}
-      <Route path="*" element={<NotFound />} />
+        <Route path="/feed" element={<Feed />} />
+        <Route path="/directory" element={<Directory />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
+        <Route path="/admin/analytics" element={<AnalyticsAdmin />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/messages" element={<MessagesRoute />} />
+        <Route path="/admin/reports" element={<AdminReportsPage />} />
+        <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/restore" element={<AdminRestorePage />} />
+        {/* Catch-all route for 404 errors */}
+        <Route path="*" element={<NotFound />} />
+      </Route>
+      ,
     </Route>,
-    </Route>
   ),
 );
 
