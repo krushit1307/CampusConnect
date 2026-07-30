@@ -35,9 +35,6 @@ describe("VideoEmbed Component", () => {
 
     const iframe = screen.getByTitle("Embedded video");
     expect(iframe).toBeInTheDocument();
-    expect(iframe).toHaveAttribute(
-      "src",
-      "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ",
-    );
+    expect(iframe).toHaveAttribute("src", "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ");
   });
 });

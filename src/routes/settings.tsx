@@ -2,6 +2,7 @@ import { useNavigate, useBlocker } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, useId, type ChangeEvent, type KeyboardEvent } from "react";
+import { useTheme } from "@/components/theme-provider";
 import { Camera, Loader2, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { announce } from "@/store/ariaAnnouncer";
@@ -29,6 +30,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { PasskeyManager } from "@/components/PasskeyManager";
+import { useTheme } from "@/components/theme-provider";
+import { AudioEngine, SOUND_ENABLED_KEY } from "@/lib/audio/audioEngine";
 
 const FONT_SIZE_KEY = "campusconnect-font-size";
 
@@ -70,6 +73,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [borderThickness, setBorderThickness] = useState(2);
   const [borderRadius, setBorderRadius] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(false);
   const { fontSize, increment, decrement, reset } = useFontSize();
 
   // --- Skills tags state ---
@@ -101,6 +105,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
     // Load appearance settings from localStorage
     const savedThickness = localStorage.getItem("border-thickness");
     const savedRadius = localStorage.getItem("border-radius");
+    setSoundEnabled(localStorage.getItem(SOUND_ENABLED_KEY) === "true");
 
     if (savedThickness) {
       const thickness = parseInt(savedThickness, 10);
@@ -258,6 +263,12 @@ function SettingsPageContent({ user }: WithAuthProps) {
     setBorderThickness(value);
     document.documentElement.style.setProperty("--border-thickness", `${value}px`);
     localStorage.setItem("border-thickness", String(value));
+  };
+
+  const handleSoundEnabledChange = (enabled: boolean) => {
+    setSoundEnabled(enabled);
+    AudioEngine.setEnabled(enabled);
+    if (enabled) AudioEngine.playToggle();
   };
 
   const handleBorderRadiusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -550,34 +561,65 @@ function SettingsPageContent({ user }: WithAuthProps) {
                   <button
                     type="button"
                     onClick={() => setTheme("light")}
-                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${theme === "light"
-                      ? "bg-black text-cream dark:bg-cream dark:text-black"
-                      : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
-                      }`}
+                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${
+                      theme === "light"
+                        ? "bg-black text-cream dark:bg-cream dark:text-black"
+                        : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
+                    }`}
                   >
                     ☀️ Light
                   </button>
                   <button
                     type="button"
                     onClick={() => setTheme("dark")}
-                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${theme === "dark"
-                      ? "bg-black text-cream dark:bg-cream dark:text-black"
-                      : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
-                      }`}
+                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${
+                      theme === "dark"
+                        ? "bg-black text-cream dark:bg-cream dark:text-black"
+                        : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
+                    }`}
                   >
                     🌙 Dark
                   </button>
                   <button
                     type="button"
                     onClick={() => setTheme("system")}
-                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${theme === "system"
+                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${
+                      theme === "system"
+                        ? "bg-black text-cream dark:bg-cream dark:text-black"
+                        : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
+                    }`}
+                  >
+                    💻 System
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTheme("high-contrast")}
+                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${theme === "high-contrast"
                       ? "bg-black text-cream dark:bg-cream dark:text-black"
                       : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
                       }`}
                   >
-                    💻 System
+                    ⬛ High Contrast
                   </button>
                 </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 border-t-2 border-black pt-4">
+                <div>
+                  <label htmlFor="ui-sounds" className="eyebrow font-bold text-black dark:text-cream">
+                    UI Sounds
+                  </label>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    Play subtle synthesized clicks, toggles, and like pops.
+                  </p>
+                </div>
+                <input
+                  id="ui-sounds"
+                  type="checkbox"
+                  checked={soundEnabled}
+                  onChange={(event) => handleSoundEnabledChange(event.target.checked)}
+                  className="h-5 w-5 accent-black"
+                />
               </div>
 
               {/* Border Thickness */}
@@ -740,10 +782,11 @@ function AvatarThemePicker({
               aria-checked={isSelected}
               aria-label={`${theme.label} gradient`}
               title={theme.label}
-              className={`h-10 w-10 rounded-full border-2 border-black transition-transform ${theme.gradient} ${isSelected
-                ? "scale-110 ring-4 ring-black ring-offset-2 ring-offset-white"
-                : "hover:scale-105"
-                }`}
+              className={`h-10 w-10 rounded-full border-2 border-black transition-transform ${theme.gradient} ${
+                isSelected
+                  ? "scale-110 ring-4 ring-black ring-offset-2 ring-offset-white"
+                  : "hover:scale-105"
+              }`}
             />
           );
         })}
@@ -873,12 +916,13 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
             }
           }}
           aria-label="Upload profile picture. Click to browse, or drag and drop an image."
-          className={`neu-border flex cursor-pointer flex-col items-center justify-center gap-1.5 border-2 border-dashed p-5 text-center transition-colors duration-150 ${uploading
-            ? "cursor-not-allowed border-black bg-gray-100 opacity-70"
-            : isDragging
-              ? "border-black bg-lime/40 scale-[1.01]"
-              : "border-black bg-white hover:bg-cream"
-            }`}
+          className={`neu-border flex cursor-pointer flex-col items-center justify-center gap-1.5 border-2 border-dashed p-5 text-center transition-colors duration-150 ${
+            uploading
+              ? "cursor-not-allowed border-black bg-gray-100 opacity-70"
+              : isDragging
+                ? "border-black bg-lime/40 scale-[1.01]"
+                : "border-black bg-white hover:bg-cream"
+          }`}
         >
           {uploading ? (
             <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
@@ -949,35 +993,6 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
     </div>
   );
 }
-function ThemeToggle({
-  theme,
-  setTheme,
-}: {
-  theme: "light" | "dark" | "system";
-  setTheme: (theme: "light" | "dark" | "system") => void;
-}) {
-  const id = useId();
-  return (
-    <div className="block">
-      <label htmlFor={id} className="eyebrow mb-1 block font-bold">
-        {label}
-        {required && (
-          <span className="text-destructive ml-1" aria-hidden="true">
-            *
-          </span>
-        )}
-      </label>
-      <input
-        id={id}
-        defaultValue={defaultValue}
-        required={required}
-        aria-required={required}
-        className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
-      />
-    </div>
-  );
-}
-
 function Toggle({ label, defaultChecked }: { label: string; defaultChecked?: boolean }) {
   const id = useId();
   return (

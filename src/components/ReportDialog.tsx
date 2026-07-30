@@ -1,6 +1,6 @@
-import React, { useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { createClient } from "@/lib/supabase/client";
+import React, { useState } from "react";
 import { toast } from "sonner";
 
 interface ReportDialogProps {
@@ -57,9 +57,16 @@ export const ReportDialog: React.FC<ReportDialogProps> = ({
       setDetails("");
       setReason("Spam");
       onClose();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to submit report:", err);
-      toast.error("Failed to submit report. Please try again.");
+
+      const error = err as { code?: string };
+
+      if (error.code === "P0001") {
+        toast.error("You have submitted too many reports recently. Please try again later.");
+      } else {
+        toast.error("Failed to submit report. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
