@@ -49,7 +49,7 @@ export type EventWithPopularity = {
  */
 export async function getTrendingEvents(
   limit: number = 10,
-  offset: number = 0,,
+  offset: number = 0,
 ): Promise<{ data: EventWithPopularity[] | null; error: PostgrestError | Error | unknown }> {
   try {
     // Call the custom Postgres RPC function that handles the complex aggregation and sorting
@@ -78,9 +78,7 @@ export async function getTrendingEvents(
  * @returns A promise resolving to the success status and any error.
  */
 export async function incrementEventViews(
-  
   eventId: string,
-,
 ): Promise<{ success: boolean; error: PostgrestError | Error | unknown }> {
   try {
     const { error } = await supabase.rpc("increment_event_views", { p_event_id: eventId });
@@ -104,9 +102,7 @@ export async function incrementEventViews(
  * @returns A promise resolving to the event data with popularity metrics or null.
  */
 export async function getEventByIdWithPopularity(
-  
   eventId: string,
-,
 ): Promise<{ data: EventWithPopularity | null; error: PostgrestError | Error | unknown }> {
   try {
     // We join with the rsvp count and calculate popularity on the fly for a single event
