@@ -762,3 +762,11 @@
 ::view-transition-new(root) {
   z-index: 9999;
 }
+
+/* Pull-to-refresh (issue #1917): suppress the native browser overscroll so
+   our Framer-Motion-driven gesture can intercept the pull without the
+   browser firing its own reload alongside it. */
+html,
+body {
+  overscroll-behavior-y: none;
+}
