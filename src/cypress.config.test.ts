@@ -11,9 +11,7 @@ import * as path from "path";
  * flipped viewport, accidentally-overridden mode config) by
  * parsing the config file and asserting on its shape.
  */
-const configModule = await import(
-  path.resolve(process.cwd(), "cypress.config.ts")
-);
+const configModule = await import(path.resolve(process.cwd(), "cypress.config.ts"));
 const config = configModule.default as {
   e2e?: { specPattern?: string; supportFile?: string; baseUrl?: string };
   component?: {
