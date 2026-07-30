@@ -336,6 +336,20 @@ export default function ClubProfile() {
       : "Check out this club on CampusConnect."
   ).slice(0, 160);
   const currentUrl = typeof window !== "undefined" ? window.location.href : "";
+  const copyInvite = async () => {
+    const invite = `# ${club.name}
+
+  ${club.description || "Join this club on CampusConnect."}
+
+  Join here: ${currentUrl}`;
+
+    try {
+      await navigator.clipboard.writeText(invite);
+      toast.success("Markdown invite copied!");
+    } catch {
+      toast.error("Failed to copy invite.");
+    }
+  };
 
   // Renders the primary membership action (Join / Leave / Pending / Joined).
   // Shared by the sticky ClubHeader so the button can shrink alongside the
