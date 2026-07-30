@@ -20,6 +20,7 @@
     "test:integration": "vitest run --config vitest.config.integration.ts",
     "test:e2e": "playwright test",
     "test:edge": "deno test --allow-env --allow-net --allow-read supabase/functions",
+    "load:staging": "node scripts/run-staging-load-test.mjs",
     "test:cypress": "cypress run",
     "test:cypress:open": "cypress open",
     "test:cypress:component": "cypress run --component",

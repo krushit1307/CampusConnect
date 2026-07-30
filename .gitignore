@@ -38,3 +38,6 @@ scripts/remove-assignees.ts
 .env
 .env.*
 coverage/
+
+# Artillery JSON and HTML reports are generated per staging test run.
+load-testing/artillery/reports/
