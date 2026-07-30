@@ -762,3 +762,55 @@
 ::view-transition-new(root) {
   z-index: 9999;
 }
+
+/* ─── Tiptap Collaboration Cursors ──────────────────────────────────────────── */
+
+.collaboration-cursor__caret {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 2px solid var(--color, #000);
+  border-right: none;
+  word-break: normal;
+  pointer-events: none;
+}
+
+.collaboration-cursor__label {
+  position: absolute;
+  top: -1.4em;
+  left: -1px;
+  font-size: 11px;
+  font-family: monospace;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  padding: 2px 6px;
+  border-radius: 2px;
+  border: 2px solid #000;
+  background-color: var(--color, #000);
+  color: #fff;
+  user-select: none;
+  pointer-events: none;
+  transform: translateY(-2px);
+  box-shadow: 2px 2px 0 #000;
+}
+
+/* ─── Tiptap editor base styles ─────────────────────────────────────────────── */
+
+.ProseMirror {
+  outline: none;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #aaa;
+  pointer-events: none;
+  height: 0;
+  font-family: monospace;
+}
+
+/* Neobrutalist editor focus ring */
+.ProseMirror:focus {
+  outline: none;
+}
