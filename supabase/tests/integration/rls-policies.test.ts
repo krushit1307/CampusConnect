@@ -8,7 +8,8 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // Local Supabase defaults (printed by `supabase start`)
 const SUPABASE_URL = "http://127.0.0.1:54321";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilFCblKi3v";
+const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilFCblKi3v";
 
 describe("RLS Policies Integration Tests", () => {
   let supabaseAnon: SupabaseClient;
@@ -22,13 +23,11 @@ describe("RLS Policies Integration Tests", () => {
   });
 
   it("should prevent anonymous users from creating a club", async () => {
-    const { data, error } = await supabaseAnon
-      .from("clubs")
-      .insert({
-        name: "Unauthorized Club",
-        description: "This should fail RLS",
-        slug: "unauthorized-club-rls-test",
-      });
+    const { data, error } = await supabaseAnon.from("clubs").insert({
+      name: "Unauthorized Club",
+      description: "This should fail RLS",
+      slug: "unauthorized-club-rls-test",
+    });
 
     expect(error).not.toBeNull();
     expect(error?.code).toBe("42501"); // insufficient_privilege
@@ -66,7 +65,7 @@ describe("RLS Policies Integration Tests", () => {
     expect(error).toBeNull();
     expect(data).not.toBeNull();
     expect(Array.isArray(data)).toBe(true);
-    
+
     await supabaseAnon.auth.signOut();
   });
 
@@ -84,7 +83,7 @@ describe("RLS Policies Integration Tests", () => {
 
     // Should either be 42501 (permission denied) or PGRST116 (0 rows affected due to RLS)
     expect(error?.code === "42501" || error?.code === "PGRST116").toBe(true);
-    
+
     await supabaseAnon.auth.signOut();
   });
 });

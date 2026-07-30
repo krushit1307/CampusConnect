@@ -9,7 +9,7 @@ interface DashboardState {
   activeTab: string;
   layoutViewMode: LayoutViewMode;
   analyticsTimeframe: AnalyticsTimeframe;
-  
+
   // Widget Filters & Preferences
   searchQuery: string;
   welcomeDismissed: boolean;
@@ -53,6 +53,6 @@ export const useDashboardStore = create<DashboardState>()(
         analyticsTimeframe: state.analyticsTimeframe,
         welcomeDismissed: state.welcomeDismissed,
       }),
-    }
-  )
+    },
+  ),
 );

@@ -3,13 +3,13 @@ import { execSync } from "child_process";
 /**
  * Global setup script for Vitest integration tests.
  * Spins up the local Supabase stack before tests run, and tears it down after.
- * 
+ *
  * Note: This requires Docker to be running and the Supabase CLI to be installed globally.
  */
 export async function setup() {
   console.log("\n🐳 [Global Setup] Starting Supabase local stack...");
   console.log("   (This may take 1-2 minutes if Docker images need to be pulled)");
-  
+
   try {
     // Start Supabase in the background, inheriting stdio so users can see progress
     execSync("supabase start", { stdio: "inherit" });

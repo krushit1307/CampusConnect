@@ -120,7 +120,6 @@ interface ProfileRecord {
   role: string | null;
 }
 
-
 interface CommentRecord {
   id: string;
   content: string;

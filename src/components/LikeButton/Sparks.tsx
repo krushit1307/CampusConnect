@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 
 export function Sparks() {
   const sparkColors = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899"];
-  
+
   return (
     <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
       {[...Array(6)].map((_, i) => {

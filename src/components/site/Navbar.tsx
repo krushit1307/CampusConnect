@@ -199,8 +199,8 @@ export function Navbar() {
 
             {user && <NavbarNotificationDropdown />}
             {isInitializing ? (
-                <ProfileHeaderSkeleton />
-              ) : user ? (
+              <ProfileHeaderSkeleton />
+            ) : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -251,7 +251,7 @@ export function Navbar() {
               >
                 {t("navbar.signin")}
               </Link>
-          )}
+            )}
           </div>
 
           {/* Mobile menu toggle button */}

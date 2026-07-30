@@ -49,7 +49,9 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
     mutationFn: async (file: File) => {
       if (!user) throw new Error("Must be logged in to upload");
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) throw new Error("Must be logged in to upload");
 
       const fileExt = file.name.split(".").pop();
@@ -62,7 +64,7 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
         "event-galleries",
         fileName,
         file,
-        setUploadProgress
+        setUploadProgress,
       );
 
       const { data: publicUrlData } = supabase.storage
@@ -174,7 +176,11 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
               className="neu-border neu-press flex items-center gap-2 bg-[#FFD166] px-4 py-2 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 disabled:opacity-50"
             >
               {uploading ? <Loader2 className="animate-spin" size={18} /> : <Camera size={18} />}
-              {uploading ? (uploadProgress !== null ? `Uploading ${uploadProgress}%` : "Uploading...") : "Add Photo"}
+              {uploading
+                ? uploadProgress !== null
+                  ? `Uploading ${uploadProgress}%`
+                  : "Uploading..."
+                : "Add Photo"}
             </button>
           </div>
         )}

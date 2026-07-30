@@ -256,18 +256,21 @@ export default function EventDetailsPage() {
     enabled: !!eventId,
   });
 
-    // Extract headings from HTML description for TOC
+  // Extract headings from HTML description for TOC
   const tocItems = useMemo(() => {
     if (!event?.description) return [];
-    
+
     const parser = new DOMParser();
     const doc = parser.parseFromString(event.description, "text/html");
     const headings = doc.querySelectorAll("h2, h3");
-    
+
     return Array.from(headings).map((heading) => {
       const text = heading.textContent || "";
       // Simple slugify for ID
-      const id = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const id = text
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
       return { id, text, level: heading.tagName === "H2" ? 2 : 3 };
     });
   }, [event?.description]);
@@ -280,7 +283,10 @@ export default function EventDetailsPage() {
     const headings = container.querySelectorAll("h2, h3");
     headings.forEach((heading) => {
       const text = heading.textContent || "";
-      const id = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const id = text
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
       heading.id = id;
     });
   }, [event?.description]);
@@ -314,14 +320,16 @@ export default function EventDetailsPage() {
       return;
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session) {
       toast.error("You must be logged in to upload photos.");
       return;
     }
 
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    
+
     const newUploads: UploadingFile[] = Array.from(files).map((file) => ({
       id: crypto.randomUUID(),
       name: file.name,
@@ -347,26 +355,24 @@ export default function EventDetailsPage() {
         uploadItem.file!,
         (percent) => {
           setUploadingFiles((prev) =>
-            prev.map((item) =>
-              item.id === uploadItem.id ? { ...item, progress: percent } : item
-            )
+            prev.map((item) => (item.id === uploadItem.id ? { ...item, progress: percent } : item)),
           );
         },
-        uploadItem.abortController?.signal
+        uploadItem.abortController?.signal,
       )
         .then(() => {
           setUploadingFiles((prev) =>
             prev.map((item) =>
-              item.id === uploadItem.id ? { ...item, status: "success", progress: 100 } : item
-            )
+              item.id === uploadItem.id ? { ...item, status: "success", progress: 100 } : item,
+            ),
           );
         })
         .catch((error) => {
           if (error.message === "Upload cancelled") {
             setUploadingFiles((prev) =>
               prev.map((item) =>
-                item.id === uploadItem.id ? { ...item, status: "cancelled", progress: 0 } : item
-              )
+                item.id === uploadItem.id ? { ...item, status: "cancelled", progress: 0 } : item,
+              ),
             );
             toast.info(`Upload cancelled for ${uploadItem.name}`);
           } else {
@@ -374,8 +380,8 @@ export default function EventDetailsPage() {
               prev.map((item) =>
                 item.id === uploadItem.id
                   ? { ...item, status: "error", progress: 0, errorMsg: error.message }
-                  : item
-              )
+                  : item,
+              ),
             );
             toast.error(`Failed to upload ${uploadItem.name}: ${error.message}`);
           }
@@ -386,7 +392,9 @@ export default function EventDetailsPage() {
 
     refetchGallery();
     setTimeout(() => {
-      setUploadingFiles((prev) => prev.filter((item) => item.status !== "success" && item.status !== "cancelled"));
+      setUploadingFiles((prev) =>
+        prev.filter((item) => item.status !== "success" && item.status !== "cancelled"),
+      );
     }, 2000);
   };
 
@@ -406,22 +414,30 @@ export default function EventDetailsPage() {
     setUploadingFiles((prev) => {
       const fileItem = prev.find((f) => f.id === id);
       if (!fileItem || !fileItem.file) return prev;
-      
+
       // Perform async operations outside
       retryUploadTask(fileItem);
-      
+
       return prev.map((item) =>
         item.id === id
-          ? { ...item, status: "uploading", progress: 0, errorMsg: undefined, abortController: new AbortController() }
-          : item
+          ? {
+              ...item,
+              status: "uploading",
+              progress: 0,
+              errorMsg: undefined,
+              abortController: new AbortController(),
+            }
+          : item,
       );
     });
   };
 
   const retryUploadTask = async (fileItem: UploadingFile) => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session) return;
-    
+
     // We need the newly created abortController, so we get it from the latest state
     let abortSignal: AbortSignal | undefined;
     setUploadingFiles((prev) => {
@@ -443,28 +459,38 @@ export default function EventDetailsPage() {
       fileItem.file!,
       (percent) => {
         setUploadingFiles((prev) =>
-          prev.map((item) => (item.id === fileItem.id ? { ...item, progress: percent } : item))
+          prev.map((item) => (item.id === fileItem.id ? { ...item, progress: percent } : item)),
         );
       },
-      abortSignal
+      abortSignal,
     )
       .then(() => {
         setUploadingFiles((prev) =>
-          prev.map((item) => (item.id === fileItem.id ? { ...item, status: "success", progress: 100 } : item))
+          prev.map((item) =>
+            item.id === fileItem.id ? { ...item, status: "success", progress: 100 } : item,
+          ),
         );
         refetchGallery();
         setTimeout(() => {
-          setUploadingFiles((prev) => prev.filter((item) => item.status !== "success" && item.status !== "cancelled"));
+          setUploadingFiles((prev) =>
+            prev.filter((item) => item.status !== "success" && item.status !== "cancelled"),
+          );
         }, 2000);
       })
       .catch((error) => {
         if (error.message === "Upload cancelled") {
           setUploadingFiles((prev) =>
-            prev.map((item) => (item.id === fileItem.id ? { ...item, status: "cancelled", progress: 0 } : item))
+            prev.map((item) =>
+              item.id === fileItem.id ? { ...item, status: "cancelled", progress: 0 } : item,
+            ),
           );
         } else {
           setUploadingFiles((prev) =>
-            prev.map((item) => (item.id === fileItem.id ? { ...item, status: "error", progress: 0, errorMsg: error.message } : item))
+            prev.map((item) =>
+              item.id === fileItem.id
+                ? { ...item, status: "error", progress: 0, errorMsg: error.message }
+                : item,
+            ),
           );
         }
       });
@@ -1154,7 +1180,10 @@ export default function EventDetailsPage() {
             <div className="absolute inset-0 bg-black/50" />
           </motion.div>
         ) : (
-          <motion.div layoutId={`event-image-${event.id}`} className="absolute inset-0 bg-linear-to-br from-peach via-pink-200 to-lime/40" />
+          <motion.div
+            layoutId={`event-image-${event.id}`}
+            className="absolute inset-0 bg-linear-to-br from-peach via-pink-200 to-lime/40"
+          />
         )}
 
         <div className="relative mx-auto flex min-h-[50vh] max-w-4xl flex-col justify-end px-4 py-16 md:min-h-[60vh] md:px-6 md:py-24">
@@ -1523,11 +1552,11 @@ export default function EventDetailsPage() {
                     No description provided for this event.
                   </p>
                 )}
-            
-                <div 
-                  id="event-description-container" 
+
+                <div
+                  id="event-description-container"
                   className="prose prose-lg max-w-none dark:prose-invert prose-headings:scroll-mt-24"
-                  dangerouslySetInnerHTML={{ __html: event.description }} 
+                  dangerouslySetInnerHTML={{ __html: event.description }}
                 />
               </main>
               <aside className="lg:w-64 shrink-0">
@@ -1582,7 +1611,10 @@ export default function EventDetailsPage() {
               coordsCheck.lat != null &&
               coordsCheck.lng != null ? (
                 <>
-                  <LazyHydrate height="300px" placeholder={<MapSkeleton className="mt-4 h-[300px] w-full" />}>
+                  <LazyHydrate
+                    height="300px"
+                    placeholder={<MapSkeleton className="mt-4 h-[300px] w-full" />}
+                  >
                     <Suspense fallback={<MapSkeleton className="mt-4 h-[300px] w-full" />}>
                       <EventMap
                         lat={coordsCheck.lat}

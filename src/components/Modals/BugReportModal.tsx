@@ -87,7 +87,9 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
         let screenshotUrl: string | null = null;
 
         if (screenshot) {
-          const { data: { session } } = await supabase.auth.getSession();
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
           if (!session) throw new Error("Must be logged in to upload");
 
           const ext = screenshot.name.split(".").pop()?.toLowerCase() ?? "png";
@@ -95,14 +97,14 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
           uploadedPath = filePath;
 
           const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-          
+
           await uploadFileWithProgress(
             supabaseUrl,
             session.access_token,
             "bug-screenshots",
             filePath,
             screenshot,
-            setUploadProgress
+            setUploadProgress,
           );
 
           const {
@@ -141,7 +143,7 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
     },
     onSettled: () => {
       setUploadProgress(null);
-    }
+    },
   });
 
   function resetForm() {
@@ -260,7 +262,9 @@ export function BugReportModal({ open, onOpenChange }: BugReportModalProps) {
                 </button>
                 {uploadProgress !== null && (
                   <div className="absolute inset-x-0 bottom-0 bg-black/50 p-2">
-                    <span className="font-mono text-[10px] font-bold text-white mb-1 block">Uploading {uploadProgress}%</span>
+                    <span className="font-mono text-[10px] font-bold text-white mb-1 block">
+                      Uploading {uploadProgress}%
+                    </span>
                     <Progress value={uploadProgress} className="h-1.5" />
                   </div>
                 )}

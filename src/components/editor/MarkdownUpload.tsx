@@ -118,10 +118,12 @@ export const MarkdownUpload: React.FC<MarkdownUploadProps> = ({
             or drag and drop
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400">Markdown files only (.md)</p>
-          
+
           {uploadProgress !== null && isLoading && (
             <div className="w-full mt-4">
-              <span className="font-mono text-xs text-blue-600 dark:text-blue-400 mb-1 block">Uploading {uploadProgress}%</span>
+              <span className="font-mono text-xs text-blue-600 dark:text-blue-400 mb-1 block">
+                Uploading {uploadProgress}%
+              </span>
               <Progress value={uploadProgress} className="h-1.5" />
             </div>
           )}

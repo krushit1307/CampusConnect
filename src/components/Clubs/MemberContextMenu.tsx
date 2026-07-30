@@ -24,13 +24,10 @@ export function MemberContextMenu({
 
   return (
     <ContextMenu.Root>
-      <ContextMenu.Trigger asChild>
-        {children}
-      </ContextMenu.Trigger>
+      <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
 
       <ContextMenu.Portal>
         <ContextMenu.Content className="min-w-52 rounded-md border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-1 z-50 animate-in fade-in zoom-in-95 font-mono text-sm">
-          
           <ContextMenu.Item
             className="flex cursor-pointer items-center rounded-sm px-2 py-1.5 outline-none focus:bg-gray-100"
             onSelect={() => navigate(`/profile/${member.handle || member.id}`)}

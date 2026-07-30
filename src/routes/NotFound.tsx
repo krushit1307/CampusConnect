@@ -39,14 +39,14 @@ export default function NotFound() {
       <h1 className="mb-4 font-mono text-6xl font-bold uppercase tracking-tighter md:text-8xl">
         404
       </h1>
-      
+
       <h2 className="mb-4 font-mono text-2xl font-bold uppercase tracking-tight md:text-3xl">
         Page Not Found
       </h2>
-      
+
       <p className="mb-8 max-w-md text-lg text-muted-foreground">
-        Oops! The page you're looking for has wandered off. It might have been 
-        moved, deleted, or perhaps it never existed in the first place.
+        Oops! The page you're looking for has wandered off. It might have been moved, deleted, or
+        perhaps it never existed in the first place.
       </p>
 
       <div className="flex flex-col gap-4 sm:flex-row">
@@ -61,7 +61,7 @@ export default function NotFound() {
             Return Home
           </Link>
         </Button>
-        
+
         <Button
           asChild
           size="lg"

@@ -235,7 +235,10 @@ export default function AdminReportsPage() {
 
         <div className="max-w-5xl mx-auto px-4 py-8">
           <div className="mb-8">
-            <LazyHydrate height="300px" placeholder={<div className="h-[300px] neu-border bg-white animate-pulse" />}>
+            <LazyHydrate
+              height="300px"
+              placeholder={<div className="h-[300px] neu-border bg-white animate-pulse" />}
+            >
               <Suspense fallback={<div className="h-[300px] neu-border bg-white animate-pulse" />}>
                 <AdminCharts />
               </Suspense>

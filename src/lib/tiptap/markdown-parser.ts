@@ -20,10 +20,12 @@ export interface TiptapParseResponse {
  */
 export async function parseMarkdownToTiptap(
   file: File,
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number) => void,
 ): Promise<TiptapParseResponse> {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session) throw new Error("Not logged in");
 
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -32,7 +34,7 @@ export async function parseMarkdownToTiptap(
       const xhr = new XMLHttpRequest();
       xhr.open("POST", `${supabaseUrl}/functions/v1/markdown-to-tiptap`);
       xhr.setRequestHeader("Authorization", `Bearer ${session.access_token}`);
-      
+
       const formData = new FormData();
       formData.append("file", file);
 
