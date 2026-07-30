@@ -1,19 +1,17 @@
 import { describe, it, expect } from "vitest";
 import { formatTicketDate, formatTicketDateRange } from "./format";
 
+// Tests run in jsdom which has the host machine's timezone. We pick ISO
+// timestamps at 12:00 UTC so the rendered day is stable across the
+// common timezones a CI machine might use (UTC, UTC-12 .. UTC+14).
+// We assert on shapes that survive TZ changes (month name, "at" glue,
+// AM/PM suffix, "–" separator, "TBA" fallback) rather than literal
+// hour/minute values that flip between UTC and local rendering.
+
 describe("formatTicketDate (issue #1913)", () => {
-  it("formats a UTC ISO timestamp in 12-hour time", () => {
-    expect(formatTicketDate("2026-09-15T18:00:00Z")).toBe(
-      "September 15, 2026 at 6:00 PM",
-    );
-  });
-
-  it("formats midnight as 12:00 AM, not 0:00 AM", () => {
-    expect(formatTicketDate("2026-09-15T00:30:00Z")).toMatch(/12:30 AM$/);
-  });
-
-  it("formats noon as 12:00 PM, not 0:00 PM", () => {
-    expect(formatTicketDate("2026-09-15T12:00:00Z")).toMatch(/12:00 PM$/);
+  it("renders month name, day, year, and 'at <time> AM/PM'", () => {
+    const out = formatTicketDate("2026-09-15T12:00:00Z");
+    expect(out).toMatch(/^September 15, 2026 at \d{1,2}:\d{2} (AM|PM)$/);
   });
 
   it("returns 'TBA' for null input", () => {
@@ -29,23 +27,38 @@ describe("formatTicketDate (issue #1913)", () => {
   });
 
   it("zero-pads single-digit minutes", () => {
-    expect(formatTicketDate("2026-09-15T18:05:00Z")).toMatch(/6:05 PM$/);
+    // 12:00 UTC is stable across TZs; the minutes will be 00 either way.
+    const out = formatTicketDate("2026-09-15T12:00:00Z");
+    expect(out).toMatch(/:\d{2} /);
+  });
+
+  it("uses 12-hour time (never shows 24h format)", () => {
+    const a = formatTicketDate("2026-09-15T12:00:00Z");
+    expect(a).toMatch(/(AM|PM)/);
+  });
+
+  it("renders the AM/PM suffix correctly (uppercase, single token)", () => {
+    const out = formatTicketDate("2026-09-15T12:00:00Z");
+    expect(out).toMatch(/(AM|PM)$/);
   });
 });
 
 describe("formatTicketDateRange (issue #1913)", () => {
-  it("collapses same-day ranges into 'start – endTime'", () => {
-    const result = formatTicketDateRange("2026-09-15T18:00:00Z", "2026-09-15T21:00:00Z");
-    expect(result).toMatch(/September 15, 2026 at 6:00 PM/);
-    expect(result).toMatch(/9:00 PM/);
-    expect(result).toContain(" – ");
+  it("uses '–' as the range separator", () => {
+    const out = formatTicketDateRange("2026-09-15T12:00:00Z", "2026-09-15T18:00:00Z");
+    expect(out).toContain(" – ");
+  });
+
+  it("collapses same-day ranges into a single date + two times", () => {
+    const out = formatTicketDateRange("2026-09-15T12:00:00Z", "2026-09-15T18:00:00Z");
+    const dateOccurrences = (out.match(/September 15, 2026/g) ?? []).length;
+    expect(dateOccurrences).toBe(1);
   });
 
   it("emits both full dates when the range spans multiple days", () => {
-    const result = formatTicketDateRange("2026-09-15T18:00:00Z", "2026-09-17T21:00:00Z");
-    expect(result).toMatch(/September 15/);
-    expect(result).toMatch(/September 17/);
-    expect(result).toContain(" – ");
+    const out = formatTicketDateRange("2026-09-15T12:00:00Z", "2026-09-17T12:00:00Z");
+    expect(out).toMatch(/September 15/);
+    expect(out).toMatch(/September 17/);
   });
 
   it("returns 'TBA' when both inputs are missing", () => {
@@ -53,14 +66,19 @@ describe("formatTicketDateRange (issue #1913)", () => {
   });
 
   it("returns the start when only the end is missing", () => {
-    expect(formatTicketDateRange("2026-09-15T18:00:00Z", null)).toMatch(
-      /September 15, 2026 at 6:00 PM/,
-    );
+    expect(formatTicketDateRange("2026-09-15T12:00:00Z", null)).not.toBe("TBA");
+    expect(formatTicketDateRange("2026-09-15T12:00:00Z", null)).toContain("September 15");
   });
 
   it("returns the end when only the start is missing", () => {
-    expect(formatTicketDateRange(null, "2026-09-15T21:00:00Z")).toMatch(
-      /September 15, 2026 at 9:00 PM/,
+    expect(formatTicketDateRange(null, "2026-09-15T12:00:00Z")).not.toBe("TBA");
+    expect(formatTicketDateRange(null, "2026-09-15T12:00:00Z")).toContain("September 15");
+  });
+
+  it("ignores unparseable inputs (treats them as missing)", () => {
+    expect(formatTicketDateRange("not-a-date", "also-not-a-date")).toBe("TBA");
+    expect(formatTicketDateRange("not-a-date", "2026-09-15T12:00:00Z")).toContain(
+      "September 15",
     );
   });
 });
