@@ -26,7 +26,7 @@ import { createCacheSlice, type CacheSlice } from "./createCacheSlice";
 // ─── Types ────────────────────────────────────────────────────────────
 export interface GlobalState {
   user: UserProfile | null;
-  theme: "light" | "dark" | "system";
+  theme: "light" | "dark" | "system" | "high-contrast";
   notificationsCount: number;
   unreadMessagesCount: number;
   activeTab: string;
@@ -81,7 +81,7 @@ export function setUser(user: UserProfile | null): void {
   store.setUser(user);
 }
 
-export function setTheme(theme: "light" | "dark" | "system"): void {
+export function setTheme(theme: "light" | "dark" | "system" | "high-contrast"): void {
   store.setTheme(theme);
 }
 
