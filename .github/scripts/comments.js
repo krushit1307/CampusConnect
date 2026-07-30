@@ -23,12 +23,12 @@ export const comments = {
 
   invalidClaim: ({ user }) =>
     `Hi @${user}, thanks for wanting to jump in! 😊\n\n` +
-    `To claim this issue, please comment exactly \`${COMMANDS.claim}\` (no extra text) to automatically assign it to yourself.\n\n` +
+    `To claim this issue, please comment exactly \`${COMMANDS.claim}\` (no extra text) to claim it.\n\n` +
     `If you're new here, **CONTRIBUTING.md** has the full contribution workflow to help you get started smoothly.`,
 
   wrongIssueAuthorClaimAttempt: ({ user, issueAuthor }) =>
     `Hi @${user}, thank you for your interest in this issue! 🙏\n\n` +
-    `This particular issue was opened by @${issueAuthor}, and for contributor-opened issues, automatic claiming is limited to the issue author.\n\n` +
+    `This particular issue was opened by @${issueAuthor}, and for contributor-opened issues, claiming is limited to the issue author.\n\n` +
     `We really appreciate your eagerness to contribute — please feel free to browse our other open issues, there's likely a great fit for you!`,
 
   duplicateClaim: ({ user }) =>
@@ -86,7 +86,7 @@ export const comments = {
     "📝 Please add a clear PR description explaining what changed, why it changed, and how you tested it. A good description makes review so much smoother — thanks for taking the time!",
 
   issueClosed: ({ user, issueNumber }) =>
-    `Hi @${user}, just letting you know issue #${issueNumber} has been closed. Claim reminders and assignment metadata were cleaned up automatically. Thanks for your involvement! 🙏`,
+    `Hi @${user}, just letting you know issue #${issueNumber} has been closed. Claim reminders and assignment metadata were cleaned up. Thanks for your involvement! 🙏`,
 
   issueReopened: ({ user, issueNumber }) =>
     `Hi @${user}, heads up — issue #${issueNumber} has been reopened. 🔄\n\n` +
@@ -110,9 +110,9 @@ export const comments = {
         `So glad to have you with us. Cheers to many more! 🌟`,
     ),
 
-  naturalLanguageClaimGuidance: ({ user }) =>
-    `Hi @${user}, thanks so much for your interest in this issue! 😊\n\n` +
-    `To claim it, just comment exactly \`${COMMANDS.claim}\` to automatically assign it to yourself.\n\n` +
+  generalCommentClaimGuidance: ({ user }) =>
+    `Hi @${user}, thanks for commenting on this issue! 😊\n\n` +
+    `If you would like to work on it, please comment exactly \`${COMMANDS.claim}\` or use keywords like "assign me" to claim it.\n\n` +
     `You can also check out **CONTRIBUTING.md** for the full contribution flow. We're excited to see you get started!`,
 
   issueAlreadyClaimed: ({ user }) =>

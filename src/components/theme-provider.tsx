@@ -1,12 +1,19 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { setTheme as setGlobalTheme } from "@/store/globalState";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+  type MouseEvent,
+} from "react";
 
-export type Theme = "light" | "dark" | "system" | "high-contrast";
+export type Theme = "light" | "dark" | "system";
 
 type ThemeContextValue = {
   theme: Theme;
-  toggleTheme: () => void;
+  toggleTheme: (event?: MouseEvent<HTMLElement> | React.MouseEvent<HTMLElement>) => void;
   setTheme: (theme: Theme) => void;
 };
 
@@ -18,12 +25,7 @@ function getStoredTheme(): Theme | null {
   if (typeof window === "undefined") return null;
 
   const stored = window.localStorage.getItem(STORAGE_KEY);
-  return stored === "light" ||
-    stored === "dark" ||
-    stored === "system" ||
-    stored === "high-contrast"
-    ? stored
-    : null;
+  return stored === "light" || stored === "dark" || stored === "system" ? stored : null;
 }
 
 function getPreferredTheme(): Theme {
@@ -42,10 +44,8 @@ function applyTheme(theme: Theme) {
   const isDark =
     theme === "dark" ||
     (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-  const isHighContrast = theme === "high-contrast";
 
   document.documentElement.classList.toggle("dark", isDark);
-  document.documentElement.classList.toggle("high-contrast", isHighContrast);
   document.documentElement.style.colorScheme = isDark ? "dark" : "light";
 }
 
@@ -56,13 +56,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const initialTheme = getStoredTheme() ?? getPreferredTheme();
     setThemeState(initialTheme);
     applyTheme(initialTheme);
-    setGlobalTheme(initialTheme);
   }, []);
 
   useEffect(() => {
     applyTheme(theme);
     window.localStorage.setItem(STORAGE_KEY, theme);
-    setGlobalTheme(theme);
 
     if (theme === "system") {
       const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -73,30 +71,55 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, [theme]);
 
-  // Sync theme changes across browser tabs/windows
-  useEffect(() => {
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === STORAGE_KEY && event.newValue) {
-        const newTheme = event.newValue as Theme;
-        if (
-          newTheme === "light" ||
-          newTheme === "dark" ||
-          newTheme === "system" ||
-          newTheme === "high-contrast"
-        ) {
-          setThemeState(newTheme);
-        }
-      }
+  const toggleTheme = (event?: MouseEvent<HTMLElement> | React.MouseEvent<HTMLElement>) => {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+
+    const isSupported = typeof document !== "undefined" && "startViewTransition" in document;
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (!isSupported || prefersReducedMotion || !event) {
+      setThemeState(nextTheme);
+      return;
+    }
+
+    const x = event.clientX;
+    const y = event.clientY;
+
+    const endRadius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y),
+    );
+
+    const doc = document as Document & {
+      startViewTransition: (callback: () => void) => { ready: Promise<void> };
     };
 
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
+    const transition = doc.startViewTransition(() => {
+      setThemeState(nextTheme);
+      applyTheme(nextTheme);
+    });
+
+    transition.ready.then(() => {
+      document.documentElement.animate(
+        [
+          { clipPath: `circle(0px at ${x}px ${y}px)` },
+          { clipPath: `circle(${endRadius}px at ${x}px ${y}px)` },
+        ],
+        {
+          duration: 500,
+          easing: "ease-in-out",
+          pseudoElement: "::view-transition-new(root)",
+        },
+      );
+    });
+  };
 
   const value = useMemo(
     () => ({
       theme,
-      toggleTheme: () => setThemeState((current) => (current === "dark" ? "light" : "dark")),
+      toggleTheme,
       setTheme: (nextTheme: Theme) => setThemeState(nextTheme),
     }),
     [theme],

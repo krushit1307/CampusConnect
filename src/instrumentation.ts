@@ -17,15 +17,13 @@ export function initializeTracing() {
     }),
   );
 
-  // Configure OTLP exporter
   const exporter = new OTLPTraceExporter({
     url: import.meta.env.VITE_OTEL_COLLECTOR_URL || "http://localhost:4318/v1/traces",
   });
 
-  // Create tracer provider
   const tracerProvider = new BasicTracerProvider({
     resource,
-    sampler: new TraceIdRatioBasedSampler(0.1), // Sample 10% of traces
+    sampler: new TraceIdRatioBasedSampler(0.1),
     spanProcessors: [new SimpleSpanProcessor(exporter)],
   });
 
@@ -36,7 +34,7 @@ export function initializeTracing() {
     }),
   );
 
-  // Register global tracer provider
+  // Register as global tracer provider
   trace.setGlobalTracerProvider(tracerProvider);
 
   return tracerProvider;

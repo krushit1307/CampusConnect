@@ -4,6 +4,7 @@ import { initializeTracing } from "./instrumentation";
 initializeTracing();
 
 import React from "react";
+import "./i18n";
 import ReactDOM from "react-dom/client";
 // @ts-expect-error - react-helmet-async types may not be resolved in all editor settings
 import { HelmetProvider } from "react-helmet-async";

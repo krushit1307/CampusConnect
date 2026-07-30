@@ -18,6 +18,8 @@ import { ReportDialog } from "@/components/ReportDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { AudioReactiveBackground } from "@/components/media/AudioReactiveBackground";
+import LazyHydrate from "@/components/LazyHydrate";
+import { NotFoundPage as NotFound } from "@/components/NotFoundPage";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -37,6 +39,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
 
 interface ClubMemberProfile {
   full_name: string;
@@ -225,24 +228,11 @@ export default function ClubProfile() {
   const {
     data: club,
     isLoading,
+    isError,
     refetch,
   } = useQuery({
-    queryKey: ["club", slug],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("clubs")
-        .select(
-          `
-          id, name, slug, description, github_repo_url, visibility, promo_video_url,
-          club_members (id, role, status, user_id, profiles (full_name, avatar_url, handle)),
-          events (id, title, event_date)
-        `,
-        )
-        .eq("slug", slug)
-        .eq("status", "approved")
-        .single();
-      return data;
-    },
+    ...createClubProfileQueryOptions(supabase, slug ?? ""),
+    enabled: Boolean(slug),
   });
 
   const joinMutation = useMutation({
@@ -303,6 +293,7 @@ export default function ClubProfile() {
   }, [club?.description]);
 
   if (isLoading) return <ClubProfileSkeleton />;
+  if (isError || !club) return <NotFound />;
   if (!club)
     return (
       <SiteShell>
@@ -411,14 +402,32 @@ export default function ClubProfile() {
               <h1 className="mt-2 text-5xl font-bold text-brand-blue-dark md:text-7xl">
                 {club.name}
               </h1>
-              {membership?.role === "admin" && (
-                <Link
-                  to={`/clubs/${club.slug}/manage`}
-                  className="neu-border neu-press bg-brand-yellow-base mt-4 sm:mt-2 px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0"
-                >
-                  Manage Club
-                </Link>
-              )}
+              <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-2">
+                {membership && (
+                  <Link
+                    to={`/clubs/${club.slug}/tasks`}
+                    className="neu-border neu-press bg-brand-blue-base text-white px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
+                  >
+                    Tasks
+                  </Link>
+                )}
+                {membership && (
+                  <Link
+                    to={`/clubs/${club.slug}/notes`}
+                    className="neu-border neu-press bg-lime px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
+                  >
+                    Meeting Notes
+                  </Link>
+                )}
+                {membership?.role === "admin" && (
+                  <Link
+                    to={`/clubs/${club.slug}/manage`}
+                    className="neu-border neu-press bg-brand-yellow-base px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
+                  >
+                    Manage Club
+                  </Link>
+                )}
+              </div>
             </div>
             <div className="markdown-content mt-4 max-w-2xl font-mono text-sm md:text-base leading-relaxed border-b-2 border-black pb-6">
               {headings.length > 1 && (
@@ -453,7 +462,9 @@ export default function ClubProfile() {
                   Featured Club Promo
                 </h3>
                 <div className="neu-border bg-black aspect-video mt-4 overflow-hidden">
-                  <VideoPlayer src={club.promo_video_url} title="Club Promo" />
+                  <LazyHydrate height="360px">
+                    <VideoPlayer src={club.promo_video_url} title="Club Promo" />
+                  </LazyHydrate>
                 </div>{" "}
               </div>
             )}

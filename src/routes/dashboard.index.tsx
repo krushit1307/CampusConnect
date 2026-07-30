@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import TrendingCarousel from "@/components/Clubs/TrendingCarousel";
 import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/DashboardWidgetSkeleton";
+import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
+import LazyHydrate from "@/components/LazyHydrate";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 interface SavedEventDetails {
@@ -169,9 +171,15 @@ function AnalyticsLoadProgress({ isLoading }: { isLoading: boolean }) {
   );
 }
 
+import { useDashboardStore } from "@/store/useDashboardStore";
+
 export default function DashboardOverview() {
   const [supabase] = useState(() => createClient());
   const [user, setUser] = useState<User | null>(null);
+
+  const welcomeDismissed = useDashboardStore((state) => state.welcomeDismissed);
+  const setWelcomeDismissed = useDashboardStore((state) => state.setWelcomeDismissed);
+  const dismissed = welcomeDismissed;
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -193,10 +201,6 @@ export default function DashboardOverview() {
       return data;
     },
     enabled: !!user?.id,
-  });
-
-  const [dismissed, setDismissed] = useState(() => {
-    return localStorage.getItem("cc_welcome_dismissed") === "true";
   });
 
   const [animateIn, setAnimateIn] = useState(false);
@@ -632,6 +636,12 @@ export default function DashboardOverview() {
               })}
             </ul>
           )}
+        </Widget>
+
+        <Widget title="Campus Engagement Map" className="lg:col-span-3">
+          <LazyHydrate height="260px">
+            <AttendanceHeatmap userId={user.id} />
+          </LazyHydrate>
         </Widget>
       </ErrorBoundary>
 

@@ -1,20 +1,30 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { User } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import { Camera, Loader2, Trash2 } from "lucide-react";
 import { SwipeableLightbox } from "./SwipeableLightbox";
+import { useVirtualGrid } from "@/hooks/useVirtualGrid";
+import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
 
 interface EventPhotoGalleryProps {
   eventId: string;
   user: User | null;
 }
 
+interface Photo {
+  id: string;
+  url: string;
+  user_id: string;
+  profiles: { full_name: string } | { full_name: string }[];
+}
+
 export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   const {
@@ -31,7 +41,7 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data;
+      return data as Photo[];
     },
   });
 
@@ -39,14 +49,21 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
     mutationFn: async (file: File) => {
       if (!user) throw new Error("Must be logged in to upload");
 
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Must be logged in to upload");
+
       const fileExt = file.name.split(".").pop();
       const fileName = `${eventId}/${user.id}-${Date.now()}.${fileExt}`;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
-      const { error: uploadError } = await supabase.storage
-        .from("event-galleries")
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
+      await uploadFileWithProgress(
+        supabaseUrl,
+        session.access_token,
+        "event-galleries",
+        fileName,
+        file,
+        setUploadProgress
+      );
 
       const { data: publicUrlData } = supabase.storage
         .from("event-galleries")
@@ -69,6 +86,7 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
     },
     onSettled: () => {
       setUploading(false);
+      setUploadProgress(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     },
   });
@@ -77,7 +95,6 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
     mutationFn: async ({ photoId, url }: { photoId: string; url: string }) => {
       if (!user) throw new Error("Must be logged in");
 
-      // Extract file path from public URL
       const pathParts = url.split("/event-galleries/");
       if (pathParts.length > 1) {
         const filePath = pathParts[1];
@@ -111,6 +128,25 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
     uploadMutation.mutate(file);
   };
 
+  const { containerRef, visibleItems, totalHeight, columnCount, gap, measureItem } =
+    useVirtualGrid<Photo>({
+      items: photos ?? [],
+      columnWidth: 200,
+      gap: 16,
+      estimateHeight: () => 200,
+    });
+
+  const handleImgLoad = useCallback(
+    (index: number, el: HTMLImageElement | null) => {
+      if (!el) return;
+      const actualHeight = el.getBoundingClientRect().height;
+      if (actualHeight > 0) {
+        measureItem(index, actualHeight);
+      }
+    },
+    [measureItem],
+  );
+
   if (isLoading) {
     return <div className="animate-pulse h-64 bg-gray-200 w-full mb-8" />;
   }
@@ -138,7 +174,7 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
               className="neu-border neu-press flex items-center gap-2 bg-[#FFD166] px-4 py-2 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 disabled:opacity-50"
             >
               {uploading ? <Loader2 className="animate-spin" size={18} /> : <Camera size={18} />}
-              {uploading ? "Uploading..." : "Add Photo"}
+              {uploading ? (uploadProgress !== null ? `Uploading ${uploadProgress}%` : "Uploading...") : "Add Photo"}
             </button>
           </div>
         )}
@@ -149,72 +185,81 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
           No photos yet. Be the first to add one!
         </div>
       ) : (
-        <div className="columns-2 sm:columns-3 md:columns-4 gap-4 space-y-4">
-          {photos.map(
-            (photo: {
-              id: string;
-              url: string;
-              user_id: string;
-              profiles: { full_name: string } | { full_name: string }[];
-            }) => (
-              <div
-                key={photo.id}
-                className="break-inside-avoid cursor-pointer group relative"
-                onClick={() => setSelectedPhoto(photo.url)}
-              >
-                <img
-                  src={photo.url}
-                  alt="Event memory"
-                  className="w-full h-auto object-cover neu-border transition-transform hover:scale-[1.02]"
-                  loading="lazy"
-                />
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2 pointer-events-none">
-                  <span className="text-white font-mono text-xs truncate drop-shadow-md">
-                    {Array.isArray(photo.profiles)
-                      ? photo.profiles[0]?.full_name
-                      : (photo.profiles as { full_name: string })?.full_name || "Anonymous"}
-                  </span>
+        <div
+          ref={containerRef}
+          className="overflow-y-auto max-h-[70vh] neu-border bg-gray-50 p-2"
+          style={{ position: "relative" }}
+        >
+          <div style={{ height: `${totalHeight}px`, position: "relative", width: "100%" }}>
+            {visibleItems.map(({ index, top, left, width, height: itemHeight }) => {
+              const photo = photos[index];
+              if (!photo) return null;
+              return (
+                <div
+                  key={photo.id}
+                  className="cursor-pointer group"
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: `${width}px`,
+                    height: `${itemHeight}px`,
+                    transform: `translate(${left}px, ${top}px)`,
+                  }}
+                  onClick={() => setSelectedPhoto(photo.url)}
+                >
+                  <img
+                    src={photo.url}
+                    alt="Event memory"
+                    className="w-full h-full object-cover neu-border"
+                    loading="lazy"
+                    ref={(el) => handleImgLoad(index, el)}
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2 pointer-events-none">
+                    <span className="text-white font-mono text-xs truncate drop-shadow-md">
+                      {Array.isArray(photo.profiles)
+                        ? photo.profiles[0]?.full_name
+                        : (photo.profiles as { full_name: string })?.full_name || "Anonymous"}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ),
-          )}
-        </div>
-      )}
-
-      {/* Swipeable Lightbox */}
-      {selectedPhoto && (() => {
-        const selectedIdx = photos?.findIndex(
-          (p: { url: string }) => p.url === selectedPhoto,
-        ) ?? 0;
-
-        return (
-          <div className="relative">
-            <SwipeableLightbox
-              images={(photos || []).map((p: { url: string }) => ({
-                url: p.url,
-                caption: "Event memory",
-              }))}
-              initialIndex={selectedIdx >= 0 ? selectedIdx : 0}
-              onClose={() => setSelectedPhoto(null)}
-            />
-            {user && (
-              <button
-                onClick={() => {
-                  const p = photos?.find(
-                    (ph: { url: string; id: string }) => ph.url === selectedPhoto,
-                  );
-                  if (p) deleteMutation.mutate({ photoId: p.id, url: p.url });
-                }}
-                className="absolute bottom-6 right-6 z-50 neu-border flex items-center gap-2 bg-red-500 text-white px-4 py-2 font-mono text-sm font-bold uppercase hover:bg-red-600 transition-colors"
-              >
-                <Trash2 size={16} /> Delete My Photo
-              </button>
-            )}
+              );
+            })}
           </div>
-        );
-      })()}
         </div>
       )}
+
+      {selectedPhoto &&
+        (() => {
+          const selectedIdx =
+            photos?.findIndex((p: { url: string }) => p.url === selectedPhoto) ?? 0;
+
+          return (
+            <div className="relative">
+              <SwipeableLightbox
+                images={(photos || []).map((p: { url: string }) => ({
+                  url: p.url,
+                  caption: "Event memory",
+                }))}
+                initialIndex={selectedIdx >= 0 ? selectedIdx : 0}
+                onClose={() => setSelectedPhoto(null)}
+              />
+              {user && (
+                <button
+                  onClick={() => {
+                    const p = photos?.find(
+                      (ph: { url: string; id: string }) => ph.url === selectedPhoto,
+                    );
+                    if (p) deleteMutation.mutate({ photoId: p.id, url: p.url });
+                  }}
+                  className="absolute bottom-6 right-6 z-50 neu-border flex items-center gap-2 bg-red-500 text-white px-4 py-2 font-mono text-sm font-bold uppercase hover:bg-red-600 transition-colors"
+                >
+                  <Trash2 size={16} /> Delete My Photo
+                </button>
+              )}
+            </div>
+          );
+        })()}
     </div>
   );
 }

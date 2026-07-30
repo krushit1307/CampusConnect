@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
 import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
 import { getCroppedImg, type Area } from "@/utils/cropImage";
+import { compressImage } from "@/utils/imageCompressor";
 import {
   Dialog,
   DialogContent,
@@ -167,7 +168,8 @@ export function ImageCropUpload({
     }
 
     const supabaseUrl = getSupabaseUrl();
-    const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    const compressedFile = await compressImage(file, { maxWidth: 1920, maxHeight: 1080, quality: 0.8 });
+    const extension = compressedFile.name.split(".").pop()?.toLowerCase() ?? "webp";
     const filePath = `${user.id}/${crypto.randomUUID()}.${extension}`;
 
     await uploadFileWithProgress(
@@ -175,7 +177,7 @@ export function ImageCropUpload({
       session.access_token,
       bucket,
       filePath,
-      file,
+      compressedFile,
       setUploadProgress,
     );
     setUploadProgress(null);

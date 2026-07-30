@@ -4,6 +4,7 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, useId, type ChangeEvent, type KeyboardEvent } from "react";
 import { Camera, Loader2, X, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { announce } from "@/store/ariaAnnouncer";
 import { createClient } from "@/lib/supabase/client";
 import { withAuth, WithAuthProps } from "@/hoc/withAuth";
 
@@ -27,7 +28,7 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
-import { ImageCropUpload } from "@/components/ImageCropUpload";
+import { PasskeyManager } from "@/components/PasskeyManager";
 
 const FONT_SIZE_KEY = "campusconnect-font-size";
 
@@ -232,8 +233,10 @@ function SettingsPageContent({ user }: WithAuthProps) {
         });
         if (authError) throw authError;
         toast.success("Profile updated! Verification email sent to your new address.");
+        announce("Profile updated! Verification email sent to your new address.");
       } else {
         toast.success("Profile updated successfully!");
+        announce("Profile updated successfully");
       }
 
       refetch();
@@ -543,19 +546,37 @@ function SettingsPageContent({ user }: WithAuthProps) {
               {/* Theme Toggle */}
               <div className="space-y-2">
                 <label className="eyebrow font-bold text-black dark:text-cream">Theme Mode</label>
-
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <label className="eyebrow font-bold text-black dark:text-cream">
-                      Dark Mode
-                    </label>
-
-                    <p className="font-mono text-xs text-muted-foreground">
-                      Toggle between light and dark theme
-                    </p>
-                  </div>
-
-                  <ThemeToggle theme={theme} setTheme={setTheme} />
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setTheme("light")}
+                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${theme === "light"
+                      ? "bg-black text-cream dark:bg-cream dark:text-black"
+                      : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
+                      }`}
+                  >
+                    ☀️ Light
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTheme("dark")}
+                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${theme === "dark"
+                      ? "bg-black text-cream dark:bg-cream dark:text-black"
+                      : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
+                      }`}
+                  >
+                    🌙 Dark
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTheme("system")}
+                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${theme === "system"
+                      ? "bg-black text-cream dark:bg-cream dark:text-black"
+                      : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
+                      }`}
+                  >
+                    💻 System
+                  </button>
                 </div>
               </div>
 
@@ -624,6 +645,10 @@ function SettingsPageContent({ user }: WithAuthProps) {
                 Reset
               </button>
             </div>
+          </Panel>
+
+          <Panel title="Passkeys">
+            <PasskeyManager />
           </Panel>
 
           <Panel title="Notifications">
@@ -715,11 +740,10 @@ function AvatarThemePicker({
               aria-checked={isSelected}
               aria-label={`${theme.label} gradient`}
               title={theme.label}
-              className={`h-10 w-10 rounded-full border-2 border-black transition-transform ${theme.gradient} ${
-                isSelected
-                  ? "scale-110 ring-4 ring-black ring-offset-2 ring-offset-white"
-                  : "hover:scale-105"
-              }`}
+              className={`h-10 w-10 rounded-full border-2 border-black transition-transform ${theme.gradient} ${isSelected
+                ? "scale-110 ring-4 ring-black ring-offset-2 ring-offset-white"
+                : "hover:scale-105"
+                }`}
             />
           );
         })}
@@ -833,16 +857,74 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
           <p className="eyebrow font-bold text-black">Profile picture</p>
         </div>
 
-        <ImageCropUpload
-          aspect={1}
-          bucket="avatars"
-          value={preview ?? undefined}
-          onUploaded={handleUploaded}
-          accept="image/jpeg,image/png,image/webp"
-          onChange={handleFileChange}
-          className="hidden"
-          aria-label="Upload profile image"
-        />
+        {/* Neubrutalist drag-and-drop zone — replaces the raw <input type="file"> trigger */}
+        <div
+          onClick={() => !uploading && inputRef.current?.click()}
+          onDragEnter={handleDragEnter}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if ((event.key === "Enter" || event.key === " ") && !uploading) {
+              event.preventDefault();
+              inputRef.current?.click();
+            }
+          }}
+          aria-label="Upload profile picture. Click to browse, or drag and drop an image."
+          className={`neu-border flex cursor-pointer flex-col items-center justify-center gap-1.5 border-2 border-dashed p-5 text-center transition-colors duration-150 ${uploading
+            ? "cursor-not-allowed border-black bg-gray-100 opacity-70"
+            : isDragging
+              ? "border-black bg-lime/40 scale-[1.01]"
+              : "border-black bg-white hover:bg-cream"
+            }`}
+        >
+          {uploading ? (
+            <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
+          ) : (
+            <UploadCloud className="h-6 w-6" aria-hidden="true" />
+          )}
+          <p className="font-mono text-xs font-bold uppercase">
+            {uploading
+              ? "Uploading..."
+              : isDragging
+                ? "Drop to upload"
+                : "Drag & drop or click to upload"}
+          </p>
+          <p className="font-mono text-[10px] text-gray-500 dark:text-gray-400">
+            JPG, PNG or WEBP · Max 2 MB · Square images look best
+          </p>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+        </div>
+
+        {/* Selected file name + size preview */}
+        {selectedFile && (
+          <div className="neu-border flex items-center justify-between gap-3 bg-white px-3 py-2 font-mono text-xs">
+            <span className="flex items-center gap-2 truncate">
+              <Camera className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span className="truncate" title={selectedFile.name}>
+                {selectedFile.name}
+              </span>
+            </span>
+            <span className="shrink-0 font-bold text-gray-600 dark:text-gray-300">
+              {formatFileSize(selectedFile.size)}
+            </span>
+          </div>
+        )}
+
+        {uploadProgress !== null && (
+          <div className="w-full space-y-1">
+            <Progress value={uploadProgress} className="h-2" />
+            <p className="font-mono text-xs text-gray-500 dark:text-gray-300">{uploadProgress}%</p>
+          </div>
+        )}
       </div>
       <div className="text-center sm:text-left">
         <p className="eyebrow font-bold text-black">Profile picture</p>

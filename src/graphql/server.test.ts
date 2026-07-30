@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { yoga, schema } from "../../graphql/server";
-import { encodeCursor, decodeCursor, publishNotification } from "../../graphql/resolvers";
+import { encodeCursor, decodeCursor, publishNotification, LRUCache, clubsCache, CLUBS_CACHE_KEY } from "../../graphql/resolvers";
 
 vi.mock("../../src/lib/supabase/client", () => {
   const mockEvents = [
@@ -75,6 +75,38 @@ vi.mock("../../src/lib/supabase/client", () => {
         }
         return { select: vi.fn() };
       }),
+      rpc: vi
+        .fn()
+        .mockImplementation(
+          (fnName: string, args: { p_event_id: string; p_user_id: string; p_action: string }) => {
+            if (fnName === "manage_event_rsvp") {
+              if (args.p_event_id === "evt-full") {
+                return Promise.resolve({
+                  data: {
+                    success: false,
+                    code: "EVENT_FULL",
+                    message: "Event is fully booked. No available spots remaining.",
+                    available_spots: 0,
+                    version: 5,
+                  },
+                  error: null,
+                });
+              }
+              return Promise.resolve({
+                data: {
+                  success: true,
+                  code: "RSVP_SUCCESS",
+                  message: "RSVP confirmed!",
+                  status: "CONFIRMED",
+                  available_spots: 10,
+                  version: 2,
+                },
+                error: null,
+              });
+            }
+            return Promise.resolve({ data: null, error: null });
+          },
+        ),
     })),
   };
 });
@@ -243,3 +275,187 @@ describe("publishNotification helper", () => {
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GraphQL rsvpToEvent Mutation Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("GraphQL rsvpToEvent Mutation", () => {
+  it("schema includes rsvpToEvent mutation field and RsvpPayload type", () => {
+    const mutationType = schema.getMutationType();
+    expect(mutationType).toBeDefined();
+    const field = mutationType!.getFields()["rsvpToEvent"];
+    expect(field).toBeDefined();
+    expect(field.type.toString()).toBe("RsvpPayload!");
+
+    const payloadType = schema.getType("RsvpPayload");
+    expect(payloadType).toBeDefined();
+    // @ts-expect-error getFields is available on object types
+    const fields = payloadType!.getFields();
+    expect(fields).toHaveProperty("success");
+    expect(fields).toHaveProperty("code");
+    expect(fields).toHaveProperty("message");
+    expect(fields).toHaveProperty("availableSpots");
+    expect(fields).toHaveProperty("status");
+    expect(fields).toHaveProperty("version");
+  });
+
+  it("executes rsvpToEvent mutation successfully via GraphQL Yoga", async () => {
+    const query = /* GraphQL */ `
+      mutation RsvpTest {
+        rsvpToEvent(eventId: "evt-1", userId: "usr-1", action: "RSVP") {
+          success
+          code
+          message
+          availableSpots
+          status
+          version
+        }
+      }
+    `;
+
+    const response = await yoga.fetch("http://localhost:4000/api/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+
+    const result = await response.json();
+    expect(result.errors).toBeUndefined();
+    expect(result.data.rsvpToEvent).toEqual({
+      success: true,
+      code: "RSVP_SUCCESS",
+      message: "RSVP confirmed!",
+      availableSpots: 10,
+      status: "CONFIRMED",
+      version: 2,
+    });
+  });
+
+  it("returns EVENT_FULL code when event is fully booked", async () => {
+    const query = /* GraphQL */ `
+      mutation RsvpFullTest {
+        rsvpToEvent(eventId: "evt-full", userId: "usr-99", action: "RSVP") {
+          success
+          code
+          message
+          availableSpots
+          version
+        }
+      }
+    `;
+
+    const response = await yoga.fetch("http://localhost:4000/api/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+
+    const result = await response.json();
+    expect(result.errors).toBeUndefined();
+    expect(result.data.rsvpToEvent).toEqual({
+      success: false,
+      code: "EVENT_FULL",
+      message: "Event is fully booked. No available spots remaining.",
+      availableSpots: 0,
+      version: 5,
+    });
+  });
+});
+
+describe("In-Memory LRUCache Utility", () => {
+  it("stores and retrieves values type-safely", () => {
+    const cache = new LRUCache<string, number>(3);
+    cache.set("x", 10);
+    expect(cache.get("x")).toBe(10);
+  });
+
+  it("updates value and refreshes key placement on set/get", () => {
+    const cache = new LRUCache<string, string>(2);
+    cache.set("a", "alpha");
+    cache.set("b", "beta");
+
+    // Access "a" to make it the most recently used
+    cache.get("a");
+
+    // Set "c", which exceeds limit (2). Oldest "b" should be evicted
+    cache.set("c", "gamma");
+
+    expect(cache.get("b")).toBeUndefined();
+    expect(cache.get("a")).toBe("alpha");
+    expect(cache.get("c")).toBe("gamma");
+  });
+
+  it("clears and deletes entries correctly", () => {
+    const cache = new LRUCache<string, string>(5);
+    cache.set("key", "val");
+    expect(cache.size()).toBe(1);
+
+    cache.delete("key");
+    expect(cache.get("key")).toBeUndefined();
+    expect(cache.size()).toBe(0);
+
+    cache.set("k1", "v1");
+    cache.set("k2", "v2");
+    cache.clear();
+    expect(cache.size()).toBe(0);
+  });
+});
+
+describe("GraphQL clubs Query Cached Resolver", () => {
+  it("populates the LRU cache on first query, and returns cached values subsequently", async () => {
+    // Clear any leftover state in the global cache
+    clubsCache.clear();
+
+    const query = /* GraphQL */ `
+      query GetClubs {
+        clubs {
+          id
+          name
+        }
+      }
+    `;
+
+    // 1. Initial query: cache is empty
+    expect(clubsCache.get(CLUBS_CACHE_KEY)).toBeUndefined();
+    const res1 = await yoga.fetch("http://localhost:4000/api/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+    const body1 = await res1.json();
+    expect(body1.errors).toBeUndefined();
+    expect(body1.data.clubs).toBeDefined();
+
+    // The cache should now be populated with the mock clubs data
+    const cachedData = clubsCache.get(CLUBS_CACHE_KEY);
+    expect(cachedData).toBeDefined();
+    expect(cachedData).toHaveLength(1);
+    expect(cachedData![0].name).toBe("Robotics Club");
+
+    // 2. Manipulate the cache directly to verify the resolver reads from cache
+    const fakeCachedClub = [{ id: "fake-id", name: "Fake Cached Club" }];
+    clubsCache.set(CLUBS_CACHE_KEY, fakeCachedClub);
+
+    const res2 = await yoga.fetch("http://localhost:4000/api/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+    const body2 = await res2.json();
+    expect(body2.errors).toBeUndefined();
+    expect(body2.data.clubs).toEqual(fakeCachedClub);
+
+    // 3. Clear cache and verify it falls back to fetching fresh database mock values
+    clubsCache.delete(CLUBS_CACHE_KEY);
+    const res3 = await yoga.fetch("http://localhost:4000/api/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+    const body3 = await res3.json();
+    expect(body3.errors).toBeUndefined();
+    expect(body3.data.clubs[0].name).toBe("Robotics Club");
+  });
+});
+

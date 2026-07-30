@@ -1,9 +1,11 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { WebRTCProvider } from "@/components/VideoCall/WebRTCProvider";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { SpeedDial } from "@/components/SpeedDial";
 import { createClient } from "@/lib/supabase/client";
 import { ThemeProvider } from "@/components/theme-provider";
 import TopProgressBar from "@/components/TopProgressBar";
@@ -162,6 +164,7 @@ export default function Layout() {
           <Outlet />
           <Toaster />
           <ScrollToTop />
+          <SpeedDial />
         </WebRTCProvider>
       </TooltipProvider>
     </ThemeProvider>

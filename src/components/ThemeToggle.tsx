@@ -2,7 +2,7 @@ import { Moon, Settings2, Sun, Contrast } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTheme } from "./theme-provider";
 
-export function ThemeToggle() {
+export const ThemeToggle = () => {
   const { theme, setTheme } = useTheme();
 
   function cycleTheme() {
@@ -44,4 +44,4 @@ export function ThemeToggle() {
       <TooltipContent className="font-mono text-xs capitalize">Theme: {theme}</TooltipContent>
     </Tooltip>
   );
-}
+};

@@ -15,14 +15,25 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
-import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 
+import { format } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
-import { eventFormSchema, TITLE_MAX_LENGTH, type EventFormValues } from "@/lib/eventUtils";
+import {
+  eventFormSchema,
+  TITLE_MAX_LENGTH,
+  hasDraftContent,
+  eventFormToDbPayload,
+  parseFlyerDate,
+  applyDateRangeSelection,
+  updateTimeInDate,
+  addFaq,
+  removeFaq,
+  updateFaq,
+  type EventFormValues,
+} from "@/lib/eventUtils";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { queueOfflineEvent } from "@/lib/offlineSync";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -87,18 +98,6 @@ const defaultValues: EventFormValues = {
 
 const DRAFT_KEY = "event_draft";
 const DRAFT_AUTOSAVE_INTERVAL_MS = 5000;
-
-// Only worth saving/restoring a draft if the user actually typed something.
-function hasDraftContent(values: EventFormValues): boolean {
-  return Boolean(
-    values.title?.trim() ||
-    values.description?.trim() ||
-    values.location?.trim() ||
-    values.startDate ||
-    values.endDate ||
-    (values.faqs && values.faqs.length > 0),
-  );
-}
 
 export function CreateEventDialog({
   user,
@@ -256,21 +255,7 @@ export function CreateEventDialog({
         throw new Error("You must be logged in to create an event.");
       }
 
-      const startDateIso = new Date(values.startDate).toISOString();
-      const endDateIso = new Date(values.endDate).toISOString();
-
-      const payload = {
-        title: values.title.trim(),
-        description: values.description.trim(),
-        category_id: values.category || null,
-        location: values.location?.trim() || null,
-        start_date: startDateIso,
-        end_date: endDateIso,
-        event_date: startDateIso,
-        created_by: user.id,
-        club_id: clubId,
-        requires_approval: values.requiresApproval || false,
-      };
+      const payload = eventFormToDbPayload(values, user.id, clubId);
 
       // If user is currently offline, queue in IndexedDB & Background Sync immediately
       if (!navigator.onLine) {
@@ -285,7 +270,6 @@ export function CreateEventDialog({
         }
         return { isOffline: false };
       } catch (err: unknown) {
-        // Handle network drop / fetch failure while attempting insertion
         const isNetworkError =
           !navigator.onLine ||
           (err instanceof Error &&
@@ -333,14 +317,10 @@ export function CreateEventDialog({
     if (data.title) form.setValue("title", data.title, { shouldValidate: true });
     if (data.description) form.setValue("description", data.description, { shouldValidate: true });
     if (data.date) {
-      try {
-        const d = new Date(data.date);
-        if (!isNaN(d.getTime())) {
-          form.setValue("startDate", `${format(d, "yyyy-MM-dd")}T12:00`, { shouldValidate: true });
-          form.setValue("endDate", `${format(d, "yyyy-MM-dd")}T14:00`, { shouldValidate: true });
-        }
-      } catch (e) {
-        console.error("Failed to parse date from flyer", e);
+      const parsed = parseFlyerDate(data.date);
+      if (parsed) {
+        form.setValue("startDate", parsed.startDate, { shouldValidate: true });
+        form.setValue("endDate", parsed.endDate, { shouldValidate: true });
       }
     }
   };
@@ -359,29 +339,9 @@ export function CreateEventDialog({
     : undefined;
 
   const handleSelect = (range: DateRange | undefined) => {
-    if (!range) {
-      form.setValue("startDate", "", { shouldValidate: true });
-      form.setValue("endDate", "", { shouldValidate: true });
-      return;
-    }
-
-    if (range.from) {
-      const existingStartTime =
-        startDateStr && startDateStr.includes("T") ? startDateStr.split("T")[1] : "00:00";
-      form.setValue("startDate", `${format(range.from, "yyyy-MM-dd")}T${existingStartTime}`, {
-        shouldValidate: true,
-      });
-    }
-
-    if (range.to) {
-      const existingEndTime =
-        endDateStr && endDateStr.includes("T") ? endDateStr.split("T")[1] : "23:59";
-      form.setValue("endDate", `${format(range.to, "yyyy-MM-dd")}T${existingEndTime}`, {
-        shouldValidate: true,
-      });
-    } else {
-      form.setValue("endDate", "", { shouldValidate: true });
-    }
+    const { startDate, endDate } = applyDateRangeSelection(range, startDateStr, endDateStr);
+    form.setValue("startDate", startDate, { shouldValidate: true });
+    form.setValue("endDate", endDate, { shouldValidate: true });
   };
 
   return (
@@ -689,8 +649,9 @@ export function CreateEventDialog({
                       onChange={(e) => {
                         const time = e.target.value;
                         if (!startDateStr) return;
-                        const datePart = startDateStr.split("T")[0];
-                        form.setValue("startDate", `${datePart}T${time}`, { shouldValidate: true });
+                        form.setValue("startDate", updateTimeInDate(startDateStr, time), {
+                          shouldValidate: true,
+                        });
                       }}
                       disabled={!startDateStr}
                     />
@@ -705,8 +666,9 @@ export function CreateEventDialog({
                       onChange={(e) => {
                         const time = e.target.value;
                         if (!endDateStr) return;
-                        const datePart = endDateStr.split("T")[0];
-                        form.setValue("endDate", `${datePart}T${time}`, { shouldValidate: true });
+                        form.setValue("endDate", updateTimeInDate(endDateStr, time), {
+                          shouldValidate: true,
+                        });
                       }}
                       disabled={!endDateStr}
                     />
@@ -774,10 +736,7 @@ export function CreateEventDialog({
                         type="button"
                         onClick={() => {
                           const current = form.getValues("faqs") || [];
-                          form.setValue(
-                            "faqs",
-                            current.filter((_: unknown, i: number) => i !== index),
-                          );
+                          form.setValue("faqs", removeFaq(current, index));
                         }}
                         className="text-destructive hover:text-destructive/80"
                       >
@@ -789,9 +748,10 @@ export function CreateEventDialog({
                       value={form.watch(`faqs.${index}.question`) || ""}
                       onChange={(e) => {
                         const current = form.getValues("faqs") || [];
-                        const updated = [...current];
-                        updated[index] = { ...updated[index], question: e.target.value };
-                        form.setValue("faqs", updated);
+                        form.setValue(
+                          "faqs",
+                          updateFaq(current, index, "question", e.target.value),
+                        );
                       }}
                       className="font-mono text-sm"
                     />
@@ -800,9 +760,7 @@ export function CreateEventDialog({
                       value={form.watch(`faqs.${index}.answer`) || ""}
                       onChange={(e) => {
                         const current = form.getValues("faqs") || [];
-                        const updated = [...current];
-                        updated[index] = { ...updated[index], answer: e.target.value };
-                        form.setValue("faqs", updated);
+                        form.setValue("faqs", updateFaq(current, index, "answer", e.target.value));
                       }}
                       rows={2}
                       className="font-mono text-sm"
@@ -814,7 +772,7 @@ export function CreateEventDialog({
                   variant="outline"
                   onClick={() => {
                     const current = form.getValues("faqs") || [];
-                    form.setValue("faqs", [...current, { question: "", answer: "" }]);
+                    form.setValue("faqs", addFaq(current));
                   }}
                   className="w-full border-dashed font-mono text-xs font-bold"
                 >

@@ -31,3 +31,11 @@ const TooltipArrow = TooltipPrimitive.Arrow;
 
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, TooltipArrow };
 export { AnimatedTooltip } from "./AnimatedTooltip";
+export { RichTooltip } from "./RichTooltip";
+export { ProfileCard } from "./ProfileCard";
+export {
+  DateTooltipContent,
+  LocationTooltipContent,
+  InfoTooltipContent,
+  StatusTooltipContent,
+} from "./RichTooltipContent";
