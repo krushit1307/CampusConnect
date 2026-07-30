@@ -326,7 +326,7 @@ export default function Feed() {
   const rowVirtualizer = useWindowVirtualizer({
     count: filteredPosts.length,
     estimateSize: () => 210,
-    overscan: 5,
+    overscan: 3,
     scrollMargin: parentRef.current?.offsetTop ?? 0,
   });
 
@@ -1078,257 +1078,26 @@ export default function Feed() {
                 {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                   const post = filteredPosts[virtualRow.index];
                   if (!post) return null;
-                  const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
-                  const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
-                  const clubMembers: ClubMember[] = Array.isArray(club?.club_members)
-                    ? club.club_members
-                    : club?.club_members
-                      ? [club.club_members]
-                      : [];
-
-                  const authorMembership = clubMembers.find((m) => m.user_id === author?.id);
-
-                  const authorRole = (authorMembership?.role ?? "member") as MemberRole;
-
-                  const postComments: Comment[] = (
-                    lazyComments[post.id] !== undefined
-                      ? lazyComments[post.id]
-                      : Array.isArray(post.comments)
-                        ? (post.comments as Comment[])
-                        : []
-                  ).filter((c) => !c.deleted_at);
-
-                  const isCommentsLoading = loadingCommentPostIds.has(post.id);
-                  const isCommentsExpanded = expandedPostIds.has(post.id);
-
-                  if (optimisticDeletedIds.includes(post.id)) return null;
-
-                  const shareUrl = `${window.location.origin}${window.location.pathname}#post-${post.id}`;
 
                   return (
-                    <article
-                      id={`post-${post.id}`}
+                    <MemoizedFeedPost
                       key={post.id}
-                      data-index={virtualRow.index}
-                      ref={rowVirtualizer.measureElement}
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        width: "100%",
-                        transform: `translateY(${virtualRow.start - rowVirtualizer.options.scrollMargin}px)`,
-                      }}
-                      className={`neu-border p-6 ${
-                        post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
-                      }`}
-                    >
-                      {post.is_pinned && (
-                        <div className="mb-3 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#B45309]">
-                          <Pin size={12} className="fill-[#B45309]" />
-                          Pinned
-                        </div>
-                      )}
-                      <header className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b-2 border-black pb-3">
-                        <div>
-                          <div className="font-display text-lg font-bold flex items-center gap-2">
-                            {author?.handle ? (
-                              <Link to={`/profile/${author.handle}`} className="hover:underline">
-                                {author.full_name || "Unknown User"}
-                              </Link>
-                            ) : (
-                              <span>{author?.full_name || "Unknown User"}</span>
-                            )}
-                            <RoleBadge role={authorRole} />
-                          </div>
-                          <p className="font-mono text-xs flex flex-wrap items-center">
-                            in {club?.name || "Unknown Club"} · {timeAgo(post.created_at)}
-                            <span className="text-gray-500 dark:text-gray-300 ml-1">
-                              · {calculateReadTime(post.content)}
-                            </span>
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {(() => {
-                            const isClubAdmin =
-                              clubMembers.some(
-                                (m) => m.user_id === user?.id && m.role === "admin",
-                              ) || userProfile?.role === "system_admin";
-                            return isClubAdmin ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  pinMutation.mutate({
-                                    postId: post.id,
-                                    is_pinned: !post.is_pinned,
-                                  })
-                                }
-                                disabled={pinMutation.isPending}
-                                className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${
-                                  post.is_pinned
-                                    ? "bg-[#FDE68A] hover:bg-[#FCD34D] text-black"
-                                    : "bg-white hover:bg-cream text-black"
-                                }`}
-                                aria-label={post.is_pinned ? "Unpin post" : "Pin post"}
-                              >
-                                <Pin size={10} strokeWidth={2.5} />
-                                {post.is_pinned ? "Unpin" : "Pin"}
-                              </button>
-                            ) : null;
-                          })()}
-                          {user && user.id !== author?.id && (
-                            <button
-                              type="button"
-                              onClick={() => setReportTarget({ type: "post", id: post.id })}
-                              className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 hover:bg-peach"
-                              title="Report post"
-                            >
-                              <Flag size={14} strokeWidth={2.5} />
-                            </button>
-                          )}
-                          {(user?.id === author?.id || userProfile?.role === "system_admin") && (
-                            <button
-                              type="button"
-                              onClick={() => setConfirmPostId(post.id)}
-                              className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 hover:bg-[#FF6B6B]"
-                              aria-label="Delete post"
-                            >
-                              <Trash2 size={14} strokeWidth={2.5} />
-                            </button>
-                          )}
-                        </div>
-                      </header>
-
-                      <div className="markdown-content mt-2 font-mono text-sm leading-relaxed">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={{
-                            a: ({ href, children }) => {
-                              if (href && /youtube\.com|youtu\.be|vimeo\.com/.test(href)) {
-                                return <VideoEmbed url={href} />;
-                              }
-                              return <a href={href}>{children}</a>;
-                            },
-                            img: ({ src, alt }) => (
-                              <LazyImage
-                                src={src}
-                                alt={alt || ""}
-                                onClick={() => typeof src === "string" && setLightboxSrc(src)}
-                                className="max-h-64 cursor-zoom-in rounded-none neu-border"
-                              />
-                            ),
-                            p: ({ children }) => (
-                              <p>
-                                <MentionRenderer content={String(children)} />
-                              </p>
-                            ),
-                          }}
-                        >
-                          {post.content}
-                        </ReactMarkdown>
-                      </div>
-
-                      {post.image_url && (
-                        <div className="mt-3">
-                          <LazyImage
-                            src={post.image_url}
-                            alt="Post attachment"
-                            onClick={() => setLightboxSrc(post.image_url ?? null)}
-                            className="max-h-96 cursor-zoom-in rounded-none neu-border object-cover"
-                          />
-                        </div>
-                      )}
-
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {["👍", "👏", "🔥"].map((emoji) => {
-                          const postReactions: PostReaction[] = Array.isArray(post.post_reactions)
-                            ? post.post_reactions
-                            : [];
-                          const baseCount = postReactions.filter((r) => r.emoji === emoji).length;
-                          const baseIsReacted = postReactions.some(
-                            (r) => r.emoji === emoji && r.user_id === user?.id,
-                          );
-
-                          const opt = optimisticReactions[`${post.id}-${emoji}`];
-                          const reactionCount = opt
-                            ? Math.max(0, baseCount + opt.countOffset)
-                            : baseCount;
-                          const isReacted = opt ? opt.userReacted : baseIsReacted;
-
-                          const burstKey = `${post.id}-${emoji}`;
-                          const burstNonce = reactionBursts[burstKey] ?? 0;
-
-                          return (
-                            <button
-                              key={emoji}
-                              type="button"
-                              onClick={() => {
-                                if (!user) return alert("Log in first");
-                                if (!emailVerified)
-                                  return alert("Please verify your email to react");
-
-                                const optKey = `${post.id}-${emoji}`;
-                                setOptimisticReactions((prev) => ({
-                                  ...prev,
-                                  [optKey]: {
-                                    countOffset: isReacted ? -1 : 1,
-                                    userReacted: !isReacted,
-                                  },
-                                }));
-
-                                setReactionBursts((prev) => ({
-                                  ...prev,
-                                  [burstKey]: (prev[burstKey] ?? 0) + 1,
-                                }));
-                                reactionMutation.mutate({ postId: post.id, emoji, isReacted });
-                              }}
-                              className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${
-                                isReacted ? "bg-lime" : "bg-white hover:bg-cream"
-                              }`}
-                            >
-                              <span
-                                key={`${burstKey}-${burstNonce}`}
-                                className="reaction-burst inline-flex items-center"
-                              >
-                                {emoji}
-                              </span>
-                              {reactionCount > 0 && <span>{reactionCount}</span>}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <div className="mt-4 flex items-center gap-2 border-t-2 border-black pt-4">
-                        <ShareMenu
-                          url={shareUrl}
-                          title={`Post by ${author?.full_name ?? "User"}`}
-                          text={`Check out this post: ${post.content.substring(0, 50)}...`}
-                        />
-
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              await navigator.clipboard.writeText(shareUrl);
-                              toast.success("Link copied!");
-                            } catch (err) {
-                              toast.error("Failed to copy link.");
-                            }
-                          }}
-                          className="neu-border inline-flex items-center gap-2 px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-gray-200"
-                        >
-                          <Link2 size={14} />
-                          Copy Link
-                        </button>
-                      </div>
-
-                      <PostComments
-                        postId={post.id}
-                        user={user}
-                        userProfile={userProfile}
-                        clubMembers={clubMembers}
-                        timeAgo={timeAgo}
-                      />
-                    </article>
+                      post={post}
+                      virtualRow={virtualRow}
+                      measureElement={rowVirtualizer.measureElement}
+                      scrollMargin={rowVirtualizer.options.scrollMargin}
+                      user={user}
+                      userProfile={userProfile}
+                      timeAgo={timeAgo}
+                      isPinnedPending={pinMutation.isPending}
+                      onPinToggle={(postId, is_pinned) => pinMutation.mutate({ postId, is_pinned })}
+                      setReportTarget={setReportTarget}
+                      setConfirmPostId={setConfirmPostId}
+                      setLightboxSrc={setLightboxSrc}
+                      isOptimisticallyDeleted={optimisticDeletedIds.includes(post.id)}
+                      emailVerified={emailVerified}
+                      onReact={(postId, emoji, isReacted) => reactionMutation.mutate({ postId, emoji, isReacted })}
+                    />
                   );
                 })}
               </div>
@@ -1336,6 +1105,7 @@ export default function Feed() {
 
             {hasNextPage && feedMode === "latest" && (
               <button
+                ref={lastPostElementRef}
                 type="button"
                 onClick={() => fetchNextPage()}
                 disabled={isFetchingNextPage}
@@ -1382,6 +1152,295 @@ export default function Feed() {
     </SiteShell>
   );
 }
+
+
+interface MemoizedFeedPostProps {
+  post: Post;
+  virtualRow: import("@tanstack/react-virtual").VirtualItem;
+  measureElement: (node: HTMLElement | null) => void;
+  scrollMargin: number;
+  user: User | null;
+  userProfile: { role: string } | null | undefined;
+  timeAgo: (dateString: string) => string;
+  isPinnedPending: boolean;
+  onPinToggle: (postId: string, is_pinned: boolean) => void;
+  setReportTarget: (target: { type: "post" | "comment"; id: string } | null) => void;
+  setConfirmPostId: (id: string | null) => void;
+  setLightboxSrc: (src: string | null) => void;
+  isOptimisticallyDeleted: boolean;
+  emailVerified: boolean;
+  onReact: (postId: string, emoji: string, isReacted: boolean) => void;
+}
+
+const MemoizedFeedPost = React.memo(
+  function MemoizedFeedPost({
+    post,
+    virtualRow,
+    measureElement,
+    scrollMargin,
+    user,
+    userProfile,
+    timeAgo,
+    isPinnedPending,
+    onPinToggle,
+    setReportTarget,
+    setConfirmPostId,
+    setLightboxSrc,
+    isOptimisticallyDeleted,
+    emailVerified,
+    onReact,
+  }: MemoizedFeedPostProps) {
+    const [optimisticReactions, setOptimisticReactions] = useState<
+      Record<string, { countOffset: number; userReacted: boolean }>
+    >({});
+    const [reactionBursts, setReactionBursts] = useState<Record<string, number>>({});
+
+    const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
+    const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
+    const clubMembers: ClubMember[] = Array.isArray(club?.club_members)
+      ? club.club_members
+      : club?.club_members
+        ? [club.club_members]
+        : [];
+
+    const authorMembership = clubMembers.find((m) => m.user_id === author?.id);
+    const authorRole = (authorMembership?.role ?? "member") as MemberRole;
+
+    if (isOptimisticallyDeleted) return null;
+
+    const shareUrl = `${window.location.origin}${window.location.pathname}#post-${post.id}`;
+
+    return (
+      <article
+        id={`post-${post.id}`}
+        key={post.id}
+        data-index={virtualRow.index}
+        ref={measureElement}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          transform: `translateY(${virtualRow.start - scrollMargin}px)`,
+        }}
+        className={`neu-border p-6 ${
+          post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
+        }`}
+      >
+        {post.is_pinned && (
+          <div className="mb-3 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#B45309]">
+            <Pin size={12} className="fill-[#B45309]" />
+            Pinned
+          </div>
+        )}
+        <header className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b-2 border-black pb-3">
+          <div>
+            <div className="font-display text-lg font-bold flex items-center gap-2">
+              {author?.handle ? (
+                <Link to={`/profile/${author.handle}`} className="hover:underline">
+                  {author.full_name || "Unknown User"}
+                </Link>
+              ) : (
+                <span>{author?.full_name || "Unknown User"}</span>
+              )}
+              <RoleBadge role={authorRole} />
+            </div>
+            <p className="font-mono text-xs flex flex-wrap items-center">
+              in {club?.name || "Unknown Club"} · {timeAgo(post.created_at)}
+              <span className="text-gray-500 dark:text-gray-300 ml-1">
+                · {calculateReadTime(post.content)}
+              </span>
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {(() => {
+              const isClubAdmin =
+                clubMembers.some((m) => m.user_id === user?.id && m.role === "admin") ||
+                userProfile?.role === "system_admin";
+              return isClubAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => onPinToggle(post.id, !post.is_pinned)}
+                  disabled={isPinnedPending}
+                  className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${
+                    post.is_pinned
+                      ? "bg-[#FDE68A] hover:bg-[#FCD34D] text-black"
+                      : "bg-white hover:bg-cream text-black"
+                  }`}
+                  aria-label={post.is_pinned ? "Unpin post" : "Pin post"}
+                >
+                  <Pin size={10} strokeWidth={2.5} />
+                  {post.is_pinned ? "Unpin" : "Pin"}
+                </button>
+              ) : null;
+            })()}
+            {user && user.id !== author?.id && (
+              <button
+                type="button"
+                onClick={() => setReportTarget({ type: "post", id: post.id })}
+                className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 hover:bg-peach"
+                title="Report post"
+              >
+                <Flag size={14} strokeWidth={2.5} />
+              </button>
+            )}
+            {(user?.id === author?.id || userProfile?.role === "system_admin") && (
+              <button
+                type="button"
+                onClick={() => setConfirmPostId(post.id)}
+                className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 hover:bg-[#FF6B6B]"
+                aria-label="Delete post"
+              >
+                <Trash2 size={14} strokeWidth={2.5} />
+              </button>
+            )}
+          </div>
+        </header>
+
+        <div className="markdown-content mt-2 font-mono text-sm leading-relaxed">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ href, children }) => {
+                if (href && /youtube\.com|youtu\.be|vimeo\.com/.test(href)) {
+                  return <VideoEmbed url={href} />;
+                }
+                return <a href={href}>{children}</a>;
+              },
+              img: ({ src, alt }) => (
+                <LazyImage
+                  src={src}
+                  alt={alt || ""}
+                  onClick={() => typeof src === "string" && setLightboxSrc(src)}
+                  className="max-h-64 cursor-zoom-in rounded-none neu-border"
+                />
+              ),
+              p: ({ children }) => (
+                <p>
+                  <MentionRenderer content={String(children)} />
+                </p>
+              ),
+            }}
+          >
+            {post.content}
+          </ReactMarkdown>
+        </div>
+
+        {post.image_url && (
+          <div className="mt-3">
+            <LazyImage
+              src={post.image_url}
+              alt="Post attachment"
+              onClick={() => setLightboxSrc(post.image_url ?? null)}
+              className="max-h-96 cursor-zoom-in rounded-none neu-border object-cover"
+            />
+          </div>
+        )}
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {["👍", "👏", "🔥"].map((emoji) => {
+            const postReactions: PostReaction[] = Array.isArray(post.post_reactions)
+              ? post.post_reactions
+              : [];
+            const baseCount = postReactions.filter((r) => r.emoji === emoji).length;
+            const baseIsReacted = postReactions.some(
+              (r) => r.emoji === emoji && r.user_id === user?.id,
+            );
+
+            const opt = optimisticReactions[`${post.id}-${emoji}`];
+            const reactionCount = opt
+              ? Math.max(0, baseCount + opt.countOffset)
+              : baseCount;
+            const isReacted = opt ? opt.userReacted : baseIsReacted;
+
+            const burstKey = `${post.id}-${emoji}`;
+            const burstNonce = reactionBursts[burstKey] ?? 0;
+
+            return (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => {
+                  if (!user) return alert("Log in first");
+                  if (!emailVerified)
+                    return alert("Please verify your email to react");
+
+                  const optKey = `${post.id}-${emoji}`;
+                  setOptimisticReactions((prev) => ({
+                    ...prev,
+                    [optKey]: {
+                      countOffset: isReacted ? -1 : 1,
+                      userReacted: !isReacted,
+                    },
+                  }));
+
+                  setReactionBursts((prev) => ({
+                    ...prev,
+                    [burstKey]: (prev[burstKey] ?? 0) + 1,
+                  }));
+                  onReact(post.id, emoji, isReacted);
+                }}
+                className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${
+                  isReacted ? "bg-lime" : "bg-white hover:bg-cream"
+                }`}
+              >
+                <span
+                  key={`${burstKey}-${burstNonce}`}
+                  className="reaction-burst inline-flex items-center"
+                >
+                  {emoji}
+                </span>
+                {reactionCount > 0 && <span>{reactionCount}</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 flex items-center gap-2 border-t-2 border-black pt-4">
+          <ShareMenu
+            url={shareUrl}
+            title={`Post by ${author?.full_name ?? "User"}`}
+            text={`Check out this post: ${post.content.substring(0, 50)}...`}
+          />
+
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(shareUrl);
+                toast.success("Link copied!");
+              } catch (err) {
+                toast.error("Failed to copy link.");
+              }
+            }}
+            className="neu-border inline-flex items-center gap-2 px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-gray-200"
+          >
+            <Link2 size={14} />
+            Copy Link
+          </button>
+        </div>
+
+        <PostComments
+          postId={post.id}
+          user={user}
+          userProfile={userProfile}
+          clubMembers={clubMembers}
+          timeAgo={timeAgo}
+        />
+      </article>
+    );
+  },
+  (prev, next) => {
+    return (
+      prev.post === next.post &&
+      prev.virtualRow.start === next.virtualRow.start &&
+      prev.virtualRow.index === next.virtualRow.index &&
+      prev.isOptimisticallyDeleted === next.isOptimisticallyDeleted &&
+      prev.isPinnedPending === next.isPinnedPending &&
+      prev.user?.id === next.user?.id
+    );
+  }
+);
 
 interface PostCommentsProps {
   postId: string;
