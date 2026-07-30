@@ -1122,7 +1122,6 @@ export default function Feed() {
                 {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                   const post = filteredPosts[virtualRow.index];
                   if (!post) return null;
-
                   return (
                     <MemoizedFeedPost
                       key={post.id}
@@ -1140,7 +1139,9 @@ export default function Feed() {
                       setLightboxSrc={setLightboxSrc}
                       isOptimisticallyDeleted={optimisticDeletedIds.includes(post.id)}
                       emailVerified={emailVerified}
-                      onReact={(postId, emoji, isReacted) => reactionMutation.mutate({ postId, emoji, isReacted })}
+                      onReact={(postId, emoji, isReacted) =>
+                        reactionMutation.mutate({ postId, emoji, isReacted })
+                      }
                     />
                   );
                 })}
@@ -1196,7 +1197,6 @@ export default function Feed() {
     </SiteShell>
   );
 }
-
 
 interface MemoizedFeedPostProps {
   post: Post;
@@ -1392,9 +1392,7 @@ const MemoizedFeedPost = React.memo(
             );
 
             const opt = optimisticReactions[`${post.id}-${emoji}`];
-            const reactionCount = opt
-              ? Math.max(0, baseCount + opt.countOffset)
-              : baseCount;
+            const reactionCount = opt ? Math.max(0, baseCount + opt.countOffset) : baseCount;
             const isReacted = opt ? opt.userReacted : baseIsReacted;
 
             const burstKey = `${post.id}-${emoji}`;
@@ -1406,8 +1404,7 @@ const MemoizedFeedPost = React.memo(
                 type="button"
                 onClick={() => {
                   if (!user) return alert("Log in first");
-                  if (!emailVerified)
-                    return alert("Please verify your email to react");
+                  if (!emailVerified) return alert("Please verify your email to react");
 
                   const optKey = `${post.id}-${emoji}`;
                   setOptimisticReactions((prev) => ({
@@ -1483,7 +1480,7 @@ const MemoizedFeedPost = React.memo(
       prev.isPinnedPending === next.isPinnedPending &&
       prev.user?.id === next.user?.id
     );
-  }
+  },
 );
 
 interface PostCommentsProps {

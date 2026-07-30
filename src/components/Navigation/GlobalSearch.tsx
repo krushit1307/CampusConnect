@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { useDebounce } from "../../hooks/useDebounce";
+import { useEffect, useState, useDeferredValue } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Link } from "react-router-dom";
 import { formatEventDateRange } from "@/lib/utils";
@@ -23,7 +22,7 @@ export default function GlobalSearch() {
   const [error, setError] = useState<string | null>(null);
   const [activeResultId, setActiveResultId] = useState<string | null>(null);
 
-  const debouncedSearch = useDebounce(searchTerm, 300);
+  const deferredSearchTerm = useDeferredValue(searchTerm);
   useEffect(() => {
     let ignore = false;
 
@@ -51,19 +50,19 @@ export default function GlobalSearch() {
       setIsLoading(false);
     };
 
-    if (!debouncedSearch.trim()) {
+    if (!deferredSearchTerm.trim()) {
       setResults([]);
       setIsLoading(false);
       setError(null);
       return;
     }
 
-    fetchSearchResults(debouncedSearch);
+    fetchSearchResults(deferredSearchTerm);
 
     return () => {
       ignore = true;
     };
-  }, [debouncedSearch, supabase]);
+  }, [deferredSearchTerm, supabase]);
 
   // Whenever the result list changes, highlight the first item by default.
   useEffect(() => {
@@ -103,7 +102,11 @@ export default function GlobalSearch() {
         <p>No events found for &ldquo;{searchTerm}&rdquo;.</p>
       )}
       {results.length > 0 && (
-        <div className="mt-2 flex neu-border overflow-hidden bg-white">
+        <div
+          className={`mt-2 flex neu-border overflow-hidden bg-white transition-opacity duration-200 ${
+            searchTerm !== deferredSearchTerm ? "opacity-50" : "opacity-100"
+          }`}
+        >
           <ul className="w-1/3 border-r-2 border-black">
             {results.map((event) => (
               <li
