@@ -265,7 +265,7 @@ export default function ClubsIndex() {
           <div
             className={
               viewMode === "grid"
-                ? "grid gap-6 md:grid-cols-2 lg:grid-cols-3 transition-all duration-300"
+                ? "columns-1 md:columns-2 lg:columns-3 gap-6 transition-all duration-300"
                 : "flex flex-col gap-3 transition-all duration-300"
             }
           >
@@ -273,7 +273,9 @@ export default function ClubsIndex() {
               // Display a grid of exactly 6 skeleton cards for grid view, or 4 for list view
               viewMode === "grid" ? (
                 Array.from({ length: 6 }).map((_, index) => (
-                  <ClubCardSkeleton key={`skeleton-${index}`} />
+                  <div key={`skeleton-${index}`} className="break-inside-avoid mb-6">
+                    <ClubCardSkeleton />
+                  </div>
                 ))
               ) : (
                 Array.from({ length: 4 }).map((_, i) => (
@@ -309,12 +311,12 @@ export default function ClubsIndex() {
                 <div
                   ref={index === directoryClubs.length - 1 ? lastClubRef : null}
                   key={`${viewMode}-${c.slug}`}
-                  className="animate-fade-in-up"
+                  className="animate-fade-in-up break-inside-avoid mb-6"
                   style={{ animationDelay: `${index * 75}ms` }}
                 >
                   <Link
                     to={`/clubs/${c.slug}`}
-                    className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_var(--color-ink)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_var(--color-ink)] h-full"
+                    className="neu-border group block bg-white p-6 shadow-[4px_4px_0_0_var(--color-ink)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_var(--color-ink)]"
                   >
                     <div
                       className={`club-logo-badge neu-border ${colors[index % colors.length]} mb-4 inline-block px-3 py-1 font-mono text-xs font-bold uppercase`}
@@ -322,6 +324,11 @@ export default function ClubsIndex() {
                       Club
                     </div>
                     <h2 className="text-2xl font-bold">{c.name}</h2>
+                    {c.description && (
+                      <p className="my-3 font-mono text-xs text-gray-600">
+                        {c.description}
+                      </p>
+                    )}
                     <div className="my-3 border-t-2 border-black" />
                     <div className="flex items-center justify-between font-mono text-xs">
                       <span>
@@ -380,7 +387,7 @@ export default function ClubsIndex() {
                   key={`next-load-${i}`}
                   className={
                     viewMode === "grid"
-                      ? "neu-border bg-white p-6 animate-pulse h-48 flex flex-col justify-between"
+                      ? "neu-border bg-white p-6 animate-pulse h-48 flex flex-col justify-between break-inside-avoid mb-6"
                       : "neu-border bg-white p-4 animate-pulse h-20 flex items-center gap-4"
                   }
                 >
