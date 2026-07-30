@@ -69,9 +69,7 @@ serve(async (req) => {
 
     // List all files in the event's gallery folder
     const bucketName = "event-gallery";
-    const { data: files, error: listError } = await supabase.storage
-      .from(bucketName)
-      .list(eventId);
+    const { data: files, error: listError } = await supabase.storage.from(bucketName).list(eventId);
 
     if (listError) {
       throw listError;
@@ -79,17 +77,14 @@ serve(async (req) => {
 
     // Filter out directories, placeholders, or empty files if any
     const filteredFiles = (files ?? []).filter(
-      (file) => file.name !== ".emptyFolderPlaceholder" && file.metadata !== null
+      (file) => file.name !== ".emptyFolderPlaceholder" && file.metadata !== null,
     );
 
     if (filteredFiles.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "No gallery photos found for this event." }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return new Response(JSON.stringify({ error: "No gallery photos found for this event." }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Generator function to fetch file streams sequentially on-demand
@@ -97,7 +92,7 @@ serve(async (req) => {
       for (const file of filteredFiles) {
         // Authenticated download endpoint
         const fileUrl = `${supabaseUrl}/storage/v1/object/authenticated/${bucketName}/${eventId}/${file.name}`;
-        
+
         const res = await fetch(fileUrl, {
           headers: {
             Authorization: `Bearer ${supabaseServiceKey}`,
@@ -140,7 +135,7 @@ serve(async (req) => {
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,
-      }
+      },
     );
   }
 });

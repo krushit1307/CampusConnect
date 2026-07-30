@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 
 type CarouselProps = {
   orientation?: "horizontal" | "vertical";
+  className?: string;
+  children: React.ReactNode;
 };
 
 type CarouselContextProps = {
@@ -32,56 +34,40 @@ const Carousel = React.forwardRef<
 >(({ orientation = "horizontal", className, children, ...props }, ref) => {
   const carouselRef = React.useRef<HTMLDivElement>(null);
   const [canScrollPrev, setCanScrollPrev] = React.useState(false);
-  const [canScrollNext, setCanScrollNext] = React.useState(false);
+  const [canScrollNext, setCanScrollNext] = React.useState(true);
 
-  const checkScrollability = React.useCallback(() => {
-    const el = carouselRef.current;
-    if (!el) return;
-
-    if (orientation === "horizontal") {
-      setCanScrollPrev(el.scrollLeft > 0);
-      setCanScrollNext(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
-    } else {
-      setCanScrollPrev(el.scrollTop > 0);
-      setCanScrollNext(el.scrollTop + el.clientHeight < el.scrollHeight - 1);
-    }
-  }, [orientation]);
+  const onScroll = React.useCallback(() => {
+    if (!carouselRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = carouselRef.current;
+    setCanScrollPrev(scrollLeft > 0);
+    // Give a 1px buffer due to sub-pixel rendering rounding
+    setCanScrollNext(Math.ceil(scrollLeft + clientWidth) < scrollWidth - 1);
+  }, []);
 
   React.useEffect(() => {
     const el = carouselRef.current;
-    if (!el) return;
-
-    checkScrollability();
-    el.addEventListener("scroll", checkScrollability);
-    window.addEventListener("resize", checkScrollability);
-
-    return () => {
-      el.removeEventListener("scroll", checkScrollability);
-      window.removeEventListener("resize", checkScrollability);
-    };
-  }, [checkScrollability]);
+    if (el) {
+      onScroll();
+      el.addEventListener("scroll", onScroll);
+      window.addEventListener("resize", onScroll);
+      return () => {
+        el.removeEventListener("scroll", onScroll);
+        window.removeEventListener("resize", onScroll);
+      };
+    }
+  }, [onScroll]);
 
   const scrollPrev = React.useCallback(() => {
-    const el = carouselRef.current;
-    if (!el) return;
-    const distance = orientation === "horizontal" ? el.clientWidth : el.clientHeight;
-    el.scrollBy({
-      left: orientation === "horizontal" ? -distance : 0,
-      top: orientation === "vertical" ? -distance : 0,
-      behavior: "smooth",
-    });
-  }, [orientation]);
+    if (carouselRef.current) {
+      carouselRef.current.scrollBy({ left: -300, behavior: "smooth" });
+    }
+  }, []);
 
   const scrollNext = React.useCallback(() => {
-    const el = carouselRef.current;
-    if (!el) return;
-    const distance = orientation === "horizontal" ? el.clientWidth : el.clientHeight;
-    el.scrollBy({
-      left: orientation === "horizontal" ? distance : 0,
-      top: orientation === "vertical" ? distance : 0,
-      behavior: "smooth",
-    });
-  }, [orientation]);
+    if (carouselRef.current) {
+      carouselRef.current.scrollBy({ left: 300, behavior: "smooth" });
+    }
+  }, []);
 
   const handleKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -96,19 +82,21 @@ const Carousel = React.forwardRef<
     [scrollPrev, scrollNext],
   );
 
+  // Provide the ref to the parent if they passed one
+  React.useImperativeHandle(ref, () => carouselRef.current as HTMLDivElement);
+
   return (
     <CarouselContext.Provider
       value={{
         carouselRef,
-        orientation,
         scrollPrev,
         scrollNext,
         canScrollPrev,
         canScrollNext,
+        orientation,
       }}
     >
       <div
-        ref={ref}
         onKeyDownCapture={handleKeyDown}
         className={cn("relative", className)}
         role="region"
@@ -123,22 +111,38 @@ const Carousel = React.forwardRef<
 Carousel.displayName = "Carousel";
 
 const CarouselContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => {
+  ({ className, children, ...props }, ref) => {
     const { carouselRef, orientation } = useCarousel();
 
     return (
       <div
-        ref={carouselRef}
+        ref={(node) => {
+          if (typeof ref === "function") ref(node);
+          else if (ref) ref.current = node;
+          if (carouselRef) {
+            (carouselRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+          }
+        }}
         className={cn(
-          "flex overflow-auto scroll-smooth snap-x snap-mandatory no-scrollbar",
-          orientation === "horizontal" ? "-ml-4 flex-row" : "-mt-4 flex-col",
+          "flex snap-x snap-mandatory scroll-smooth",
+          orientation === "horizontal"
+            ? "-ml-4 flex-row overflow-x-auto"
+            : "-mt-4 flex-col overflow-y-auto",
+          // Hide scrollbar
+          "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]",
+          className,
         )}
-        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        {...props}
       >
+        {/* Empty spacer to ensure the first item snaps properly with margin/padding */}
         <div
-          ref={ref}
-          className={cn("flex", orientation === "horizontal" ? "flex-row" : "flex-col", className)}
-          {...props}
+          className={cn("shrink-0", orientation === "horizontal" ? "w-0" : "h-0")}
+          aria-hidden="true"
+        />
+        {children}
+        <div
+          className={cn("shrink-0", orientation === "horizontal" ? "w-0" : "h-0")}
+          aria-hidden="true"
         />
       </div>
     );
@@ -156,7 +160,7 @@ const CarouselItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLD
         role="group"
         aria-roledescription="slide"
         className={cn(
-          "min-w-0 shrink-0 grow-0 basis-full snap-center",
+          "min-w-0 shrink-0 grow-0 basis-full snap-center sm:snap-start",
           orientation === "horizontal" ? "pl-4" : "pt-4",
           className,
         )}

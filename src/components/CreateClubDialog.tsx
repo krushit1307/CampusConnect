@@ -14,6 +14,7 @@ import {
   type ClubFormInput,
 } from "@/lib/clubUtils";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import {
@@ -106,19 +107,6 @@ export function CreateClubDialog({ user }: { user: User | null }) {
       if (error) {
         throw new Error(error.message);
       }
-
-      // Automatically add creator as admin member
-      if (newClub) {
-        const { error: memberError } = await supabase.from("club_members").insert({
-          club_id: newClub.id,
-          user_id: user.id,
-          role: "admin",
-          status: "approved",
-        });
-        if (memberError) {
-          console.error("[CreateClubDialog] Failed to add creator as member:", memberError);
-        }
-      }
     },
     onSuccess: () => {
       toast.success("Club submitted for administrator review.");
@@ -150,7 +138,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
       <DialogTrigger asChild>
         <button
           type="button"
-          className="neu-border neu-press flex items-center gap-2 bg-sky px-5 py-3 font-mono text-sm font-bold uppercase text-black"
+          className="neu-border neu-press flex items-center gap-2 bg-sky px-4 py-2 font-mono text-sm font-bold uppercase text-black"
         >
           <Plus className="h-4 w-4" />
           Create a Club

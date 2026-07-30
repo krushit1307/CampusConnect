@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cypress Component Testing</title>
+    <!--
+      Issue #1851 edge case ("Tailwind CSS"): the project's global
+      stylesheet must be loaded so the mounted component picks up
+      utility classes. The Vite dev server reads this file from the
+      config and injects it into the iframe Cypress uses for CT.
+
+      If you add other project-wide side-effect imports (toast portal,
+      global providers, etc.) they should land here, not in
+      component.ts — putting them in component.ts risks double-load.
+    -->
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

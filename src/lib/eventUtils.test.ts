@@ -7,6 +7,14 @@ import {
   parseCoordinates,
   TITLE_MAX_LENGTH,
   matchesDateFilter,
+  hasDraftContent,
+  eventFormToDbPayload,
+  parseFlyerDate,
+  applyDateRangeSelection,
+  updateTimeInDate,
+  addFaq,
+  removeFaq,
+  updateFaq,
 } from "./eventUtils";
 
 // ---------------------------------------------------------------------------
@@ -359,5 +367,170 @@ describe("matchesDateFilter", () => {
         endOfMonthNow,
       ),
     ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// hasDraftContent
+// ---------------------------------------------------------------------------
+describe("hasDraftContent", () => {
+  it("returns false for empty values", () => {
+    expect(
+      hasDraftContent({ title: "", description: "", location: "", startDate: "", endDate: "" }),
+    ).toBe(false);
+  });
+
+  it("returns true when title is filled", () => {
+    expect(
+      hasDraftContent({
+        title: "My Event",
+        description: "",
+        location: "",
+        startDate: "",
+        endDate: "",
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true when startDate is filled", () => {
+    expect(
+      hasDraftContent({
+        title: "",
+        description: "",
+        location: "",
+        startDate: "2026-07-11T10:00",
+        endDate: "",
+      }),
+    ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// eventFormToDbPayload
+// ---------------------------------------------------------------------------
+describe("eventFormToDbPayload", () => {
+  it("converts form values to DB payload shape", () => {
+    const payload = eventFormToDbPayload(
+      {
+        title: " Test ",
+        description: "Desc ",
+        location: "Room 1",
+        startDate: "2026-07-11T10:00",
+        endDate: "2026-07-11T12:00",
+      },
+      "u1",
+      "c1",
+    );
+    expect(payload.title).toBe("Test");
+    expect(payload.created_by).toBe("u1");
+    expect(payload.club_id).toBe("c1");
+    expect(payload.requires_approval).toBe(false);
+  });
+
+  it("handles null clubId", () => {
+    const payload = eventFormToDbPayload(
+      {
+        title: "T",
+        description: "D",
+        location: "",
+        startDate: "2026-07-11T10:00",
+        endDate: "2026-07-11T12:00",
+      },
+      "u1",
+      null,
+    );
+    expect(payload.club_id).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseFlyerDate
+// ---------------------------------------------------------------------------
+describe("parseFlyerDate", () => {
+  it("parses a valid date string", () => {
+    const result = parseFlyerDate("2026-07-11");
+    expect(result).not.toBeNull();
+    expect(result!.startDate).toContain("T12:00");
+    expect(result!.endDate).toContain("T14:00");
+  });
+
+  it("returns null for invalid dates", () => {
+    expect(parseFlyerDate("not-a-date")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyDateRangeSelection
+// ---------------------------------------------------------------------------
+describe("applyDateRangeSelection", () => {
+  it("clears dates when range is undefined", () => {
+    const result = applyDateRangeSelection(undefined, "2026-07-11T10:00", "2026-07-12T12:00");
+    expect(result.startDate).toBe("");
+    expect(result.endDate).toBe("");
+  });
+
+  it("preserves existing start time", () => {
+    const result = applyDateRangeSelection(
+      { from: new Date(2026, 6, 15), to: new Date(2026, 6, 16) },
+      "2026-07-11T10:00",
+      "2026-07-12T12:00",
+    );
+    expect(result.startDate).toContain("T10:00");
+    expect(result.endDate).toContain("T12:00");
+  });
+
+  it("uses default times when no existing time", () => {
+    const result = applyDateRangeSelection(
+      { from: new Date(2026, 6, 15), to: new Date(2026, 6, 16) },
+      "",
+      "",
+    );
+    expect(result.startDate).toContain("T00:00");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// updateTimeInDate
+// ---------------------------------------------------------------------------
+describe("updateTimeInDate", () => {
+  it("replaces the time portion of a date string", () => {
+    expect(updateTimeInDate("2026-07-11T10:00", "14:30")).toBe("2026-07-11T14:30");
+  });
+
+  it("returns empty string unchanged", () => {
+    expect(updateTimeInDate("", "14:30")).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FAQ Helpers
+// ---------------------------------------------------------------------------
+describe("addFaq", () => {
+  it("appends a new empty FAQ entry", () => {
+    const result = addFaq([{ question: "Q1", answer: "A1" }]);
+    expect(result).toHaveLength(2);
+    expect(result[1]).toEqual({ question: "", answer: "" });
+  });
+});
+
+describe("removeFaq", () => {
+  it("removes the FAQ at the given index", () => {
+    const result = removeFaq(
+      [
+        { question: "Q1", answer: "A1" },
+        { question: "Q2", answer: "A2" },
+      ],
+      0,
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].question).toBe("Q2");
+  });
+});
+
+describe("updateFaq", () => {
+  it("updates a specific field of a FAQ entry", () => {
+    const result = updateFaq([{ question: "Q1", answer: "A1" }], 0, "question", "Updated Q");
+    expect(result[0].question).toBe("Updated Q");
+    expect(result[0].answer).toBe("A1");
   });
 });

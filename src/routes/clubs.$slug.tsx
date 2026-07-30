@@ -6,16 +6,20 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { User } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { parse } from "@/lib/markdown";
 import type { MarkdownNodeChild, HeadingNode } from "@/lib/markdown";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
 import { ArrowLeft, Github, Loader2, CheckCircle, Flag } from "lucide-react";
 import { ReportDialog } from "@/components/ReportDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { VideoPlayer } from "@/components/VideoPlayer";
+import { AudioReactiveBackground } from "@/components/media/AudioReactiveBackground";
+import LazyHydrate from "@/components/LazyHydrate";
+import { NotFoundPage as NotFound } from "@/components/NotFoundPage";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -35,6 +39,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
+import { ClubHeader } from "@/components/Clubs/ClubHeader";
 
 interface ClubMemberProfile {
   full_name: string;
@@ -61,6 +67,7 @@ interface MemberItem {
   handle: string;
   role: "admin" | "member" | "organizer" | "alumni";
   avatarUrl: string | null;
+  userId: string;
 }
 
 // Small building block for the skeleton below. Deliberately a plain div
@@ -167,6 +174,7 @@ export default function ClubProfile() {
   const { slug } = useParams();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
+  const { presenceMap } = usePresence(user?.id);
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
@@ -215,30 +223,17 @@ export default function ClubProfile() {
   );
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+    supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null));
   }, [supabase]);
 
   const {
     data: club,
     isLoading,
+    isError,
     refetch,
   } = useQuery({
-    queryKey: ["club", slug],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("clubs")
-        .select(
-          `
-          id, name, slug, description, github_repo_url, visibility, promo_video_url,
-          club_members (id, role, status, user_id, profiles (full_name, avatar_url, handle)),
-          events (id, title, event_date)
-        `,
-        )
-        .eq("slug", slug)
-        .eq("status", "approved")
-        .single();
-      return data;
-    },
+    ...createClubProfileQueryOptions(supabase, slug ?? ""),
+    enabled: Boolean(slug),
   });
 
   const joinMutation = useMutation({
@@ -299,6 +294,7 @@ export default function ClubProfile() {
   }, [club?.description]);
 
   if (isLoading) return <ClubProfileSkeleton />;
+  if (isError || !club) return <NotFound />;
   if (!club)
     return (
       <SiteShell>
@@ -316,6 +312,7 @@ export default function ClubProfile() {
       handle: profile?.handle || "",
       role: m.role as "admin" | "member" | "organizer" | "alumni",
       avatarUrl: profile?.avatar_url || null,
+      userId: m.user_id,
     };
   });
 
@@ -340,6 +337,94 @@ export default function ClubProfile() {
   ).slice(0, 160);
   const currentUrl = typeof window !== "undefined" ? window.location.href : "";
 
+  // Renders the primary membership action (Join / Leave / Pending / Joined).
+  // Shared by the sticky ClubHeader so the button can shrink alongside the
+  // rest of the header once the user scrolls past the threshold.
+  const renderJoinAction = (isCompact: boolean) => {
+    const sizeClasses = isCompact ? "px-3 py-1.5 text-[10px]" : "px-5 py-2 text-xs";
+
+    if (membership?.status === "approved") {
+      return (
+        <button
+          onClick={() => {
+            if (!user) return void toast.error("Please sign in first");
+            leaveMutation.mutate();
+          }}
+          disabled={leaveMutation.isPending}
+          className={`neu-border neu-press inline-flex items-center gap-2 bg-gray-200 font-mono font-bold uppercase tracking-wider hover:bg-red-100 disabled:opacity-50 transition-all duration-300 ${sizeClasses}`}
+        >
+          {leaveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+          Leave Club
+        </button>
+      );
+    }
+
+    if (membership?.status === "pending") {
+      return (
+        <button
+          disabled
+          className={`neu-border font-mono font-bold uppercase tracking-wider bg-gray-300 cursor-not-allowed transition-all duration-300 ${sizeClasses}`}
+        >
+          Request Pending
+        </button>
+      );
+    }
+
+    if (joinSuccess) {
+      return (
+        <button
+          disabled
+          className={`neu-border inline-flex items-center gap-2 bg-lime font-mono font-bold uppercase tracking-wider transition-all duration-300 ${sizeClasses}`}
+        >
+          <CheckCircle className="h-3.5 w-3.5" />
+          Member ✓
+        </button>
+      );
+    }
+
+    return (
+      <AlertDialog open={isJoinDialogOpen} onOpenChange={setIsJoinDialogOpen}>
+        <AlertDialogTrigger asChild>
+          <button
+            onClick={() => {
+              if (!user) return void toast.error("Please sign in first");
+              setIsJoinDialogOpen(true);
+            }}
+            className={`neu-border neu-press inline-flex items-center gap-2 bg-black font-mono font-bold uppercase tracking-wider text-cream transition-all duration-300 ${sizeClasses}`}
+          >
+            Join Club
+          </button>
+        </AlertDialogTrigger>
+        <AlertDialogContent className="neu-border bg-white rounded-none p-6">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display text-xl font-bold">
+              Submit join request?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="font-mono text-sm text-gray-700">
+              Do you want to submit a join request?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+            <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                e.preventDefault();
+                joinMutation.mutate();
+              }}
+              disabled={joinMutation.isPending}
+              className="neu-border bg-black text-cream hover:bg-cream hover:text-black rounded-none font-mono text-xs font-bold uppercase disabled:opacity-50 inline-flex items-center gap-2"
+            >
+              {joinMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              {joinMutation.isPending ? "Submitting..." : "Confirm"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  };
+
   return (
     <>
       <Helmet>
@@ -359,12 +444,13 @@ export default function ClubProfile() {
       </Helmet>
 
       <SiteShell>
-        <section className="border-b-2 border-black px-4 py-14 md:px-6">
+        {/* Breadcrumb — full on sm+, back-link only on mobile. Scrolls away
+            normally above the sticky ClubHeader. */}
+        <div className="border-b-2 border-black bg-slate-950 px-4 pt-4 md:px-6">
           <div className="mx-auto max-w-6xl">
-            {/* Breadcrumb — full on sm+, back-link only on mobile */}
             <Link
               to="/clubs"
-              className="mb-4 inline-flex items-center gap-1 font-mono text-xs font-bold uppercase tracking-wider hover:underline sm:hidden"
+              className="mb-4 inline-flex items-center gap-1 font-mono text-xs font-bold uppercase tracking-wider text-cream hover:underline sm:hidden"
             >
               <ArrowLeft size={12} /> Clubs
             </Link>
@@ -372,41 +458,76 @@ export default function ClubProfile() {
               <BreadcrumbList>
                 <BreadcrumbItem>
                   <BreadcrumbLink asChild>
-                    <Link to="/" className="font-mono text-xs font-bold uppercase">
+                    <Link to="/" className="font-mono text-xs font-bold uppercase text-cream">
                       Home
                     </Link>
                   </BreadcrumbLink>
                 </BreadcrumbItem>
-                <BreadcrumbSeparator />
+                <BreadcrumbSeparator className="text-cream" />
                 <BreadcrumbItem>
                   <BreadcrumbLink asChild>
-                    <Link to="/clubs" className="font-mono text-xs font-bold uppercase">
+                    <Link to="/clubs" className="font-mono text-xs font-bold uppercase text-cream">
                       Clubs
                     </Link>
                   </BreadcrumbLink>
                 </BreadcrumbItem>
-                <BreadcrumbSeparator />
+                <BreadcrumbSeparator className="text-cream" />
                 <BreadcrumbItem>
-                  <BreadcrumbPage className="font-mono text-xs font-bold uppercase">
+                  <BreadcrumbPage className="font-mono text-xs font-bold uppercase text-cream">
                     {club.name}
                   </BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
-            <p className="eyebrow font-bold text-blue-900">Club</p>
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-              <h1 className="mt-2 text-5xl font-bold text-brand-blue-dark md:text-7xl">
-                {club.name}
-              </h1>
+          </div>
+        </div>
+
+        {/* Sticky header: shrinks the massive banner/logo away and pins the
+            club name + Join button to the top as the user scrolls the feed. */}
+        <ClubHeader
+          clubName={club.name}
+          logoInitials={getInitials(club.name)}
+          eyebrow={<p className="eyebrow font-bold text-blue-900">Club</p>}
+          banner={
+            <AudioReactiveBackground
+              className="h-64 md:h-80 border-2 border-black rounded-lg shadow-xl"
+              defaultPreset="neonPulse"
+              interactive={true}
+            />
+          }
+          secondaryActions={
+            <>
+              {membership && (
+                <Link
+                  to={`/clubs/${club.slug}/tasks`}
+                  className="neu-border neu-press bg-brand-blue-base text-white px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
+                >
+                  Tasks
+                </Link>
+              )}
+              {membership && (
+                <Link
+                  to={`/clubs/${club.slug}/notes`}
+                  className="neu-border neu-press bg-lime px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
+                >
+                  Meeting Notes
+                </Link>
+              )}
               {membership?.role === "admin" && (
                 <Link
                   to={`/clubs/${club.slug}/manage`}
-                  className="neu-border neu-press bg-brand-yellow-base mt-4 sm:mt-2 px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0"
+                  className="neu-border neu-press bg-brand-yellow-base px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
                 >
                   Manage Club
                 </Link>
               )}
-            </div>
+            </>
+          }
+          actions={renderJoinAction}
+        />
+
+        <section className="relative border-b-2 border-black px-4 pb-8 md:px-6 bg-slate-950 overflow-hidden">
+          <div className="mx-auto max-w-6xl">
             <div className="markdown-content mt-4 max-w-2xl font-mono text-sm md:text-base leading-relaxed border-b-2 border-black pb-6">
               {headings.length > 1 && (
                 <nav
@@ -440,7 +561,9 @@ export default function ClubProfile() {
                   Featured Club Promo
                 </h3>
                 <div className="neu-border bg-black aspect-video mt-4 overflow-hidden">
-                  <VideoPlayer src={club.promo_video_url} title="Club Promo" />
+                  <LazyHydrate height="360px">
+                    <VideoPlayer src={club.promo_video_url} title="Club Promo" />
+                  </LazyHydrate>
                 </div>{" "}
               </div>
             )}
@@ -470,12 +593,7 @@ export default function ClubProfile() {
                     />
                   </div>
                   {filteredMembers.length === 0 ? (
-                    <EmptyState
-                      size="sm"
-                      bordered={false}
-                      illustration="no-results"
-                      title="No members match your search."
-                    />
+                    <EmptyState illustration="no-results" title="No members match your search." />
                   ) : (
                     <>
                       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -485,7 +603,10 @@ export default function ClubProfile() {
                             className="neu-border bg-white flex items-center gap-3 p-3 font-mono text-sm"
                           >
                             {m.handle ? (
-                              <Link to={`/profile/${m.handle}`} className="h-10 w-10 shrink-0">
+                              <Link
+                                to={`/profile/${m.handle}`}
+                                className="relative h-10 w-10 shrink-0"
+                              >
                                 <Avatar className="h-10 w-10 border-2 border-black rounded-full transition-transform hover:scale-105">
                                   <AvatarImage
                                     src={m.avatarUrl || undefined}
@@ -496,18 +617,36 @@ export default function ClubProfile() {
                                     {getInitials(m.name)}
                                   </AvatarFallback>
                                 </Avatar>
+                                <span className="absolute bottom-0 right-0 rounded-full border-2 border-white bg-white p-0.5">
+                                  <span
+                                    className={getPresenceBadgeClass(
+                                      presenceMap[m.userId]?.status ?? "offline",
+                                    )}
+                                    aria-hidden="true"
+                                  />
+                                </span>
                               </Link>
                             ) : (
-                              <Avatar className="h-10 w-10 border-2 border-black rounded-full">
-                                <AvatarImage
-                                  src={m.avatarUrl || undefined}
-                                  alt={m.name}
-                                  className="rounded-full"
-                                />
-                                <AvatarFallback className="rounded-full bg-brand-blue-light text-black font-bold">
-                                  {getInitials(m.name)}
-                                </AvatarFallback>
-                              </Avatar>
+                              <div className="relative h-10 w-10 shrink-0">
+                                <Avatar className="h-10 w-10 border-2 border-black rounded-full">
+                                  <AvatarImage
+                                    src={m.avatarUrl || undefined}
+                                    alt={m.name}
+                                    className="rounded-full"
+                                  />
+                                  <AvatarFallback className="rounded-full bg-brand-blue-light text-black font-bold">
+                                    {getInitials(m.name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="absolute bottom-0 right-0 rounded-full border-2 border-white bg-white p-0.5">
+                                  <span
+                                    className={getPresenceBadgeClass(
+                                      presenceMap[m.userId]?.status ?? "offline",
+                                    )}
+                                    aria-hidden="true"
+                                  />
+                                </span>
+                              </div>
                             )}
                             <div className="flex-1 min-w-0">
                               {m.handle ? (
@@ -549,78 +688,8 @@ export default function ClubProfile() {
             </div>
 
             <div className="mt-6 flex flex-wrap gap-3">
-              {membership?.status === "approved" ? (
-                <button
-                  onClick={() => {
-                    if (!user) return void toast.error("Please sign in first");
-                    leaveMutation.mutate();
-                  }}
-                  disabled={leaveMutation.isPending}
-                  className="neu-border neu-press inline-flex items-center gap-2 bg-gray-200 px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-red-100 disabled:opacity-50"
-                >
-                  {leaveMutation.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : null}
-                  Leave Club
-                </button>
-              ) : membership?.status === "pending" ? (
-                <button
-                  disabled
-                  className="neu-border px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider bg-gray-300 cursor-not-allowed"
-                >
-                  Request Pending
-                </button>
-              ) : joinSuccess ? (
-                <button
-                  disabled
-                  className="neu-border inline-flex items-center gap-2 bg-lime px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider"
-                >
-                  <CheckCircle className="h-3.5 w-3.5" />
-                  Member ✓
-                </button>
-              ) : (
-                <AlertDialog open={isJoinDialogOpen} onOpenChange={setIsJoinDialogOpen}>
-                  <AlertDialogTrigger asChild>
-                    <button
-                      onClick={() => {
-                        if (!user) return void toast.error("Please sign in first");
-                        setIsJoinDialogOpen(true);
-                      }}
-                      className="neu-border neu-press inline-flex items-center gap-2 bg-black px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider text-cream"
-                    >
-                      Join Club
-                    </button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent className="neu-border bg-white rounded-none p-6">
-                    <AlertDialogHeader>
-                      <AlertDialogTitle className="font-display text-xl font-bold">
-                        Submit join request?
-                      </AlertDialogTitle>
-                      <AlertDialogDescription className="font-mono text-sm text-gray-700">
-                        Do you want to submit a join request?
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
-                      <AlertDialogCancel className="neu-border rounded-none font-mono text-xs font-bold uppercase bg-white text-black hover:bg-cream">
-                        Cancel
-                      </AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={(e) => {
-                          e.preventDefault();
-                          joinMutation.mutate();
-                        }}
-                        disabled={joinMutation.isPending}
-                        className="neu-border bg-black text-cream hover:bg-cream hover:text-black rounded-none font-mono text-xs font-bold uppercase disabled:opacity-50 inline-flex items-center gap-2"
-                      >
-                        {joinMutation.isPending ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : null}
-                        {joinMutation.isPending ? "Submitting..." : "Confirm"}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
+              {/* Join/Leave lives in the sticky ClubHeader now, so it's
+                  always reachable — no need to duplicate it here. */}
               <button
                 onClick={() => toast.info("Follow feature coming soon!")}
                 className="neu-border neu-press bg-cream px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider"
@@ -656,7 +725,6 @@ export default function ClubProfile() {
               </h2>
               {events.length === 0 ? (
                 <EmptyState
-                  bordered={false}
                   illustration="no-events"
                   title="No upcoming events."
                   description="Check back soon — this club hasn't scheduled anything yet."

@@ -1,6 +1,12 @@
-import { formatDate, formatEventDateRange, getCountdown, getGoogleCalendarUrl } from "@/lib/utils";
+import {
+  formatDate,
+  formatEventDateRange,
+  getCountdown,
+  getGoogleCalendarUrl,
+  getIcsContent,
+} from "@/lib/utils";
 import { Link } from "react-router-dom";
-import { FormEvent, useState } from "react";
+import React, { FormEvent, useState, useMemo, useEffect, useRef } from "react";
 import { Calendar, Check, Share2, X, Link as LinkIcon, Bookmark } from "lucide-react";
 import { toast } from "sonner";
 import { TicketDialog } from "@/components/ui/ticket-modal";
@@ -8,8 +14,15 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EventRSVPButton } from "@/components/EventRSVPButton";
 
+import { usePreloadEvent } from "@/hooks/usePreloadEvent";
+
+import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
+import { ShareMenu } from "@/components/ui/ShareMenu";
+import { ReadMore } from "@/components/ui/ReadMore";
+
 interface Event {
   id: string;
+  short_id?: string | null;
   title: string;
   description: string | null;
   event_date: string | null;
@@ -18,6 +31,7 @@ interface Event {
   location: string | null;
   banner_url?: string | null;
   created_at?: string | null;
+  max_attendees?: number | null;
   clubs: { name: string } | { name: string }[] | null;
   event_rsvps: { id: string; user_id: string }[] | null;
   saved_events: { id: string; user_id: string }[] | null;
@@ -31,6 +45,7 @@ interface EventCardProps {
   isRsvpPending: boolean;
   onBookmarkToggle: (eventId: string, isSaved: boolean) => void;
   isBookmarkPending: boolean;
+  active?: boolean;
 }
 
 // Assumed lead time (in days) used when an event has no `created_at` available
@@ -141,7 +156,6 @@ function renderLocationWithLinks(locationText: string | null) {
     return part;
   });
 }
-
 export function EventCard({
   event,
   index,
@@ -150,11 +164,12 @@ export function EventCard({
   isRsvpPending,
   onBookmarkToggle,
   isBookmarkPending,
+  active,
 }: EventCardProps) {
   const club = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs;
   const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
   const myRsvp = user ? rsvps.find((rsvp) => rsvp.user_id === user.id) : null;
-
+  const preloadEvent = usePreloadEvent(event.id);
   const hasRsvpd = !!myRsvp;
   const colors = ["bg-lime", "bg-sky", "bg-peach"];
   const googleCalendarUrl = getGoogleCalendarUrl({
@@ -169,7 +184,6 @@ export function EventCard({
 
   const [ticketOpen, setTicketOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   const handleCopyLink = async () => {
     try {
@@ -178,6 +192,32 @@ export function EventCard({
     } catch (error) {
       toast.error("Failed to copy link.");
     }
+  };
+
+  const handleDownloadIcs = () => {
+    const icsContent = getIcsContent({
+      title: event.title,
+      description: event.description,
+      event_date: event.event_date,
+      start_date: event.start_date,
+      end_date: event.end_date,
+      location: event.location,
+    });
+
+    if (!icsContent) {
+      toast.error("Failed to generate calendar file");
+      return;
+    }
+
+    const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `${event.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.ics`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const shareUrl =
@@ -210,19 +250,17 @@ export function EventCard({
     onBookmarkToggle?.(event.id, isSaved);
   };
 
-  const shouldTruncate = !!event.description && event.description.length > 220;
-
-  const displayedDescription =
-    shouldTruncate && !isDescriptionExpanded
-      ? `${event.description!.slice(0, 180)}...`
-      : event.description;
-
   return (
     <div className="group">
       <article
         id={`event-${event.id}`}
-        className={`neu-border p-5 relative ${colors[index % colors.length]} transition-transform duration-300 ease-out group-hover:scale-[1.02]`}
+        onMouseEnter={preloadEvent.onMouseEnter}
+        onMouseLeave={preloadEvent.onMouseLeave}
+        className={`neu-border p-5 relative ${
+          active ? "bg-blue-100 border-4 border-blue-600 ring-2 ring-blue-600" : colors[index % colors.length]
+        } transition-all duration-300 ease-out group-hover:scale-[1.02]`}
       >
+        {" "}
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col">
             <p className="font-mono text-xs font-bold uppercase tracking-wider pr-10 text-red-900">
@@ -241,33 +279,41 @@ export function EventCard({
               </span>
             )}
           </div>
+        </div>
+        {event.description ? (
+          <p className="mt-4 text-sm leading-6 text-gray-800">{event.description}</p>
+        ) : null}
+        <div className="mt-5">
+          <div>
+            <p className="font-mono text-xs font-bold uppercase text-black">Date &amp; Time</p>
+            <p className="mt-1 text-sm text-red-900">{formatEventDateRange(event)}</p>
 
-          <div className="flex gap-2 relative z-10">
-            <button
-              type="button"
-              onClick={handleBookmarkClick}
-              disabled={isBookmarkPending}
-              className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60"
-              aria-label={isSaved ? "Unsave event" : "Save event"}
-            >
-              <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
-            </button>
-            <ShareMenu
-              url={shareUrl}
-              title={event.title}
-              text={`Check out this event: ${event.title}`}
-            >
+            <div className="mt-3 flex gap-2 relative z-10">
               <button
                 type="button"
-                aria-label="Share event link"
-                className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black"
+                onClick={handleBookmarkClick}
+                disabled={isBookmarkPending}
+                className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label={isSaved ? "Unsave event" : "Save event"}
               >
-                <Share2 aria-hidden="true" size={14} strokeWidth={3} />
+                <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
               </button>
-            </ShareMenu>
+              <ShareMenu
+                url={shareUrl}
+                title={event.title}
+                text={`Check out this event: ${event.title}`}
+              >
+                <button
+                  type="button"
+                  aria-label="Share event link"
+                  className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black"
+                >
+                  <Share2 aria-hidden="true" size={14} strokeWidth={3} />
+                </button>
+              </ShareMenu>
+            </div>
           </div>
         </div>
-
         <p className="mt-3 font-mono text-xs font-bold uppercase text-black">Event</p>
         <Link to={`/events/${event.id}`} className="group">
           <h2 className="mt-1 text-2xl font-black group-hover:underline text-violet-900">
@@ -275,29 +321,20 @@ export function EventCard({
           </h2>
         </Link>
         <p className="mt-1 font-mono text-sm font-bold text-blue-900">{club?.name}</p>
-
         {event.description ? (
-          <div
-            className={`mt-4 overflow-hidden transition-all duration-300 ease-in-out ${
-              isDescriptionExpanded ? "max-h-250" : "max-h-40"
-            }`}
-          >
-            <p className="text-sm leading-6 text-gray-800 inline">{displayedDescription}</p>
-
-            {shouldTruncate && (
-              <button
-                type="button"
-                onClick={() => setIsDescriptionExpanded((prev) => !prev)}
-                className="ml-1 inline font-semibold text-violet-700 hover:text-violet-900 transition-colors"
-              >
-                {isDescriptionExpanded ? "Read less" : "Read more"}
-              </button>
-            )}
+          <div className="mt-4">
+            <ReadMore text={event.description} />
           </div>
         ) : null}
-
         <EventProgressBar createdAt={event.created_at} eventDate={event.event_date} />
-
+        <div className="mt-4">
+          <EventCapacityGauge
+            eventId={event.id}
+            initialCapacity={rsvps.length}
+            maxAttendees={event.max_attendees || null}
+            showDetails={true}
+          />
+        </div>
         <dl className="mt-5 grid gap-4 sm:grid-cols-3">
           <div>
             <dt className="font-mono text-xs font-bold uppercase text-black">Date &amp; Time</dt>
@@ -312,7 +349,6 @@ export function EventCard({
             <dd className="mt-1 text-sm text-red-900">{rsvps.length} RSVP'd</dd>
           </div>
         </dl>
-
         <div className="mt-5 flex flex-wrap items-center gap-3">
           <EventRSVPButton
             eventId={event.id}
@@ -351,6 +387,16 @@ export function EventCard({
               Add to Google Calendar
             </a>
           )}
+          {hasRsvpd && googleCalendarUrl && (
+            <button
+              onClick={handleDownloadIcs}
+              type="button"
+              className="neu-border bg-white px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2 text-black"
+            >
+              <Calendar aria-hidden="true" size={14} strokeWidth={3} />
+              Add to Apple/Outlook
+            </button>
+          )}
           {hasRsvpd && myRsvp && (
             <Button
               type="button"
@@ -361,13 +407,6 @@ export function EventCard({
               View Ticket
             </Button>
           )}
-        </div>
-        <div className="mt-4">
-          <ShareMenu
-            url={shareUrl}
-            title={event.title}
-            text={`Check out this event: ${event.title}`}
-          />
         </div>
         <TicketDialog
           open={ticketOpen}

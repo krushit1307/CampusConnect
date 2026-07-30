@@ -1,10 +1,19 @@
 import { format, getDay, parse, startOfWeek } from "date-fns";
 import { enUS } from "date-fns/locale";
-import { Calendar, dateFnsLocalizer, View } from "react-big-calendar";
-import "react-big-calendar/lib/css/react-big-calendar.css";
 import { useNavigate } from "react-router-dom";
+import { useEffect, useRef } from "react";
+import "react-big-calendar/lib/css/react-big-calendar.css";
 import { useState } from "react";
+import { CalendarDays, MapPin } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const locales = {
   "en-US": enUS,
@@ -18,8 +27,13 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
+interface EventCategory {
+  name: string;
+}
+
 interface EventItem {
   id: string;
+  short_id?: string | null;
   title: string;
   description: string | null;
   event_date: string | null;
@@ -28,69 +42,185 @@ interface EventItem {
   location: string | null;
   banner_url?: string | null;
   clubs: { name: string } | { name: string }[] | null;
+  event_categories?: EventCategory | EventCategory[] | null;
 }
 
 interface EventsCalendarProps {
   events: EventItem[];
 }
 
+interface CalendarEvent {
+  id: string;
+  title: string;
+  start: Date;
+  end: Date;
+  allDay: boolean;
+  resource: EventItem;
+}
+
+function getCategory(event: EventItem) {
+  const category = event.event_categories;
+
+  if (!category) return "Other";
+
+  if (Array.isArray(category)) {
+    return category[0]?.name ?? "Other";
+  }
+
+  return category.name;
+}
+
+function getCategoryClass(category: string) {
+  switch (category.toLowerCase()) {
+    case "academic":
+      return "calendar-event-academic";
+    case "social":
+      return "calendar-event-social";
+    case "sports":
+      return "calendar-event-sports";
+    default:
+      return "calendar-event-default";
+  }
+}
+
 export default function EventsCalendar({ events }: EventsCalendarProps) {
-  const navigate = useNavigate();
   const [view, setView] = useState<View>("month");
+  const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
+  const formattedEvents: CalendarEvent[] = events
+    .filter((event) => event.start_date || event.event_date)
+    .map((event) => {
+      const start = new Date(event.start_date ?? event.event_date!);
 
-  const formattedEvents = events.map((e) => {
-    const start = e.start_date
-      ? new Date(e.start_date)
-      : e.event_date
-        ? new Date(e.event_date)
-        : new Date();
-    const end = e.end_date ? new Date(e.end_date) : new Date(start.getTime() + 60 * 60 * 1000);
+      const end = event.end_date
+        ? new Date(event.end_date)
+        : new Date(start.getTime() + 60 * 60 * 1000);
 
-    return {
-      id: e.id,
-      title: e.title,
-      start,
-      end,
-      allDay: false,
-    };
-  });
+      return {
+        id: event.short_id || event.id,
+        title: event.title,
+        start,
+        end,
+        allDay: false,
+        resource: event,
+      };
+    });
+
+  const selectedStart = selectedEvent
+    ? new Date(selectedEvent.start_date ?? selectedEvent.event_date ?? "")
+    : null;
+
+  const selectedEnd = selectedEvent?.end_date != null ? new Date(selectedEvent.end_date) : null;
 
   return (
-    <div className="neu-border bg-white p-4 h-[600px] md:h-[700px] w-full">
-      <div className="mb-4 flex gap-2">
-        <Button
-          size="sm"
-          className={view === "month" ? "bg-primary text-primary-foreground" : "border"}
-          onClick={() => setView("month")}
-        >
-          Month
-        </Button>
+    <>
+      <div className="neu-border h-[600px] w-full bg-white p-4 md:h-[700px]">
+        <div className="mb-4 flex flex-wrap gap-2" aria-label="Calendar view">
+          <Button
+            type="button"
+            size="sm"
+            variant={view === "month" ? "primary" : "outline"}
+            aria-pressed={view === "month"}
+            onClick={() => setView("month")}
+          >
+            Month
+          </Button>
 
-        <Button
-          size="sm"
-          className={view === "week" ? "bg-primary text-primary-foreground" : "border"}
-          onClick={() => setView("week")}
-        >
-          Week
-        </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={view === "week" ? "primary" : "outline"}
+            aria-pressed={view === "week"}
+            onClick={() => setView("week")}
+          >
+            Week
+          </Button>
+
+          <Button
+            type="button"
+            size="sm"
+            variant={view === "day" ? "primary" : "outline"}
+            aria-pressed={view === "day"}
+            onClick={() => setView("day")}
+          >
+            Day
+          </Button>
+        </div>
+
+        <Calendar
+          localizer={localizer}
+          events={formattedEvents}
+          startAccessor="start"
+          endAccessor="end"
+          style={{ height: "calc(100% - 48px)" }}
+          views={["month", "week", "day"]}
+          view={view}
+          onView={(newView) => setView(newView)}
+          eventPropGetter={(calendarEvent) => ({
+            className: getCategoryClass(getCategory((calendarEvent as CalendarEvent).resource)),
+          })}
+          onSelectEvent={(calendarEvent) => {
+            setSelectedEvent((calendarEvent as CalendarEvent).resource);
+          }}
+        />
       </div>
 
-      <Calendar
-        localizer={localizer}
-        events={formattedEvents}
-        startAccessor="start"
-        endAccessor="end"
-        style={{ height: "100%" }}
-        views={["month", "week"]}
-        view={view}
-        onView={(newView) => setView(newView)}
-        eventPropGetter={() => ({
-          className: "calendar-rsvp-event",
-        })}
-        onSelectEvent={(event: { id: string }) => {
-          navigate(`/events/${event.id}`);
+      <Dialog
+        open={selectedEvent !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedEvent(null);
         }}
-      />
-    </div>
+      >
+        <DialogContent className="neu-border bg-white sm:max-w-lg">
+          {selectedEvent && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-mono text-xl font-bold uppercase">
+                  {selectedEvent.title}
+                </DialogTitle>
+
+                <DialogDescription>{getCategory(selectedEvent)} campus event</DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                {selectedEvent.banner_url && (
+                  <img
+                    src={selectedEvent.banner_url}
+                    alt=""
+                    className="max-h-56 w-full object-cover"
+                  />
+                )}
+
+                <div className="flex items-start gap-2 font-mono text-sm">
+                  <CalendarDays className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+
+                  <div>
+                    {selectedStart && !Number.isNaN(selectedStart.getTime()) && (
+                      <p>{format(selectedStart, "PPP p")}</p>
+                    )}
+
+                    {selectedEnd && !Number.isNaN(selectedEnd.getTime()) && (
+                      <p className="text-neutral-500">Ends {format(selectedEnd, "PPP p")}</p>
+                    )}
+                  </div>
+                </div>
+
+                {selectedEvent.location && (
+                  <div className="flex items-start gap-2 font-mono text-sm">
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span>{selectedEvent.location}</span>
+                  </div>
+                )}
+
+                {selectedEvent.description && (
+                  <p className="font-mono text-sm leading-6 text-neutral-600">
+                    {selectedEvent.description}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

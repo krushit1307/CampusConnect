@@ -3,7 +3,7 @@ import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
-import { User } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
 import { Award, ArrowRight, Copy, Download, Loader2, QrCode, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -38,11 +38,11 @@ export default function Certificates() {
   const [isTicketOpen, setIsTicketOpen] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+    supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null));
   }, [supabase]);
 
   const {
-    data: certs = [],
+    data: certs = [] as Certificate[],
     isLoading,
     isError,
     refetch,
