@@ -664,6 +664,10 @@ export default function EventsList() {
     });
 
   const sortedEvents = [...filteredEvents].sort((a, b) => {
+    // If we have an active search query, preserve the relevance-ranked order from the DB
+    if (searchQuery.trim()) {
+      return 0;
+    }
     if (!a.event_date) return 1;
     if (!b.event_date) return -1;
     const dateA = new Date(a.event_date).getTime();

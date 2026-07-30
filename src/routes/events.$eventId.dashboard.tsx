@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
@@ -7,10 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import ReactECharts from "echarts-for-react";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
-
 import { ChartSkeleton } from "@/components/ui/ChartSkeleton";
-import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
 
 const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));
 

@@ -675,15 +675,13 @@ export default function ChatBox() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent side="top" align="end" className="p-0 border-2 border-black">
-                      <EmojiPicker 
-                        onEmojiClick={(emojiData) => setInputMessage(prev => prev + emojiData.emoji)}
+                      <EmojiPicker
+                        onEmojiClick={(emojiData) =>
+                          setInputMessage((prev) => prev + emojiData.emoji)
+                        }
                       />
                     </PopoverContent>
                   </Popover>
-                  <Button
-                    type="submit"
-                    size="icon"
-                    className="h-10 w-10 border-2 border-black bg-lime text-black neu-border neu-press"
                   {/* Typing indicator — visible only when someone else is typing */}
                   <div
                     className="min-h-[1.25rem] flex items-center gap-1.5"

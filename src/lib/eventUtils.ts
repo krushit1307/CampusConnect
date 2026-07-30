@@ -153,6 +153,7 @@ export function eventFormToDbPayload(
     created_by: userId,
     club_id: clubId,
     requires_approval: values.requiresApproval || false,
+    tags: values.tags || [],
   };
 }
 

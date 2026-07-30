@@ -107,7 +107,6 @@ export function CreateClubDialog({ user }: { user: User | null }) {
       if (error) {
         throw new Error(error.message);
       }
-
     },
     onSuccess: () => {
       toast.success("Club submitted for administrator review.");

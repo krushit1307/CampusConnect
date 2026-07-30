@@ -31,12 +31,12 @@ export function TableOfContents({ items }: TableOfContentsProps) {
       // Account for fixed navbar height (approx 80px) + some padding
       const yOffset = -100;
       const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
-      
+
       window.scrollTo({
         top: y,
         behavior: "smooth",
       });
-      
+
       // Close mobile menu after click
       setIsMobileOpen(false);
     }
@@ -47,19 +47,14 @@ export function TableOfContents({ items }: TableOfContentsProps) {
       {items.map((item) => (
         <li
           key={item.id}
-          className={cn(
-            "transition-colors duration-200",
-            item.level === 3 && "pl-3"
-          )}
+          className={cn("transition-colors duration-200", item.level === 3 && "pl-3")}
         >
           <button
             onClick={() => scrollToHeading(item.id)}
             className={cn(
               "w-full text-left font-mono text-sm hover:text-primary",
-              activeId === item.id
-                ? "font-bold text-primary"
-                : "text-muted-foreground",
-              !isMobile && activeId === item.id && "border-l-2 border-primary -ml-[18px] pl-[14px]"
+              activeId === item.id ? "font-bold text-primary" : "text-muted-foreground",
+              !isMobile && activeId === item.id && "border-l-2 border-primary -ml-[18px] pl-[14px]",
             )}
           >
             {item.text}
@@ -87,7 +82,11 @@ export function TableOfContents({ items }: TableOfContentsProps) {
           onClick={() => setIsMobileOpen(!isMobileOpen)}
         >
           Contents ({items.length})
-          {isMobileOpen ? <ChevronUp className="ml-2 h-4 w-4" /> : <ChevronDown className="ml-2 h-4 w-4" />}
+          {isMobileOpen ? (
+            <ChevronUp className="ml-2 h-4 w-4" />
+          ) : (
+            <ChevronDown className="ml-2 h-4 w-4" />
+          )}
         </Button>
         {isMobileOpen && (
           <div className="mt-2 rounded-lg border-2 border-black bg-card p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">

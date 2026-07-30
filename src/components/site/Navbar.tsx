@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { localizedPath } from "@/lib/i18n";
 
 import { ThemeToggle } from "../ThemeToggle";
 import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
@@ -19,25 +21,51 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const links = [
-  { to: "/events", label: "Events" },
-  { to: "/clubs", label: "Clubs" },
-  { to: "/feed", label: "Feed" },
-  { to: "/challenge", label: "Challenge" },
-  { to: "/certificates", label: "Certificates" },
-  { to: "/dashboard", label: "Dashboard" },
-  { to: "/messages", label: "Messages" },
-] as const;
-const landingLinks = [
-  { href: "#features", label: "Features" },
-  { href: "#faq", label: "FAQ" },
-  { href: "#contact", label: "Contact" },
-] as const;
-
 export function Navbar() {
   const { user, isInitializing } = useAuthHydration();
   const location = useLocation();
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  const links = [
+    {
+      to: localizedPath(i18n.language, "/events"),
+      label: t("navbar.events"),
+    },
+    {
+      to: localizedPath(i18n.language, "/clubs"),
+      label: t("navbar.clubs"),
+    },
+    {
+      to: localizedPath(i18n.language, "/feed"),
+      label: t("navbar.feed"),
+    },
+    {
+      to: localizedPath(i18n.language, "/directory"),
+      label: t("navbar.directory"),
+    },
+    {
+      to: localizedPath(i18n.language, "/challenge"),
+      label: t("navbar.challenge"),
+    },
+    {
+      to: localizedPath(i18n.language, "/certificates"),
+      label: t("navbar.certificates"),
+    },
+    {
+      to: localizedPath(i18n.language, "/dashboard"),
+      label: t("navbar.dashboard"),
+    },
+    {
+      to: localizedPath(i18n.language, "/messages"),
+      label: t("navbar.messages"),
+    },
+  ];
+
+  const landingLinks = [
+    { href: "#features", label: t("navbar.features") },
+    { href: "#faq", label: t("navbar.faq") },
+    { href: "#contact", label: t("navbar.contact") },
+  ];
   const currentPath = location.pathname;
   const supabase = createClient();
 
@@ -118,7 +146,7 @@ export function Navbar() {
       <div className="mx-auto flex min-w-0 max-w-7xl items-center justify-between gap-2 px-2 py-3 sm:px-4 md:px-6">
         {/* Logo */}
         <Link
-          to="/"
+          to={localizedPath(i18n.language, "/")}
           className="min-w-0 flex-1 truncate font-display text-sm font-bold sm:flex-none sm:text-xl md:text-2xl navbar-logo"
         >
           <span style={{ letterSpacing: "0.04em" }}>CAMPUS</span>
@@ -171,8 +199,8 @@ export function Navbar() {
 
             {user && <NavbarNotificationDropdown />}
             {isInitializing ? (
-                <ProfileHeaderSkeleton />
-              ) : user ? (
+              <ProfileHeaderSkeleton />
+            ) : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -216,14 +244,14 @@ export function Navbar() {
               </DropdownMenu>
             ) : (
               <Link
-                to="/auth"
+                to={localizedPath(i18n.language, "/auth")}
                 id="nav-signin-button"
                 className="neu-border neu-press bg-black px-3 py-1.5 font-mono text-xs font-bold uppercase text-cream hover:bg-cream hover:text-black dark:bg-cream dark:text-black dark:hover:bg-black dark:hover:text-cream"
                 style={{ letterSpacing: "0.08em" }}
               >
-                Sign in
+                {t("navbar.signin")}
               </Link>
-          )}
+            )}
           </div>
 
           {/* Mobile menu toggle button */}

@@ -34,12 +34,12 @@ vi.mock("@/components/PullToRefresh", () => ({
 
 describe("Feed Component - Realtime Subscription", () => {
   let container: any = null;
-  
+
   beforeEach(() => {
     container = document.createElement("div");
     document.body.appendChild(container);
   });
-  
+
   afterEach(() => {
     unmountComponentAtNode(container);
     container.remove();
@@ -51,7 +51,7 @@ describe("Feed Component - Realtime Subscription", () => {
     const mockUnsubscribe = vi.fn();
     const mockSubscribe = vi.fn();
     const mockOn = vi.fn().mockReturnThis();
-    
+
     const mockChannel = {
       on: mockOn,
       subscribe: mockSubscribe,

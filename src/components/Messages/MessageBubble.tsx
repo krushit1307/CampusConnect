@@ -1,6 +1,7 @@
 import { Lock } from "lucide-react";
 import type { Message } from "@/store/useChatStore";
 import { useChatStore } from "@/store/useChatStore";
+import LinkPreviewCard from "./LinkPreviewCard";
 
 export default function MessageBubble({ msg }: { msg: Message }) {
   const currentUser = useChatStore((s) => s.currentUser);
@@ -12,6 +13,9 @@ export default function MessageBubble({ msg }: { msg: Message }) {
     minute: "2-digit",
   });
 
+  const urlMatch = msg.content.match(/(https?:\/\/[^\s]+)/i);
+  const firstUrl = urlMatch ? urlMatch[0] : null;
+
   return (
     <div className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
       <div
@@ -22,6 +26,7 @@ export default function MessageBubble({ msg }: { msg: Message }) {
         }`}
       >
         <p className="whitespace-pre-wrap font-sans text-sm font-medium">{msg.content}</p>
+        {firstUrl && <LinkPreviewCard url={firstUrl} />}
         <div className="mt-1.5 flex items-center justify-between gap-4 font-mono text-[9px] uppercase opacity-60">
           <span>{time}</span>
           <span className="flex items-center gap-0.5">

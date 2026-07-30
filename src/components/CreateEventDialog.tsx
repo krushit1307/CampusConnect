@@ -70,9 +70,6 @@ import type { ParsedFlyer } from "@/lib/parser";
 import { TagMultiSelect } from "@/components/ui/TagMultiSelect";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 
-import { FlyerUploader } from "@/components/FlyerUploader";
-import type { ParsedFlyer } from "@/lib/parser";
-
 const STEPS = [
   { label: "Details", fields: ["title", "description"] as const },
   { label: "Logistics", fields: ["location", "startDate", "endDate"] as const },

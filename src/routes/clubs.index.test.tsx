@@ -116,4 +116,31 @@ describe("ClubsIndex Component", () => {
       expect(searchInput).toHaveValue("");
     });
   });
+
+  it("prefetches club details on hover", async () => {
+    const prefetchSpy = vi.spyOn(queryClient, "prefetchQuery").mockResolvedValue(undefined);
+
+    render(
+      <ThemeProvider>
+        <TooltipProvider>
+          <QueryClientProvider client={queryClient}>
+            <MemoryRouter>
+              <ClubsIndex />
+            </MemoryRouter>
+          </QueryClientProvider>
+        </TooltipProvider>
+      </ThemeProvider>,
+    );
+
+    const clubLink = await screen.findByRole("link", { name: /Robotics Club/i });
+    fireEvent.mouseEnter(clubLink);
+
+    await waitFor(() => {
+      expect(prefetchSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ["club", "robotics-club"] }),
+      );
+    });
+
+    prefetchSpy.mockRestore();
+  });
 });

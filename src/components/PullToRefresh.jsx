@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { RefreshCw } from "lucide-react";
 
-export default function PullToRefresh({ children, onRefresh }) {
+export function PullToRefresh({ children, onRefresh }) {
   const [startY, setStartY] = useState(0);
   const [pullChange, setPullChange] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -77,3 +77,5 @@ export default function PullToRefresh({ children, onRefresh }) {
     </div>
   );
 }
+
+export default PullToRefresh;

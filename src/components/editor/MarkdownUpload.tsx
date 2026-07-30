@@ -8,6 +8,7 @@
 import * as React from "react";
 import { Upload, FileText, AlertCircle, CheckCircle } from "lucide-react";
 import { parseMarkdownToTiptap } from "../../lib/tiptap/markdown-parser";
+import { Progress } from "@/components/ui/progress";
 
 interface MarkdownUploadProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -19,6 +20,7 @@ export const MarkdownUpload: React.FC<MarkdownUploadProps> = ({
 }: MarkdownUploadProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -29,9 +31,10 @@ export const MarkdownUpload: React.FC<MarkdownUploadProps> = ({
     setError(null);
     setSuccess(null);
     setIsLoading(true);
+    setUploadProgress(0);
 
     try {
-      const result = await parseMarkdownToTiptap(file);
+      const result = await parseMarkdownToTiptap(file, setUploadProgress);
 
       if (result.success && result.data) {
         setSuccess(`Successfully parsed "${result.fileName}"`);
@@ -43,6 +46,7 @@ export const MarkdownUpload: React.FC<MarkdownUploadProps> = ({
       setError("An unexpected error occurred while uploading.");
     } finally {
       setIsLoading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -114,6 +118,15 @@ export const MarkdownUpload: React.FC<MarkdownUploadProps> = ({
             or drag and drop
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400">Markdown files only (.md)</p>
+
+          {uploadProgress !== null && isLoading && (
+            <div className="w-full mt-4">
+              <span className="font-mono text-xs text-blue-600 dark:text-blue-400 mb-1 block">
+                Uploading {uploadProgress}%
+              </span>
+              <Progress value={uploadProgress} className="h-1.5" />
+            </div>
+          )}
         </div>
       </div>
 
