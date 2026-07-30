@@ -13,4 +13,9 @@ export type {
 } from "./ModalContext.types";
 
 export { ModalProvider, useModal } from "./ModalContext";
-export { ModalRoot, makeRegistrations, type ModalRegistration, type ModalRegistrationMap } from "./ModalRoot";
+export {
+  ModalRoot,
+  makeRegistrations,
+  type ModalRegistration,
+  type ModalRegistrationMap,
+} from "./ModalRoot";

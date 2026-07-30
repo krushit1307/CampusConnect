@@ -35,10 +35,7 @@ describe("ModalRoot — active state (issue #1916)", () => {
     expect(screen.queryByTestId("bug-report-body")).not.toBeInTheDocument();
     act(() => screen.getByRole("button", { name: /open/i }).click());
     expect(screen.getByTestId("modal-root")).toBeInTheDocument();
-    expect(screen.getByTestId("modal-root")).toHaveAttribute(
-      "data-active-modal",
-      "BUG_REPORT",
-    );
+    expect(screen.getByTestId("modal-root")).toHaveAttribute("data-active-modal", "BUG_REPORT");
     expect(screen.getByTestId("bug-report-body")).toBeInTheDocument();
   });
 
@@ -52,9 +49,7 @@ describe("ModalRoot — active state (issue #1916)", () => {
       const { openModal } = useModal();
       return (
         <>
-          <button onClick={() => openModal("SHARE", { url: "https://x.test" })}>
-            share
-          </button>
+          <button onClick={() => openModal("SHARE", { url: "https://x.test" })}>share</button>
           <ModalRoot registrations={registrations} />
         </>
       );

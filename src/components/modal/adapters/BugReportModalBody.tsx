@@ -14,8 +14,21 @@ import { useModal } from "@/components/modal";
  * Keeps the existing BugReportModal untouched so consumers that
  * still use it inline keep working.
  */
-export function BugReportModalBody({ modalProps, onClose }: { modalProps: unknown; onClose: () => void }) {
+export function BugReportModalBody({
+  modalProps,
+  onClose,
+}: {
+  modalProps: unknown;
+  onClose: () => void;
+}) {
   const { activeModal } = useModal();
   const open = activeModal === "BUG_REPORT";
-  return <BugReportModal open={open} onOpenChange={(next) => { if (!next) onClose(); }} />;
+  return (
+    <BugReportModal
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    />
+  );
 }

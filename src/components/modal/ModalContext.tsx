@@ -1,11 +1,4 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import type {
   ModalContextValue,
   ModalKind,
@@ -38,12 +31,9 @@ export function ModalProvider({ children }: ModalProviderProps) {
     modalProps: undefined,
   });
 
-  const openModal = useCallback(
-    <K extends ModalKind>(kind: K, props?: ModalPropsByKind[K]) => {
-      setState({ activeModal: kind, modalProps: props });
-    },
-    [],
-  );
+  const openModal = useCallback(<K extends ModalKind>(kind: K, props?: ModalPropsByKind[K]) => {
+    setState({ activeModal: kind, modalProps: props });
+  }, []);
 
   const closeModal = useCallback(() => {
     setState({ activeModal: null, modalProps: undefined });

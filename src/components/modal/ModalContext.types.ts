@@ -16,12 +16,7 @@
  * The kind identifier. Keep this a string-literal union so the
  * switch/case in ModalRoot exhaustiveness-checks correctly.
  */
-export type ModalKind =
-  | "BUG_REPORT"
-  | "COMMAND_PALETTE"
-  | "LOGIN"
-  | "FILTERS"
-  | "SHARE";
+export type ModalKind = "BUG_REPORT" | "COMMAND_PALETTE" | "LOGIN" | "FILTERS" | "SHARE";
 
 /**
  * Props bag indexed by kind. Each entry is `unknown` by default —
