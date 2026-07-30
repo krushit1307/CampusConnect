@@ -29,6 +29,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { PasskeyManager } from "@/components/PasskeyManager";
+import { useTheme } from "@/components/theme-provider";
+import { AudioEngine, SOUND_ENABLED_KEY } from "@/lib/audio/audioEngine";
 
 const FONT_SIZE_KEY = "campusconnect-font-size";
 
@@ -70,6 +72,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [borderThickness, setBorderThickness] = useState(2);
   const [borderRadius, setBorderRadius] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(false);
   const { fontSize, increment, decrement, reset } = useFontSize();
 
   // --- Skills tags state ---
@@ -101,6 +104,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
     // Load appearance settings from localStorage
     const savedThickness = localStorage.getItem("border-thickness");
     const savedRadius = localStorage.getItem("border-radius");
+    setSoundEnabled(localStorage.getItem(SOUND_ENABLED_KEY) === "true");
 
     if (savedThickness) {
       const thickness = parseInt(savedThickness, 10);
@@ -258,6 +262,12 @@ function SettingsPageContent({ user }: WithAuthProps) {
     setBorderThickness(value);
     document.documentElement.style.setProperty("--border-thickness", `${value}px`);
     localStorage.setItem("border-thickness", String(value));
+  };
+
+  const handleSoundEnabledChange = (enabled: boolean) => {
+    setSoundEnabled(enabled);
+    AudioEngine.setEnabled(enabled);
+    if (enabled) AudioEngine.playToggle();
   };
 
   const handleBorderRadiusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -578,6 +588,24 @@ function SettingsPageContent({ user }: WithAuthProps) {
                     💻 System
                   </button>
                 </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 border-t-2 border-black pt-4">
+                <div>
+                  <label htmlFor="ui-sounds" className="eyebrow font-bold text-black dark:text-cream">
+                    UI Sounds
+                  </label>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    Play subtle synthesized clicks, toggles, and like pops.
+                  </p>
+                </div>
+                <input
+                  id="ui-sounds"
+                  type="checkbox"
+                  checked={soundEnabled}
+                  onChange={(event) => handleSoundEnabledChange(event.target.checked)}
+                  className="h-5 w-5 accent-black"
+                />
               </div>
 
               {/* Border Thickness */}
@@ -949,35 +977,6 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
     </div>
   );
 }
-function ThemeToggle({
-  theme,
-  setTheme,
-}: {
-  theme: "light" | "dark" | "system";
-  setTheme: (theme: "light" | "dark" | "system") => void;
-}) {
-  const id = useId();
-  return (
-    <div className="block">
-      <label htmlFor={id} className="eyebrow mb-1 block font-bold">
-        {label}
-        {required && (
-          <span className="text-destructive ml-1" aria-hidden="true">
-            *
-          </span>
-        )}
-      </label>
-      <input
-        id={id}
-        defaultValue={defaultValue}
-        required={required}
-        aria-required={required}
-        className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
-      />
-    </div>
-  );
-}
-
 function Toggle({ label, defaultChecked }: { label: string; defaultChecked?: boolean }) {
   const id = useId();
   return (
