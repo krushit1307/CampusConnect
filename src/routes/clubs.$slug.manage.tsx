@@ -378,8 +378,6 @@ export default function ClubManageRoute() {
               >
                 <BarChart2 size={18} /> Analytics
               </button>
-<<<<<<< HEAD
-=======
               <button
                 onClick={() => setActiveTab("documents")}
                 className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
@@ -390,7 +388,6 @@ export default function ClubManageRoute() {
               >
                 <FolderOpen size={18} /> Documents
               </button>
->>>>>>> origin/main
             </nav>
           </aside>
 
@@ -627,8 +624,6 @@ export default function ClubManageRoute() {
               </div>
             )}
             {activeTab === "analytics" && <ClubAnalyticsDashboard clubId={club.id} />}
-<<<<<<< HEAD
-=======
 
             {activeTab === "documents" && (
               <div className="neu-border bg-white p-6 space-y-6">
@@ -689,7 +684,6 @@ export default function ClubManageRoute() {
                 )}
               </div>
             )}
->>>>>>> origin/main
           </main>
         </div>
       </div>

@@ -1,7 +1,9 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { CampusEventMap, MapEventItem } from "./CampusEventMap";
+
+const mockMap = { setView: vi.fn() };
 
 // Mock react-leaflet to simplify DOM testing without Canvas/WebGL
 vi.mock("react-leaflet", () => {
@@ -30,9 +32,7 @@ vi.mock("react-leaflet", () => {
     Popup: ({ children }: { children?: React.ReactNode }) => (
       <div data-testid="map-popup">{children}</div>
     ),
-    useMap: () => ({
-      setView: vi.fn(),
-    }),
+    useMap: () => mockMap,
   };
 });
 

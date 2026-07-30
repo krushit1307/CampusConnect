@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -44,12 +44,15 @@ export interface CampusEventMapProps {
   showSearch?: boolean;
 }
 
-// Map sub-component for programmatic pan/zoom control
 function RecenterController({ center }: { center: [number, number] }) {
   const map = useMap();
+  const lat = center[0];
+  const lng = center[1];
+
   useEffect(() => {
-    map.setView(center);
-  }, [center, map]);
+    map.setView([lat, lng]);
+  }, [lat, lng, map]);
+
   return null;
 }
 
@@ -70,8 +73,6 @@ export function CampusEventMap({
   // Fetch upcoming events from Supabase if not provided via props
   const fetchUpcomingEvents = useCallback(async () => {
     if (initialEvents && initialEvents.length > 0) return;
-    setLoading(true);
-    setError(null);
 
     try {
       const nowIso = new Date().toISOString();
@@ -124,11 +125,11 @@ export function CampusEventMap({
     }
   }, [initialEvents, supabase]);
 
+  const hasFetchedRef = useRef(false);
+
   useEffect(() => {
-    if (initialEvents) {
-      setEvents(initialEvents);
-      setLoading(false);
-    } else {
+    if (!initialEvents && !hasFetchedRef.current) {
+      hasFetchedRef.current = true;
       fetchUpcomingEvents();
     }
   }, [initialEvents, fetchUpcomingEvents]);
