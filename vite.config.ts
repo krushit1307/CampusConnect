@@ -72,8 +72,15 @@ function lucideImportOptimizer() {
   };
 }
 
+/**
+ * Vite configuration for CampusConnect
+ * Handles custom asset inclusion for dotLottie compressed animations
+ * and optimizes chunk splitting for large SVG/JSON assets.
+ */
 export default defineConfig({
   server: {
+    port: 3000,
+    host: true,
     headers: {
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",
@@ -85,6 +92,8 @@ export default defineConfig({
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
   },
+  // Ensure Vite treats .lottie and .json files as raw static assets
+  assetsInclude: ["**/*.lottie", "**/*.json"],
   plugins: [
     lucideImportOptimizer(),
     viteReact(),

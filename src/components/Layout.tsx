@@ -7,7 +7,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { SpeedDial } from "@/components/SpeedDial";
 import { createClient } from "@/lib/supabase/client";
-import { ThemeProvider } from "@/components/theme-provider";
 import TopProgressBar from "@/components/TopProgressBar";
 import ShortcutsModal from "@/components/ShortcutsModal";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
@@ -151,22 +150,19 @@ export default function Layout() {
     };
   }, []);
 
-  return (
-    <ThemeProvider>
-      <TooltipProvider delayDuration={200}>
-        <WebRTCProvider>
-          <OfflineBanner />
-          <TopProgressBar />
+return (
+    <TooltipProvider delayDuration={200}>
+      <WebRTCProvider>
+        <OfflineBanner />
+        <TopProgressBar />
 
-          <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-          <PWAInstallPrompt />
+        <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+        <PWAInstallPrompt />
 
-          <Outlet />
-          <Toaster />
-          <ScrollToTop />
-          <SpeedDial />
-        </WebRTCProvider>
-      </TooltipProvider>
-    </ThemeProvider>
-  );
-}
+        <Outlet />
+        <Toaster />
+        <ScrollToTop />
+        <SpeedDial />
+      </WebRTCProvider>
+    </TooltipProvider>
+  );}

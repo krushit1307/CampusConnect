@@ -718,8 +718,45 @@ export default function Feed() {
     onSettled: () => {
       setUploadProgress(null);
     },
-    onSuccess: () => {
-      refetchPosts();
+  });
+
+  const commentMutation = useMutation({
+    mutationFn: async ({
+      postId,
+      content,
+      parentCommentId,
+    }: {
+      postId: string;
+      content: string;
+      parentCommentId?: string;
+    }) => {
+      if (!user) throw new Error("Must be logged in");
+      const { error } = await supabase.from("comments").insert({
+        post_id: postId,
+        author_id: user.id,
+        content,
+        parent_id: parentCommentId || null,
+        parent_comment_id: parentCommentId || null,
+      });
+      if (error) throw error;
+
+      if (parentCommentId) {
+        setReplyValues((prev) => ({ ...prev, [parentCommentId]: "" }));
+        setActiveReplyIds((prev) => {
+          const next = { ...prev };
+          delete next[postId];
+          return next;
+        });
+      } else {
+        setNewComments((prev) => ({ ...prev, [postId]: "" }));
+      }
+    },
+    onSuccess: (_data, variables) => {
+      // The realtime subscription will merge the new comment into lazyComments.
+      // Only refetch posts if the comment section for this post isn't open yet.
+      if (!expandedPostIds.has(variables.postId)) {
+        refetchPosts();
+      }
     },
     onError: (error) => {
       toast.error(error.message || "Failed to publish post.");

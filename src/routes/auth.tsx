@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { PasswordStrengthMeter, getPasswordStrength } from "@/components/ui/password-strength";
 import { ArrowLeft } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useExperimentStore } from "@/store/useExperimentStore";
 import { sendVerificationEmail } from "@/lib/email/service";
@@ -103,6 +104,7 @@ export default function AuthPage() {
             first_name: values.firstName,
             last_name: values.lastName,
             full_name: `${values.firstName} ${values.lastName}`.trim(),
+            newsletter_opt_in: values.newsletterOptIn,
           },
         },
       });
@@ -381,6 +383,26 @@ export default function AuthPage() {
                           />
                         </FormControl>
                         <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={signUpForm.control}
+                    name="newsletterOptIn"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border border-neutral-200 p-4 shadow-[2px_2px_0_0_var(--color-ink)]">
+                        <FormControl>
+                          <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel className="font-bold text-black cursor-pointer">
+                            Subscribe to newsletter
+                          </FormLabel>
+                          <p className="text-sm text-neutral-500">
+                            Get updates on campus events and club activities.
+                          </p>
+                        </div>
                       </FormItem>
                     )}
                   />
