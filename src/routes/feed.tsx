@@ -490,6 +490,16 @@ export default function Feed() {
           const isOwnPost = payload.new && payload.new.author_id === userRef.current?.id;
           const alreadyExists = postsRef.current.some((p) => p.id === payload.new.id);
           if (!isOwnPost && !alreadyExists) {
+            const incomingPost = payload.new as Post;
+
+            setQueuedPosts((prev) => {
+              if (prev.some((p) => p.id === incomingPost.id)) {
+                return prev;
+              }
+
+              return [incomingPost, ...prev];
+            });
+
             setShowNewPostsBanner(true);
             announce("New post in feed");
             return;
@@ -1073,7 +1083,7 @@ export default function Feed() {
               </button>
             </div>
 
-            {showNewPostsBanner && feedMode === "latest" && (
+            {queuedPosts.length > 0 && feedMode === "latest" && (
               <button
                 type="button"
                 onClick={handleLoadNewPosts}
