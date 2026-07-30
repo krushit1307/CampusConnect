@@ -1,17 +1,26 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
-import { Settings, Users, Calendar } from "lucide-react";
-import { Settings, Users, Calendar, ShieldCheck, XCircle, CheckCircle, Download } from "lucide-react";
+import {
+  Settings,
+  Users,
+  Calendar,
+  ShieldCheck,
+  XCircle,
+  CheckCircle,
+  Download,
+  BarChart2,
+} from "lucide-react";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { RosterExport } from "@/components/RosterExport";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { ClubMembersTable } from "@/components/Clubs/ClubMembersTable";
+import { ClubAnalyticsDashboard } from "@/components/Clubs/ClubAnalyticsDashboard";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -27,9 +36,19 @@ const BUCKET_NAME = "club-banners";
 export default function ClubManageRoute() {
   const { slug = "" } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<"settings" | "members" | "events">("settings");
+  const initialTab = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState<"settings" | "members" | "events" | "analytics">(
+    initialTab === "analytics"
+      ? "analytics"
+      : initialTab === "members"
+        ? "members"
+        : initialTab === "events"
+          ? "events"
+          : "settings",
+  );
 
   // Form State
   const [name, setName] = useState("");
@@ -43,8 +62,7 @@ export default function ClubManageRoute() {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [promoVideoUrl, setPromoVideoUrl] = useState("");
   const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
-  const [serverClub, setServerClub] = useState<any>(null);
-
+  const [serverClub, setServerClub] = useState<Club | null>(null);
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
@@ -108,7 +126,11 @@ export default function ClubManageRoute() {
       diffs.push({ field: "Club Name", draft: name, server: serverClub.name });
     }
     if (description !== (serverClub.description || "")) {
-      diffs.push({ field: "Description", draft: description, server: serverClub.description || "" });
+      diffs.push({
+        field: "Description",
+        draft: description,
+        server: serverClub.description || "",
+      });
     }
     if (bannerUrl !== (serverClub.banner_url || "")) {
       diffs.push({ field: "Banner URL", draft: bannerUrl, server: serverClub.banner_url || "" });
@@ -117,13 +139,25 @@ export default function ClubManageRoute() {
       diffs.push({ field: "Logo URL", draft: logoUrl, server: serverClub.logo_url || "" });
     }
     if (promoVideoUrl !== (serverClub.promo_video_url || "")) {
-      diffs.push({ field: "Promo Video URL", draft: promoVideoUrl, server: serverClub.promo_video_url || "" });
+      diffs.push({
+        field: "Promo Video URL",
+        draft: promoVideoUrl,
+        server: serverClub.promo_video_url || "",
+      });
     }
     if (visibility !== (serverClub.visibility || "public")) {
-      diffs.push({ field: "Visibility", draft: visibility, server: serverClub.visibility || "public" });
+      diffs.push({
+        field: "Visibility",
+        draft: visibility,
+        server: serverClub.visibility || "public",
+      });
     }
     if (githubRepoUrl !== (serverClub.github_repo_url || "")) {
-      diffs.push({ field: "GitHub Repo URL", draft: githubRepoUrl, server: serverClub.github_repo_url || "" });
+      diffs.push({
+        field: "GitHub Repo URL",
+        draft: githubRepoUrl,
+        server: serverClub.github_repo_url || "",
+      });
     }
 
     const serverLinks = (serverClub.social_links || {}) as Record<string, string>;
@@ -131,7 +165,11 @@ export default function ClubManageRoute() {
       diffs.push({ field: "Twitter Link", draft: twitterUrl, server: serverLinks.twitter || "" });
     }
     if (instagramUrl !== (serverLinks.instagram || "")) {
-      diffs.push({ field: "Instagram Link", draft: instagramUrl, server: serverLinks.instagram || "" });
+      diffs.push({
+        field: "Instagram Link",
+        draft: instagramUrl,
+        server: serverLinks.instagram || "",
+      });
     }
     if (websiteUrl !== (serverLinks.website || "")) {
       diffs.push({ field: "Website Link", draft: websiteUrl, server: serverLinks.website || "" });
@@ -206,7 +244,9 @@ export default function ClubManageRoute() {
         toast.error("Conflict detected: Another user updated this profile.");
         const { data: latest } = await supabase
           .from("clubs")
-          .select("name, description, banner_url, logo_url, promo_video_url, visibility, github_repo_url, social_links, version")
+          .select(
+            "name, description, banner_url, logo_url, promo_video_url, visibility, github_repo_url, social_links, version",
+          )
           .eq("id", club.id)
           .single();
         if (latest) {
@@ -306,6 +346,16 @@ export default function ClubManageRoute() {
                 }`}
               >
                 <Calendar size={18} /> Events
+              </button>
+              <button
+                onClick={() => setActiveTab("analytics")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "analytics"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <BarChart2 size={18} /> Analytics
               </button>
             </nav>
           </aside>
@@ -444,55 +494,56 @@ export default function ClubManageRoute() {
               </div>
             )}
 
-            {activeTab === "members" && (() => {
-              const rosterMembers = (club?.club_members || []).map(
-                (m: {
-                  id: string;
-                  role: string;
-                  status: string;
-                  user_id: string;
-                  joined_at: string | null;
-                  profiles: unknown;
-                }) => {
-                  const profile = Array.isArray(m.profiles)
-                    ? m.profiles[0]
-                    : (m.profiles as { full_name: string; handle: string });
-                  return {
-                    id: m.id,
-                    full_name: profile?.full_name || null,
-                    handle: profile?.handle || null,
-                    role: m.role,
-                    status: m.status,
-                    joined_at: m.joined_at || null,
-                  };
-                },
-              );
+            {activeTab === "members" &&
+              (() => {
+                const rosterMembers = (club?.club_members || []).map(
+                  (m: {
+                    id: string;
+                    role: string;
+                    status: string;
+                    user_id: string;
+                    joined_at: string | null;
+                    profiles: unknown;
+                  }) => {
+                    const profile = Array.isArray(m.profiles)
+                      ? m.profiles[0]
+                      : (m.profiles as { full_name: string; handle: string });
+                    return {
+                      id: m.id,
+                      full_name: profile?.full_name || null,
+                      handle: profile?.handle || null,
+                      role: m.role,
+                      status: m.status,
+                      joined_at: m.joined_at || null,
+                    };
+                  },
+                );
 
-              return (
-              <div className="neu-border bg-white p-6 space-y-6">
-                <h2 className="font-display text-2xl font-bold border-b-2 border-black pb-2">
-                  Manage Members
-                </h2>
-                <ClubMembersTable
-                  members={club.club_members}
-                  currentUserId={user?.id}
-                  isMutating={updateMemberMutation.isPending}
-                  onApprove={(memberId) =>
-                    updateMemberMutation.mutate({ memberId, updates: { status: "approved" } })
-                  }
-                  onReject={(memberId) =>
-                    updateMemberMutation.mutate({ memberId, updates: { status: "rejected" } })
-                  }
-                  onToggleRole={(memberId, currentRole) =>
-                    updateMemberMutation.mutate({
-                      memberId,
-                      updates: { role: currentRole === "admin" ? "member" : "admin" },
-                    })
-                  }
-                />
-              </div>
-            );
-            })()}
+                return (
+                  <div className="neu-border bg-white p-6 space-y-6">
+                    <h2 className="font-display text-2xl font-bold border-b-2 border-black pb-2">
+                      Manage Members
+                    </h2>
+                    <ClubMembersTable
+                      members={club.club_members}
+                      currentUserId={user?.id}
+                      isMutating={updateMemberMutation.isPending}
+                      onApprove={(memberId) =>
+                        updateMemberMutation.mutate({ memberId, updates: { status: "approved" } })
+                      }
+                      onReject={(memberId) =>
+                        updateMemberMutation.mutate({ memberId, updates: { status: "rejected" } })
+                      }
+                      onToggleRole={(memberId, currentRole) =>
+                        updateMemberMutation.mutate({
+                          memberId,
+                          updates: { role: currentRole === "admin" ? "member" : "admin" },
+                        })
+                      }
+                    />
+                  </div>
+                );
+              })()}
 
             {activeTab === "events" && (
               <div className="neu-border bg-white p-6 space-y-6">
@@ -541,6 +592,7 @@ export default function ClubManageRoute() {
                 </div>
               </div>
             )}
+            {activeTab === "analytics" && <ClubAnalyticsDashboard clubId={club.id} />}
           </main>
         </div>
       </div>
@@ -553,7 +605,8 @@ export default function ClubManageRoute() {
               Editing Conflict Detected
             </AlertDialogTitle>
             <AlertDialogDescription className="text-gray-700 font-mono text-sm">
-              Another administrator has saved changes to this club profile while you were editing. Below is a comparison of the conflicting changes:
+              Another administrator has saved changes to this club profile while you were editing.
+              Below is a comparison of the conflicting changes:
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -569,9 +622,15 @@ export default function ClubManageRoute() {
               <tbody className="divide-y divide-black">
                 {getDifferences().map((diff, index) => (
                   <tr key={index} className="hover:bg-gray-50">
-                    <td className="p-2 border-r border-black font-bold bg-gray-100">{diff.field}</td>
-                    <td className="p-2 border-r border-black text-red-600 bg-red-50/50 break-all">{diff.draft || <em className="text-gray-400">Empty</em>}</td>
-                    <td className="p-2 text-green-700 bg-green-50/50 break-all">{diff.server || <em className="text-gray-400">Empty</em>}</td>
+                    <td className="p-2 border-r border-black font-bold bg-gray-100">
+                      {diff.field}
+                    </td>
+                    <td className="p-2 border-r border-black text-red-600 bg-red-50/50 break-all">
+                      {diff.draft || <em className="text-gray-400">Empty</em>}
+                    </td>
+                    <td className="p-2 text-green-700 bg-green-50/50 break-all">
+                      {diff.server || <em className="text-gray-400">Empty</em>}
+                    </td>
                   </tr>
                 ))}
               </tbody>

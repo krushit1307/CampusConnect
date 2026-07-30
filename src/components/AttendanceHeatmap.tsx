@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityCalendar, ThemeInput } from "react-activity-calendar";
 import { createClient } from "@/lib/supabase/client";
 import { Tooltip as ReactTooltip } from "react-tooltip";
-import 'react-tooltip/dist/react-tooltip.css';
+import "react-tooltip/dist/react-tooltip.css";
 import { format, subDays, startOfYear, isSameDay } from "date-fns";
 
 interface HeatmapData {
@@ -34,7 +34,7 @@ export function AttendanceHeatmap({ userId }: { userId: string }) {
             .from("event_rsvps")
             .select("created_at")
             .eq("user_id", userId)
-            .gte("created_at", oneYearAgo)
+            .gte("created_at", oneYearAgo),
         ]);
 
         const countsByDate: Record<string, number> = {};
@@ -58,7 +58,7 @@ export function AttendanceHeatmap({ userId }: { userId: string }) {
           currentDate.setDate(startDate.getDate() + i);
           const dateStr = format(currentDate, "yyyy-MM-dd");
           const count = countsByDate[dateStr] || 0;
-          
+
           let level: 0 | 1 | 2 | 3 | 4 = 0;
           if (count > 0 && count <= 2) level = 1;
           else if (count > 2 && count <= 4) level = 2;
@@ -68,7 +68,7 @@ export function AttendanceHeatmap({ userId }: { userId: string }) {
           heatmapArray.push({
             date: dateStr,
             count,
-            level
+            level,
           });
         }
 
@@ -84,8 +84,8 @@ export function AttendanceHeatmap({ userId }: { userId: string }) {
   }, [userId]);
 
   const customTheme: ThemeInput = {
-    light: ['#f4f4f5', '#d9f99d', '#bef264', '#a3e635', '#65a30d'],
-    dark: ['#27272a', '#4d7c0f', '#65a30d', '#a3e635', '#d9f99d'],
+    light: ["#f4f4f5", "#d9f99d", "#bef264", "#a3e635", "#65a30d"],
+    dark: ["#27272a", "#4d7c0f", "#65a30d", "#a3e635", "#d9f99d"],
   };
 
   if (loading) {
@@ -107,12 +107,12 @@ export function AttendanceHeatmap({ userId }: { userId: string }) {
             totalCount: "{{count}} contributions in the last year",
           }}
           renderBlock={(block: any, activity: any) => (
-             // @ts-ignore
-             <div
-               {...block}
-               data-tooltip-id="heatmap-tooltip"
-               data-tooltip-content={`${activity.count} activities on ${format(new Date(activity.date), "MMM d, yyyy")}`}
-             />
+            // @ts-ignore
+            <div
+              {...block}
+              data-tooltip-id="heatmap-tooltip"
+              data-tooltip-content={`${activity.count} activities on ${format(new Date(activity.date), "MMM d, yyyy")}`}
+            />
           )}
         />
         <ReactTooltip id="heatmap-tooltip" />
