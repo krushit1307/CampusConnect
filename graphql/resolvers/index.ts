@@ -1,3 +1,4 @@
+import { GraphQLError } from "graphql";
 import { createPubSub } from "@graphql-yoga/subscription";
 import { createClient } from "../../src/lib/supabase/client";
 
@@ -220,6 +221,8 @@ const commentsByPostLoader = new SimpleDataLoader<string, CommentRecord[]>(async
 // ── GraphQL Type Definitions ──
 
 export const typeDefs = /* GraphQL */ `
+  scalar EmailAddress
+
   type Profile {
     id: ID!
     full_name: String
@@ -362,7 +365,30 @@ export const typeDefs = /* GraphQL */ `
 
 // ── Resolvers Definition ──
 
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 export const resolvers = {
+  EmailAddress: {
+    serialize: (value: string) => value.toLowerCase().trim(),
+    parseValue: (value: unknown) => {
+      if (typeof value !== "string" || !isValidEmail(value)) {
+        throw new GraphQLError("EmailAddress must be a valid email address");
+      }
+      return value.toLowerCase().trim();
+    },
+    parseLiteral: (ast: { kind: string; value: string }) => {
+      if (ast.kind !== "StringValue") {
+        throw new GraphQLError("EmailAddress must be a string");
+      }
+      if (!isValidEmail(ast.value)) {
+        throw new GraphQLError("EmailAddress must be a valid email address");
+      }
+      return ast.value.toLowerCase().trim();
+    },
+  },
+
   Query: {
     posts: async (_: unknown, { limit = 10, offset = 0 }: { limit?: number; offset?: number }) => {
       const { data, error } = await supabase
