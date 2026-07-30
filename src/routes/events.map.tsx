@@ -3,8 +3,8 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { MapSkeleton } from "@/components/ui/MapSkeleton";
 import { Map, List } from "lucide-react";
 
-const EventClusterMap = lazy(() =>
-  import("@/components/EventClusterMap").then((m) => ({ default: m.EventClusterMap })),
+const CampusMap = lazy(() =>
+  import("@/components/CampusMap/CampusMap").then((m) => ({ default: m.CampusMap })),
 );
 
 export default function EventsMapPage() {
@@ -53,7 +53,7 @@ export default function EventsMapPage() {
           {mapView === "cluster" ? (
             <div className="h-[calc(100vh-200px)] min-h-[600px]">
               <Suspense fallback={<MapSkeleton className="h-full w-full min-h-[600px]" />}>
-                <EventClusterMap
+                <CampusMap
                   initialCenter={[40.7128, -74.006]}
                   initialZoom={14}
                   className="h-full w-full"
