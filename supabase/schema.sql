@@ -1,3 +1,6 @@
+-- 0. Enable extensions
+CREATE EXTENSION IF NOT EXISTS postgis;
+
 -- 1. Create custom types
 CREATE TYPE user_role AS ENUM ('student', 'club_admin', 'system_admin');
 CREATE TYPE member_role AS ENUM ('member', 'admin');
@@ -98,6 +101,7 @@ CREATE TABLE events (
   location TEXT,
   latitude DOUBLE PRECISION,
   longitude DOUBLE PRECISION,
+  location_geo GEOGRAPHY(Point, 4326),
   max_attendees INTEGER,
   available_spots INTEGER,
   version INTEGER NOT NULL DEFAULT 1,
@@ -116,6 +120,7 @@ CHECK (
 
 CREATE INDEX idx_events_category ON events(category_id);
 CREATE INDEX idx_events_start_date ON events(start_date);
+CREATE INDEX idx_events_location_geo_gist ON events USING GIST (location_geo);
 
 ALTER TABLE events
 ADD CONSTRAINT events_latitude_valid
@@ -1090,3 +1095,95 @@ SELECT
   raw_user_meta_data->>'avatar_url'
 FROM auth.users
 ON CONFLICT (id) DO NOTHING;
+
+-- ------------------------------------------------------------
+-- 8. PostGIS Geospatial Queries (#1860)
+-- ------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.sync_events_location_geo()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NEW.latitude IS NOT NULL AND NEW.longitude IS NOT NULL THEN
+        NEW.location_geo := ST_SetSRID(ST_MakePoint(NEW.longitude, NEW.latitude), 4326)::geography;
+    ELSE
+        NEW.location_geo := NULL;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_sync_events_location_geo ON public.events;
+CREATE TRIGGER trg_sync_events_location_geo
+BEFORE INSERT OR UPDATE OF latitude, longitude ON public.events
+FOR EACH ROW
+EXECUTE FUNCTION public.sync_events_location_geo();
+
+CREATE OR REPLACE FUNCTION public.get_events_nearby(
+    user_lat DOUBLE PRECISION,
+    user_lng DOUBLE PRECISION,
+    radius_meters DOUBLE PRECISION DEFAULT 8046.72
+)
+RETURNS TABLE (
+    id UUID,
+    club_id UUID,
+    category_id UUID,
+    title TEXT,
+    description TEXT,
+    banner_url TEXT,
+    event_date TIMESTAMPTZ,
+    start_date TIMESTAMPTZ,
+    end_date TIMESTAMPTZ,
+    location TEXT,
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    max_attendees INTEGER,
+    available_spots INTEGER,
+    status TEXT,
+    created_at TIMESTAMPTZ,
+    distance_meters DOUBLE PRECISION
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    user_geo GEOGRAPHY := ST_SetSRID(ST_MakePoint(user_lng, user_lat), 4326)::geography;
+BEGIN
+    RETURN QUERY
+    SELECT 
+        e.id,
+        e.club_id,
+        e.category_id,
+        e.title,
+        e.description,
+        e.banner_url,
+        e.event_date,
+        e.start_date,
+        e.end_date,
+        e.location,
+        e.latitude,
+        e.longitude,
+        e.max_attendees,
+        e.available_spots,
+        e.status,
+        e.created_at,
+        ST_Distance(
+            COALESCE(e.location_geo, ST_SetSRID(ST_MakePoint(e.longitude, e.latitude), 4326)::geography),
+            user_geo
+        ) AS distance_meters
+    FROM public.events e
+    WHERE (e.location_geo IS NOT NULL OR (e.latitude IS NOT NULL AND e.longitude IS NOT NULL))
+      AND ST_DWithin(
+          COALESCE(e.location_geo, ST_SetSRID(ST_MakePoint(e.longitude, e.latitude), 4326)::geography),
+          user_geo,
+          radius_meters
+      )
+    ORDER BY distance_meters ASC;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_events_nearby(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION) TO authenticated, anon;
+
