@@ -39,3 +39,6 @@ scripts/remove-assignees.ts
 # Playwright
 playwright-report/
 test-results/
+
+# Stryker Mutation Reports
+reports/
