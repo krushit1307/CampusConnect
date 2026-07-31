@@ -68,3 +68,15 @@ export function useModal(): ModalContextValue {
   }
   return ctx;
 }
+
+/**
+ * useOptionalModal — like useModal, but returns `null` when the
+ * component tree has no <ModalProvider>.
+ *
+ * For components (e.g. global overlays mounted in <Layout>) that
+ * must work both with and without the provider, this avoids the
+ * throw above without restructuring their placement.
+ */
+export function useOptionalModal(): ModalContextValue | null {
+  return useContext(ModalContext);
+}

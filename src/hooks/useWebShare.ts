@@ -1,3 +1,5 @@
+import { useCallback, useState } from "react";
+
 export interface WebShareData {
   title: string;
   text: string;
@@ -20,7 +22,7 @@ interface WebShareResult {
 export function useWebShare(): WebShareResult {
   const [copied, setCopied] = useState(false);
 
-  const canShare = typeof navigator !== "undefined" && "share" in navigator;
+  const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   const share = useCallback(
     async (data: WebShareData): Promise<ShareResult> => {

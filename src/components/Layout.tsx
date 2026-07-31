@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { SpeedDial } from "@/components/SpeedDial";
+import { FloatingChat } from "@/components/FloatingChat";
 import { createClient } from "@/lib/supabase/client";
 import TopProgressBar from "@/components/TopProgressBar";
 import ShortcutsModal from "@/components/ShortcutsModal";
@@ -150,7 +151,7 @@ export default function Layout() {
     };
   }, []);
 
-return (
+  return (
     <TooltipProvider delayDuration={200}>
       <WebRTCProvider>
         <OfflineBanner />
@@ -163,6 +164,8 @@ return (
         <Toaster />
         <ScrollToTop />
         <SpeedDial />
+        {userId && <FloatingChat />}
       </WebRTCProvider>
     </TooltipProvider>
-  );}
+  );
+}
