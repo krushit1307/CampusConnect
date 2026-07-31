@@ -13,10 +13,10 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  // Rate Limiting: 5 requests per minute per IP
-  const rateLimitResponse = await limitRate(req, "request-password-reset", { limit: 5, windowMs: 60000 });
-  if (rateLimitResponse) {
-    return rateLimitResponse;
+  // Rate Limiting: 5 requests per hour per IP
+  const ipRateLimitResponse = await limitRate(req, "request-password-reset-ip", { limit: 5, windowMs: 3600000 });
+  if (ipRateLimitResponse) {
+    return ipRateLimitResponse;
   }
 
   try {
@@ -33,40 +33,18 @@ serve(async (req) => {
       });
     }
 
+    // Rate Limiting: 3 requests per hour per email
+    const emailRateLimitResponse = await limitRate(req, "request-password-reset-email", { limit: 3, windowMs: 3600000, identifier: email });
+    if (emailRateLimitResponse) {
+      return emailRateLimitResponse;
+    }
+
     // Initialize Supabase client
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
-    const { count, error: countError } = await supabase
-      .from("password_reset_requests")
-      .select("*", {
-        count: "exact",
-        head: true,
-      })
-      .eq("email", email)
-      .gte("requested_at", oneHourAgo);
-
-    if (countError) {
-      throw countError;
-    }
-
-    if ((count ?? 0) >= 3) {
-      return new Response(
-        JSON.stringify({
-          error: "Too many password reset requests. Please try again later.",
-        }),
-        {
-          status: 429,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-    }
     const { data, error: linkError } = await supabase.auth.admin.generateLink({
       type: "recovery",
       email,
@@ -123,27 +101,18 @@ serve(async (req) => {
       email,
     });
 
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json",
-      },
-    });
   } catch (error: unknown) {
-    console.error(error);
-
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      },
-    );
+    console.error("Password reset error:", error);
+    // Suppress error to avoid email enumeration and keep response timing consistent
   }
+
+  // Always return the same success message regardless of outcome
+  return new Response(JSON.stringify({ message: "If this email exists, a reset link has been sent." }), {
+    status: 200,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+    },
+  });
 });
+
