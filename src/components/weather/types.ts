@@ -10,14 +10,7 @@
 
 /** OpenWeather main condition codes we render icons for. */
 export type WeatherConditionCode =
-  | "clear"
-  | "clouds"
-  | "rain"
-  | "drizzle"
-  | "thunderstorm"
-  | "snow"
-  | "mist"
-  | "unknown";
+  "clear" | "clouds" | "rain" | "drizzle" | "thunderstorm" | "snow" | "mist" | "unknown";
 
 /** Normalized current-conditions payload from /api/weather. */
 export interface WeatherSnapshot {
