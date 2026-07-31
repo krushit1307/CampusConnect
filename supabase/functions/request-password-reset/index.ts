@@ -1,149 +1,102 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
-import { limitRate } from "../shared/rate_limiter.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req) => {
-  // Handle CORS
+/**
+ * Throttles password reset emails to 1 per hour per email address.
+ *
+ * Checks the `password_reset_requests` table (via the
+ * `check_password_reset_throttle` DB function) before asking Supabase Auth
+ * to send a reset email. Always responds with `{ success: true }` so we
+ * never reveal whether an email address has an account.
+ */
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  // Rate Limiting: 5 requests per minute per IP
-  const rateLimitResponse = await limitRate(req, "request-password-reset", { limit: 5, windowMs: 60000 });
-  if (rateLimitResponse) {
-    return rateLimitResponse;
-  }
-
   try {
-    // Read request body
     const { email, redirectTo } = await req.json();
 
     if (!email) {
       return new Response(JSON.stringify({ error: "Email is required" }), {
         status: 400,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Initialize Supabase client
-    const supabase = createClient(
+    const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
-    const { count, error: countError } = await supabase
-      .from("password_reset_requests")
-      .select("*", {
-        count: "exact",
-        head: true,
-      })
-      .eq("email", email)
-      .gte("requested_at", oneHourAgo);
+    // 1. Check whether this email already requested a reset in the last hour.
+    const { data: throttleRows, error: throttleError } = await supabaseAdmin.rpc(
+      "check_password_reset_throttle",
+      { p_email: email },
+    );
 
-    if (countError) {
-      throw countError;
+    if (throttleError) {
+      console.error("[request-password-reset] Failed to check throttle status:", throttleError);
     }
 
-    if ((count ?? 0) >= 3) {
+    const throttle = throttleRows?.[0];
+    if (throttle?.is_throttled) {
       return new Response(
         JSON.stringify({
-          error: "Too many password reset requests. Please try again later.",
+          error: "A reset link was already sent recently. Please check your inbox.",
+          retryAfter: throttle.retry_after_seconds,
         }),
         {
           status: 429,
           headers: {
             ...corsHeaders,
             "Content-Type": "application/json",
+            "Retry-After": String(throttle.retry_after_seconds),
           },
         },
       );
     }
-    const { data, error: linkError } = await supabase.auth.admin.generateLink({
-      type: "recovery",
-      email,
-      options: {
-        redirectTo,
-      },
+
+    // 2. Ask Supabase Auth to send the reset email.
+    const supabaseAnon = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+    );
+
+    const { error: resetError } = await supabaseAnon.auth.resetPasswordForEmail(email, {
+      redirectTo,
     });
 
-    if (linkError) {
-      throw linkError;
+    if (resetError) {
+      console.error("[request-password-reset] Supabase reset error:", resetError);
     }
 
-    const recoveryLink = data.properties.actionLink;
-    const emailBody = {
-      from: "CampusConnect <notifications@campusconnect.app>",
-      to: [email],
-      subject: "Reset your CampusConnect password",
-      html: `
-    <h2>Reset your password</h2>
+    // 3. Record this request regardless of outcome, so throttling works even
+    // for emails that don't have an account (Supabase Auth silently no-ops
+    // for those, but we still don't want it spammed).
+    const { error: insertError } = await supabaseAdmin
+      .from("password_reset_requests")
+      .insert({ email });
 
-    <p>We received a request to reset your password.</p>
-
-    <p>
-      <a href="${recoveryLink}">
-        Reset Password
-      </a>
-    </p>
-
-    <p>If you didn't request this, you can safely ignore this email.</p>
-  `,
-    };
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-
-    if (!resendApiKey) {
-      console.log("Mocking password reset email for:", email);
-    } else {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${resendApiKey}`,
-        },
-        body: JSON.stringify(emailBody),
-      });
-
-      const resData = await res.json();
-
-      if (!res.ok) {
-        throw new Error(`Resend Error: ${JSON.stringify(resData)}`);
-      }
+    if (insertError) {
+      console.error("[request-password-reset] Failed to record reset request:", insertError);
     }
 
-    await supabase.from("password_reset_requests").insert({
-      email,
-    });
-
+    // Always respond with success so we don't leak which emails have accounts.
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json",
-      },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (error: unknown) {
-    console.error(error);
-
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      },
-    );
+  } catch (err) {
+    console.error("[request-password-reset] Unexpected error:", err);
+    return new Response(JSON.stringify({ error: "Something went wrong. Please try again." }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

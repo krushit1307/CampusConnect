@@ -1,0 +1,52 @@
+## Description
+
+Adds a RosterExport component that allows club admins to download their member roster as a CSV file. Uses the Native File System API (showSaveFilePicker) when available, with a standard download fallback for unsupported browsers.
+
+### Changes
+
+**New Component: RosterExport**
+- Accepts clubName and members array as props
+- Converts member data to CSV format with proper escaping
+- Uses showSaveFilePicker() to let admins choose save location
+- Falls back to standard anchor download for unsupported browsers
+- Handles AbortError gracefully
+- Shows member count in button text
+
+**Club Manage Page:**
+- Added joined_at to the club_members select query
+- Added RosterExport button next to Manage Members heading
+- Transforms club_members data into RosterMember format
+
+## Related Issue
+Closes #1550
+
+## Component(s) Affected
+- Frontend: RosterExport, clubs..manage
+
+## Type of Change
+- [ ] Bug fix
+- [x] New feature
+- [ ] Refactor
+
+## Testing Performed
+- CSV generation handles commas, quotes, and newlines in values
+- showSaveFilePicker opens native file dialog on Chromium
+- Fallback download works on Firefox/Safari
+- User cancellation does not show error toast
+
+## Screenshots
+N/A
+
+## API Docs
+N/A
+
+## Documentation Updates
+N/A
+
+## Out of Scope
+N/A
+
+## Checklist
+- [x] My code follows the project's style guidelines
+- [x] I have performed a self-review
+- [x] My changes generate no new warnings

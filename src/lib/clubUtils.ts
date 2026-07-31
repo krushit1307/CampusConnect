@@ -26,6 +26,10 @@ export const clubFormSchema = z.object({
     .optional(),
   visibility: z.enum(["public", "private"]).optional().default("public"),
   social_links: z.record(z.string(), z.string().url()).default({}).optional(),
+  // The deepest category id chosen via the cascading category selector
+  // (e.g. "Robotics", not "Academic" or "Engineering").
+  category_id: z.string().uuid("Please choose a category.").nullable().optional(),
 });
 
 export type ClubFormValues = z.infer<typeof clubFormSchema>;
+export type ClubFormInput = z.input<typeof clubFormSchema>;
