@@ -11,6 +11,10 @@ import { authDirectiveTypeDefs, authDirectiveTransformer } from "./directives/au
 import { createClient } from "../src/lib/supabase/client";
 import { closePool } from "./db";
 import { requestLoggingPlugin } from "./request-logging";
+import { openTelemetryPlugin, initializeBackendTracing } from "./tracing";
+
+// Initialize OpenTelemetry backend tracing provider on server startup
+initializeBackendTracing();
 
 const supabase = createClient();
 
@@ -59,7 +63,7 @@ export const yoga = createYoga({
 
     return { user };
   },
-  plugins: [requestLoggingPlugin()],
+  plugins: [requestLoggingPlugin(), openTelemetryPlugin()],
 });
 
 // Re-export for use by server-side event producers (mention handlers, etc.)
