@@ -30,6 +30,15 @@ vi.mock("framer-motion", () => ({
       <div {...props}>{children}</div>
     ),
   },
+  useMotionValue: (init: number) => ({
+    get: () => init,
+    set: vi.fn(),
+    onChange: vi.fn(),
+  }),
+  useSpring: (v: unknown) => v,
+  useTransform: (v: unknown, input: number[], output: (string | number)[]) => ({
+    get: () => output[0] ?? 0,
+  }),
 }));
 
 // framer-motion's `motion` typing is opaque to React's JSX without an

@@ -1,5 +1,4 @@
-// src/hooks/useDotLottiePlayer.ts
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { DotLottiePlayer } from '@dotlottie/react-player';
 
 /**
@@ -105,19 +104,19 @@ export const useDotLottiePlayer = ({
   }, [src, autoplay]);
 
   const PlayerComponent = useCallback(
-    (props: any) => (
-      <DotLottiePlayer
-        ref={playerRef}
-        src={src}
-        loop={loop}
-        autoplay={autoplay}
-        speed={currentSpeed}
-        onLoadError={handleError}
-        onComplete={handleComplete}
-        background="transparent"
-        {...props}
-      />
-    ),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (props: any) =>
+      React.createElement(DotLottiePlayer, {
+        ref: playerRef,
+        src,
+        loop,
+        autoplay,
+        speed: currentSpeed,
+        onLoadError: handleError,
+        onComplete: handleComplete,
+        background: "transparent",
+        ...props,
+      }),
     [src, loop, autoplay, currentSpeed, handleError, handleComplete]
   );
 
