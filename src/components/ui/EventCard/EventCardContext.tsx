@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useMemo, ReactNode } from "react";
 import { getCountdown, getGoogleCalendarUrl } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -67,6 +67,8 @@ export function useEventCardContext(): EventCardContextValue {
   return context;
 }
 
+const COLORS = ["bg-lime", "bg-sky", "bg-peach"];
+
 export function EventCardProvider({
   event,
   index = 0,
@@ -77,43 +79,78 @@ export function EventCardProvider({
   isBookmarkPending = false,
   children,
 }: EventCardProps) {
-  const club = Array.isArray(event.clubs) ? event.clubs[0] || null : event.clubs || null;
-  const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
-  const myRsvp = user ? rsvps.find((rsvp) => rsvp.user_id === user.id) || null : null;
+  // Derived state memoization
+  const club = useMemo(
+    () => (Array.isArray(event.clubs) ? event.clubs[0] || null : event.clubs || null),
+    [event.clubs],
+  );
+
+  const rsvps = useMemo(
+    () => (Array.isArray(event.event_rsvps) ? event.event_rsvps : []),
+    [event.event_rsvps],
+  );
+
+  const myRsvp = useMemo(
+    () => (user ? rsvps.find((rsvp) => rsvp.user_id === user.id) || null : null),
+    [user, rsvps],
+  );
+
   const hasRsvpd = !!myRsvp;
 
-  const savedEventsList = Array.isArray(event.saved_events) ? event.saved_events : [];
-  const isSaved = user ? savedEventsList.some((se) => se.user_id === user.id) : false;
+  const savedEventsList = useMemo(
+    () => (Array.isArray(event.saved_events) ? event.saved_events : []),
+    [event.saved_events],
+  );
 
-  const colors = ["bg-lime", "bg-sky", "bg-peach"];
-  const cardBg = colors[index % colors.length];
+  const isSaved = useMemo(
+    () => (user ? savedEventsList.some((se) => se.user_id === user.id) : false),
+    [user, savedEventsList],
+  );
 
-  const googleCalendarUrl = getGoogleCalendarUrl({
-    title: event.title,
-    description: event.description,
-    event_date: event.event_date,
-    start_date: event.start_date,
-    end_date: event.end_date,
-    location: event.location,
-  });
+  const cardBg = COLORS[index % COLORS.length];
 
-  const countdown = event.event_date ? getCountdown(event.event_date) : "TBA";
+  const googleCalendarUrl = useMemo(
+    () =>
+      getGoogleCalendarUrl({
+        title: event.title,
+        description: event.description,
+        event_date: event.event_date,
+        start_date: event.start_date,
+        end_date: event.end_date,
+        location: event.location,
+      }),
+    [
+      event.title,
+      event.description,
+      event.event_date,
+      event.start_date,
+      event.end_date,
+      event.location,
+    ],
+  );
 
+  const countdown = useMemo(
+    () => (event.event_date ? getCountdown(event.event_date) : "TBA"),
+    [event.event_date],
+  );
+
+  // Local state
   const [copied, setCopied] = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
-  const handleCopyLink = async () => {
+  // Stable handlers
+  const handleCopyLink = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
       toast.success("Link copied!");
     } catch {
       toast.error("Failed to copy link.");
     }
-  };
+  }, []);
 
-  const handleShare = async () => {
+  const handleShare = useCallback(async () => {
     const shareUrl = `${window.location.origin}${window.location.pathname}#event-${event.id}`;
     try {
       await navigator.clipboard.writeText(shareUrl);
@@ -123,52 +160,83 @@ export function EventCardProvider({
     } catch {
       toast.error("Failed to copy link.");
     }
-  };
+  }, [event.id]);
 
-  const handleRsvpToggleClick = (eventId: string, currentHasRsvpd: boolean) => {
-    if (currentHasRsvpd) {
-      setConfirmOpen(true);
-    } else {
-      onRsvpToggle?.(eventId, false);
-    }
-  };
+  const handleRsvpToggleClick = useCallback(
+    (eventId: string, currentHasRsvpd: boolean) => {
+      if (currentHasRsvpd) {
+        setConfirmOpen(true);
+      } else {
+        onRsvpToggle?.(eventId, false);
+      }
+    },
+    [onRsvpToggle],
+  );
 
-  const handleBookmarkClick = () => {
+  const handleBookmarkClick = useCallback(() => {
     if (!user) {
       toast.error("Please log in to bookmark events");
       return;
     }
     onBookmarkToggle?.(event.id, isSaved);
-  };
+  }, [user, onBookmarkToggle, event.id, isSaved]);
 
-  const value: EventCardContextValue = {
-    event,
-    index,
-    user,
-    onRsvpToggle,
-    isRsvpPending,
-    onBookmarkToggle,
-    isBookmarkPending,
-    club,
-    rsvps,
-    myRsvp,
-    hasRsvpd,
-    isSaved,
-    googleCalendarUrl,
-    countdown,
-    cardBg,
-    copied,
-    ticketOpen,
-    setTicketOpen,
-    confirmOpen,
-    setConfirmOpen,
-    isDescriptionExpanded,
-    setIsDescriptionExpanded,
-    handleCopyLink,
-    handleShare,
-    handleRsvpToggleClick,
-    handleBookmarkClick,
-  };
+  // Context value object memoization
+  const value: EventCardContextValue = useMemo(
+    () => ({
+      event,
+      index,
+      user,
+      onRsvpToggle,
+      isRsvpPending,
+      onBookmarkToggle,
+      isBookmarkPending,
+      club,
+      rsvps,
+      myRsvp,
+      hasRsvpd,
+      isSaved,
+      googleCalendarUrl,
+      countdown,
+      cardBg,
+      copied,
+      ticketOpen,
+      setTicketOpen,
+      confirmOpen,
+      setConfirmOpen,
+      isDescriptionExpanded,
+      setIsDescriptionExpanded,
+      handleCopyLink,
+      handleShare,
+      handleRsvpToggleClick,
+      handleBookmarkClick,
+    }),
+    [
+      event,
+      index,
+      user,
+      onRsvpToggle,
+      isRsvpPending,
+      onBookmarkToggle,
+      isBookmarkPending,
+      club,
+      rsvps,
+      myRsvp,
+      hasRsvpd,
+      isSaved,
+      googleCalendarUrl,
+      countdown,
+      cardBg,
+      copied,
+      ticketOpen,
+      confirmOpen,
+      isDescriptionExpanded,
+      handleCopyLink,
+      handleShare,
+      handleRsvpToggleClick,
+      handleBookmarkClick,
+    ],
+  );
 
   return <EventCardContext.Provider value={value}>{children}</EventCardContext.Provider>;
 }
