@@ -175,6 +175,10 @@
       linear-gradient(135deg, #f8efe2 0%, #eef8fb 48%, #f6e0c5 100%);
     color: var(--color-foreground);
     font-family: var(--font-mono);
+    /* Disable the browser's native pull-to-refresh so the custom Feed
+       PullToRefresh component is the only path that triggers a refetch
+       (issue #1917). */
+    overscroll-behavior-y: none;
   }
 
   h1,
