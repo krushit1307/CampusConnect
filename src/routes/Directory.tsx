@@ -3,6 +3,7 @@ import { VirtualList } from "../components/ui/VirtualList";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { DirectoryCardSkeleton } from "../components/ui/DirectoryCardSkeleton";
+import { EmptyState } from "@/components/EmptyState";
 
 interface UserProfile {
   id: number;
@@ -101,6 +102,22 @@ export default function Directory() {
               <DirectoryCardSkeleton key={i} />
             ))}
           </div>
+        ) : filteredUsers.length === 0 ? (
+          <EmptyState
+            illustrationType="no-results"
+            title="No people match that search"
+            description="Try a different name, major, or interest."
+            actionButton={
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-white"
+              >
+                Clear search
+              </button>
+            }
+            className="border-0 shadow-none"
+          />
         ) : (
           <VirtualList
             items={filteredUsers}

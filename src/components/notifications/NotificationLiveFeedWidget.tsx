@@ -14,6 +14,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
+import { EmptyState } from "@/components/EmptyState";
 
 type WidgetNotification = {
   id: string;
@@ -131,9 +132,12 @@ export function NotificationLiveFeedWidget() {
                 <Loader2 className="animate-spin" size={20} />
               </div>
             ) : notifications.length === 0 ? (
-              <p className="text-center font-mono text-xs text-gray-500 py-6">
-                No notifications yet.
-              </p>
+              <EmptyState
+                illustrationType="no-notifications"
+                title="All caught up"
+                description="No notifications yet. We’ll ring the bell when something happens."
+                className="border-0 px-2 py-4 shadow-none [&>div:first-child]:h-16 [&>div:first-child]:w-16 [&>h3]:text-sm [&>p]:text-xs"
+              />
             ) : (
               notifications.map((n) => (
                 <Link

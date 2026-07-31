@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { ShieldCheck, Send, Search, Lock, AlertTriangle, RefreshCw, Smile } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/EmptyState";
 import { getBlockedUserIds, validateDirectMessageSend } from "@/lib/userBlockUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import EmojiPicker from "emoji-picker-react";
@@ -573,9 +574,27 @@ export default function ChatBox() {
             {loadingProfiles ? (
               <div className="py-8 text-center font-mono text-xs">Loading students...</div>
             ) : filteredProfiles.length === 0 ? (
-              <div className="py-8 text-center font-mono text-xs text-gray-500">
-                No students found.
-              </div>
+              <EmptyState
+                illustrationType={searchQuery ? "no-results" : "no-messages"}
+                title={searchQuery ? "No students found" : "Your inbox is quiet"}
+                description={
+                  searchQuery
+                    ? "Try a different name, college, or keyword."
+                    : "Find a student to start a conversation."
+                }
+                actionButton={
+                  searchQuery ? (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-white"
+                    >
+                      Clear search
+                    </button>
+                  ) : undefined
+                }
+                className="border-0 px-3 py-8 shadow-none"
+              />
             ) : (
               <div className="space-y-1.5">
                 {filteredProfiles.map((profile) => {

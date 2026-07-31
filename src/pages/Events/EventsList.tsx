@@ -19,6 +19,7 @@ import { Link } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EventFilters, FilterState } from "@/components/EventFilters";
+import { EmptyState } from "@/components/EmptyState";
 import { ScrollAwareFab } from "@/components/ScrollAwareFab";
 
 import {
@@ -996,51 +997,38 @@ export default function EventsList() {
                           <EventCardSkeleton key={i} index={i} />
                         ))
                       ) : sortedEvents.length === 0 && filter !== "All" ? (
-                        <div className="col-span-full mx-auto max-w-md text-center neu-border bg-white p-8 animate-in fade-in-0 zoom-in-95 duration-300">
-                          <CalendarIcon
-                            className="mx-auto h-10 w-10 text-neutral-500"
-                            aria-hidden="true"
-                          />
-                          <h3 className="mt-3 font-mono text-lg font-bold uppercase">
-                            No {filter} events found.
-                          </h3>
-                          <p className="mt-1 font-mono text-xs text-neutral-600">
-                            Try a different category, or clear the filter to see everything.
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setFilter("All");
-                              setDateFilterType("all");
-                              setSpecificDate(undefined);
+                        <div className="col-span-full mx-auto w-full max-w-md animate-in fade-in-0 zoom-in-95 duration-300">
+                          <EmptyState
+                            illustrationType="no-events"
+                            title={`No ${filter} events found`}
+                            description="Try a different category, or clear the filter to see everything."
+                            action={{
+                              label: "Clear filter",
+                              onClick: () => {
+                                setFilter("All");
+                                setDateFilterType("all");
+                                setSpecificDate(undefined);
+                              },
                             }}
-                            className="mt-4 neu-border bg-yellow px-5 py-2 font-mono text-xs font-bold uppercase transition-all hover:bg-black hover:text-white cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
-                          >
-                            Clear filter
-                          </button>
+                          />
                         </div>
                       ) : sortedEvents.length === 0 ? (
                         <div className="col-span-full mx-auto max-w-md text-center neu-border bg-white p-8">
-                          <p className="text-3xl">🔍</p>
-                          <h3 className="mt-2 font-mono text-lg font-bold uppercase">
-                            No Events Found
-                          </h3>
-                          <p className="mt-1 font-mono text-xs text-neutral-600">
-                            No events matched &quot;{searchQuery}&quot;. Try clearing your filters
-                            or searching for another term.
-                          </p>
-                          <button
-                            onClick={() => {
-                              setFilter("All");
-                              setSearchInput("");
-                              setSearchQuery("");
-                              setDateFilterType("all");
-                              setSpecificDate(undefined);
+                          <EmptyState
+                            illustrationType="no-results"
+                            title="No events found"
+                            description={`No events matched “${searchQuery}”. Try clearing your filters or searching for another term.`}
+                            action={{
+                              label: "Reset filters",
+                              onClick: () => {
+                                setFilter("All");
+                                setSearchInput("");
+                                setSearchQuery("");
+                                setDateFilterType("all");
+                                setSpecificDate(undefined);
+                              },
                             }}
-                            className="mt-4 neu-border bg-yellow px-5 py-2 font-mono text-xs font-bold uppercase transition-all hover:bg-black hover:text-white cursor-pointer"
-                          >
-                            Reset Filters
-                          </button>
+                          />
                         </div>
                       ) : (
                         sortedEvents.map((e, index) => (

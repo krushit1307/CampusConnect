@@ -2,6 +2,7 @@ import { useEffect, useState, useDeferredValue } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Link } from "react-router-dom";
 import { formatEventDateRange } from "@/lib/utils";
+import { EmptyState } from "@/components/EmptyState";
 
 interface EventSearchResult {
   id: string;
@@ -99,7 +100,21 @@ export default function GlobalSearch() {
       {isLoading && <p>Searching...</p>}
       {error && <p role="alert">Something went wrong: {error}</p>}
       {!isLoading && !error && searchTerm.trim() && results.length === 0 && (
-        <p>No events found for &ldquo;{searchTerm}&rdquo;.</p>
+        <EmptyState
+          illustrationType="no-results"
+          title={`No results for “${searchTerm}”`}
+          description="Try another keyword, event name, or location."
+          actionButton={
+            <button
+              type="button"
+              onClick={() => setSearchTerm("")}
+              className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-white"
+            >
+              Clear search
+            </button>
+          }
+          className="mt-2"
+        />
       )}
       {results.length > 0 && (
         <div
