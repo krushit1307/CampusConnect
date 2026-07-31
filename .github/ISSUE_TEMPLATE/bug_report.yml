@@ -46,9 +46,19 @@ body:
       label: Screenshots
       description: If applicable, add screenshots or screen recordings to help explain your problem.
   - type: input
-    id: environment
+    id: browser
     attributes:
-      label: Environment
-      description: What browser/OS are you using? (e.g. Chrome 110 on Windows 11, Safari on iOS)
+      label: Browser Version
+      description: Enter the browser name and version.
+      placeholder: Chrome 139.0.7258.67
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      description: Enter your operating system and version.
+      placeholder: Windows 11 / macOS Sequoia / Ubuntu 24.04
     validations:
       required: true
