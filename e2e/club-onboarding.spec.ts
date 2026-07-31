@@ -79,7 +79,9 @@ test.describe("Club Creation Flow", () => {
     await page.goto("/clubs");
     await page.evaluate(
       ([mockUser]) => {
-        const key = Object.keys(localStorage).find((k) => k.startsWith("sb-") && k.endsWith("-auth-token"));
+        const key = Object.keys(localStorage).find(
+          (k) => k.startsWith("sb-") && k.endsWith("-auth-token"),
+        );
         if (key) {
           const existing = JSON.parse(localStorage.getItem(key) || "{}");
           existing.access_token = "mock-token";
@@ -110,7 +112,9 @@ test.describe("Club Creation Flow", () => {
     await page.getByRole("button", { name: /create a club/i }).click();
 
     await page.getByPlaceholder(/AI Research Group/i).fill("Test Club E2E");
-    await page.getByPlaceholder(/Write about your club/i).fill("A club created during E2E testing.");
+    await page
+      .getByPlaceholder(/Write about your club/i)
+      .fill("A club created during E2E testing.");
 
     await page.getByRole("button", { name: /submit club/i }).click();
 

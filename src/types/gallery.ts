@@ -21,8 +21,8 @@ export interface GalleryPhoto {
   };
 }
 
-export type SortOption = 'newest' | 'oldest' | 'popular';
-export type FilterTag = string | 'all';
+export type SortOption = "newest" | "oldest" | "popular";
+export type FilterTag = string | "all";
 
 export interface GalleryFilters {
   sort: SortOption;

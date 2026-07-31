@@ -4,7 +4,8 @@ import { useEffect, useState, lazy, Suspense } from "react";
 import { User } from "@supabase/supabase-js";
 import { CalendarDays, ChevronDown, X } from "lucide-react";
 import { startOfWeek, endOfWeek, isWithinInterval } from "date-fns";
-import { CampusTimeline, type TimelineEvent } from "@/components/events/CampusTimeline";import { CalendarSkeleton } from "@/components/DashboardWidgetSkeleton";
+import { CampusTimeline, type TimelineEvent } from "@/components/events/CampusTimeline";
+import { CalendarSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -123,7 +124,7 @@ export default function DashboardCalendar() {
       ? events
       : events.filter((e) => e.category_id && selectedCategories.includes(e.category_id));
 
-const weekEvents: TimelineEvent[] = filteredEvents
+  const weekEvents: TimelineEvent[] = filteredEvents
     .filter((e) => e.start_date || e.event_date)
     .map((e) => {
       const start = new Date(e.start_date ?? e.event_date!);
@@ -134,7 +135,8 @@ const weekEvents: TimelineEvent[] = filteredEvents
       isWithinInterval(e.start, { start: startOfWeek(new Date()), end: endOfWeek(new Date()) }),
     );
 
-  function toggleCategory(id: string) {    setSelectedCategories((prev) =>
+  function toggleCategory(id: string) {
+    setSelectedCategories((prev) =>
       prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
     );
   }
@@ -218,15 +220,14 @@ const weekEvents: TimelineEvent[] = filteredEvents
             <span className="h-3 w-3 rounded bg-primary" />
             <span>RSVP'd events</span>
           </div>
-
-<div className="neu-border mb-4 bg-white p-4 dark:bg-[#1a1a1a]">
+          <div className="neu-border mb-4 bg-white p-4 dark:bg-[#1a1a1a]">
             <h3 className="mb-3 font-mono text-sm font-bold uppercase">This week's timeline</h3>
             <CampusTimeline events={weekEvents} />
           </div>
-
           <Suspense fallback={<CalendarSkeleton />}>
             <EventsCalendar events={filteredEvents} />
-          </Suspense>        </>
+          </Suspense>{" "}
+        </>
       )}
     </div>
   );

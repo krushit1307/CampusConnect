@@ -1,9 +1,9 @@
 // src/components/ui/SuccessConfetti.tsx
-import React, { useEffect, useState } from 'react';
-import { AnimationPlayer } from './AnimationPlayer';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './dialog';
-import { Button } from './button';
-import { CheckCircle2 } from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import { AnimationPlayer } from "./AnimationPlayer";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./dialog";
+import { Button } from "./button";
+import { CheckCircle2 } from "lucide-react";
 
 interface SuccessConfettiProps {
   open: boolean;
@@ -16,15 +16,15 @@ interface SuccessConfettiProps {
 
 /**
  * Modal overlay that plays a success confetti dotLottie animation.
- * The .lottie format ensures the complex particle effects are 
+ * The .lottie format ensures the complex particle effects are
  * delivered in a fraction of the original JSON file size.
  */
 export const SuccessConfetti: React.FC<SuccessConfettiProps> = ({
   open,
   onOpenChange,
-  title = 'Success!',
-  description = 'Your action was completed successfully.',
-  actionLabel = 'Continue',
+  title = "Success!",
+  description = "Your action was completed successfully.",
+  actionLabel = "Continue",
   onAction,
 }) => {
   const [showAnimation, setShowAnimation] = useState(false);
@@ -54,33 +54,27 @@ export const SuccessConfetti: React.FC<SuccessConfettiProps> = ({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        
+
         <div className="flex flex-col items-center text-center pt-4">
           {showAnimation && (
             <div className="w-48 h-48 mb-2 pointer-events-none">
-              <AnimationPlayer 
-                type="success-confetti" 
-                loop={false} 
-                autoplay={true} 
+              <AnimationPlayer
+                type="success-confetti"
+                loop={false}
+                autoplay={true}
                 altText="Success Confetti"
               />
             </div>
           )}
-          
+
           <div className="flex items-center gap-2 mb-2">
             <CheckCircle2 className="w-6 h-6 text-green-500" />
             <h2 className="text-xl font-bold text-foreground">{title}</h2>
           </div>
-          
-          <p className="text-muted-foreground mb-6 max-w-xs">
-            {description}
-          </p>
-          
-          <Button 
-            onClick={handleContinue} 
-            className="w-full sm:w-auto min-w-[120px]"
-            size="lg"
-          >
+
+          <p className="text-muted-foreground mb-6 max-w-xs">{description}</p>
+
+          <Button onClick={handleContinue} className="w-full sm:w-auto min-w-[120px]" size="lg">
             {actionLabel}
           </Button>
         </div>

@@ -29,12 +29,12 @@ export const yoga = createYoga({
   context: async ({ request }) => {
     let user = null;
     const authHeader = request.headers.get("authorization");
-    
+
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const token = authHeader.substring(7);
       const { data: authData } = await supabase.auth.getUser(token);
       const authUser = authData?.user;
-      
+
       if (authUser) {
         user = { id: authUser.id, role: "USER" };
         // Fetch role
@@ -43,13 +43,13 @@ export const yoga = createYoga({
           .select("role")
           .eq("id", authUser.id)
           .single();
-          
+
         user.role = profile?.role || "USER";
       }
     }
-    
+
     return { user };
-  }
+  },
 });
 
 // Re-export for use by server-side event producers (mention handlers, etc.)

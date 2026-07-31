@@ -1,15 +1,15 @@
 // src/components/EventForm/TicketTiers.tsx
-import React from 'react';
-import { useFieldArray, UseFormReturn } from 'react-hook-form';
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { EventFormData, TicketTier } from '../../lib/eventFormSchema';
-import { TicketTierItem } from './TicketTierItem';
-import { Button } from '../ui/button';
-import { useTicketCalculations } from '../../hooks/useTicketCalculations';
-import { PlusCircle, AlertTriangle, DollarSign, Users, Layers } from 'lucide-react';
-import { Alert, AlertDescription } from '../ui/alert';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { cn } from '../../lib/utils';
+import React from "react";
+import { useFieldArray, UseFormReturn } from "react-hook-form";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import { EventFormData, TicketTier } from "../../lib/eventFormSchema";
+import { TicketTierItem } from "./TicketTierItem";
+import { Button } from "../ui/button";
+import { useTicketCalculations } from "../../hooks/useTicketCalculations";
+import { PlusCircle, AlertTriangle, DollarSign, Users, Layers } from "lucide-react";
+import { Alert, AlertDescription } from "../ui/alert";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { cn } from "../../lib/utils";
 
 interface TicketTiersProps {
   form: UseFormReturn<EventFormData>;
@@ -21,23 +21,29 @@ interface TicketTiersProps {
  * Displays real-time financial projections based on the current tier configuration.
  */
 export const TicketTiers: React.FC<TicketTiersProps> = ({ form }) => {
-  const { control, register, formState: { errors }, getValues, setValue } = form;
-  
+  const {
+    control,
+    register,
+    formState: { errors },
+    getValues,
+    setValue,
+  } = form;
+
   const { fields, append, remove, move } = useFieldArray({
     control,
-    name: 'tickets',
+    name: "tickets",
   });
 
   // Watch the current tiers for calculations
-  const currentTiers = getValues('tickets') as TicketTier[];
+  const currentTiers = getValues("tickets") as TicketTier[];
   const calculations = useTicketCalculations(currentTiers || []);
 
   const handleAddTier = () => {
     append({
-      name: '',
+      name: "",
       price: 0,
       capacity: 100,
-      description: '',
+      description: "",
       isEarlyBird: false,
       isActive: true,
     });
@@ -45,12 +51,12 @@ export const TicketTiers: React.FC<TicketTiersProps> = ({ form }) => {
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
-    
+
     // Update the RHF internal state order
     move(result.source.index, result.destination.index);
   };
 
-  const arrayError = typeof errors.tickets?.message === 'string' ? errors.tickets.message : null;
+  const arrayError = typeof errors.tickets?.message === "string" ? errors.tickets.message : null;
 
   return (
     <div className="space-y-6">
@@ -61,7 +67,8 @@ export const TicketTiers: React.FC<TicketTiersProps> = ({ form }) => {
             Ticket Tiers & Pricing
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Define the different ticket options available for this event. Drag to reorder how they appear to users.
+            Define the different ticket options available for this event. Drag to reorder how they
+            appear to users.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -75,22 +82,11 @@ export const TicketTiers: React.FC<TicketTiersProps> = ({ form }) => {
           <DragDropContext onDragEnd={handleDragEnd}>
             <Droppable droppableId="ticket-tiers">
               {(provided) => (
-                <div 
-                  {...provided.droppableProps}
-                  ref={provided.innerRef}
-                  className="space-y-4"
-                >
+                <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-4">
                   {fields.map((field, index) => (
-                    <Draggable 
-                      key={field.id} 
-                      draggableId={field.id} 
-                      index={index}
-                    >
+                    <Draggable key={field.id} draggableId={field.id} index={index}>
                       {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
-                        >
+                        <div ref={provided.innerRef} {...provided.draggableProps}>
                           <TicketTierItem
                             index={index}
                             tier={getValues(`tickets.${index}`)}
@@ -110,9 +106,9 @@ export const TicketTiers: React.FC<TicketTiersProps> = ({ form }) => {
             </Droppable>
           </DragDropContext>
 
-          <Button 
-            type="button" 
-            variant="outline" 
+          <Button
+            type="button"
+            variant="outline"
             className="w-full border-dashed h-12 text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
             onClick={handleAddTier}
             disabled={fields.length >= 20}
@@ -137,7 +133,9 @@ export const TicketTiers: React.FC<TicketTiersProps> = ({ form }) => {
             </div>
             <div className="space-y-1">
               <p className="text-2xl font-bold text-foreground">{calculations.totalCapacity}</p>
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Capacity</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                Total Capacity
+              </p>
             </div>
             <div className="space-y-1">
               <p className="text-2xl font-bold text-primary">

@@ -8,7 +8,8 @@ export default function EmptyState() {
         <Calendar className="w-16 h-16 mb-4 text-black opacity-20" />
         <h2 className="text-2xl font-bold font-display text-black mb-2">Select an event</h2>
         <p className="text-sm font-mono max-w-sm">
-          Click on any event from the list on the left to view its details, RSVP, or see who is attending.
+          Click on any event from the list on the left to view its details, RSVP, or see who is
+          attending.
         </p>
       </div>
     </div>

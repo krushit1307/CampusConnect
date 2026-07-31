@@ -1,21 +1,21 @@
 // src/components/ui/AnimationPlayer.tsx
-import React, { Suspense, useState, useEffect } from 'react';
-import { useDotLottiePlayer } from '../../hooks/useDotLottiePlayer';
-import { cn } from '../../lib/utils';
-import { Skeleton } from './skeleton';
-import { AlertCircle } from 'lucide-react';
+import React, { Suspense, useState, useEffect } from "react";
+import { useDotLottiePlayer } from "../../hooks/useDotLottiePlayer";
+import { cn } from "../../lib/utils";
+import { Skeleton } from "./skeleton";
+import { AlertCircle } from "lucide-react";
 
 /**
  * Supported animation types in the application.
  * Maps to specific .lottie files in the public/animations directory.
  */
-export type AnimationType = 
-  | 'empty-state' 
-  | 'success-confetti' 
-  | 'loading-spinner' 
-  | 'error-generic' 
-  | 'search-empty'
-  | 'network-offline';
+export type AnimationType =
+  | "empty-state"
+  | "success-confetti"
+  | "loading-spinner"
+  | "error-generic"
+  | "search-empty"
+  | "network-offline";
 
 interface AnimationPlayerProps {
   type: AnimationType;
@@ -35,20 +35,20 @@ interface AnimationPlayerProps {
  */
 const getAnimationSrc = (type: AnimationType): string => {
   switch (type) {
-    case 'empty-state':
-      return '/animations/empty-state.lottie';
-    case 'success-confetti':
-      return '/animations/success-confetti.lottie';
-    case 'loading-spinner':
-      return '/animations/loading-spinner.lottie';
-    case 'error-generic':
-      return '/animations/error-generic.lottie';
-    case 'search-empty':
-      return '/animations/search-empty.lottie';
-    case 'network-offline':
-      return '/animations/network-offline.lottie';
+    case "empty-state":
+      return "/animations/empty-state.lottie";
+    case "success-confetti":
+      return "/animations/success-confetti.lottie";
+    case "loading-spinner":
+      return "/animations/loading-spinner.lottie";
+    case "error-generic":
+      return "/animations/error-generic.lottie";
+    case "search-empty":
+      return "/animations/search-empty.lottie";
+    case "network-offline":
+      return "/animations/network-offline.lottie";
     default:
-      return '/animations/loading-spinner.lottie';
+      return "/animations/loading-spinner.lottie";
   }
 };
 
@@ -56,23 +56,23 @@ const getAnimationSrc = (type: AnimationType): string => {
  * Universal wrapper for dotLottie animations.
  * Replaces the old react-lottie implementation with the highly
  * compressed @dotlottie/react-player format.
- * 
+ *
  * Provides built-in loading skeletons and error fallbacks to ensure
  * UI stability even if the asset fails to download.
  */
 export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
   type,
   className,
-  width = '100%',
-  height = '100%',
+  width = "100%",
+  height = "100%",
   loop = false,
   autoplay = true,
   speed = 1.0,
   onComplete,
-  altText = 'Animation',
+  altText = "Animation",
 }) => {
   const [src, setSrc] = useState<string>(getAnimationSrc(type));
-  
+
   useEffect(() => {
     setSrc(getAnimationSrc(type));
   }, [type]);
@@ -87,10 +87,10 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
 
   if (error) {
     return (
-      <div 
+      <div
         className={cn(
-          'flex flex-col items-center justify-center gap-2 text-muted-foreground bg-muted/30 rounded-lg border border-dashed border-muted-foreground/20',
-          className
+          "flex flex-col items-center justify-center gap-2 text-muted-foreground bg-muted/30 rounded-lg border border-dashed border-muted-foreground/20",
+          className,
         )}
         style={{ width, height }}
         role="img"
@@ -104,15 +104,10 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
 
   return (
     <Suspense
-      fallback={
-        <Skeleton 
-          className={cn('rounded-lg', className)} 
-          style={{ width, height }} 
-        />
-      }
+      fallback={<Skeleton className={cn("rounded-lg", className)} style={{ width, height }} />}
     >
-      <div 
-        className={cn('relative overflow-hidden rounded-lg', className)} 
+      <div
+        className={cn("relative overflow-hidden rounded-lg", className)}
         style={{ width, height }}
         role="img"
         aria-label={altText}

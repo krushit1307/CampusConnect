@@ -13,8 +13,9 @@ export const searchService = {
       return [];
     }
 
-const { data, error } = await supabase
-      .rpc("search_events_advanced", { query_string: query })      .select(
+    const { data, error } = await supabase
+      .rpc("search_events_advanced", { query_string: query })
+      .select(
         `
         id, title, description, event_date, start_date, end_date, location, banner_url, max_attendees, created_at,
         clubs (name),

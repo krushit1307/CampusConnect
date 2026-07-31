@@ -1,5 +1,5 @@
 // src/hooks/useMapCoordinates.ts
-import { useCallback } from 'react';
+import { useCallback } from "react";
 
 export interface PinCoordinate {
   id: string;
@@ -11,9 +11,9 @@ export interface PinCoordinate {
 /**
  * Translates raw percentage coordinates (saved by admins clicking on the map)
  * into absolute pixel positions based on the current rendered size of the SVG container.
- * 
- * This avoids the mathematical complexity of translating real-world GPS lat/lng 
- * into flat SVG coordinates. Instead, admins simply click the SVG to "Save Pin Location" 
+ *
+ * This avoids the mathematical complexity of translating real-world GPS lat/lng
+ * into flat SVG coordinates. Instead, admins simply click the SVG to "Save Pin Location"
  * as raw percentages (e.g., `left: 45%, top: 60%`).
  */
 export const useMapCoordinates = () => {
@@ -24,21 +24,21 @@ export const useMapCoordinates = () => {
         top: (pin.y / 100) * containerHeight,
       };
     },
-    []
+    [],
   );
 
   const getPercentageFromEvent = useCallback(
     (e: React.MouseEvent<SVGSVGElement>, containerRect: DOMRect) => {
       const x = ((e.clientX - containerRect.left) / containerRect.width) * 100;
       const y = ((e.clientY - containerRect.top) / containerRect.height) * 100;
-      
+
       // Clamp between 0 and 100 to prevent pins from being placed outside the map bounds
       return {
         x: Math.max(0, Math.min(100, x)),
         y: Math.max(0, Math.min(100, y)),
       };
     },
-    []
+    [],
   );
 
   return {

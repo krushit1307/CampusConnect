@@ -150,7 +150,7 @@ export default function Layout() {
     };
   }, []);
 
-return (
+  return (
     <TooltipProvider delayDuration={200}>
       <WebRTCProvider>
         <OfflineBanner />
@@ -165,4 +165,5 @@ return (
         <SpeedDial />
       </WebRTCProvider>
     </TooltipProvider>
-  );}
+  );
+}

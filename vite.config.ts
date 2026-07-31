@@ -20,11 +20,11 @@ function lucideImportOptimizer() {
       // Matches imports like: import { ... } from "lucide-react";
       // Excludes "import type { ... }" by checking negative lookahead (?!type\s+)
       const regex = /import\s+(?!type\s+)\{([\s\S]*?)\}\s+from\s+['"]lucide-react['"];?/g;
-      
+
       let hasChanged = false;
       const newCode = code.replace(regex, (match, specifiers) => {
         if (!specifiers) return match;
-        
+
         const icons = specifiers
           .split(",")
           .map((s: string) => s.trim())
@@ -33,7 +33,7 @@ function lucideImportOptimizer() {
         const newImports = icons.map((icon: string) => {
           let iconName = icon;
           let aliasName = icon;
-          
+
           if (icon.includes(" as ")) {
             const parts = icon.split(" as ");
             iconName = parts[0].trim();

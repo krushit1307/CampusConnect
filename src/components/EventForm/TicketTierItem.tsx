@@ -1,15 +1,15 @@
 // src/components/EventForm/TicketTierItem.tsx
-import React from 'react';
-import { Control, UseFormRegister, FieldErrors } from 'react-hook-form';
-import { EventFormData, TicketTier } from '../../lib/eventFormSchema';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Switch } from '../ui/switch';
-import { Button } from '../ui/button';
-import { Textarea } from '../ui/textarea';
-import { Trash2, GripVertical, DollarSign, Users, Tag } from 'lucide-react';
-import { cn } from '../../lib/utils';
-import { format } from 'date-fns';
+import React from "react";
+import { Control, UseFormRegister, FieldErrors } from "react-hook-form";
+import { EventFormData, TicketTier } from "../../lib/eventFormSchema";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Switch } from "../ui/switch";
+import { Button } from "../ui/button";
+import { Textarea } from "../ui/textarea";
+import { Trash2, GripVertical, DollarSign, Users, Tag } from "lucide-react";
+import { cn } from "../../lib/utils";
+import { format } from "date-fns";
 
 interface TicketTierItemProps {
   index: number;
@@ -37,31 +37,33 @@ export const TicketTierItem: React.FC<TicketTierItemProps> = ({
   const tierErrors = errors.tickets?.[index] as any;
 
   return (
-    <div 
+    <div
       className={cn(
-        'relative p-4 border rounded-xl bg-card shadow-sm transition-all',
-        isDragging && 'shadow-xl ring-2 ring-primary opacity-90 scale-[1.02]',
-        !tier.isActive && 'opacity-50 bg-muted/30'
+        "relative p-4 border rounded-xl bg-card shadow-sm transition-all",
+        isDragging && "shadow-xl ring-2 ring-primary opacity-90 scale-[1.02]",
+        !tier.isActive && "opacity-50 bg-muted/30",
       )}
     >
       <div className="flex items-start gap-3 mb-4">
-        <div 
+        <div
           {...dragHandleProps}
           className="mt-2 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors"
           aria-label="Drag to reorder tier"
         >
           <GripVertical className="w-5 h-5" />
         </div>
-        
+
         <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <Label className="flex items-center gap-1.5 text-xs font-medium">
               <Tag className="w-3.5 h-3.5" /> Tier Name
             </Label>
-            <Input 
+            <Input
               placeholder="e.g. Early Bird, General Admission"
               {...register(`tickets.${index}.name` as const)}
-              className={cn(tierErrors?.name && 'border-destructive focus-visible:ring-destructive')}
+              className={cn(
+                tierErrors?.name && "border-destructive focus-visible:ring-destructive",
+              )}
             />
             {tierErrors?.name && (
               <p className="text-xs text-destructive">{tierErrors.name.message}</p>
@@ -72,13 +74,15 @@ export const TicketTierItem: React.FC<TicketTierItemProps> = ({
             <Label className="flex items-center gap-1.5 text-xs font-medium">
               <DollarSign className="w-3.5 h-3.5" /> Price
             </Label>
-            <Input 
-              type="number" 
+            <Input
+              type="number"
               min="0"
               step="0.01"
               placeholder="0.00"
               {...register(`tickets.${index}.price` as const, { valueAsNumber: true })}
-              className={cn(tierErrors?.price && 'border-destructive focus-visible:ring-destructive')}
+              className={cn(
+                tierErrors?.price && "border-destructive focus-visible:ring-destructive",
+              )}
             />
             {tierErrors?.price && (
               <p className="text-xs text-destructive">{tierErrors.price.message}</p>
@@ -103,12 +107,14 @@ export const TicketTierItem: React.FC<TicketTierItemProps> = ({
           <Label className="flex items-center gap-1.5 text-xs font-medium">
             <Users className="w-3.5 h-3.5" /> Capacity
           </Label>
-          <Input 
-            type="number" 
+          <Input
+            type="number"
             min="1"
             placeholder="100"
             {...register(`tickets.${index}.capacity` as const, { valueAsNumber: true })}
-            className={cn(tierErrors?.capacity && 'border-destructive focus-visible:ring-destructive')}
+            className={cn(
+              tierErrors?.capacity && "border-destructive focus-visible:ring-destructive",
+            )}
           />
           {tierErrors?.capacity && (
             <p className="text-xs text-destructive">{tierErrors.capacity.message}</p>
@@ -116,7 +122,7 @@ export const TicketTierItem: React.FC<TicketTierItemProps> = ({
         </div>
 
         <div className="flex items-center gap-3 sm:col-span-2 pt-5">
-          <Switch 
+          <Switch
             id={`early-bird-${index}`}
             checked={tier.isEarlyBird}
             onCheckedChange={(checked) => {
@@ -132,7 +138,7 @@ export const TicketTierItem: React.FC<TicketTierItemProps> = ({
 
       <div className="pl-8">
         <Label className="text-xs font-medium mb-1.5 block">Description (Optional)</Label>
-        <Textarea 
+        <Textarea
           placeholder="e.g. Includes free drink ticket and priority seating..."
           rows={2}
           {...register(`tickets.${index}.description` as const)}

@@ -34,7 +34,9 @@ describe("GraphQL Auth Directive", () => {
   });
 
   it("Authenticated USER should be rejected from ADMIN field", async () => {
-    vi.mocked(supabase.auth.getUser).mockResolvedValue({ data: { user: { id: "user-123" } } } as any);
+    vi.mocked(supabase.auth.getUser).mockResolvedValue({
+      data: { user: { id: "user-123" } },
+    } as any);
     vi.mocked(supabase.from).mockReturnValue({
       select: () => ({
         eq: () => ({
@@ -45,9 +47,9 @@ describe("GraphQL Auth Directive", () => {
 
     const response = await yoga.fetch("http://localhost:4000/api/graphql", {
       method: "POST",
-      headers: { 
+      headers: {
         "Content-Type": "application/json",
-        "Authorization": "Bearer token-user"
+        Authorization: "Bearer token-user",
       },
       body: JSON.stringify({ query: "query { allUsers { id } }" }),
     });
@@ -57,18 +59,23 @@ describe("GraphQL Auth Directive", () => {
   });
 
   it("Authenticated ADMIN should receive data", async () => {
-    vi.mocked(supabase.auth.getUser).mockResolvedValue({ data: { user: { id: "admin-123" } } } as any);
-    
+    vi.mocked(supabase.auth.getUser).mockResolvedValue({
+      data: { user: { id: "admin-123" } },
+    } as any);
+
     vi.mocked(supabase.from).mockImplementation((table: string) => {
       if (table === "profiles") {
         return {
           select: () => {
-            const queryObj = Promise.resolve({ data: [{ id: "user-123" }, { id: "admin-123" }], error: null });
+            const queryObj = Promise.resolve({
+              data: [{ id: "user-123" }, { id: "admin-123" }],
+              error: null,
+            });
             (queryObj as any).eq = () => ({
               single: async () => ({ data: { role: "ADMIN" }, error: null }),
             });
             return queryObj;
-          }
+          },
         } as any;
       }
       return {} as any;
@@ -76,9 +83,9 @@ describe("GraphQL Auth Directive", () => {
 
     const response = await yoga.fetch("http://localhost:4000/api/graphql", {
       method: "POST",
-      headers: { 
+      headers: {
         "Content-Type": "application/json",
-        "Authorization": "Bearer token-admin"
+        Authorization: "Bearer token-admin",
       },
       body: JSON.stringify({ query: "query { allUsers { id } }" }),
     });
@@ -86,12 +93,12 @@ describe("GraphQL Auth Directive", () => {
     expect(json.data.allUsers).toBeDefined();
     expect(json.data.allUsers.length).toBe(2);
   });
-  
+
   it("Ensure existing queries continue working (clubs)", async () => {
     vi.mocked(supabase.from).mockImplementation((table: string) => {
       if (table === "clubs") {
         return {
-          select: () => Promise.resolve({ data: [{ id: "club-1", name: "Club 1" }], error: null })
+          select: () => Promise.resolve({ data: [{ id: "club-1", name: "Club 1" }], error: null }),
         } as any;
       }
       return {} as any;
