@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
       stripeEvent = await stripe.webhooks.constructEventAsync(
         rawBody,
         signatureHeader,
-        stripeSecret
+        stripeSecret,
       );
     } catch (err: any) {
       console.warn("[Security Alert] Cryptographic signature mismatch:", err.message);
