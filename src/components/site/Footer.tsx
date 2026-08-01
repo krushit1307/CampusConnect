@@ -1,12 +1,22 @@
+import { BugReportModal } from "@/components/Modals/BugReportModal";
+import { ExternalLink, Github, MessageCircle } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Github, MessageCircle, ExternalLink } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const NAV_LINKS = [
   { label: "Events", to: "/events" },
   { label: "Clubs", to: "/clubs" },
   { label: "Feed", to: "/feed" },
+  { label: "Directory", to: "/directory" },
   { label: "Certificates", to: "/certificates" },
   { label: "Dashboard", to: "/dashboard" },
+];
+
+const LEGAL_LINKS = [
+  { label: "Privacy Policy", to: "/privacy" },
+  { label: "Terms of Service", to: "/terms" },
 ];
 
 const SOCIAL_LINKS = [
@@ -28,13 +38,33 @@ const SOCIAL_LINKS = [
 ];
 
 export function Footer() {
+  const [bugReportOpen, setBugReportOpen] = useState(false);
+  const { i18n } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const changeLanguage = (lang: string) => {
+    i18n.changeLanguage(lang);
+
+    const parts = location.pathname.split("/");
+
+    // replace existing language segment
+    if (parts[1] === "en" || parts[1] === "es") {
+      parts[1] = lang;
+    } else {
+      parts.splice(1, 0, lang);
+    }
+
+    navigate(parts.join("/") || `/${lang}`);
+  };
+
   return (
-    <footer className="border-t-4 border-black bg-lime shadow-[0_-4px_0_0_#000]">
+    <footer className="border-t-4 border-black bg-lime shadow-[0_-4px_0_0_var(--color-ink)]">
       <div className="mx-auto max-w-7xl px-4 py-10 md:px-6">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
           {/* Brand */}
           <div className="flex flex-col gap-3">
-            <div className="neu-border inline-block w-fit bg-black px-3 py-1 shadow-[4px_4px_0_0_#000]">
+            <div className="neu-border inline-block w-fit bg-black px-3 py-1 shadow-[4px_4px_0_0_var(--color-ink)]">
               <span className="font-display text-lg font-black text-lime">CampusConnect</span>
             </div>
             <p className="max-w-xs font-mono text-xs leading-relaxed text-black">
@@ -47,7 +77,7 @@ export function Footer() {
 
           {/* Nav Links */}
           <div className="flex flex-col gap-3">
-            <p className="neu-border inline-block w-fit bg-black px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-lime shadow-[3px_3px_0_0_#000]">
+            <p className="neu-border inline-block w-fit bg-black px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-lime shadow-[3px_3px_0_0_var(--color-ink)]">
               Navigate
             </p>
             <ul className="space-y-2">
@@ -66,7 +96,7 @@ export function Footer() {
 
           {/* Social Links */}
           <div className="flex flex-col gap-3">
-            <p className="neu-border inline-block w-fit bg-black px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-lime shadow-[3px_3px_0_0_#000]">
+            <p className="neu-border inline-block w-fit bg-black px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-lime shadow-[3px_3px_0_0_var(--color-ink)]">
               Community
             </p>
             <div className="flex flex-col gap-2">
@@ -76,7 +106,7 @@ export function Footer() {
                   href={s.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="neu-border inline-flex w-fit items-center gap-2 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase shadow-[3px_3px_0_0_#000] transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[5px_5px_0_0_#000]"
+                  className="neu-border inline-flex w-fit items-center gap-2 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase shadow-[3px_3px_0_0_var(--color-ink)] transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[5px_5px_0_0_var(--color-ink)]"
                 >
                   {s.icon}
                   {s.label}
@@ -87,14 +117,39 @@ export function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-8 border-t-2 border-black pt-4 flex flex-col items-center justify-between gap-2 sm:flex-row">
+        <div className="mt-8 border-t-2 border-black pt-4 flex flex-col items-center justify-between gap-3 sm:flex-row">
           <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-black">
             © {new Date().getFullYear()} CampusConnect. Built by the community.
           </p>
-          <p className="font-mono text-[10px] uppercase tracking-widest text-black">
-            ECSoC 2026 · v0.1
-          </p>
+          <div className="flex items-center gap-4">
+            {LEGAL_LINKS.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className="font-mono text-[10px] font-bold uppercase tracking-widest text-black underline-offset-4 hover:underline"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+          <div className="flex items-center gap-4">
+            <BugReportModal open={bugReportOpen} onOpenChange={setBugReportOpen} />
+            <p className="font-mono text-[10px] uppercase tracking-widest text-black">
+              ECSoC 2026 · v0.1
+            </p>
+          </div>
         </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="font-bold">Language:</span>
+
+        <button onClick={() => changeLanguage("en")} className="underline">
+          English
+        </button>
+
+        <button onClick={() => changeLanguage("es")} className="underline">
+          Español
+        </button>
       </div>
     </footer>
   );

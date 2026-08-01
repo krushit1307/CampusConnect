@@ -1,6 +1,9 @@
-import React from "react";
-import { isRouteErrorResponse, useRouteError } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { isRouteErrorResponse, useRouteError } from "react-router-dom";
+import { trace, SpanStatusCode } from "@opentelemetry/api";
+
+import React from "react";
+import { NotFoundPage } from "./NotFoundPage";
 
 const MAX_SOFT_RETRIES = 2;
 
@@ -33,16 +36,16 @@ function ErrorFallback({
         }}
       />
 
-      <div className="absolute -left-12 top-10 h-32 w-32 rotate-12 border-4 border-black bg-destructive shadow-[6px_6px_0_0_#000] sm:h-44 sm:w-44" />
-      <div className="absolute -right-10 bottom-12 h-28 w-28 -rotate-12 border-4 border-black bg-peach shadow-[6px_6px_0_0_#000] sm:h-40 sm:w-40" />
+      <div className="absolute -left-12 top-10 h-32 w-32 rotate-12 border-4 border-black bg-destructive shadow-[6px_6px_0_0_var(--color-ink)] sm:h-44 sm:w-44" />
+      <div className="absolute -right-10 bottom-12 h-28 w-28 -rotate-12 border-4 border-black bg-peach shadow-[6px_6px_0_0_var(--color-ink)] sm:h-40 sm:w-40" />
 
-      <section className="relative z-10 mx-auto flex w-full max-w-lg flex-col items-center text-center border-4 border-black bg-white p-6 shadow-[10px_10px_0_0_#000] sm:p-10">
+      <section className="relative z-10 mx-auto flex w-full max-w-lg flex-col items-center text-center border-4 border-black bg-white p-6 shadow-[10px_10px_0_0_var(--color-ink)] sm:p-10">
         <div className="relative mb-2 flex flex-col items-center">
-          <div className="neu-border relative mb-3 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase shadow-[3px_3px_0_0_#000]">
+          <div className="neu-border relative mb-3 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase shadow-[3px_3px_0_0_var(--color-ink)]">
             Uh oh.
             <div className="absolute -bottom-2 left-1/2 h-0 w-0 -translate-x-1/2 border-x-4 border-t-8 border-x-transparent border-t-black" />
           </div>
-          <div className="neu-border flex h-24 w-28 flex-col items-center justify-center bg-destructive/20 p-2 shadow-[4px_4px_0_0_#000]">
+          <div className="neu-border flex h-24 w-28 flex-col items-center justify-center bg-destructive/20 p-2 shadow-[4px_4px_0_0_var(--color-ink)]">
             <div className="flex gap-4">
               <div className="h-3 w-3 rounded-full bg-black" />
               <div className="h-3 w-3 rounded-full bg-black" />
@@ -64,14 +67,14 @@ function ErrorFallback({
           <button
             type="button"
             onClick={onTryAgain}
-            className="neu-border bg-lime text-black hover:bg-lime/90 font-mono font-bold uppercase tracking-wider px-6 py-3 shadow-[4px_4px_0_0_#000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_#000] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[0px_0px_0_0_#000]"
+            className="neu-border bg-lime text-black hover:bg-lime/90 font-mono font-bold uppercase tracking-wider px-4 py-2 shadow-[4px_4px_0_0_#000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_#000] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[0px_0px_0_0_#000]"
           >
             {tryAgainLabel}
           </button>
           <button
             type="button"
             onClick={onGoHome}
-            className="neu-border bg-white text-black hover:bg-gray-50 font-mono font-bold uppercase tracking-wider px-6 py-3 shadow-[4px_4px_0_0_#000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_#000] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[0px_0px_0_0_#000]"
+            className="neu-border bg-white text-black hover:bg-gray-50 font-mono font-bold uppercase tracking-wider px-4 py-2 shadow-[4px_4px_0_0_var(--color-ink)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_var(--color-ink)] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[0px_0px_0_0_var(--color-ink)]"
           >
             Go Home
           </button>
@@ -82,7 +85,7 @@ function ErrorFallback({
           onOpenChange={onToggleDetails}
           className="mt-6 w-full text-left"
         >
-          <CollapsibleTrigger className="neu-border w-full bg-white px-4 py-2 font-mono text-xs font-bold uppercase shadow-[3px_3px_0_0_#000]">
+          <CollapsibleTrigger className="neu-border w-full bg-white px-4 py-2 font-mono text-xs font-bold uppercase shadow-[3px_3px_0_0_var(--color-ink)]">
             {detailsOpen ? "Hide error details" : "Show error details"}
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-2">
@@ -99,6 +102,7 @@ function ErrorFallback({
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
+  fallback?: React.ReactNode | ((error: Error, reset: () => void) => React.ReactNode);
 }
 
 interface ErrorBoundaryState {
@@ -127,6 +131,20 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("ErrorBoundary caught an error:", error, errorInfo.componentStack);
+
+    try {
+      const tracer = trace.getTracer("campusconnect-frontend");
+      const span = tracer.startSpan("react.error_boundary", {
+        attributes: {
+          "component.stack": errorInfo.componentStack ?? "",
+        },
+      });
+      span.recordException(error);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+      span.end();
+    } catch {
+      // Don't let telemetry errors crash the app
+    }
 
     this.setState({ errorInfo });
   }
@@ -159,6 +177,17 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     }
 
     const { error, errorInfo, retryCount, detailsOpen } = this.state;
+    const { fallback } = this.props;
+
+    if (fallback) {
+      if (typeof fallback === "function") {
+        return (fallback as (err: Error, reset: () => void) => React.ReactNode)(
+          error ?? new Error("Unknown error"),
+          this.handleTryAgain,
+        );
+      }
+      return fallback;
+    }
 
     return (
       <ErrorFallback
@@ -174,18 +203,38 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 }
 
+function reportRouteError(error: unknown) {
+  try {
+    const tracer = trace.getTracer("campusconnect-frontend");
+    const span = tracer.startSpan("react.route_error");
+    if (error instanceof Error) {
+      span.recordException(error);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+    } else {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(error) });
+    }
+    span.end();
+  } catch {
+    // Don't let telemetry errors crash the app
+  }
+}
+
 export function RouteErrorBoundary() {
   const [detailsOpen, setDetailsOpen] = React.useState(false);
   const routeError = useRouteError();
 
   React.useEffect(() => {
     console.error("RouteErrorBoundary caught an error:", routeError);
+    reportRouteError(routeError);
   }, [routeError]);
 
   let message = "Unknown error";
   let stack: string | undefined;
 
   if (isRouteErrorResponse(routeError)) {
+    if (routeError.status === 404) {
+      return <NotFoundPage />;
+    }
     message = `${routeError.status} ${routeError.statusText}`;
   } else if (routeError instanceof Error) {
     message = routeError.message;
