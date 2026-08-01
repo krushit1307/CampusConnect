@@ -11,8 +11,20 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // @ts-ignore: Deno imports
 import webpush from "https://esm.sh/web-push@3.6.0";
+// @ts-ignore: Deno imports
+import { z } from "https://esm.sh/zod@3.24.2";
+import { parseJsonBody } from "../_shared/validation.ts";
 
 declare const Deno: any;
+
+// Expecting payload: { user_id: string, message: string, sender_name?: string }
+const sendPushSchema = z
+  .object({
+    user_id: z.string().min(1, "user_id is required"),
+    message: z.string().min(1, "message is required").max(2000),
+    sender_name: z.string().max(100).optional(),
+  })
+  .strict();
 
 // Initialize Supabase client with service role key for admin access
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -36,15 +48,9 @@ serve(async (req: Request) => {
   }
 
   try {
-    // Expecting payload: { user_id: string, message: string, sender_name: string }
-    const { user_id, message, sender_name } = await req.json();
-
-    if (!user_id || !message) {
-      return new Response(JSON.stringify({ error: "Missing user_id or message in payload" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const parsed = await parseJsonBody(sendPushSchema, req);
+    if (!parsed.ok) return parsed.response;
+    const { user_id, message, sender_name } = parsed.data;
 
     // 1. Fetch all push subscriptions for the target user
     const { data: subscriptions, error: fetchError } = await supabase
