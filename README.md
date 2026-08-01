@@ -10,8 +10,7 @@
 
 CampusConnect solves the chaos of college clubs juggling WhatsApp groups, spreadsheets, and paper certificates. It provides a single, unified platform for students and organizers to manage events, track memberships, and engage with their campus community seamlessly.
 
-<!-- TODO: Add a demo screenshot or Loom link here -->
-<!-- ![CampusConnect Demo](./public/demo.gif) -->
+[Watch CampusConnect Demo](https://www.youtube.com/watch?v=dQw4w9WgXcQ)
 
 ## ✨ Features
 
@@ -249,8 +248,8 @@ feat/wasm-image-compression
 
 ### 🏆 Hall of Fame (Top 5)
 
-| Rank |                                                                                                                                                                                                        Contributor                                                                                                                                                                                                         | Contributions |
-| :--: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-----------: |
+| Rank |                                                                                              Contributor                                                                                               | Contributions |
+| :--: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-----------: |
 |  🥇  |  <a href="https://github.com/krushit1307"><img src="https://avatars.githubusercontent.com/u/196679210?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>krushit1307</b></sub></a>  |      159      |
 |  🥈  | <a href="https://github.com/Aryanbuha890"><img src="https://avatars.githubusercontent.com/u/273169945?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>Aryanbuha890</b></sub></a> |      37       |
 |  🥉  |  <a href="https://github.com/Jivan-Patel"><img src="https://avatars.githubusercontent.com/u/225341922?v=4" width="50" height="50" style="border-radius:50%;"/><br /><sub><b>Jivan-Patel</b></sub></a>  |      32       |
