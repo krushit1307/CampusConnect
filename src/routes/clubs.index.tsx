@@ -48,9 +48,7 @@ export default function ClubsIndex() {
         }
       }
 
-      const { data, error } = await supabase
-        .from("clubs")
-        .select(`
+      const { data, error } = await supabase.from("clubs").select(`
           id, name, slug, description, banner_url, logo_url, category,
           club_stats(total_members)
         `);
@@ -169,8 +167,8 @@ export default function ClubsIndex() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredClubs.map((c, index) => {
               const membersCount = Array.isArray(c.club_stats)
-                ? c.club_stats[0]?.total_members ?? 0
-                : (c.club_stats as any)?.total_members ?? 0;
+                ? (c.club_stats[0]?.total_members ?? 0)
+                : ((c.club_stats as any)?.total_members ?? 0);
 
               return (
                 <div

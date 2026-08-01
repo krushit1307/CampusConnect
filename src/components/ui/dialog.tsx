@@ -85,7 +85,8 @@ const dialogContentVariants = cva(
     variants: {
       variant: {
         default: "border bg-background text-foreground",
-        brutalist: "border-2 border-black bg-white text-black dark:bg-black dark:text-cream shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]",
+        brutalist:
+          "border-2 border-black bg-white text-black dark:bg-black dark:text-cream shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]",
         sheet: "border-l border-gray-200 bg-white text-gray-900 rounded-none h-full",
       },
     },
@@ -96,7 +97,8 @@ const dialogContentVariants = cva(
 );
 
 export interface DialogContentProps
-  extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>,
+  extends
+    React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>,
     VariantProps<typeof dialogContentVariants> {}
 
 // --- Content (the modal panel) ---

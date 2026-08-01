@@ -38,33 +38,58 @@ export function OptimizedImage({
   const isPublic = useMemo(() => isSupabasePublicImage(src), [src]);
 
   const avifSrc = useMemo(
-    () => (isPublic ? getOptimizedImageUrl(src, { width, height, quality, resize: "cover", format: "avif" }) : undefined),
-    [isPublic, src, width, height, quality]
+    () =>
+      isPublic
+        ? getOptimizedImageUrl(src, { width, height, quality, resize: "cover", format: "avif" })
+        : undefined,
+    [isPublic, src, width, height, quality],
   );
 
   const avifSrcSet = useMemo(
-    () => (isPublic && responsiveWidths ? buildResponsiveImageSrcSet(src, responsiveWidths, { height, quality, resize: "cover", format: "avif" }) : undefined),
-    [isPublic, src, responsiveWidths, height, quality]
+    () =>
+      isPublic && responsiveWidths
+        ? buildResponsiveImageSrcSet(src, responsiveWidths, {
+            height,
+            quality,
+            resize: "cover",
+            format: "avif",
+          })
+        : undefined,
+    [isPublic, src, responsiveWidths, height, quality],
   );
 
   const webpSrc = useMemo(
-    () => (isPublic ? getOptimizedImageUrl(src, { width, height, quality, resize: "cover", format: "webp" }) : undefined),
-    [isPublic, src, width, height, quality]
+    () =>
+      isPublic
+        ? getOptimizedImageUrl(src, { width, height, quality, resize: "cover", format: "webp" })
+        : undefined,
+    [isPublic, src, width, height, quality],
   );
 
   const webpSrcSet = useMemo(
-    () => (isPublic && responsiveWidths ? buildResponsiveImageSrcSet(src, responsiveWidths, { height, quality, resize: "cover", format: "webp" }) : undefined),
-    [isPublic, src, responsiveWidths, height, quality]
+    () =>
+      isPublic && responsiveWidths
+        ? buildResponsiveImageSrcSet(src, responsiveWidths, {
+            height,
+            quality,
+            resize: "cover",
+            format: "webp",
+          })
+        : undefined,
+    [isPublic, src, responsiveWidths, height, quality],
   );
 
   const fallbackSrc = useMemo(
     () => getOptimizedImageUrl(src, { width, height, quality, resize: "cover" }),
-    [src, width, height, quality]
+    [src, width, height, quality],
   );
 
   const fallbackSrcSet = useMemo(
-    () => (responsiveWidths ? buildResponsiveImageSrcSet(src, responsiveWidths, { height, quality, resize: "cover" }) : undefined),
-    [src, responsiveWidths, height, quality]
+    () =>
+      responsiveWidths
+        ? buildResponsiveImageSrcSet(src, responsiveWidths, { height, quality, resize: "cover" })
+        : undefined,
+    [src, responsiveWidths, height, quality],
   );
 
   // Guards the sink below: only ever render src values on an explicit scheme

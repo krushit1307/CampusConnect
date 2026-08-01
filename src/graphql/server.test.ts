@@ -281,7 +281,7 @@ describe("publishNotification helper", () => {
     expect(notif.user_id).toBe("user-mention-123");
     expect(notif.type).toBe("mention");
     expect(notif.title).toBe("Mentioned in Discussion");
-    expect(notif.message).toContain("Alice mentioned you in \"AI Project Ideas\"");
+    expect(notif.message).toContain('Alice mentioned you in "AI Project Ideas"');
     expect(notif.link).toBe("/discussions/456");
   });
 

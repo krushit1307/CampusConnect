@@ -38,9 +38,7 @@ export function decodeRelayCursor(cursor: string): { createdAt: string; id: stri
   if (!cursor) return null;
   try {
     const decoded =
-      typeof atob !== "undefined"
-        ? atob(cursor)
-        : Buffer.from(cursor, "base64").toString("utf-8");
+      typeof atob !== "undefined" ? atob(cursor) : Buffer.from(cursor, "base64").toString("utf-8");
     const parts = decoded.split(",");
     if (parts.length < 2) return null;
     return {
