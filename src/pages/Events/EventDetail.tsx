@@ -2,7 +2,7 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect, lazy, Suspense, useMemo } from "react";
-import { motion } from "framer-motion";
+import { LazyMotion, m } from "framer-motion";
 import { Helmet } from "react-helmet-async";
 import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
 import { TableOfContents } from "@/components/events/TableOfContents";
@@ -38,6 +38,7 @@ import {
 
 const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ default: m.EventMap })));
 import { formatEventDateRange } from "@/lib/utils";
+import { loadDomMax } from "@/lib/motionFeatures";
 import { downloadIcs, getGoogleCalendarUrl } from "@/lib/calendarUtils";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
 import { formatStandardDate } from "@/utils/dateUtils";
@@ -1159,9 +1160,7 @@ export default function EventDetailsPage() {
   const attendeeCount =
     ((event as Record<string, unknown>).attendee_count as number) ?? rsvps.length;
   const maxAttendees = (event as Record<string, unknown>).max_attendees as
-    | number
-    | null
-    | undefined;
+    number | null | undefined;
   const isAtCapacity =
     maxAttendees !== null &&
     maxAttendees !== undefined &&
@@ -1189,7 +1188,7 @@ export default function EventDetailsPage() {
   });
 
   return (
-    <>
+    <LazyMotion features={loadDomMax} strict={import.meta.env.DEV}>
       {/* Breadcrumb nav */}
       <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6" aria-label="Breadcrumb">
         <div className="mx-auto max-w-4xl">
@@ -1289,7 +1288,7 @@ export default function EventDetailsPage() {
         {/* Hero Section */}
         <section className="relative w-full overflow-hidden border-b-2 border-black bg-peach/30">
           {event.banner_url ? (
-            <motion.div layoutId={`event-image-${event.id}`} className="absolute inset-0">
+            <m.div layoutId={`event-image-${event.id}`} className="absolute inset-0">
               <OptimizedImage
                 src={event.banner_url}
                 alt={`${event.title} event banner`}
@@ -1304,9 +1303,9 @@ export default function EventDetailsPage() {
                 }
               />
               <div className="absolute inset-0 bg-black/50" />
-            </motion.div>
+            </m.div>
           ) : (
-            <motion.div
+            <m.div
               layoutId={`event-image-${event.id}`}
               className="absolute inset-0 bg-linear-to-br from-peach via-pink-200 to-lime/40"
             />
@@ -2491,6 +2490,6 @@ export default function EventDetailsPage() {
           />
         </div>
       )}
-    </>
+    </LazyMotion>
   );
 }
