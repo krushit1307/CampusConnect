@@ -5,6 +5,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 import noCrossPageImports from "./tools/eslint-rules/no-cross-page-imports.js";
+import jsxA11y from "eslint-plugin-jsx-a11y";
 
 const localRulesPlugin = {
   rules: {
@@ -35,8 +36,10 @@ export default tseslint.config(
       "react-hooks": reactHooks,
       "react-refresh": reactRefresh,
       "local-rules": localRulesPlugin,
+      "jsx-a11y": jsxA11y,
     },
     rules: {
+      ...(jsxA11y.flatConfigs?.recommended?.rules || jsxA11y.configs?.recommended?.rules),
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
       "local-rules/no-cross-page-imports": "error",
