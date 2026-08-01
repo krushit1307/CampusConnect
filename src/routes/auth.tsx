@@ -62,12 +62,13 @@ export default function AuthPage() {
 
   const signUpPassword = signUpForm.watch("password");
 
-  function switchMode(nextMode: "signin" | "signup") {
-    setMode(nextMode);
-    setError(null);
-    signInForm.reset();
-    signUpForm.reset();
-  }
+function switchMode(nextMode: "signin" | "signup") {
+  setMode(nextMode);
+  setError(null);
+  setCaptchaToken("");
+  signInForm.reset();
+  signUpForm.reset();
+}
 
   async function onSignIn(values: SignInFormValues) {
     setLoading(true);
@@ -281,11 +282,7 @@ export default function AuthPage() {
                       Forgot password?
                     </Link>
                   </p>
-{captchaToken && (
-    <p className="text-green-600 text-sm">
-        CAPTCHA verified
-    </p>
-)}
+
                   <Button
                     type="submit"
                     disabled={loading}
@@ -438,6 +435,18 @@ export default function AuthPage() {
     onExpire={() => setCaptchaToken("")}
     onError={() => setCaptchaToken("")}
 />
+                  <Turnstile
+  siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+  onSuccess={(token) => setCaptchaToken(token)}
+  onExpire={() => setCaptchaToken("")}
+  onError={() => setCaptchaToken("")}
+/>
+
+{captchaToken && (
+  <p className="text-green-600 text-sm">
+    CAPTCHA verified
+  </p>
+)}
                   <Button
                     type="submit"
                     disabled={
