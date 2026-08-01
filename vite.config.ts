@@ -3,6 +3,7 @@ import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
+import svgr from "vite-plugin-svgr";
 import { fileURLToPath } from "url";
 import { federation } from "@module-federation/vite";
 
@@ -191,3 +192,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
   },
 });
+plugins: [
+    react(),
+    svgr(),
+]
