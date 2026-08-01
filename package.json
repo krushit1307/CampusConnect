@@ -96,6 +96,7 @@
     "framer-motion": "^12.42.2",
     "graphql": "^16.14.2",
     "graphql-yoga": "^5.21.2",
+    "html5-qrcode": "^2.3.8",
     "input-otp": "^1.4.2",
     "leaflet": "^1.9.4",
     "leaflet.heat": "^0.2.0",
