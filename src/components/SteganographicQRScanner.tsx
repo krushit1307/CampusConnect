@@ -1,5 +1,14 @@
-import { useState } from "react";
-import { AlertCircle, CheckCircle2, QrCode, ShieldAlert, ShieldCheck, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  AlertCircle,
+  Camera,
+  CheckCircle2,
+  QrCode,
+  ScanLine,
+  ShieldAlert,
+  ShieldCheck,
+  Upload,
+} from "lucide-react";
 
 import {
   extractLSBData,
@@ -8,24 +17,105 @@ import {
   verifyTicketPayload,
 } from "@/lib/steganography";
 
-export function SteganographicQRScanner() {
+interface SteganographicQRScannerProps {
+  onVerificationSuccess?: (payload: TicketPayload, result: VerificationResult) => void;
+  onVerificationError?: (message: string) => void;
+}
+
+export function SteganographicQRScanner({
+  onVerificationSuccess,
+  onVerificationError,
+}: SteganographicQRScannerProps) {
+  const [mode, setMode] = useState<"camera" | "upload">("camera");
   const [isScanning, setIsScanning] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
   const [extractedPayload, setExtractedPayload] = useState<TicketPayload | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const scanTimeoutRef = useRef<number | null>(null);
+  const processingRef = useRef(false);
+  const suppressScanningRef = useRef(false);
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const stopCamera = () => {
+    if (scanTimeoutRef.current) {
+      window.clearTimeout(scanTimeoutRef.current);
+      scanTimeoutRef.current = null;
+    }
 
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    suppressScanningRef.current = false;
+    setCameraReady(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
+
+  const finalizeVerification = async (payload: TicketPayload) => {
+    setExtractedPayload(payload);
+    const result = await verifyTicketPayload(payload);
+    setVerificationResult(result);
+
+    if (result.valid) {
+      suppressScanningRef.current = true;
+      onVerificationSuccess?.(payload, result);
+      stopCamera();
+      setMode("camera");
+      return;
+    }
+
+    const reason = result.reason ?? "Ticket signature verification failed.";
+    setErrorMessage(reason);
+    onVerificationError?.(reason);
+  };
+
+  const processImageData = async (source: ImageData) => {
+    if (processingRef.current || suppressScanningRef.current) return;
+
+    processingRef.current = true;
     setIsScanning(true);
     setErrorMessage(null);
     setVerificationResult(null);
     setExtractedPayload(null);
 
+    try {
+      const rawExtracted = extractLSBData(source);
+
+      if (!rawExtracted) {
+        const reason =
+          "No hidden LSB signature detected. Ticket may be an unauthenticated screenshot or plain QR code.";
+        setErrorMessage(reason);
+        onVerificationError?.(reason);
+        return;
+      }
+
+      const payload = JSON.parse(rawExtracted) as TicketPayload;
+      await finalizeVerification(payload);
+    } catch {
+      const reason = "Corrupted steganography signature payload.";
+      setErrorMessage(reason);
+      onVerificationError?.(reason);
+    } finally {
+      setIsScanning(false);
+      processingRef.current = false;
+    }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    stopCamera();
+    setMode("upload");
+
     const reader = new FileReader();
     reader.onload = (e) => {
-      const img = new Image();
+      const img = new window.Image();
       img.onload = async () => {
         const canvas = document.createElement("canvas");
         canvas.width = img.width;
@@ -33,39 +123,82 @@ export function SteganographicQRScanner() {
         const ctx = canvas.getContext("2d");
 
         if (!ctx) {
-          setErrorMessage("Failed to create canvas context");
-          setIsScanning(false);
+          const reason = "Failed to create canvas context";
+          setErrorMessage(reason);
+          onVerificationError?.(reason);
           return;
         }
 
         ctx.drawImage(img, 0, 0);
         const imageData = ctx.getImageData(0, 0, img.width, img.height);
-        const rawExtracted = extractLSBData(imageData);
-
-        if (!rawExtracted) {
-          setErrorMessage(
-            "No hidden LSB signature detected. Ticket may be an unauthenticated screenshot or plain QR code.",
-          );
-          setIsScanning(false);
-          return;
-        }
-
-        try {
-          const payload: TicketPayload = JSON.parse(rawExtracted);
-          setExtractedPayload(payload);
-          const result = await verifyTicketPayload(payload);
-          setVerificationResult(result);
-        } catch {
-          setErrorMessage("Corrupted steganography signature payload.");
-        } finally {
-          setIsScanning(false);
-        }
+        await processImageData(imageData);
       };
 
       img.src = e.target?.result as string;
     };
 
     reader.readAsDataURL(file);
+  };
+
+  const startCamera = async () => {
+    if (typeof window === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      const reason = "This browser does not support camera access.";
+      setErrorMessage(reason);
+      onVerificationError?.(reason);
+      return;
+    }
+
+    stopCamera();
+    setMode("camera");
+    setErrorMessage(null);
+    setVerificationResult(null);
+    setExtractedPayload(null);
+
+    try {
+      suppressScanningRef.current = false;
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+        setCameraReady(true);
+      }
+
+      const scanFrame = () => {
+        if (!streamRef.current || !videoRef.current || suppressScanningRef.current) {
+          return;
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = videoRef.current.videoWidth || 320;
+        canvas.height = videoRef.current.videoHeight || 240;
+        const ctx = canvas.getContext("2d");
+
+        if (!ctx || videoRef.current.readyState < 2) {
+          scanTimeoutRef.current = window.setTimeout(scanFrame, 1200);
+          return;
+        }
+
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        void processImageData(imageData).finally(() => {
+          if (streamRef.current) {
+            scanTimeoutRef.current = window.setTimeout(scanFrame, 1400);
+          }
+        });
+      };
+
+      scanFrame();
+    } catch {
+      const reason = "Unable to access the camera. Please use upload mode instead.";
+      setErrorMessage(reason);
+      onVerificationError?.(reason);
+      stopCamera();
+    }
   };
 
   return (
@@ -76,22 +209,86 @@ export function SteganographicQRScanner() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Upload a ticket image to extract and verify the hidden LSB Ed25519 cryptographic signature.
+        Scan a signed ticket from the camera or upload a saved PNG to verify the embedded LSB
+        signature and mark the attendee as checked in.
       </p>
 
-      <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-black/40 bg-white p-6 text-center transition-colors hover:border-black">
-        <Upload className="h-7 w-7 text-muted-foreground" />
-        <span className="text-sm font-bold">Choose Ticket PNG Image</span>
-        <span className="text-[11px] text-muted-foreground">
-          Verifies LSB embedded timestamp & signature
-        </span>
-        <input
-          type="file"
-          accept="image/png,image/jpeg"
-          onChange={handleFileUpload}
-          className="hidden"
-        />
-      </label>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            void startCamera();
+          }}
+          className={`rounded-full border-2 border-black px-3 py-2 text-[11px] font-black uppercase tracking-wide transition ${
+            mode === "camera" ? "bg-black text-white" : "bg-white text-black"
+          }`}
+        >
+          <span className="flex items-center gap-1.5">
+            <Camera className="h-3.5 w-3.5" /> Camera Scan
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            stopCamera();
+            setMode("upload");
+          }}
+          className={`rounded-full border-2 border-black px-3 py-2 text-[11px] font-black uppercase tracking-wide transition ${
+            mode === "upload" ? "bg-black text-white" : "bg-white text-black"
+          }`}
+        >
+          <span className="flex items-center gap-1.5">
+            <Upload className="h-3.5 w-3.5" /> Upload Ticket
+          </span>
+        </button>
+      </div>
+
+      {mode === "camera" ? (
+        <div className="space-y-3 rounded-lg border-2 border-dashed border-black/40 bg-white p-3">
+          <div className="overflow-hidden rounded-lg border-2 border-black bg-black">
+            <video ref={videoRef} className="aspect-video w-full object-cover" muted playsInline />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                void startCamera();
+              }}
+              className="neu-border neu-press bg-lime px-3 py-2 text-[11px] font-black uppercase tracking-wider text-black"
+            >
+              <span className="flex items-center gap-1.5">
+                <ScanLine className="h-3.5 w-3.5" /> Start Camera Scan
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={stopCamera}
+              className="neu-border bg-white px-3 py-2 text-[11px] font-black uppercase tracking-wider text-black"
+            >
+              Stop Camera
+            </button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            {cameraReady
+              ? "Camera is live. Place the ticket in front of the camera to verify it automatically."
+              : "Start the camera to begin scanning the attendee ticket."}
+          </p>
+        </div>
+      ) : (
+        <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-black/40 bg-white p-6 text-center transition-colors hover:border-black">
+          <Upload className="h-7 w-7 text-muted-foreground" />
+          <span className="text-sm font-bold">Choose Ticket PNG Image</span>
+          <span className="text-[11px] text-muted-foreground">
+            Verifies LSB embedded timestamp & signature
+          </span>
+          <input
+            type="file"
+            accept="image/png,image/jpeg"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+        </label>
+      )}
 
       {isScanning && (
         <div className="flex items-center justify-center gap-2 py-3 text-xs font-bold">

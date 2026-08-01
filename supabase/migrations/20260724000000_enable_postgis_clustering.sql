@@ -21,8 +21,7 @@ WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
 CREATE INDEX IF NOT EXISTS events_active_date_idx 
 ON events (start_date DESC NULLS LAST)
 WHERE status = 'published' 
-  AND start_date IS NOT NULL
-  AND (end_date IS NULL OR end_date > NOW());
+  AND start_date IS NOT NULL;
 
 -- 4. Add function to calculate event cluster within viewport bounds
 -- Uses ST_ClusterDBSCAN for density-based clustering

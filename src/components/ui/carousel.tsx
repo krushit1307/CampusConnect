@@ -1,20 +1,29 @@
 import * as React from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import useEmblaCarousel, { type UseEmblaCarouselType } from "embla-carousel-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
+type CarouselApi = UseEmblaCarouselType[1];
+type UseCarouselParameters = Parameters<typeof useEmblaCarousel>;
+type CarouselOptions = UseCarouselParameters[0];
+type CarouselPlugin = UseCarouselParameters[1];
+
 type CarouselProps = {
+  opts?: CarouselOptions;
+  plugins?: CarouselPlugin;
   orientation?: "horizontal" | "vertical";
+  setApi?: (api: CarouselApi) => void;
 };
 
 type CarouselContextProps = {
-  carouselRef: React.RefObject<HTMLDivElement | null>;
+  carouselRef: ReturnType<typeof useEmblaCarousel>[0];
+  api: ReturnType<typeof useEmblaCarousel>[1];
   scrollPrev: () => void;
   scrollNext: () => void;
   canScrollPrev: boolean;
   canScrollNext: boolean;
-  orientation: "horizontal" | "vertical";
-};
+} & CarouselProps;
 
 const CarouselContext = React.createContext<CarouselContextProps | null>(null);
 
@@ -29,59 +38,34 @@ function useCarousel() {
 const Carousel = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement> & CarouselProps
->(({ orientation = "horizontal", className, children, ...props }, ref) => {
-  const carouselRef = React.useRef<HTMLDivElement>(null);
+>(({ orientation = "horizontal", opts, setApi, plugins, className, children, ...props }, ref) => {
+  const [carouselRef, api] = useEmblaCarousel(
+    {
+      watchDrag: true,
+      dragFree: true,
+      containScroll: "keepSnap",
+      ...opts,
+      axis: orientation === "horizontal" ? "x" : "y",
+    },
+    plugins,
+  );
   const [canScrollPrev, setCanScrollPrev] = React.useState(false);
   const [canScrollNext, setCanScrollNext] = React.useState(false);
 
-  const checkScrollability = React.useCallback(() => {
-    const el = carouselRef.current;
-    if (!el) return;
+  const onSelect = React.useCallback((api: CarouselApi) => {
+    if (!api) return;
 
-    if (orientation === "horizontal") {
-      setCanScrollPrev(el.scrollLeft > 0);
-      setCanScrollNext(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
-    } else {
-      setCanScrollPrev(el.scrollTop > 0);
-      setCanScrollNext(el.scrollTop + el.clientHeight < el.scrollHeight - 1);
-    }
-  }, [orientation]);
-
-  React.useEffect(() => {
-    const el = carouselRef.current;
-    if (!el) return;
-
-    checkScrollability();
-    el.addEventListener("scroll", checkScrollability);
-    window.addEventListener("resize", checkScrollability);
-
-    return () => {
-      el.removeEventListener("scroll", checkScrollability);
-      window.removeEventListener("resize", checkScrollability);
-    };
-  }, [checkScrollability]);
+    setCanScrollPrev(api.canScrollPrev());
+    setCanScrollNext(api.canScrollNext());
+  }, []);
 
   const scrollPrev = React.useCallback(() => {
-    const el = carouselRef.current;
-    if (!el) return;
-    const distance = orientation === "horizontal" ? el.clientWidth : el.clientHeight;
-    el.scrollBy({
-      left: orientation === "horizontal" ? -distance : 0,
-      top: orientation === "vertical" ? -distance : 0,
-      behavior: "smooth",
-    });
-  }, [orientation]);
+    api?.scrollPrev();
+  }, [api]);
 
   const scrollNext = React.useCallback(() => {
-    const el = carouselRef.current;
-    if (!el) return;
-    const distance = orientation === "horizontal" ? el.clientWidth : el.clientHeight;
-    el.scrollBy({
-      left: orientation === "horizontal" ? distance : 0,
-      top: orientation === "vertical" ? distance : 0,
-      behavior: "smooth",
-    });
-  }, [orientation]);
+    api?.scrollNext();
+  }, [api]);
 
   const handleKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -96,11 +80,31 @@ const Carousel = React.forwardRef<
     [scrollPrev, scrollNext],
   );
 
+  React.useEffect(() => {
+    if (!api || !setApi) return;
+
+    setApi(api);
+  }, [api, setApi]);
+
+  React.useEffect(() => {
+    if (!api) return;
+
+    onSelect(api);
+    api.on("reInit", onSelect);
+    api.on("select", onSelect);
+
+    return () => {
+      api.off("select", onSelect);
+    };
+  }, [api, onSelect]);
+
   return (
     <CarouselContext.Provider
       value={{
         carouselRef,
-        orientation,
+        api,
+        opts,
+        orientation: orientation || (opts?.axis === "y" ? "vertical" : "horizontal"),
         scrollPrev,
         scrollNext,
         canScrollPrev,
@@ -129,15 +133,16 @@ const CarouselContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HT
     return (
       <div
         ref={carouselRef}
-        className={cn(
-          "flex overflow-auto scroll-smooth snap-x snap-mandatory no-scrollbar",
-          orientation === "horizontal" ? "-ml-4 flex-row" : "-mt-4 flex-col",
-        )}
-        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        className="overflow-hidden"
+        style={{ touchAction: "pan-y pinch-zoom" }}
       >
         <div
           ref={ref}
-          className={cn("flex", orientation === "horizontal" ? "flex-row" : "flex-col", className)}
+          className={cn(
+            "flex",
+            orientation === "horizontal" ? "-ml-4" : "-mt-4 flex-col",
+            className,
+          )}
           {...props}
         />
       </div>
@@ -156,7 +161,7 @@ const CarouselItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLD
         role="group"
         aria-roledescription="slide"
         className={cn(
-          "min-w-0 shrink-0 grow-0 basis-full snap-center",
+          "min-w-0 shrink-0 grow-0 basis-full",
           orientation === "horizontal" ? "pl-4" : "pt-4",
           className,
         )}
@@ -223,4 +228,11 @@ const CarouselNext = React.forwardRef<HTMLButtonElement, React.ComponentProps<ty
 );
 CarouselNext.displayName = "CarouselNext";
 
-export { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext };
+export {
+  type CarouselApi,
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselPrevious,
+  CarouselNext,
+};

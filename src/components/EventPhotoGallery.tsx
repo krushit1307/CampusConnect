@@ -3,7 +3,8 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
-import { Camera, X, Loader2, Trash2 } from "lucide-react";
+import { Camera, Loader2, Trash2 } from "lucide-react";
+import { SwipeableLightbox } from "./SwipeableLightbox";
 
 interface EventPhotoGalleryProps {
   eventId: string;
@@ -180,39 +181,38 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
         </div>
       )}
 
-      {/* Lightbox */}
-      {selectedPhoto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
-          <button
-            className="absolute top-4 right-4 text-white hover:text-gray-300"
-            onClick={() => setSelectedPhoto(null)}
-          >
-            <X size={32} />
-          </button>
+      {/* Swipeable Lightbox */}
+      {selectedPhoto &&
+        (() => {
+          const selectedIdx =
+            photos?.findIndex((p: { url: string }) => p.url === selectedPhoto) ?? 0;
 
-          <img
-            src={selectedPhoto}
-            alt="Expanded view"
-            className="max-w-full max-h-[90vh] object-contain neu-border"
-          />
-
-          {user &&
-            photos?.find((p: { url: string; user_id: string }) => p.url === selectedPhoto)
-              ?.user_id === user.id && (
-              <button
-                onClick={() => {
-                  const p = photos?.find(
-                    (ph: { url: string; id: string }) => ph.url === selectedPhoto,
-                  );
-                  if (p) deleteMutation.mutate({ photoId: p.id, url: p.url });
-                }}
-                className="absolute bottom-6 right-6 neu-border flex items-center gap-2 bg-red-500 text-white px-4 py-2 font-mono text-sm font-bold uppercase hover:bg-red-600 transition-colors"
-              >
-                <Trash2 size={16} /> Delete My Photo
-              </button>
-            )}
-        </div>
-      )}
+          return (
+            <div className="relative">
+              <SwipeableLightbox
+                images={(photos || []).map((p: { url: string }) => ({
+                  url: p.url,
+                  caption: "Event memory",
+                }))}
+                initialIndex={selectedIdx >= 0 ? selectedIdx : 0}
+                onClose={() => setSelectedPhoto(null)}
+              />
+              {user && (
+                <button
+                  onClick={() => {
+                    const p = photos?.find(
+                      (ph: { url: string; id: string }) => ph.url === selectedPhoto,
+                    );
+                    if (p) deleteMutation.mutate({ photoId: p.id, url: p.url });
+                  }}
+                  className="absolute bottom-6 right-6 z-50 neu-border flex items-center gap-2 bg-red-500 text-white px-4 py-2 font-mono text-sm font-bold uppercase hover:bg-red-600 transition-colors"
+                >
+                  <Trash2 size={16} /> Delete My Photo
+                </button>
+              )}
+            </div>
+          );
+        })()}
     </div>
   );
 }

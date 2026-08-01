@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
+import { useRealtimeComments } from "@/hooks/useRealtimeComments";
 import { useSupabaseSubscription } from "@/hooks/useSupabaseSubscription";
 import { supabase } from "@/lib/supabase/client";
 
@@ -17,9 +18,14 @@ interface CommentSectionProps {
     id: string;
     name: string;
   };
+  onNewComment?: (comment: Comment) => void;
 }
 
-export const CommentSection: React.FC<CommentSectionProps> = ({ postId, currentUser }) => {
+export const CommentSection: React.FC<CommentSectionProps> = ({
+  postId,
+  currentUser,
+  onNewComment,
+}) => {
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState<Comment[]>([]);
   const username = currentUser?.name || "A user";
@@ -41,14 +47,30 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ postId, currentU
       });
   }, [postId]);
 
-  useSupabaseSubscription<Comment>({
-    table: "comments",
-    event: "INSERT",
-    filter: `post_id=eq.${postId}`,
-    channelName: `comments:post_id=eq.${postId}`,
-    onData: (payload) => {
-      if (payload.new && "id" in payload.new) {
-        setComments((prev) => [...prev, payload.new as Comment]);
+  useRealtimeComments({
+    postId,
+    enabled: !!postId,
+    onNewComment: (newComment: unknown) => {
+      const c = newComment as {
+        id: string;
+        post_id?: string;
+        author_id?: string;
+        content: string;
+        created_at: string;
+        profiles?: { id: string } | { id: string }[] | null;
+      };
+      const authorId =
+        c.author_id || (Array.isArray(c.profiles) ? c.profiles[0]?.id : c.profiles?.id) || "";
+      const comment: Comment = {
+        id: c.id,
+        post_id: c.post_id || postId,
+        author_id: authorId,
+        content: c.content,
+        created_at: c.created_at,
+      };
+      setComments((prev) => [...prev, comment]);
+      if (onNewComment) {
+        onNewComment(comment);
       }
     },
   });

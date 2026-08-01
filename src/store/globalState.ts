@@ -23,6 +23,8 @@ import { createAuthSlice, type AuthSlice } from "./createAuthSlice";
 import { createUISlice, type UISlice } from "./createUISlice";
 import { createCacheSlice, type CacheSlice } from "./createCacheSlice";
 
+export type Store = AuthSlice & UISlice & CacheSlice;
+
 // ─── Types ────────────────────────────────────────────────────────────
 export interface GlobalState {
   user: UserProfile | null;
@@ -33,18 +35,22 @@ export interface GlobalState {
   isSidebarOpen: boolean;
 }
 
-export type Store = AuthSlice & UISlice & CacheSlice;
-
-// ─── Helpers ──────────────────────────────────────────────────────────
-function getInitialStoredTheme(): "light" | "dark" | "system" {
-  if (typeof window !== "undefined") {
+const getInitialStoredTheme = (): "light" | "dark" | "system" | "high-contrast" => {
+  if (typeof window !== "undefined" && typeof window.localStorage?.getItem === "function") {
     const stored = window.localStorage.getItem("campusconnect-theme");
-    if (stored === "light" || stored === "dark" || stored === "system") return stored;
+    if (
+      stored === "light" ||
+      stored === "dark" ||
+      stored === "system" ||
+      stored === "high-contrast"
+    ) {
+      return stored;
+    }
   }
   return "light";
-}
+};
 
-// ─── Reactive global state object ────────────────────────────────────
+// Proxy-backed global state object for direct property dependency tracking
 export const globalState = createReactiveObject<GlobalState>({
   user: null,
   theme: getInitialStoredTheme(),
@@ -81,8 +87,15 @@ export function setUser(user: UserProfile | null): void {
   store.setUser(user);
 }
 
+/**
+ * Updates the current theme in global state signals and store.
+ */
 export function setTheme(theme: "light" | "dark" | "system" | "high-contrast"): void {
   store.setTheme(theme);
+  globalState.theme = theme;
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem("campusconnect-theme", theme);
+  }
 }
 
 export function setNotificationsCount(count: number): void {

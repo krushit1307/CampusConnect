@@ -1,4 +1,5 @@
 import React from "react";
+import { SwipeToDismiss } from "@/components/ui/SwipeToDismiss";
 
 interface NotificationItemProps {
   notification: {
@@ -9,11 +10,22 @@ interface NotificationItemProps {
     timestamp: string;
     isRead: boolean;
     link?: string;
+    metadata?: Record<string, any> | null;
   };
   onMarkAsRead: (id: string) => void;
+  /**
+   * Called after a successful swipe-to-dismiss gesture. Parents should treat
+   * this as the trigger for an optimistic delete (remove from local state /
+   * cache immediately, then fire the deletion mutation).
+   */
+  onDelete?: (id: string) => void;
 }
 
-const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onMarkAsRead }) => {
+const NotificationItem: React.FC<NotificationItemProps> = ({
+  notification,
+  onMarkAsRead,
+  onDelete,
+}) => {
   const handleItemClick = () => {
     onMarkAsRead(notification.id);
     if (notification.link) {
@@ -27,7 +39,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onMar
       handleItemClick();
     }
   };
-  return (
+
+  const card = (
     <div
       onClick={handleItemClick}
       onKeyDown={handleKeyDown}
@@ -49,6 +62,17 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onMar
       <p className="text-xs text-gray-500 line-clamp-2">{notification.message}</p>
       {!notification.isRead && <span className="w-2 h-2 bg-blue-600 rounded-full mt-1 self-end" />}
     </div>
+  );
+
+  if (!onDelete) return card;
+
+  return (
+    <SwipeToDismiss
+      onDismiss={() => onDelete(notification.id)}
+      ariaLabel={`Swipe to dismiss notification: ${notification.title}`}
+    >
+      {card}
+    </SwipeToDismiss>
   );
 };
 

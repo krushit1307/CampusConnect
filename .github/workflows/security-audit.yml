@@ -1,0 +1,97 @@
+# Workflow: security-audit.yml
+# issue #1914: fail the CI build when a HIGH or CRITICAL vulnerability is
+# introduced by a dependency change. Runs `pnpm audit --audit-level=high` and
+# surfaces the report in the GitHub Actions UI, posting a single job-summary
+# table so reviewers can spot which packages are flagged without scrolling.
+#
+# Schedule keeps nightly visibility but doesn't gate unrelated PR builds
+# (they rely on Dependabot + dependency-review-action). This is purely a
+# belt-and-braces guard.
+
+name: Security Audit
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  push:
+    branches: [main, develop]
+    paths:
+      - "package.json"
+      - "pnpm-lock.yaml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "package.json"
+      - "pnpm-lock.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  audit:
+    name: pnpm audit (HIGH+CRITICAL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run pnpm audit
+        run: pnpm audit --audit-level=high --json > audit-report.json || true
+        continue-on-error: true
+
+      - name: Summarise findings
+        if: always()
+        run: |
+          if [ ! -s audit-report.json ] || [ "$(jq '.metadata.vulnerabilities // {} | to_entries | map(select(.value > 0)) | length' audit-report.json 2>/dev/null)" = "0" ]; then
+            echo "✅ No HIGH or CRITICAL vulnerabilities found." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "## ⚠️ Dependency audit findings" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Severity | Count |" >> "$GITHUB_STEP_SUMMARY"
+          "|--------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          for sev in critical high moderate low info; do
+            count=$(jq --arg s "$sev" '.metadata.vulnerabilities[$s] // 0' audit-report.json 2>/dev/null || echo 0)
+            if [ "$count" != "0" ]; then
+              echo "| $sev | $count |" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '<details><summary>Raw JSON report</summary>' >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat audit-report.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo '</details>' >> "$GITHUB_STEP_SUMMARY"
+
+          # Fail the job when HIGH or CRITICAL advisories are present
+          if jq -e '.metadata.vulnerabilities | (.critical // 0) > 0 or (.high // 0) > 0' audit-report.json > /dev/null 2>&1; then
+            echo "::error::HIGH/CRITICAL vulnerabilities found. See job summary."
+            exit 1
+          fi
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pnpm-audit-report
+          path: audit-report.json
+          retention-days: 14

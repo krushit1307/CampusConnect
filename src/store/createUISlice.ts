@@ -29,7 +29,7 @@ export function createUISlice(set: SetState<UISlice>): UISlice {
     theme: "light",
     activeTab: "overview",
     isSidebarOpen: true,
-    setTheme: (theme: "light" | "dark" | "system") => {
+    setTheme: (theme: "light" | "dark" | "system" | "high-contrast") => {
       setThemeSignal(theme);
       set({ theme });
       if (typeof window !== "undefined") {
