@@ -10,6 +10,9 @@ import { PullToRefresh } from "@/components/PullToRefresh";
 import { toast } from "sonner";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
 import { Loader2, Search, Calendar } from "lucide-react";
+import { useDebounce } from "@/hooks/use-debounce";
+import { AutocompleteDropdown, AutocompleteResult } from "@/components/AutocompleteDropdown";
+import { useNavigate } from "react-router-dom";
 import {
   Select,
   SelectContent,
@@ -72,6 +75,32 @@ export default function EventsPage() {
 
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isAutocompleteOpen, setIsAutocompleteOpen] = useState(false);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const navigate = useNavigate();
+
+  const { data: autocompleteResults, isLoading: isAutocompleteLoading } = useQuery({
+    queryKey: ["events-autocomplete", debouncedSearchQuery],
+    queryFn: async () => {
+      if (!debouncedSearchQuery.trim()) return [];
+      const { data, error } = await supabase
+        .from("club_analytics_view")
+        .select("id, title, location")
+        .or(`title.ilike.%${debouncedSearchQuery}%,location.ilike.%${debouncedSearchQuery}%`)
+        .limit(5);
+
+      if (error) {
+        console.error("Autocomplete error:", error);
+        return [];
+      }
+      return (data || []).map((event: Record<string, unknown>) => ({
+        id: event.id as string,
+        title: event.title as string,
+        subtitle: (event.location as string) || undefined,
+        raw: event,
+      }));
+    },
+  });
 
   const {
     data: queryData,
@@ -413,24 +442,44 @@ export default function EventsPage() {
             </div>
 
             <div className="flex flex-col items-end gap-3 w-full md:w-auto">
-              {/* Search Bar */}
               <div className="relative w-full md:w-80">
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setIsAutocompleteOpen(true);
+                  }}
+                  onFocus={() => {
+                    if (searchQuery.trim().length > 0) setIsAutocompleteOpen(true);
+                  }}
                   placeholder="Search events by name, location..."
                   className="neu-border w-full bg-white pl-9 pr-8 py-2 font-mono text-xs focus:outline-none placeholder:text-neutral-500"
                 />
                 <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-neutral-500 pointer-events-none" />
                 {searchQuery && (
                   <button
-                    onClick={() => setSearchQuery("")}
+                    onClick={() => {
+                      setSearchQuery("");
+                      setIsAutocompleteOpen(false);
+                    }}
                     className="absolute right-2.5 top-1.5 font-mono text-sm font-bold text-neutral-500 hover:text-black cursor-pointer"
                   >
                     ×
                   </button>
                 )}
+                <AutocompleteDropdown
+                  query={debouncedSearchQuery}
+                  isOpen={isAutocompleteOpen && debouncedSearchQuery.length > 0}
+                  isLoading={isAutocompleteLoading}
+                  results={autocompleteResults || []}
+                  onSelect={(result) => {
+                    setSearchQuery(result.title);
+                    setFilter("All");
+                    setIsAutocompleteOpen(false);
+                  }}
+                  onClose={() => setIsAutocompleteOpen(false)}
+                />
               </div>
 
               {/* Filter Tags */}
