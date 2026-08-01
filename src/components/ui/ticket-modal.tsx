@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { QRCodeCanvas } from "qrcode.react";
 
 import {
   Dialog,
@@ -10,6 +11,9 @@ import {
 import { SteganographicQRCode } from "@/components/SteganographicQRCode";
 import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
 import { formatEventDateRange } from "@/lib/utils";
+import { DownloadTicketButton } from "@/lib/ticket/DownloadTicketButton";
+import { useQrCodeDataUrl } from "@/lib/ticket/useQrCodeDataUrl";
+import type { TicketPdfInput } from "@/lib/ticket/types";
 
 interface Event {
   id: string;
@@ -30,6 +34,19 @@ interface TicketDialogProps {
 export function TicketDialog({ open, onOpenChange, event, rsvpId }: TicketDialogProps) {
   const ticketId = rsvpId.slice(-6).toUpperCase();
   const [activeTab, setActiveTab] = useState<"ticket" | "scanner">("ticket");
+  const { qrCodeDataUrl, qrCanvasRef } = useQrCodeDataUrl(ticketId);
+
+  const ticketPdfInput: TicketPdfInput = {
+    event: {
+      title: event.title,
+      startDate: event.start_date ?? event.event_date,
+      endDate: event.end_date,
+      location: event.location,
+    },
+    attendee: {},
+    ticketId,
+    qrCodeDataUrl,
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -82,6 +99,15 @@ export function TicketDialog({ open, onOpenChange, event, rsvpId }: TicketDialog
                 <p className="font-mono text-xs uppercase">RSVP ID</p>
                 <p className="mt-1 font-bold break-all font-mono text-sm">{ticketId}</p>
               </div>
+            </div>
+
+            {/* Off-screen QR canvas used to snapshot the PNG data URL for the PDF */}
+            <div className="hidden" aria-hidden="true">
+              <QRCodeCanvas value={ticketId} size={200} level="H" ref={qrCanvasRef} />
+            </div>
+
+            <div className="w-full">
+              <DownloadTicketButton ticket={ticketPdfInput} />
             </div>
           </div>
         ) : (
