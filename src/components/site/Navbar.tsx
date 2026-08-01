@@ -6,8 +6,9 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { UserDropdown } from "../Navigation/UserDropdown";
 import { ThemeToggle } from "../ThemeToggle";
 import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
+import { BookmarksPanel } from "@/components/BookmarksPanel";
 
-import { Menu, X } from "lucide-react";
+import { Bookmark, Menu, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +37,7 @@ export function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const onlineUsers = usePresence(user?.id);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [bookmarksPanelOpen, setBookmarksPanelOpen] = useState(false);
 
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const navRef = useRef<HTMLElement>(null);
@@ -163,6 +165,16 @@ export function Navbar() {
             <ThemeToggle />
 
             {user && <NavbarNotificationDropdown />}
+            {user && (
+              <button
+                type="button"
+                aria-label="Open bookmarks"
+                onClick={() => setBookmarksPanelOpen(true)}
+                className="neu-border flex h-8 w-8 items-center justify-center bg-white text-black transition-colors hover:bg-lime dark:bg-black dark:text-cream"
+              >
+                <Bookmark size={16} />
+              </button>
+            )}
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -230,6 +242,8 @@ export function Navbar() {
           </button>
         </div>
       </div>
+
+      <BookmarksPanel open={bookmarksPanelOpen} onOpenChange={setBookmarksPanelOpen} user={user} />
 
       {/* Mobile Navigation */}
       {mobileMenuOpen && (

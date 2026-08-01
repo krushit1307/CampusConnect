@@ -1,10 +1,12 @@
 import { FeedPostSkeleton } from "@/components/FeedPostSkeleton";
+import { toggleBookmark } from "@/lib/bookmarks";
 import { CommentThreadSkeleton } from "@/components/Feed/CommentSkeleton";
 import { useMutation, useQuery, useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import type { User } from "@supabase/supabase-js";
 import {
   Link2,
   ArrowUp,
+  Bookmark,
   MessageCircle,
   MessageSquareText,
   PenLine,
@@ -585,7 +587,64 @@ export default function Feed() {
     },
   });
 
+  const [persistedBookmarkedPostIds, setPersistedBookmarkedPostIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [optimisticBookmarks, setOptimisticBookmarks] = useState<
+    Record<string, boolean | undefined>
+  >({});
   const [optimisticDeletedIds, setOptimisticDeletedIds] = useState<string[]>([]);
+
+  // Fetch which posts the user has already bookmarked
+  useEffect(() => {
+    if (!user) return;
+    createClient()
+      .from("bookmarks")
+      .select("post_id")
+      .eq("user_id", user.id)
+      .not("post_id", "is", null)
+      .then(({ data }) => {
+        if (data) {
+          setPersistedBookmarkedPostIds(new Set(data.map((r: { post_id: string }) => r.post_id)));
+        }
+      });
+  }, [user]);
+
+  const bookmarkPostMutation = useMutation({
+    mutationFn: async ({ postId, isBookmarked }: { postId: string; isBookmarked: boolean }) => {
+      if (!user) throw new Error("Must be logged in");
+      await toggleBookmark(user.id, "post", postId, isBookmarked);
+    },
+    onMutate: ({ postId, isBookmarked }) => {
+      setOptimisticBookmarks((prev) => ({ ...prev, [postId]: !isBookmarked }));
+    },
+    onSuccess: (_data, { postId, isBookmarked }) => {
+      toast.success(isBookmarked ? "Bookmark removed." : "Post bookmarked!");
+      // Sync persisted set so state survives re-renders
+      setPersistedBookmarkedPostIds((prev) => {
+        const next = new Set(prev);
+        if (isBookmarked) {
+          next.delete(postId);
+        } else {
+          next.add(postId);
+        }
+        return next;
+      });
+      setOptimisticBookmarks((prev) => {
+        const n = { ...prev };
+        delete n[postId];
+        return n;
+      });
+    },
+    onError: (_err, { postId }) => {
+      toast.error("Failed to update bookmark.");
+      setOptimisticBookmarks((prev) => {
+        const n = { ...prev };
+        delete n[postId];
+        return n;
+      });
+    },
+  });
 
   const deletePostMutation = useMutation({
     mutationFn: async (postId: string) => {
@@ -1156,6 +1215,29 @@ export default function Feed() {
                           <Link2 size={14} />
                           Copy Link
                         </button>
+
+                        {user &&
+                          (() => {
+                            const persisted = persistedBookmarkedPostIds.has(post.id);
+                            const optimistic = optimisticBookmarks[post.id];
+                            const isBookmarked = optimistic !== undefined ? optimistic : persisted;
+                            return (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  bookmarkPostMutation.mutate({ postId: post.id, isBookmarked })
+                                }
+                                disabled={bookmarkPostMutation.isPending}
+                                aria-label={isBookmarked ? "Remove bookmark" : "Bookmark post"}
+                                className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 disabled:opacity-60"
+                              >
+                                <Bookmark
+                                  className="h-4 w-4"
+                                  fill={isBookmarked ? "black" : "none"}
+                                />
+                              </button>
+                            );
+                          })()}
                       </div>
 
                       <div className="mt-4 space-y-3 border-t-2 border-black pt-4">

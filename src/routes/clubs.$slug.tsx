@@ -12,10 +12,11 @@ import ReactMarkdown from "react-markdown";
 import { parse } from "@/lib/markdown";
 import type { MarkdownNodeChild, HeadingNode } from "@/lib/markdown";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Github, Loader2, CheckCircle, Flag } from "lucide-react";
+import { ArrowLeft, Bookmark, Github, Loader2, CheckCircle, Flag } from "lucide-react";
 import { ReportDialog } from "@/components/ReportDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { VideoPlayer } from "@/components/VideoPlayer";
+import { toggleBookmark } from "@/lib/bookmarks";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -172,6 +173,8 @@ export default function ClubProfile() {
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
   const [joinSuccess, setJoinSuccess] = useState(false);
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [isClubBookmarked, setIsClubBookmarked] = useState(false);
+  const [bookmarkPending, setBookmarkPending] = useState(false);
 
   const handleTocClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
     e.preventDefault();
@@ -217,6 +220,35 @@ export default function ClubProfile() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
+
+  // Check if this club is already bookmarked
+  useEffect(() => {
+    if (!user || !club) return;
+    supabase
+      .from("bookmarks")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("club_id", club.id)
+      .maybeSingle()
+      .then(({ data }) => setIsClubBookmarked(!!data));
+  }, [user, club, supabase]);
+
+  const handleClubBookmark = async () => {
+    if (!user) return void toast.error("Please sign in first");
+    if (!club) return;
+    setBookmarkPending(true);
+    const next = !isClubBookmarked;
+    setIsClubBookmarked(next); // optimistic
+    try {
+      await toggleBookmark(user.id, "club", club.id, !next);
+      toast.success(next ? "Club bookmarked!" : "Bookmark removed.");
+    } catch {
+      setIsClubBookmarked(!next); // revert
+      toast.error("Failed to update bookmark.");
+    } finally {
+      setBookmarkPending(false);
+    }
+  };
 
   const {
     data: club,
@@ -621,6 +653,14 @@ export default function ClubProfile() {
                   </AlertDialogContent>
                 </AlertDialog>
               )}
+              <button
+                onClick={handleClubBookmark}
+                disabled={bookmarkPending}
+                className="neu-border neu-press inline-flex items-center gap-2 bg-white px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-lime disabled:opacity-50"
+              >
+                <Bookmark className="h-3.5 w-3.5" fill={isClubBookmarked ? "black" : "none"} />
+                {isClubBookmarked ? "Bookmarked" : "Bookmark"}
+              </button>
               <button
                 onClick={() => toast.info("Follow feature coming soon!")}
                 className="neu-border neu-press bg-cream px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider"
