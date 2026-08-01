@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, X, Users } from "lucide-react";
+import { Search, X, Users, Plus } from "lucide-react";
 
 interface Club {
   id: string;
@@ -100,26 +100,36 @@ export default function ClubsIndex() {
             </p>
           </div>
 
-          {/* Search bar */}
-          <div className="relative w-full md:w-80">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
-            <Input
-              type="text"
-              placeholder="Search clubs by name or interest..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-8 border-2 border-black font-mono text-xs bg-white shadow-[2px_2px_0_0_#000]"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                aria-label="Clear Search Filter"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-2.5 text-gray-500 hover:text-black cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+            <HoverLink
+              to="/clubs/new"
+              className="neu-border neu-press flex items-center justify-center gap-2 bg-sky px-4 py-2 font-mono text-sm font-bold uppercase text-black"
+            >
+              <Plus className="h-4 w-4" />
+              Create a Club
+            </HoverLink>
+
+            {/* Search bar */}
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
+              <Input
+                type="text"
+                placeholder="Search clubs by name or interest..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-8 border-2 border-black font-mono text-xs bg-white shadow-[2px_2px_0_0_#000]"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  aria-label="Clear Search Filter"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-2.5 text-gray-500 hover:text-black cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
