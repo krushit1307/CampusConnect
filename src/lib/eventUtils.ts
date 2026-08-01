@@ -1,4 +1,13 @@
 import { z } from "zod";
+import {
+  startOfWeek,
+  endOfWeek,
+  addMonths,
+  startOfMonth,
+  endOfMonth,
+  isSameDay,
+  isWithinInterval,
+} from "date-fns";
 
 export const TITLE_MAX_LENGTH = 100;
 
@@ -21,6 +30,17 @@ export const eventFormSchema = z
       .positive("Capacity must be positive")
       .optional()
       .or(z.literal("")),
+    isPrivate: z.boolean().optional().default(false),
+    faqs: z
+      .array(
+        z.object({
+          question: z.string().trim().min(1, "Question is required."),
+          answer: z.string().trim().min(1, "Answer is required."),
+        }),
+      )
+      .optional()
+      .default([]),
+    tags: z.array(z.string()).optional().default([]),
   })
   .refine((data) => new Date(data.endDate) > new Date(data.startDate), {
     message: "End date must be after the start date.",
@@ -98,4 +118,31 @@ export function parseCoordinates(locationStr: string): {
     }
   }
   return { isCoordinates: false, isValid: true };
+}
+
+export function matchesDateFilter(
+  dateStr: string | null | undefined,
+  filterType: "all" | "this-week" | "next-month" | "specific",
+  specificDate?: Date,
+  now = new Date(),
+): boolean {
+  if (filterType === "all") return true;
+  if (!dateStr) return false;
+  const eventDate = new Date(dateStr);
+
+  if (filterType === "this-week") {
+    const start = startOfWeek(now);
+    const end = endOfWeek(now);
+    return isWithinInterval(eventDate, { start, end });
+  }
+  if (filterType === "next-month") {
+    const nextMonth = addMonths(now, 1);
+    const start = startOfMonth(nextMonth);
+    const end = endOfMonth(nextMonth);
+    return isWithinInterval(eventDate, { start, end });
+  }
+  if (filterType === "specific" && specificDate) {
+    return isSameDay(eventDate, specificDate);
+  }
+  return true;
 }

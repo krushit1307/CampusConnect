@@ -1,12 +1,13 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useBlocker } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
-import { Camera, Loader2, X, Plus } from "lucide-react";
+import { useTheme } from "@/components/theme-provider";
+import { Loader2, X, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/client";
+import { withAuth, WithAuthProps } from "@/hoc/withAuth";
 
-import { Progress } from "@/components/ui/progress";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 
 import type { User } from "@supabase/supabase-js";
@@ -27,6 +28,7 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
+import { ImageCropUpload } from "@/components/ImageCropUpload";
 
 const FONT_SIZE_KEY = "campusconnect-font-size";
 
@@ -60,11 +62,11 @@ function useFontSize() {
   return { fontSize, increment, decrement, reset };
 }
 
-export default function SettingsPage() {
+function SettingsPageContent({ user }: WithAuthProps) {
   const navigate = useNavigate();
   const supabase = createClient();
+  const { theme, setTheme } = useTheme();
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [borderThickness, setBorderThickness] = useState(2);
   const [borderRadius, setBorderRadius] = useState(0);
@@ -96,14 +98,6 @@ export default function SettingsPage() {
   };
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) {
-        navigate("/auth", { replace: true });
-      } else {
-        setUser(user);
-      }
-    });
-
     // Load appearance settings from localStorage
     const savedThickness = localStorage.getItem("border-thickness");
     const savedRadius = localStorage.getItem("border-radius");
@@ -152,7 +146,35 @@ export default function SettingsPage() {
       phoneNumber: "",
     },
   });
+  const {
+    formState: { isDirty },
+  } = form;
+  const blocker = useBlocker(isDirty);
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!isDirty) return;
 
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isDirty]);
+  useEffect(() => {
+    if (blocker.state !== "blocked") return;
+
+    const shouldLeave = window.confirm("You have unsaved changes. Are you sure you want to leave?");
+
+    if (shouldLeave) {
+      blocker.proceed();
+    } else {
+      blocker.reset();
+    }
+  }, [blocker]);
   useEffect(() => {
     if (user) {
       // Auth metadata (from OAuth sign-up, etc.) may only ever have a single
@@ -243,6 +265,13 @@ export default function SettingsPage() {
     localStorage.setItem("border-radius", String(value));
   };
 
+  interface ProfileStats {
+    lastActivityAt?: string;
+    welcomeSource?: string;
+    processedClaimCommentIds?: number[];
+  }
+  const pStats = profile as typeof profile & ProfileStats;
+
   if (isProfileLoading && !profile) {
     return (
       <SiteShell>
@@ -255,16 +284,47 @@ export default function SettingsPage() {
 
   return (
     <SiteShell>
-      <section className="border-b-2 border-black px-4 py-14 md:px-6">
+      <section className="border-b-2 border-black bg-[#0bc5ea] px-4 py-16 md:px-6">
         <div className="mx-auto max-w-4xl">
-          <p className="eyebrow font-bold text-black">Account</p>
-          <h1 className="mt-2 text-4xl font-bold text-[#123a57] md:text-6xl text-black">
+          <p className="font-mono text-sm font-bold uppercase tracking-widest text-black/80">
+            Account
+          </p>
+          <h1 className="mt-2 text-5xl font-extrabold tracking-tight text-black md:text-7xl">
             Settings.
           </h1>
         </div>
       </section>
+
       <section className="px-4 py-12 md:px-6">
-        <div className="mx-auto max-w-4xl space-y-6 text-indigo-900">
+        <div className="mx-auto max-w-4xl space-y-8">
+          {/* --- NEW COLORFUL STATS GRID --- */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="border-2 border-black bg-[#a3e635] p-5 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1">
+              <p className="font-mono text-xs font-bold uppercase text-black/70">Last Active</p>
+              <p className="mt-2 font-display text-xl font-bold text-black">
+                {pStats?.lastActivityAt
+                  ? new Date(pStats.lastActivityAt).toLocaleDateString()
+                  : "Just now"}
+              </p>
+            </div>
+
+            <div className="border-2 border-black bg-[#fb923c] p-5 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1">
+              <p className="font-mono text-xs font-bold uppercase text-black/70">Welcome Status</p>
+              <p className="mt-2 font-display text-xl font-bold text-black">
+                {pStats?.welcomeSource ? `Via ${pStats.welcomeSource}` : "Pending"}
+              </p>
+            </div>
+
+            <div className="border-2 border-black bg-[#22d3ee] p-5 shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-1">
+              <p className="font-mono text-xs font-bold uppercase text-black/70">
+                Claims Processed
+              </p>
+              <p className="mt-2 font-display text-xl font-bold text-black">
+                {pStats?.processedClaimCommentIds?.length || 0}
+              </p>
+            </div>
+          </div>
+          {/* ------------------------------- */}
           <Panel title="Profile">
             <AvatarUpload name={currentFullName || "User"} avatarTheme={currentAvatarTheme} />
 
@@ -411,7 +471,7 @@ export default function SettingsPage() {
                 {/* ── Skills Tags Editor ── */}
                 <div className="space-y-2 pt-2">
                   <p className="eyebrow font-bold text-black">Skills</p>
-                  <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+                  <p className="font-mono text-xs text-muted-foreground">
                     Add skills to power matchmaking — press Enter or click{" "}
                     <span className="font-bold">+</span> to add.
                   </p>
@@ -478,10 +538,32 @@ export default function SettingsPage() {
               </form>
             </Form>
           </Panel>
+
           <Panel title="Appearance">
             <div className="space-y-6">
+              {/* Theme Toggle */}
+              <div className="space-y-2">
+                <label className="eyebrow font-bold text-black dark:text-cream">Theme Mode</label>
+
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <label className="eyebrow font-bold text-black dark:text-cream">
+                      Dark Mode
+                    </label>
+
+                    <p className="font-mono text-xs text-muted-foreground">
+                      Toggle between light and dark theme
+                    </p>
+                  </div>
+
+                  <ThemeToggle theme={theme} setTheme={setTheme} />
+                </div>
+              </div>
+
+              {/* Border Thickness */}
               <div className="space-y-2">
                 <label className="eyebrow font-bold">Border Thickness: {borderThickness}px</label>
+
                 <input
                   type="range"
                   min="1"
@@ -490,13 +572,16 @@ export default function SettingsPage() {
                   onChange={handleBorderThicknessChange}
                   className="w-full cursor-pointer accent-black"
                 />
-                <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+
+                <p className="font-mono text-xs text-muted-foreground">
                   Controls the width of borders throughout the app (1px - 8px)
                 </p>
               </div>
 
+              {/* Border Radius */}
               <div className="space-y-2">
                 <label className="eyebrow font-bold">Border Radius: {borderRadius}px</label>
+
                 <input
                   type="range"
                   min="0"
@@ -505,12 +590,14 @@ export default function SettingsPage() {
                   onChange={handleBorderRadiusChange}
                   className="w-full cursor-pointer accent-black"
                 />
-                <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+
+                <p className="font-mono text-xs text-muted-foreground">
                   Controls the roundness of corners (0px - 32px)
                 </p>
               </div>
             </div>
           </Panel>
+
           <Panel title="Text Size">
             <div className="flex items-center gap-4">
               <button
@@ -539,15 +626,17 @@ export default function SettingsPage() {
               </button>
             </div>
           </Panel>
+
           <Panel title="Notifications">
             <Toggle label="Email me about upcoming RSVPs" defaultChecked />
             <Toggle label="Weekly digest of club activity" defaultChecked />
             <Toggle label="New certificates" />
           </Panel>
+
           <Panel title="Danger zone" tone="bg-red-50">
             <button
               onClick={() => setConfirmOpen(true)}
-              className="neu-border neu-press bg-[#123a57] px-4 py-2 font-mono text-xs font-bold uppercase text-white"
+              className="neu-border neu-press bg-brand-blue-dark px-4 py-2 font-mono text-xs font-bold uppercase text-white"
             >
               Delete account
             </button>
@@ -566,6 +655,7 @@ export default function SettingsPage() {
           </Panel>
         </div>
       </section>
+      <SecuritySection />
     </SiteShell>
   );
 }
@@ -580,48 +670,15 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section className={`neu-border ${tone} p-6`}>
-      <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold">{title}</h2>
-      <div className="space-y-4">{children}</div>
+    <section
+      className={`border-2 border-black shadow-[6px_6px_0px_rgba(0,0,0,1)] ${tone} p-6 md:p-8`}
+    >
+      <h2 className="mb-6 border-b-2 border-black pb-3 font-display text-2xl font-extrabold tracking-tight text-black">
+        {title}
+      </h2>
+      <div className="space-y-6 text-black">{children}</div>
     </section>
   );
-}
-
-function uploadFileWithProgress(
-  supabaseUrl: string,
-  accessToken: string,
-  bucket: string,
-  path: string,
-  file: File,
-  onProgress: (percent: number) => void,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${supabaseUrl}/storage/v1/object/${bucket}/${path}`);
-    xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
-    xhr.setRequestHeader("x-upsert", "true");
-    xhr.setRequestHeader("Content-Type", file.type);
-
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        onProgress(Math.round((event.loaded / event.total) * 100));
-      }
-    };
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
-      } else {
-        reject(new Error(`Upload failed with status ${xhr.status}`));
-      }
-    };
-
-    xhr.onerror = () => {
-      reject(new Error("Upload failed due to a network error"));
-    };
-
-    xhr.send(file);
-  });
 }
 
 // Renders the 5 predefined gradient swatches. Clicking one updates the form
@@ -638,7 +695,7 @@ function AvatarThemePicker({
   return (
     <div className="space-y-2 border-b-2 border-black pb-6">
       <p className="eyebrow font-bold">Avatar theme</p>
-      <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+      <p className="font-mono text-xs text-muted-foreground">
         Pick a gradient background to use when you don&apos;t have a custom photo.
       </p>
       <div className="flex flex-wrap gap-3 pt-1">
@@ -670,9 +727,7 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
   const supabase = supabaseRef.current;
   const [preview, setPreview] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [initials, setInitials] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -702,113 +757,47 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
     };
   }, [supabase]);
 
-  const initials = name
-    .split(" ")
-    .filter(Boolean)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  useEffect(() => {
+    if (name) {
+      setInitials(
+        name
+          .split(" ")
+          .filter(Boolean)
+          .map((part) => part[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase(),
+      );
+    }
+  }, [name]);
 
-  // Only fall back to a gradient when there's no uploaded photo to show.
-  // A real photo always takes priority over the theme.
   const showGradient = (!preview || imageError) && !!avatarTheme;
   const gradientClass = AVATAR_THEMES.find((theme) => theme.id === avatarTheme)?.gradient;
   const backgroundClass = showGradient && gradientClass ? gradientClass : "bg-lime";
 
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  async function handleUploaded(url: string) {
+    setPreview(url);
+    setImageError(false);
 
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
-
-    if (!allowedTypes.includes(file.type)) {
-      toast.error("Only JPG, PNG and WEBP images are allowed.");
-      return;
-    }
-
-    const maxSize = 2 * 1024 * 1024;
-
-    if (file.size > maxSize) {
-      toast.error("Image must be under 2 MB.");
-      return;
-    }
-    setUploading(true);
-
-    try {
-      const avatarUrl = await uploadAvatar(file);
-
-      if (avatarUrl) {
-        setPreview(avatarUrl);
-        setImageError(false);
-        toast.success("Profile picture updated.");
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to upload avatar.");
-    } finally {
-      setUploading(false);
-      setUploadProgress(null);
-      if (inputRef.current) {
-        inputRef.current.value = "";
-      }
-    }
-  }
-
-  async function uploadAvatar(file: File): Promise<string | undefined> {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-
-    if (!user) {
-      toast.error("Please sign in first.");
-      return;
-    }
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
-      toast.error("Session expired. Please sign in again.");
-      return;
-    }
-
-    const supabaseUrl = getSupabaseUrl();
-    const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-    const filePath = `${user.id}/${crypto.randomUUID()}.${extension}`;
-
-    await uploadFileWithProgress(
-      supabaseUrl,
-      session.access_token,
-      "avatars",
-      filePath,
-      file,
-      setUploadProgress,
-    );
-    setUploadProgress(null);
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("avatars").getPublicUrl(filePath);
+    if (!user) return;
 
     const { error: updateError } = await supabase
       .from("profiles")
-      .update({
-        avatar_url: publicUrl,
-      })
+      .update({ avatar_url: url })
       .eq("id", user.id);
 
     if (updateError) {
-      throw updateError;
+      console.error(updateError);
+      toast.error("Failed to save profile picture.");
     }
-
-    return publicUrl;
   }
 
   return (
-    <div className="flex flex-col items-center gap-3 border-b-2 border-black pb-6 sm:flex-row sm:items-center sm:gap-5">
-      <div className="relative shrink-0">
+    <div className="flex flex-col gap-4 border-b-2 border-black pb-6 sm:flex-row sm:items-start">
+      <div className="relative mx-auto shrink-0 sm:mx-0">
         <div
           className={`neu-border flex h-24 w-24 items-center justify-center overflow-hidden rounded-full ${backgroundClass}`}
         >
@@ -829,69 +818,49 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
             <span className="font-display text-2xl font-bold text-black">{initials}</span>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={uploading}
-          aria-label="Change profile picture"
-          title="Change profile picture"
-          className="neu-border neu-press absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-black text-cream hover:bg-cream hover:text-black"
-        >
-          {uploading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Camera className="h-4 w-4" />
-          )}
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          onChange={handleFileChange}
-          className="hidden"
-        />
       </div>
-      <div className="text-center sm:text-left">
-        <p className="eyebrow font-bold text-black">Profile picture</p>
-        <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
-          JPG, PNG or WEBP. Max 2 MB. Square images look best.
-        </p>
-        {uploadProgress !== null && (
-          <div className="mt-2 w-full space-y-1">
-            <Progress value={uploadProgress} className="h-2" />
-            <p className="font-mono text-xs text-gray-500 dark:text-gray-300">{uploadProgress}%</p>
-          </div>
-        )}
+
+      <div className="flex-1 space-y-2">
+        <div>
+          <p className="eyebrow font-bold text-black">Profile picture</p>
+        </div>
+
+        <ImageCropUpload
+          aspect={1}
+          bucket="avatars"
+          value={preview ?? undefined}
+          onUploaded={handleUploaded}
+          accept="image/jpeg,image/png,image/webp"
+          maxSizeBytes={2 * 1024 * 1024}
+          label="profile picture"
+          hint="JPG, PNG or WEBP · Max 2 MB · Square images look best"
+        />
       </div>
     </div>
   );
 }
-
-function UnderlineInput({
-  label,
-  defaultValue,
-  required,
+function ThemeToggle({
+  theme,
+  setTheme,
 }: {
-  label: string;
-  defaultValue?: string;
-  required?: boolean;
+  theme: "light" | "dark" | "system";
+  setTheme: (theme: "light" | "dark" | "system") => void;
 }) {
+  const isDark =
+    theme === "dark" ||
+    (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+  const handleToggle = (checked: boolean) => {
+    setTheme(checked ? "dark" : "light");
+  };
+
   return (
-    <label className="block">
-      <span className="eyebrow mb-1 block font-bold">
-        {label}
-        {required && (
-          <span className="text-destructive ml-1" aria-hidden="true">
-            *
-          </span>
-        )}
-      </span>
-      <input
-        defaultValue={defaultValue}
-        required={required}
-        className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
-      />
-    </label>
+    <Switch
+      checked={isDark}
+      onCheckedChange={handleToggle}
+      aria-label="Toggle dark mode"
+      className="data-[state=checked]:bg-black data-[state=unchecked]:bg-gray-200 h-7 w-14 [&>span]:h-5 [&>span]:w-5 data-[state=checked]:[&>span]:translate-x-7 data-[state=unchecked]:[&>span]:translate-x-1 border-2 border-black"
+    />
   );
 }
 
@@ -903,3 +872,5 @@ function Toggle({ label, defaultChecked }: { label: string; defaultChecked?: boo
     </label>
   );
 }
+
+export default withAuth(SettingsPageContent);

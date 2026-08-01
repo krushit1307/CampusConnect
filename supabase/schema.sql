@@ -101,7 +101,8 @@ CREATE TABLE events (
   status TEXT NOT NULL DEFAULT 'scheduled',
   created_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  short_id TEXT UNIQUE
 );
 
 ALTER TABLE events
@@ -163,6 +164,30 @@ CREATE TABLE posts (
   deleted_at TIMESTAMPTZ
 );
 
+CREATE TABLE post_likes (
+  post_id UUID REFERENCES posts(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  UNIQUE(post_id, user_id)
+);
+
+CREATE INDEX idx_post_likes_post_id ON post_likes(post_id);
+CREATE INDEX idx_post_likes_user_id ON post_likes(user_id);
+
+ALTER TABLE post_likes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can read post likes."
+  ON post_likes FOR SELECT
+  USING (true);
+
+CREATE POLICY "Users can insert their own likes."
+  ON post_likes FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own likes."
+  ON post_likes FOR DELETE
+  USING (auth.uid() = user_id);
+
 CREATE TABLE comments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
@@ -182,10 +207,41 @@ CREATE TABLE certificates (
 
 CREATE TABLE saved_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+<<<<<<< HEAD
   event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+=======
+  event_id UUID REFERENCES events(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+>>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
   saved_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(event_id, user_id)
+);
+
+<<<<<<< HEAD
+CREATE TABLE polls (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  created_by UUID NOT NULL REFERENCES profiles(id),
+  question TEXT NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE poll_options (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  poll_id UUID NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
+  text TEXT NOT NULL,
+  position INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE poll_votes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  poll_id UUID NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
+  option_id UUID NOT NULL REFERENCES poll_options(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(poll_id, user_id)
 );
 
 CREATE TABLE notifications (
@@ -216,6 +272,11 @@ CREATE INDEX idx_event_rsvps_user_id ON event_rsvps(user_id);
 CREATE INDEX idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX idx_posts_club_id ON posts(club_id);
 CREATE INDEX idx_comments_post_id ON comments(post_id);
+CREATE INDEX idx_polls_event_id ON polls(event_id);
+CREATE INDEX idx_polls_event_id_active ON polls(event_id) WHERE is_active = TRUE;
+CREATE INDEX idx_poll_options_poll_id ON poll_options(poll_id);
+CREATE INDEX idx_poll_votes_poll_id ON poll_votes(poll_id);
+CREATE INDEX idx_poll_votes_poll_id_user_id ON poll_votes(poll_id, user_id);
 
 -- Helper function: check if user is system admin
 CREATE OR REPLACE FUNCTION public.is_system_admin()
@@ -300,6 +361,8 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.get_upcoming_events_feed(UUID) TO authenticated;
 
+=======
+>>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
 -- 3. Row Level Security (RLS)
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
@@ -312,8 +375,12 @@ ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE certificates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saved_events ENABLE ROW LEVEL SECURITY;
+<<<<<<< HEAD
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE polls ENABLE ROW LEVEL SECURITY;
+ALTER TABLE poll_options ENABLE ROW LEVEL SECURITY;
+ALTER TABLE poll_votes ENABLE ROW LEVEL SECURITY;
 
 -- event_co_hosts policies
 CREATE POLICY "Co-hosts are viewable by everyone." ON event_co_hosts FOR SELECT USING (true);
@@ -327,11 +394,30 @@ CREATE POLICY "Primary club admins can delete co-hosts." ON event_co_hosts FOR D
 );
 
 CREATE POLICY "System admins can view audit logs" ON audit_logs FOR SELECT TO authenticated USING (public.is_system_admin());
+=======
+>>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
 
--- profiles: users can read all, update only their own row
+-- profiles: users can read all, update only their own row (with restrictions)
 CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT USING (true);
 CREATE POLICY "Users can insert their own profile." ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
-CREATE POLICY "Users can update own profile." ON profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Users can update own profile (safe fields only)." ON profiles
+FOR UPDATE
+TO authenticated
+USING (auth.uid() = id)
+WITH CHECK (
+  auth.uid() = id
+  AND (
+    -- Allow updates only if role is NOT being changed
+    -- or if the user is a system admin
+    (OLD.role IS NOT DISTINCT FROM NEW.role)
+    OR public.is_system_admin()
+  )
+);
+CREATE POLICY "System admins can update any profile." ON profiles
+FOR UPDATE
+TO authenticated
+USING (public.is_system_admin())
+WITH CHECK (public.is_system_admin());
 
 -- clubs: public clubs visible to everyone, private clubs visible only to approved members and the creator
 CREATE POLICY "Clubs are viewable by everyone." ON clubs FOR SELECT USING (
@@ -354,9 +440,9 @@ CREATE POLICY "Admins can update members." ON club_members FOR UPDATE USING (
   EXISTS (SELECT 1 FROM clubs WHERE id = club_members.club_id AND created_by = auth.uid())
 );
 
--- event_categories: public read, only system admins can modify
+-- event_categories: public read, only system admins or verified club admins can insert
 CREATE POLICY "Event categories are viewable by everyone." ON event_categories FOR SELECT USING (true);
-CREATE POLICY "System admins can insert event categories." ON event_categories FOR INSERT TO authenticated WITH CHECK (public.is_system_admin());
+CREATE POLICY "System admins and verified club admins can insert event categories." ON event_categories FOR INSERT TO authenticated WITH CHECK (public.is_system_admin() OR public.is_verified_club_admin());
 CREATE POLICY "System admins can update event categories." ON event_categories FOR UPDATE TO authenticated USING (public.is_system_admin()) WITH CHECK (public.is_system_admin());
 CREATE POLICY "System admins can delete event categories." ON event_categories FOR DELETE TO authenticated USING (public.is_system_admin());
 
@@ -437,6 +523,46 @@ CREATE POLICY "Users can unsave events." ON saved_events FOR DELETE USING (auth.
 CREATE POLICY "Users can view their own notifications" ON notifications FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can update their own notifications" ON notifications FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own notifications" ON notifications FOR DELETE USING (auth.uid() = user_id);
+
+-- saved_events: users can manage their own saved events/bookmarks
+CREATE POLICY "Users can read own saved events." ON saved_events FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can save events." ON saved_events FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can unsave events." ON saved_events FOR DELETE USING (auth.uid() = user_id);
+
+-- polls: anyone can read, only event organizer can insert/update
+CREATE POLICY "Polls are viewable by everyone." ON polls FOR SELECT USING (true);
+CREATE POLICY "Event organizers can create polls." ON polls FOR INSERT WITH CHECK (
+  auth.uid() = created_by AND (
+    public.is_club_admin((SELECT club_id FROM events WHERE id = event_id), auth.uid()) OR
+    EXISTS (SELECT 1 FROM clubs WHERE id = (SELECT club_id FROM events WHERE id = event_id) AND created_by = auth.uid())
+  )
+);
+CREATE POLICY "Event organizers can manage polls." ON polls FOR UPDATE USING (
+  public.is_club_admin((SELECT club_id FROM events WHERE id = event_id), auth.uid()) OR
+  EXISTS (SELECT 1 FROM clubs WHERE id = (SELECT club_id FROM events WHERE id = event_id) AND created_by = auth.uid())
+) WITH CHECK (
+  public.is_club_admin((SELECT club_id FROM events WHERE id = event_id), auth.uid()) OR
+  EXISTS (SELECT 1 FROM clubs WHERE id = (SELECT club_id FROM events WHERE id = event_id) AND created_by = auth.uid())
+);
+
+-- poll_options: anyone can read, only poll creator can insert/delete
+CREATE POLICY "Poll options are viewable by everyone." ON poll_options FOR SELECT USING (true);
+CREATE POLICY "Poll creators can insert options." ON poll_options FOR INSERT WITH CHECK (
+  EXISTS (SELECT 1 FROM polls WHERE polls.id = poll_id AND polls.created_by = auth.uid())
+);
+CREATE POLICY "Poll creators can delete options." ON poll_options FOR DELETE USING (
+  EXISTS (SELECT 1 FROM polls WHERE polls.id = poll_id AND polls.created_by = auth.uid())
+);
+
+-- poll_votes: users can read all votes, insert own, delete own
+CREATE POLICY "Poll votes are viewable by everyone." ON poll_votes FOR SELECT USING (true);
+CREATE POLICY "Users can cast their own vote." ON poll_votes FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can remove their own vote." ON poll_votes FOR DELETE USING (auth.uid() = user_id);
+
+-- saved_events: users can manage their own saved events/bookmarks
+CREATE POLICY "Users can read own saved events." ON saved_events FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can save events." ON saved_events FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can unsave events." ON saved_events FOR DELETE USING (auth.uid() = user_id);
 
 -- 4. Triggers
 -- Auto-create profile on signup
@@ -646,9 +772,9 @@ BEGIN
   WHERE author_id = auth.uid()
     AND created_at >= NOW() - INTERVAL '1 minute';
 
-  -- Abort insert if count is >= 5
-  IF v_comment_count >= 5 THEN
-    RAISE EXCEPTION 'Comment rate limit exceeded. You can only post 5 comments per minute.'
+  -- Abort insert if count is >= 15
+  IF v_comment_count >= 15 THEN
+    RAISE EXCEPTION 'Comment rate limit exceeded. You can only post 15 comments per minute.'
       USING ERRCODE = 'P0001';
   END IF;
 
@@ -661,25 +787,26 @@ BEFORE INSERT ON public.comments
 FOR EACH ROW
 EXECUTE FUNCTION public.check_comment_rate_limit();
 
--- Post like count trigger on post_reactions
+-- Post like count triggers on post_reactions and post_likes
 CREATE OR REPLACE FUNCTION public.update_post_like_count()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_post_id UUID;
 BEGIN
-  IF TG_OP = 'INSERT' THEN
-    UPDATE posts
-    SET like_count = (SELECT COUNT(*) FROM post_reactions WHERE post_id = NEW.post_id)
-    WHERE id = NEW.post_id;
-    RETURN NEW;
-  ELSIF TG_OP = 'DELETE' THEN
-    UPDATE posts
-    SET like_count = (SELECT COUNT(*) FROM post_reactions WHERE post_id = OLD.post_id)
-    WHERE id = OLD.post_id;
-    RETURN OLD;
-  END IF;
+  v_post_id := COALESCE(NEW.post_id, OLD.post_id);
+
+  UPDATE posts
+  SET like_count = (
+    (SELECT COUNT(*) FROM post_reactions WHERE post_id = v_post_id) +
+    (SELECT COUNT(*) FROM post_likes WHERE post_id = v_post_id)
+  )
+  WHERE id = v_post_id;
+
+  RETURN COALESCE(NEW, OLD);
 END;
 $$;
 
@@ -690,6 +817,16 @@ EXECUTE FUNCTION public.update_post_like_count();
 
 CREATE TRIGGER trg_post_reactions_delete
 AFTER DELETE ON post_reactions
+FOR EACH ROW
+EXECUTE FUNCTION public.update_post_like_count();
+
+CREATE TRIGGER trg_post_likes_insert
+AFTER INSERT ON post_likes
+FOR EACH ROW
+EXECUTE FUNCTION public.update_post_like_count();
+
+CREATE TRIGGER trg_post_likes_delete
+AFTER DELETE ON post_likes
 FOR EACH ROW
 EXECUTE FUNCTION public.update_post_like_count();
 
@@ -731,7 +868,8 @@ VALUES
   ('avatars', 'avatars', true),
   ('club-banners', 'club-banners', true),
   ('event-banners', 'event-banners', true),
-  ('certificates', 'certificates', true)
+  ('certificates', 'certificates', true),
+  ('qrcodes', 'qrcodes', true)
 ON CONFLICT (id) DO UPDATE
 SET public = EXCLUDED.public;
 
@@ -750,7 +888,8 @@ USING (
     'avatars',
     'club-banners',
     'event-banners',
-    'certificates'
+    'certificates',
+    'qrcodes'
   )
 );
 
@@ -764,7 +903,8 @@ WITH CHECK (
     'avatars',
     'club-banners',
     'event-banners',
-    'certificates'
+    'certificates',
+    'qrcodes'
   )
   AND (storage.foldername(name))[1] = auth.uid()::text
 );
@@ -779,7 +919,8 @@ USING (
     'avatars',
     'club-banners',
     'event-banners',
-    'certificates'
+    'certificates',
+    'qrcodes'
   )
   AND (storage.foldername(name))[1] = auth.uid()::text
 )
@@ -788,7 +929,8 @@ WITH CHECK (
     'avatars',
     'club-banners',
     'event-banners',
-    'certificates'
+    'certificates',
+    'qrcodes'
   )
   AND (storage.foldername(name))[1] = auth.uid()::text
 );
@@ -803,19 +945,55 @@ USING (
     'avatars',
     'club-banners',
     'event-banners',
-    'certificates'
+    'certificates',
+    'qrcodes'
   )
   AND (storage.foldername(name))[1] = auth.uid()::text
 );
 
 -- ------------------------------------------------------------
--- 6. Realtime
+-- 6. Event Short ID Generation
+-- ------------------------------------------------------------
+
+-- Create sequence for event short IDs
+CREATE SEQUENCE IF NOT EXISTS event_short_seq
+START WITH 1
+INCREMENT BY 1
+NO MINVALUE
+NO MAXVALUE
+CACHE 1;
+
+-- Create trigger function to generate short_id
+CREATE OR REPLACE FUNCTION generate_event_short_id()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Only generate short_id if it's NULL
+  IF NEW.short_id IS NULL THEN
+    NEW.short_id := 'EVT-' || 
+                    EXTRACT(YEAR FROM NOW())::TEXT || '-' || 
+                    LPAD(nextval('event_short_seq')::TEXT, 4, '0');
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create BEFORE INSERT trigger
+DROP TRIGGER IF EXISTS trg_generate_event_short_id ON events;
+CREATE TRIGGER trg_generate_event_short_id
+BEFORE INSERT ON events
+FOR EACH ROW
+EXECUTE FUNCTION generate_event_short_id();
+
+-- ------------------------------------------------------------
+-- 7. Realtime
 -- ------------------------------------------------------------
 
 ALTER PUBLICATION supabase_realtime ADD TABLE posts;
 ALTER PUBLICATION supabase_realtime ADD TABLE comments;
 ALTER PUBLICATION supabase_realtime ADD TABLE event_rsvps;
+<<<<<<< HEAD
 ALTER PUBLICATION supabase_realtime ADD TABLE saved_events;
+ALTER PUBLICATION supabase_realtime ADD TABLE poll_votes;
 
 -- Backfill any missing profiles for existing authenticated users
 INSERT INTO public.profiles (id, first_name, last_name, avatar_url)
@@ -839,5 +1017,11 @@ SELECT
     END
   ),
   raw_user_meta_data->>'avatar_url'
+=======
+
+-- Backfill any missing profiles for existing authenticated users
+INSERT INTO public.profiles (id, full_name, avatar_url)
+SELECT id, raw_user_meta_data->>'full_name', raw_user_meta_data->>'avatar_url'
+>>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
 FROM auth.users
 ON CONFLICT (id) DO NOTHING;

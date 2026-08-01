@@ -18,20 +18,19 @@ serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  // Rate Limiting Logic using Redis Upstash (10 requests per minute)
-  const rateLimitResponse = await limitRate(req, "toggle-rsvp", { limit: 10, windowMs: 60000 });
-  if (rateLimitResponse) {
-    return rateLimitResponse;
-  }
-
   try {
+    // Rate Limiting Logic using Redis Upstash (60 requests per minute)
+    const rateLimitResponse = await limitRate(req, "toggle-rsvp", { limit: 60, windowMs: 60000 });
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
     let user;
-
     try {
       user = await verifyAuth(req, supabase);
     } catch {
@@ -50,34 +49,91 @@ serve(async (req: Request) => {
       });
     }
 
-    // Execute RSVP logic securely
     if (hasRsvpd) {
-      const { error } = await supabase
+      // 1. Cancel RSVP: delete from RSVPs and waitlist
+      const { error: rsvpErr } = await supabase
         .from("event_rsvps")
         .delete()
         .match({ event_id: eventId, user_id: user.id });
 
-      if (error) {
-        throw error;
+      if (rsvpErr) {
+        throw rsvpErr;
       }
+
+      const { error: waitlistErr } = await supabase
+        .from("event_waitlist")
+        .delete()
+        .match({ event_id: eventId, user_id: user.id });
+
+      if (waitlistErr) {
+        throw waitlistErr;
+      }
+
+      return new Response(JSON.stringify({ success: true, status: "cancelled" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
     } else {
-      const { error } = await supabase
-        .from("event_rsvps")
-        .insert({ event_id: eventId, user_id: user.id });
+      // 2. highly concurrent checkout flow utilizing PG advisory locks and backoff retry mechanism
+      let attempts = 0;
+      const maxAttempts = 5;
+      let delay = 50; // initial wait time in milliseconds
 
-      if (error) {
-        throw error;
+      while (attempts < maxAttempts) {
+        const { data, error } = await supabase.rpc("secure_event_checkout", {
+          p_event_id: eventId,
+          p_user_id: user.id,
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        if (data === "SUCCESS") {
+          return new Response(JSON.stringify({ success: true, status: "approved" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200,
+          });
+        }
+
+        if (data === "ALREADY_RSVPED") {
+          return new Response(JSON.stringify({ error: "You have already RSVPed to this event." }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400,
+          });
+        }
+
+        if (data === "FULL") {
+          return new Response(JSON.stringify({ error: "Event capacity has been reached." }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 409,
+          });
+        }
+
+        if (data === "BUSY") {
+          attempts++;
+          if (attempts < maxAttempts) {
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            delay *= 2; // exponential backoff multiplier
+            continue;
+          }
+        }
       }
-    }
 
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
+      // Lock acquisition failed after max retries
+      return new Response(
+        JSON.stringify({ error: "Server is busy processing checkouts. Please try again." }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429,
+        },
+      );
+    }
   } catch (error) {
     console.error("Internal RSVP Error:", error);
+    const errorMsg = error instanceof Error ? error.message : String(error);
     return new Response(
-      JSON.stringify({ error: "An unexpected error occurred processing your RSVP." }),
+      JSON.stringify({ error: `An unexpected error occurred processing your RSVP: ${errorMsg}` }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,

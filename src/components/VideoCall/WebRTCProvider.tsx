@@ -482,7 +482,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                   <div className="flex items-center gap-4 mt-8">
                     <button
                       onClick={declineCall}
-                      className="border-2 border-black bg-[#ff3b30] px-6 py-2 text-black font-display font-bold uppercase tracking-wider hover:bg-red-400 active:translate-x-0.5 active:translate-y-0.5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all"
+                      className="border-2 border-black bg-brand-red-ios px-6 py-2 text-black font-display font-bold uppercase tracking-wider hover:bg-red-400 active:translate-x-0.5 active:translate-y-0.5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all"
                     >
                       Decline
                     </button>
@@ -545,7 +545,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                   <button
                     onClick={toggleMute}
                     className={`border-2 border-black p-2.5 hover:shadow-none transition-all active:translate-x-0.5 active:translate-y-0.5 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] ${
-                      isMuted ? "bg-[#ff3b30] text-black" : "bg-white text-black"
+                      isMuted ? "bg-brand-red-ios text-black" : "bg-white text-black"
                     }`}
                     title={isMuted ? "Unmute Mic" : "Mute Mic"}
                   >
@@ -555,7 +555,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                   <button
                     onClick={toggleCamera}
                     className={`border-2 border-black p-2.5 hover:shadow-none transition-all active:translate-x-0.5 active:translate-y-0.5 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] ${
-                      isCameraOff ? "bg-[#ff3b30] text-black" : "bg-white text-black"
+                      isCameraOff ? "bg-brand-red-ios text-black" : "bg-white text-black"
                     }`}
                     title={isCameraOff ? "Turn Video On" : "Turn Video Off"}
                   >
@@ -564,7 +564,7 @@ export const WebRTCProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
                   <button
                     onClick={endCall}
-                    className="border-2 border-black bg-[#ff3b30] p-2.5 text-white hover:bg-[#ff453a] hover:shadow-none transition-all active:translate-x-0.5 active:translate-y-0.5 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
+                    className="border-2 border-black bg-brand-red-ios p-2.5 text-white hover:bg-brand-red-ios-dark hover:shadow-none transition-all active:translate-x-0.5 active:translate-y-0.5 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
                     title="End Session"
                   >
                     <PhoneOff className="h-5 w-5" />

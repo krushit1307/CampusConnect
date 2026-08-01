@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Search, X } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import NotificationItem from "./NotificationItem";
-import { createClient as createSupabaseClient } from "@/lib/supabase/client";
+import { createClient } from "../../lib/supabase/client";
+import { useSupabaseSubscription } from "@/hooks/useSupabaseSubscription";
 const mockNotifications = [
   {
     id: "1",
@@ -34,13 +36,36 @@ const mockNotifications = [
 ];
 
 export const NavbarNotificationDropdown: React.FC = () => {
+  const supabase = createClient();
   const [notifications, setNotifications] = useState(mockNotifications);
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [userId, setUserId] = useState<string | null>(null);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  // 1. Fetch current user and unread notification count from Supabase
+  useEffect(() => {
+    async function fetchUnreadCount() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        // Fallback to local mock count if no user session exists
+        setUnreadCount(notifications.filter((n) => !n.isRead).length);
+        return;
+      }
+
+      setUserId(user.id);
+    }
+
+    fetchUnreadCount();
+  }, []);
+
+  // Realtime subscription disabled until notifications table exists in schema
+  useSupabaseSubscription({ table: "notifications", enabled: false });
 
   const filteredNotifications = notifications.filter(
     (n) =>
@@ -50,42 +75,44 @@ export const NavbarNotificationDropdown: React.FC = () => {
 
   const toggleDropdown = () => setIsOpen(!isOpen);
 
-  const handleMarkAsRead = (id: string) => {
+  const handleMarkAsRead = async (id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+
+    // Decrement count locally
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+
+    // Optional: update Supabase read_at if authenticated
   };
+
   const handleMarkAllAsRead = async () => {
-    // Optimistic UI update
-    setNotifications((prev) =>
-      prev.map((notification) => ({
-        ...notification,
-        isRead: true,
-      })),
-    );
+    setNotifications(notifications.map((n) => ({ ...n, isRead: true })));
+    setUnreadCount(0);
+  };
 
-    try {
-      const supabase = createSupabaseClient();
+  const handleDeleteNotification = async (id: string) => {
+    const target = notifications.find((n) => n.id === id);
+    if (!target) return;
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    // Optimistic update: remove immediately, keep a snapshot to roll back if
+    // the mutation fails.
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    if (!target.isRead) setUnreadCount((prev) => Math.max(0, prev - 1));
 
-      if (!user) return;
+    if (!userId) return; // mock/local-only notification, nothing to persist
 
-      const { error } = await supabase
-        .from("notifications")
-        .update({
-          is_read: true,
-        })
-        .eq("user_id", user.id)
-        .eq("is_read", false);
+    const { error } = await supabase
+      .from("notifications")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", userId);
 
-      if (error) {
-        throw error;
-      }
-    } catch (error) {
-      console.error("Failed to mark all notifications as read:", error);
+    if (error) {
+      // Roll back on failure
+      setNotifications((prev) => [...prev, target].sort((a, b) => (a.id < b.id ? 1 : -1)));
+      if (!target.isRead) setUnreadCount((prev) => prev + 1);
     }
   };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -96,6 +123,9 @@ export const NavbarNotificationDropdown: React.FC = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Format badge display text ("9+" if count > 9)
+  const badgeText = unreadCount > 9 ? "9+" : unreadCount;
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -119,9 +149,10 @@ export const NavbarNotificationDropdown: React.FC = () => {
           />
         </svg>
 
+        {/* Unread Notification Badge */}
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white">
-            {unreadCount}
+          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white">
+            {badgeText}
           </span>
         )}
       </button>
@@ -162,7 +193,7 @@ export const NavbarNotificationDropdown: React.FC = () => {
             </div>
           </div>
 
-          <div className="divide-y divide-gray-100 max-h-[400px] overflow-y-auto">
+          <div className="divide-y divide-gray-100 max-h-[400px] overflow-y-auto overflow-x-hidden">
             {filteredNotifications.length === 0 ? (
               <div className="p-6 text-center text-sm text-gray-400">
                 {searchQuery ? "No matching notifications." : "No notifications yet."}
@@ -173,9 +204,20 @@ export const NavbarNotificationDropdown: React.FC = () => {
                   key={notification.id}
                   notification={notification}
                   onMarkAsRead={handleMarkAsRead}
+                  onDelete={handleDeleteNotification}
                 />
               ))
             )}
+          </div>
+
+          <div className="border-t border-gray-200 bg-gray-50 rounded-b-lg">
+            <Link
+              to="/notifications"
+              onClick={() => setIsOpen(false)}
+              className="block w-full p-3 text-center text-sm font-semibold text-blue-600 hover:text-blue-800 hover:bg-gray-100 transition-colors"
+            >
+              View All Notifications
+            </Link>
           </div>
         </div>
       )}
