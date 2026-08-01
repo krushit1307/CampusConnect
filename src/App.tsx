@@ -22,9 +22,6 @@ import { CommandPalette } from "./components/ui/command-palette";
 import MaintenancePage from "./components/MaintenancePage";
 import { NotFoundPage } from "./components/NotFoundPage";
 import { createClient } from "./lib/supabase/client";
-import { ThemeToggle } from "./components/ThemeToggle";
-import { ThemeProvider } from "./components/theme-provider";
-import { TooltipProvider } from "./components/ui/tooltip";
 
 function RemoteLoadingScreen() {
   return (
@@ -102,7 +99,6 @@ const AnalyticsAdmin = lazy(() => import("./routes/admin.analytics"));
 const AdminReportsPage = lazy(() => import("./routes/admin.reports"));
 const AdminUsersPage = lazy(() => import("./routes/admin.users"));
 const AdminRestorePage = lazy(() => import("./routes/admin.restore"));
-const AnalyticsAdmin = lazy(() => import("./routes/admin.analytics"));
 const NotFound = lazy(() => import("./routes/NotFound"));
 const ChallengeArena = lazy(() => import("./routes/challenge"));
 const EventDashboard = lazy(() => import("./routes/events.$eventId.dashboard"));
