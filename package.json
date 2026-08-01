@@ -182,6 +182,7 @@
     "husky": "^9.1.7",
     "jsdom": "^27.4.0",
     "lint-staged": "^17.0.8",
+    "mime-db": "^1.54.0",
     "prettier": "^3.7.3",
     "rollup-plugin-visualizer": "^7.0.1",
     "typescript": "^5.8.3",
