@@ -9,6 +9,7 @@
     "dev:remote": "vite --config vite.config.events.ts --port 4174",
     "build:analyze": "ANALYZE=true vite build",
     "build:dev": "vite build --mode development",
+    "build:verify-css": "vite build && node scripts/verify-tailwind-safelist.mjs",
     "build:remote": "vite build --config vite.config.events.ts",
     "preview": "vite preview",
     "lint": "eslint .",

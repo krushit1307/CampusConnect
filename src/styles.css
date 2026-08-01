@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "./styles/disabled-buttons.css";
 @source "../src";
+/* Runtime-selected utility maps must remain available in production builds. */
+@source inline("bg-lime bg-sky bg-lavender bg-peach text-green-700 text-yellow-700 text-red-700 bg-destructive bg-orange-500 bg-green-600 bg-transparent text-destructive text-orange-600");
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
