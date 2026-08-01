@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { SteganographicQRCode } from "@/components/SteganographicQRCode";
 import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
+import ScratchTicket from "@/components/ScratchTicket/ScratchTicket";
 import { formatEventDateRange } from "@/lib/utils";
 
 interface Event {
@@ -30,6 +31,7 @@ interface TicketDialogProps {
 export function TicketDialog({ open, onOpenChange, event, rsvpId }: TicketDialogProps) {
   const ticketId = rsvpId.slice(-6).toUpperCase();
   const [activeTab, setActiveTab] = useState<"ticket" | "scanner">("ticket");
+  const [ticketRevealed, setTicketRevealed] = useState(false);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -68,22 +70,28 @@ export function TicketDialog({ open, onOpenChange, event, rsvpId }: TicketDialog
         </DialogHeader>
 
         {activeTab === "ticket" ? (
-          <div className="mt-2 flex flex-col items-center gap-4">
-            <SteganographicQRCode rsvpId={rsvpId} size={200} />
+          <ScratchTicket onRevealed={() => setTicketRevealed(true)}>
+            <div className="mt-2 flex flex-col items-center gap-4">
+              <SteganographicQRCode rsvpId={rsvpId} size={200} />
 
-            <div className="w-full space-y-2 text-center">
-              <h3 className="text-lg font-bold">{event.title}</h3>
+              <div className="w-full space-y-2 text-center">
+                <h3 className="text-lg font-bold">{event.title}</h3>
 
-              <p className="text-sm text-muted-foreground">{formatEventDateRange(event)}</p>
+                <p className="text-sm text-muted-foreground">{formatEventDateRange(event)}</p>
 
-              <p className="text-sm text-muted-foreground">{event.location ?? "Location TBA"}</p>
+                <p className="text-sm text-muted-foreground">{event.location ?? "Location TBA"}</p>
 
-              <div className="mt-2 rounded-md border bg-muted p-3">
-                <p className="font-mono text-xs uppercase">RSVP ID</p>
-                <p className="mt-1 font-bold break-all font-mono text-sm">{ticketId}</p>
+                <div className="mt-2 rounded-md border bg-muted p-3">
+                  <p className="font-mono text-xs uppercase">RSVP ID</p>
+                  <p className="mt-1 font-bold break-all font-mono text-sm">{ticketId}</p>
+                </div>
+
+                {ticketRevealed && (
+                  <p className="text-sm font-bold text-green-600 mt-2">✨ Ready to enter!</p>
+                )}
               </div>
             </div>
-          </div>
+          </ScratchTicket>
         ) : (
           <div className="mt-2">
             <SteganographicQRScanner />
