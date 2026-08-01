@@ -1,7 +1,8 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { endOfDay, startOfDay, subDays } from "date-fns";
 import { ClubAnalyticsDashboard } from "./ClubAnalyticsDashboard";
 
 // Mock Supabase client
@@ -41,7 +42,7 @@ describe("ClubAnalyticsDashboard Component", () => {
   const mockClubId = "test-club-123";
 
   const mockAnalyticsData = {
-    range: "30d",
+    range: "last-30-days",
     start_date: "2026-07-01",
     end_date: "2026-07-30",
     summary: {
@@ -69,6 +70,12 @@ describe("ClubAnalyticsDashboard Component", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-01T12:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("renders loading state initially", () => {
@@ -96,7 +103,7 @@ describe("ClubAnalyticsDashboard Component", () => {
     expect(screen.getByText(/Top Events by Page Views/i)).toBeInTheDocument();
   });
 
-  it("switches time range filters when buttons are clicked", async () => {
+  it("requests default last-30-days timestamps on initial load", async () => {
     mockRpc.mockResolvedValue({ data: mockAnalyticsData, error: null });
 
     renderWithClient(<ClubAnalyticsDashboard clubId={mockClubId} />);
@@ -105,13 +112,40 @@ describe("ClubAnalyticsDashboard Component", () => {
       expect(screen.getByText("150")).toBeInTheDocument();
     });
 
-    const filter7d = screen.getByRole("button", { name: /7 Days/i });
-    fireEvent.click(filter7d);
+    const now = new Date("2026-08-01T12:00:00Z");
+    const expectedStart = startOfDay(subDays(now, 29)).toISOString();
+    const expectedEnd = endOfDay(now).toISOString();
+
+    expect(mockRpc).toHaveBeenCalledWith("get_club_analytics", {
+      p_club_id: mockClubId,
+      p_range: "last-30-days",
+      p_start_at: expectedStart,
+      p_end_at: expectedEnd,
+    });
+  });
+
+  it("updates the range query when a preset is clicked", async () => {
+    mockRpc.mockResolvedValue({ data: mockAnalyticsData, error: null });
+
+    renderWithClient(<ClubAnalyticsDashboard clubId={mockClubId} />);
 
     await waitFor(() => {
-      expect(mockRpc).toHaveBeenCalledWith("get_club_analytics", {
+      expect(screen.getByText("150")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /last 30 days/i }));
+    fireEvent.click(screen.getByRole("button", { name: /today/i }));
+
+    const today = new Date("2026-08-01T12:00:00Z");
+    const todayStart = startOfDay(today).toISOString();
+    const todayEnd = endOfDay(today).toISOString();
+
+    await waitFor(() => {
+      expect(mockRpc).toHaveBeenLastCalledWith("get_club_analytics", {
         p_club_id: mockClubId,
-        p_range: "7d",
+        p_range: "today",
+        p_start_at: todayStart,
+        p_end_at: todayEnd,
       });
     });
   });

@@ -20,14 +20,19 @@ import {
   MessageSquare,
   CalendarCheck,
   Calendar,
-  Filter,
   BarChart2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { AnalyticsDateRangePicker } from "./AnalyticsDateRangePicker";
+import {
+  getPresetDateRange,
+  type AnalyticsDateRangeSelection,
+  type AnalyticsRangePreset,
+} from "@/lib/clubAnalyticsDateRange";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-export type TimeRange = "7d" | "30d" | "ytd";
+export type TimeRange = AnalyticsRangePreset;
 
 export interface AnalyticsSummary {
   total_rsvps: number;
@@ -72,13 +77,18 @@ interface ClubAnalyticsDashboardProps {
 
 export function ClubAnalyticsDashboard({ clubId }: ClubAnalyticsDashboardProps) {
   const supabase = createClient();
-  const [timeRange, setTimeRange] = useState<TimeRange>("30d");
+  const [timeRange, setTimeRange] = useState<AnalyticsDateRangeSelection>(() => ({
+    preset: "last-30-days",
+    ...getPresetDateRange("last-30-days"),
+  }));
 
   // Fetch analytics data via RPC
   const fetchAnalytics = useCallback(async (): Promise<AnalyticsPayload> => {
     const { data, error } = await supabase.rpc("get_club_analytics", {
       p_club_id: clubId,
-      p_range: timeRange,
+      p_range: timeRange.preset,
+      p_start_at: timeRange.startDate.toISOString(),
+      p_end_at: timeRange.endDate.toISOString(),
     });
 
     if (error) {
@@ -88,10 +98,16 @@ export function ClubAnalyticsDashboard({ clubId }: ClubAnalyticsDashboardProps) 
     }
 
     return data as AnalyticsPayload;
-  }, [clubId, timeRange, supabase]);
+  }, [clubId, supabase, timeRange]);
 
   const { data, isLoading, isError, refetch } = useQuery<AnalyticsPayload>({
-    queryKey: ["club-analytics", clubId, timeRange],
+    queryKey: [
+      "club-analytics",
+      clubId,
+      timeRange.preset,
+      timeRange.startDate.toISOString(),
+      timeRange.endDate.toISOString(),
+    ],
     queryFn: fetchAnalytics,
     enabled: !!clubId,
   });
@@ -133,29 +149,8 @@ export function ClubAnalyticsDashboard({ clubId }: ClubAnalyticsDashboardProps) 
           </p>
         </div>
 
-        {/* Time-Range Filter Buttons */}
-        <div className="flex items-center gap-1 bg-white p-1 border-2 border-black dark:bg-zinc-900 dark:border-white">
-          <Filter className="h-4 w-4 ml-2 mr-1 text-gray-500" />
-          {(
-            [
-              { label: "7 Days", value: "7d" },
-              { label: "30 Days", value: "30d" },
-              { label: "Year to Date", value: "ytd" },
-            ] as const
-          ).map((range) => (
-            <button
-              key={range.value}
-              type="button"
-              onClick={() => setTimeRange(range.value)}
-              className={`px-3 py-1.5 font-mono text-xs font-bold uppercase transition-all ${
-                timeRange === range.value
-                  ? "bg-lime text-black border-2 border-black shadow-[2px_2px_0_0_#000]"
-                  : "text-gray-600 hover:text-black hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-zinc-700"
-              }`}
-            >
-              {range.label}
-            </button>
-          ))}
+        <div className="bg-white p-1 border-2 border-black dark:bg-zinc-900 dark:border-white">
+          <AnalyticsDateRangePicker value={timeRange} onChange={setTimeRange} />
         </div>
       </div>
 
