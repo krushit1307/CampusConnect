@@ -1,4 +1,3 @@
-import { AnimatePresence, motion } from "framer-motion";
 import { FeedPostSkeleton } from "@/components/FeedPostSkeleton";
 import {
   useMutation,

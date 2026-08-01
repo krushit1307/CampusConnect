@@ -1,6 +1,7 @@
 import { QueryClientProvider, queryClient } from "@/hooks/useReactQueryReplacement";
 import { Suspense, lazy, useEffect, useState } from "react";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, LazyMotion } from "framer-motion";
+import { loadDomAnimation } from "@/lib/motionFeatures";
 import {
   createBrowserRouter,
   RouterProvider,
@@ -271,13 +272,24 @@ export default function App() {
       <TooltipProvider>
         <QueryClientProvider client={queryClient}>
           <ErrorBoundary>
-            <CommandPalette />
-            {/* Floating Dark Mode Toggle */}
-            <div className="fixed bottom-4 right-4 z-[9999]">
-              <ThemeToggle />
-            </div>
+            {/*
+              App-wide LazyMotion provider. Every `m.*` component in the tree
+              renders using this lightweight `domAnimation` feature set
+              (fetched from a separate chunk) instead of statically bundling
+              framer-motion's full ~35kb `motion` object. `strict` is only
+              enabled in dev so that any stray `motion.div` (which would
+              silently pull in the full bundle) throws loudly during
+              development instead of shipping to production.
+            */}
+            <LazyMotion features={loadDomAnimation} strict={import.meta.env.DEV}>
+              <CommandPalette />
+              {/* Floating Dark Mode Toggle */}
+              <div className="fixed bottom-4 right-4 z-[9999]">
+                <ThemeToggle />
+              </div>
 
-            <RouterProvider router={router} />
+              <RouterProvider router={router} />
+            </LazyMotion>
           </ErrorBoundary>
         </QueryClientProvider>
       </TooltipProvider>
