@@ -98,9 +98,22 @@ serve(async (req) => {
 
     const fullName = attendee?.full_name || "Student";
 
-    // 3. Generate PDF
-    const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([600, 400]);
+    // 3. Generate PDF using template from Storage if available, else create new PDF
+    let pdfDoc: PDFDocument;
+    const { data: templateData } = await supabase.storage
+      .from("certificates")
+      .download("template.pdf");
+
+    if (templateData) {
+      const templateBuffer = await templateData.arrayBuffer();
+      pdfDoc = await PDFDocument.load(templateBuffer);
+    } else {
+      pdfDoc = await PDFDocument.create();
+      pdfDoc.addPage([600, 400]);
+    }
+
+    const pages = pdfDoc.getPages();
+    const page = pages[0] || pdfDoc.addPage([600, 400]);
     const helveticaFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     const helveticaNormal = await pdfDoc.embedFont(StandardFonts.Helvetica);
 

@@ -1,8 +1,9 @@
-import React, { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { VirtualList } from "../components/ui/VirtualList";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { DirectoryCardSkeleton } from "../components/ui/DirectoryCardSkeleton";
+import { EmptyState } from "@/components/EmptyState";
 
 interface UserProfile {
   id: number;
@@ -101,6 +102,22 @@ export default function Directory() {
               <DirectoryCardSkeleton key={i} />
             ))}
           </div>
+        ) : filteredUsers.length === 0 ? (
+          <EmptyState
+            illustrationType="no-results"
+            title="No people match that search"
+            description="Try a different name, major, or interest."
+            actionButton={
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-white"
+              >
+                Clear search
+              </button>
+            }
+            className="border-0 shadow-none"
+          />
         ) : (
           <VirtualList
             items={filteredUsers}
@@ -108,10 +125,18 @@ export default function Directory() {
             itemHeight={88}
             overscan={5}
             renderItem={(user) => (
-              <div className="flex items-center justify-between p-4 border-b h-full hover:bg-muted/50 transition-colors">
+              <div
+                key={user.id}
+                className="flex items-center justify-between p-4 border-b h-full hover:bg-muted/50 transition-colors"
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
-                    {user.name.slice(0, 2).toUpperCase()}
+                    {user.name
+                      .split(" ")
+                      .map((part) => part[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase()}
                   </div>
                   <div>
                     <div className="font-semibold text-sm">{user.name}</div>
@@ -126,9 +151,9 @@ export default function Directory() {
                     {user.role}
                   </span>
                   <div className="flex gap-1 flex-wrap justify-end">
-                    {user.interests.map((interest, idx) => (
+                    {user.interests.map((interest) => (
                       <span
-                        key={idx}
+                        key={`${user.id}-${interest}`}
                         className="text-[10px] px-1.5 py-0.5 rounded-full border border-primary/20 text-primary/70"
                       >
                         {interest}

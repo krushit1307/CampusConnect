@@ -5,6 +5,9 @@ interface UseFocusTrapOptions {
   onClose: () => void;
 }
 
+// Global stack to keep track of active custom focus traps
+const activeTraps: HTMLElement[] = [];
+
 export function useFocusTrap<T extends HTMLElement>(
   options: UseFocusTrapOptions,
 ): RefObject<T | null> {
@@ -19,6 +22,9 @@ export function useFocusTrap<T extends HTMLElement>(
 
     const container = containerRef.current;
     if (!container) return;
+
+    // Add this container to the active traps stack
+    activeTraps.push(container);
 
     // Find all focusable elements inside the modal container
     const focusableSelector =
@@ -37,6 +43,28 @@ export function useFocusTrap<T extends HTMLElement>(
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+
+      // If document.activeElement is inside some other active trap, let that trap handle it
+      if (activeEl) {
+        const containingTrap = activeTraps.find(
+          (trap) => trap !== container && trap.contains(activeEl),
+        );
+        if (containingTrap) return;
+      }
+
+      // Check if focus has been moved to a nested Radix component (like a portal dropdown/modal)
+      if (activeEl && !container.contains(activeEl)) {
+        // If focus is inside a Radix Dialog/Popover/Menu or focus guard, let it handle the event
+        if (
+          activeEl.closest('[role="dialog"]') ||
+          activeEl.closest('[role="menu"]') ||
+          activeEl.closest("[data-radix-focus-guard]")
+        ) {
+          return;
+        }
+      }
+
       // Handle Escape key
       if (event.key === "Escape") {
         options.onClose();
@@ -74,6 +102,13 @@ export function useFocusTrap<T extends HTMLElement>(
 
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
+
+      // Remove this container from the active traps stack
+      const index = activeTraps.indexOf(container);
+      if (index !== -1) {
+        activeTraps.splice(index, 1);
+      }
+
       // Restore focus to original element upon closing
       if (previousActiveElement.current) {
         previousActiveElement.current.focus();

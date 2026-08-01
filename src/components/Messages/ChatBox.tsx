@@ -30,6 +30,7 @@ interface Message {
   encrypted_content: string;
   iv: string;
   created_at: string;
+  read_at: string | null;
   content?: string;
   decryptFailed?: boolean;
 }
@@ -56,6 +57,7 @@ export default function ChatBox() {
   } | null>(null);
   const [sharedKeys, setSharedKeys] = useState<Record<string, CryptoKey>>({});
 
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Stable per-conversation presence channel name:
@@ -114,7 +116,6 @@ export default function ChatBox() {
           const { error } = await supabase.from("user_public_keys").upsert({
             user_id: user.id,
             public_key: pubJwk,
-            updated_at: new Date().toISOString(),
           });
 
           if (error) {
@@ -141,6 +142,7 @@ export default function ChatBox() {
       if (initializingKeys || !currentUser) return;
       setLoadingProfiles(true);
       try {
+        const blockedIds = await getBlockedUserIds(currentUser.id);
         const { data, error } = await supabase
           .from("profiles")
           .select("id, full_name, avatar_url, college")
@@ -148,8 +150,9 @@ export default function ChatBox() {
           .order("full_name", { ascending: true });
 
         if (error) throw error;
-        setProfiles(data || []);
-        setFilteredProfiles(data || []);
+        const availableProfiles = (data || []).filter((p) => !blockedIds.has(p.id));
+        setProfiles(availableProfiles);
+        setFilteredProfiles(availableProfiles);
       } catch (err) {
         console.error("Failed to load profiles:", err);
         toast.error("Failed to load direct messaging contacts.");
@@ -277,6 +280,51 @@ export default function ChatBox() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // 5b. Mark received messages as read
+  const markMessagesAsRead = async () => {
+    if (!currentUser || !activeRecipient) return;
+
+    const unreadIds = messages
+      .filter((m) => m.receiver_id === currentUser.id && !m.read_at)
+      .map((m) => m.id);
+
+    if (unreadIds.length === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from("direct_messages")
+        .update({ read_at: new Date().toISOString() })
+        .in("id", unreadIds);
+
+      if (error) throw error;
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          unreadIds.includes(m.id) ? { ...m, read_at: new Date().toISOString() } : m,
+        ),
+      );
+    } catch (err) {
+      console.error("Failed to mark messages as read:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (!messages.length || !currentUser) return;
+
+    const hasUnread = messages.some((m) => m.receiver_id === currentUser.id && !m.read_at);
+
+    if (!hasUnread) return;
+
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+
+    if (isAtBottom) {
+      markMessagesAsRead();
+    }
+  }, [messages, currentUser, activeRecipient]);
+
   // 6. Subscribing to real-time updates for direct messages
   const channelRef = useRef<RealtimeChannel | null>(null);
 
@@ -381,6 +429,13 @@ export default function ChatBox() {
     if (!inputMessage.trim() || !activeRecipient || !currentUser || !userKeys) return;
 
     try {
+      // Execute validation check: Throw 403 error if receiver blocked sender or sender blocked receiver
+      const validation = await validateDirectMessageSend(currentUser.id, activeRecipient.id);
+      if (!validation.allowed) {
+        toast.error(validation.error || "403 Forbidden: Direct messaging is blocked.");
+        return;
+      }
+
       const { data: keyData } = await supabase
         .from("user_public_keys")
         .select("public_key")
@@ -452,7 +507,6 @@ export default function ChatBox() {
       const { error } = await supabase.from("user_public_keys").upsert({
         user_id: currentUser.id,
         public_key: pubJwk,
-        updated_at: new Date().toISOString(),
       });
 
       if (error) throw error;
@@ -535,9 +589,27 @@ export default function ChatBox() {
             {loadingProfiles ? (
               <div className="py-8 text-center font-mono text-xs">Loading students...</div>
             ) : filteredProfiles.length === 0 ? (
-              <div className="py-8 text-center font-mono text-xs text-gray-500">
-                No students found.
-              </div>
+              <EmptyState
+                illustrationType={searchQuery ? "no-results" : "no-messages"}
+                title={searchQuery ? "No students found" : "Your inbox is quiet"}
+                description={
+                  searchQuery
+                    ? "Try a different name, college, or keyword."
+                    : "Find a student to start a conversation."
+                }
+                actionButton={
+                  searchQuery ? (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-white"
+                    >
+                      Clear search
+                    </button>
+                  ) : undefined
+                }
+                className="border-0 px-3 py-8 shadow-none"
+              />
             ) : (
               <div className="space-y-1.5">
                 {filteredProfiles.map((profile) => {
@@ -600,7 +672,10 @@ export default function ChatBox() {
               </div>
 
               {/* Messages Area */}
-              <div className="flex-1 h-[420px] overflow-y-auto bg-slate-50 dark:bg-zinc-950 p-4 space-y-3">
+              <div
+                ref={messagesContainerRef}
+                className="flex-1 h-[420px] overflow-y-auto bg-slate-50 dark:bg-zinc-950 p-4 space-y-3"
+              >
                 {recipientKeyError ? (
                   <div className="flex h-full items-center justify-center p-4">
                     <div className="max-w-md border-2 border-black bg-yellow-50 p-6 text-center text-black shadow-md">
@@ -653,8 +728,45 @@ export default function ChatBox() {
                             <div className="mt-1.5 flex items-center justify-between gap-4 font-mono text-[9px] uppercase opacity-60">
                               <span>{time}</span>
                               <span className="flex items-center gap-0.5">
-                                <Lock size={8} />
-                                E2EE
+                                {isMe ? (
+                                  msg.read_at ? (
+                                    <span
+                                      className="flex items-center gap-0.5 text-blue-600"
+                                      title="Read"
+                                    >
+                                      <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
+                                        <path
+                                          d="M1 5.5L4 8.5L9 1"
+                                          stroke="currentColor"
+                                          strokeWidth="2"
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                        />
+                                        <path
+                                          d="M6 5.5L9 8.5L13 1"
+                                          stroke="currentColor"
+                                          strokeWidth="2"
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                        />
+                                      </svg>
+                                    </span>
+                                  ) : (
+                                    <span className="flex items-center gap-0.5" title="Sent">
+                                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                        <path
+                                          d="M1 5L4 8L9 1"
+                                          stroke="currentColor"
+                                          strokeWidth="2"
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                        />
+                                      </svg>
+                                    </span>
+                                  )
+                                ) : (
+                                  <Lock size={8} />
+                                )}
                               </span>
                             </div>
                           </div>
@@ -702,6 +814,25 @@ export default function ChatBox() {
                       placeholder="Type a secure message..."
                       className="flex-1 border-2 border-black px-3 py-2 font-mono text-sm focus:outline-none dark:bg-zinc-800 dark:border-cream dark:text-cream"
                     />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          className="h-10 w-10 border-2 border-black bg-yellow-300 text-black neu-border neu-press"
+                        >
+                          <Smile className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent side="top" align="end" className="p-0 border-2 border-black">
+                        <EmojiPicker
+                          onEmojiClick={(emojiData) =>
+                            setInputMessage((prev) => prev + emojiData.emoji)
+                          }
+                        />
+                      </PopoverContent>
+                    </Popover>
                     <Button
                       type="submit"
                       size="icon"

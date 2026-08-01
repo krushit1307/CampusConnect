@@ -2,6 +2,8 @@ import express from "express";
 import { handleWebFinger } from "./webfinger";
 import activityPubRouter from "./routes";
 import webhookRouter from "./webhook";
+import { logger } from "./logger";
+import { requestLogger } from "./logging";
 
 export const DOMAIN = process.env.DOMAIN || "localhost:3002";
 const PORT = parseInt(process.env.PORT || "3002", 10);
@@ -14,6 +16,8 @@ app.use(
   }),
 );
 
+app.use(requestLogger);
+
 app.get("/.well-known/webfinger", handleWebFinger);
 
 app.use("/api/activitypub", activityPubRouter);
@@ -24,8 +28,13 @@ app.get("/health", (_req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`[ActivityPub] Server running on port ${PORT}`);
-  console.log(`[ActivityPub] Domain: ${DOMAIN}`);
-  console.log(`[ActivityPub] WebFinger: /.well-known/webfinger`);
-  console.log(`[ActivityPub] Actors: /api/activitypub/actors/:slug`);
+  logger.info(
+    {
+      port: PORT,
+      domain: DOMAIN,
+      webfinger: "/.well-known/webfinger",
+      actors: "/api/activitypub/actors/:slug",
+    },
+    "ActivityPub server listening",
+  );
 });

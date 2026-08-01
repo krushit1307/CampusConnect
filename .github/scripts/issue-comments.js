@@ -27,14 +27,13 @@ export async function processIssueCommentGuidance({ github, context, core }) {
   const body = context.payload.comment?.body || "";
   if (isIgnoredBotUser(context.payload.comment?.user)) return;
   if (isCommand(body, COMMANDS.claim) || isCommand(body, COMMANDS.unclaim)) return;
-  if (!isNaturalLanguageClaim(body)) return;
+  if (isNaturalLanguageClaim(body)) return;
 
   const issueNumber = context.payload.issue.number;
   const issue = await getIssue(github, context, core, issueNumber);
   if (!issue) return;
 
-  const currentAssignee = issue.assignees?.[0]?.login;
-  if (currentAssignee === actor) return;
+  if (issue.assignees && issue.assignees.length > 0) return;
 
   const metadata = readMetadata(issue.body);
   const key = `${actor}:issue-${issueNumber}`;
@@ -55,7 +54,7 @@ export async function processIssueCommentGuidance({ github, context, core }) {
     context,
     core,
     issueNumber,
-    withMarker(marker, comments.naturalLanguageClaimGuidance({ user: actor })),
+    withMarker(marker, comments.generalCommentClaimGuidance({ user: actor })),
   );
   await updateIssueMetadata(github, context, core, issue, (draft) => {
     const guidance = draft.guidance || {};

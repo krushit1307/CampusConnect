@@ -8,8 +8,13 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test-setup.ts"],
     globals: true,
-    pool: "vmForks",
-    include: ["src/**/*.test.{ts,tsx}"],
+    include: [
+      "src/**/*.test.{ts,tsx}",
+      "graphql/**/*.test.{ts,tsx}",
+      "tests/**/*.test.{ts,tsx}",
+      "tests/**/*.test.ts",
+      "tests/**/*.test.tsx",
+    ],
     exclude: ["node_modules/**", "dist/**", "e2e/**", ".github/**", "tools/**"],
   },
   resolve: {
