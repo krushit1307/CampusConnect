@@ -37,3 +37,7 @@ jobs:
         env:
           # Supabase local URLs are default in CI
           VITE_SUPABASE_URL: http://127.0.0.1:54321
+
+      - name: Run ActivityPub API contract tests
+        working-directory: services/activitypub
+        run: npm install && npm run test:contract
