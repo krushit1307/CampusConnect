@@ -224,7 +224,4 @@ export default defineConfig({
     },
   },
 });
-plugins: [
-    react(),
-    svgr(),
-]
+plugins: [react(), svgr()];

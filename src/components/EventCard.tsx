@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import {
   formatDate,
   formatEventDateRange,
@@ -9,11 +8,6 @@ import {
 import { Link } from "react-router-dom";
 import React, { FormEvent, useState, useMemo, useEffect, useRef } from "react";
 import { Calendar, Check, Share2, X, Link as LinkIcon, Bookmark } from "lucide-react";
-=======
-import { formatDate } from "@/lib/utils";
-import { FormEvent, useState } from "react";
-import { X, Bookmark } from "lucide-react";
->>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
 import { toast } from "sonner";
 import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";
@@ -53,7 +47,6 @@ interface EventCardProps {
   isRsvpPending: boolean;
   onBookmarkToggle: (eventId: string, isSaved: boolean) => void;
   isBookmarkPending: boolean;
-<<<<<<< HEAD
   active?: boolean;
 }
 
@@ -165,10 +158,6 @@ function renderLocationWithLinks(locationText: string | null) {
     return part;
   });
 }
-=======
-}
-
->>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
 export function EventCard({
   event,
   index,
@@ -177,10 +166,7 @@ export function EventCard({
   isRsvpPending,
   onBookmarkToggle,
   isBookmarkPending,
-<<<<<<< HEAD
   active,
-=======
->>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
 }: EventCardProps) {
   const club = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs;
   const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
@@ -278,7 +264,6 @@ export function EventCard({
   };
 
   return (
-<<<<<<< HEAD
     <div className="group">
       <article
         id={`event-${event.id}`}
@@ -298,22 +283,6 @@ export function EventCard({
                 ? formatDate(event.event_date).split(" at ")[0].toUpperCase()
                 : "TBA"}
             </p>
-=======
-    <article className={`neu-border p-5 relative ${colors[index % colors.length]}`}>
-      <button
-        type="button"
-        onClick={handleBookmarkClick}
-        disabled={isBookmarkPending}
-        className="absolute right-4 top-4 neu-border p-1.5 bg-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-        aria-label={isSaved ? "Unsave event" : "Save event"}
-      >
-        <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
-      </button>
-
-      <p className="font-mono text-xs font-bold uppercase tracking-wider pr-10">
-        {event.event_date ? formatDate(event.event_date).split(" at ")[0].toUpperCase() : "TBA"}
-      </p>
->>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
 
             {event.event_date && (
               <span

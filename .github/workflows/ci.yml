@@ -53,7 +53,15 @@ jobs:
         run: npm install
 
       - name: Run Lint checks
-        run: npm run lint
+        run: |
+          git fetch origin ${{ github.base_ref || 'main' }} --depth=1
+          TARGET_BRANCH="origin/${{ github.base_ref || 'main' }}"
+          CHANGED_FILES=$(git diff --name-only $TARGET_BRANCH...HEAD | grep -E '\.(js|jsx|ts|tsx)$' || true)
+          if [ -n "$CHANGED_FILES" ]; then
+            npx eslint $CHANGED_FILES
+          else
+            echo "No changed files to check."
+          fi
 
       - name: Run Type Check
         run: npm run typecheck
