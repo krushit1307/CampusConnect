@@ -1356,7 +1356,6 @@ SELECT id, raw_user_meta_data->>'full_name', raw_user_meta_data->>'avatar_url'
 FROM auth.users
 ON CONFLICT (id) DO NOTHING;
 
-
 -- Enable pg_trgm extension
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
@@ -1382,4 +1381,3 @@ BEGIN
     ORDER BY similarity(name, search_term) DESC;
 END;
 $$;
-

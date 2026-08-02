@@ -75,12 +75,12 @@ export function Wizard<TFieldValues extends FieldValues>({
     if (!hydrated) return;
     let furthestReachable = 1;
     for (let i = 0; i < steps.length - 1; i += 1) {
-      const previousStepsComplete = steps
-        .slice(0, i + 1)
-        .every((s) => s.fields.every((f) => {
+      const previousStepsComplete = steps.slice(0, i + 1).every((s) =>
+        s.fields.every((f) => {
           const value = form.getValues(f);
           return value !== undefined && value !== null && value !== "";
-        }));
+        }),
+      );
       if (!previousStepsComplete) break;
       furthestReachable = i + 2;
     }
@@ -126,12 +126,12 @@ export function Wizard<TFieldValues extends FieldValues>({
             <button
               type="button"
               onClick={() => {
-                const reachable = steps
-                  .slice(0, index)
-                  .every((st) => st.fields.every((f) => {
+                const reachable = steps.slice(0, index).every((st) =>
+                  st.fields.every((f) => {
                     const value = form.getValues(f);
                     return value !== undefined && value !== null && value !== "";
-                  }));
+                  }),
+                );
                 if (reachable) goToStep(index + 1);
               }}
               className={`neu-border px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer ${

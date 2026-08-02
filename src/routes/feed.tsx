@@ -24,7 +24,7 @@ import {
   Flag,
   MoreVertical,
 } from "lucide-react";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { ViewToggleGroup, type FeedViewMode } from "@/components/ui/ViewToggleGroup";import { useEffect, useRef, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -229,9 +229,9 @@ export default function Feed() {
     enabled: !!user?.id,
   });
 
-  const [selectedClubId, setSelectedClubId] = useState("");
+const [selectedClubId, setSelectedClubId] = useState("");
   const [feedMode, setFeedMode] = useState<"latest" | "trending">("latest");
-
+  const [viewMode, setViewMode] = useState<FeedViewMode>("list");
   useEffect(() => {
     if (userClubs.length > 0 && !selectedClubId) {
       const firstClub = Array.isArray(userClubs[0].clubs)
@@ -1145,13 +1145,13 @@ export default function Feed() {
               />
             </div>
 
-            {/* ── Feed mode tabs ── */}
+{/* ── Feed mode tabs ── */}
             <div
               role="tablist"
               aria-label="Feed mode"
-              className="flex gap-2 border-b-2 border-black pb-4 dark:border-cream"
+              className="flex items-center justify-between gap-2 border-b-2 border-black pb-4 dark:border-cream"
             >
-              <button
+              <ViewToggleGroup value={viewMode} onValueChange={setViewMode} />              <button
                 role="tab"
                 type="button"
                 id="tab-latest"

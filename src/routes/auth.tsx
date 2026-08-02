@@ -62,13 +62,13 @@ export default function AuthPage() {
 
   const signUpPassword = signUpForm.watch("password");
 
-function switchMode(nextMode: "signin" | "signup") {
-  setMode(nextMode);
-  setError(null);
-  setCaptchaToken("");
-  signInForm.reset();
-  signUpForm.reset();
-}
+  function switchMode(nextMode: "signin" | "signup") {
+    setMode(nextMode);
+    setError(null);
+    setCaptchaToken("");
+    signInForm.reset();
+    signUpForm.reset();
+  }
 
   async function onSignIn(values: SignInFormValues) {
     setLoading(true);
@@ -113,10 +113,10 @@ function switchMode(nextMode: "signin" | "signup") {
 
     try {
       if (!captchaToken) {
-    toast.error("Please complete CAPTCHA verification.");
-    setLoading(false);
-    return;
-}
+        toast.error("Please complete CAPTCHA verification.");
+        setLoading(false);
+        return;
+      }
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: values.email,
         password: values.password,
@@ -429,31 +429,25 @@ function switchMode(nextMode: "signin" | "signup") {
                       </FormItem>
                     )}
                   />
-<Turnstile
-    siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
-    onSuccess={(token) => setCaptchaToken(token)}
-    onExpire={() => setCaptchaToken("")}
-    onError={() => setCaptchaToken("")}
-/>
                   <Turnstile
-  siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
-  onSuccess={(token) => setCaptchaToken(token)}
-  onExpire={() => setCaptchaToken("")}
-  onError={() => setCaptchaToken("")}
-/>
+                    siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+                    onSuccess={(token) => setCaptchaToken(token)}
+                    onExpire={() => setCaptchaToken("")}
+                    onError={() => setCaptchaToken("")}
+                  />
+                  <Turnstile
+                    siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+                    onSuccess={(token) => setCaptchaToken(token)}
+                    onExpire={() => setCaptchaToken("")}
+                    onError={() => setCaptchaToken("")}
+                  />
 
-{captchaToken && (
-  <p className="text-green-600 text-sm">
-    CAPTCHA verified
-  </p>
-)}
+                  {captchaToken && <p className="text-green-600 text-sm">CAPTCHA verified</p>}
                   <Button
                     type="submit"
                     disabled={
-    loading ||
-    !captchaToken ||
-    getPasswordStrength(signUpPassword) === "weak"
-}
+                      loading || !captchaToken || getPasswordStrength(signUpPassword) === "weak"
+                    }
                     variant="primary"
                     className="w-full bg-black text-cream hover:bg-black/90 cursor-pointer shadow-[3px_3px_0_0_var(--color-ink)]"
                   >

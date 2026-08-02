@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { createClient } from "@/lib/supabase/client";
+import { triggerConfetti } from "@/utils/confetti";
 import {
   clubFormSchema,
   type ClubFormValues,
@@ -117,10 +118,12 @@ export default function CreateClubWizard() {
 
       sessionStorage.removeItem(STORAGE_KEY);
       toast.success("Club submitted for administrator review.");
+      triggerConfetti();
       window.dispatchEvent(new Event("refetchClubs"));
       navigate("/clubs");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Couldn't create the club. Please try again.";
+      const message =
+        err instanceof Error ? err.message : "Couldn't create the club. Please try again.";
       toast.error(message);
     } finally {
       setIsSubmitting(false);
@@ -335,8 +338,8 @@ export default function CreateClubWizard() {
             Create a Club
           </h1>
           <p className="font-mono text-xs text-gray-500">
-            Five quick steps. Your progress is saved as you type, so refreshing the page never
-            loses your work.
+            Five quick steps. Your progress is saved as you type, so refreshing the page never loses
+            your work.
           </p>
         </div>
 
@@ -394,11 +397,7 @@ function SocialLinkField({
   );
 }
 
-function ReviewSummary({
-  form,
-}: {
-  form: ReturnType<typeof useForm<ClubWizardFormValues>>;
-}) {
+function ReviewSummary({ form }: { form: ReturnType<typeof useForm<ClubWizardFormValues>> }) {
   const values = form.watch();
 
   const rows = [
@@ -436,7 +435,9 @@ function ReviewSummary({
         </div>
       )}
       {!values.name && (
-        <p className="font-mono text-xs text-gray-500">Nothing to review yet — go back and fill in the steps.</p>
+        <p className="font-mono text-xs text-gray-500">
+          Nothing to review yet — go back and fill in the steps.
+        </p>
       )}
     </div>
   );
