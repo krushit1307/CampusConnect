@@ -4,8 +4,14 @@ import { redis } from "./redis.ts";
 export const loginLimiter = new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(5, "15 m"),
-
   analytics: true,
-
   prefix: "login-limit",
+});
+
+// Allows bursts of 10 search requests and refills one token every second.
+export const globalSearchLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.tokenBucket(10, "1 s", 1),
+  analytics: true,
+  prefix: "global-search-limit",
 });

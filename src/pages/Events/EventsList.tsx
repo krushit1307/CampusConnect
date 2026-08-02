@@ -181,16 +181,11 @@ export default function EventsList() {
       let fetchedCount: number | null = null;
 
       if (searchQuery.trim()) {
-        const { data, error } = await supabase
-          .rpc("search_events_advanced", { query_string: searchQuery })
-          .select(
-            `
-            id, title, description, event_date, start_date, end_date, location, banner_url, created_at, max_attendees,
-            clubs (name),
-            event_rsvps(count),
-            saved_events(count)
-          `,
-          );
+        const { data, error } = await supabase.functions.invoke("global-search", {
+          body: {
+            query: searchQuery,
+          },
+        });
         if (error) throw error;
         const results = (data || []) as unknown[];
         fetchedData = results;
@@ -476,7 +471,7 @@ export default function EventsList() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [isLoadingMore, hasMore, page, supabase]);
+  }, [isLoadingMore, hasMore, page, supabase, filters, user]);
 
   // Infinite scroll: auto-trigger load when sentinel enters the viewport
   useEffect(() => {
