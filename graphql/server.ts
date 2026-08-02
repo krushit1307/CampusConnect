@@ -1,4 +1,4 @@
-import { createSchema, createYoga } from "graphql-yoga";
+import { createSchema, createYoga, createGraphQLError, type Plugin } from "graphql-yoga";
 import {
   typeDefs,
   resolvers,
@@ -12,6 +12,64 @@ import { createClient } from "../src/lib/supabase/client";
 import { closePool } from "./db";
 import { requestLoggingPlugin } from "./request-logging";
 import { openTelemetryPlugin, initializeBackendTracing } from "./tracing";
+
+// Rate limiting in-memory map
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+// Periodic cleanup of expired rate limit entries to prevent unbounded memory growth
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of rateLimitMap.entries()) {
+    if (value.resetAt < now) {
+      rateLimitMap.delete(key);
+    }
+  }
+}, 60000).unref();
+
+function checkRateLimit(contextValue: unknown) {
+  const context = contextValue as Record<string, unknown>;
+  const request = context.request as Request | undefined;
+  const user = context.user as { id?: string } | undefined;
+
+  let ip = request?.headers?.get("x-forwarded-for") || request?.headers?.get("x-real-ip");
+  if (!ip) {
+    const req = context.req as
+      { socket?: { remoteAddress?: string }; info?: { remoteAddress?: string } } | undefined;
+    ip = req?.socket?.remoteAddress || req?.info?.remoteAddress || "127.0.0.1";
+  }
+
+  const identifier = user?.id ? `user:${user.id}` : `ip:${ip}`;
+
+  const limit = user?.id ? 120 : 30;
+  const now = Date.now();
+
+  let record = rateLimitMap.get(identifier);
+  if (!record || record.resetAt < now) {
+    record = { count: 0, resetAt: now + 60000 };
+    rateLimitMap.set(identifier, record);
+  }
+
+  record.count += 1;
+
+  if (record.count > limit) {
+    throw createGraphQLError("Too Many Requests", {
+      extensions: {
+        http: { status: 429 },
+      },
+    });
+  }
+}
+
+function rateLimitPlugin(): Plugin {
+  return {
+    onExecute({ args }) {
+      checkRateLimit(args.contextValue);
+    },
+    onSubscribe({ args }) {
+      checkRateLimit(args.contextValue);
+    },
+  };
+}
 
 // Initialize OpenTelemetry backend tracing provider on server startup
 initializeBackendTracing();
@@ -63,7 +121,7 @@ export const yoga = createYoga({
 
     return { user };
   },
-  plugins: [requestLoggingPlugin(), openTelemetryPlugin()],
+  plugins: [requestLoggingPlugin(), openTelemetryPlugin(), rateLimitPlugin()],
 });
 
 // Re-export for use by server-side event producers (mention handlers, etc.)
@@ -80,9 +138,11 @@ async function gracefulShutdown(signal: string) {
   if (isShuttingDown) return;
   isShuttingDown = true;
 
+  // eslint-disable-next-line no-console
   console.log(`[server] Received ${signal}, closing Postgres pool...`);
   try {
     await closePool();
+    // eslint-disable-next-line no-console
     console.log("[server] Postgres pool closed cleanly.");
   } catch (err) {
     console.error("[server] Error while closing Postgres pool:", err);

@@ -10,6 +10,25 @@ import {
 } from "../../graphql/resolvers";
 
 vi.mock("../../src/lib/supabase/client", () => {
+  const mockPosts = [
+    {
+      id: "post-1",
+      club_id: "club-1",
+      author_id: "usr-1",
+      content: "Post One Content",
+      created_at: "2026-08-01T10:00:00Z",
+      pinned: false,
+    },
+    {
+      id: "post-2",
+      club_id: "club-1",
+      author_id: "usr-1",
+      content: "Post Two Content",
+      created_at: "2026-07-26T10:00:00Z",
+      pinned: false,
+    },
+  ];
+
   const mockEvents = [
     {
       id: "evt-1",
@@ -48,6 +67,23 @@ vi.mock("../../src/lib/supabase/client", () => {
         subscribe: vi.fn().mockReturnThis(),
       })),
       from: vi.fn().mockImplementation((table: string) => {
+        if (table === "posts") {
+          return {
+            select: vi.fn().mockImplementation(() => ({
+              is: vi.fn().mockReturnThis(),
+              or: vi.fn().mockReturnThis(),
+              order: vi.fn().mockReturnThis(),
+              limit: vi.fn().mockImplementation((limitVal: number) => {
+                const sliced = mockPosts.slice(0, limitVal);
+                return Promise.resolve({
+                  data: sliced,
+                  count: mockPosts.length,
+                  error: null,
+                });
+              }),
+            })),
+          };
+        }
         if (table === "events") {
           return {
             select: vi.fn().mockImplementation(() => ({
@@ -485,5 +521,48 @@ describe("GraphQL clubs Query Cached Resolver", () => {
     const body3 = await res3.json();
     expect(body3.errors).toBeUndefined();
     expect(body3.data.clubs[0].name).toBe("Robotics Club");
+  });
+});
+
+describe("GraphQL posts Keyset Pagination Resolver", () => {
+  it("paginates posts using cursors correctly", async () => {
+    const query = /* GraphQL */ `
+      query GetPosts($first: Int, $after: String) {
+        posts(first: $first, after: $after) {
+          edges {
+            cursor
+            node {
+              id
+              content
+              created_at
+            }
+          }
+          nodes {
+            id
+            content
+          }
+          pageInfo {
+            hasNextPage
+            hasPreviousPage
+            startCursor
+            endCursor
+          }
+          totalCount
+        }
+      }
+    `;
+
+    const res = await yoga.fetch("http://localhost:4000/api/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, variables: { first: 2 } }),
+    });
+
+    const body = await res.json();
+    expect(body.errors).toBeUndefined();
+    expect(body.data.posts.edges).toHaveLength(2);
+    expect(body.data.posts.pageInfo.hasNextPage).toBe(false);
+    expect(body.data.posts.pageInfo.hasPreviousPage).toBe(false);
+    expect(body.data.posts.edges[0].cursor).toBeDefined();
   });
 });

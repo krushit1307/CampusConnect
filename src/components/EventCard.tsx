@@ -158,17 +158,12 @@ function renderLocationWithLinks(locationText: string | null) {
     return part;
   });
 }
-=======
-}
-
->>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
 export function EventCard({
   event,
   index,
   user,
-  onRsvpToggle,
-  isRsvpPending,
   onBookmarkToggle,
+  isBookmarkPending,
   active,
 }: EventCardProps) {
   const club = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs;

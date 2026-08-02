@@ -49,10 +49,10 @@ export async function parseJsonBody<T extends z.ZodType>(
   } catch {
     return {
       ok: false,
-      response: new Response(
-        JSON.stringify({ error: "Invalid JSON body", fields: {} }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      ),
+      response: new Response(JSON.stringify({ error: "Invalid JSON body", fields: {} }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }),
     };
   }
 
