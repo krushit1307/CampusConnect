@@ -2,7 +2,6 @@
 
 -- 1. Create dummy authenticated users in auth.users
 -- Default password: password123 (encrypted using blowfish crypt)
-<<<<<<< HEAD
 INSERT INTO
     auth.users (
         instance_id,
@@ -89,7 +88,6 @@ INSERT INTO auth.users (
   NOW(),
   NOW()
 )
->>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
 ON CONFLICT (id) DO NOTHING;
 
 -- 2. Update profiles details (triggers automatically created them on auth.users insert)
@@ -160,7 +158,6 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- 4. Club Memberships
-<<<<<<< HEAD
 INSERT INTO
     club_members (
         id,
@@ -190,31 +187,6 @@ VALUES (
         '90000000-0000-0000-0000-000000000002',
         'approved'
     )
-=======
-INSERT INTO club_members (id, club_id, user_id, role, status)
-VALUES
-(
-  'b0000000-0000-0000-0000-000000000001',
-  'c0000000-0000-0000-0000-000000000001',
-  'd0000000-0000-0000-0000-000000000001',
-  'admin',
-  'approved'
-),
-(
-  'b0000000-0000-0000-0000-000000000002',
-  'c0000000-0000-0000-0000-000000000002',
-  'd0000000-0000-0000-0000-000000000002',
-  'admin',
-  'approved'
-),
-(
-  'b0000000-0000-0000-0000-000000000003',
-  'c0000000-0000-0000-0000-000000000001',
-  'd0000000-0000-0000-0000-000000000002',
-  'member',
-  'approved'
-)
->>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
 ON CONFLICT (id) DO NOTHING;
 
 -- 5. Dummy Events
@@ -323,7 +295,6 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO budgets (id, club_id, fiscal_year, total_allocated, description)
 VALUES
 (
-<<<<<<< HEAD
   'b0000000-0000-0000-0000-000000000001',
   'c0000000-0000-0000-0000-000000000001',
   2026,
@@ -343,12 +314,6 @@ VALUES
   2026,
   4000.00,
   'Annual budget for Music Club - 2026'
-=======
-  'cc000000-0000-0000-0000-000000000001',
-  'a0000000-0000-0000-0000-000000000001',
-  'd0000000-0000-0000-0000-000000000002',
-  'Super excited! Cant wait to see what teams build.'
->>>>>>> c1cfe2e49db97643322ead8fecc27703942c5c15
 )
 ON CONFLICT (id) DO NOTHING;
 
