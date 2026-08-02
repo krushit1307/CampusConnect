@@ -1,7 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://esm.sh/zod@3.24.2";
 import { verifyAuth } from "../shared/auth-middleware.ts";
 import { limitRate } from "../shared/rate_limiter.ts";
+import { parseJsonBody } from "../_shared/validation.ts";
+
+const toggleRsvpSchema = z
+  .object({
+    eventId: z.string().uuid("eventId must be a valid UUID"),
+    hasRsvpd: z.boolean().optional(),
+    captchaToken: z.string().optional(),
+  })
+  .strict();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,18 +50,13 @@ serve(async (req: Request) => {
       });
     }
 
-    const { eventId, hasRsvpd, captchaToken } = await req.json();
+    const parsed = await parseJsonBody(toggleRsvpSchema, req);
+    if (!parsed.ok) return parsed.response;
+    const { eventId, hasRsvpd, captchaToken } = parsed.data;
 
     const siteKey = Deno.env.get("TURNSTILE_SITE_KEY") || Deno.env.get("HCAPTCHA_SITE_KEY");
     const secretKey = Deno.env.get("TURNSTILE_SECRET_KEY") || Deno.env.get("HCAPTCHA_SECRET_KEY");
     const captchaEnabled = Boolean(siteKey && secretKey);
-
-    if (!eventId) {
-      return new Response(JSON.stringify({ error: "Missing eventId" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     if (captchaEnabled && typeof captchaToken === "string" && captchaToken.trim()) {
       const provider = Deno.env.get("TURNSTILE_SECRET_KEY") ? "turnstile" : "hcaptcha";

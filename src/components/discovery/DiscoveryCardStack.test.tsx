@@ -9,7 +9,8 @@ import type { ReactNode } from "react";
 // The mock forwards drag handlers and surfaces the live x motion value
 // as data-x so tests can assert state.
 vi.mock("framer-motion", () => ({
-  motion: {
+  LazyMotion: ({ children }: { children: ReactNode }) => <>{children}</>,
+  m: {
     div: ({
       children,
       onDragEnd,

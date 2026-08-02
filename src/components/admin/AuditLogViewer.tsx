@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuditLogs, AuditLog } from "@/hooks/useAuditLogs";
-import { format } from "date-fns";
+import { formatDateTimeSeconds } from "@/lib/dateFormatter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -84,7 +84,7 @@ export function AuditLogViewer() {
               {logs.map((log: AuditLog) => (
                 <TableRow key={log.id} className="border-b border-border">
                   <TableCell className="font-mono text-xs">
-                    {format(new Date(log.created_at), "yyyy-MM-dd HH:mm:ss")}
+                    {formatDateTimeSeconds(log.created_at)}
                   </TableCell>
                   <TableCell className="font-mono text-xs">
                     {log.changed_by?.substring(0, 8) || "System"}

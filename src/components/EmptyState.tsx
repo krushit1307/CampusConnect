@@ -1,12 +1,7 @@
 import { ReactNode } from "react";
 
 export type EmptyStateIllustration =
-  | "no-events"
-  | "no-members"
-  | "no-results"
-  | "no-clubs"
-  | "no-messages"
-  | "no-notifications";
+  "no-events" | "no-members" | "no-results" | "no-clubs" | "no-messages" | "no-notifications";
 
 interface EmptyStateAction {
   label: string;

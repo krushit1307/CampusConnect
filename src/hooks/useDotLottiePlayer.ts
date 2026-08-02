@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { DotLottiePlayer } from '@dotlottie/react-player';
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { DotLottiePlayer } from "@dotlottie/react-player";
 
 /**
  * Configuration options for the DotLottie player hook
@@ -32,7 +32,7 @@ interface UseDotLottiePlayerReturn {
  * Custom hook to manage dotLottie animation instances.
  * Wraps the @dotlottie/react-player to provide programmatic control
  * over playback state, speed, and event listeners.
- * 
+ *
  * @param options - Configuration for the animation
  * @returns Player component and control methods
  */
@@ -90,11 +90,14 @@ export const useDotLottiePlayer = ({
     onComplete?.();
   }, [onComplete]);
 
-  const handleError = useCallback((err: Error) => {
-    console.error('[dotLottie] Animation failed to load or play:', err);
-    setError(err);
-    onError?.(err);
-  }, [onError]);
+  const handleError = useCallback(
+    (err: Error) => {
+      console.error("[dotLottie] Animation failed to load or play:", err);
+      setError(err);
+      onError?.(err);
+    },
+    [onError],
+  );
 
   useEffect(() => {
     if (playerRef.current && autoplay && !isPlaying) {
@@ -115,7 +118,7 @@ export const useDotLottiePlayer = ({
         background: "transparent",
         ...props,
       }),
-    [src, loop, autoplay, currentSpeed, handleError, handleComplete]
+    [src, loop, autoplay, currentSpeed, handleError, handleComplete],
   );
 
   return {

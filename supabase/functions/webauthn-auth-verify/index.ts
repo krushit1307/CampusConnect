@@ -1,11 +1,24 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://esm.sh/zod@3.24.2";
 import { decode as base64urlDecode } from "https://deno.land/std@0.168.0/encoding/base64url.ts";
 import {
   verifySignature,
   parseAuthenticatorData,
   verifyRpIdHash,
 } from "../shared/crypto-verify.ts";
+import { parseJsonBody } from "../_shared/validation.ts";
+
+const webauthnVerifySchema = z
+  .object({
+    credentialId: z.string().min(1, "credentialId is required"),
+    clientDataJSON: z.string().min(1, "clientDataJSON is required"),
+    authenticatorData: z.string().min(1, "authenticatorData is required"),
+    signature: z.string().min(1, "signature is required"),
+    rpId: z.string().optional(),
+    origin: z.string().min(1, "origin is required"),
+  })
+  .strict();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,24 +47,10 @@ serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    const body = await req.json();
-    const { credentialId, clientDataJSON, authenticatorData, signature, rpId, origin } = body;
-
-    // Validate required fields
-    if (!credentialId || !clientDataJSON || !authenticatorData || !signature) {
-      return new Response(JSON.stringify({ error: "Missing required credential data" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // origin is required — omitting it would bypass origin validation below
-    if (!origin) {
-      return new Response(JSON.stringify({ error: "Missing origin" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const parsed = await parseJsonBody(webauthnVerifySchema, req);
+    if (!parsed.ok) return parsed.response;
+    const { credentialId, clientDataJSON, authenticatorData, signature, rpId, origin } =
+      parsed.data;
 
     if (!rpId) {
       return new Response(JSON.stringify({ error: "Missing rpId" }), {

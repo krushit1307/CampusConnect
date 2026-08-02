@@ -1,13 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { getRecommendedClubs, RecommendedClub, encodeUserInterests } from '@/lib/recommendations';
-import { Loader2, Sparkles, Users } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import React, { useState, useEffect } from "react";
+import { getRecommendedClubs, RecommendedClub, encodeUserInterests } from "@/lib/recommendations";
+import { Loader2, Sparkles, Users } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 // Example master tag list (should ideally be fetched from DB or config)
 const MASTER_TAG_LIST = [
-  'Coding', 'Sports', 'Gaming', 'Music', 'Art', 'Debate', 'Robotics', 'Photography'
+  "Coding",
+  "Sports",
+  "Gaming",
+  "Music",
+  "Art",
+  "Debate",
+  "Robotics",
+  "Photography",
 ];
 
 interface ClubRecommendationsProps {
@@ -17,14 +24,12 @@ interface ClubRecommendationsProps {
 
 /**
  * ClubRecommendations Component
- * 
- * Displays a "Recommended for You" section. It intelligently analyzes the user's 
- * interests using the backend cosine similarity algorithm. If the user has no 
+ *
+ * Displays a "Recommended for You" section. It intelligently analyzes the user's
+ * interests using the backend cosine similarity algorithm. If the user has no
  * interests (Cold Start), it gracefully falls back to displaying the most popular clubs.
  */
-export const ClubRecommendations: React.FC<ClubRecommendationsProps> = ({ 
-  userInterests = [] 
-}) => {
+export const ClubRecommendations: React.FC<ClubRecommendationsProps> = ({ userInterests = [] }) => {
   const [recommendations, setRecommendations] = useState<RecommendedClub[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,12 +41,12 @@ export const ClubRecommendations: React.FC<ClubRecommendationsProps> = ({
       try {
         // Encode interests into a numeric vector
         const userVector = encodeUserInterests(userInterests, MASTER_TAG_LIST);
-        
+
         // Fetch from the pgvector RPC function
         const results = await getRecommendedClubs(userVector, 5);
         setRecommendations(results);
       } catch (err) {
-        setError('Unable to load recommendations at this time.');
+        setError("Unable to load recommendations at this time.");
         console.error(err);
       } finally {
         setIsLoading(false);
@@ -111,24 +116,22 @@ export const ClubRecommendations: React.FC<ClubRecommendationsProps> = ({
           )}
         </CardTitle>
         <CardDescription>
-          {isColdStart 
-            ? "Tell us your interests to get personalized club recommendations!" 
+          {isColdStart
+            ? "Tell us your interests to get personalized club recommendations!"
             : "Clubs that match your interests with high similarity."}
-        </CardDescription
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {recommendations.map((club) => (
-          <div 
-            key={club.club_id} 
+          <div
+            key={club.club_id}
             className="flex items-start justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
           >
             <div className="space-y-1 flex-1">
               <Link to={`/clubs/${club.club_id}`} className="font-semibold text-lg hover:underline">
                 {club.club_name}
               </Link>
-              <p className="text-sm text-muted-foreground line-clamp-2">
-                {club.club_description}
-              </p>
+              <p className="text-sm text-muted-foreground line-clamp-2">{club.club_description}</p>
               {!isColdStart && (
                 <div className="flex items-center gap-2 mt-2">
                   <div className="h-2 w-2 rounded-full bg-green-500" />

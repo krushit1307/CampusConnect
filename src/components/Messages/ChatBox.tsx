@@ -326,82 +326,100 @@ export default function ChatBox() {
   }, [messages, currentUser, activeRecipient]);
 
   // 6. Subscribing to real-time updates for direct messages
+  const channelRef = useRef<RealtimeChannel | null>(null);
+
   useEffect(() => {
     if (!activeRecipient || !currentUser || !userKeys) return;
 
-    const setupSubscription = async () => {
-      // Ensure we have active recipient's public key
+    let cancelled = false;
+    const MAX_RETRIES = 3;
+
+    const cleanup = async () => {
+      if (channelRef.current) {
+        await supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+
+    const setupSubscription = async (attempt = 0) => {
+      await cleanup();
+      if (cancelled) return;
+
       const { data: keyData } = await supabase
         .from("user_public_keys")
         .select("public_key")
         .eq("user_id", activeRecipient.id)
         .maybeSingle();
 
-      if (!keyData) return;
+      if (!keyData || cancelled) return;
 
       const sharedKey = await getSharedKey(activeRecipient.id, keyData.public_key);
-      if (!sharedKey) return;
+      if (!sharedKey || cancelled) return;
 
       const channel = supabase
-        .channel(`chat_messages_${activeRecipient.id}`)
+        .channel(`chat_messages_${activeRecipient.id}_${Date.now()}`)
         .on(
           "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "direct_messages",
-          },
+          { event: "INSERT", schema: "public", table: "direct_messages" },
           async (payload) => {
             const newMsg = payload.new as Message;
-
-            // Check if the message belongs to the current open chat
             const isFromActiveChat =
               (newMsg.sender_id === currentUser.id && newMsg.receiver_id === activeRecipient.id) ||
               (newMsg.sender_id === activeRecipient.id && newMsg.receiver_id === currentUser.id);
 
-            if (isFromActiveChat) {
-              try {
-                const plainText = await decryptMessage(
-                  newMsg.encrypted_content,
-                  newMsg.iv,
-                  sharedKey,
-                );
-                setMessages((prev) => {
-                  if (prev.some((m) => m.id === newMsg.id)) return prev;
-                  return [...prev, { ...newMsg, content: plainText, decryptFailed: false }];
-                });
-              } catch (err) {
-                console.warn("Real-time decryption failure:", err);
-                setMessages((prev) => {
-                  if (prev.some((m) => m.id === newMsg.id)) return prev;
-                  return [
-                    ...prev,
-                    {
-                      ...newMsg,
-                      content:
-                        "[Unable to decrypt - security key was rotated or reset on this device]",
-                      decryptFailed: true,
-                    },
-                  ];
-                });
-              }
+            if (!isFromActiveChat) return;
+
+            try {
+              const plainText = await decryptMessage(
+                newMsg.encrypted_content,
+                newMsg.iv,
+                sharedKey,
+              );
+              setMessages((prev) => {
+                if (prev.some((m) => m.id === newMsg.id)) return prev;
+                return [...prev, { ...newMsg, content: plainText, decryptFailed: false }];
+              });
+            } catch (err) {
+              console.warn("Real-time decryption failure:", err);
+              setMessages((prev) => {
+                if (prev.some((m) => m.id === newMsg.id)) return prev;
+                return [
+                  ...prev,
+                  {
+                    ...newMsg,
+                    content:
+                      "[Unable to decrypt - security key was rotated or reset on this device]",
+                    decryptFailed: true,
+                  },
+                ];
+              });
             }
           },
         )
-        .subscribe();
+        .subscribe((status, err) => {
+          if (cancelled) return;
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            console.warn(`Channel subscription failed (attempt ${attempt + 1}):`, err);
+            if (attempt < MAX_RETRIES) {
+              setTimeout(() => setupSubscription(attempt + 1), 1000 * (attempt + 1));
+            } else {
+              toast.error("Real-time chat connection failed. Please refresh.");
+            }
+          }
+        });
 
-      return channel;
+      if (!cancelled) {
+        channelRef.current = channel;
+      } else {
+        await supabase.removeChannel(channel);
+      }
     };
 
-    let subscriptionChannel: RealtimeChannel | null = null;
-    setupSubscription().then((channel) => {
-      subscriptionChannel = channel || null;
-    });
+    setupSubscription();
 
     return () => {
-      if (subscriptionChannel) {
-        supabase.removeChannel(subscriptionChannel);
-      }
+      cancelled = true;
+      cleanup();
     };
   }, [activeRecipient?.id, currentUser, userKeys]);
 

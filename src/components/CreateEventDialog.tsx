@@ -117,6 +117,10 @@ export function CreateEventDialog({
   const supabase = createClient();
   const isOnline = useOnlineStatus();
 
+  // Issue #2082: Strip time to block past dates properly without timezone bugs
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   const { data: categories = [] } = useQuery({
     queryKey: ["eventCategories"],
     queryFn: async () => {
@@ -630,6 +634,13 @@ export function CreateEventDialog({
                         selected={dateRange}
                         onSelect={handleSelect}
                         numberOfMonths={2}
+                        disabled={{ before: today }}
+                        modifiersClassNames={{
+                          selected: "bg-blue-600 text-white font-bold",
+                          range_start: "rounded-l-md bg-blue-600 text-white",
+                          range_end: "rounded-r-md bg-blue-600 text-white",
+                          range_middle: "bg-blue-100 text-blue-900 rounded-none",
+                        }}
                       />
                     </PopoverContent>
                   </Popover>

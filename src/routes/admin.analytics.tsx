@@ -3,6 +3,8 @@ import { Navigate, Link } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
 import { BarChart3, LayoutPanelLeft, X } from "lucide-react";
 import { toast } from "sonner";
+import type { DateRange } from "react-day-picker";
+import { differenceInDays, format, subDays } from "date-fns";
 import {
   Area,
   AreaChart,
@@ -16,6 +18,7 @@ import {
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
+import { DateRangePicker } from "@/components/ui/DateRangePicker";
 
 interface ProfileRole {
   role: string | null;
@@ -174,6 +177,10 @@ export default function AnalyticsAdmin() {
   const [dauData, setDauData] = useState<DauRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const today = new Date();
+    return { from: subDays(today, 29), to: today };
+  });
   const [isSplitScreen, setIsSplitScreen] = useState(false);
   const [leftEventId, setLeftEventId] = useState("");
   const [rightEventId, setRightEventId] = useState("");
@@ -181,20 +188,27 @@ export default function AnalyticsAdmin() {
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
   const comparisonRef = useRef<HTMLDivElement>(null);
 
-  const loadDauData = useCallback(async () => {
-    const { data, error } = await supabase.rpc("get_dau_analytics");
-    if (error) throw new Error(error.message);
+  const loadDauData = useCallback(
+    async (start?: Date, end?: Date) => {
+      const params: { start_date?: string; end_date?: string } = {};
+      if (start) params.start_date = format(start, "yyyy-MM-dd");
+      if (end) params.end_date = format(end, "yyyy-MM-dd");
 
-    const formatted: DauRecord[] = (
-      (data || []) as { activity_date: string; daily_active_users: string | number }[]
-    )
-      .map((item) => ({
-        activity_date: item.activity_date,
-        daily_active_users: Number(item.daily_active_users),
-      }))
-      .reverse();
-    setDauData(formatted);
-  }, [supabase]);
+      const { data, error } = await supabase.rpc("get_dau_analytics", params);
+      if (error) throw new Error(error.message);
+
+      const formatted: DauRecord[] = (
+        (data || []) as { activity_date: string; daily_active_users: string | number }[]
+      )
+        .map((item) => ({
+          activity_date: item.activity_date,
+          daily_active_users: Number(item.daily_active_users),
+        }))
+        .reverse();
+      setDauData(formatted);
+    },
+    [supabase],
+  );
 
   const { data: events = [] } = useQuery<EventOption[]>({
     queryKey: ["analytics-comparison-events"],
@@ -229,7 +243,6 @@ export default function AnalyticsAdmin() {
         if (!active) return;
 
         setRole(profile.role);
-        if (profile.role === "system_admin") await loadDauData();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Could not load analytics data.");
       } finally {
@@ -245,6 +258,14 @@ export default function AnalyticsAdmin() {
       active = false;
     };
   }, [loadDauData, supabase]);
+
+  useEffect(() => {
+    if (role !== "system_admin" || !authChecked) return;
+
+    loadDauData(dateRange?.from, dateRange?.to).catch((error) => {
+      toast.error(error instanceof Error ? error.message : "Could not load analytics data.");
+    });
+  }, [authChecked, dateRange, loadDauData, role]);
 
   useEffect(() => {
     if (!isSplitScreen || events.length === 0) return;
@@ -292,6 +313,10 @@ export default function AnalyticsAdmin() {
       ? Math.round(dauData.reduce((total, day) => total + day.daily_active_users, 0) / totalDays)
       : 0;
   const currentDau = totalDays > 0 ? dauData[totalDays - 1].daily_active_users : 0;
+  const dateRangeDays =
+    dateRange?.from && dateRange?.to
+      ? differenceInDays(dateRange.to, dateRange.from) + 1
+      : totalDays;
 
   return (
     <SiteShell>
@@ -306,7 +331,8 @@ export default function AnalyticsAdmin() {
                 Daily Active Users.
               </h1>
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <DateRangePicker value={dateRange} onChange={setDateRange} />
               <button
                 type="button"
                 onClick={() => setIsSplitScreen((current) => !current)}
@@ -389,12 +415,14 @@ export default function AnalyticsAdmin() {
                 <Metric label="Current DAU" value={currentDau} />
                 <Metric label="Average DAU" value={averageDau} />
                 <Metric label="Peak DAU" value={maxDau} />
-                <Metric label="Time horizon" value={`${totalDays} days`} />
+                <Metric label="Time horizon" value={`${dateRangeDays} days`} />
               </div>
               <div className="neu-border bg-white p-6 dark:bg-zinc-900">
                 <h2 className="font-display text-xl font-bold uppercase">Active user trend</h2>
                 <p className="mb-6 font-mono text-xs text-gray-500">
-                  Daily active users mapped across the last 90 days
+                  {dateRange?.from && dateRange?.to
+                    ? `Daily active users mapped from ${format(dateRange.from, "LLL dd, yyyy")} to ${format(dateRange.to, "LLL dd, yyyy")}`
+                    : "Daily active users mapped across the selected range"}
                 </p>
                 <div className="h-96 w-full">
                   {dauData.length === 0 ? (

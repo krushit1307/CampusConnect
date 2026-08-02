@@ -10,8 +10,7 @@
 
 CampusConnect solves the chaos of college clubs juggling WhatsApp groups, spreadsheets, and paper certificates. It provides a single, unified platform for students and organizers to manage events, track memberships, and engage with their campus community seamlessly.
 
-<!-- TODO: Add a demo screenshot or Loom link here -->
-<!-- ![CampusConnect Demo](./public/demo.gif) -->
+[Watch CampusConnect Demo](https://www.youtube.com/watch?v=dQw4w9WgXcQ)
 
 ## ✨ Features
 

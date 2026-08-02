@@ -21,7 +21,8 @@ const accordionItemVariants = cva("border-b", {
 });
 
 export interface AccordionItemProps
-  extends React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Item>,
+  extends
+    React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Item>,
     VariantProps<typeof accordionItemVariants> {}
 
 const AccordionItem = React.forwardRef<
@@ -53,7 +54,8 @@ const accordionTriggerVariants = cva(
 );
 
 export interface AccordionTriggerProps
-  extends React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Trigger>,
+  extends
+    React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Trigger>,
     VariantProps<typeof accordionTriggerVariants> {}
 
 const AccordionTrigger = React.forwardRef<
@@ -87,4 +89,11 @@ const AccordionContent = React.forwardRef<
 ));
 AccordionContent.displayName = AccordionPrimitive.Content.displayName;
 
-export { Accordion, AccordionContent, AccordionItem, AccordionTrigger, accordionItemVariants, accordionTriggerVariants };
+export {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+  accordionItemVariants,
+  accordionTriggerVariants,
+};

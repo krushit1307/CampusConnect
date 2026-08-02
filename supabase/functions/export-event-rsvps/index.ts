@@ -1,4 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+import { z } from "https://esm.sh/zod@3.24.2";
+import { parseJsonBody } from "../_shared/validation.ts";
+
+const exportRsvpsSchema = z
+  .object({
+    eventId: z.string().uuid("eventId must be a valid UUID"),
+  })
+  .strict();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,13 +47,9 @@ Deno.serve(async (req) => {
     }
 
     // 2. Parse request payload parameters
-    const { eventId } = await req.json();
-    if (!eventId) {
-      return new Response(JSON.stringify({ error: "Missing eventId" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const parsed = await parseJsonBody(exportRsvpsSchema, req);
+    if (!parsed.ok) return parsed.response;
+    const { eventId } = parsed.data;
 
     // 3. Confirm the event exists and the user is the organizer
     const { data: event, error: eventError } = await supabase
