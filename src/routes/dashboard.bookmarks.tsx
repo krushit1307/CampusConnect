@@ -1,4 +1,5 @@
 import { Bookmark, CalendarDays } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { User } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
@@ -176,30 +177,59 @@ export default function DashboardBookmarks() {
         </span>
       </div>
 
-      {isLoading || isFetching ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3" aria-label="Loading bookmarks">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <EventCardSkeleton key={index} index={index} />
-          ))}
-        </div>
-      ) : bookmarkedEvents.length === 0 ? (
-        <EmptyBookmarks />
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {bookmarkedEvents.map((event, index) => (
-            <EventCard
-              key={event.id}
-              event={event}
-              index={index}
-              user={user}
-              onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
-              isRsvpPending={toggleRsvp.isPending}
-              onBookmarkToggle={(eventId) => unsaveEvent.mutate({ eventId })}
-              isBookmarkPending={unsaveEvent.isPending}
-            />
-          ))}
-        </div>
-      )}
+      <AnimatePresence mode="sync">
+        {isLoading ? (
+          <motion.div
+            key="bookmarks-loading-skeletons"
+            layout
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+            aria-label="Loading bookmarks"
+          >
+            {Array.from({ length: 3 }).map((_, index) => (
+              <EventCardSkeleton key={`bookmark-skel-${index}`} index={index} />
+            ))}
+          </motion.div>
+        ) : bookmarkedEvents.length === 0 ? (
+          <motion.div
+            key="bookmarks-empty"
+            layout
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+          >
+            <EmptyBookmarks />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="bookmarks-loaded-grid"
+            layout
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+          >
+            {bookmarkedEvents.map((event, index) => (
+              <motion.div key={event.id} layout>
+                <EventCard
+                  event={event}
+                  index={index}
+                  user={user}
+                  onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
+                  isRsvpPending={toggleRsvp.isPending}
+                  onBookmarkToggle={(eventId) => unsaveEvent.mutate({ eventId })}
+                  isBookmarkPending={unsaveEvent.isPending}
+                />
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -19,6 +19,12 @@ serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Rate Limiting: 5 requests per hour per IP
+  const ipRateLimitResponse = await limitRate(req, "request-password-reset-ip", { limit: 5, windowMs: 3600000 });
+  if (ipRateLimitResponse) {
+    return ipRateLimitResponse;
+  }
+
   try {
     const { email, redirectTo } = await req.json();
 
@@ -29,6 +35,37 @@ serve(async (req: Request) => {
       });
     }
 
+    // Rate Limiting: 3 requests per hour per email
+    const emailRateLimitResponse = await limitRate(req, "request-password-reset-email", { limit: 3, windowMs: 3600000, identifier: email });
+    if (emailRateLimitResponse) {
+      return emailRateLimitResponse;
+    }
+
+    // Initialize Supabase client
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    );
+
+    const { data, error: linkError } = await supabase.auth.admin.generateLink({
+      type: "recovery",
+      email,
+      options: {
+        redirectTo,
+      },
+    });
+
+    if (linkError) {
+      throw linkError;
+    }
+
+    const recoveryLink = data.properties.actionLink;
+    const emailBody = {
+      from: "CampusConnect <notifications@campusconnect.app>",
+      to: [email],
+      subject: "Reset your CampusConnect password",
+      html: `
+    <h2>Reset your password</h2>
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
@@ -87,6 +124,13 @@ serve(async (req: Request) => {
       console.error("[request-password-reset] Failed to record reset request:", insertError);
     }
 
+    await supabase.from("password_reset_requests").insert({
+      email,
+    });
+
+  } catch (error: unknown) {
+    console.error("Password reset error:", error);
+    // Suppress error to avoid email enumeration and keep response timing consistent
     // Always respond with success so we don't leak which emails have accounts.
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
@@ -99,4 +143,14 @@ serve(async (req: Request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+
+  // Always return the same success message regardless of outcome
+  return new Response(JSON.stringify({ message: "If this email exists, a reset link has been sent." }), {
+    status: 200,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+    },
+  });
 });
+

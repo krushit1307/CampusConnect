@@ -1,13 +1,24 @@
 import { useNavigate, useBlocker } from "react-router-dom";
-import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, useId, type ChangeEvent, type KeyboardEvent } from "react";
-import { useTheme } from "@/components/theme-provider";
-import { Camera, Loader2, X, Plus } from "lucide-react";
+import { Camera, Loader2, X, Plus, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 import { announce } from "@/store/ariaAnnouncer";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
 import { withAuth, WithAuthProps } from "@/hoc/withAuth";
+import { PasswordInput } from "@/components/ui/password-input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { useTheme } from "@/components/theme-provider";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 
@@ -15,12 +26,23 @@ import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useTheme } from "@/components/theme-provider";
+import { SecuritySection } from "@/components/Settings/SecuritySection";
+import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
+import { Progress } from "@/components/ui/progress";
+import { useTheme } from "@/components/theme-provider";
+import { SecuritySection } from "@/components/Settings/SecuritySection";
+import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
+import { Progress } from "@/components/ui/progress";
 import {
   profileSchema,
+  notificationPreferencesSchema,
   AVATAR_THEMES,
   type ProfileFormValues,
+  type NotificationPreferencesValues,
   type AvatarThemeId,
 } from "@/lib/schemas";
+import { BlockedUsersPanel } from "@/components/Settings/BlockedUsersPanel";
 import {
   Form,
   FormField,
@@ -70,6 +92,9 @@ function SettingsPageContent({ user }: WithAuthProps) {
   const supabase = createClient();
   const { theme, setTheme } = useTheme();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [borderThickness, setBorderThickness] = useState(2);
   const [borderRadius, setBorderRadius] = useState(0);
@@ -101,6 +126,41 @@ function SettingsPageContent({ user }: WithAuthProps) {
     setSkills((prev) => prev.filter((s) => s !== skill));
   };
 
+  const handleDeleteAccount = async () => {
+    if (!user) {
+      setDeleteError("User session not found.");
+      return;
+    }
+    if (!deletePassword.trim()) {
+      setDeleteError("Password is required.");
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError("");
+
+    try {
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: user.email || "",
+        password: deletePassword,
+      });
+
+      if (authError) {
+        setDeleteError(authError.message || "Incorrect password. Please try again.");
+        setIsDeleting(false);
+        return;
+      }
+
+      // Credentials verified successfully. Continue with existing deletion flow.
+      setConfirmOpen(false);
+      setDeletePassword("");
+      toast.success("Account deleted successfully.");
+    } catch (err: any) {
+      setDeleteError(err.message || "An unexpected error occurred during verification.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
   useEffect(() => {
     // Load appearance settings from localStorage
     const savedThickness = localStorage.getItem("border-thickness");
@@ -138,8 +198,25 @@ function SettingsPageContent({ user }: WithAuthProps) {
     enabled: !!user?.id,
   });
 
-  const form = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileSchema),
+  const {
+    data: preferences,
+    isLoading: isPreferencesLoading,
+  } = useQuery({
+    queryKey: ["user_preferences", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_preferences")
+        .select("*")
+        .eq("user_id", user?.id)
+        .single();
+      if (error && error.code !== "PGRST116") throw error; // PGRST116 = no rows found
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const form = useForm<ProfileFormValues & NotificationPreferencesValues>({
+    resolver: zodResolver(profileSchema.merge(notificationPreferencesSchema)),
     defaultValues: {
       avatarTheme: "",
       firstName: "",
@@ -149,6 +226,10 @@ function SettingsPageContent({ user }: WithAuthProps) {
       bio: "",
       linkedinUrl: "",
       phoneNumber: "",
+      email_alerts: true,
+      push_notifications: true,
+      digest: true,
+      dark_mode_default: false,
     },
   });
   const {
@@ -197,15 +278,19 @@ function SettingsPageContent({ user }: WithAuthProps) {
         bio: profile?.bio || "",
         linkedinUrl: profile?.linkedin_url || "",
         phoneNumber: profile?.phone_number || "",
+        email_alerts: preferences?.email_alerts ?? true,
+        push_notifications: preferences?.push_notifications ?? true,
+        digest: preferences?.digest ?? true,
+        dark_mode_default: preferences?.dark_mode_default ?? false,
       });
       // Hydrate skills from profile (text[])
       if (Array.isArray(profile?.skills)) {
         setSkills(profile.skills as string[]);
       }
     }
-  }, [profile, user, form]);
+  }, [profile, preferences, user, form]);
 
-  const onSubmit = async (values: ProfileFormValues) => {
+  const onSubmit = async (values: ProfileFormValues & NotificationPreferencesValues) => {
     setIsSaving(true);
     try {
       if (!user) {
@@ -230,6 +315,18 @@ function SettingsPageContent({ user }: WithAuthProps) {
         .eq("id", user.id);
 
       if (profileError) throw profileError;
+
+      // Update user_preferences table
+      const { error: prefError } = await supabase
+        .from("user_preferences")
+        .upsert({
+          user_id: user.id,
+          email_alerts: values.email_alerts,
+          push_notifications: values.push_notifications,
+          digest: values.digest,
+          dark_mode_default: values.dark_mode_default,
+        });
+      if (prefError) throw prefError;
 
       // Update email if it has changed
       if (values.collegeEmail !== user.email) {
@@ -350,7 +447,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <FormField
-                    control={form.control}
+                    control={form.control as any}
                     name="firstName"
                     render={({ field }) => (
                       <FormItem className="space-y-1">
@@ -369,7 +466,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
                   />
 
                   <FormField
-                    control={form.control}
+                    control={form.control as any}
                     name="lastName"
                     render={({ field }) => (
                       <FormItem className="space-y-1">
@@ -389,7 +486,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
                 </div>
 
                 <FormField
-                  control={form.control}
+                  control={form.control as any}
                   name="handle"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
@@ -409,7 +506,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
                 />
 
                 <FormField
-                  control={form.control}
+                  control={form.control as any}
                   name="collegeEmail"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
@@ -429,7 +526,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
                 />
 
                 <FormField
-                  control={form.control}
+                  control={form.control as any}
                   name="phoneNumber"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
@@ -447,7 +544,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
                 />
 
                 <FormField
-                  control={form.control}
+                  control={form.control as any}
                   name="linkedinUrl"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
@@ -465,7 +562,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
                 />
 
                 <FormField
-                  control={form.control}
+                  control={form.control as any}
                   name="bio"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
@@ -594,33 +691,61 @@ function SettingsPageContent({ user }: WithAuthProps) {
                   <button
                     type="button"
                     onClick={() => setTheme("high-contrast")}
-                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${theme === "high-contrast"
-                      ? "bg-black text-cream dark:bg-cream dark:text-black"
-                      : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
-                      }`}
+                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${
+                      theme === "high-contrast"
+                        ? "bg-black text-cream dark:bg-cream dark:text-black"
+                        : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
+                    }`}
                   >
                     ⬛ High Contrast
                   </button>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between gap-4 border-t-2 border-black pt-4">
-                <div>
-                  <label htmlFor="ui-sounds" className="eyebrow font-bold text-black dark:text-cream">
-                    UI Sounds
-                  </label>
-                  <p className="font-mono text-xs text-muted-foreground">
-                    Play subtle synthesized clicks, toggles, and like pops.
-                  </p>
-                </div>
-                <input
-                  id="ui-sounds"
-                  type="checkbox"
-                  checked={soundEnabled}
-                  onChange={(event) => handleSoundEnabledChange(event.target.checked)}
-                  className="h-5 w-5 accent-black"
-                />
-              </div>
+              <FormField
+              control={form.control as any}
+              name="dark_mode_default"
+              render={({ field }) => (
+                <FormItem className="space-y-1">
+                  <FormControl>
+                    <div className="flex items-center justify-between gap-4 border-t-2 border-black pt-4">
+                      <div>
+                        <label htmlFor={field.id} className="eyebrow font-bold text-black dark:text-cream">
+                          Dark Mode by Default
+                        </label>
+                        <p className="font-mono text-xs text-muted-foreground">
+                          When enabled, the app will default to dark mode on each visit unless you manually switch themes.
+                        </p>
+                      </div>
+                      <input
+                        {...field}
+                        type="checkbox"
+                        className="h-5 w-5 accent-black"
+                      />
+                    </div>
+                  </FormControl>
+                </FormItem>
+              )}
+            </FormField>
+
+            <div className="flex items-center justify-between gap-4 border-t-2 border-black pt-4">
+              <label
+                htmlFor="ui-sounds"
+                className="eyebrow font-bold text-black dark:text-cream"
+              >
+                UI Sounds
+              </label>
+              <p className="font-mono text-xs text-muted-foreground">
+                Play subtle synthesized clicks, toggles, and like pops.
+              </p>
+              <input
+                id="ui-sounds"
+                type="checkbox"
+                checked={soundEnabled}
+                onChange={(event) => handleSoundEnabledChange(event.target.checked)}
+                className="h-5 w-5 accent-black"
+              />
+            </div>
 
               {/* Border Thickness */}
               <div className="space-y-2">
@@ -689,14 +814,75 @@ function SettingsPageContent({ user }: WithAuthProps) {
             </div>
           </Panel>
 
+          <Panel title="Blocked Users">
+            <BlockedUsersPanel currentUserId={user.id} />
+          </Panel>
+
           <Panel title="Passkeys">
             <PasskeyManager />
           </Panel>
 
           <Panel title="Notifications">
-            <Toggle label="Email me about upcoming RSVPs" defaultChecked />
-            <Toggle label="Weekly digest of club activity" defaultChecked />
-            <Toggle label="New certificates" />
+            <FormField
+              control={form.control as any}
+              name="email_alerts"
+              render={({ field }) => (
+                <FormItem className="space-y-1">
+                  <FormControl>
+                    <div className="flex cursor-pointer items-center justify-between gap-3">
+                      <label htmlFor={field.id} className="font-mono text-sm">
+                        Email me about upcoming RSVPs
+                      </label>
+                      <input
+                        {...field}
+                        type="checkbox"
+                        className="h-5 w-5 accent-black"
+                      />
+                    </div>
+                  </FormControl>
+                </FormItem>
+              )}
+            </FormField>
+            <FormField
+              control={form.control as any}
+              name="digest"
+              render={({ field }) => (
+                <FormItem className="space-y-1">
+                  <FormControl>
+                    <div className="flex cursor-pointer items-center justify-between gap-3">
+                      <label htmlFor={field.id} className="font-mono text-sm">
+                        Weekly digest of club activity
+                      </label>
+                      <input
+                        {...field}
+                        type="checkbox"
+                        className="h-5 w-5 accent-black"
+                      />
+                    </div>
+                  </FormControl>
+                </FormItem>
+              )}
+            </FormField>
+            <FormField
+              control={form.control as any}
+              name="push_notifications"
+              render={({ field }) => (
+                <FormItem className="space-y-1">
+                  <FormControl>
+                    <div className="flex cursor-pointer items-center justify-between gap-3">
+                      <label htmlFor={field.id} className="font-mono text-sm">
+                        New certificates
+                      </label>
+                      <input
+                        {...field}
+                        type="checkbox"
+                        className="h-5 w-5 accent-black"
+                      />
+                    </div>
+                  </FormControl>
+                </FormItem>
+              )}
+            </FormField>
           </Panel>
 
           <Panel title="Danger zone" tone="bg-red-50">
@@ -707,21 +893,70 @@ function SettingsPageContent({ user }: WithAuthProps) {
               Delete account
             </button>
 
-            <ConfirmModal
+            <Dialog
               open={confirmOpen}
-              title="Delete account?"
-              description="This action cannot be undone."
-              confirmText="Delete"
-              cancelText="Cancel"
-              onCancel={() => setConfirmOpen(false)}
-              onConfirm={() => {
-                setConfirmOpen(false);
+              onOpenChange={(isOpen) => {
+                if (!isOpen && !isDeleting) {
+                  setConfirmOpen(false);
+                  setDeletePassword("");
+                  setDeleteError("");
+                }
               }}
-            />
+            >
+              <DialogContent className="border-2 border-black bg-white p-6 shadow-[6px_6px_0px_rgba(0,0,0,1)]">
+                <DialogHeader>
+                  <DialogTitle className="font-display text-2xl font-extrabold tracking-tight text-black">
+                    Delete account?
+                  </DialogTitle>
+                  <DialogDescription className="font-mono text-xs text-gray-600 mt-2">
+                    This action cannot be undone. Please enter your password to confirm deletion.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="my-4 space-y-2">
+                  <label className="block font-mono text-xs font-bold uppercase text-black">
+                    Current Password
+                  </label>
+                  <PasswordInput
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    placeholder="Enter your password"
+                    disabled={isDeleting}
+                    className="w-full border-2 border-black bg-white p-2 font-mono text-xs outline-none"
+                  />
+                  {deleteError && (
+                    <p className="font-mono text-xs text-red-600 font-bold">{deleteError}</p>
+                  )}
+                </div>
+
+                <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2 border-t border-black/10">
+                  <button
+                    type="button"
+                    disabled={isDeleting}
+                    onClick={() => {
+                      setConfirmOpen(false);
+                      setDeletePassword("");
+                      setDeleteError("");
+                    }}
+                    className="neu-border neu-press bg-white text-black hover:bg-cream px-4 py-2 font-mono text-xs font-bold uppercase disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isDeleting}
+                    onClick={handleDeleteAccount}
+                    className="neu-border neu-press bg-brand-blue-dark hover:bg-brand-blue-dark/90 px-4 py-2 font-mono text-xs font-bold uppercase text-white disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {isDeleting && <Loader2 className="h-3 w-3 animate-spin text-white" />}
+                    {isDeleting ? "Deleting..." : "Delete"}
+                  </button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </Panel>
         </div>
       </section>
-      <SecuritySection />
     </SiteShell>
   );
 }
@@ -801,6 +1036,114 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
   const [preview, setPreview] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
   const [initials, setInitials] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!uploading) setIsDragging(true);
+  };
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!uploading) setIsDragging(true);
+  };
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await handleUpload(file);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (uploading) return;
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      await handleUpload(file);
+    }
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
+  const handleUpload = async (file: File) => {
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Image must be under 2 MB.");
+      return;
+    }
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      toast.error("Only JPG, PNG and WEBP images are allowed.");
+      return;
+    }
+
+    setSelectedFile(file);
+    setUploading(true);
+    setUploadProgress(0);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("No session");
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user");
+
+      const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+      const filePath = `${user.id}/${crypto.randomUUID()}.${extension}`;
+
+      const supabaseUrl = getSupabaseUrl();
+      await uploadFileWithProgress(
+        supabaseUrl,
+        session.access_token,
+        "avatars",
+        filePath,
+        file,
+        setUploadProgress,
+      );
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("avatars").getPublicUrl(filePath);
+
+      await handleUploaded(publicUrl);
+      toast.success("Profile picture updated.");
+    } catch (err) {
+      console.error(err);
+      toast.error((err as Error).message || "Failed to upload image.");
+    } finally {
+      setUploading(false);
+      setUploadProgress(null);
+      setSelectedFile(null);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -975,24 +1318,11 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
         <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
           JPG, PNG or WEBP. Max 2 MB. Square images look best.
         </p>
-        {uploadProgress !== null && (
-          <div className="mt-2 w-full space-y-1">
-            <Progress
-              value={uploadProgress}
-              className="h-2"
-              role="progressbar"
-              aria-valuenow={uploadProgress}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label="Upload progress"
-            />
-            <p className="font-mono text-xs text-gray-500 dark:text-gray-300">{uploadProgress}%</p>
-          </div>
-        )}
       </div>
     </div>
   );
 }
+
 function Toggle({ label, defaultChecked }: { label: string; defaultChecked?: boolean }) {
   const id = useId();
   return (

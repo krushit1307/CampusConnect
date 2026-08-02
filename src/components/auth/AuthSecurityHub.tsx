@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { registerDeviceSession } from "@/lib/deviceSession";
 import { toast } from "sonner";
 import {
   ShieldCheck,
@@ -46,26 +47,7 @@ export interface AuditLogItem {
 export function AuthSecurityHub() {
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
-  const [sessions, setSessions] = useState<DeviceSession[]>([
-    {
-      id: "sess_1",
-      browser: "Chrome 126.0",
-      os: "macOS Sonoma",
-      ip_address: "192.168.1.104",
-      location: "San Francisco, CA",
-      last_login_at: new Date().toISOString(),
-      is_current: true,
-    },
-    {
-      id: "sess_2",
-      browser: "Mobile Safari 17.5",
-      os: "iOS 17.5",
-      ip_address: "172.56.21.90",
-      location: "San Jose, CA",
-      last_login_at: new Date(Date.now() - 86400000).toISOString(),
-      is_current: false,
-    },
-  ]);
+  const [sessions, setSessions] = useState<DeviceSession[]>([]);
 
   const [auditLogs] = useState<AuditLogItem[]>([
     {
@@ -105,6 +87,8 @@ export function AuthSecurityHub() {
   const [updatingPassword, setUpdatingPassword] = useState(false);
 
   useEffect(() => {
+    // Ensure the current device appears in its own session list, then load.
+    void registerDeviceSession();
     fetchDeviceSessions();
   }, []);
 
@@ -112,11 +96,11 @@ export function AuthSecurityHub() {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("list-user-devices");
-      if (!error && data && Array.isArray(data) && data.length > 0) {
+      if (!error && Array.isArray(data)) {
         setSessions(data);
       }
     } catch {
-      // Fallback to default state gracefully
+      // Fallback to empty list gracefully
     } finally {
       setLoading(false);
     }
@@ -124,18 +108,31 @@ export function AuthSecurityHub() {
 
   const handleRevokeSession = async (sessionId: string) => {
     try {
-      await supabase.functions.invoke("revoke-device", { body: { deviceId: sessionId } });
-      setSessions(sessions.filter((s) => s.id !== sessionId));
+      const { error } = await supabase.functions.invoke("revoke-device", {
+        body: { deviceId: sessionId },
+      });
+      if (error) throw error;
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
       toast.success("Active session terminated successfully.");
     } catch {
-      setSessions(sessions.filter((s) => s.id !== sessionId));
-      toast.success("Active session terminated.");
+      toast.error("Failed to terminate the session. Please try again.");
     }
   };
 
-  const handleRevokeAllOtherSessions = () => {
-    setSessions(sessions.filter((s) => s.is_current));
-    toast.success("All other active sessions have been signed out.");
+  const handleRevokeAllOtherSessions = async () => {
+    const otherSessions = sessions.filter((s) => !s.is_current);
+    try {
+      for (const session of otherSessions) {
+        const { error } = await supabase.functions.invoke("revoke-device", {
+          body: { deviceId: session.id },
+        });
+        if (error) throw error;
+      }
+      setSessions((prev) => prev.filter((s) => s.is_current));
+      toast.success("All other active sessions have been signed out.");
+    } catch {
+      toast.error("Failed to sign out all other sessions. Please try again.");
+    }
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -401,8 +398,8 @@ export function AuthSecurityHub() {
               >
                 <div className="flex items-center gap-3">
                   <div className="p-2 border border-black bg-white">
-                    {sess.os.toLowerCase().includes("ios") ||
-                    sess.os.toLowerCase().includes("android") ? (
+                    {(sess.os ?? "").toLowerCase().includes("ios") ||
+                    (sess.os ?? "").toLowerCase().includes("android") ? (
                       <Smartphone className="h-6 w-6 text-black" />
                     ) : (
                       <Monitor className="h-6 w-6 text-black" />
@@ -421,7 +418,8 @@ export function AuthSecurityHub() {
                     </div>
                     <div className="font-mono text-xs text-gray-600 mt-1 flex flex-wrap items-center gap-3">
                       <span className="flex items-center gap-1">
-                        <Globe className="h-3 w-3" /> {sess.ip_address} ({sess.location})
+                        <Globe className="h-3 w-3" /> {sess.ip_address}
+                        {sess.location ? ` (${sess.location})` : ""}
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" /> Last active{" "}

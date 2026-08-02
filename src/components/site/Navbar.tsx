@@ -1,15 +1,13 @@
-import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
-import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { localizedPath } from "@/lib/i18n";
 
 import { ThemeToggle } from "../ThemeToggle";
 import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
+import { UserAvatarWidget } from "./UserAvatarWidget";
 
-import { Menu, X } from "lucide-react";
+import { Menu, X, WifiOff } from "lucide-react";
 import { useAuthHydration } from "@/hooks/useAuthHydration";
 import { ProfileHeaderSkeleton } from "@/components/ProfileHeaderSkeleton";
 import {
@@ -21,11 +19,43 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+const links = [
+  { to: "/events", label: "Events" },
+  { to: "/clubs", label: "Clubs" },
+  { to: "/feed", label: "Feed" },
+  { to: "/lost-found", label: "Lost & Found" },
+  { to: "/challenge", label: "Challenge" },
+  { to: "/certificates", label: "Certificates" },
+  { to: "/dashboard", label: "Dashboard" },
+  { to: "/messages", label: "Messages" },
+] as const;
+const landingLinks = [
+  { href: "#features", label: "Features" },
+  { href: "#faq", label: "FAQ" },
+  { href: "#contact", label: "Contact" },
+] as const;
+
 export function Navbar() {
-  const { user, isInitializing } = useAuthHydration();
+  const { user } = useAuthHydration();
   const location = useLocation();
-  const navigate = useNavigate();
   const { t, i18n } = useTranslation();
+  const currentPath = location.pathname;
+
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
   const links = [
     {
       to: localizedPath(i18n.language, "/events"),
@@ -66,11 +96,9 @@ export function Navbar() {
     { href: "#faq", label: t("navbar.faq") },
     { href: "#contact", label: t("navbar.contact") },
   ];
-  const currentPath = location.pathname;
-  const supabase = createClient();
 
-  const { onlineUsers } = usePresence(user?.id);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [bookmarksPanelOpen, setBookmarksPanelOpen] = useState(false);
 
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const navRef = useRef<HTMLElement>(null);
@@ -130,17 +158,6 @@ export function Navbar() {
     setMobileMenuOpen(false);
   }, [location.pathname]);
 
-  const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      console.error("Sign out failed:", error.message);
-      return;
-    }
-
-    navigate("/", { replace: true });
-  };
-
   return (
     <header className="sticky top-0 z-40 border-b-2 border-black bg-white text-black dark:border-cream dark:bg-black dark:text-cream">
       <div className="mx-auto flex min-w-0 max-w-7xl items-center justify-between gap-2 px-2 py-3 sm:px-4 md:px-6">
@@ -190,14 +207,29 @@ export function Navbar() {
 
         {/* Actions */}
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-          <div className="flex items-center gap-1 sm:gap-2">
-            <div className="hidden rounded-full border border-black bg-lime px-2 py-1 text-xs font-mono font-bold md:flex dark:border-cream dark:text-black">
-              🟢 {onlineUsers} online
+          {isOffline && (
+            <div
+              data-testid="offline-indicator"
+              className="flex items-center gap-1.5 rounded bg-amber-500 px-2 py-1 font-mono text-xs font-bold text-black"
+            >
+              <WifiOff className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Offline Mode</span>
             </div>
 
             <ThemeToggle />
 
             {user && <NavbarNotificationDropdown />}
+            {user && (
+              <button
+                type="button"
+                aria-label="Open bookmarks"
+                onClick={() => setBookmarksPanelOpen(true)}
+                className="neu-border flex h-8 w-8 items-center justify-center bg-white text-black transition-colors hover:bg-lime dark:bg-black dark:text-cream"
+              >
+                <Bookmark size={16} />
+              </button>
+            )}
+            {user ? (
             {isInitializing ? (
               <ProfileHeaderSkeleton />
             ) : user ? (
@@ -244,12 +276,12 @@ export function Navbar() {
               </DropdownMenu>
             ) : (
               <Link
-                to={localizedPath(i18n.language, "/auth")}
+                to="/auth"
                 id="nav-signin-button"
                 className="neu-border neu-press bg-black px-3 py-1.5 font-mono text-xs font-bold uppercase text-cream hover:bg-cream hover:text-black dark:bg-cream dark:text-black dark:hover:bg-black dark:hover:text-cream"
                 style={{ letterSpacing: "0.08em" }}
               >
-                {t("navbar.signin")}
+                Sign in
               </Link>
             )}
           </div>
@@ -267,6 +299,8 @@ export function Navbar() {
           </button>
         </div>
       </div>
+
+      <BookmarksPanel open={bookmarksPanelOpen} onOpenChange={setBookmarksPanelOpen} user={user} />
 
       {/* Mobile Navigation */}
       {mobileMenuOpen && (

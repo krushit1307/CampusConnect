@@ -17,24 +17,45 @@ CREATE TABLE profiles (
   bio TEXT,
   skills TEXT[] DEFAULT '{}'::TEXT[],
   role user_role DEFAULT 'student'::user_role,
-  notification_preferences JSONB NOT NULL DEFAULT '{"rsvps": true, "digest": true, "certs": true}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-ALTER TABLE profiles
-ADD CONSTRAINT profiles_notification_preferences_valid
-CHECK (
-  jsonb_typeof(notification_preferences) = 'object'
-  AND notification_preferences ? 'rsvps'
-  AND notification_preferences ? 'digest'
-  AND notification_preferences ? 'certs'
-  AND jsonb_typeof(notification_preferences->'rsvps') = 'boolean'
-  AND jsonb_typeof(notification_preferences->'digest') = 'boolean'
-  AND jsonb_typeof(notification_preferences->'certs') = 'boolean'
+CREATE INDEX IF NOT EXISTS idx_profiles_skills ON public.profiles USING gin (skills);
+
+CREATE TABLE user_preferences (
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE PRIMARY KEY,
+  email_alerts BOOLEAN NOT NULL DEFAULT true,
+  push_notifications BOOLEAN NOT NULL DEFAULT true,
+  digest BOOLEAN NOT NULL DEFAULT true,
+  dark_mode_default BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_profiles_skills ON public.profiles USING gin (skills);
+ALTER TABLE public.user_preferences ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their own preferences." ON public.user_preferences;
+CREATE POLICY "Users can view their own preferences." ON public.user_preferences
+  FOR SELECT TO authenticated
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert their own preferences." ON public.user_preferences;
+CREATE POLICY "Users can insert their own preferences." ON public.user_preferences
+  FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own preferences." ON public.user_preferences;
+CREATE POLICY "Users can update their own preferences." ON public.user_preferences
+  FOR UPDATE TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE TRIGGER set_updated_at_user_preferences
+BEFORE UPDATE ON user_preferences
+FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
+
+ALTER PUBLICATION supabase_realtime ADD TABLE public.user_preferences;
 
 CREATE OR REPLACE FUNCTION public.is_valid_social_links(links jsonb)
 RETURNS boolean
@@ -172,28 +193,34 @@ CREATE TABLE posts (
   deleted_at TIMESTAMPTZ
 );
 
-CREATE TABLE post_likes (
-  post_id UUID REFERENCES posts(id) ON DELETE CASCADE NOT NULL,
+CREATE TYPE like_entity_type AS ENUM ('event', 'post', 'comment');
+
+CREATE TABLE likes (
+  id UUID DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  entity_type like_entity_type NOT NULL,
+  entity_id UUID NOT NULL,
+  club_id UUID,
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-  UNIQUE(post_id, user_id)
+  PRIMARY KEY (id, club_id),
+  CONSTRAINT likes_user_entity_unique UNIQUE (user_id, entity_type, entity_id, club_id)
 );
 
-CREATE INDEX idx_post_likes_post_id ON post_likes(post_id);
-CREATE INDEX idx_post_likes_user_id ON post_likes(user_id);
+CREATE INDEX idx_likes_user_id ON likes(user_id);
+CREATE INDEX idx_likes_entity ON likes(entity_type, entity_id);
 
-ALTER TABLE post_likes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE likes ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Anyone can read post likes."
-  ON post_likes FOR SELECT
+CREATE POLICY "Anyone can read likes."
+  ON likes FOR SELECT
   USING (true);
 
 CREATE POLICY "Users can insert their own likes."
-  ON post_likes FOR INSERT
+  ON likes FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Users can delete their own likes."
-  ON post_likes FOR DELETE
+  ON likes FOR DELETE
   USING (auth.uid() = user_id);
 
 CREATE TABLE comments (
@@ -204,6 +231,14 @@ CREATE TABLE comments (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
+);
+
+CREATE TABLE user_blocks (
+  blocker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  blocked_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (blocker_id, blocked_id),
+  CONSTRAINT check_no_self_block CHECK (blocker_id <> blocked_id)
 );
 
 CREATE TABLE certificates (
@@ -254,6 +289,7 @@ CREATE TABLE notifications (
   title TEXT NOT NULL,
   message TEXT NOT NULL,
   is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -562,6 +598,11 @@ CREATE POLICY "Users can read own saved events." ON saved_events FOR SELECT USIN
 CREATE POLICY "Users can save events." ON saved_events FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can unsave events." ON saved_events FOR DELETE USING (auth.uid() = user_id);
 
+-- saved_events: users can manage their own saved events/bookmarks
+CREATE POLICY "Users can read own saved events." ON saved_events FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can save events." ON saved_events FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can unsave events." ON saved_events FOR DELETE USING (auth.uid() = user_id);
+
 -- 4. Triggers
 -- Auto-create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -785,7 +826,7 @@ BEFORE INSERT ON public.comments
 FOR EACH ROW
 EXECUTE FUNCTION public.check_comment_rate_limit();
 
--- Post like count triggers on post_reactions and post_likes
+-- Post like count triggers on post_reactions and likes
 CREATE OR REPLACE FUNCTION public.update_post_like_count()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -795,12 +836,16 @@ AS $$
 DECLARE
   v_post_id UUID;
 BEGIN
-  v_post_id := COALESCE(NEW.post_id, OLD.post_id);
+  IF TG_TABLE_NAME = 'likes' THEN
+    v_post_id := COALESCE(NEW.entity_id, OLD.entity_id);
+  ELSE
+    v_post_id := COALESCE(NEW.post_id, OLD.post_id);
+  END IF;
 
   UPDATE posts
   SET like_count = (
     (SELECT COUNT(*) FROM post_reactions WHERE post_id = v_post_id) +
-    (SELECT COUNT(*) FROM post_likes WHERE post_id = v_post_id)
+    (SELECT COUNT(*) FROM likes WHERE entity_type = 'post' AND entity_id = v_post_id)
   )
   WHERE id = v_post_id;
 
@@ -818,14 +863,16 @@ AFTER DELETE ON post_reactions
 FOR EACH ROW
 EXECUTE FUNCTION public.update_post_like_count();
 
-CREATE TRIGGER trg_post_likes_insert
-AFTER INSERT ON post_likes
+CREATE TRIGGER trg_likes_insert
+AFTER INSERT ON likes
 FOR EACH ROW
+WHEN (NEW.entity_type = 'post')
 EXECUTE FUNCTION public.update_post_like_count();
 
-CREATE TRIGGER trg_post_likes_delete
-AFTER DELETE ON post_likes
+CREATE TRIGGER trg_likes_delete
+AFTER DELETE ON likes
 FOR EACH ROW
+WHEN (OLD.entity_type = 'post')
 EXECUTE FUNCTION public.update_post_like_count();
 
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
@@ -1187,3 +1234,150 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.get_events_nearby(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION) TO authenticated, anon;
 
+
+-- ============================================================
+-- 10. Club Audit Logs & Triggers (Added for #1952)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.club_audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    club_id UUID REFERENCES public.clubs(id) ON DELETE CASCADE,
+    action_type TEXT NOT NULL,
+    old_data JSONB,
+    new_data JSONB,
+    changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE OR REPLACE FUNCTION public.audit_club_changes()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    old_json JSONB := '{}'::jsonb;
+    new_json JSONB := '{}'::jsonb;
+    has_changes BOOLEAN := FALSE;
+BEGIN
+    IF TG_OP = 'UPDATE' THEN
+        -- 1. name
+        IF OLD.name IS DISTINCT FROM NEW.name THEN
+            old_json := old_json || jsonb_build_object('name', OLD.name);
+            new_json := new_json || jsonb_build_object('name', NEW.name);
+            has_changes := TRUE;
+        END IF;
+
+        -- 2. slug
+        IF OLD.slug IS DISTINCT FROM NEW.slug THEN
+            old_json := old_json || jsonb_build_object('slug', OLD.slug);
+            new_json := new_json || jsonb_build_object('slug', NEW.slug);
+            has_changes := TRUE;
+        END IF;
+
+        -- 3. description
+        IF OLD.description IS DISTINCT FROM NEW.description THEN
+            old_json := old_json || jsonb_build_object('description', OLD.description);
+            new_json := new_json || jsonb_build_object('description', NEW.description);
+            has_changes := TRUE;
+        END IF;
+
+        -- 4. banner_url
+        IF OLD.banner_url IS DISTINCT FROM NEW.banner_url THEN
+            old_json := old_json || jsonb_build_object('banner_url', OLD.banner_url);
+            new_json := new_json || jsonb_build_object('banner_url', NEW.banner_url);
+            has_changes := TRUE;
+        END IF;
+
+        -- 5. logo_url
+        IF OLD.logo_url IS DISTINCT FROM NEW.logo_url THEN
+            old_json := old_json || jsonb_build_object('logo_url', OLD.logo_url);
+            new_json := new_json || jsonb_build_object('logo_url', NEW.logo_url);
+            has_changes := TRUE;
+        END IF;
+
+        -- 6. github_repo_url
+        IF OLD.github_repo_url IS DISTINCT FROM NEW.github_repo_url THEN
+            old_json := old_json || jsonb_build_object('github_repo_url', OLD.github_repo_url);
+            new_json := new_json || jsonb_build_object('github_repo_url', NEW.github_repo_url);
+            has_changes := TRUE;
+        END IF;
+
+        -- 7. visibility
+        IF OLD.visibility IS DISTINCT FROM NEW.visibility THEN
+            old_json := old_json || jsonb_build_object('visibility', OLD.visibility);
+            new_json := new_json || jsonb_build_object('visibility', NEW.visibility);
+            has_changes := TRUE;
+        END IF;
+
+        -- 8. social_links
+        IF OLD.social_links IS DISTINCT FROM NEW.social_links THEN
+            old_json := old_json || jsonb_build_object('social_links', OLD.social_links);
+            new_json := new_json || jsonb_build_object('social_links', NEW.social_links);
+            has_changes := TRUE;
+        END IF;
+
+        IF has_changes THEN
+            INSERT INTO public.club_audit_logs (club_id, action_type, old_data, new_data)
+            VALUES (NEW.id, 'UPDATE', old_json, new_json);
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS clubs_audit_trigger ON public.clubs;
+CREATE TRIGGER clubs_audit_trigger
+    AFTER UPDATE ON public.clubs
+    FOR EACH ROW
+    EXECUTE FUNCTION public.audit_club_changes();
+
+ALTER TABLE public.club_audit_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "System admins can read club audit logs"
+ON public.club_audit_logs
+FOR SELECT
+TO authenticated
+USING (
+    EXISTS (
+        SELECT 1 FROM public.profiles
+        WHERE profiles.id = auth.uid()
+          AND profiles.role = 'system_admin'::public.user_role
+    )
+);
+
+GRANT ALL ON TABLE public.club_audit_logs TO postgres;
+GRANT SELECT ON TABLE public.club_audit_logs TO authenticated;
+
+
+-- Backfill any missing profiles for existing authenticated users
+INSERT INTO public.profiles (id, full_name, avatar_url)
+SELECT id, raw_user_meta_data->>'full_name', raw_user_meta_data->>'avatar_url'
+FROM auth.users
+ON CONFLICT (id) DO NOTHING;
+
+-- Enable pg_trgm extension
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+-- Create GIN indexes for fast trigram prefix matching and typo tolerance
+CREATE INDEX IF NOT EXISTS clubs_name_trgm_idx ON public.clubs USING gin (name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS clubs_description_trgm_idx ON public.clubs USING gin (description gin_trgm_ops);
+
+-- Create the RPC search function
+CREATE OR REPLACE FUNCTION public.search_clubs(search_term TEXT)
+RETURNS SETOF public.clubs
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  -- Set pg_trgm.similarity_threshold to 0.3 as requested
+  PERFORM set_config('pg_trgm.similarity_threshold', '0.3', true);
+  
+  RETURN QUERY
+    SELECT *
+    FROM public.clubs
+    WHERE name % search_term OR description % search_term
+    ORDER BY similarity(name, search_term) DESC;
+END;
+$$;

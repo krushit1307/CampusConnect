@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import {
   Bell,
@@ -10,10 +10,28 @@ import {
   Building,
   MessageSquare,
   Shield,
+  AtSign,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
+import { EmptyState } from "@/components/EmptyState";
+import { useGraphQLSubscription } from "@/hooks/useGraphQLSubscription";
+
+const NOTIFICATION_SUBSCRIPTION = `
+  subscription OnNotificationReceived($userId: ID!) {
+    notificationReceived(userId: $userId) {
+      id
+      userId
+      type
+      title
+      message
+      link
+      isRead
+      createdAt
+    }
+  }
+`;
 
 type WidgetNotification = {
   id: string;
@@ -27,6 +45,9 @@ type WidgetNotification = {
 
 export function NotificationLiveFeedWidget() {
   const supabase = createClient();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const seenNotifIds = useRef<Set<string>>(new Set());
+
   const [notifications, setNotifications] = useState<WidgetNotification[]>([
     {
       id: "n_1",
@@ -60,6 +81,50 @@ export function NotificationLiveFeedWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user?.id) {
+        setCurrentUserId(data.user.id);
+      }
+    });
+  }, [supabase.auth]);
+
+  const subscriptionOperation = currentUserId
+    ? { query: NOTIFICATION_SUBSCRIPTION, variables: { userId: currentUserId } }
+    : null;
+
+  const { data: subData } = useGraphQLSubscription<{
+    notificationReceived: {
+      id: string;
+      userId: string;
+      type: string;
+      title: string;
+      message: string;
+      link: string | null;
+      isRead: boolean;
+      createdAt: string;
+    };
+  }>(subscriptionOperation, { skip: !currentUserId });
+
+  useEffect(() => {
+    const notif = subData?.notificationReceived;
+    if (!notif) return;
+    if (seenNotifIds.current.has(notif.id)) return;
+    seenNotifIds.current.add(notif.id);
+
+    const newWidgetNotif: WidgetNotification = {
+      id: notif.id,
+      type: notif.type.toLowerCase(),
+      title: notif.title,
+      message: notif.message,
+      is_read: notif.isRead,
+      link: notif.link ?? undefined,
+      created_at: notif.createdAt,
+    };
+
+    setNotifications((prev) => [newWidgetNotif, ...prev]);
+  }, [subData]);
+
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   const handleMarkAllAsRead = () => {
@@ -69,11 +134,14 @@ export function NotificationLiveFeedWidget() {
   const getIcon = (type: string) => {
     switch (type) {
       case "event":
+      case "event_update":
         return <Calendar className="h-4 w-4 text-blue-600" />;
       case "club":
         return <Building className="h-4 w-4 text-amber-600" />;
       case "reply":
         return <MessageSquare className="h-4 w-4 text-green-600" />;
+      case "mention":
+        return <AtSign className="h-4 w-4 text-pink-600" />;
       default:
         return <Shield className="h-4 w-4 text-purple-600" />;
     }
@@ -131,9 +199,12 @@ export function NotificationLiveFeedWidget() {
                 <Loader2 className="animate-spin" size={20} />
               </div>
             ) : notifications.length === 0 ? (
-              <p className="text-center font-mono text-xs text-gray-500 py-6">
-                No notifications yet.
-              </p>
+              <EmptyState
+                illustrationType="no-notifications"
+                title="All caught up"
+                description="No notifications yet. We’ll ring the bell when something happens."
+                className="border-0 px-2 py-4 shadow-none [&>div:first-child]:h-16 [&>div:first-child]:w-16 [&>h3]:text-sm [&>p]:text-xs"
+              />
             ) : (
               notifications.map((n) => (
                 <Link

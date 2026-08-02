@@ -25,7 +25,12 @@ function getStoredTheme(): Theme | null {
   if (typeof window === "undefined") return null;
 
   const stored = window.localStorage.getItem(STORAGE_KEY);
-  return stored === "light" || stored === "dark" || stored === "system" || stored === "high-contrast" ? stored : null;
+  return stored === "light" ||
+    stored === "dark" ||
+    stored === "system" ||
+    stored === "high-contrast"
+    ? stored
+    : null;
 }
 
 function getPreferredTheme(): Theme {
@@ -51,7 +56,9 @@ function applyTheme(theme: Theme) {
 
   const isDark =
     theme === "dark" ||
-    (theme === "system" && !isHighContrast && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    (theme === "system" &&
+      !isHighContrast &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
 
   document.documentElement.classList.toggle("high-contrast", isHighContrast);
   document.documentElement.classList.toggle("dark", isDark && !isHighContrast);
@@ -87,9 +94,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const toggleTheme = (event?: MouseEvent<HTMLElement> | React.MouseEvent<HTMLElement>) => {
     const nextTheme =
-      theme === "light" ? "dark" :
-      theme === "dark" ? "high-contrast" :
-      theme === "high-contrast" ? "system" : "light";
+      theme === "light"
+        ? "dark"
+        : theme === "dark"
+          ? "high-contrast"
+          : theme === "high-contrast"
+            ? "system"
+            : "light";
 
     const isSupported = typeof document !== "undefined" && "startViewTransition" in document;
     const prefersReducedMotion =

@@ -9,7 +9,7 @@ import {
   getClubEvents,
 } from "./db";
 import { deliverActivity } from "./routes";
-import { DOMAIN } from "./index";
+import { DOMAIN } from "./config";
 
 function actorUrl(slug: string): string {
   return `https://${DOMAIN}/api/activitypub/actors/${slug}`;

@@ -32,7 +32,7 @@ function scheduleDrain(): void {
       drainQueue();
     });
   } else {
-    window.setTimeout(() => {
+    setTimeout(() => {
       drainQueue();
     }, 0);
   }

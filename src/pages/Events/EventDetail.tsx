@@ -2,19 +2,45 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect, lazy, Suspense, useMemo } from "react";
-import { motion } from "framer-motion";
+import { LazyMotion, m } from "framer-motion";
+import { Helmet } from "react-helmet-async";
 import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
 import { TableOfContents } from "@/components/events/TableOfContents";
+import { buildOpenGraphTags } from "@/lib/seo/eventMeta";
 import NotFound from "./NotFound";
 import LazyHydrate from "@/components/LazyHydrate";
 import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
+import { useBreadcrumbs } from "@/components/BreadcrumbsContext";
+import { triggerConfetti } from "@/utils/confetti";
 // Removed SiteShell import
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { MapSkeleton } from "@/components/ui/MapSkeleton";
+import EventFeedbackForm from "@/components/EventFeedbackForm";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ default: m.EventMap })));
 import { formatEventDateRange } from "@/lib/utils";
+import { loadDomMax } from "@/lib/motionFeatures";
 import { downloadIcs, getGoogleCalendarUrl } from "@/lib/calendarUtils";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
 import { formatStandardDate } from "@/utils/dateUtils";
@@ -33,6 +59,10 @@ import {
   CheckCircle,
   Clock,
   RotateCcw,
+  HelpCircle,
+  Flag,
+  Star,
+  Calendar,
 } from "lucide-react";
 import { ReportDialog } from "@/components/ReportDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -65,6 +95,9 @@ import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
 import { ActivePoll } from "@/components/polls/ActivePoll";
 import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
 import { CaptchaWidget } from "@/components/CaptchaWidget";
+import { SeatingChart } from "@/components/events/SeatingChart";
+import { useEventSeats } from "@/hooks/useEventSeats";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 interface SimilarEventItem {
   id: string;
@@ -200,21 +233,67 @@ function downloadCsv(csvContent: string, filename: string) {
 }
 
 export default function EventDetailsPage() {
-  const { eventId = "" } = useParams();
+  const { eventId = "", lang = "en" } = useParams();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const emailVerified = useEmailVerification();
-  const [copied, setCopied] = useState(false);
-  const [idCopied, setIdCopied] = useState(false);
+  const { copyToClipboard: copyEventLink, isCopied: isEventLinkCopied } = useCopyToClipboard();
+  const { copyToClipboard: copyEventId, isCopied: isEventIdCopied } = useCopyToClipboard();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | undefined>(undefined);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const viewerCount = useEventViewerCount(eventId);
+  const { setCustomTrail } = useBreadcrumbs();
 
   // Safe window URL handling for SSR / hydration safety
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+
+  useEffect(() => {
+    if (!event) {
+      const skeleton = (
+        <span className="h-3 w-16 animate-pulse rounded bg-gray-200 dark:bg-gray-700 inline-block align-middle" />
+      );
+      setCustomTrail([
+        { label: "Home", path: `/${lang}` },
+        { label: "Clubs", path: `/${lang}/clubs` },
+        { label: skeleton },
+        { label: "Events", path: `/${lang}/events` },
+        { label: skeleton },
+      ]);
+      return;
+    }
+
+    const clubObj = event.clubs ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
+    const trail = [
+      { label: "Home", path: `/${lang}` },
+      { label: "Clubs", path: `/${lang}/clubs` },
+    ];
+
+    if (clubObj) {
+      trail.push({
+        label: clubObj.name,
+        path: `/${lang}/clubs/${clubObj.slug}`,
+      });
+    }
+
+    trail.push({
+      label: "Events",
+      path: `/${lang}/events`,
+    });
+
+    trail.push({
+      label: event.title,
+    });
+
+    setCustomTrail(trail);
+
+    return () => {
+      setCustomTrail(null);
+    };
+  }, [event, lang, setCustomTrail]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -691,8 +770,8 @@ export default function EventDetailsPage() {
           ...event,
           event_rsvps: updatedRsvps,
           attendee_count: hasRsvpd
-            ? (event.attendee_count || 0) - 1
-            : (event.attendee_count || 0) + 1,
+            ? (((event as Record<string, unknown>).attendee_count as number) || 0) - 1
+            : (((event as Record<string, unknown>).attendee_count as number) || 0) + 1,
         };
 
         setQueryData(["event", eventId], updatedEvent);
@@ -720,14 +799,31 @@ export default function EventDetailsPage() {
       ) {
         toast.error("Please wait a minute before toggling RSVP again.");
       } else {
-        toast.error(
-          (err?.message as string) || error?.message || "Failed to update RSVP. Please try again.",
-        );
+        toast.error((err?.message as string) || "Failed to update RSVP. Please try again.");
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       // Refetch to ensure server state matches
       refetch();
+      if (!variables.hasRsvpd) {
+        triggerConfetti();
+      }
+      // Reserve selected seats after successful RSVP
+      if (hasSeats && selectedSeats.length > 0) {
+        selectedSeats.forEach((seatId) => {
+          supabase.rpc("reserve_seat", { p_seat_id: seatId });
+        });
+      }
+
+      // Eagerly cache event banner if they just RSVP'd
+      if (!variables.hasRsvpd && event?.banner_url && "caches" in window) {
+        window.caches.open("supabase-images-cache").then((cache) => {
+          cache.add(event.banner_url!).catch((err) => {
+            // eslint-disable-next-line no-console
+            console.error("Failed to eagerly cache banner image", err);
+          });
+        });
+      }
     },
   });
 
@@ -858,9 +954,9 @@ export default function EventDetailsPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [eventId, event?.created_by, user?.id, supabase, refetch, isOrganizer]);
+  }, [eventId, event?.created_by, user?.id, supabase, refetch]);
 
-  const isOrganizer = user && event?.created_by === user.id;
+  const isOrganizer = Boolean(user && event?.created_by === user.id);
 
   // Local state for optimistic updates during dragging
   const [columns, setColumns] = useState<{
@@ -891,11 +987,16 @@ export default function EventDetailsPage() {
     if (!event) return;
 
     const typedEvent = event as unknown as {
-      event_waitlist: EventWaitlist[];
-      event_rsvps: EventRsvp[];
+      event_waitlist: unknown[];
+      event_rsvps: unknown[];
     };
 
-    setColumns(buildKanbanColumns(typedEvent.event_waitlist || [], typedEvent.event_rsvps || []));
+    setColumns(
+      buildKanbanColumns(
+        typedEvent.event_waitlist || [],
+        typedEvent.event_rsvps || [],
+      ) as unknown as typeof columns,
+    );
   }, [event]);
 
   const updateRsvpStatus = useMutation({
@@ -1029,7 +1130,7 @@ export default function EventDetailsPage() {
     );
   }
 
-  const rsvps = Array.isArray(event.event_rsvps) ? (event.event_rsvps as EventRsvp[]) : [];
+  const rsvps = Array.isArray(event.event_rsvps) ? (event.event_rsvps as unknown[]) : [];
   const { hasRsvpd, isCheckedIn, hasEnded } = buildRsvpStatus(rsvps, user?.id, event.end_date);
   const rawFeedbacks = (event as Record<string, unknown>).event_feedbacks;
   const { hasSubmittedFeedback } = buildFeedbackStatus(
@@ -1039,6 +1140,15 @@ export default function EventDetailsPage() {
 
   const rawWaitlist = (event as Record<string, unknown>).event_waitlist;
   const { waitlist, isOnWaitlist, waitlistPosition } = buildWaitlistInfo(rawWaitlist, user?.id);
+
+  const {
+    seats: seatData,
+    reservedSeatIds,
+    selectedSeats,
+    toggleSeat,
+    hasSeats,
+    isLoading: isSeatsLoading,
+  } = useEventSeats(event?.id && !event.id.startsWith("mock-") ? event.id : undefined);
 
   const club = event.clubs ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
   const coordsCheck = event.location
@@ -1080,27 +1190,26 @@ export default function EventDetailsPage() {
       return;
     }
 
+    if (hasSeats && selectedSeats.length === 0) {
+      toast.error("Please select at least one seat before RSVPing.");
+      return;
+    }
+
     toggleRsvp.mutate({ eventId: event.id, hasRsvpd: false, captchaToken });
   };
 
   const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl || window.location.href);
-      setCopied(true);
+    if (await copyEventLink(shareUrl || window.location.href)) {
       toast.success("Event link copied to clipboard!");
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
+    } else {
       toast.error("Failed to copy link.");
     }
   };
 
   const handleCopyEventId = async () => {
-    try {
-      await navigator.clipboard.writeText(event.id);
-      setIdCopied(true);
+    if (await copyEventId(event.id)) {
       toast.success("Event ID copied to clipboard!");
-      setTimeout(() => setIdCopied(false), 2000);
-    } catch {
+    } else {
       toast.error("Failed to copy event ID.");
     }
   };
@@ -1119,1129 +1228,1220 @@ export default function EventDetailsPage() {
     maxAttendees > 0 &&
     attendeeCount >= maxAttendees;
 
+  // Issue #1904: dynamic OpenGraph / Twitter Card meta tags so sharing an
+  // event link on Discord / iMessage / Twitter renders a rich preview with
+  // the actual event banner + title + date.
+  //
+  // Edge case from the spec: og:image should be 1200x630 to satisfy
+  // Twitter / Facebook crop heuristics. We resize the banner via Supabase
+  // Storage's render/image-public transform when a banner exists; fall
+  // back to the raw URL if the transform cannot be derived.
+  //
+  // The pure helper lives in src/lib/seo/eventMeta.ts so it can be unit
+  // tested without React / Supabase / react-helmet-async.
+  const og = buildOpenGraphTags({
+    title: event.title,
+    description: event.description,
+    bannerUrl: event.banner_url,
+    eventDate: event.event_date,
+    location: event.location,
+    url: shareUrl || (typeof window !== "undefined" ? window.location.href : null),
+  });
+
   return (
-    <>
-      {/* Breadcrumb nav */}
-      <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6" aria-label="Breadcrumb">
-        <div className="mx-auto max-w-4xl">
-          {/* Mobile: simple back link */}
-          <Link
-            to="/events"
-            className="inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider hover:underline sm:hidden"
-          >
-            <ArrowLeft size={14} /> Events
-          </Link>
-          {/* sm+: full breadcrumb */}
-          <Breadcrumb className="hidden sm:block">
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link to="/" className="font-mono text-xs font-bold uppercase">
-                    Home
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link to="/events" className="font-mono text-xs font-bold uppercase">
-                    Events
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage className="font-mono text-xs font-bold uppercase">
-                  {event.title}
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-        </div>
-      </nav>
+    <LazyMotion features={loadDomMax} strict={import.meta.env.DEV}>
 
-      {/* Hero Section */}
-      <section className="relative w-full overflow-hidden border-b-2 border-black bg-peach/30">
-        {event.banner_url ? (
-          <motion.div layoutId={`event-image-${event.id}`} className="absolute inset-0">
-            <OptimizedImage
-              src={event.banner_url}
-              alt={`${event.title} event banner`}
-              className="h-full w-full object-cover"
-              width={1344}
-              height={700}
-              responsiveWidths={[448, 672, 896, 1344]}
-              sizes="100vw"
-              priority
-              fallback={
-                <div className="h-full w-full bg-linear-to-br from-peach via-pink-200 to-lime/40" />
-              }
+
+      <Helmet>
+        {/* OpenGraph (Facebook / Discord / iMessage) */}
+        <meta property="og:type" content="event" />
+        {og.ogUrl && <meta property="og:url" content={og.ogUrl} />}
+        <meta property="og:title" content={og.ogTitle} />
+        <meta property="og:description" content={og.ogDescription} />
+        {og.ogImage && <meta property="og:image" content={og.ogImage} />}
+        {og.ogImage && <meta property="og:image:width" content="1200" />}
+        {og.ogImage && <meta property="og:image:height" content="630" />}
+        {og.eventStartTime && <meta property="event:start_time" content={og.eventStartTime} />}
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={og.ogTitle} />
+        <meta name="twitter:description" content={og.ogDescription} />
+        {og.ogImage && <meta name="twitter:image" content={og.ogImage} />}
+      </Helmet>
+      <SiteShell>
+
+
+        {/* Hero Section */}
+        <section className="relative w-full overflow-hidden border-b-2 border-black bg-peach/30">
+          {event.banner_url ? (
+            <m.div layoutId={`event-image-${event.id}`} className="absolute inset-0">
+              <OptimizedImage
+                src={event.banner_url}
+                alt={`${event.title} event banner`}
+                className="h-full w-full object-cover"
+                width={1344}
+                height={700}
+                responsiveWidths={[448, 672, 896, 1344]}
+                sizes="100vw"
+                priority
+                fallback={
+                  <div className="h-full w-full bg-linear-to-br from-peach via-pink-200 to-lime/40" />
+                }
+              />
+              <div className="absolute inset-0 bg-black/50" />
+            </m.div>
+          ) : (
+            <m.div
+              layoutId={`event-image-${event.id}`}
+              className="absolute inset-0 bg-linear-to-br from-peach via-pink-200 to-lime/40"
             />
-            <div className="absolute inset-0 bg-black/50" />
-          </motion.div>
-        ) : (
-          <motion.div
-            layoutId={`event-image-${event.id}`}
-            className="absolute inset-0 bg-linear-to-br from-peach via-pink-200 to-lime/40"
-          />
-        )}
-
-        <div className="relative mx-auto flex min-h-[50vh] max-w-4xl flex-col justify-end px-4 py-16 md:min-h-[60vh] md:px-6 md:py-24">
-          <div className="mb-4">
-            <span className="neu-border inline-block bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider text-black">
-              Event Details
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <h1
-              className={`text-4xl font-black tracking-tight md:text-6xl ${event.banner_url ? "text-white" : "text-black"}`}
-            >
-              {event.title}
-            </h1>
-            <ShareMenu url={shareUrl} title={event.title} />
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={handleCopyEventId}
-                    variant="outline"
-                    size="icon"
-                    className="neu-border rounded-2xl h-8 w-8 shrink-0 bg-black text-white transition-all duration-300 hover:scale-105 active:scale-95"
-                    aria-label="Copy Event ID"
-                  >
-                    {idCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Copy Event ID</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-
-          {club && (
-            <p
-              className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"}`}
-            >
-              Organized by:{" "}
-              <Link to={`/clubs/${club.slug}`} className="underline hover:opacity-80">
-                {club.name}
-              </Link>
-            </p>
           )}
 
-          {!club && event.profiles && (
-            <div
-              className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"} flex items-center gap-4`}
-            >
-              <span>Organized by: {(event.profiles as { full_name: string }).full_name}</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  import("@/lib/vcardUtils").then(({ downloadVCard }) => {
-                    downloadVCard(event.profiles as { full_name: string; email: string });
-                  });
-                }}
-                className="neu-border h-8 bg-white/20 hover:bg-white/40 text-xs px-3"
+          <div className="relative mx-auto flex min-h-[50vh] max-w-4xl flex-col justify-end px-4 py-16 md:min-h-[60vh] md:px-6 md:py-24">
+            <div className="mb-4">
+              <span className="neu-border inline-block bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider text-black">
+                Event Details
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <h1
+                className={`text-4xl font-black tracking-tight md:text-6xl ${event.banner_url ? "text-white" : "text-black"}`}
               >
-                <Download className="mr-2 h-3 w-3" />
-                Download Contact (vCard)
-              </Button>
+                {event.title}
+              </h1>
+              <ShareMenu url={shareUrl} title={event.title} />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={handleCopyEventId}
+                      variant="outline"
+                      size="icon"
+                      className="neu-border rounded-2xl h-8 w-8 shrink-0 bg-black text-white transition-all duration-300 hover:scale-105 active:scale-95"
+                      aria-label="Copy Event ID"
+                    >
+                      {isEventIdCopied ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Copy Event ID</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
-          )}
 
-          <div
-            className={`mt-8 flex flex-wrap gap-4 font-mono text-sm font-bold sm:gap-8 ${event.banner_url ? "text-white" : "text-black"}`}
-          >
-            <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              <span>{formatEventDateRange(event)}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <MapPin className="h-5 w-5" />
-              <span>{event.location || "TBA"}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              <span>{attendeeCount} RSVP&apos;d</span>
-            </div>
-          </div>
-
-          <div className="mt-6 max-w-md">
-            <EventCapacityGauge
-              eventId={event.id}
-              initialCapacity={attendeeCount}
-              maxAttendees={maxAttendees || null}
-              showDetails={true}
-            />
-          </div>
-
-          <div className="mt-8 hidden items-center gap-4 md:flex">
-            {hasRsvpd ? (
-              <Button
-                onClick={handleRsvpClick}
-                disabled={toggleRsvp.isPending}
-                variant="secondary"
-                size="lg"
+            {club && (
+              <p
+                className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"}`}
               >
-                {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
-              </Button>
-            ) : isAtCapacity ? (
-              <div className="flex flex-col gap-1">
+                Organized by:{" "}
+                <Link to={`/clubs/${club.slug}`} className="underline hover:opacity-80">
+                  {club.name}
+                </Link>
+              </p>
+            )}
+
+            {!club && event.profiles && (
+              <div
+                className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"} flex items-center gap-4`}
+              >
+                <span>Organized by: {(event.profiles as { full_name: string }).full_name}</span>
                 <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => {
-                    if (!user) {
-                      toast.error("Please log in to join the waitlist");
-                      return;
-                    }
-                    if (!emailVerified) {
-                      toast.error("Please verify your email to join the waitlist");
-                      return;
-                    }
-                    toggleWaitlist.mutate({ isOnWaitlist });
+                    import("@/lib/vcardUtils").then(({ downloadVCard }) => {
+                      downloadVCard(event.profiles as { full_name: string; email: string });
+                    });
                   }}
-                  disabled={toggleWaitlist.isPending}
-                  variant={isOnWaitlist ? "secondary" : "primary"}
-                  size="lg"
+                  className="neu-border h-8 bg-white/20 hover:bg-white/40 text-xs px-3"
                 >
-                  {toggleWaitlist.isPending
-                    ? "Updating..."
-                    : isOnWaitlist
-                      ? "On Waitlist ✓"
-                      : "Join Waitlist"}
+                  <Download className="mr-2 h-3 w-3" />
+                  Download Contact (vCard)
                 </Button>
-                {isOnWaitlist && waitlistPosition > 0 && (
-                  <span
-                    className={`font-mono text-xs font-bold ${event.banner_url ? "text-white" : "text-black"}`}
-                  >
-                    You are #{waitlistPosition} on the waitlist
-                  </span>
-                )}
               </div>
-            ) : (
-              <div className="flex flex-col gap-1">
+            )}
+
+            <div
+              className={`mt-8 flex flex-wrap gap-4 font-mono text-sm font-bold sm:gap-8 ${event.banner_url ? "text-white" : "text-black"}`}
+            >
+              <div className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                <span>{formatEventDateRange(event)}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                <span>{event.location || "TBA"}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                <span>{attendeeCount} RSVP&apos;d</span>
+              </div>
+            </div>
+
+            <div className="mt-6 max-w-md">
+              <EventCapacityGauge
+                eventId={event.id}
+                initialCapacity={attendeeCount}
+                maxAttendees={maxAttendees || null}
+                showDetails={true}
+              />
+            </div>
+
+            <div className="mt-8 hidden items-center gap-4 md:flex">
+              {hasRsvpd ? (
                 <Button
                   onClick={handleRsvpClick}
                   disabled={toggleRsvp.isPending}
-                  variant="primary"
+                  variant="secondary"
                   size="lg"
                 >
-                  {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
+                  {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
                 </Button>
-                {captchaEnabled && (
-                  <div className="flex flex-col gap-2">
-                    <span
-                      className={`font-mono text-xs font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
-                    >
-                      Verification required before RSVP
-                    </span>
-                    <CaptchaWidget
-                      siteKey={captchaSiteKey}
-                      provider={captchaProvider}
-                      onToken={(token) => setCaptchaToken(token)}
-                      onError={() => setCaptchaToken(undefined)}
-                      onExpire={() => setCaptchaToken(undefined)}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-            <span
-              className={`font-mono text-sm font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
-            >
-              {attendeeCount} {maxAttendees ? `/ ${maxAttendees}` : ""} people going
-              {isAtCapacity && !hasRsvpd && " (At Capacity)"}
-            </span>
-          </div>
-        </div>
-      </section>
-
-      {/* Details Container */}
-      <section className="bg-cream px-4 py-12 md:px-6">
-        <div className="mx-auto max-w-4xl neu-border bg-white p-6 md:p-8">
-          {/* Action buttons (Copy Link / Add to Calendar) */}
-          <div className="flex flex-wrap items-center gap-4 border-b-2 border-black pb-8">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
+              ) : isAtCapacity ? (
+                <div className="flex flex-col gap-1">
                   <Button
-                    onClick={handleCopyLink}
+                    onClick={() => {
+                      if (!user) {
+                        toast.error("Please log in to join the waitlist");
+                        return;
+                      }
+                      if (!emailVerified) {
+                        toast.error("Please verify your email to join the waitlist");
+                        return;
+                      }
+                      toggleWaitlist.mutate({ isOnWaitlist });
+                    }}
+                    disabled={toggleWaitlist.isPending}
+                    variant={isOnWaitlist ? "secondary" : "primary"}
+                    size="lg"
+                  >
+                    {toggleWaitlist.isPending
+                      ? "Updating..."
+                      : isOnWaitlist
+                        ? "On Waitlist ✓"
+                        : "Join Waitlist"}
+                  </Button>
+                  {isOnWaitlist && waitlistPosition > 0 && (
+                    <span
+                      className={`font-mono text-xs font-bold ${event.banner_url ? "text-white" : "text-black"}`}
+                    >
+                      You are #{waitlistPosition} on the waitlist
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  <Button
+                    onClick={handleRsvpClick}
+                    disabled={toggleRsvp.isPending}
+                    variant="primary"
+                    size="lg"
+                  >
+                    {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
+                  </Button>
+                  {captchaEnabled && (
+                    <div className="flex flex-col gap-2">
+                      <span
+                        className={`font-mono text-xs font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
+                      >
+                        Verification required before RSVP
+                      </span>
+                      <CaptchaWidget
+                        siteKey={captchaSiteKey}
+                        provider={captchaProvider}
+                        onToken={(token) => setCaptchaToken(token)}
+                        onError={() => setCaptchaToken(undefined)}
+                        onExpire={() => setCaptchaToken(undefined)}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+              <span
+                className={`font-mono text-sm font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
+              >
+                {attendeeCount} {maxAttendees ? `/ ${maxAttendees}` : ""} people going
+                {isAtCapacity && !hasRsvpd && " (At Capacity)"}
+              </span>
+            </div>
+          </div>
+        </section>
+
+        {/* Details Container */}
+        <section className="bg-cream px-4 py-12 md:px-6">
+          <div className="mx-auto max-w-4xl neu-border bg-white p-6 md:p-8">
+            {/* Action buttons (Copy Link / Add to Calendar) */}
+            <div className="flex flex-wrap items-center gap-4 border-b-2 border-black pb-8">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={handleCopyLink}
+                      variant="outline"
+                      className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                    >
+                      {isEventLinkCopied ? (
+                        <Check className="mr-2 h-4 w-4" />
+                      ) : (
+                        <LinkIcon className="mr-2 h-4 w-4" />
+                      )}
+                      {isEventLinkCopied ? "Copied! ✓" : "Copy Link"}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Copy Event Link</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              {isOrganizer && (
+                <>
+                  <Button
+                    onClick={() => exportCsv.mutate()}
+                    disabled={exportCsv.isPending}
                     variant="outline"
                     className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
                   >
-                    {copied ? (
-                      <Check className="mr-2 h-4 w-4" />
-                    ) : (
-                      <LinkIcon className="mr-2 h-4 w-4" />
-                    )}
-                    {copied ? "Copied" : "Copy Link"}
+                    <Download className="mr-2 h-4 w-4" />
+                    {exportCsv.isPending ? "Exporting..." : "Export CSV"}
                   </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Copy Event Link</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+                  <CreatePollDialog
+                    eventId={eventId}
+                    user={user!}
+                    onPollCreated={() => refetch()}
+                  />
+                </>
+              )}
 
-            {isOrganizer && (
-              <>
-                <Button
-                  onClick={() => exportCsv.mutate()}
-                  disabled={exportCsv.isPending}
-                  variant="outline"
-                  className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  {exportCsv.isPending ? "Exporting..." : "Export CSV"}
-                </Button>
-                <CreatePollDialog eventId={eventId} user={user!} onPollCreated={() => refetch()} />
-              </>
-            )}
-
-            {googleCalendarUrl && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="neu-border h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
-                  >
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Add to Calendar
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="neu-border font-mono text-sm">
-                  <DropdownMenuItem asChild>
-                    <a
-                      href={googleCalendarUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+              {googleCalendarUrl && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="neu-border h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      Add to Calendar
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="neu-border font-mono text-sm">
+                    <DropdownMenuItem asChild>
+                      <a
+                        href={googleCalendarUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <Calendar className="h-4 w-4" />
+                        Google Calendar
+                      </a>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => downloadIcs(event)}
                       className="flex items-center gap-2 cursor-pointer"
                     >
-                      <Calendar className="h-4 w-4" />
-                      Google Calendar
-                    </a>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => downloadIcs(event)}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download .ics
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+                      <Download className="h-4 w-4" />
+                      Download .ics
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
 
-            {user && !isOrganizer && (
-              <Button
-                onClick={() => setIsReportDialogOpen(true)}
-                variant="outline"
-                className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
-              >
-                <Flag className="h-4 w-4" />
-                Report Event
-              </Button>
-            )}
+              {user && !isOrganizer && (
+                <Button
+                  onClick={() => setIsReportDialogOpen(true)}
+                  variant="outline"
+                  className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
+                >
+                  <Flag className="h-4 w-4" />
+                  Report Event
+                </Button>
+              )}
 
-            {isCheckedIn && hasEnded && (
-              <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
-                <DialogTrigger asChild>
-                  <Button
-                    disabled={hasSubmittedFeedback}
-                    variant="primary"
-                    className="neu-border neu-press h-12 px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
-                  >
-                    <Star className="mr-2 h-4 w-4" />
-                    {hasSubmittedFeedback ? "Feedback Submitted \u2713" : "Submit Feedback"}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md neu-border">
-                  <DialogHeader>
-                    <DialogTitle className="font-display font-bold uppercase text-xl text-blue-900">
-                      Event Feedback
-                    </DialogTitle>
-                    <DialogDescription className="font-mono text-sm">
-                      How was {event.title}? Share your experience!
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="flex flex-col gap-6 py-4">
-                    <div className="flex flex-col items-center gap-3">
-                      <Label className="font-mono font-bold">Rating</Label>
-                      <div className="flex items-center gap-2">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <button
-                            key={star}
-                            type="button"
-                            onClick={() => setFeedbackRating(star)}
-                            aria-label={`Rate ${star} out of 5 stars`}
-                            aria-pressed={feedbackRating === star}
-                            className="transition-transform hover:scale-110 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
-                          >
-                            <Star
-                              className={`h-8 w-8 ${feedbackRating >= star ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
-                            />
-                          </button>
-                        ))}
+              {isCheckedIn && hasEnded && (
+                <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      disabled={hasSubmittedFeedback}
+                      variant="primary"
+                      className="neu-border neu-press h-12 px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                    >
+                      <Star className="mr-2 h-4 w-4" />
+                      {hasSubmittedFeedback ? "Feedback Submitted \u2713" : "Submit Feedback"}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md neu-border">
+                    <DialogHeader>
+                      <DialogTitle className="font-display font-bold uppercase text-xl text-blue-900">
+                        Event Feedback
+                      </DialogTitle>
+                      <DialogDescription className="font-mono text-sm">
+                        How was {event.title}? Share your experience!
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-6 py-4">
+                      <div className="flex flex-col items-center gap-3">
+                        <Label className="font-mono font-bold">Rating</Label>
+                        <div className="flex items-center gap-2">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              type="button"
+                              onClick={() => setFeedbackRating(star)}
+                              aria-label={`Rate ${star} out of 5 stars`}
+                              aria-pressed={feedbackRating === star}
+                              className="transition-transform hover:scale-110 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                            >
+                              <Star
+                                className={`h-8 w-8 ${feedbackRating >= star ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor="comment" className="font-mono font-bold">
+                          Comment (Optional)
+                        </Label>
+                        <Textarea
+                          id="comment"
+                          placeholder="Tell us what you liked or what could be improved..."
+                          className="neu-border font-mono text-sm min-h-25"
+                          value={feedbackComment}
+                          onChange={(e) => setFeedbackComment(e.target.value)}
+                        />
                       </div>
                     </div>
-                    <div className="flex flex-col gap-2">
-                      <Label htmlFor="comment" className="font-mono font-bold">
-                        Comment (Optional)
-                      </Label>
-                      <Textarea
-                        id="comment"
-                        placeholder="Tell us what you liked or what could be improved..."
-                        className="neu-border font-mono text-sm min-h-25"
-                        value={feedbackComment}
-                        onChange={(e) => setFeedbackComment(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      onClick={() => submitFeedback.mutate()}
-                      disabled={submitFeedback.isPending || feedbackRating === 0}
-                      variant="primary"
-                      className="font-mono font-bold uppercase w-full sm:w-auto"
-                    >
-                      {submitFeedback.isPending ? "Submitting..." : "Submit Feedback"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            )}
-          </div>
-
-          {/* Predictive Turnout (Visible to Organizer / Admins) */}
-          {isOrganizer && (
-            <div className="mt-8">
-              <PredictiveTurnout
-                rsvpCount={attendeeCount}
-                latitude={(event as Record<string, unknown>).latitude as number | null}
-                longitude={(event as Record<string, unknown>).longitude as number | null}
-                location={event.location || ""}
-                clubName={club?.name || ""}
-              />
+                    <DialogFooter>
+                      <Button
+                        onClick={() => submitFeedback.mutate()}
+                        disabled={submitFeedback.isPending || feedbackRating === 0}
+                        variant="primary"
+                        className="font-mono font-bold uppercase w-full sm:w-auto"
+                      >
+                        {submitFeedback.isPending ? "Submitting..." : "Submit Feedback"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
             </div>
-          )}
 
-          {/* Active Poll */}
-          <div className="mt-8">
-            <ActivePoll eventId={eventId} userId={user?.id} />
-          </div>
+            {/* Active Poll */}
+            <div className="mt-8">
+              <ActivePoll eventId={eventId} userId={user?.id} />
+            </div>
+            {/* Description */}
+            <div className="mt-8">
+              <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
+                About the Event
+              </h2>
+              <div className="flex flex-col gap-8 lg:flex-row">
+                <main className="flex-1 min-w-0">
+                  {event.description ? (
+                    <p className="mt-4 whitespace-pre-line text-base leading-7 text-black/80">
+                      {event.description}
+                    </p>
+                  ) : (
+                    <p className="mt-4 font-mono text-sm italic text-black/40">
+                      No description provided for this event.
+                    </p>
+                  )}
 
-          {/* Live Q&A */}
-          <div className="mt-8">
-            <LiveQA eventId={eventId} userId={user?.id} isOrganizer={isOrganizer} />
-          </div>
-          {/* Description */}
-          <div className="mt-8">
-            <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
-              About the Event
-            </h2>
-            <div className="flex flex-col gap-8 lg:flex-row">
+                  <div
+                    id="event-description-container"
+                    className="prose prose-lg max-w-none dark:prose-invert prose-headings:scroll-mt-24"
+                    dangerouslySetInnerHTML={{ __html: event.description }}
+                  />
+                </main>
+                <aside className="lg:w-64 shrink-0">
+                  <TableOfContents items={tocItems} />
+                </aside>
+              </div>
+            </div>
+
+            {/* FAQ Section */}
+            {Array.isArray((event as Record<string, unknown>).faqs) &&
+              ((event as Record<string, unknown>).faqs as { question: string; answer: string }[])
+                .length > 0 && (
+                <div className="mt-8">
+                  <PredictiveTurnout
+                    rsvpCount={attendeeCount}
+                    latitude={(event as Record<string, unknown>).latitude as number | null}
+                    longitude={(event as Record<string, unknown>).longitude as number | null}
+                    location={event.location || ""}
+                    clubName={club?.name || ""}
+                  />
+                </div>
+              )}
+
+            {/* Active Poll */}
+            <div className="mt-8">
+              <ActivePoll eventId={eventId} userId={user?.id} />
+            </div>
+
+            {/* Live Q&A */}
+            <div className="mt-8">
+              <LiveQA eventId={eventId} userId={user?.id} isOrganizer={isOrganizer} />
+            </div>
+            {/* Description */}
+            <div className="mt-8 flex flex-col lg:flex-row gap-8">
               <main className="flex-1 min-w-0">
+                <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
+                  About the Event
+                </h2>
+
                 {event.description ? (
-                  <p className="mt-4 whitespace-pre-line text-base leading-7 text-black/80">
-                    {event.description}
-                  </p>
+                  <div
+                    id="event-description-container"
+                    className="prose prose-lg max-w-none dark:prose-invert prose-headings:scroll-mt-24 mt-4"
+                    dangerouslySetInnerHTML={{ __html: event.description }}
+                  />
                 ) : (
                   <p className="mt-4 font-mono text-sm italic text-black/40">
                     No description provided for this event.
                   </p>
                 )}
 
-                <div
-                  id="event-description-container"
-                  className="prose prose-lg max-w-none dark:prose-invert prose-headings:scroll-mt-24"
-                  dangerouslySetInnerHTML={{ __html: event.description }}
-                />
+                {/* Map Section */}
+                {coordsCheck.isCoordinates &&
+                  coordsCheck.isValid &&
+                  coordsCheck.lat != null &&
+                  coordsCheck.lng != null && (
+                    <div className="mt-8">
+                      <h3 className="font-display text-lg font-bold uppercase tracking-tight text-black mb-4">
+                        Location Map
+                      </h3>
+                      <LazyHydrate
+                        height="300px"
+                        placeholder={<MapSkeleton className="h-[300px] w-full" />}
+                      >
+                        <Suspense fallback={<MapSkeleton className="h-[300px] w-full" />}>
+                          <EventMap
+                            lat={coordsCheck.lat}
+                            lng={coordsCheck.lng}
+                            locationName={event.location}
+                          />
+                        </Suspense>
+                      </LazyHydrate>
+                      <a
+                        href={buildGoogleMapsSearchUrl(event.location)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-block font-mono text-xs font-bold underline text-blue-500"
+                      >
+                        Open in Google Maps ↗
+                      </a>
+                    </div>
+                  )}
+                {coordsCheck.isCoordinates && !coordsCheck.isValid && (
+                  <div className="neu-border mt-8 flex items-start gap-4 bg-peach/20 p-5">
+                    <div className="shrink-0 rounded-none border-2 border-black bg-white p-2 text-destructive">
+                      <MapPinOff className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h3 className="mb-1 font-display text-lg font-bold text-black">
+                        Unable to load map preview
+                      </h3>
+                      <p className="mb-3 font-mono text-xs leading-relaxed text-gray-700">
+                        The coordinates provided (<code>{event.location}</code>) are invalid.
+                        Latitude must be between -90 and 90, and Longitude between -180 and 180.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </main>
               <aside className="lg:w-64 shrink-0">
                 <TableOfContents items={tocItems} />
               </aside>
             </div>
-          </div>
 
-          {/* FAQ Section */}
-          {Array.isArray((event as Record<string, unknown>).faqs) &&
-            ((event as Record<string, unknown>).faqs as { question: string; answer: string }[])
-              .length > 0 && (
+            {/* FAQ Section */}
+            {Array.isArray((event as Record<string, unknown>).faqs) &&
+              ((event as Record<string, unknown>).faqs as { question: string; answer: string }[])
+                .length > 0 && (
+                <div className="mt-8">
+                  <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
+                    Frequently Asked Questions
+                  </h2>
+                  <Accordion type="single" collapsible className="mt-4 space-y-2">
+                    {(
+                      (event as Record<string, unknown>).faqs as {
+                        question: string;
+                        answer: string;
+                      }[]
+                    ).map((faq, index) => (
+                      <AccordionItem
+                        key={index}
+                        value={`faq-${index}`}
+                        className="neu-border bg-white"
+                      >
+                        <AccordionTrigger className="px-4 font-mono text-sm font-bold text-black hover:no-underline">
+                          <div className="flex items-center gap-2 text-left">
+                            <HelpCircle className="h-4 w-4 shrink-0 text-blue-900" />
+                            {faq.question}
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-4 pb-4 font-mono text-sm text-black/70">
+                          {faq.answer}
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                </div>
+              )}
+
+            {/* Interactive Map */}
+            {event.location && event.location.toLowerCase() !== "online" && (
               <div className="mt-8">
                 <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
-                  Frequently Asked Questions
+                  Location
                 </h2>
-                <Accordion type="single" collapsible className="mt-4 space-y-2">
-                  {(
-                    (event as Record<string, unknown>).faqs as {
-                      question: string;
-                      answer: string;
-                    }[]
-                  ).map((faq, index) => (
-                    <AccordionItem
-                      key={index}
-                      value={`faq-${index}`}
-                      className="neu-border bg-white"
+                {coordsCheck.isCoordinates &&
+                coordsCheck.isValid &&
+                coordsCheck.lat != null &&
+                coordsCheck.lng != null ? (
+                  <>
+                    <LazyHydrate
+                      height="300px"
+                      placeholder={<MapSkeleton className="mt-4 h-[300px] w-full" />}
                     >
-                      <AccordionTrigger className="px-4 font-mono text-sm font-bold text-black hover:no-underline">
-                        <div className="flex items-center gap-2 text-left">
-                          <HelpCircle className="h-4 w-4 shrink-0 text-blue-900" />
-                          {faq.question}
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="px-4 pb-4 font-mono text-sm text-black/70">
-                        {faq.answer}
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </div>
-            )}
-
-          {/* Interactive Map */}
-          {event.location && event.location.toLowerCase() !== "online" && (
-            <div className="mt-8">
-              <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
-                Location
-              </h2>
-              {coordsCheck.isCoordinates &&
-              coordsCheck.isValid &&
-              coordsCheck.lat != null &&
-              coordsCheck.lng != null ? (
-                <>
-                  <LazyHydrate
-                    height="300px"
-                    placeholder={<MapSkeleton className="mt-4 h-[300px] w-full" />}
-                  >
-                    <Suspense fallback={<MapSkeleton className="mt-4 h-[300px] w-full" />}>
-                      <EventMap
-                        lat={coordsCheck.lat}
-                        lng={coordsCheck.lng}
-                        locationName={event.location}
-                      />
-                    </Suspense>
-                  </LazyHydrate>
-                  <a
-                    href={buildGoogleMapsSearchUrl(event.location)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-block font-mono text-xs font-bold underline text-blue-500"
-                  >
-                    Open in Google Maps ↗
-                  </a>
-                </>
-              ) : coordsCheck.isCoordinates && !coordsCheck.isValid ? (
-                <div className="neu-border mt-4 flex items-start gap-4 bg-peach/20 p-5">
-                  <div className="shrink-0 rounded-none border-2 border-black bg-white p-2 text-destructive">
-                    <MapPinOff className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h3 className="mb-1 font-display text-lg font-bold text-black">
-                      Unable to load map preview
-                    </h3>
-                    <p className="mb-3 font-mono text-xs leading-relaxed text-gray-700">
-                      The coordinates provided (<code>{event.location}</code>) are invalid. Latitude
-                      must be between -90 and 90, and Longitude between -180 and 180.
-                    </p>
+                      <Suspense fallback={<MapSkeleton className="mt-4 h-[300px] w-full" />}>
+                        <EventMap
+                          lat={coordsCheck.lat}
+                          lng={coordsCheck.lng}
+                          locationName={event.location}
+                        />
+                      </Suspense>
+                    </LazyHydrate>
                     <a
                       href={buildGoogleMapsSearchUrl(event.location)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 font-mono text-xs font-bold underline hover:no-underline text-black"
+                      className="mt-2 inline-block font-mono text-xs font-bold underline text-blue-500"
                     >
-                      Search location on Google Maps anyway ↗
+                      Open in Google Maps ↗
                     </a>
+                  </>
+                ) : coordsCheck.isCoordinates && !coordsCheck.isValid ? (
+                  <div className="neu-border mt-4 flex items-start gap-4 bg-peach/20 p-5">
+                    <div className="shrink-0 rounded-none border-2 border-black bg-white p-2 text-destructive">
+                      <MapPinOff className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h3 className="mb-1 font-display text-lg font-bold text-black">
+                        Unable to load map preview
+                      </h3>
+                      <p className="mb-3 font-mono text-xs leading-relaxed text-gray-700">
+                        The coordinates provided (<code>{event.location}</code>) are invalid.
+                        Latitude must be between -90 and 90, and Longitude between -180 and 180.
+                      </p>
+                      <a
+                        href={buildGoogleMapsSearchUrl(event.location)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-mono text-xs font-bold underline hover:no-underline text-black"
+                      >
+                        Search location on Google Maps anyway ↗
+                      </a>
+                    </div>
                   </div>
+                ) : (
+                  <a
+                    href={buildGoogleMapsSearchUrl(event.location)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="neu-border mt-4 inline-flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                  >
+                    <MapPin className="h-4 w-4" />
+                    Open &quot;{event.location}&quot; in Google Maps ↗
+                  </a>
+                )}
+              </div>
+            )}
+
+            {/* Event Feedback (Only if ended and user RSVP'd) */}
+            {user &&
+              hasRsvpd &&
+              event.end_date &&
+              new Date(event.end_date).getTime() < Date.now() && (
+                <div className="mt-10">
+                  <EventFeedbackForm eventId={event.id} user={user} />
+                </div>
+              )}
+
+            {/* Event Gallery */}
+            <div className="mt-8 border-t-2 border-black pt-8">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <div>
+                  <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
+                    Event Gallery
+                  </h2>
+                  <p className="font-mono text-xs text-black/60 mt-1">
+                    Photos shared from this event
+                  </p>
+                </div>
+                {isOrganizer && (
+                  <div>
+                    <input
+                      type="file"
+                      id="bulk-gallery-upload"
+                      multiple
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
+                    <Button
+                      onClick={() => document.getElementById("bulk-gallery-upload")?.click()}
+                      variant="outline"
+                      className="neu-border neu-press h-12 bg-lime text-black px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                    >
+                      📸 Upload Photos
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Optimistic UI & Progress for Uploading Files */}
+              {uploadingFiles.length > 0 && (
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 mb-6">
+                  {uploadingFiles.map((file) => (
+                    <div
+                      key={file.id}
+                      className="relative neu-border bg-white p-2 flex flex-col justify-between"
+                    >
+                      <div className="aspect-square w-full overflow-hidden bg-cream relative">
+                        <img
+                          src={file.objectUrl}
+                          alt="Uploading..."
+                          className="h-full w-full object-cover opacity-60"
+                        />
+                        {file.status === "uploading" && (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/45 p-2 group">
+                            <span className="font-mono text-xs font-bold text-white mb-2">
+                              {file.progress}%
+                            </span>
+                            <div className="w-full bg-white/30 h-2 rounded-full overflow-hidden mb-2">
+                              <div
+                                className="bg-lime h-full transition-all duration-200"
+                                style={{ width: `${file.progress}%` }}
+                              />
+                            </div>
+                            <button
+                              onClick={() => handleCancelUpload(file.id)}
+                              className="bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                              aria-label="Cancel upload"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        )}
+                        {file.status === "success" && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-lime/80 text-black font-display font-black text-sm uppercase">
+                            Uploaded ✓
+                          </div>
+                        )}
+                        {file.status === "error" && (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-500/90 text-white p-2">
+                            <span className="font-display font-black text-xs uppercase text-center">
+                              Failed
+                            </span>
+                            <span className="font-mono text-[9px] text-center mt-1 truncate w-full mb-2">
+                              {file.errorMsg}
+                            </span>
+                            <button
+                              onClick={() => handleRetryUpload(file.id)}
+                              className="bg-white text-red-500 rounded-full p-1 hover:bg-gray-200 transition-colors"
+                              aria-label="Retry upload"
+                            >
+                              <RotateCcw size={14} />
+                            </button>
+                          </div>
+                        )}
+                        {file.status === "cancelled" && (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-500/90 text-white p-2">
+                            <span className="font-display font-black text-xs uppercase text-center">
+                              Cancelled
+                            </span>
+                            <button
+                              onClick={() => handleRetryUpload(file.id)}
+                              className="mt-2 bg-white text-gray-700 rounded-full p-1 hover:bg-gray-200 transition-colors"
+                              aria-label="Retry upload"
+                            >
+                              <RotateCcw size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <p className="font-mono text-[10px] text-black/70 truncate mt-2">
+                        {file.name}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Gallery Images List */}
+              {galleryPhotos.length === 0 && uploadingFiles.length === 0 ? (
+                <div className="neu-border bg-cream p-8 text-center font-mono text-sm text-black/50 italic">
+                  No photos uploaded yet for this event.
                 </div>
               ) : (
-                <a
-                  href={buildGoogleMapsSearchUrl(event.location)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="neu-border mt-4 inline-flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
-                >
-                  <MapPin className="h-4 w-4" />
-                  Open &quot;{event.location}&quot; in Google Maps ↗
-                </a>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                  {galleryPhotos.map((url, idx) => (
+                    <div
+                      key={url}
+                      className="neu-border bg-white p-2 hover:scale-[1.02] transition-transform duration-300 group cursor-zoom-in"
+                      onClick={() => {
+                        setLightboxSrc(url);
+                      }}
+                    >
+                      <div className="aspect-square w-full overflow-hidden bg-cream">
+                        <img
+                          src={url}
+                          alt={`Event gallery photo ${idx + 1}`}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-          )}
 
-          {/* Event Feedback (Only if ended and user RSVP'd) */}
-          {user &&
-            hasRsvpd &&
-            event.end_date &&
-            new Date(event.end_date).getTime() < Date.now() && (
-              <div className="mt-10">
-                <EventFeedbackForm eventId={event.id} user={user} />
+            {/* Social Share */}
+            <div className="mt-10 border-t-2 border-black pt-6">
+              <h3 className="font-mono text-xs font-bold uppercase text-blue-900">
+                Share with Friends
+              </h3>
+              <div className="mt-4">
+                <ShareMenu
+                  url={shareUrl}
+                  title={event.title}
+                  text={`Check out this event: ${event.title}`}
+                />
               </div>
-            )}
+            </div>
 
-          {/* Event Gallery */}
-          <div className="mt-8 border-t-2 border-black pt-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-              <div>
-                <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
-                  Event Gallery
+            {/* Kanban Board for Organizer */}
+            {isOrganizer && (
+              <div className="mt-12 border-t-4 border-black pt-10">
+                <h2 className="font-display text-2xl font-black uppercase tracking-tight text-black mb-6">
+                  Attendee Manager
                 </h2>
-                <p className="font-mono text-xs text-black/60 mt-1">
-                  Photos shared from this event
-                </p>
-              </div>
-              {isOrganizer && (
-                <div>
-                  <input
-                    type="file"
-                    id="bulk-gallery-upload"
-                    multiple
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    className="hidden"
-                  />
-                  <Button
-                    onClick={() => document.getElementById("bulk-gallery-upload")?.click()}
-                    variant="outline"
-                    className="neu-border neu-press h-12 bg-lime text-black px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
-                  >
-                    📸 Upload Photos
-                  </Button>
+                <div className="mb-8 rounded-2xl border-4 border-black bg-white p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-display text-xl font-black uppercase tracking-tight text-black">
+                        QR Check-in
+                      </h3>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Verify a signed ticket from the camera or an uploaded image to mark the
+                        attendee as checked in.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-5">
+                    <SteganographicQRScanner
+                      onVerificationSuccess={(payload) => {
+                        checkInRsvp.mutate({ rsvpId: payload.rsvpId });
+                      }}
+                    />
+                  </div>
                 </div>
-              )}
-            </div>
+                <DragDropContext onDragEnd={onDragEnd}>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Waitlisted Column */}
+                    <div className="flex flex-col border-4 border-black bg-amber-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                      <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                          <Clock size={18} className="text-amber-600" /> Waitlisted
+                        </span>
+                        <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
+                          {columns.waitlisted.length}
+                        </span>
+                      </h3>
+                      <Droppable droppableId="waitlisted">
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
+                              snapshot.isDraggingOver ? "bg-amber-100/50" : ""
+                            }`}
+                          >
+                            {columns.waitlisted.map((card, index) => (
+                              <Draggable key={card.id} draggableId={card.id} index={index}>
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
+                                      snapshot.isDragging
+                                        ? "rotate-2 scale-105 z-50 bg-amber-50/90"
+                                        : ""
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      {card.avatarUrl ? (
+                                        <img
+                                          src={card.avatarUrl}
+                                          alt={card.name}
+                                          className="h-10 w-10 border-2 border-black object-cover rounded-none"
+                                        />
+                                      ) : (
+                                        <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
+                                          {card.name.substring(0, 2)}
+                                        </div>
+                                      )}
+                                      <div className="min-w-0">
+                                        <p className="truncate font-mono text-sm font-bold text-black">
+                                          {card.name}
+                                        </p>
+                                        <p className="font-mono text-[9px] text-black/60 uppercase">
+                                          {card.rsvpId ? "Requested" : "Waitlist"}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-1 ml-2">
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              size="icon"
+                                              variant="outline"
+                                              className="h-7 w-7 border border-black rounded-none bg-emerald-50 hover:bg-emerald-200"
+                                              onClick={() =>
+                                                updateRsvpStatus.mutate({
+                                                  userId: card.userId,
+                                                  rsvpId: card.rsvpId,
+                                                  newStatus: "approved",
+                                                })
+                                              }
+                                            >
+                                              <CheckCircle size={14} className="text-emerald-700" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Approve RSVP</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
 
-            {/* Optimistic UI & Progress for Uploading Files */}
-            {uploadingFiles.length > 0 && (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 mb-6">
-                {uploadingFiles.map((file) => (
-                  <div
-                    key={file.id}
-                    className="relative neu-border bg-white p-2 flex flex-col justify-between"
-                  >
-                    <div className="aspect-square w-full overflow-hidden bg-cream relative">
-                      <img
-                        src={file.objectUrl}
-                        alt="Uploading..."
-                        className="h-full w-full object-cover opacity-60"
-                      />
-                      {file.status === "uploading" && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/45 p-2 group">
-                          <span className="font-mono text-xs font-bold text-white mb-2">
-                            {file.progress}%
-                          </span>
-                          <div className="w-full bg-white/30 h-2 rounded-full overflow-hidden mb-2">
-                            <div
-                              className="bg-lime h-full transition-all duration-200"
-                              style={{ width: `${file.progress}%` }}
-                            />
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              size="icon"
+                                              variant="outline"
+                                              className="h-7 w-7 border border-black rounded-none bg-rose-50 hover:bg-rose-200"
+                                              onClick={() =>
+                                                updateRsvpStatus.mutate({
+                                                  userId: card.userId,
+                                                  rsvpId: card.rsvpId,
+                                                  newStatus: "rejected",
+                                                })
+                                              }
+                                            >
+                                              <X size={14} className="text-rose-700" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Reject RSVP</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    </div>
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
                           </div>
-                          <button
-                            onClick={() => handleCancelUpload(file.id)}
-                            className="bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                            aria-label="Cancel upload"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      )}
-                      {file.status === "success" && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-lime/80 text-black font-display font-black text-sm uppercase">
-                          Uploaded ✓
-                        </div>
-                      )}
-                      {file.status === "error" && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-500/90 text-white p-2">
-                          <span className="font-display font-black text-xs uppercase text-center">
-                            Failed
-                          </span>
-                          <span className="font-mono text-[9px] text-center mt-1 truncate w-full mb-2">
-                            {file.errorMsg}
-                          </span>
-                          <button
-                            onClick={() => handleRetryUpload(file.id)}
-                            className="bg-white text-red-500 rounded-full p-1 hover:bg-gray-200 transition-colors"
-                            aria-label="Retry upload"
-                          >
-                            <RotateCcw size={14} />
-                          </button>
-                        </div>
-                      )}
-                      {file.status === "cancelled" && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-500/90 text-white p-2">
-                          <span className="font-display font-black text-xs uppercase text-center">
-                            Cancelled
-                          </span>
-                          <button
-                            onClick={() => handleRetryUpload(file.id)}
-                            className="mt-2 bg-white text-gray-700 rounded-full p-1 hover:bg-gray-200 transition-colors"
-                            aria-label="Retry upload"
-                          >
-                            <RotateCcw size={14} />
-                          </button>
-                        </div>
-                      )}
+                        )}
+                      </Droppable>
                     </div>
-                    <p className="font-mono text-[10px] text-black/70 truncate mt-2">{file.name}</p>
-                  </div>
-                ))}
-              </div>
-            )}
 
-            {/* Gallery Images List */}
-            {galleryPhotos.length === 0 && uploadingFiles.length === 0 ? (
-              <div className="neu-border bg-cream p-8 text-center font-mono text-sm text-black/50 italic">
-                No photos uploaded yet for this event.
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-                {galleryPhotos.map((url, idx) => (
-                  <div
-                    key={url}
-                    className="neu-border bg-white p-2 hover:scale-[1.02] transition-transform duration-300 group cursor-zoom-in"
-                    onClick={() => {
-                      setLightboxSrc(url);
-                    }}
-                  >
-                    <div className="aspect-square w-full overflow-hidden bg-cream">
-                      <img
-                        src={url}
-                        alt={`Event gallery photo ${idx + 1}`}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                      />
+                    {/* Approved Column */}
+                    <div className="flex flex-col border-4 border-black bg-emerald-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                      <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                          <CheckCircle size={18} className="text-emerald-600" /> Approved
+                        </span>
+                        <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
+                          {columns.approved.length}
+                        </span>
+                      </h3>
+                      <Droppable droppableId="approved">
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
+                              snapshot.isDraggingOver ? "bg-emerald-100/50" : ""
+                            }`}
+                          >
+                            {columns.approved.map((card, index) => (
+                              <Draggable key={card.id} draggableId={card.id} index={index}>
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
+                                      snapshot.isDragging
+                                        ? "rotate-2 scale-105 z-50 bg-emerald-50/90"
+                                        : ""
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      {card.avatarUrl ? (
+                                        <img
+                                          src={card.avatarUrl}
+                                          alt={card.name}
+                                          className="h-10 w-10 border-2 border-black object-cover rounded-none"
+                                        />
+                                      ) : (
+                                        <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
+                                          {card.name.substring(0, 2)}
+                                        </div>
+                                      )}
+                                      <div className="min-w-0">
+                                        <p className="truncate font-mono text-sm font-bold text-black">
+                                          {card.name}
+                                        </p>
+                                        <p className="font-mono text-[9px] text-black/60 uppercase">
+                                          Approved
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-1 ml-2">
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              size="icon"
+                                              variant="outline"
+                                              className="h-7 w-7 border border-black rounded-none bg-amber-50 hover:bg-amber-200"
+                                              onClick={() =>
+                                                updateRsvpStatus.mutate({
+                                                  userId: card.userId,
+                                                  rsvpId: card.rsvpId,
+                                                  newStatus: "waitlisted",
+                                                })
+                                              }
+                                            >
+                                              <Clock size={14} className="text-amber-700" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Move to Waitlist</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              size="icon"
+                                              variant="outline"
+                                              className="h-7 w-7 border border-black rounded-none bg-rose-50 hover:bg-rose-200"
+                                              onClick={() =>
+                                                updateRsvpStatus.mutate({
+                                                  userId: card.userId,
+                                                  rsvpId: card.rsvpId,
+                                                  newStatus: "rejected",
+                                                })
+                                              }
+                                            >
+                                              <X size={14} className="text-rose-700" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Reject RSVP</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    </div>
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </div>
+
+                    {/* Rejected Column */}
+                    <div className="flex flex-col border-4 border-black bg-rose-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                      <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                          <X size={18} className="text-rose-600" /> Rejected
+                        </span>
+                        <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
+                          {columns.rejected.length}
+                        </span>
+                      </h3>
+                      <Droppable droppableId="rejected">
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
+                              snapshot.isDraggingOver ? "bg-rose-100/50" : ""
+                            }`}
+                          >
+                            {columns.rejected.map((card, index) => (
+                              <Draggable key={card.id} draggableId={card.id} index={index}>
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
+                                      snapshot.isDragging
+                                        ? "rotate-2 scale-105 z-50 bg-rose-50/90"
+                                        : ""
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      {card.avatarUrl ? (
+                                        <img
+                                          src={card.avatarUrl}
+                                          alt={card.name}
+                                          className="h-10 w-10 border-2 border-black object-cover rounded-none"
+                                        />
+                                      ) : (
+                                        <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
+                                          {card.name.substring(0, 2)}
+                                        </div>
+                                      )}
+                                      <div className="min-w-0">
+                                        <p className="truncate font-mono text-sm font-bold text-black">
+                                          {card.name}
+                                        </p>
+                                        <p className="font-mono text-[9px] text-black/60 uppercase">
+                                          Rejected
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-1 ml-2">
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              size="icon"
+                                              variant="outline"
+                                              className="h-7 w-7 border border-black rounded-none bg-amber-50 hover:bg-amber-200"
+                                              onClick={() =>
+                                                updateRsvpStatus.mutate({
+                                                  userId: card.userId,
+                                                  rsvpId: card.rsvpId,
+                                                  newStatus: "waitlisted",
+                                                })
+                                              }
+                                            >
+                                              <Clock size={14} className="text-amber-700" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Move to Waitlist</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              size="icon"
+                                              variant="outline"
+                                              className="h-7 w-7 border border-black rounded-none bg-emerald-50 hover:bg-emerald-200"
+                                              onClick={() =>
+                                                updateRsvpStatus.mutate({
+                                                  userId: card.userId,
+                                                  rsvpId: card.rsvpId,
+                                                  newStatus: "approved",
+                                                })
+                                              }
+                                            >
+                                              <CheckCircle size={14} className="text-emerald-700" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Approve RSVP</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    </div>
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
                     </div>
                   </div>
-                ))}
+                </DragDropContext>
               </div>
             )}
           </div>
+        </section>
 
-          {/* Social Share */}
-          <div className="mt-10 border-t-2 border-black pt-6">
-            <h3 className="font-mono text-xs font-bold uppercase text-blue-900">
-              Share with Friends
-            </h3>
-            <div className="mt-4">
-              <ShareMenu
-                url={shareUrl}
-                title={event.title}
-                text={`Check out this event: ${event.title}`}
-              />
-            </div>
-          </div>
-
-          {/* Kanban Board for Organizer */}
-          {isOrganizer && (
-            <div className="mt-12 border-t-4 border-black pt-10">
-              <h2 className="font-display text-2xl font-black uppercase tracking-tight text-black mb-6">
-                Attendee Manager
-              </h2>
-              <div className="mb-8 rounded-2xl border-4 border-black bg-white p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-display text-xl font-black uppercase tracking-tight text-black">
-                      QR Check-in
-                    </h3>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Verify a signed ticket from the camera or an uploaded image to mark the
-                      attendee as checked in.
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-5">
-                  <SteganographicQRScanner
-                    onVerificationSuccess={(payload) => {
-                      checkInRsvp.mutate({ rsvpId: payload.rsvpId });
-                    }}
-                  />
-                </div>
-              </div>
-              <DragDropContext onDragEnd={onDragEnd}>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {/* Waitlisted Column */}
-                  <div className="flex flex-col border-4 border-black bg-amber-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                    <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
-                      <span className="flex items-center gap-2">
-                        <Clock size={18} className="text-amber-600" /> Waitlisted
-                      </span>
-                      <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
-                        {columns.waitlisted.length}
-                      </span>
-                    </h3>
-                    <Droppable droppableId="waitlisted">
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                          className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
-                            snapshot.isDraggingOver ? "bg-amber-100/50" : ""
-                          }`}
-                        >
-                          {columns.waitlisted.map((card, index) => (
-                            <Draggable key={card.id} draggableId={card.id} index={index}>
-                              {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
-                                    snapshot.isDragging
-                                      ? "rotate-2 scale-105 z-50 bg-amber-50/90"
-                                      : ""
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    {card.avatarUrl ? (
-                                      <img
-                                        src={card.avatarUrl}
-                                        alt={card.name}
-                                        className="h-10 w-10 border-2 border-black object-cover rounded-none"
-                                      />
-                                    ) : (
-                                      <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
-                                        {card.name.substring(0, 2)}
-                                      </div>
-                                    )}
-                                    <div className="min-w-0">
-                                      <p className="truncate font-mono text-sm font-bold text-black">
-                                        {card.name}
-                                      </p>
-                                      <p className="font-mono text-[9px] text-black/60 uppercase">
-                                        {card.rsvpId ? "Requested" : "Waitlist"}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="flex gap-1 ml-2">
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            size="icon"
-                                            variant="outline"
-                                            className="h-7 w-7 border border-black rounded-none bg-emerald-50 hover:bg-emerald-200"
-                                            onClick={() =>
-                                              updateRsvpStatus.mutate({
-                                                userId: card.userId,
-                                                rsvpId: card.rsvpId,
-                                                newStatus: "approved",
-                                              })
-                                            }
-                                          >
-                                            <CheckCircle size={14} className="text-emerald-700" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Approve RSVP</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            size="icon"
-                                            variant="outline"
-                                            className="h-7 w-7 border border-black rounded-none bg-rose-50 hover:bg-rose-200"
-                                            onClick={() =>
-                                              updateRsvpStatus.mutate({
-                                                userId: card.userId,
-                                                rsvpId: card.rsvpId,
-                                                newStatus: "rejected",
-                                              })
-                                            }
-                                          >
-                                            <X size={14} className="text-rose-700" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Reject RSVP</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  </div>
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
-                        </div>
-                      )}
-                    </Droppable>
-                  </div>
-
-                  {/* Approved Column */}
-                  <div className="flex flex-col border-4 border-black bg-emerald-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                    <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
-                      <span className="flex items-center gap-2">
-                        <CheckCircle size={18} className="text-emerald-600" /> Approved
-                      </span>
-                      <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
-                        {columns.approved.length}
-                      </span>
-                    </h3>
-                    <Droppable droppableId="approved">
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                          className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
-                            snapshot.isDraggingOver ? "bg-emerald-100/50" : ""
-                          }`}
-                        >
-                          {columns.approved.map((card, index) => (
-                            <Draggable key={card.id} draggableId={card.id} index={index}>
-                              {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
-                                    snapshot.isDragging
-                                      ? "rotate-2 scale-105 z-50 bg-emerald-50/90"
-                                      : ""
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    {card.avatarUrl ? (
-                                      <img
-                                        src={card.avatarUrl}
-                                        alt={card.name}
-                                        className="h-10 w-10 border-2 border-black object-cover rounded-none"
-                                      />
-                                    ) : (
-                                      <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
-                                        {card.name.substring(0, 2)}
-                                      </div>
-                                    )}
-                                    <div className="min-w-0">
-                                      <p className="truncate font-mono text-sm font-bold text-black">
-                                        {card.name}
-                                      </p>
-                                      <p className="font-mono text-[9px] text-black/60 uppercase">
-                                        Approved
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="flex gap-1 ml-2">
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            size="icon"
-                                            variant="outline"
-                                            className="h-7 w-7 border border-black rounded-none bg-amber-50 hover:bg-amber-200"
-                                            onClick={() =>
-                                              updateRsvpStatus.mutate({
-                                                userId: card.userId,
-                                                rsvpId: card.rsvpId,
-                                                newStatus: "waitlisted",
-                                              })
-                                            }
-                                          >
-                                            <Clock size={14} className="text-amber-700" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Move to Waitlist</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            size="icon"
-                                            variant="outline"
-                                            className="h-7 w-7 border border-black rounded-none bg-rose-50 hover:bg-rose-200"
-                                            onClick={() =>
-                                              updateRsvpStatus.mutate({
-                                                userId: card.userId,
-                                                rsvpId: card.rsvpId,
-                                                newStatus: "rejected",
-                                              })
-                                            }
-                                          >
-                                            <X size={14} className="text-rose-700" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Reject RSVP</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  </div>
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
-                        </div>
-                      )}
-                    </Droppable>
-                  </div>
-
-                  {/* Rejected Column */}
-                  <div className="flex flex-col border-4 border-black bg-rose-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                    <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
-                      <span className="flex items-center gap-2">
-                        <X size={18} className="text-rose-600" /> Rejected
-                      </span>
-                      <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
-                        {columns.rejected.length}
-                      </span>
-                    </h3>
-                    <Droppable droppableId="rejected">
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                          className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
-                            snapshot.isDraggingOver ? "bg-rose-100/50" : ""
-                          }`}
-                        >
-                          {columns.rejected.map((card, index) => (
-                            <Draggable key={card.id} draggableId={card.id} index={index}>
-                              {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
-                                    snapshot.isDragging
-                                      ? "rotate-2 scale-105 z-50 bg-rose-50/90"
-                                      : ""
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    {card.avatarUrl ? (
-                                      <img
-                                        src={card.avatarUrl}
-                                        alt={card.name}
-                                        className="h-10 w-10 border-2 border-black object-cover rounded-none"
-                                      />
-                                    ) : (
-                                      <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
-                                        {card.name.substring(0, 2)}
-                                      </div>
-                                    )}
-                                    <div className="min-w-0">
-                                      <p className="truncate font-mono text-sm font-bold text-black">
-                                        {card.name}
-                                      </p>
-                                      <p className="font-mono text-[9px] text-black/60 uppercase">
-                                        Rejected
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="flex gap-1 ml-2">
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            size="icon"
-                                            variant="outline"
-                                            className="h-7 w-7 border border-black rounded-none bg-amber-50 hover:bg-amber-200"
-                                            onClick={() =>
-                                              updateRsvpStatus.mutate({
-                                                userId: card.userId,
-                                                rsvpId: card.rsvpId,
-                                                newStatus: "waitlisted",
-                                              })
-                                            }
-                                          >
-                                            <Clock size={14} className="text-amber-700" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Move to Waitlist</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            size="icon"
-                                            variant="outline"
-                                            className="h-7 w-7 border border-black rounded-none bg-emerald-50 hover:bg-emerald-200"
-                                            onClick={() =>
-                                              updateRsvpStatus.mutate({
-                                                userId: card.userId,
-                                                rsvpId: card.rsvpId,
-                                                newStatus: "approved",
-                                              })
-                                            }
-                                          >
-                                            <CheckCircle size={14} className="text-emerald-700" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Approve RSVP</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  </div>
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
-                        </div>
-                      )}
-                    </Droppable>
-                  </div>
-                </div>
-              </DragDropContext>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Sticky Mobile RSVP Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between border-t-2 border-black bg-white p-4 pb-6 shadow-lg md:hidden">
-        <div className="flex flex-col">
-          <span className="font-mono text-xs font-bold uppercase text-black/60">
-            {attendeeCount} {maxAttendees ? `/ ${maxAttendees}` : ""} going
-          </span>
-          {isOnWaitlist && waitlistPosition > 0 && (
-            <span className="font-mono text-[10px] font-bold text-amber-700">
-              Waitlist position: #{waitlistPosition}
+        {/* Sticky Mobile RSVP Bar */}
+        <div className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between border-t-2 border-black bg-white p-4 pb-6 shadow-lg md:hidden">
+          <div className="flex flex-col">
+            <span className="font-mono text-xs font-bold uppercase text-black/60">
+              {attendeeCount} {maxAttendees ? `/ ${maxAttendees}` : ""} going
             </span>
+            {isOnWaitlist && waitlistPosition > 0 && (
+              <span className="font-mono text-[10px] font-bold text-amber-700">
+                Waitlist position: #{waitlistPosition}
+              </span>
+            )}
+          </div>
+          {hasRsvpd ? (
+            <Button onClick={handleRsvpClick} disabled={toggleRsvp.isPending} variant="secondary">
+              {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
+            </Button>
+          ) : isAtCapacity ? (
+            <Button
+              onClick={() => {
+                if (!user) {
+                  toast.error("Please log in to join waitlist");
+                  return;
+                }
+                toggleWaitlist.mutate({ isOnWaitlist });
+              }}
+              disabled={toggleWaitlist.isPending}
+              variant={isOnWaitlist ? "secondary" : "primary"}
+            >
+              {toggleWaitlist.isPending
+                ? "Updating..."
+                : isOnWaitlist
+                  ? "On Waitlist ✓"
+                  : "Join Waitlist"}
+            </Button>
+          ) : (
+            <Button onClick={handleRsvpClick} disabled={toggleRsvp.isPending} variant="primary">
+              {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
+            </Button>
           )}
         </div>
-        {hasRsvpd ? (
-          <Button onClick={handleRsvpClick} disabled={toggleRsvp.isPending} variant="secondary">
-            {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
-          </Button>
-        ) : isAtCapacity ? (
-          <Button
-            onClick={() => {
-              if (!user) {
-                toast.error("Please log in to join waitlist");
-                return;
-              }
-              toggleWaitlist.mutate({ isOnWaitlist });
-            }}
-            disabled={toggleWaitlist.isPending}
-            variant={isOnWaitlist ? "secondary" : "primary"}
-          >
-            {toggleWaitlist.isPending
-              ? "Updating..."
-              : isOnWaitlist
-                ? "On Waitlist ✓"
-                : "Join Waitlist"}
-          </Button>
-        ) : (
-          <Button onClick={handleRsvpClick} disabled={toggleRsvp.isPending} variant="primary">
-            {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
-          </Button>
-        )}
-      </div>
-
+      </SiteShell>
       {/* RSVP Cancel Confirmation Modal */}
       <ConfirmModal
         open={confirmOpen}
@@ -2277,6 +2477,6 @@ export default function EventDetailsPage() {
           />
         </div>
       )}
-    </>
+    </LazyMotion>
   );
 }

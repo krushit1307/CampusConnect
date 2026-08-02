@@ -36,9 +36,31 @@
         } catch (e) {}
       })();
     </script>
+    <!-- Register custom service worker early in head for faster interception -->
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("/sw.js")
+            .then((registration) => {
+              console.log("[SW] Registered successfully:", registration.scope);
+            })
+            .catch((error) => {
+              console.error("[SW] Registration failed:", error);
+            });
+        });
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- Redundant SW registration at end of body as fallback/standard practice -->
+    <script>
+      // Fallback registration in case window.load fired before script execution
+      if ("serviceWorker" in navigator && !navigator.serviceWorker.controller) {
+        navigator.serviceWorker.register("/sw.js");
+      }
+    </script>
   </body>
 </html>

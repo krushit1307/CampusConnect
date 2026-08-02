@@ -5,10 +5,10 @@ import {
   getPaginationRowModel,
   useReactTable,
   type ColumnDef,
+  type Row,
 } from "@tanstack/react-table";
 import { CheckCircle, ShieldCheck, XCircle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MemberIdentity } from "./MemberIdentity";
 import { MemberContextMenu } from "./MemberContextMenu";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { EmptyState } from "@/components/EmptyState";
@@ -176,15 +176,19 @@ function MemberActions({
 
   if (member.status === "approved" && member.user_id !== currentUserId) {
     return (
-      <button
-        onClick={() => onToggleRole(member.id, member.role)}
-        disabled={isMutating}
-        className="neu-border bg-blue-200 p-2 text-xs font-bold uppercase hover:bg-blue-300 disabled:opacity-50"
-        title="Toggle Role"
-        aria-label={`Toggle role for ${member.fullName}`}
-      >
-        <ShieldCheck size={16} />
-      </button>
+      <div className="flex items-center gap-2">
+        <select
+          value={member.role}
+          disabled={isMutating}
+          onChange={(e) => onToggleRole(member.id, e.target.value)}
+          className="neu-border bg-white px-2 py-1 font-mono text-xs font-bold uppercase cursor-pointer disabled:opacity-50"
+          aria-label={`Change role for ${member.fullName}`}
+        >
+          <option value="member">Member</option>
+          <option value="moderator">Moderator</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
     );
   }
 
@@ -226,10 +230,10 @@ export function ClubMembersTable({
     columns,
     state: { globalFilter },
     onGlobalFilterChange: setGlobalFilter,
-    globalFilterFn: (row, _columnId, filterValue) => {
+    globalFilterFn: (row: Row<ClubMemberRow>, _columnId: string, filterValue: string) => {
       const query = String(filterValue).toLowerCase().trim();
       if (!query) return true;
-      const member = row.original as ClubMemberRow;
+      const member = row.original;
       return (
         member.fullName.toLowerCase().includes(query) ||
         member.handle.toLowerCase().includes(query) ||

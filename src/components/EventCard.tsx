@@ -35,6 +35,8 @@ interface Event {
   clubs: { name: string } | { name: string }[] | null;
   event_rsvps: { id: string; user_id: string }[] | null;
   saved_events: { id: string; user_id: string }[] | null;
+  rsvp_count?: number;
+  saved_count?: number;
 }
 
 interface EventCardProps {
@@ -250,6 +252,17 @@ export function EventCard({
     onBookmarkToggle?.(event.id, isSaved);
   };
 
+  const savedEventsList = Array.isArray(event.saved_events) ? event.saved_events : [];
+  const isSaved = user ? savedEventsList.some((se) => se.user_id === user.id) : false;
+
+  const handleBookmarkClick = () => {
+    if (!user) {
+      toast.error("Please log in to bookmark events");
+      return;
+    }
+    onBookmarkToggle(event.id, isSaved);
+  };
+
   return (
     <div className="group">
       <article
@@ -257,7 +270,9 @@ export function EventCard({
         onMouseEnter={preloadEvent.onMouseEnter}
         onMouseLeave={preloadEvent.onMouseLeave}
         className={`neu-border p-5 relative ${
-          active ? "bg-blue-100 border-4 border-blue-600 ring-2 ring-blue-600" : colors[index % colors.length]
+          active
+            ? "bg-blue-100 border-4 border-blue-600 ring-2 ring-blue-600"
+            : colors[index % colors.length]
         } transition-all duration-300 ease-out group-hover:scale-[1.02]`}
       >
         {" "}
@@ -330,7 +345,7 @@ export function EventCard({
         <div className="mt-4">
           <EventCapacityGauge
             eventId={event.id}
-            initialCapacity={rsvps.length}
+            initialCapacity={event.rsvp_count ?? rsvps.length}
             maxAttendees={event.max_attendees || null}
             showDetails={true}
           />
@@ -346,7 +361,7 @@ export function EventCard({
           </div>
           <div>
             <dt className="font-mono text-xs font-bold uppercase text-black">Attendees</dt>
-            <dd className="mt-1 text-sm text-red-900">{rsvps.length} RSVP'd</dd>
+            <dd className="mt-1 text-sm text-red-900">{event.rsvp_count ?? rsvps.length} RSVP'd</dd>
           </div>
         </dl>
         <div className="mt-5 flex flex-wrap items-center gap-3">

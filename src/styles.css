@@ -1,10 +1,77 @@
 @import "tailwindcss";
 @import "./styles/disabled-buttons.css";
 @source "../src";
+/* Runtime-selected utility maps must remain available in production builds. */
+@source inline("bg-lime bg-sky bg-lavender bg-peach text-green-700 text-yellow-700 text-red-700 bg-destructive bg-orange-500 bg-green-600 bg-transparent text-destructive text-orange-600");
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 @custom-variant high-contrast (&:is(.high-contrast *));
+
+/* Space Grotesk Custom Font Declarations */
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("/fonts/space-grotesk-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("/fonts/space-grotesk-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Space Mono Custom Font Declarations */
+@font-face {
+  font-family: "Space Mono";
+  src: url("/fonts/space-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Space Mono";
+  src: url("/fonts/space-mono-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Fallback Metric Override font-faces to eliminate Layout Shift (CLS) */
+@font-face {
+  font-family: "Space Grotesk Fallback";
+  src: local("Arial");
+  size-adjust: 102.5%;
+  ascent-override: 95%;
+  descent-override: 23%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Space Mono Fallback";
+  src: local("Courier New");
+  size-adjust: 91.5%;
+  ascent-override: 104%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+}
 
 @theme inline {
   --radius-sm: 0px;
@@ -53,8 +120,8 @@
   --color-lavender: var(--lavender);
   --color-peach: var(--peach);
   --color-ink: var(--ink);
-  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Space Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Space Grotesk", "Space Grotesk Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Space Mono", "Space Mono Fallback", ui-monospace, SFMono-Regular, monospace;
 }
 
 :root {
@@ -175,6 +242,10 @@
       linear-gradient(135deg, #f8efe2 0%, #eef8fb 48%, #f6e0c5 100%);
     color: var(--color-foreground);
     font-family: var(--font-mono);
+    /* Disable the browser's native pull-to-refresh so the custom Feed
+       PullToRefresh component is the only path that triggers a refetch
+       (issue #1917). */
+    overscroll-behavior-y: none;
   }
 
   h1,

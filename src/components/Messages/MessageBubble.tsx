@@ -13,7 +13,7 @@ export default function MessageBubble({ msg }: { msg: Message }) {
     minute: "2-digit",
   });
 
-  const urlMatch = msg.content.match(/(https?:\/\/[^\s]+)/i);
+  const urlMatch = (msg.content || "").match(/(https?:\/\/[^\s]+)/i);
   const firstUrl = urlMatch ? urlMatch[0] : null;
 
   return (

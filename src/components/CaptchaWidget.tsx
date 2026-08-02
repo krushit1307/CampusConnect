@@ -43,7 +43,25 @@ export function CaptchaWidget({
       if (!container) return;
 
       if (provider === "turnstile") {
-        widgetIdRef.current = window.turnstile?.render(container, {
+        widgetIdRef.current =
+          window.turnstile?.render(container, {
+            sitekey: siteKey,
+            callback: (token: string) => onToken(token),
+            "expired-callback": () => {
+              onToken(undefined);
+              onExpire?.();
+            },
+            "error-callback": () => {
+              onToken(undefined);
+              onError?.();
+            },
+            theme: document.documentElement.classList.contains("dark") ? "dark" : "light",
+          }) ?? null;
+        return;
+      }
+
+      widgetIdRef.current =
+        window.hcaptcha?.render(container, {
           sitekey: siteKey,
           callback: (token: string) => onToken(token),
           "expired-callback": () => {
@@ -55,23 +73,7 @@ export function CaptchaWidget({
             onError?.();
           },
           theme: document.documentElement.classList.contains("dark") ? "dark" : "light",
-        });
-        return;
-      }
-
-      widgetIdRef.current = window.hcaptcha?.render(container, {
-        sitekey: siteKey,
-        callback: (token: string) => onToken(token),
-        "expired-callback": () => {
-          onToken(undefined);
-          onExpire?.();
-        },
-        "error-callback": () => {
-          onToken(undefined);
-          onError?.();
-        },
-        theme: document.documentElement.classList.contains("dark") ? "dark" : "light",
-      });
+        }) ?? null;
     };
 
     const scriptId = provider === "turnstile" ? "turnstile-script" : "hcaptcha-script";

@@ -1,0 +1,57 @@
+# Dependabot configuration
+# issue #1914: Automated dependency vulnerability scanning & CVE fixes
+#
+# Tracks package.json (npm) and GitHub Actions. Each ecosystem is configured to:
+# - open a PR per vulnerable dependency (one PR per package family)
+# - separate patch and minor updates so security fixes flow independently of feature upgrades
+# - ignore major updates by default to avoid the breaking-version trap that `npm audit fix --force` falls into
+# - target the develop branch so all PRs flow through the same review pipeline
+# - use sensible group/assignee labels so security PRs surface in dashboards
+
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    target-branch: develop
+    schedule:
+      interval: "daily"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    # Don't bump majors unattended — they frequently break the app and
+    # should be a deliberate manual decision backed by migration notes.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    # Pull fixes forward without dragging in major bumps by accident
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    labels:
+      - "dependencies"
+      - "security"
+    assignees:
+      - "muditagrawal2007"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: develop
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "ci"
+      - "dependencies"
+
+  - package-ecosystem: "docker"
+    directories:
+      - "/"
+    target-branch: develop
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "docker"
+      - "dependencies"

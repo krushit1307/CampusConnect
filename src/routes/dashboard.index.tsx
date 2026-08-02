@@ -645,6 +645,12 @@ export default function DashboardOverview() {
         </Widget>
       </ErrorBoundary>
 
+      <Widget title="Campus Engagement Map" className="lg:col-span-3">
+        <LazyHydrate height="260px">
+          <AttendanceHeatmap userId={user.id} />
+        </LazyHydrate>
+      </Widget>
+
       <ErrorBoundary fallback={<WidgetError title="Recent activity" />}>
         <Widget title="Recent activity" className="lg:col-span-3">
           {isActivityLoading ? (

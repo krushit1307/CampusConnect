@@ -101,10 +101,12 @@ serve(async (req: Request) => {
       // Get club admins of clubs where sender is a member
       const { data: memberships, error: membershipError } = await supabase
         .from("club_members")
-        .select(`
+        .select(
+          `
           club_id,
           clubs:club_id (created_by)
-        `)
+        `,
+        )
         .eq("user_id", sender_id)
         .eq("status", "approved");
 
@@ -128,9 +130,7 @@ serve(async (req: Request) => {
           link: "/admin/reports",
         }));
 
-        const { error: notifyError } = await supabase
-          .from("notifications")
-          .insert(notifications);
+        const { error: notifyError } = await supabase.from("notifications").insert(notifications);
 
         if (notifyError) {
           console.error("Failed to insert notification alerts:", notifyError);
@@ -145,7 +145,7 @@ serve(async (req: Request) => {
         {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        },
       );
     }
 

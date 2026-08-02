@@ -1,15 +1,30 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ProfileHeaderSkeleton } from "@/components/ProfileHeaderSkeleton";
-import { withAuth, WithAuthProps } from "@/hoc/withAuth";
 
-function DashboardContent({ user }: WithAuthProps) {
+export default function Dashboard() {
   const [supabase] = useState(() => createClient());
+  const navigate = useNavigate();
 
-  const { data: profile, isLoading } = useQuery({
+  const { data: user, isLoading: isAuthLoading } = useQuery({
+    queryKey: ["currentUser"],
+    queryFn: async () => {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      return user || null;
+    },
+  });
+
+  useEffect(() => {
+    if (!isAuthLoading && !user) {
+      navigate("/auth", { replace: true });
+    }
+  }, [user, isAuthLoading, navigate]);
+
+  const { data: profile, isLoading: isProfileLoading } = useQuery({
     queryKey: ["profile", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -26,11 +41,23 @@ function DashboardContent({ user }: WithAuthProps) {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
+  if (isAuthLoading || !user) {
+    return (
+      <SiteShell>
+        <section className="border-b-2 border-black bg-lime px-4 py-10 md:px-6">
+          <div className="mx-auto max-w-7xl">
+            <ProfileHeaderSkeleton />
+          </div>
+        </section>
+      </SiteShell>
+    );
+  }
+
   return (
     <SiteShell>
       <section className="border-b-2 border-black bg-lime px-4 py-10 md:px-6">
         <div className="mx-auto max-w-7xl">
-          {isLoading ? (
+          {isProfileLoading ? (
             <ProfileHeaderSkeleton />
           ) : (
             <>
@@ -103,5 +130,3 @@ function DashboardContent({ user }: WithAuthProps) {
     </SiteShell>
   );
 }
-
-export default withAuth(DashboardContent);

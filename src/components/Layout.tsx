@@ -5,11 +5,12 @@ import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ScrollToTop } from "@/components/ScrollToTop";
-import { SpeedDial } from "@/components/SpeedDial";
+import { RadialFAB } from "@/components/RadialFAB";
+import { FloatingChat } from "@/components/FloatingChat";
 import { createClient } from "@/lib/supabase/client";
-import { ThemeProvider } from "@/components/theme-provider";
 import TopProgressBar from "@/components/TopProgressBar";
 import ShortcutsModal from "@/components/ShortcutsModal";
+import { SessionExpiryModal } from "@/components/SessionExpiryModal";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import { showAnnouncementToast } from "@/lib/announcements/sse";
 
@@ -152,21 +153,21 @@ export default function Layout() {
   }, []);
 
   return (
-    <ThemeProvider>
-      <TooltipProvider delayDuration={200}>
-        <WebRTCProvider>
-          <OfflineBanner />
-          <TopProgressBar />
+    <TooltipProvider delayDuration={200}>
+      <WebRTCProvider>
+        <OfflineBanner />
+        <TopProgressBar />
+        <SessionExpiryModal />
 
-          <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-          <PWAInstallPrompt />
+        <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+        <PWAInstallPrompt />
 
-          <Outlet />
-          <Toaster />
-          <ScrollToTop />
-          <SpeedDial />
-        </WebRTCProvider>
-      </TooltipProvider>
-    </ThemeProvider>
+        <Outlet />
+        <Toaster />
+        <ScrollToTop />
+        <RadialFAB />
+        {userId && <FloatingChat />}
+      </WebRTCProvider>
+    </TooltipProvider>
   );
 }

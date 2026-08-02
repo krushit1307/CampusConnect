@@ -1,4 +1,4 @@
-// Removed SiteShell import
+import { AnimatePresence, motion } from "framer-motion";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
@@ -9,17 +9,18 @@ import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { toast } from "sonner";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
-import { Search, Loader2, Calendar as CalendarIcon, Download } from "lucide-react";
+import { Search, Loader2, Calendar as CalendarIcon, Download, MapPin } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addMonths } from "date-fns";
 import { matchesDateFilter } from "@/lib/eventUtils";
 import { getMultiIcsContent } from "@/lib/utils";
+import { Link } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EventFilters, FilterState } from "@/components/EventFilters";
+import { EmptyState } from "@/components/EmptyState";
 import { ScrollAwareFab } from "@/components/ScrollAwareFab";
-import confetti from "canvas-confetti";
 
 import {
   Select,
@@ -45,6 +46,8 @@ export interface EventItem {
   clubs: { name: string } | { name: string }[] | null;
   event_rsvps: { id: string; user_id: string }[] | null;
   saved_events: { id: string; user_id: string }[] | null;
+  rsvp_count?: number;
+  saved_count?: number;
   max_attendees?: number | null;
 }
 
@@ -179,13 +182,13 @@ export default function EventsList() {
 
       if (searchQuery.trim()) {
         const { data, error } = await supabase
-          .rpc("search_events", { query_text: searchQuery })
+          .rpc("search_events_advanced", { query_string: searchQuery })
           .select(
             `
-            id, title, description, event_date, start_date, end_date, location, banner_url,
+            id, title, description, event_date, start_date, end_date, location, banner_url, created_at, max_attendees,
             clubs (name),
-            event_rsvps (id, user_id),
-            saved_events (id, user_id)
+            event_rsvps(count),
+            saved_events(count)
           `,
           );
         if (error) throw error;
@@ -194,21 +197,71 @@ export default function EventsList() {
         fetchedCount = results.length;
       } else {
         const { data, count, error } = await supabase
-          .from("club_analytics_view")
+          .from("events")
           .select(
             `
-            id, title, description, event_date, start_date, end_date, location, banner_url,
+            id, title, description, event_date, start_date, end_date, location, banner_url, created_at, max_attendees,
             clubs (name),
-            event_rsvps (id, user_id),
-            saved_events (id, user_id)
+            event_rsvps(count),
+            saved_events(count)
           `,
             { count: "exact" },
           )
+          .neq("status", "archived")
           .order("event_date", { ascending: true })
           .range(0, PAGE_SIZE - 1);
         if (error) throw error;
         fetchedData = data as unknown[];
         fetchedCount = count;
+      }
+
+      if (user && fetchedData && fetchedData.length > 0) {
+        const eventIds = fetchedData.map((e: unknown) => (e as { id: string }).id);
+        const [rsvpRes, savedRes] = await Promise.all([
+          supabase
+            .from("event_rsvps")
+            .select("id, event_id, user_id")
+            .in("event_id", eventIds)
+            .eq("user_id", user.id),
+          supabase
+            .from("saved_events")
+            .select("id, event_id, user_id")
+            .in("event_id", eventIds)
+            .eq("user_id", user.id),
+        ]);
+
+        const userRsvps = rsvpRes.data || [];
+        const userSaved = savedRes.data || [];
+
+        fetchedData = fetchedData.map((e: unknown) => {
+          const typedE = e as EventItem & {
+            event_rsvps?: { count: number }[];
+            saved_events?: { count: number }[];
+          };
+          const myRsvp = userRsvps.find((r: { event_id: string }) => r.event_id === typedE.id);
+          const mySaved = userSaved.find((s: { event_id: string }) => s.event_id === typedE.id);
+          return {
+            ...typedE,
+            rsvp_count: typedE.event_rsvps?.[0]?.count ?? 0,
+            saved_count: typedE.saved_events?.[0]?.count ?? 0,
+            event_rsvps: myRsvp ? [myRsvp] : [],
+            saved_events: mySaved ? [mySaved] : [],
+          };
+        });
+      } else if (fetchedData) {
+        fetchedData = fetchedData.map((e: unknown) => {
+          const typedE = e as EventItem & {
+            event_rsvps?: { count: number }[];
+            saved_events?: { count: number }[];
+          };
+          return {
+            ...typedE,
+            rsvp_count: typedE.event_rsvps?.[0]?.count ?? 0,
+            saved_count: typedE.saved_events?.[0]?.count ?? 0,
+            event_rsvps: [],
+            saved_events: [],
+          };
+        });
       }
 
       if (fetchedCount !== null) {
@@ -318,8 +371,8 @@ export default function EventsList() {
       let selectString = `
           id, title, description, event_date, start_date, end_date, location, banner_url, created_at, max_attendees,
           clubs (name),
-          event_rsvps (id, user_id),
-          saved_events (id, user_id)
+          event_rsvps(count),
+          saved_events(count)
       `;
 
       if (filters.categories.length > 0) {
@@ -361,7 +414,57 @@ export default function EventsList() {
         throw error;
       }
 
-      const newEvents = data as unknown as EventItem[];
+      let fetchedData = data as unknown[];
+      if (user && fetchedData && fetchedData.length > 0) {
+        const eventIds = fetchedData.map((e: unknown) => (e as { id: string }).id);
+        const [rsvpRes, savedRes] = await Promise.all([
+          supabase
+            .from("event_rsvps")
+            .select("id, event_id, user_id")
+            .in("event_id", eventIds)
+            .eq("user_id", user.id),
+          supabase
+            .from("saved_events")
+            .select("id, event_id, user_id")
+            .in("event_id", eventIds)
+            .eq("user_id", user.id),
+        ]);
+
+        const userRsvps = rsvpRes.data || [];
+        const userSaved = savedRes.data || [];
+
+        fetchedData = fetchedData.map((e: unknown) => {
+          const typedE = e as EventItem & {
+            event_rsvps?: { count: number }[];
+            saved_events?: { count: number }[];
+          };
+          const myRsvp = userRsvps.find((r: { event_id: string }) => r.event_id === typedE.id);
+          const mySaved = userSaved.find((s: { event_id: string }) => s.event_id === typedE.id);
+          return {
+            ...typedE,
+            rsvp_count: typedE.event_rsvps?.[0]?.count ?? 0,
+            saved_count: typedE.saved_events?.[0]?.count ?? 0,
+            event_rsvps: myRsvp ? [myRsvp] : [],
+            saved_events: mySaved ? [mySaved] : [],
+          };
+        });
+      } else if (fetchedData) {
+        fetchedData = fetchedData.map((e: unknown) => {
+          const typedE = e as EventItem & {
+            event_rsvps?: { count: number }[];
+            saved_events?: { count: number }[];
+          };
+          return {
+            ...typedE,
+            rsvp_count: typedE.event_rsvps?.[0]?.count ?? 0,
+            saved_count: typedE.saved_events?.[0]?.count ?? 0,
+            event_rsvps: [],
+            saved_events: [],
+          };
+        });
+      }
+
+      const newEvents = fetchedData as unknown as EventItem[];
       setEvents((prev) => [...prev, ...newEvents]);
       setPage(nextPage);
 
@@ -410,25 +513,6 @@ export default function EventsList() {
       .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
         refetch();
       })
-      .channel("events-update")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "event_rsvps",
-        },
-        () => refetch(),
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "saved_events",
-        },
-        () => refetch(),
-      )
       .subscribe();
     return () => {
       void channel.unsubscribe();
@@ -564,11 +648,13 @@ export default function EventsList() {
             return {
               ...e,
               event_rsvps: rsvpsList.filter((r) => r.user_id !== (user?.id || "")),
+              rsvp_count: Math.max(0, (e.rsvp_count ?? 0) - 1),
             };
           } else {
             return {
               ...e,
               event_rsvps: [...rsvpsList, { id: "temp-rsvp-id", user_id: user?.id || "" }],
+              rsvp_count: (e.rsvp_count ?? 0) + 1,
             };
           }
         }
@@ -581,11 +667,17 @@ export default function EventsList() {
 
       // Show confetti only when successfully RSVPing (not when cancelling)
       if (!hasRsvpd) {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
+        // @ts-expect-error - canvas-confetti lacks type declarations
+        import("canvas-confetti")
+          .then((m) => {
+            const fireConfetti = m.default || m;
+            fireConfetti({
+              particleCount: 100,
+              spread: 70,
+              origin: { y: 0.6 },
+            });
+          })
+          .catch(() => {});
       }
     } catch {
       setEvents(originalEvents);
@@ -602,11 +694,13 @@ export default function EventsList() {
             return {
               ...e,
               saved_events: savedList.filter((s) => s.user_id !== (user?.id || "")),
+              saved_count: Math.max(0, (e.saved_count ?? 0) - 1),
             };
           } else {
             return {
               ...e,
               saved_events: [...savedList, { id: "temp-id", user_id: user?.id || "" }],
+              saved_count: (e.saved_count ?? 0) + 1,
             };
           }
         }
@@ -702,7 +796,12 @@ export default function EventsList() {
           ))}
         </div>
       )}
-      <PullToRefresh isRefreshing={isFetching} onRefresh={() => refetch()}>
+      <PullToRefresh
+        isRefreshing={isFetching}
+        onRefresh={async () => {
+          await refetch();
+        }}
+      >
         <SidebarProvider>
           <div className="flex flex-col md:flex-row w-full bg-cream">
             <ErrorBoundary
@@ -933,7 +1032,7 @@ export default function EventsList() {
                           type="button"
                           onClick={() => setViewMode("calendar")}
                           aria-pressed={viewMode === "calendar"}
-                          className={`px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black} ${
+                          className={`px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black ${
                             viewMode === "calendar"
                               ? "bg-black text-cream"
                               : "bg-white text-black hover:bg-cream"
@@ -941,6 +1040,13 @@ export default function EventsList() {
                         >
                           Calendar
                         </button>
+                        <Link
+                          to="/events/map"
+                          className="flex items-center gap-1 px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors bg-white text-black hover:bg-cream cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                        >
+                          <MapPin className="h-3.5 w-3.5 text-red-500" />
+                          Map
+                        </Link>
                       </div>
 
                       <button
@@ -972,78 +1078,106 @@ export default function EventsList() {
               <section className="bg-cream px-4 py-12 md:px-6">
                 {viewMode === "list" ? (
                   <>
-                    <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    <AnimatePresence mode="sync">
                       {isLoading ? (
-                        Array.from({ length: 6 }).map((_, i) => (
-                          <EventCardSkeleton key={i} index={i} />
-                        ))
+                        <motion.div
+                          key="events-loading-skeletons"
+                          layout
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.25, ease: "easeInOut" }}
+                          className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
+                        >
+                          {Array.from({ length: 6 }).map((_, i) => (
+                            <EventCardSkeleton key={`events-skeleton-${i}`} index={i} />
+                          ))}
+                        </motion.div>
                       ) : sortedEvents.length === 0 && filter !== "All" ? (
-                        <div className="col-span-full mx-auto max-w-md text-center neu-border bg-white p-8 animate-in fade-in-0 zoom-in-95 duration-300">
-                          <CalendarIcon
-                            className="mx-auto h-10 w-10 text-neutral-500"
-                            aria-hidden="true"
-                          />
-                          <h3 className="mt-3 font-mono text-lg font-bold uppercase">
-                            No {filter} events found.
-                          </h3>
-                          <p className="mt-1 font-mono text-xs text-neutral-600">
-                            Try a different category, or clear the filter to see everything.
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setFilter("All");
-                              setDateFilterType("all");
-                              setSpecificDate(undefined);
-                            }}
-                            className="mt-4 neu-border bg-yellow px-5 py-2 font-mono text-xs font-bold uppercase transition-all hover:bg-black hover:text-white cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
-                          >
-                            Clear filter
-                          </button>
-                        </div>
+                        <motion.div
+                          key="events-empty-filter"
+                          layout
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.25, ease: "easeInOut" }}
+                          className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
+                        >
+                          <div className="col-span-full mx-auto w-full max-w-md animate-in fade-in-0 zoom-in-95 duration-300">
+                            <EmptyState
+                              illustrationType="no-events"
+                              title={`No ${filter} events found`}
+                              description="Try a different category, or clear the filter to see everything."
+                              action={{
+                                label: "Clear filter",
+                                onClick: () => {
+                                  setFilter("All");
+                                  setDateFilterType("all");
+                                  setSpecificDate(undefined);
+                                },
+                              }}
+                            />
+                          </div>
+                        </motion.div>
                       ) : sortedEvents.length === 0 ? (
-                        <div className="col-span-full mx-auto max-w-md text-center neu-border bg-white p-8">
-                          <p className="text-3xl">🔍</p>
-                          <h3 className="mt-2 font-mono text-lg font-bold uppercase">
-                            No Events Found
-                          </h3>
-                          <p className="mt-1 font-mono text-xs text-neutral-600">
-                            No events matched &quot;{searchQuery}&quot;. Try clearing your filters
-                            or searching for another term.
-                          </p>
-                          <button
-                            onClick={() => {
-                              setFilter("All");
-                              setSearchInput("");
-                              setSearchQuery("");
-                              setDateFilterType("all");
-                              setSpecificDate(undefined);
-                            }}
-                            className="mt-4 neu-border bg-yellow px-5 py-2 font-mono text-xs font-bold uppercase transition-all hover:bg-black hover:text-white cursor-pointer"
-                          >
-                            Reset Filters
-                          </button>
-                        </div>
+                        <motion.div
+                          key="events-empty-results"
+                          layout
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.25, ease: "easeInOut" }}
+                          className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
+                        >
+                          <div className="col-span-full mx-auto max-w-md text-center neu-border bg-white p-8">
+                            <EmptyState
+                              illustrationType="no-results"
+                              title="No events found"
+                              description={`No events matched “${searchQuery}”. Try clearing your filters or searching for another term.`}
+                              action={{
+                                label: "Reset filters",
+                                onClick: () => {
+                                  setFilter("All");
+                                  setSearchInput("");
+                                  setSearchQuery("");
+                                  setDateFilterType("all");
+                                  setSpecificDate(undefined);
+                                },
+                              }}
+                            />
+                          </div>
+                        </motion.div>
                       ) : (
-                        sortedEvents.map((e, index) => (
-                          <EventCard
-                            key={e.id}
-                            event={e}
-                            index={index}
-                            user={user}
-                            active={e.id === eventId}
-                            onRsvpToggle={(eventId, hasRsvpd) =>
-                              handleRsvpToggle(eventId, hasRsvpd)
-                            }
-                            isRsvpPending={toggleRsvp.isPending}
-                            onBookmarkToggle={(eventId, isSaved) =>
-                              handleBookmarkToggle(eventId, isSaved)
-                            }
-                            isBookmarkPending={toggleBookmark.isPending}
-                          />
-                        ))
+                        <motion.div
+                          key="events-loaded-grid"
+                          layout
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.25, ease: "easeInOut" }}
+                          className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
+                        >
+                          {sortedEvents.map((e, index) => (
+                            <motion.div key={e.id} layout>
+                              <EventCard
+                                event={e}
+                                index={index}
+                                user={user}
+                                active={e.id === eventId}
+                                onRsvpToggle={(eventId, hasRsvpd) =>
+                                  handleRsvpToggle(eventId, hasRsvpd)
+                                }
+                                isRsvpPending={toggleRsvp.isPending}
+                                onBookmarkToggle={(eventId, isSaved) =>
+                                  handleBookmarkToggle(eventId, isSaved)
+                                }
+                                isBookmarkPending={toggleBookmark.isPending}
+                              />
+                            </motion.div>
+                          ))}
+                        </motion.div>
                       )}
-                    </div>
+                    </AnimatePresence>
 
                     {isLoadingMore && (
                       <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3 mt-8">

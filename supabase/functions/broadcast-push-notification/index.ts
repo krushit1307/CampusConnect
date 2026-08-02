@@ -26,11 +26,14 @@ serve(async (req) => {
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: req.headers.get("Authorization")! } } }
+      { global: { headers: { Authorization: req.headers.get("Authorization")! } } },
     );
 
     // Get the user calling the function
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseClient.auth.getUser();
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -45,10 +48,13 @@ serve(async (req) => {
       .single();
 
     if (profile?.role !== "club_admin") {
-      return new Response(JSON.stringify({ error: "Forbidden: only admins can broadcast messages" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Forbidden: only admins can broadcast messages" }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // Setup web-push
@@ -65,7 +71,7 @@ serve(async (req) => {
     // Get service role client to fetch all subscriptions
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
     const { data: subscriptions, error: subError } = await supabaseAdmin
@@ -78,7 +84,7 @@ serve(async (req) => {
 
     const payload = JSON.stringify({ title, message, url: url || "/" });
     let successCount = 0;
-    
+
     const sendPromises = subscriptions.map(async (sub) => {
       try {
         await webpush.sendNotification(
@@ -89,7 +95,7 @@ serve(async (req) => {
               auth: sub.auth,
             },
           },
-          payload
+          payload,
         );
         successCount++;
       } catch (error: any) {

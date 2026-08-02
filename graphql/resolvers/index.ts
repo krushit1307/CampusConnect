@@ -19,6 +19,7 @@ export interface NotificationRecord {
   message: string;
   link: string | null;
   is_read: boolean;
+  metadata?: Record<string, any> | null;
   created_at: string;
 }
 
@@ -28,6 +29,60 @@ export interface NotificationRecord {
  */
 export function publishNotification(notification: NotificationRecord): void {
   pubsub.publish("NOTIFICATION_RECEIVED", notification.user_id, notification);
+}
+
+/**
+ * Helper to emit a discussion mention notification to a specific user.
+ * Triggered when a user is @mentioned in a post, comment, or discussion.
+ */
+export function publishMentionNotification(params: {
+  mentionedUserId: string;
+  authorName: string;
+  discussionTitle: string;
+  link?: string;
+}): NotificationRecord {
+  const notification: NotificationRecord = {
+    id: `notif_mention_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    user_id: params.mentionedUserId,
+    type: "mention",
+    title: "Mentioned in Discussion",
+    message: `${params.authorName} mentioned you in "${params.discussionTitle}"`,
+    link: params.link ?? null,
+    is_read: false,
+    created_at: new Date().toISOString(),
+  };
+
+  pubsub.publish("NOTIFICATION_RECEIVED", params.mentionedUserId, notification);
+  return notification;
+}
+
+/**
+ * Helper to emit an event update notification to all RSVP'd attendees of an event.
+ * Triggered when an event's details, date, or location are updated.
+ */
+export function publishEventUpdateNotification(params: {
+  eventId: string;
+  eventTitle: string;
+  updateSummary: string;
+  attendeeUserIds: string[];
+}): NotificationRecord[] {
+  const notifications: NotificationRecord[] = params.attendeeUserIds.map((userId) => {
+    const notification: NotificationRecord = {
+      id: `notif_event_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      user_id: userId,
+      type: "event_update",
+      title: `Event Updated: ${params.eventTitle}`,
+      message: params.updateSummary,
+      link: `/events/${params.eventId}`,
+      is_read: false,
+      created_at: new Date().toISOString(),
+    };
+
+    pubsub.publish("NOTIFICATION_RECEIVED", userId, notification);
+    return notification;
+  });
+
+  return notifications;
 }
 
 // ── In-Memory LRU Cache Class ──
@@ -83,13 +138,14 @@ export interface ClubRecord {
 export const clubsCache = new LRUCache<string, ClubRecord[]>(5);
 export const CLUBS_CACHE_KEY = "all_clubs";
 
-// Subscribe to real-time updates for clubs to invalidate cache when a club is created/updated/deleted
-supabase
-  .channel("clubs-cache-invalidation")
-  .on("postgres_changes", { event: "*", schema: "public", table: "clubs" }, () => {
-    clubsCache.delete(CLUBS_CACHE_KEY);
-  })
-  .subscribe();
+if (typeof supabase.channel === "function") {
+  supabase
+    .channel("clubs-cache-invalidation")
+    .on("postgres_changes", { event: "*", schema: "public", table: "clubs" }, () => {
+      clubsCache.delete(CLUBS_CACHE_KEY);
+    })
+    .subscribe();
+}
 
 // ── Lightweight Batch Loader Class ──
 
@@ -255,6 +311,18 @@ export const typeDefs = /* GraphQL */ `
     comments: [Comment!]!
   }
 
+  type PostEdge {
+    cursor: String!
+    node: Post!
+  }
+
+  type PostConnection {
+    edges: [PostEdge!]!
+    nodes: [Post!]!
+    pageInfo: PageInfo!
+    totalCount: Int!
+  }
+
   type Event {
     id: ID!
     club_id: ID!
@@ -321,7 +389,7 @@ export const typeDefs = /* GraphQL */ `
   }
 
   type Query {
-    posts(limit: Int, offset: Int): [Post!]!
+    posts(first: Int, after: String): PostConnection!
     post(id: ID!): Post
     clubs: [Club!]!
     profiles(limit: Int, offset: Int, sortBy: String, sortOrder: String): [Profile!]!
@@ -390,16 +458,54 @@ export const resolvers = {
   },
 
   Query: {
-    posts: async (_: unknown, { limit = 10, offset = 0 }: { limit?: number; offset?: number }) => {
-      const { data, error } = await supabase
+    posts: async (_: unknown, { first = 10, after }: { first?: number; after?: string }) => {
+      const limit = Math.max(1, Math.min(first, 100));
+      let query = supabase
         .from("posts")
-        .select("*")
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1);
+        .select("*", { count: "exact" })
+        .is("deleted_at", null);
 
+      if (after) {
+        const decoded = decodeCursor(after);
+        if (decoded) {
+          query = query.or(
+            `created_at.lt.${decoded.createdAt},and(created_at.eq.${decoded.createdAt},id.lt.${decoded.id})`,
+          );
+        }
+      }
+
+      // Fetch limit + 1 items to accurately calculate hasNextPage
+      query = query
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(limit + 1);
+
+      const { data, count, error } = await query;
       if (error) throw error;
-      return data || [];
+
+      const rawPosts = data || [];
+      const hasNextPage = rawPosts.length > limit;
+      const nodes = hasNextPage ? rawPosts.slice(0, limit) : rawPosts;
+
+      const edges = nodes.map((node) => ({
+        cursor: encodeCursor(node),
+        node,
+      }));
+
+      const startCursor = edges.length > 0 ? edges[0].cursor : null;
+      const endCursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
+
+      return {
+        edges,
+        nodes,
+        pageInfo: {
+          hasNextPage,
+          hasPreviousPage: !!after,
+          startCursor,
+          endCursor,
+        },
+        totalCount: count ?? nodes.length,
+      };
     },
     post: async (_: unknown, { id }: { id: string }) => {
       const { data, error } = await supabase

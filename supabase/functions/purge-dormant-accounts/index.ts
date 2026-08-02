@@ -2,15 +2,14 @@ import { createClient } from "npm:@supabase/supabase-js";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
 Deno.serve(async () => {
   const cutoff = new Date();
   cutoff.setFullYear(cutoff.getFullYear() - 5);
 
-  const { data: users, error } =
-    await supabase.auth.admin.listUsers();
+  const { data: users, error } = await supabase.auth.admin.listUsers();
 
   if (error) {
     return new Response(error.message, { status: 500 });
@@ -27,9 +26,7 @@ Deno.serve(async () => {
       // Remove avatar (example path)
       const avatarPath = `avatars/${user.id}.png`;
 
-      await supabase.storage
-        .from("avatars")
-        .remove([avatarPath]);
+      await supabase.storage.from("avatars").remove([avatarPath]);
 
       // Delete Auth user (cascades where configured)
       await supabase.auth.admin.deleteUser(user.id);
@@ -46,6 +43,6 @@ Deno.serve(async () => {
       headers: {
         "Content-Type": "application/json",
       },
-    }
+    },
   );
 });

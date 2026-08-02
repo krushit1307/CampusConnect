@@ -22,14 +22,14 @@ export function authDirectiveTransformer(schema: GraphQLSchema, directiveName: s
 
       if (authDirective) {
         const { requires } = authDirective;
-        
+
         // Save the original resolver
         const { resolve = defaultFieldResolver } = fieldConfig;
 
         // Replace the original resolver with a function that calls the original
         fieldConfig.resolve = async function (source, args, context, info) {
           const user = context.user;
-          
+
           if (!user) {
             throw createGraphQLError("Not authenticated", {
               extensions: { code: "UNAUTHENTICATED" },
@@ -43,7 +43,7 @@ export function authDirectiveTransformer(schema: GraphQLSchema, directiveName: s
               extensions: { code: "UNAUTHORIZED" },
             });
           }
-          
+
           if (requires === "SYSTEM_ADMIN" && userRole !== "SYSTEM_ADMIN") {
             throw createGraphQLError("Not authorized", {
               extensions: { code: "UNAUTHORIZED" },

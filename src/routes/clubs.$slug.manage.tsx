@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
+import { Settings, Users, Calendar } from "lucide-react";
 import {
   Settings,
   Users,
@@ -13,14 +14,12 @@ import {
   XCircle,
   CheckCircle,
   Download,
-  BarChart2,
 } from "lucide-react";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { RosterExport } from "@/components/RosterExport";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { ClubMembersTable } from "@/components/Clubs/ClubMembersTable";
-import { ClubAnalyticsDashboard } from "@/components/Clubs/ClubAnalyticsDashboard";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -33,22 +32,24 @@ import {
 // ⚠️ Adjust if your Supabase Storage bucket for club banners has a different name
 const BUCKET_NAME = "club-banners";
 
+interface ServerClub {
+  name: string;
+  description: string | null;
+  banner_url: string | null;
+  logo_url: string | null;
+  promo_video_url: string | null;
+  visibility: string | null;
+  github_repo_url: string | null;
+  social_links: Record<string, string> | null;
+  version: number;
+}
+
 export default function ClubManageRoute() {
   const { slug = "" } = useParams();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
-  const initialTab = searchParams.get("tab");
-  const [activeTab, setActiveTab] = useState<"settings" | "members" | "events" | "analytics">(
-    initialTab === "analytics"
-      ? "analytics"
-      : initialTab === "members"
-        ? "members"
-        : initialTab === "events"
-          ? "events"
-          : "settings",
-  );
+  const [activeTab, setActiveTab] = useState<"settings" | "members" | "events">("settings");
 
   // Form State
   const [name, setName] = useState("");
@@ -62,7 +63,8 @@ export default function ClubManageRoute() {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [promoVideoUrl, setPromoVideoUrl] = useState("");
   const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
-  const [serverClub, setServerClub] = useState<Club | null>(null);
+  const [serverClub, setServerClub] = useState<any>(null);
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
@@ -247,7 +249,7 @@ export default function ClubManageRoute() {
           .select(
             "name, description, banner_url, logo_url, promo_video_url, visibility, github_repo_url, social_links, version",
           )
-          .eq("id", club.id)
+          .eq("id", club?.id)
           .single();
         if (latest) {
           setServerClub(latest);
@@ -259,6 +261,8 @@ export default function ClubManageRoute() {
     },
   });
 
+  const [optimisticRoles, setOptimisticRoles] = useState<Record<string, string>>({});
+
   const updateMemberMutation = useMutation({
     mutationFn: async ({
       memberId,
@@ -267,14 +271,26 @@ export default function ClubManageRoute() {
       memberId: string;
       updates: Record<string, unknown>;
     }) => {
+      if (updates.role && typeof updates.role === "string") {
+        setOptimisticRoles((prev) => ({ ...prev, [memberId]: updates.role as string }));
+      }
       const { error } = await supabase.from("club_members").update(updates).eq("id", memberId);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Member updated");
+      toast.success("Member role updated successfully");
       refetch();
     },
-    onError: () => toast.error("Failed to update member"),
+    onError: (_err, variables) => {
+      if (variables?.memberId) {
+        setOptimisticRoles((prev) => {
+          const next = { ...prev };
+          delete next[variables.memberId];
+          return next;
+        });
+      }
+      toast.error("Role update failed. Reverted to previous role.");
+    },
   });
 
   if (isLoading) {
@@ -346,16 +362,6 @@ export default function ClubManageRoute() {
                 }`}
               >
                 <Calendar size={18} /> Events
-              </button>
-              <button
-                onClick={() => setActiveTab("analytics")}
-                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
-                  activeTab === "analytics"
-                    ? "bg-black text-white hover:-translate-y-1"
-                    : "bg-white text-black hover:bg-gray-50"
-                }`}
-              >
-                <BarChart2 size={18} /> Analytics
               </button>
             </nav>
           </aside>
@@ -525,7 +531,10 @@ export default function ClubManageRoute() {
                       Manage Members
                     </h2>
                     <ClubMembersTable
-                      members={club.club_members}
+                      members={(club.club_members || []).map((m: any) => ({
+                        ...m,
+                        role: optimisticRoles[m.id] || m.role,
+                      }))}
                       currentUserId={user?.id}
                       isMutating={updateMemberMutation.isPending}
                       onApprove={(memberId) =>
@@ -534,10 +543,10 @@ export default function ClubManageRoute() {
                       onReject={(memberId) =>
                         updateMemberMutation.mutate({ memberId, updates: { status: "rejected" } })
                       }
-                      onToggleRole={(memberId, currentRole) =>
+                      onToggleRole={(memberId, targetRole) =>
                         updateMemberMutation.mutate({
                           memberId,
-                          updates: { role: currentRole === "admin" ? "member" : "admin" },
+                          updates: { role: targetRole },
                         })
                       }
                     />
@@ -592,7 +601,6 @@ export default function ClubManageRoute() {
                 </div>
               </div>
             )}
-            {activeTab === "analytics" && <ClubAnalyticsDashboard clubId={club.id} />}
           </main>
         </div>
       </div>

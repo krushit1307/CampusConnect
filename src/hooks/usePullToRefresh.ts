@@ -8,8 +8,8 @@ interface UsePullToRefreshOptions {
 
 export function usePullToRefresh<T extends HTMLElement>({
   onRefresh,
-  pullThreshold = 80,
-  maxPullDistance = 120,
+  pullThreshold = 100,
+  maxPullDistance = 160,
 }: UsePullToRefreshOptions) {
   const containerRef = useRef<T | null>(null);
   const [pullDistance, setPullDistance] = useState(0);

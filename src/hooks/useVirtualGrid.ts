@@ -36,8 +36,8 @@ export function useVirtualGrid<T>({
 }: UseVirtualGridOptions<T>): UseVirtualGridResult<T> {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
-  const [containerWidth, setContainerWidth] = useState(600);
-  const [viewportHeight, setViewportHeight] = useState(400);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
   const [measuredHeights, setMeasuredHeights] = useState<Record<number, number>>({});
 
   const columnCount = Math.max(1, Math.floor((containerWidth + gap) / (columnWidth + gap)));

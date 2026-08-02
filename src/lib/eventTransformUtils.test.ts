@@ -7,6 +7,7 @@ import {
   buildFeedbackStatus,
   buildWaitlistInfo,
   buildGoogleMapsSearchUrl,
+  EventRsvp,
 } from "./eventTransformUtils";
 
 describe("extractProfile", () => {
@@ -80,13 +81,15 @@ describe("buildKanbanColumns", () => {
 
 describe("buildRsvpStatus", () => {
   it("identifies hasRsvpd when user has an RSVP", () => {
-    const rsvps = [{ id: "r1", user_id: "u1", status: "approved" }];
+    const rsvps = [{ id: "r1", user_id: "u1", status: "approved", profiles: null }] as EventRsvp[];
     expect(buildRsvpStatus(rsvps, "u1", null).hasRsvpd).toBe(true);
     expect(buildRsvpStatus(rsvps, "u1", null).isCheckedIn).toBe(false);
   });
 
   it("identifies isCheckedIn when user has checked in", () => {
-    const rsvps = [{ id: "r1", user_id: "u1", status: "approved", checked_in: true }];
+    const rsvps = [
+      { id: "r1", user_id: "u1", status: "approved", checked_in: true, profiles: null },
+    ] as EventRsvp[];
     expect(buildRsvpStatus(rsvps, "u1", null).isCheckedIn).toBe(true);
   });
 

@@ -6,6 +6,8 @@ import { execSync } from "child_process";
  *
  * Note: This requires Docker to be running and the Supabase CLI to be installed globally.
  */
+export const setupTimeout = 300000;
+
 export async function setup() {
   console.log("\n🐳 [Global Setup] Starting Supabase local stack...");
   console.log("   (This may take 1-2 minutes if Docker images need to be pulled)");

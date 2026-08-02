@@ -49,6 +49,45 @@ interface GQLNotification {
   link: string | null;
   isRead: boolean;
   createdAt: string;
+  metadata?: Record<string, any> | null;
+}
+
+export function getNotificationLink(
+  type: string,
+  metadata: any,
+  fallbackLink?: string | null,
+): string | undefined {
+  if (!metadata || typeof metadata !== "object") {
+    return fallbackLink || undefined;
+  }
+
+  switch (type) {
+    case "event":
+    case "event_rsvp":
+    case "event_invite":
+    case "event_update":
+      if (metadata.event_id) return `/events/${metadata.event_id}`;
+      break;
+    case "club":
+    case "club_application_approved":
+    case "club_invite":
+      if (metadata.club_id) return `/clubs/${metadata.club_id}`;
+      break;
+    case "mention":
+    case "reply":
+    case "post_like":
+      if (metadata.post_id) {
+        if (metadata.comment_id) {
+          return `/posts/${metadata.post_id}#comment-${metadata.comment_id}`;
+        }
+        return `/posts/${metadata.post_id}`;
+      }
+      break;
+    case "message":
+    case "new_message":
+      return "/messages";
+  }
+  return fallbackLink || undefined;
 }
 
 const NOTIFICATIONS_PER_PAGE = 20;
@@ -102,6 +141,7 @@ export default function NotificationsRoute() {
       link: notification.link,
       is_read: notification.isRead,
       created_at: notification.createdAt,
+      metadata: notification.metadata ?? null,
     };
 
     queryClient.setQueryData(
@@ -218,10 +258,16 @@ export default function NotificationsRoute() {
 
   const allNotifications = rawNotifications.filter((n) => {
     if (activeCategory === "unread" && n.is_read) return false;
-    if (activeCategory === "event" && n.type !== "event") return false;
-    if (activeCategory === "club" && n.type !== "club") return false;
-    if (activeCategory === "reply" && n.type !== "reply") return false;
-    if (activeCategory === "security" && n.type !== "security") return false;
+    if (activeCategory === "event" && !n.type?.startsWith("event")) return false;
+    if (activeCategory === "club" && !n.type?.startsWith("club")) return false;
+    if (
+      activeCategory === "reply" &&
+      n.type !== "reply" &&
+      n.type !== "mention" &&
+      !n.type?.includes("like")
+    )
+      return false;
+    if (activeCategory === "security" && n.type !== "security" && n.type !== "alert") return false;
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -271,10 +317,18 @@ export default function NotificationsRoute() {
   const getIcon = (type: string) => {
     switch (type) {
       case "event":
+      case "event_rsvp":
+      case "event_invite":
+      case "event_update":
         return <Calendar size={16} className="text-blue-600" />;
       case "club":
+      case "club_application_approved":
+      case "club_invite":
         return <Building size={16} className="text-brand-amber-base" />;
       case "reply":
+      case "mention":
+      case "message":
+      case "new_message":
         return <MessageSquare size={16} className="text-green-600" />;
       default:
         return <Info size={16} className="text-gray-600" />;
@@ -350,10 +404,11 @@ export default function NotificationsRoute() {
                   </h2>
                   <div className="space-y-3">
                     {items.map((n, idx) => {
+                      const resolvedLink = getNotificationLink(n.type, n.metadata, n.link);
+                      const Wrapper = (resolvedLink ? Link : "div") as React.ElementType;
+                      const wrapperProps = resolvedLink ? { to: resolvedLink } : {};
                       const isLast =
                         idx === items.length - 1 && label === Object.keys(grouped).pop();
-                      const Wrapper = (n.link ? Link : "div") as React.ElementType;
-                      const wrapperProps = n.link ? { to: n.link } : {};
 
                       return (
                         <SwipeToDismiss
@@ -365,7 +420,7 @@ export default function NotificationsRoute() {
                             {...wrapperProps}
                             ref={isLast ? lastElementRef : undefined}
                             className={`neu-border flex items-start gap-4 p-4 transition-all ${
-                              n.link ? "hover:-translate-y-1 cursor-pointer" : ""
+                              resolvedLink ? "hover:-translate-y-1 cursor-pointer" : ""
                             } ${!n.is_read ? "bg-blue-50" : "bg-white"}`}
                           >
                             <div className="mt-1 flex-shrink-0 bg-white p-2 rounded-full border-2 border-black">
@@ -385,6 +440,30 @@ export default function NotificationsRoute() {
                               <p className="font-mono text-sm text-gray-600 mt-1 line-clamp-2">
                                 {n.message}
                               </p>
+                              {n.metadata && typeof n.metadata === "object" && (
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                  {n.metadata.event_id && (
+                                    <span className="px-1.5 py-0.5 font-mono text-[9px] font-bold bg-blue-100 text-blue-700 border border-blue-200 uppercase rounded">
+                                      Event: {String(n.metadata.event_id).slice(0, 8)}...
+                                    </span>
+                                  )}
+                                  {n.metadata.post_id && (
+                                    <span className="px-1.5 py-0.5 font-mono text-[9px] font-bold bg-green-100 text-green-700 border border-green-200 uppercase rounded">
+                                      Post: {String(n.metadata.post_id).slice(0, 8)}...
+                                    </span>
+                                  )}
+                                  {n.metadata.club_id && (
+                                    <span className="px-1.5 py-0.5 font-mono text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-200 uppercase rounded">
+                                      Club: {String(n.metadata.club_id).slice(0, 8)}...
+                                    </span>
+                                  )}
+                                  {n.metadata.comment_id && (
+                                    <span className="px-1.5 py-0.5 font-mono text-[9px] font-bold bg-purple-100 text-purple-700 border border-purple-200 uppercase rounded">
+                                      Comment: {String(n.metadata.comment_id).slice(0, 8)}...
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                               <p className="font-mono text-[10px] text-gray-400 mt-2">
                                 {format(new Date(n.created_at), "MMM d, h:mm a")}
                               </p>

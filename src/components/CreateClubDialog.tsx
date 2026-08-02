@@ -35,12 +35,14 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
+import { CascadingCategorySelect } from "@/components/Clubs/CascadingCategorySelect";
 
 const defaultValues: ClubFormInput = {
   name: "",
   slug: "",
   description: "",
   visibility: "public",
+  category_id: null,
 };
 
 const generateSlug = (text: string) => {
@@ -52,11 +54,15 @@ const generateSlug = (text: string) => {
     .replace(/-+/g, "-"); // remove duplicate hyphens
 };
 
+interface LocalClubFormValues extends ClubFormInput {
+  logo_url?: string;
+}
+
 export function CreateClubDialog({ user }: { user: User | null }) {
   const [open, setOpen] = useState(false);
   const supabase = createClient();
 
-  const form = useForm<ClubFormInput>({
+  const form = useForm<LocalClubFormValues>({
     resolver: zodResolver(clubFormSchema),
     defaultValues,
     mode: "onBlur",
@@ -72,7 +78,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
   }, [nameValue, form]);
 
   const createClub = useMutation({
-    mutationFn: async (values: ClubFormValues) => {
+    mutationFn: async (values: LocalClubFormValues) => {
       if (!user) {
         throw new Error("You must be logged in to create a club.");
       }
@@ -98,6 +104,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
           slug: values.slug.trim(),
           description: values.description.trim(),
           logo_url: values.logo_url || null,
+          category_id: values.category_id || null,
           created_by: user.id,
           status: "pending",
         })
@@ -120,9 +127,9 @@ export function CreateClubDialog({ user }: { user: User | null }) {
     },
   });
 
-  const onSubmit = (values: ClubFormInput) => {
+  const onSubmit = (values: LocalClubFormValues) => {
     const parsed = clubFormSchema.parse(values);
-    createClub.mutate(parsed);
+    createClub.mutate({ ...parsed, logo_url: values.logo_url });
   };
 
   return (
@@ -172,7 +179,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
                             .watch("name")
                             .split(" ")
                             .filter(Boolean)
-                            .map((p) => p[0])
+                            .map((p: string) => p[0])
                             .join("")
                             .slice(0, 2)
                             .toUpperCase()
@@ -269,6 +276,30 @@ export function CreateClubDialog({ user }: { user: User | null }) {
                   </FormItem>
                 );
               }}
+            />
+
+            <FormField
+              control={form.control}
+              name="category_id"
+              render={({ field }) => (
+                <FormItem className="text-black">
+                  <FormLabel required className="text-red-900">
+                    Club Category
+                  </FormLabel>
+                  <FormControl>
+                    <CascadingCategorySelect
+                      value={field.value ?? null}
+                      onChange={(categoryId) =>
+                        form.setValue("category_id", categoryId, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        })
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
 
             <DialogFooter className="pt-2">
