@@ -2,8 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; object-src 'none'; base-uri 'self'; frame-ancestors 'none';" />    <link
       rel="preload"
       href="/fonts/space-grotesk-latin-400-normal.woff2"
       as="font"
@@ -18,39 +18,8 @@
       crossorigin="anonymous"
     />
     <title>CampusConnect</title>
-    <script>
-      (function () {
-        try {
-          var stored = localStorage.getItem("campusconnect-theme");
-          var isDark =
-            stored === "dark" ||
-            ((!stored || stored === "system") &&
-              window.matchMedia("(prefers-color-scheme: dark)").matches);
-          if (isDark) {
-            document.documentElement.classList.add("dark");
-            document.documentElement.style.colorScheme = "dark";
-          } else {
-            document.documentElement.classList.remove("dark");
-            document.documentElement.style.colorScheme = "light";
-          }
-        } catch (e) {}
-      })();
-    </script>
-    <!-- Register custom service worker early in head for faster interception -->
-    <script>
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", () => {
-          navigator.serviceWorker
-            .register("/sw.js")
-            .then((registration) => {
-              console.log("[SW] Registered successfully:", registration.scope);
-            })
-            .catch((error) => {
-              console.error("[SW] Registration failed:", error);
-            });
-        });
-      }
-    </script>
+<script src="/theme-init.js"></script>    <!-- Register custom service worker early in head for faster interception -->
+    
     <style>
       /* This is intentionally kept outside the React bundle so it is visible
          while the application's JavaScript is downloading. */
@@ -160,11 +129,5 @@
     </div>
     <script type="module" src="/src/main.tsx"></script>
     <!-- Redundant SW registration at end of body as fallback/standard practice -->
-    <script>
-      // Fallback registration in case window.load fired before script execution
-      if ("serviceWorker" in navigator && !navigator.serviceWorker.controller) {
-        navigator.serviceWorker.register("/sw.js");
-      }
-    </script>
-  </body>
+<script src="/sw-register.js"></script>  </body>
 </html>
