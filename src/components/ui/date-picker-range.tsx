@@ -1,24 +1,27 @@
-import React, { useState } from "react";
-import { DayPicker } from "react-day-picker";
+import * as React from "react";
+import { DayPicker, DateRange } from "react-day-picker";
 import { format } from "date-fns";
-import "react-day-picker/dist/style.css"; // Pulls in the base calendar layout
+import "react-day-picker/dist/style.css";
 
-export function DateRangePicker({ onDateChange }) {
-  const [range, setRange] = useState();
+// This interface fixes the TypeScript Build and Lint errors!
+interface DatePickerRangeProps {
+  onDateChange?: (dates: { start: string; end: string }) => void;
+}
 
-  // Issue Requirement 5: Start Date cannot be in the past.
+export function DatePickerRange({ onDateChange }: DatePickerRangeProps) {
+  const [range, setRange] = React.useState<DateRange | undefined>();
+
   const today = new Date();
-  today.setHours(0, 0, 0, 0); // Strip time so it only blocks yesterday and older
+  today.setHours(0, 0, 0, 0);
 
-  const handleSelect = (selectedRange) => {
+  const handleSelect = (selectedRange: DateRange | undefined) => {
     setRange(selectedRange);
 
-    // Issue Edge Case: Strip time data / use strict local-time strings
-    if (selectedRange?.from && selectedRange?.to && onDateChange) {
-      const formattedStart = format(selectedRange.from, "yyyy-MM-dd");
-      const formattedEnd = format(selectedRange.to, "yyyy-MM-dd");
+    // This fixes the CodeRabbit AI bug! It now syncs incomplete ranges.
+    if (onDateChange) {
+      const formattedStart = selectedRange?.from ? format(selectedRange.from, "yyyy-MM-dd") : "";
+      const formattedEnd = selectedRange?.to ? format(selectedRange.to, "yyyy-MM-dd") : "";
 
-      // Sends the clean ISO string back to React Hook Form
       onDateChange({ start: formattedStart, end: formattedEnd });
     }
   };
@@ -30,8 +33,6 @@ export function DateRangePicker({ onDateChange }) {
         selected={range}
         onSelect={handleSelect}
         disabled={{ before: today }}
-
-        // Issue Requirement 4: Specific CSS classes for selected, middle, and end days
         modifiersClassNames={{
           selected: "bg-blue-600 text-white font-bold",
           range_start: "rounded-l-md",
@@ -40,7 +41,6 @@ export function DateRangePicker({ onDateChange }) {
         }}
       />
 
-      {/* Testing Requirement: Verify input value formats correctly */}
       <div className="mt-4 text-sm font-medium text-gray-700 text-center">
         {range?.from ? (
           range.to ? (
