@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import type { FieldValues, Path, UseFormReturn } from "react-hook-form";
+import { HorizontalStepper, type StepperStep } from "@/components/ui/HorizontalStepper";
 
 export interface WizardStep<TFieldValues extends FieldValues> {
   id: string;
@@ -57,7 +58,6 @@ export function Wizard<TFieldValues extends FieldValues>({
     } finally {
       setHydrated(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey]);
 
   // Persist every keystroke to sessionStorage.
@@ -87,7 +87,6 @@ export function Wizard<TFieldValues extends FieldValues>({
     if (step > furthestReachable) {
       navigate(`${basePath}?${STEP_PARAM}=${furthestReachable}`, { replace: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, step, steps, basePath, form, navigate]);
 
   const currentStep = steps[step - 1];
@@ -110,40 +109,33 @@ export function Wizard<TFieldValues extends FieldValues>({
     goToStep(step - 1);
   };
 
-  const stepSummary = useMemo(
-    () => steps.map((s) => ({ id: s.id, title: s.title, isCurrent: s.id === currentStep.id })),
-    [steps, currentStep.id],
+  const stepperSteps: StepperStep[] = useMemo(
+    () => steps.map((s) => ({ id: s.id, title: s.title, description: s.description })),
+    [steps],
   );
+
+  const isStepReachable = (index: number) => {
+    return steps.slice(0, index).every((st) =>
+      st.fields.every((f) => {
+        const value = form.getValues(f);
+        return value !== undefined && value !== null && value !== "";
+      }),
+    );
+  };
 
   const isLastStep = step === steps.length;
 
   return (
     <div className="w-full">
-      {/* Step indicator */}
-      <ol className="mb-8 flex flex-wrap items-center gap-2" aria-label="Progress">
-        {stepSummary.map((s, index) => (
-          <li key={s.id} className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                const reachable = steps.slice(0, index).every((st) =>
-                  st.fields.every((f) => {
-                    const value = form.getValues(f);
-                    return value !== undefined && value !== null && value !== "";
-                  }),
-                );
-                if (reachable) goToStep(index + 1);
-              }}
-              className={`neu-border px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer ${
-                s.isCurrent ? "bg-black text-cream" : "bg-white text-black hover:bg-yellow-100"
-              }`}
-            >
-              {index + 1}. {s.title}
-            </button>
-            {index < steps.length - 1 && <span className="font-mono text-xs text-gray-400">→</span>}
-          </li>
-        ))}
-      </ol>
+      {/* Horizontal Stepper component */}
+      <div className="mb-8">
+        <HorizontalStepper
+          steps={stepperSteps}
+          currentStep={step}
+          onStepClick={(index) => goToStep(index + 1)}
+          isStepReachable={isStepReachable}
+        />
+      </div>
 
       <div className="neu-border bg-white p-6 shadow-[6px_6px_0_0_#000]">
         <div className="mb-5 border-b-2 border-black pb-3">
