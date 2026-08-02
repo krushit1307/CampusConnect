@@ -32,7 +32,9 @@
     "github:create-new-issues": "npx tsx scripts/create-new-issues.ts",
     "github:create-frontend-issues": "npx tsx scripts/create-frontend-issues.ts",
     "github:create-backend-issues": "npx tsx scripts/create-backend-issues.ts",
-    "github:audit-labels": "npx tsx scripts/audit-labels.ts"
+    "github:audit-labels": "npx tsx scripts/audit-labels.ts",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
@@ -191,6 +193,16 @@
     "typescript-eslint": "^8.56.1",
     "vite": "^8.0.16",
     "vite-plugin-pwa": "^1.0.0",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "storybook": "^10.5.5",
+    "@storybook/react-vite": "^10.5.5",
+    "@chromatic-com/storybook": "^5.2.1",
+    "@storybook/addon-vitest": "^10.5.5",
+    "@storybook/addon-a11y": "^10.5.5",
+    "@storybook/addon-docs": "^10.5.5",
+    "@storybook/addon-mcp": "^0.7.0",
+    "eslint-plugin-storybook": "^10.5.5",
+    "@vitest/browser-playwright": "^4.1.10",
+    "playwright": "^1.62.1"
   }
 }
