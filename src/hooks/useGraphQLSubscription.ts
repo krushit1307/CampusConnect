@@ -117,7 +117,12 @@ export function useGraphQLSubscription<T>(
                 error: new Error(JSON.stringify(parsed.errors)),
               }));
             } else if (parsed.data !== undefined) {
-              setState((prev) => ({ ...prev, data: parsed.data as T, error: null, connected: true }));
+              setState((prev) => ({
+                ...prev,
+                data: parsed.data as T,
+                error: null,
+                connected: true,
+              }));
             }
           } catch {
             // Ignore malformed SSE frames.

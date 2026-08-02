@@ -17,24 +17,45 @@ CREATE TABLE profiles (
   bio TEXT,
   skills TEXT[] DEFAULT '{}'::TEXT[],
   role user_role DEFAULT 'student'::user_role,
-  notification_preferences JSONB NOT NULL DEFAULT '{"rsvps": true, "digest": true, "certs": true}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-ALTER TABLE profiles
-ADD CONSTRAINT profiles_notification_preferences_valid
-CHECK (
-  jsonb_typeof(notification_preferences) = 'object'
-  AND notification_preferences ? 'rsvps'
-  AND notification_preferences ? 'digest'
-  AND notification_preferences ? 'certs'
-  AND jsonb_typeof(notification_preferences->'rsvps') = 'boolean'
-  AND jsonb_typeof(notification_preferences->'digest') = 'boolean'
-  AND jsonb_typeof(notification_preferences->'certs') = 'boolean'
+CREATE INDEX IF NOT EXISTS idx_profiles_skills ON public.profiles USING gin (skills);
+
+CREATE TABLE user_preferences (
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE PRIMARY KEY,
+  email_alerts BOOLEAN NOT NULL DEFAULT true,
+  push_notifications BOOLEAN NOT NULL DEFAULT true,
+  digest BOOLEAN NOT NULL DEFAULT true,
+  dark_mode_default BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_profiles_skills ON public.profiles USING gin (skills);
+ALTER TABLE public.user_preferences ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their own preferences." ON public.user_preferences;
+CREATE POLICY "Users can view their own preferences." ON public.user_preferences
+  FOR SELECT TO authenticated
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert their own preferences." ON public.user_preferences;
+CREATE POLICY "Users can insert their own preferences." ON public.user_preferences
+  FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own preferences." ON public.user_preferences;
+CREATE POLICY "Users can update their own preferences." ON public.user_preferences
+  FOR UPDATE TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE TRIGGER set_updated_at_user_preferences
+BEFORE UPDATE ON user_preferences
+FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
+
+ALTER PUBLICATION supabase_realtime ADD TABLE public.user_preferences;
 
 CREATE OR REPLACE FUNCTION public.is_valid_social_links(links jsonb)
 RETURNS boolean
@@ -1335,7 +1356,6 @@ SELECT id, raw_user_meta_data->>'full_name', raw_user_meta_data->>'avatar_url'
 FROM auth.users
 ON CONFLICT (id) DO NOTHING;
 
-
 -- Enable pg_trgm extension
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
@@ -1361,4 +1381,3 @@ BEGIN
     ORDER BY similarity(name, search_term) DESC;
 END;
 $$;
-

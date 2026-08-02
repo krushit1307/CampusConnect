@@ -89,8 +89,7 @@ function EventsPage() {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
 
-  const { data: queryData, isLoading } = useQuery({
-    queryKey: ["events"],
+const { data: queryData, isLoading, isFetching, refetch } = useQuery({    queryKey: ["events"],
     queryFn: async () => {
       const { data } = await supabase
         .from("events")
@@ -303,8 +302,12 @@ function EventsPage() {
 
   return (
     <SiteShell>
-      <PullToRefresh isRefreshing={isFetching} onRefresh={() => refetch()}>
-        <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
+<PullToRefresh
+  isRefreshing={isFetching}
+  onRefresh={async () => {
+    await refetch();
+  }}
+>        <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
           <div className="mx-auto flex max-w-7xl flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div>
               <div className="flex items-center gap-2 flex-wrap">

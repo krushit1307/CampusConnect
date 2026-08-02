@@ -1,7 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://esm.sh/zod@3.24.2";
 import { verifyAuth } from "../shared/auth-middleware.ts";
 import { encode as base64urlEncode } from "https://deno.land/std@0.168.0/encoding/base64url.ts";
+import { parseJsonBody } from "../_shared/validation.ts";
+
+const registrationOptionsSchema = z
+  .object({
+    rpId: z.string().min(1),
+    deviceName: z.string().max(100).optional(),
+  })
+  .strict();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,16 +50,17 @@ serve(async (req: Request) => {
     }
 
     // Parse request body for RP ID and origin
-    const body = await req.json().catch(() => ({}));
-    const rpId = body.rpId;
-    const deviceName = body.deviceName || null;
-
-    if (!rpId) {
-      return new Response(JSON.stringify({ error: "Missing rpId" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const rawText = await req.text();
+    const parsed = await parseJsonBody(
+      registrationOptionsSchema,
+      new Request(req.url, {
+        method: "POST",
+        headers: req.headers,
+        body: rawText.trim() ? rawText : null,
+      }),
+    );
+    if (!parsed.ok) return parsed.response;
+    const { rpId, deviceName } = parsed.data;
 
     // Fetch user's profile for display name
     const { data: profile } = await supabase

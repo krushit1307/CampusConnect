@@ -40,9 +40,9 @@ describe("PullToRefresh Component (#1917)", () => {
     // Source-level regression check so a future drift back to 80px fails CI.
     // Reading the source via the test harness avoids the brittle TouchEvent
     // path (jsdom doesn't implement TouchEvent constructors meaningfully).
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     const fs = require("fs");
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     const path = require("path");
     const src = fs.readFileSync(path.resolve(__dirname, "PullToRefresh.tsx"), "utf8");
     expect(src).toMatch(/ACTIVATION_THRESHOLD\s*=\s*100\b/);

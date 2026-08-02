@@ -2,7 +2,7 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect, lazy, Suspense, useMemo } from "react";
-import { motion } from "framer-motion";
+import { LazyMotion, m } from "framer-motion";
 import { Helmet } from "react-helmet-async";
 import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
 import { TableOfContents } from "@/components/events/TableOfContents";
@@ -11,6 +11,8 @@ import NotFound from "./NotFound";
 import LazyHydrate from "@/components/LazyHydrate";
 import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
+import { useBreadcrumbs } from "@/components/BreadcrumbsContext";
+import { triggerConfetti } from "@/utils/confetti";
 // Removed SiteShell import
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { MapSkeleton } from "@/components/ui/MapSkeleton";
@@ -38,6 +40,7 @@ import {
 
 const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ default: m.EventMap })));
 import { formatEventDateRange } from "@/lib/utils";
+import { loadDomMax } from "@/lib/motionFeatures";
 import { downloadIcs, getGoogleCalendarUrl } from "@/lib/calendarUtils";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
 import { formatStandardDate } from "@/utils/dateUtils";
@@ -230,7 +233,7 @@ function downloadCsv(csvContent: string, filename: string) {
 }
 
 export default function EventDetailsPage() {
-  const { eventId = "" } = useParams();
+  const { eventId = "", lang = "en" } = useParams();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const emailVerified = useEmailVerification();
@@ -242,9 +245,55 @@ export default function EventDetailsPage() {
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const viewerCount = useEventViewerCount(eventId);
+  const { setCustomTrail } = useBreadcrumbs();
 
   // Safe window URL handling for SSR / hydration safety
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+
+  useEffect(() => {
+    if (!event) {
+      const skeleton = (
+        <span className="h-3 w-16 animate-pulse rounded bg-gray-200 dark:bg-gray-700 inline-block align-middle" />
+      );
+      setCustomTrail([
+        { label: "Home", path: `/${lang}` },
+        { label: "Clubs", path: `/${lang}/clubs` },
+        { label: skeleton },
+        { label: "Events", path: `/${lang}/events` },
+        { label: skeleton },
+      ]);
+      return;
+    }
+
+    const clubObj = event.clubs ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
+    const trail = [
+      { label: "Home", path: `/${lang}` },
+      { label: "Clubs", path: `/${lang}/clubs` },
+    ];
+
+    if (clubObj) {
+      trail.push({
+        label: clubObj.name,
+        path: `/${lang}/clubs/${clubObj.slug}`,
+      });
+    }
+
+    trail.push({
+      label: "Events",
+      path: `/${lang}/events`,
+    });
+
+    trail.push({
+      label: event.title,
+    });
+
+    setCustomTrail(trail);
+
+    return () => {
+      setCustomTrail(null);
+    };
+  }, [event, lang, setCustomTrail]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -753,13 +802,26 @@ export default function EventDetailsPage() {
         toast.error((err?.message as string) || "Failed to update RSVP. Please try again.");
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       // Refetch to ensure server state matches
       refetch();
+      if (!variables.hasRsvpd) {
+        triggerConfetti();
+      }
       // Reserve selected seats after successful RSVP
       if (hasSeats && selectedSeats.length > 0) {
         selectedSeats.forEach((seatId) => {
           supabase.rpc("reserve_seat", { p_seat_id: seatId });
+        });
+      }
+
+      // Eagerly cache event banner if they just RSVP'd
+      if (!variables.hasRsvpd && event?.banner_url && "caches" in window) {
+        window.caches.open("supabase-images-cache").then((cache) => {
+          cache.add(event.banner_url!).catch((err) => {
+            // eslint-disable-next-line no-console
+            console.error("Failed to eagerly cache banner image", err);
+          });
         });
       }
     },
@@ -1159,9 +1221,7 @@ export default function EventDetailsPage() {
   const attendeeCount =
     ((event as Record<string, unknown>).attendee_count as number) ?? rsvps.length;
   const maxAttendees = (event as Record<string, unknown>).max_attendees as
-    | number
-    | null
-    | undefined;
+    number | null | undefined;
   const isAtCapacity =
     maxAttendees !== null &&
     maxAttendees !== undefined &&
@@ -1189,45 +1249,8 @@ export default function EventDetailsPage() {
   });
 
   return (
-    <>
-      {/* Breadcrumb nav */}
-      <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6" aria-label="Breadcrumb">
-        <div className="mx-auto max-w-4xl">
-          {/* Mobile: simple back link */}
-          <Link
-            to="/events"
-            className="inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider hover:underline sm:hidden"
-          >
-            <ArrowLeft size={14} /> Events
-          </Link>
-          {/* sm+: full breadcrumb */}
-          <Breadcrumb className="hidden sm:block">
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link to="/" className="font-mono text-xs font-bold uppercase">
-                    Home
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link to="/events" className="font-mono text-xs font-bold uppercase">
-                    Events
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage className="font-mono text-xs font-bold uppercase">
-                  {event.title}
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-        </div>
-      </nav>
+    <LazyMotion features={loadDomMax} strict={import.meta.env.DEV}>
+
 
       <Helmet>
         {/* OpenGraph (Facebook / Discord / iMessage) */}
@@ -1247,49 +1270,12 @@ export default function EventDetailsPage() {
         {og.ogImage && <meta name="twitter:image" content={og.ogImage} />}
       </Helmet>
       <SiteShell>
-        {/* Breadcrumb nav */}
-        <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6" aria-label="Breadcrumb">
-          <div className="mx-auto max-w-4xl">
-            {/* Mobile: simple back link */}
-            <Link
-              to="/events"
-              className="inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider hover:underline sm:hidden"
-            >
-              <ArrowLeft size={14} /> Events
-            </Link>
-            {/* sm+: full breadcrumb */}
-            <Breadcrumb className="hidden sm:block">
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/" className="font-mono text-xs font-bold uppercase">
-                      Home
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/events" className="font-mono text-xs font-bold uppercase">
-                      Events
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage className="font-mono text-xs font-bold uppercase">
-                    {event.title}
-                  </BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-        </nav>
+
 
         {/* Hero Section */}
         <section className="relative w-full overflow-hidden border-b-2 border-black bg-peach/30">
           {event.banner_url ? (
-            <motion.div layoutId={`event-image-${event.id}`} className="absolute inset-0">
+            <m.div layoutId={`event-image-${event.id}`} className="absolute inset-0">
               <OptimizedImage
                 src={event.banner_url}
                 alt={`${event.title} event banner`}
@@ -1304,9 +1290,9 @@ export default function EventDetailsPage() {
                 }
               />
               <div className="absolute inset-0 bg-black/50" />
-            </motion.div>
+            </m.div>
           ) : (
-            <motion.div
+            <m.div
               layoutId={`event-image-${event.id}`}
               className="absolute inset-0 bg-linear-to-br from-peach via-pink-200 to-lime/40"
             />
@@ -2491,6 +2477,6 @@ export default function EventDetailsPage() {
           />
         </div>
       )}
-    </>
+    </LazyMotion>
   );
 }

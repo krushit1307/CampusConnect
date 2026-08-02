@@ -1,6 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://esm.sh/zod@3.24.2";
 import { encode as base64urlEncode } from "https://deno.land/std@0.168.0/encoding/base64url.ts";
+import { parseJsonBody } from "../_shared/validation.ts";
+
+// Optional body: auth options can be fetched with no body at all, but if
+// one is provided it must be well-formed and reject unknown keys.
+const authOptionsSchema = z
+  .object({
+    rpId: z.string().min(1),
+    email: z.string().email("email must be a valid email address").optional(),
+  })
+  .strict();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,9 +46,19 @@ serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    const body = await req.json().catch(() => ({}));
-    const rpId = body.rpId;
-    const email: string | undefined = body.email; // Optional: narrow to a specific user
+    // Body is optional; an empty body is valid, but a present body must
+    // conform to the schema (rejecting unknown keys).
+    const rawText = await req.text();
+    const parsed = await parseJsonBody(
+      authOptionsSchema,
+      new Request(req.url, {
+        method: "POST",
+        headers: req.headers,
+        body: rawText.trim() ? rawText : null,
+      }),
+    );
+    if (!parsed.ok) return parsed.response;
+    const { rpId, email } = parsed.data;
 
     if (!rpId) {
       return new Response(JSON.stringify({ error: "Missing rpId" }), {
