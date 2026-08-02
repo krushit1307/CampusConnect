@@ -257,11 +257,12 @@ const [selectedClubId, setSelectedClubId] = useState("");
       const afterCursor = pageParam as string | undefined;
 
       // Try get_posts_relay RPC first
-      const { data: relayData, error: relayError } = await supabase.rpc("get_posts_relay", {
-        p_after: afterCursor || null,
-        p_first: POSTS_PER_PAGE,
-      });
-
+const res = await fetch(
+  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-feed?after=${afterCursor ?? ""}&first=${POSTS_PER_PAGE}`,
+  { headers: { Authorization: `Bearer ${session?.access_token}` } }
+);
+const relayData = res.ok ? await res.json() : null;
+const relayError = res.ok ? null : new Error("get-feed request failed");
       if (!relayError && relayData && typeof relayData === "object" && "edges" in relayData) {
         const connection = relayData as unknown as RelayConnection<Post>;
         return connection;
