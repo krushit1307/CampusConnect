@@ -150,6 +150,20 @@ export default defineConfig({
             },
           },
           {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/v1\/object\/public\/.*/i,
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "supabase-images-cache",
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          {
             urlPattern: ({ request }) => request.destination === "image",
             handler: "CacheFirst",
             options: {
@@ -210,7 +224,4 @@ export default defineConfig({
     },
   },
 });
-plugins: [
-    react(),
-    svgr(),
-]
+plugins: [react(), svgr()];

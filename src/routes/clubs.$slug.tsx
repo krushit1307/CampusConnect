@@ -2,6 +2,7 @@ import { Link, useParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { RoleBadge } from "@/components/RoleBadge";
 import { SiteShell } from "@/components/site/SiteShell";
+import { useBreadcrumbs } from "@/components/BreadcrumbsContext";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -182,6 +183,7 @@ export default function ClubProfile() {
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
   const [isClubBookmarked, setIsClubBookmarked] = useState(false);
   const [bookmarkPending, setBookmarkPending] = useState(false);
+  const { setLabel } = useBreadcrumbs();
 
   const handleTocClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
     e.preventDefault();
@@ -266,6 +268,12 @@ export default function ClubProfile() {
     ...createClubProfileQueryOptions(supabase, slug ?? ""),
     enabled: Boolean(slug),
   });
+
+  useEffect(() => {
+    if (club?.name && slug) {
+      setLabel(slug, club.name);
+    }
+  }, [club?.name, slug, setLabel]);
 
   const joinMutation = useMutation({
     mutationFn: async () => {
@@ -497,43 +505,6 @@ export default function ClubProfile() {
       </Helmet>
 
       <SiteShell>
-        {/* Breadcrumb — full on sm+, back-link only on mobile. Scrolls away
-            normally above the sticky ClubHeader. */}
-        <div className="border-b-2 border-black bg-slate-950 px-4 pt-4 md:px-6">
-          <div className="mx-auto max-w-6xl">
-            <Link
-              to="/clubs"
-              className="mb-4 inline-flex items-center gap-1 font-mono text-xs font-bold uppercase tracking-wider text-cream hover:underline sm:hidden"
-            >
-              <ArrowLeft size={12} /> Clubs
-            </Link>
-            <Breadcrumb className="hidden sm:block mb-4">
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/" className="font-mono text-xs font-bold uppercase text-cream">
-                      Home
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="text-cream" />
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/clubs" className="font-mono text-xs font-bold uppercase text-cream">
-                      Clubs
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="text-cream" />
-                <BreadcrumbItem>
-                  <BreadcrumbPage className="font-mono text-xs font-bold uppercase text-cream">
-                    {club.name}
-                  </BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-        </div>
 
         {/* Sticky header: shrinks the massive banner/logo away and pins the
             club name + Join button to the top as the user scrolls the feed. */}
@@ -566,6 +537,12 @@ export default function ClubProfile() {
                   Meeting Notes
                 </Link>
               )}
+              <Link
+                to={`/clubs/${club.slug}/articles`}
+                className="neu-border neu-press bg-peach px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
+              >
+                Club News
+              </Link>
               {membership?.role === "admin" && (
                 <Link
                   to={`/clubs/${club.slug}/manage`}
