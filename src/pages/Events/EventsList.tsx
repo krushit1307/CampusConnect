@@ -1078,7 +1078,7 @@ export default function EventsList() {
               <section className="bg-cream px-4 py-12 md:px-6">
                 {viewMode === "list" ? (
                   <>
-                    <AnimatePresence mode="wait">
+                    <AnimatePresence mode="sync">
                       {isLoading ? (
                         <motion.div
                           key="events-loading-skeletons"
@@ -1090,7 +1090,7 @@ export default function EventsList() {
                           className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
                         >
                           {Array.from({ length: 6 }).map((_, i) => (
-                            <EventCardSkeleton key={i} index={i} />
+                            <EventCardSkeleton key={`events-skeleton-${i}`} index={i} />
                           ))}
                         </motion.div>
                       ) : sortedEvents.length === 0 && filter !== "All" ? (
@@ -1100,6 +1100,7 @@ export default function EventsList() {
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
+                          transition={{ duration: 0.25, ease: "easeInOut" }}
                           className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
                         >
                           <div className="col-span-full mx-auto w-full max-w-md animate-in fade-in-0 zoom-in-95 duration-300">
@@ -1125,6 +1126,7 @@ export default function EventsList() {
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
+                          transition={{ duration: 0.25, ease: "easeInOut" }}
                           className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
                         >
                           <div className="col-span-full mx-auto max-w-md text-center neu-border bg-white p-8">
@@ -1156,7 +1158,7 @@ export default function EventsList() {
                           className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
                         >
                           {sortedEvents.map((e, index) => (
-                            <motion.div key={e.id} layout layoutId={`event-card-${e.id}`}>
+                            <motion.div key={e.id} layout>
                               <EventCard
                                 event={e}
                                 index={index}

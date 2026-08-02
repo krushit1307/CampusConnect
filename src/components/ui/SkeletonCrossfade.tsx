@@ -33,7 +33,7 @@ export function SkeletonCrossfade({
   children,
   layoutId,
   className = "",
-  mode = "wait",
+  mode = "sync",
   transition = defaultTransition,
 }: SkeletonCrossfadeProps) {
   return (

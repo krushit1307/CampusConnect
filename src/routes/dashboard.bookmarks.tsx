@@ -177,8 +177,8 @@ export default function DashboardBookmarks() {
         </span>
       </div>
 
-      <AnimatePresence mode="wait">
-        {isLoading || isFetching ? (
+      <AnimatePresence mode="sync">
+        {isLoading ? (
           <motion.div
             key="bookmarks-loading-skeletons"
             layout
@@ -190,7 +190,7 @@ export default function DashboardBookmarks() {
             aria-label="Loading bookmarks"
           >
             {Array.from({ length: 3 }).map((_, index) => (
-              <EventCardSkeleton key={index} index={index} />
+              <EventCardSkeleton key={`bookmark-skel-${index}`} index={index} />
             ))}
           </motion.div>
         ) : bookmarkedEvents.length === 0 ? (
@@ -200,6 +200,7 @@ export default function DashboardBookmarks() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
           >
             <EmptyBookmarks />
           </motion.div>
@@ -214,7 +215,7 @@ export default function DashboardBookmarks() {
             className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
           >
             {bookmarkedEvents.map((event, index) => (
-              <motion.div key={event.id} layout layoutId={`bookmark-card-${event.id}`}>
+              <motion.div key={event.id} layout>
                 <EventCard
                   event={event}
                   index={index}

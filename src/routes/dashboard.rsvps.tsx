@@ -180,7 +180,7 @@ export default function DashboardRsvps() {
         </button>
       </div>
 
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="sync">
         {isLoading ? (
           <motion.div
             key="rsvps-loading-skeletons"
@@ -192,7 +192,7 @@ export default function DashboardRsvps() {
             className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
           >
             {Array.from({ length: 3 }).map((_, i) => (
-              <EventCardSkeleton key={i} index={i} />
+              <EventCardSkeleton key={`rsvp-skel-${i}`} index={i} />
             ))}
           </motion.div>
         ) : displayedEvents.length === 0 ? (
@@ -202,6 +202,7 @@ export default function DashboardRsvps() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
             className="neu-border relative overflow-hidden bg-lavender px-6 py-14 text-center sm:px-10 dark:bg-brand-gray-base-800"
           >
             <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border-2 border-black bg-white shadow-[4px_4px_0_0_var(--color-ink)]">
@@ -230,7 +231,7 @@ export default function DashboardRsvps() {
           </motion.section>
         ) : (
           <motion.div
-            key="rsvps-loaded-grid"
+            key={`rsvps-loaded-grid-${activeTab}`}
             layout
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -239,7 +240,7 @@ export default function DashboardRsvps() {
             className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
           >
             {displayedEvents.map((e, index) => (
-              <motion.div key={e.id} layout layoutId={`rsvp-card-${e.id}`}>
+              <motion.div key={e.id} layout>
                 <EventCard
                   event={e}
                   index={index}

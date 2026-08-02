@@ -341,7 +341,8 @@ export default function ClubProfile() {
       .filter((h) => h.id);
   }, [club?.description]);
 
-  if (error || (!isLoading && !club)) return <NotFound />;
+  if (isLoading) return <ClubProfileSkeleton />;
+  if (error || !club) return <NotFound />;
 
   const members = Array.isArray(club.club_members)
     ? club.club_members.filter((m: ClubMember) => m.status === "approved")
@@ -499,12 +500,11 @@ export default function ClubProfile() {
       </Helmet>
 
       <SiteShell>
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="sync">
           {isLoading || !club ? (
             <motion.div
               key="club-profile-skeleton"
               layout
-              layoutId={`club-header-${slug}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -516,7 +516,6 @@ export default function ClubProfile() {
             <motion.div
               key="club-profile-loaded"
               layout
-              layoutId={`club-header-${slug}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
