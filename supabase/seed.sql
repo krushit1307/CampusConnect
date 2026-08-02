@@ -2,52 +2,45 @@
 
 -- 1. Create dummy authenticated users in auth.users
 -- Default password: password123 (encrypted using blowfish crypt)
-INSERT INTO
-    auth.users (
-        instance_id,
-        id,
-        aud,
-        role,
-        email,
-        encrypted_password,
-        email_confirmed_at,
-        raw_app_meta_data,
-        raw_user_meta_data,
-        created_at,
-        updated_at
-    )
-VALUES (
-        '00000000-0000-0000-0000-000000000000',
-        'd0000000-0000-0000-0000-000000000001',
-        'authenticated',
-        'authenticated',
-        'admin@campusconnect.edu',
-        crypt (
-            'password123',
-            gen_salt ('bf')
-        ),
-        NOW(),
-        '{"provider": "email", "providers": ["email"]}',
-        '{"full_name": "Admin User", "first_name": "Admin", "last_name": "User", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=Admin"}',
-        NOW(),
-        NOW()
-    ),
-    (
-        '00000000-0000-0000-0000-000000000000',
-        'd0000000-0000-0000-0000-000000000002',
-        'authenticated',
-        'authenticated',
-        'student@campusconnect.edu',
-        crypt (
-            'password123',
-            gen_salt ('bf')
-        ),
-        NOW(),
-        '{"provider": "email", "providers": ["email"]}',
-        '{"full_name": "John Doe", "first_name": "John", "last_name": "Doe", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=John"}',
-        NOW(),
-        NOW()
-    )
+INSERT INTO auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at
+) VALUES 
+(
+  '00000000-0000-0000-0000-000000000000',
+  'd0000000-0000-0000-0000-000000000001',
+  'authenticated',
+  'authenticated',
+  'admin@campusconnect.com',
+  crypt('password123', gen_salt('bf')),
+  NOW(),
+  '{"provider": "email", "providers": ["email"]}',
+  '{"full_name": "Admin User", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=Admin"}',
+  NOW(),
+  NOW()
+),
+(
+  '00000000-0000-0000-0000-000000000000',
+  'd0000000-0000-0000-0000-000000000002',
+  'authenticated',
+  'authenticated',
+  'student@campusconnect.com',
+  crypt('password123', gen_salt('bf')),
+  NOW(),
+  '{"provider": "email", "providers": ["email"]}',
+  '{"full_name": "John Doe", "avatar_url": "https://api.dicebear.com/7.x/adventurer/svg?seed=John"}',
+  NOW(),
+  NOW()
+)
 ON CONFLICT (id) DO NOTHING;
 
 -- 2. Update profiles details (triggers automatically created them on auth.users insert)

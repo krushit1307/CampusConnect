@@ -1,6 +1,6 @@
 import { QueryClientProvider, queryClient } from "@/hooks/useReactQueryReplacement";
 import { Suspense, lazy, useEffect, useState } from "react";
-import { AnimatePresence, LazyMotion } from "framer-motion";
+import { AnimatePresence, LazyMotion, MotionConfig } from "framer-motion";
 import { loadDomAnimation } from "@/lib/motionFeatures";
 import {
   createBrowserRouter,
@@ -292,7 +292,9 @@ export default function App() {
               </div>
 
               <BreadcrumbProvider>
-                <RouterProvider router={router} />
+                <MotionConfig reducedMotion="user">
+                  <RouterProvider router={router} />
+                </MotionConfig>
               </BreadcrumbProvider>
             </LazyMotion>
           </ErrorBoundary>

@@ -12,10 +12,13 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { subDays, format, differenceInDays } from "date-fns";
+import type { DateRange } from "react-day-picker";
 
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
+import { DateRangePicker } from "@/components/ui/DateRangePicker";
 
 interface ProfileRole {
   role: string | null;
@@ -34,28 +37,43 @@ export default function AnalyticsAdmin() {
   const [loading, setLoading] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
 
-  const loadDauData = useCallback(async () => {
-    const { data, error } = await supabase.rpc("get_dau_analytics");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const today = new Date();
+    return {
+      from: subDays(today, 29),
+      to: today,
+    };
+  });
 
-    if (error) {
-      throw new Error(error.message);
-    }
+  const loadDauData = useCallback(
+    async (start?: Date, end?: Date) => {
+      const params: { start_date?: string; end_date?: string } = {};
+      if (start) params.start_date = format(start, "yyyy-MM-dd");
+      if (end) params.end_date = format(end, "yyyy-MM-dd");
 
-    // Parse and reverse to chronological order for the chart (oldest first)
-    const formatted: DauRecord[] = (
-      (data || []) as {
-        activity_date: string;
-        daily_active_users: string | number;
-      }[]
-    )
-      .map((item) => ({
-        activity_date: item.activity_date,
-        daily_active_users: Number(item.daily_active_users),
-      }))
-      .reverse();
+      const { data, error } = await supabase.rpc("get_dau_analytics", params);
 
-    setDauData(formatted);
-  }, [supabase]);
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // Parse and reverse to chronological order for the chart (oldest first)
+      const formatted: DauRecord[] = (
+        (data || []) as {
+          activity_date: string;
+          daily_active_users: string | number;
+        }[]
+      )
+        .map((item) => ({
+          activity_date: item.activity_date,
+          daily_active_users: Number(item.daily_active_users),
+        }))
+        .reverse();
+
+      setDauData(formatted);
+    },
+    [supabase],
+  );
 
   useEffect(() => {
     let active = true;
@@ -81,9 +99,6 @@ export default function AnalyticsAdmin() {
         if (!active) return;
 
         setRole(profile.role);
-        if (profile.role === "system_admin") {
-          await loadDauData();
-        }
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Could not load analytics data.");
       } finally {
@@ -98,7 +113,15 @@ export default function AnalyticsAdmin() {
     return () => {
       active = false;
     };
-  }, [loadDauData, supabase]);
+  }, [supabase]);
+
+  useEffect(() => {
+    if (role === "system_admin" && authChecked) {
+      loadDauData(dateRange?.from, dateRange?.to).catch((error) => {
+        toast.error(error instanceof Error ? error.message : "Could not load analytics data.");
+      });
+    }
+  }, [role, authChecked, dateRange, loadDauData]);
 
   if (loading) {
     return (
@@ -123,6 +146,11 @@ export default function AnalyticsAdmin() {
       : 0;
   const currentDau = totalDays > 0 ? dauData[totalDays - 1].daily_active_users : 0;
 
+  const dateRangeDays =
+    dateRange?.from && dateRange?.to
+      ? differenceInDays(dateRange.to, dateRange.from) + 1
+      : totalDays;
+
   return (
     <SiteShell>
       <section className="border-b-2 border-black bg-[#E9D5FF] px-4 py-14 md:px-6">
@@ -136,12 +164,15 @@ export default function AnalyticsAdmin() {
                 Daily Active Users.
               </h1>
             </div>
-            <Link
-              to="/admin/clubs/pending"
-              className="neu-border text-center bg-white px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-cream"
-            >
-              Moderation Panel
-            </Link>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <DateRangePicker value={dateRange} onChange={setDateRange} />
+              <Link
+                to="/admin/clubs/pending"
+                className="neu-border text-center bg-white px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-cream"
+              >
+                Moderation Panel
+              </Link>
+            </div>
           </div>
         </div>
       </section>
@@ -156,7 +187,7 @@ export default function AnalyticsAdmin() {
                 <Users className="h-5 w-5 text-black/80" />
               </div>
               <p className="mt-2 font-display text-3xl font-black">{currentDau}</p>
-              <p className="mt-1 font-mono text-[10px] text-black/50">Active users today</p>
+              <p className="mt-1 font-mono text-[10px] text-black/50">Active users in period</p>
             </div>
 
             <div className="neu-border bg-sky p-6">
@@ -165,7 +196,7 @@ export default function AnalyticsAdmin() {
                 <TrendingUp className="h-5 w-5 text-black/80" />
               </div>
               <p className="mt-2 font-display text-3xl font-black">{avgDau}</p>
-              <p className="mt-1 font-mono text-[10px] text-black/50">90-day daily average</p>
+              <p className="mt-1 font-mono text-[10px] text-black/50">Period daily average</p>
             </div>
 
             <div className="neu-border bg-peach p-6">
@@ -182,8 +213,8 @@ export default function AnalyticsAdmin() {
                 <p className="font-mono text-xs font-bold uppercase text-black/60">Time Horizon</p>
                 <Calendar className="h-5 w-5 text-black/80" />
               </div>
-              <p className="mt-2 font-display text-3xl font-black">{totalDays} Days</p>
-              <p className="mt-1 font-mono text-[10px] text-black/50">Historical tracking window</p>
+              <p className="mt-2 font-display text-3xl font-black">{dateRangeDays} Days</p>
+              <p className="mt-1 font-mono text-[10px] text-black/50">Filtered tracking window</p>
             </div>
           </div>
 
@@ -193,13 +224,15 @@ export default function AnalyticsAdmin() {
               Active User Trend
             </h2>
             <p className="font-mono text-xs text-gray-500 mb-6">
-              Daily active users mapped across the last 90 days
+              {dateRange?.from && dateRange?.to
+                ? `Daily active users mapped from ${format(dateRange.from, "LLL dd, yyyy")} to ${format(dateRange.to, "LLL dd, yyyy")}`
+                : "Daily active users mapped across selected range"}
             </p>
 
             <div className="h-96 w-full">
               {dauData.length === 0 ? (
                 <div className="flex h-full items-center justify-center font-mono text-sm text-gray-400">
-                  No active session data recorded yet.
+                  No active session data recorded yet for the selected period.
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
