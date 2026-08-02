@@ -1,6 +1,25 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
+import { z } from "https://esm.sh/zod@3.24.2";
 import { Image, decode } from "jsr:@matmen/imagescript";
+import { parseJsonBody } from "../_shared/validation.ts";
+
+// Storage webhook payload — may be wrapped in { record: {...} } or sent
+// with the record fields at the top level.
+const storageRecordSchema = z
+  .object({
+    bucket_id: z.string().min(1),
+    name: z.string().min(1),
+  })
+  .strict();
+
+const imageOptimizerSchema = z
+  .object({
+    record: storageRecordSchema.optional(),
+    bucket_id: z.string().optional(),
+    name: z.string().optional(),
+  })
+  .strict();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,8 +34,10 @@ serve(async (req) => {
   }
 
   try {
-    const payload = await req.json();
+    const parsed = await parseJsonBody(imageOptimizerSchema, req);
+    if (!parsed.ok) return parsed.response;
 
+    const payload = parsed.data;
     const record = payload.record ?? payload;
 
     const bucket = record.bucket_id;

@@ -7,8 +7,15 @@ import { EmptyState } from "@/components/EmptyState";
 import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, X, Users } from "lucide-react";
+import { Search, X, Users, Plus } from "lucide-react";
+import { ClubCardSkeleton } from "@/components/ui/ClubCardSkeleton";
 
+// Fixed (not Math.random) pattern so the skeleton layout never shifts
+// between renders — avoids layout jumps and hydration mismatches.
+const SKELETON_SIZES: Array<"sm" | "md" | "lg"> = [
+  "md", "lg", "sm", "md", "sm", "lg",
+  "md", "lg", "sm", "md", "lg", "sm",
+];
 interface Club {
   id: string;
   name: string;
@@ -48,9 +55,7 @@ export default function ClubsIndex() {
         }
       }
 
-      const { data, error } = await supabase
-        .from("clubs")
-        .select(`
+      const { data, error } = await supabase.from("clubs").select(`
           id, name, slug, description, banner_url, logo_url, category,
           club_stats(total_members)
         `);
@@ -100,26 +105,36 @@ export default function ClubsIndex() {
             </p>
           </div>
 
-          {/* Search bar */}
-          <div className="relative w-full md:w-80">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
-            <Input
-              type="text"
-              placeholder="Search clubs by name or interest..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-8 border-2 border-black font-mono text-xs bg-white shadow-[2px_2px_0_0_#000]"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                aria-label="Clear Search Filter"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-2.5 text-gray-500 hover:text-black cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+            <HoverLink
+              to="/clubs/new"
+              className="neu-border neu-press flex items-center justify-center gap-2 bg-sky px-4 py-2 font-mono text-sm font-bold uppercase text-black"
+            >
+              <Plus className="h-4 w-4" />
+              Create a Club
+            </HoverLink>
+
+            {/* Search bar */}
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
+              <Input
+                type="text"
+                placeholder="Search clubs by name or interest..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-8 border-2 border-black font-mono text-xs bg-white shadow-[2px_2px_0_0_#000]"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  aria-label="Clear Search Filter"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-2.5 text-gray-500 hover:text-black cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -149,15 +164,12 @@ export default function ClubsIndex() {
 
         {/* Content */}
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="animate-pulse bg-gray-200 border-2 border-black h-48 w-full shadow-[4px_4px_0_0_#000]"
-              />
-            ))}
-          </div>
-        ) : filteredClubs.length === 0 ? (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {SKELETON_SIZES.map((size, i) => (
+      <ClubCardSkeleton key={i} size={size} />
+    ))}
+  </div>
+) : filteredClubs.length === 0 ? (
           <div className="p-4">
             <EmptyState
               illustrationType="no-results"
@@ -169,8 +181,8 @@ export default function ClubsIndex() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredClubs.map((c, index) => {
               const membersCount = Array.isArray(c.club_stats)
-                ? c.club_stats[0]?.total_members ?? 0
-                : (c.club_stats as any)?.total_members ?? 0;
+                ? (c.club_stats[0]?.total_members ?? 0)
+                : (c.club_stats ? (c.club_stats as { total_members: number }).total_members : 0);
 
               return (
                 <div

@@ -1,6 +1,27 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://esm.sh/zod@3.24.2";
 import { loginLimiter } from "../_shared/rateLimiter.ts";
+import { parseJsonBody } from "../_shared/validation.ts";
+
+// Login requests either carry credentials or an account-unlock action.
+// Each branch is validated strictly so stray fields are rejected.
+const loginSchema = z
+  .object({
+    email: z.string().email("email must be a valid email address"),
+    password: z.string().min(1, "password is required").max(256),
+  })
+  .strict();
+
+const unlockSchema = z
+  .object({
+    action: z.literal("unlock"),
+    email: z.string().email("email must be a valid email address"),
+    token: z.string().min(1, "token is required"),
+  })
+  .strict();
+
+const loginProxySchema = z.union([loginSchema, unlockSchema]);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,10 +70,20 @@ serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    const body = await req.json().catch(() => ({}));
+    const rawText = await req.text();
+    const parsed = await parseJsonBody(
+      loginProxySchema,
+      new Request(req.url, {
+        method: "POST",
+        headers: req.headers,
+        body: rawText.trim() ? rawText : null,
+      }),
+    );
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.data;
 
     // Handle account unlock action
-    if (body?.action === "unlock") {
+    if ("action" in body && body.action === "unlock") {
       const { email, token } = body;
       if (!email || !token) {
         return new Response(JSON.stringify({ error: "Email and token are required" }), {
@@ -114,7 +145,7 @@ serve(async (req: Request) => {
     }
 
     // Standard Login flow
-    const { email, password } = body;
+    const { email, password } = body as { email: string; password: string };
 
     if (!email || !password) {
       return new Response(JSON.stringify({ error: "Email and password are required" }), {

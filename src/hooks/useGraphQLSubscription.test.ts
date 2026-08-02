@@ -17,9 +17,7 @@ describe("useGraphQLSubscription hook (#1454)", () => {
     const fetchMock = vi.fn();
     global.fetch = fetchMock;
 
-    const { result } = renderHook(() =>
-      useGraphQLSubscription(null, { skip: false }),
-    );
+    const { result } = renderHook(() => useGraphQLSubscription(null, { skip: false }));
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result.current.connected).toBe(false);
@@ -37,7 +35,7 @@ describe("useGraphQLSubscription hook (#1454)", () => {
     const { result } = renderHook(() =>
       useGraphQLSubscription(
         {
-          query: "subscription { notificationReceived(userId: \"user-1\") { id } }",
+          query: 'subscription { notificationReceived(userId: "user-1") { id } }',
         },
         { endpoint: "/api/graphql" },
       ),
@@ -86,7 +84,7 @@ describe("useGraphQLSubscription hook (#1454)", () => {
           title: string;
         };
       }>({
-        query: "subscription { notificationReceived(userId: \"user-123\") { id title } }",
+        query: 'subscription { notificationReceived(userId: "user-123") { id title } }',
       }),
     );
 

@@ -90,6 +90,15 @@ export const profileSchema = z.object({
 
 export type ProfileFormValues = z.infer<typeof profileSchema>;
 
+export const notificationPreferencesSchema = z.object({
+  email_alerts: z.boolean().default(true),
+  push_notifications: z.boolean().default(true),
+  digest: z.boolean().default(true),
+  dark_mode_default: z.boolean().default(false),
+});
+
+export type NotificationPreferencesValues = z.infer<typeof notificationPreferencesSchema>;
+
 // --- Auth: sign in ---------------------------------------------------------
 
 export const signInSchema = z.object({

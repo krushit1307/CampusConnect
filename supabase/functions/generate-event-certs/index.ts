@@ -1,7 +1,38 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.110.0";
+import { z } from "https://esm.sh/zod@3.24.2";
 import { PDFDocument, rgb, StandardFonts, PDFFont } from "https://esm.sh/pdf-lib@1.17.1";
 import { limitRate } from "../shared/rate_limiter.ts";
+import { parseJsonBody } from "../_shared/validation.ts";
+
+// Accepts a storage/db webhook envelope ({ record: {...} }) or the fields
+// at the top level.
+const certPayloadSchema = z
+  .object({
+    record: z
+      .object({
+        event_id: z.string().optional(),
+        eventId: z.string().optional(),
+        user_id: z.string().optional(),
+        userId: z.string().optional(),
+      })
+      .strict()
+      .optional(),
+    event_id: z.string().optional(),
+    eventId: z.string().optional(),
+    user_id: z.string().optional(),
+    userId: z.string().optional(),
+  })
+  .strict()
+  .refine(
+    (v) => {
+      const rec = v.record ?? v;
+      const eventId = rec.event_id || rec.eventId;
+      const userId = rec.user_id || rec.userId;
+      return Boolean(eventId && userId);
+    },
+    { message: "eventId and userId are required" },
+  );
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,15 +73,9 @@ serve(async (req) => {
     // Initialize Supabase client with admin privileges since this is a background webhook
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    let payload;
-    try {
-      payload = await req.json();
-    } catch (e) {
-      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const parsed = await parseJsonBody(certPayloadSchema, req);
+    if (!parsed.ok) return parsed.response;
+    const payload = parsed.data;
     const record = payload.record || payload;
     const eventId = record.event_id || record.eventId;
     const userId = record.user_id || record.userId;

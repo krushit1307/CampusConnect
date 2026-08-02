@@ -1,11 +1,38 @@
-export const calculateReadTime = (text: string): string => {
-  const trimmedText = text.trim();
+export const calculateReadTime = (richTextHtml: string): string => {
+  const content = richTextHtml || "";
+  
+  // 1. Strip all HTML tags using regex
+  const rawText = content.replace(/(<([^>]+)>)/gi, "").trim();
 
-  if (!trimmedText) return "< 1 min read";
+  if (!rawText && !content.includes("<img")) {
+    return "1 min read";
+  }
 
-  const wordsPerMinute = 200;
-  const wordCount = trimmedText.split(/\s+/).length;
-  const minutes = wordCount / wordsPerMinute;
+  // 2. Count words
+  const words = rawText.split(/\s+/).filter(Boolean);
+  const wordCount = words.length;
 
-  return minutes < 1 ? "< 1 min read" : `${Math.ceil(minutes)} min read`;
+  // 3. Count <img> tags
+  // Match all img tags: <img ... >
+  const imgMatches = content.match(/<img[^>]*>/gi);
+  const imgCount = imgMatches ? imgMatches.length : 0;
+
+  // 4. Calculate image buffer in seconds
+  // 12s for 1st image, 11s for 2nd, etc. down to 3s.
+  let imageSeconds = 0;
+  for (let i = 1; i <= imgCount; i++) {
+    if (i <= 10) {
+      imageSeconds += 13 - i;
+    } else {
+      imageSeconds += 3;
+    }
+  }
+
+  // 5. Total seconds: 225 words per minute
+  const totalSeconds = (wordCount / 225) * 60 + imageSeconds;
+
+  // 6. Round up to nearest minute
+  const minutes = Math.ceil(totalSeconds / 60);
+
+  return `${minutes} min read`;
 };

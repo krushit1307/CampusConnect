@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import { CalendarPlus } from "lucide-react";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
@@ -179,56 +180,83 @@ export default function DashboardRsvps() {
         </button>
       </div>
 
-      {isLoading ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <EventCardSkeleton key={i} index={i} />
-          ))}
-        </div>
-      ) : displayedEvents.length === 0 ? (
-        <section className="neu-border relative overflow-hidden bg-lavender px-6 py-14 text-center sm:px-10 dark:bg-brand-gray-base-800">
-          <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border-2 border-black bg-white shadow-[4px_4px_0_0_var(--color-ink)]">
-            <CalendarPlus aria-hidden="true" size={30} strokeWidth={2.5} />
-          </div>
-          <h3 className="mt-6 text-2xl font-black">
-            {debouncedSearch
-              ? "No matching RSVP events"
-              : activeTab === "upcoming"
-                ? "No upcoming RSVPs yet"
-                : "No past RSVPs yet"}
-          </h3>
-          <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-gray-700 dark:text-gray-300">
-            {debouncedSearch
-              ? "Try searching using a different event title or location."
-              : activeTab === "upcoming"
-                ? "You haven't RSVP'd to any upcoming events. Browse what's happening on campus and find something worth joining."
-                : "Events you've attended will show up here once they've passed."}
-          </p>
-          <Link
-            to="/events"
-            className="neu-border neu-press mt-6 inline-flex bg-black px-5 py-3 font-mono text-xs font-bold uppercase tracking-wider text-cream"
+      <AnimatePresence mode="sync">
+        {isLoading ? (
+          <motion.div
+            key="rsvps-loading-skeletons"
+            layout
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
           >
-            Browse events →
-          </Link>
-        </section>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {displayedEvents.map((e, index) => (
-            <EventCard
-              key={e.id}
-              event={e}
-              index={index}
-              user={user}
-              onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
-              isRsvpPending={toggleRsvp.isPending}
-              onBookmarkToggle={() => {
-                toast.error("Bookmarking from RSVPs tab is not supported yet.");
-              }}
-              isBookmarkPending={false}
-            />
-          ))}
-        </div>
-      )}
+            {Array.from({ length: 3 }).map((_, i) => (
+              <EventCardSkeleton key={`rsvp-skel-${i}`} index={i} />
+            ))}
+          </motion.div>
+        ) : displayedEvents.length === 0 ? (
+          <motion.section
+            key="rsvps-empty"
+            layout
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="neu-border relative overflow-hidden bg-lavender px-6 py-14 text-center sm:px-10 dark:bg-brand-gray-base-800"
+          >
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border-2 border-black bg-white shadow-[4px_4px_0_0_var(--color-ink)]">
+              <CalendarPlus aria-hidden="true" size={30} strokeWidth={2.5} />
+            </div>
+            <h3 className="mt-6 text-2xl font-black">
+              {debouncedSearch
+                ? "No matching RSVP events"
+                : activeTab === "upcoming"
+                  ? "No upcoming RSVPs yet"
+                  : "No past RSVPs yet"}
+            </h3>
+            <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-gray-700 dark:text-gray-300">
+              {debouncedSearch
+                ? "Try searching using a different event title or location."
+                : activeTab === "upcoming"
+                  ? "You haven't RSVP'd to any upcoming events. Browse what's happening on campus and find something worth joining."
+                  : "Events you've attended will show up here once they've passed."}
+            </p>
+            <Link
+              to="/events"
+              className="neu-border neu-press mt-6 inline-flex bg-black px-5 py-3 font-mono text-xs font-bold uppercase tracking-wider text-cream"
+            >
+              Browse events →
+            </Link>
+          </motion.section>
+        ) : (
+          <motion.div
+            key={`rsvps-loaded-grid-${activeTab}`}
+            layout
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+          >
+            {displayedEvents.map((e, index) => (
+              <motion.div key={e.id} layout>
+                <EventCard
+                  event={e}
+                  index={index}
+                  user={user}
+                  onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
+                  isRsvpPending={toggleRsvp.isPending}
+                  onBookmarkToggle={() => {
+                    toast.error("Bookmarking from RSVPs tab is not supported yet.");
+                  }}
+                  isBookmarkPending={false}
+                />
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

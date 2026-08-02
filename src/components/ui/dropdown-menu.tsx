@@ -62,7 +62,8 @@ const dropdownMenuContentVariants = cva(
     variants: {
       variant: {
         default: "rounded-md border bg-popover text-popover-foreground",
-        brutalist: "border-2 border-black bg-white dark:bg-black dark:text-cream font-mono shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]",
+        brutalist:
+          "border-2 border-black bg-white dark:bg-black dark:text-cream font-mono shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]",
         compact: "rounded border bg-white p-0.5 text-xs shadow",
       },
     },
@@ -73,7 +74,8 @@ const dropdownMenuContentVariants = cva(
 );
 
 export interface DropdownMenuContentProps
-  extends React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>,
+  extends
+    React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>,
     VariantProps<typeof dropdownMenuContentVariants> {}
 
 const DropdownMenuContent = React.forwardRef<

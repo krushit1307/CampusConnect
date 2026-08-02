@@ -68,9 +68,16 @@ export const EventCapacityGauge: React.FC<EventCapacityGaugeProps> = ({
     );
   }
 
-  const spotsLeft = Math.max(0, maxAttendees - currentCapacity);
+const spotsLeft = Math.max(0, maxAttendees - currentCapacity);
   const percentage = Math.min(100, Math.round((currentCapacity / maxAttendees) * 100));
 
+  // Progress bar fill color escalates as the event fills up (FOMO cue)
+  const barColor =
+    percentage > 90
+      ? "bg-red-500 animate-pulse"
+      : percentage >= 75
+        ? "bg-yellow-500"
+        : "bg-green-500";
   // Determine urgency status
   let badgeColor = "bg-emerald-500/10 text-emerald-700 border-emerald-500/30";
   let statusText = `${spotsLeft} spots available`;
@@ -114,10 +121,17 @@ export const EventCapacityGauge: React.FC<EventCapacityGaugeProps> = ({
       </div>
 
       {/* Progress Bar */}
-      <div className="relative w-full">
-        <Progress value={percentage} className="h-3.5 border-2 border-black bg-slate-100" />
+<div className="relative w-full">
+        <Progress
+          value={percentage}
+          className="h-3.5 border-2 border-black bg-slate-100"
+          indicatorClassName={barColor}
+          role="progressbar"
+          aria-valuenow={percentage}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        />
       </div>
-
       {showDetails && (
         <div className="flex items-center justify-between text-xs font-mono text-slate-700 pt-0.5">
           <span>

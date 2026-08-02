@@ -55,7 +55,7 @@ interface GQLNotification {
 export function getNotificationLink(
   type: string,
   metadata: any,
-  fallbackLink?: string | null
+  fallbackLink?: string | null,
 ): string | undefined {
   if (!metadata || typeof metadata !== "object") {
     return fallbackLink || undefined;
@@ -260,7 +260,13 @@ export default function NotificationsRoute() {
     if (activeCategory === "unread" && n.is_read) return false;
     if (activeCategory === "event" && !n.type?.startsWith("event")) return false;
     if (activeCategory === "club" && !n.type?.startsWith("club")) return false;
-    if (activeCategory === "reply" && n.type !== "reply" && n.type !== "mention" && !n.type?.includes("like")) return false;
+    if (
+      activeCategory === "reply" &&
+      n.type !== "reply" &&
+      n.type !== "mention" &&
+      !n.type?.includes("like")
+    )
+      return false;
     if (activeCategory === "security" && n.type !== "security" && n.type !== "alert") return false;
 
     if (searchQuery.trim()) {
@@ -401,7 +407,8 @@ export default function NotificationsRoute() {
                       const resolvedLink = getNotificationLink(n.type, n.metadata, n.link);
                       const Wrapper = (resolvedLink ? Link : "div") as React.ElementType;
                       const wrapperProps = resolvedLink ? { to: resolvedLink } : {};
-                      const isLast = idx === items.length - 1 && label === Object.keys(grouped).pop();
+                      const isLast =
+                        idx === items.length - 1 && label === Object.keys(grouped).pop();
 
                       return (
                         <SwipeToDismiss
