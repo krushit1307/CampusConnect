@@ -46,10 +46,13 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       // Return a mocked array matching what pipeline.exec() returns
       // exec() returns an array of results for each command.
       // [zremrangebyscore result, zadd result, zcard result, expire result]
-      return new Response(JSON.stringify([{ result: "OK" }, { result: 1 }, { result: count }, { result: 1 }]), {
-        status: 200,
-        headers: { "Content-Type": "application/json" }
-      });
+      return new Response(
+        JSON.stringify([{ result: "OK" }, { result: 1 }, { result: count }, { result: 1 }]),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
     } catch (e) {
       console.error("Mock Redis Fetch Error:", e);
       return new Response(JSON.stringify({ error: "Mock Error" }), { status: 500 });
@@ -70,16 +73,23 @@ Deno.test("Password Reset Rate Limiting Scenarios", async (t) => {
   // Handler simulation
   async function simulateHandler(ip: string, email: string) {
     const req = createMockRequest(ip);
-    
+
     // 1. IP check
     const ipRes = await limitRate(req, "test-pw-reset-ip", { limit: ipLimit, windowMs });
     if (ipRes) return ipRes;
-    
+
     // 2. Email check
-    const emailRes = await limitRate(req, "test-pw-reset-email", { limit: emailLimit, windowMs, identifier: email });
+    const emailRes = await limitRate(req, "test-pw-reset-email", {
+      limit: emailLimit,
+      windowMs,
+      identifier: email,
+    });
     if (emailRes) return emailRes;
 
-    return new Response(JSON.stringify({ message: "If this email exists, a reset link has been sent." }), { status: 200 });
+    return new Response(
+      JSON.stringify({ message: "If this email exists, a reset link has been sent." }),
+      { status: 200 },
+    );
   }
 
   // Clear mock store before each test
@@ -105,7 +115,7 @@ Deno.test("Password Reset Rate Limiting Scenarios", async (t) => {
   await t.step("Different emails respect the IP limit", async () => {
     // We already have 1 request from 2.2.2.2 (which failed due to email, but it still incremented IP counter!)
     // Wait, IP limit runs BEFORE Email limit. So the IP counter for 2.2.2.2 is now at 1.
-    
+
     // Let's make 4 more requests from 2.2.2.2 with different emails to reach the IP limit (5)
     for (let i = 0; i < 4; i++) {
       const res = await simulateHandler("2.2.2.2", `different${i}@example.com`);

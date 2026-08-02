@@ -1,22 +1,31 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-export function ClubCardSkeleton() {
+const DESCRIPTION_LINES: Record<"sm" | "md" | "lg", number> = {
+  sm: 1,
+  md: 2,
+  lg: 4,
+};
+
+export function ClubCardSkeleton({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-md border border-gray-100 dark:border-gray-700 flex flex-col justify-between space-y-4">
-      {/* Thumbnail Skeleton */}
-      <Skeleton className="w-full h-36 rounded-lg" />
-
-      {/* Title & Description Skeletons */}
-      <div className="space-y-2">
-        <Skeleton className="h-5 w-3/4" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-5/6" />
+    <div className="neu-border flex h-full flex-col justify-between bg-white p-6 shadow-[4px_4px_0_0_rgba(0,0,0,1)]">
+      <div>
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <Skeleton className="h-5 w-16 border-2 border-black" />
+        </div>
+        <Skeleton className="mb-2 h-6 w-3/4" />
+        <div className="mb-6 space-y-2">
+          {Array.from({ length: DESCRIPTION_LINES[size] }).map((_, i) => (
+            <Skeleton key={i} className="h-3 w-full" />
+          ))}
+        </div>
       </div>
-
-      {/* Footer Skeleton */}
-      <div className="pt-2 flex items-center justify-between">
-        <Skeleton className="h-8 w-24" />
-        <Skeleton className="h-6 w-6 rounded-full" />
+      <div>
+        <div className="my-3 border-t-2 border-black" />
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-20" />
+        </div>
       </div>
     </div>
   );
