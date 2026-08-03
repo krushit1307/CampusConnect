@@ -51,6 +51,10 @@
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.110.0",
     "@tailwindcss/vite": "^4.2.1",
+    "@tiptap/extension-collaboration": "^3.29.2",
+    "@tiptap/extension-collaboration-cursor": "^2.26.2",
+    "@tiptap/react": "^3.29.2",
+    "@tiptap/starter-kit": "^3.29.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -74,6 +78,8 @@
     "tailwindcss": "^4.2.1",
     "tw-animate-css": "^1.3.4",
     "vaul": "^1.1.2",
+    "y-supabase": "^0.0.4-7-alpha",
+    "yjs": "^13.6.31",
     "zod": "^3.24.2"
   },
   "lint-staged": {

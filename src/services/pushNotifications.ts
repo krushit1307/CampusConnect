@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 
 // Utility to convert Base64 string to Uint8Array
 function urlBase64ToUint8Array(base64String: string) {
@@ -62,6 +62,7 @@ export async function subscribeToPushNotifications(userId: string): Promise<bool
       throw new Error("Invalid subscription data");
     }
 
+    const supabase = createClient();
     // Save to Supabase
     const { error } = await supabase
       .from("push_subscriptions")
@@ -111,6 +112,7 @@ export async function unsubscribeFromPushNotifications(): Promise<boolean> {
     const subscription = await registration.pushManager.getSubscription();
     if (!subscription) return true;
 
+    const supabase = createClient();
     // Delete from Supabase
     const endpoint = subscription.endpoint;
     await supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);

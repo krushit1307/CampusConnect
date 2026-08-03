@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { CollaborativeEditor } from "@/components/notes/CollaborativeEditor";
 
 // Small building block for the skeleton below. Deliberately a plain div
 // (not the shared ui/skeleton component) to keep this change self-contained.
@@ -351,6 +352,21 @@ export default function ClubProfile() {
               </ul>
             )}
           </div>
+
+          {user && membership && membership.status === "approved" && (
+            <div className="neu-border bg-white p-6 mt-12">
+              <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold text-black">
+                Collaborative Group Notes
+              </h2>
+              <CollaborativeEditor
+                groupId={club.id}
+                user={{
+                  id: user.id,
+                  name: user.user_metadata?.full_name || user.email || "Member",
+                }}
+              />
+            </div>
+          )}
         </div>
       </section>
     </SiteShell>
