@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
+    "build": "vite build",
     "prepare": "husky",
     "dev:remote": "vite --config vite.config.events.ts --port 4174",
     "build:analyze": "ANALYZE=true vite build",
