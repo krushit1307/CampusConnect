@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { processClaim, processUnclaim } from "../claim.js";
-import { processIssueCommentGuidance } from "../issue-comments.js";
+import { processIssueCommentGuidance, processFirstIssueWelcome } from "../issue-comments.js";
 import { processManualAssignment } from "../assignment.js";
 import { processPrValidation, processPrMerged, processFirstContributorWelcome } from "../pr.js";
 import { processIssueLifecycle } from "../lifecycle.js";
@@ -282,6 +282,49 @@ test("first contributor welcome only once", async () => {
   await processFirstContributorWelcome({ github, context, core: createCore() });
   const comments = github.state.comments.filter((c) => c.issue_number === 30);
   assert.ok(comments.length <= 1);
+});
+
+test("first issue welcome creates greeting once on first issue", async () => {
+  process.env.GITHUB_REPOSITORY = "org/repo";
+  const github = createGithub(issueFactory);
+  const context = {
+    eventName: "issues",
+    repo: { owner: "org", repo: "repo" },
+    payload: {
+      action: "opened",
+      issue: {
+        number: 40,
+        author_association: "FIRST_TIME_CONTRIBUTOR",
+        user: { login: "first-issue-author", type: "User" },
+      },
+    },
+  };
+  await processFirstIssueWelcome({ github, context, core: createCore() });
+  await processFirstIssueWelcome({ github, context, core: createCore() });
+  const comments = github.state.comments.filter((c) => c.issue_number === 40);
+  assert.equal(comments.length, 1);
+  assert.ok(comments[0].body.includes("cc:first-issue-welcome"));
+  assert.ok(comments[0].body.includes("welcome to the **CampusConnect** community"));
+});
+
+test("first issue welcome ignores bot user", async () => {
+  process.env.GITHUB_REPOSITORY = "org/repo";
+  const github = createGithub(issueFactory);
+  const context = {
+    eventName: "issues",
+    repo: { owner: "org", repo: "repo" },
+    payload: {
+      action: "opened",
+      issue: {
+        number: 41,
+        author_association: "NONE",
+        user: { login: "dependabot[bot]", type: "Bot" },
+      },
+    },
+  };
+  await processFirstIssueWelcome({ github, context, core: createCore() });
+  const comments = github.state.comments.filter((c) => c.issue_number === 41);
+  assert.equal(comments.length, 0);
 });
 
 test("issue lifecycle close clears metadata and preserves assignees", async () => {

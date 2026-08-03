@@ -34,17 +34,19 @@ serve(async (req: Request) => {
     // Extract details from direct payload or database webhook structure
     const record = body?.record || body;
     let userId = record?.id || body?.user_id;
-    let email = record?.email || body?.email;
+    let email = record?.email || body?.email || body?.to;
     let fullName =
       record?.full_name ||
       record?.raw_user_meta_data?.full_name ||
       body?.full_name ||
+      body?.fullName ||
       "CampusConnect Member";
+    const dlqId = body?.dlq_id;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-    // If email is missing but userId is present, look up the email from auth.users or profiles
+    // If email is missing but userId is present, look up the email from profiles
     if (!email && userId && supabaseUrl && supabaseServiceKey) {
       const supabase = createClient(supabaseUrl, supabaseServiceKey);
       const { data: userData } = await supabase.auth.admin.getUserById(userId);
@@ -70,12 +72,11 @@ serve(async (req: Request) => {
     }
 
     const safeName = escapeHtml(fullName);
-
-    const emailBody = {
-      from: "CampusConnect <welcome@campusconnect.app>",
-      to: [email],
-      subject: `Welcome to CampusConnect, ${fullName}! 🚀`,
-      html: `
+    const subject = body?.subject || `Welcome to CampusConnect, ${fullName}! 🚀`;
+    const html =
+      body?.body ||
+      body?.html ||
+      `
         <!DOCTYPE html>
         <html>
           <head>
@@ -118,18 +119,113 @@ serve(async (req: Request) => {
             </div>
           </body>
         </html>
-      `,
-    };
+      `;
 
+    const emailProvider = Deno.env.get("EMAIL_PROVIDER") || "sendgrid";
+    const sendgridApiKey = Deno.env.get("SENDGRID_API_KEY");
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
-    if (!resendApiKey) {
-      console.log(`[Mock Mode] Welcome email dispatch mocked for recipient: ${email}`);
+    if (emailProvider === "sendgrid") {
+      let attempt = 0;
+      const maxAttempts = 3;
+      const delayMs = 5000;
+      let lastError = "";
+      let success = false;
+      let messageId = "";
+
+      while (attempt < maxAttempts) {
+        attempt++;
+        try {
+          if (!sendgridApiKey) {
+            throw new Error("Invalid API Key");
+          }
+
+          const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${sendgridApiKey}`,
+            },
+            body: JSON.stringify({
+              personalizations: [
+                {
+                  to: [{ email, name: fullName }],
+                },
+              ],
+              from: { email: "welcome@campusconnect.app", name: "CampusConnect" },
+              subject: subject,
+              content: [
+                { type: "text/html", value: html },
+              ],
+            }),
+          });
+
+          if (!res.ok) {
+            const resData = await res.text();
+            throw new Error(resData || `SendGrid API Error (${res.status})`);
+          }
+
+          messageId = res.headers.get("x-message-id") || `sg_${Date.now()}`;
+          success = true;
+          break;
+        } catch (err: any) {
+          lastError = err instanceof Error ? err.message : String(err);
+          console.warn(`[SendGrid Attempt ${attempt}/${maxAttempts}] failed: ${lastError}`);
+          if (attempt < maxAttempts) {
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+          }
+        }
+      }
+
+      if (!success) {
+        // Insert into dead_letter_queue
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        const { error: insertError } = await supabase
+          .from("dead_letter_queue")
+          .insert({
+            payload: {
+              to: email,
+              from: "welcome@campusconnect.app",
+              subject: subject,
+              body: html,
+            },
+            error_message: lastError,
+            attempt_count: maxAttempts,
+          });
+
+        if (insertError) {
+          console.error("Failed to insert into dead_letter_queue:", insertError);
+        }
+
+        return new Response(
+          JSON.stringify({
+            error: lastError,
+            dlq_inserted: !insertError,
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      // If resend is successful, clean up row
+      if (dlqId) {
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        const { error: deleteError } = await supabase
+          .from("dead_letter_queue")
+          .delete()
+          .eq("id", dlqId);
+        if (deleteError) {
+          console.error("Failed to delete from dead_letter_queue:", deleteError);
+        }
+      }
+
       return new Response(
         JSON.stringify({
-          message: "Mock welcome email sent successfully.",
+          message: "Welcome email dispatched successfully via SendGrid.",
+          messageId,
           recipient: email,
-          fullName,
         }),
         {
           status: 200,
@@ -138,26 +234,71 @@ serve(async (req: Request) => {
       );
     }
 
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${resendApiKey}`,
-      },
-      body: JSON.stringify(emailBody),
-    });
+    if (emailProvider === "resend") {
+      if (!resendApiKey) {
+        console.log(`[Mock Mode] Welcome email dispatch mocked for recipient: ${email}`);
+        return new Response(
+          JSON.stringify({
+            message: "Mock welcome email sent successfully.",
+            recipient: email,
+            fullName,
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
 
-    const resData = await res.json();
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${resendApiKey}`,
+        },
+        body: JSON.stringify({
+          from: "CampusConnect <welcome@campusconnect.app>",
+          to: [email],
+          subject: subject,
+          html: html,
+        }),
+      });
 
-    if (!res.ok) {
-      throw new Error(`Resend API Error (${res.status}): ${JSON.stringify(resData)}`);
+      const resData = await res.json();
+
+      if (!res.ok) {
+        throw new Error(`Resend API Error (${res.status}): ${JSON.stringify(resData)}`);
+      }
+
+      if (dlqId) {
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        await supabase.from("dead_letter_queue").delete().eq("id", dlqId);
+      }
+
+      return new Response(
+        JSON.stringify({
+          message: "Welcome email dispatched successfully via Resend.",
+          data: resData,
+          recipient: email,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
+    // Mock mode fallback
+    console.log(`[Mock Mode] Welcome email dispatch mocked for recipient: ${email}`);
+    if (dlqId) {
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      await supabase.from("dead_letter_queue").delete().eq("id", dlqId);
+    }
     return new Response(
       JSON.stringify({
-        message: "Welcome email dispatched successfully.",
-        data: resData,
+        message: "Mock welcome email sent successfully.",
         recipient: email,
+        fullName,
       }),
       {
         status: 200,

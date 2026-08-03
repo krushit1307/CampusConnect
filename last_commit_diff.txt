@@ -1,0 +1,13 @@
+diff --git a/package-lock.json b/package-lock.json
+index add270b..dae5c3c 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -10206,6 +10206,8 @@
+     },
+     "node_modules/is-url": {
+       "version": "1.2.4",
++      "resolved": "https://registry.npmjs.org/is-url/-/is-url-1.2.4.tgz",
++      "integrity": "sha512-ITvGim8FhRiYe4IQ5uHSkj7pVaPDrCTkNd3yq3cV7iZAcJdHTUMPMEHcqSOy9xZ9qFenQCvi+2wjH9a1nXqHww==",
+       "license": "MIT"
+     },
+     "node_modules/is-weakmap": {
