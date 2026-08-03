@@ -4,6 +4,7 @@ import { z } from "https://esm.sh/zod@3.24.2";
 import { verifyAuth } from "../shared/auth-middleware.ts";
 import { limitRate } from "../shared/rate_limiter.ts";
 import { parseJsonBody } from "../_shared/validation.ts";
+import { verifyCsrf } from "../_shared/csrf.ts";
 
 const toggleRsvpSchema = z
   .object({
@@ -26,6 +27,28 @@ const corsHeaders = {
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  if (
+    req.method === "POST" ||
+    req.method === "PUT" ||
+    req.method === "PATCH" ||
+    req.method === "DELETE"
+  ) {
+    if (!verifyCsrf(req)) {
+      return new Response(
+        JSON.stringify({
+          error: "Invalid CSRF token",
+        }),
+        {
+          status: 403,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    }
   }
 
   try {
