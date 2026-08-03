@@ -8,7 +8,7 @@
 import { supabase } from "./supabase/client";
 
 // Public VAPID Key (Replace with your actual generated VAPID public key)
-// @ts-ignore - import.meta.env is provided by Vite
+// // @ts-expect-error - import.meta.env is provided by Vite
 const VAPID_PUBLIC_KEY =
   (import.meta as any).env?.VITE_VAPID_PUBLIC_KEY || "your-vapid-public-key-here";
 

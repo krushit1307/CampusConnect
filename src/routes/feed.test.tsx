@@ -1,6 +1,7 @@
 import { render, unmountComponentAtNode } from "react-dom";
 import { act } from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+// eslint-disable-next-line local-rules/no-cross-page-imports
 import Feed from "./feed";
 import * as supabaseClient from "@/lib/supabase/client";
 import * as queryHooks from "@/hooks/useReactQueryReplacement";
@@ -72,7 +73,7 @@ describe("Feed Component - Realtime Subscription", () => {
     (supabaseClient.createClient as any).mockReturnValue(mockSupabase);
 
     await act(async () => {
-      // @ts-ignore
+      // @ts-expect-error dynamic react-dom import
       const { createRoot } = await import("react-dom/client");
       const root = createRoot(container);
       root.render(<Feed />);
@@ -86,7 +87,7 @@ describe("Feed Component - Realtime Subscription", () => {
 
     // Verify unmount cleanup
     await act(async () => {
-      // @ts-ignore
+      // @ts-expect-error dynamic react-dom import
       const { createRoot } = await import("react-dom/client");
       const root = createRoot(container);
       root.unmount();

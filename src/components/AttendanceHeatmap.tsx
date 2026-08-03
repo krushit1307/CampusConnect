@@ -107,7 +107,7 @@ export function AttendanceHeatmap({ userId }: { userId: string }) {
             totalCount: "{{count}} contributions in the last year",
           }}
           renderBlock={(block: any, activity: any) => (
-            // @ts-ignore
+            // @ts-expect-error type mismatch legacy component
             <div
               {...block}
               data-tooltip-id="heatmap-tooltip"
