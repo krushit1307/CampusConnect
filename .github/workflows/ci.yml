@@ -139,3 +139,31 @@ jobs:
       - name: Stop Supabase
         if: always()
         run: supabase stop || true
+
+  db-tests:
+    name: Database Tests (pgTAP)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.0
+
+      - name: Copy CI Supabase config
+        run: cp supabase/config.ci.toml supabase/config.toml
+
+      - name: Start local Supabase
+        run: supabase start
+
+      - name: Run pgTAP database tests
+        run: ./scripts/run-pgtap-tests.sh \
+          supabase/tests/member_count_trigger.test.sql \
+          supabase/tests/upcoming_events_feed_rpc.test.sql
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop || true
