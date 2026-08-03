@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="check" viewBox="0 0 24 24">
+
+  <path d="M4 12l6 6L20 6"/>
+
+  </symbol>
+  <symbol id="club-management" viewBox="0 0 100 100">
+
+  <circle cx="30" cy="25" r="8"/>
+  <path d="M20 38h20a2 2 0 012 2v12a2 2 0 01-2 2H20a2 2 0 01-2-2V40a2 2 0 012-2z"/>
+  <circle cx="70" cy="25" r="8"/>
+  <path d="M60 38h20a2 2 0 012 2v12a2 2 0 01-2 2H60a2 2 0 01-2-2V40a2 2 0 012-2z"/>
+  <circle cx="50" cy="60" r="8"/>
+  <path d="M40 73h20a2 2 0 012 2v8a2 2 0 01-2 2H40a2 2 0 01-2-2v-8a2 2 0 012-2z"/>
+
+  </symbol>
+  <symbol id="digital-interaction" viewBox="0 0 100 100">
+
+  <rect x="10" y="15" width="80" height="60" rx="4"/>
+  <circle cx="50" cy="45" r="12"/>
+  <path d="M45 35 L55 55 M55 35 L45 55"/>
+  <line x1="10" y1="80" x2="90" y2="80"/>
+
+  </symbol>
+  <symbol id="event-planning" viewBox="0 0 100 100">
+
+  <rect x="15" y="20" width="70" height="60" rx="4"/>
+  <line x1="15" y1="35" x2="85" y2="35"/>
+  <line x1="30" y1="45" x2="30" y2="75"/>
+  <line x1="50" y1="45" x2="50" y2="75"/>
+  <line x1="70" y1="45" x2="70" y2="75"/>
+
+  </symbol>
+  <symbol id="minus" viewBox="0 0 24 24">
+
+  <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12h-15"/>
+
+  </symbol>
+  <symbol id="plus" viewBox="0 0 24 24">
+
+  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+
+  </symbol>
+  <symbol id="sparkle" viewBox="0 0 24 24">
+
+  <path d="M12 0 L14 10 L24 12 L14 14 L12 24 L10 14 L0 12 L10 10 Z" />
+
+  </symbol>
+  <symbol id="star" viewBox="0 0 100 100">
+
+  <path d="M50 10 L65 40 L95 45 L70 65 L80 95 L50 75 L20 95 L30 65 L5 45 L35 40 Z"/>
+
+  </symbol>
+</svg>

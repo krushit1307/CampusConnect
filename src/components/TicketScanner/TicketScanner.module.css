@@ -1,0 +1,172 @@
+.scannerContainer {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  border-radius: 1rem;
+  overflow: hidden;
+  background-color: #000;
+}
+
+.videoElement {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.scanningReticle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 250px;
+  height: 250px;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 1rem;
+  pointer-events: none;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+}
+
+.scanningReticle::before,
+.scanningReticle::after {
+  content: "";
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-color: #10b981;
+  border-style: solid;
+}
+
+.scanningReticle::before {
+  top: -2px;
+  left: -2px;
+  border-width: 4px 0 0 4px;
+  border-top-left-radius: 1rem;
+}
+
+.scanningReticle::after {
+  bottom: -2px;
+  right: -2px;
+  border-width: 0 4px 4px 0;
+  border-bottom-right-radius: 1rem;
+}
+
+.scanLine {
+  position: absolute;
+  top: 0;
+  left: 10%;
+  width: 80%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #10b981, transparent);
+  animation: scan 2s linear infinite;
+}
+
+@keyframes scan {
+  0% {
+    top: 10%;
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 1;
+  }
+
+  90% {
+    opacity: 1;
+  }
+
+  100% {
+    top: 90%;
+    opacity: 0;
+  }
+}
+
+.controls {
+  position: absolute;
+  bottom: 1rem;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  padding: 0 1rem;
+}
+
+.controlButton {
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  backdrop-filter: blur(4px);
+  transition: background-color 0.2s;
+}
+
+.controlButton:hover {
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+.controlButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Dark/Light Mode Support via CSS variables */
+:root[data-theme="dark"] .resultModal {
+  background-color: #1f2937;
+  color: #f9fafb;
+  border-color: #374151;
+}
+
+:root[data-theme="light"] .resultModal {
+  background-color: #ffffff;
+  color: #111827;
+  border-color: #e5e7eb;
+}
+
+.resultModal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 400px;
+  padding: 2rem;
+  border-radius: 1rem;
+  border: 2px solid;
+  text-align: center;
+  z-index: 50;
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.resultModal.success {
+  border-color: #10b981;
+}
+
+.resultModal.error {
+  border-color: #ef4444;
+}
+
+.resultIcon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.resultModal.success .resultIcon {
+  color: #10b981;
+}
+
+.resultModal.error .resultIcon {
+  color: #ef4444;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 40;
+}

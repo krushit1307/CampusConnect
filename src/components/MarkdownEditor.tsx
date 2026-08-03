@@ -1,5 +1,10 @@
-import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import MDEditor, { type RefMDEditor } from "@uiw/react-md-editor";
+import "@uiw/react-md-editor/markdown-editor.css";
+import { useTheme } from "@/components/theme-provider";
+import { MentionRenderer } from "@/components/MentionRenderer";
 import {
   Bold,
   Code2,
@@ -12,6 +17,7 @@ import {
   MessageSquareText,
   Pencil,
   Quote,
+  AtSign,
 } from "lucide-react";
 
 export type MarkdownEditorProps = {
@@ -21,6 +27,8 @@ export type MarkdownEditorProps = {
   rows?: number;
   minHeightClass?: string;
   id?: string;
+  clubId?: string;
+  enableMentions?: boolean;
 };
 
 type ToolbarAction = {
@@ -64,22 +72,44 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
     {
       value,
       onChange,
-      placeholder = "Share an update using Markdown…",
+      placeholder = "Share an update using Markdown… (Type @ to mention)",
       rows = 7,
       minHeightClass = "min-h-44",
       id,
+      clubId,
+      enableMentions = true,
     },
     ref,
   ) => {
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const mdEditorRef = useRef<RefMDEditor>(null);
     const [mode, setMode] = useState<"write" | "preview">("write");
+
+    const { theme } = useTheme();
+    const [colorMode, setColorMode] = useState<"light" | "dark">("light");
+
+    useEffect(() => {
+      const isDark =
+        theme === "dark" ||
+        (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      setColorMode(isDark ? "dark" : "light");
+
+      if (theme === "system") {
+        const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+        const handleChange = (e: MediaQueryListEvent) => {
+          setColorMode(e.matches ? "dark" : "light");
+        };
+        mediaQuery.addEventListener("change", handleChange);
+        return () => mediaQuery.removeEventListener("change", handleChange);
+      }
+    }, [theme]);
 
     useImperativeHandle(ref, () => ({
       focusWrite: () => {
         setMode("write");
         requestAnimationFrame(() => {
-          textareaRef.current?.focus();
-          textareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+          const textarea = mdEditorRef.current?.textarea;
+          textarea?.focus();
+          textarea?.scrollIntoView({ behavior: "smooth", block: "center" });
         });
       },
     }));
@@ -90,7 +120,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
       placeholder = "text",
       linePrefix,
     }: ToolbarAction) => {
-      const textarea = textareaRef.current;
+      const textarea = mdEditorRef.current?.textarea;
       if (!textarea) return;
 
       const start = textarea.selectionStart;
@@ -109,9 +139,32 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
       });
     };
 
+    const insertMention = () => {
+      const textarea = mdEditorRef.current?.textarea;
+      if (!textarea) return;
+
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const before = value.slice(0, start);
+      const after = value.slice(end);
+
+      // Insert @ symbol
+      const newValue = `${before}@${after}`;
+      onChange(newValue);
+
+      requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + 1, start + 1);
+      });
+    };
+
     return (
-      <div className="neu-border bg-white" aria-label="Markdown editor">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-black bg-sky p-2">
+      <div
+        className="neu-border bg-white dark:bg-zinc-900 dark:border-zinc-700 transition-colors"
+        aria-label="Markdown editor"
+        data-color-mode={colorMode}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-black dark:border-zinc-700 bg-sky dark:bg-zinc-800 p-2 transition-colors">
           <div className="flex flex-wrap gap-1" role="toolbar" aria-label="Markdown formatting">
             {toolbarActions.map((action) => {
               const Icon = action.icon;
@@ -120,7 +173,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
                   key={action.label}
                   type="button"
                   onClick={() => applyMarkdown(action)}
-                  className="neu-border bg-white p-2 transition hover:-translate-y-0.5 hover:bg-lime focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                  className="neu-border bg-white dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-600 p-2 transition hover:-translate-y-0.5 hover:bg-lime dark:hover:bg-lime dark:hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black dark:focus-visible:outline-white"
                   aria-label={action.label}
                   title={action.label}
                 >
@@ -128,14 +181,27 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
                 </button>
               );
             })}
+            {enableMentions && (
+              <button
+                type="button"
+                onClick={insertMention}
+                className="neu-border bg-white dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-600 p-2 transition hover:-translate-y-0.5 hover:bg-peach dark:hover:bg-peach dark:hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black dark:focus-visible:outline-white"
+                aria-label="Mention user"
+                title="Mention user (@)"
+              >
+                <AtSign size={16} strokeWidth={2.5} aria-hidden="true" />
+              </button>
+            )}
           </div>
 
           <div className="flex" aria-label="Editor mode">
             <button
               type="button"
               onClick={() => setMode("write")}
-              className={`neu-border flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase ${
-                mode === "write" ? "bg-black text-cream" : "bg-white"
+              className={`neu-border flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase dark:border-zinc-600 transition-colors ${
+                mode === "write"
+                  ? "bg-black text-cream dark:bg-cream dark:text-black"
+                  : "bg-white text-black dark:bg-zinc-900 dark:text-zinc-100"
               }`}
               aria-pressed={mode === "write"}
             >
@@ -144,8 +210,10 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
             <button
               type="button"
               onClick={() => setMode("preview")}
-              className={`neu-border -ml-0.5 flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase ${
-                mode === "preview" ? "bg-black text-cream" : "bg-white"
+              className={`neu-border -ml-0.5 flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase dark:border-zinc-600 transition-colors ${
+                mode === "preview"
+                  ? "bg-black text-cream dark:bg-cream dark:text-black"
+                  : "bg-white text-black dark:bg-zinc-900 dark:text-zinc-100"
               }`}
               aria-pressed={mode === "preview"}
             >
@@ -155,26 +223,46 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
         </div>
 
         {mode === "write" ? (
-          <textarea
-            ref={textareaRef}
-            id={id}
+          <MDEditor
+            ref={mdEditorRef}
             value={value}
-            onChange={(event) => onChange(event.target.value)}
-            placeholder={placeholder}
-            rows={rows}
-            className={`${minHeightClass} w-full resize-y bg-white p-4 font-mono text-sm outline-none placeholder:text-gray-500 focus:bg-cream/40`}
-            aria-label="Content in Markdown"
+            onChange={(val) => onChange(val || "")}
+            preview="edit"
+            hideToolbar={true}
+            height="auto"
+            style={{ minHeight: "200px" }}
+            textareaProps={{
+              id: id,
+              placeholder: placeholder,
+              rows: rows,
+              className: `${minHeightClass} w-full resize-y bg-white dark:bg-zinc-900 text-black dark:text-zinc-100 p-4 font-mono text-sm outline-none placeholder:text-gray-500 dark:placeholder:text-zinc-500 focus:bg-cream/40 dark:focus:bg-zinc-800/50 transition-colors`,
+              "aria-label": "Content in Markdown",
+            }}
           />
         ) : (
-          <div className={`${minHeightClass} bg-white p-4`} aria-live="polite">
+          <div
+            className={`${minHeightClass} bg-white dark:bg-zinc-900 p-4 transition-colors`}
+            aria-live="polite"
+          >
             {value.trim() ? (
-              <div className="markdown-content font-mono text-sm leading-relaxed">
-                <ReactMarkdown>{value}</ReactMarkdown>
+              <div className="markdown-content font-mono text-sm leading-relaxed text-black dark:text-zinc-100">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    p: ({ children }) => (
+                      <p>
+                        <MentionRenderer content={String(children)} />
+                      </p>
+                    ),
+                  }}
+                >
+                  {value}
+                </ReactMarkdown>
               </div>
             ) : (
-              <div className="flex min-h-36 flex-col items-center justify-center gap-2 text-center text-gray-500">
+              <div className="flex min-h-36 flex-col items-center justify-center gap-2 text-center text-gray-500 dark:text-zinc-400">
                 <MessageSquareText size={32} aria-hidden="true" />
-                <p className="font-mono text-sm text-gray-800">
+                <p className="font-mono text-sm text-gray-800 dark:text-zinc-300">
                   Your Markdown preview will appear here.
                 </p>
               </div>
@@ -182,7 +270,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
           </div>
         )}
 
-        <div className="border-t-2 border-black bg-cream px-4 py-2 font-mono text-[10px] uppercase">
+        <div className="border-t-2 border-black dark:border-zinc-700 bg-cream dark:bg-zinc-800 dark:text-zinc-300 px-4 py-2 font-mono text-[10px] uppercase text-black transition-colors">
           Raw Markdown is saved. HTML is not rendered.
         </div>
       </div>
