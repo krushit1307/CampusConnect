@@ -1,7 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://esm.sh/zod@3.24.2";
 import { verifyAuth } from "../shared/auth-middleware.ts";
 import { getSessionIdFromToken } from "../shared/session-token.ts";
+import { parseJsonBody } from "../_shared/validation.ts";
+
+const revokeDeviceSchema = z
+  .object({
+    deviceId: z.string().uuid("deviceId must be a valid UUID"),
+  })
+  .strict();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,17 +45,9 @@ serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const currentSessionId = getSessionIdFromToken(token);
 
-    const { deviceId } = await req.json();
-
-    if (!deviceId) {
-      return new Response(JSON.stringify({ error: "deviceId is required" }), {
-        status: 400,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      });
-    }
+    const parsed = await parseJsonBody(revokeDeviceSchema, req);
+    if (!parsed.ok) return parsed.response;
+    const { deviceId } = parsed.data;
 
     const { data: session, error: fetchError } = await supabase
       .from("device_sessions")

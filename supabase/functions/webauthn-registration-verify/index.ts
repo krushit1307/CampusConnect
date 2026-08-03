@@ -1,11 +1,26 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://esm.sh/zod@3.24.2";
 import { verifyAuth } from "../shared/auth-middleware.ts";
 import { parseAuthenticatorData } from "../shared/crypto-verify.ts";
 import {
   decode as base64urlDecode,
   encode as base64urlEncode,
 } from "https://deno.land/std@0.168.0/encoding/base64url.ts";
+import { parseJsonBody } from "../_shared/validation.ts";
+
+const webauthnRegistrationSchema = z
+  .object({
+    credentialId: z.string().min(1, "credentialId is required"),
+    clientDataJSON: z.string().min(1, "clientDataJSON is required"),
+    attestationObject: z.string().optional(),
+    authenticatorData: z.string().min(1, "authenticatorData is required"),
+    transports: z.array(z.string()).optional(),
+    deviceName: z.string().max(100).optional(),
+    rpId: z.string().optional(),
+    origin: z.string().min(1, "origin is required"),
+  })
+  .strict();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,7 +56,8 @@ serve(async (req: Request) => {
       });
     }
 
-    const body = await req.json();
+    const parsed = await parseJsonBody(webauthnRegistrationSchema, req);
+    if (!parsed.ok) return parsed.response;
     const {
       credentialId,
       clientDataJSON,
@@ -51,24 +67,7 @@ serve(async (req: Request) => {
       deviceName,
       rpId,
       origin,
-    } = body;
-
-    // Validate required fields
-    if (!credentialId || !clientDataJSON || !authenticatorData) {
-      console.error({
-        step: "validate_required",
-        reason: "Missing required credential data",
-        received: {
-          credentialId: !!credentialId,
-          clientDataJSON: !!clientDataJSON,
-          authenticatorData: !!authenticatorData,
-        },
-      });
-      return new Response(JSON.stringify({ error: "Missing required credential data" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    } = parsed.data;
 
     // origin is required — omitting it bypasses origin validation below
     if (!origin) {

@@ -1,8 +1,5 @@
 import { trace, propagation, context, SpanStatusCode, type Span } from "@opentelemetry/api";
-import {
-  WebTracerProvider,
-  SimpleSpanProcessor,
-} from "@opentelemetry/sdk-trace-web";
+import { WebTracerProvider, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-web";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { CompositePropagator, W3CTraceContextPropagator } from "@opentelemetry/core";
 import { resourceFromAttributes, defaultResource } from "@opentelemetry/resources";

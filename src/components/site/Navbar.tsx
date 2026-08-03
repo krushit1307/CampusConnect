@@ -98,6 +98,7 @@ export function Navbar() {
   ];
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [bookmarksPanelOpen, setBookmarksPanelOpen] = useState(false);
 
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const navRef = useRef<HTMLElement>(null);
@@ -218,6 +219,17 @@ export function Navbar() {
             <ThemeToggle />
 
             {user && <NavbarNotificationDropdown />}
+            {user && (
+              <button
+                type="button"
+                aria-label="Open bookmarks"
+                onClick={() => setBookmarksPanelOpen(true)}
+                className="neu-border flex h-8 w-8 items-center justify-center bg-white text-black transition-colors hover:bg-lime dark:bg-black dark:text-cream"
+              >
+                <Bookmark size={16} />
+              </button>
+            )}
+            {user ? (
             {isInitializing ? (
               <ProfileHeaderSkeleton />
             ) : user ? (
@@ -287,6 +299,8 @@ export function Navbar() {
           </button>
         </div>
       </div>
+
+      <BookmarksPanel open={bookmarksPanelOpen} onOpenChange={setBookmarksPanelOpen} user={user} />
 
       {/* Mobile Navigation */}
       {mobileMenuOpen && (

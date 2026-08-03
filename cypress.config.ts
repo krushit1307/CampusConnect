@@ -37,7 +37,7 @@ export default defineConfig({
       },
     },
     specPattern: ["cypress/component/**/*.cy.{ts,tsx}", "src/**/*.cy.{ts,tsx}"],
-    supportFile: "cypress/support/component.ts",
+    supportFile: "cypress/support/component.tsx",
     indexHtmlFile: "cypress/support/component-index.html",
     viewportWidth: 1280,
     viewportHeight: 720,

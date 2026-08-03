@@ -1,4 +1,4 @@
-import { createSchema, createYoga } from "graphql-yoga";
+import { createSchema, createYoga, createGraphQLError, type Plugin } from "graphql-yoga";
 import {
   typeDefs,
   resolvers,
@@ -15,6 +15,8 @@ import { createClient } from "../src/lib/supabase/client";
 import { closePool } from "./db";
 import { requestLoggingPlugin } from "./request-logging";
 import { openTelemetryPlugin, initializeBackendTracing } from "./tracing";
+
+import { createGraphQLSecurityPlugin } from "./security";
 
 // Initialize OpenTelemetry backend tracing provider on server startup
 initializeBackendTracing();
@@ -64,6 +66,7 @@ export const yoga = createYoga({
       }
     }
 
+
     const profileLoader = createProfileLoader();
     const clubLoader = createClubLoader();
     const commentsByPostLoader = createCommentsByPostLoader();
@@ -74,12 +77,18 @@ export const yoga = createYoga({
       clubLoader,
       commentsByPostLoader,
     };
+
+    return { user, request };
+
   },
-  plugins: [requestLoggingPlugin(), openTelemetryPlugin()],
+  plugins: [
+    requestLoggingPlugin(),
+    openTelemetryPlugin(),
+    createGraphQLSecurityPlugin({ maxDepth: 5, rateLimit: { maxMutations: 10, windowMs: 60000 } }),
+  ],
 });
 
-// Re-export for use by server-side event producers (mention handlers, etc.)
-export { pubsub, publishNotification };
+
 
 /**
  * Graceful shutdown: release all pooled Postgres connections when the
@@ -92,10 +101,19 @@ async function gracefulShutdown(signal: string) {
   if (isShuttingDown) return;
   isShuttingDown = true;
 
+
   console.warn(`[server] Received ${signal}, closing Postgres pool...`);
   try {
     await closePool();
     console.warn("[server] Postgres pool closed cleanly.");
+
+  // eslint-disable-next-line no-console
+  console.log(`[server] Received ${signal}, closing Postgres pool...`);
+  try {
+    await closePool();
+    // eslint-disable-next-line no-console
+    console.log("[server] Postgres pool closed cleanly.");
+
   } catch (err) {
     console.error("[server] Error while closing Postgres pool:", err);
   } finally {

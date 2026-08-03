@@ -30,10 +30,16 @@ import { useTheme } from "@/components/theme-provider";
 import { SecuritySection } from "@/components/Settings/SecuritySection";
 import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
 import { Progress } from "@/components/ui/progress";
+import { useTheme } from "@/components/theme-provider";
+import { SecuritySection } from "@/components/Settings/SecuritySection";
+import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
+import { Progress } from "@/components/ui/progress";
 import {
   profileSchema,
+  notificationPreferencesSchema,
   AVATAR_THEMES,
   type ProfileFormValues,
+  type NotificationPreferencesValues,
   type AvatarThemeId,
 } from "@/lib/schemas";
 import { BlockedUsersPanel } from "@/components/Settings/BlockedUsersPanel";
@@ -192,8 +198,25 @@ function SettingsPageContent({ user }: WithAuthProps) {
     enabled: !!user?.id,
   });
 
-  const form = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileSchema),
+  const {
+    data: preferences,
+    isLoading: isPreferencesLoading,
+  } = useQuery({
+    queryKey: ["user_preferences", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_preferences")
+        .select("*")
+        .eq("user_id", user?.id)
+        .single();
+      if (error && error.code !== "PGRST116") throw error; // PGRST116 = no rows found
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const form = useForm<ProfileFormValues & NotificationPreferencesValues>({
+    resolver: zodResolver(profileSchema.merge(notificationPreferencesSchema)),
     defaultValues: {
       avatarTheme: "",
       firstName: "",
@@ -203,6 +226,10 @@ function SettingsPageContent({ user }: WithAuthProps) {
       bio: "",
       linkedinUrl: "",
       phoneNumber: "",
+      email_alerts: true,
+      push_notifications: true,
+      digest: true,
+      dark_mode_default: false,
     },
   });
   const {
@@ -251,15 +278,19 @@ function SettingsPageContent({ user }: WithAuthProps) {
         bio: profile?.bio || "",
         linkedinUrl: profile?.linkedin_url || "",
         phoneNumber: profile?.phone_number || "",
+        email_alerts: preferences?.email_alerts ?? true,
+        push_notifications: preferences?.push_notifications ?? true,
+        digest: preferences?.digest ?? true,
+        dark_mode_default: preferences?.dark_mode_default ?? false,
       });
       // Hydrate skills from profile (text[])
       if (Array.isArray(profile?.skills)) {
         setSkills(profile.skills as string[]);
       }
     }
-  }, [profile, user, form]);
+  }, [profile, preferences, user, form]);
 
-  const onSubmit = async (values: ProfileFormValues) => {
+  const onSubmit = async (values: ProfileFormValues & NotificationPreferencesValues) => {
     setIsSaving(true);
     try {
       if (!user) {
@@ -284,6 +315,18 @@ function SettingsPageContent({ user }: WithAuthProps) {
         .eq("id", user.id);
 
       if (profileError) throw profileError;
+
+      // Update user_preferences table
+      const { error: prefError } = await supabase
+        .from("user_preferences")
+        .upsert({
+          user_id: user.id,
+          email_alerts: values.email_alerts,
+          push_notifications: values.push_notifications,
+          digest: values.digest,
+          dark_mode_default: values.dark_mode_default,
+        });
+      if (prefError) throw prefError;
 
       // Update email if it has changed
       if (values.collegeEmail !== user.email) {
@@ -659,26 +702,50 @@ function SettingsPageContent({ user }: WithAuthProps) {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between gap-4 border-t-2 border-black pt-4">
-                <div>
-                  <label
-                    htmlFor="ui-sounds"
-                    className="eyebrow font-bold text-black dark:text-cream"
-                  >
-                    UI Sounds
-                  </label>
-                  <p className="font-mono text-xs text-muted-foreground">
-                    Play subtle synthesized clicks, toggles, and like pops.
-                  </p>
-                </div>
-                <input
-                  id="ui-sounds"
-                  type="checkbox"
-                  checked={soundEnabled}
-                  onChange={(event) => handleSoundEnabledChange(event.target.checked)}
-                  className="h-5 w-5 accent-black"
-                />
-              </div>
+              <FormField
+              control={form.control as any}
+              name="dark_mode_default"
+              render={({ field }) => (
+                <FormItem className="space-y-1">
+                  <FormControl>
+                    <div className="flex items-center justify-between gap-4 border-t-2 border-black pt-4">
+                      <div>
+                        <label htmlFor={field.id} className="eyebrow font-bold text-black dark:text-cream">
+                          Dark Mode by Default
+                        </label>
+                        <p className="font-mono text-xs text-muted-foreground">
+                          When enabled, the app will default to dark mode on each visit unless you manually switch themes.
+                        </p>
+                      </div>
+                      <input
+                        {...field}
+                        type="checkbox"
+                        className="h-5 w-5 accent-black"
+                      />
+                    </div>
+                  </FormControl>
+                </FormItem>
+              )}
+            </FormField>
+
+            <div className="flex items-center justify-between gap-4 border-t-2 border-black pt-4">
+              <label
+                htmlFor="ui-sounds"
+                className="eyebrow font-bold text-black dark:text-cream"
+              >
+                UI Sounds
+              </label>
+              <p className="font-mono text-xs text-muted-foreground">
+                Play subtle synthesized clicks, toggles, and like pops.
+              </p>
+              <input
+                id="ui-sounds"
+                type="checkbox"
+                checked={soundEnabled}
+                onChange={(event) => handleSoundEnabledChange(event.target.checked)}
+                className="h-5 w-5 accent-black"
+              />
+            </div>
 
               {/* Border Thickness */}
               <div className="space-y-2">
@@ -756,9 +823,66 @@ function SettingsPageContent({ user }: WithAuthProps) {
           </Panel>
 
           <Panel title="Notifications">
-            <Toggle label="Email me about upcoming RSVPs" defaultChecked />
-            <Toggle label="Weekly digest of club activity" defaultChecked />
-            <Toggle label="New certificates" />
+            <FormField
+              control={form.control as any}
+              name="email_alerts"
+              render={({ field }) => (
+                <FormItem className="space-y-1">
+                  <FormControl>
+                    <div className="flex cursor-pointer items-center justify-between gap-3">
+                      <label htmlFor={field.id} className="font-mono text-sm">
+                        Email me about upcoming RSVPs
+                      </label>
+                      <input
+                        {...field}
+                        type="checkbox"
+                        className="h-5 w-5 accent-black"
+                      />
+                    </div>
+                  </FormControl>
+                </FormItem>
+              )}
+            </FormField>
+            <FormField
+              control={form.control as any}
+              name="digest"
+              render={({ field }) => (
+                <FormItem className="space-y-1">
+                  <FormControl>
+                    <div className="flex cursor-pointer items-center justify-between gap-3">
+                      <label htmlFor={field.id} className="font-mono text-sm">
+                        Weekly digest of club activity
+                      </label>
+                      <input
+                        {...field}
+                        type="checkbox"
+                        className="h-5 w-5 accent-black"
+                      />
+                    </div>
+                  </FormControl>
+                </FormItem>
+              )}
+            </FormField>
+            <FormField
+              control={form.control as any}
+              name="push_notifications"
+              render={({ field }) => (
+                <FormItem className="space-y-1">
+                  <FormControl>
+                    <div className="flex cursor-pointer items-center justify-between gap-3">
+                      <label htmlFor={field.id} className="font-mono text-sm">
+                        New certificates
+                      </label>
+                      <input
+                        {...field}
+                        type="checkbox"
+                        className="h-5 w-5 accent-black"
+                      />
+                    </div>
+                  </FormControl>
+                </FormItem>
+              )}
+            </FormField>
           </Panel>
 
           <Panel title="Danger zone" tone="bg-red-50">

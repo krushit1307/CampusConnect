@@ -15,7 +15,7 @@ const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ defau
 import { formatEventDateRange } from "@/lib/utils";
 import { downloadIcs, getGoogleCalendarUrl } from "@/lib/calendarUtils";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
-import { formatStandardDate } from "@/utils/dateUtils";
+import { formatDateLong } from "@/lib/dateFormatter";
 import { toast } from "sonner";
 import { ShareMenu } from "@/components/ui/ShareMenu";
 import {
@@ -189,8 +189,7 @@ function SimilarEvents({
             </h3>
             {evt.event_date && (
               <p className="font-mono text-xs text-black/60 mt-1">
-                📅 {formatStandardDate(evt.event_date)}
-                📅 {new Date(evt.event_date).toLocaleDateString()}
+                📅 {formatDateLong(evt.event_date)}
               </p>
             )}
           </Link>
@@ -208,7 +207,7 @@ function rsvpRowsToCsv(rows: { name: string; email: string; rsvp_date: string; s
   };
   const lines = [headers.join(",")];
   for (const r of rows) {
-    lines.push([r.name, r.email, formatStandardDate(r.rsvp_date), r.status].map(escape).join(","));
+    lines.push([r.name, r.email, formatDateLong(r.rsvp_date), r.status].map(escape).join(","));
   }
   return lines.join("\n");
 }
@@ -1043,7 +1042,9 @@ export default function EventDetailsPage() {
   const attendeeCount =
     ((event as Record<string, unknown>).attendee_count as number) ?? rsvps.length;
   const maxAttendees = (event as Record<string, unknown>).max_attendees as
-    number | null | undefined;
+    | number
+    | null
+    | undefined;
   const isAtCapacity =
     maxAttendees !== null &&
     maxAttendees !== undefined &&

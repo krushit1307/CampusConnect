@@ -17,24 +17,45 @@ CREATE TABLE profiles (
   bio TEXT,
   skills TEXT[] DEFAULT '{}'::TEXT[],
   role user_role DEFAULT 'student'::user_role,
-  notification_preferences JSONB NOT NULL DEFAULT '{"rsvps": true, "digest": true, "certs": true}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-ALTER TABLE profiles
-ADD CONSTRAINT profiles_notification_preferences_valid
-CHECK (
-  jsonb_typeof(notification_preferences) = 'object'
-  AND notification_preferences ? 'rsvps'
-  AND notification_preferences ? 'digest'
-  AND notification_preferences ? 'certs'
-  AND jsonb_typeof(notification_preferences->'rsvps') = 'boolean'
-  AND jsonb_typeof(notification_preferences->'digest') = 'boolean'
-  AND jsonb_typeof(notification_preferences->'certs') = 'boolean'
+CREATE INDEX IF NOT EXISTS idx_profiles_skills ON public.profiles USING gin (skills);
+
+CREATE TABLE user_preferences (
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE PRIMARY KEY,
+  email_alerts BOOLEAN NOT NULL DEFAULT true,
+  push_notifications BOOLEAN NOT NULL DEFAULT true,
+  digest BOOLEAN NOT NULL DEFAULT true,
+  dark_mode_default BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_profiles_skills ON public.profiles USING gin (skills);
+ALTER TABLE public.user_preferences ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their own preferences." ON public.user_preferences;
+CREATE POLICY "Users can view their own preferences." ON public.user_preferences
+  FOR SELECT TO authenticated
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert their own preferences." ON public.user_preferences;
+CREATE POLICY "Users can insert their own preferences." ON public.user_preferences
+  FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own preferences." ON public.user_preferences;
+CREATE POLICY "Users can update their own preferences." ON public.user_preferences
+  FOR UPDATE TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE TRIGGER set_updated_at_user_preferences
+BEFORE UPDATE ON user_preferences
+FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
+
+ALTER PUBLICATION supabase_realtime ADD TABLE public.user_preferences;
 
 CREATE OR REPLACE FUNCTION public.is_valid_social_links(links jsonb)
 RETURNS boolean
@@ -282,6 +303,22 @@ CREATE TABLE audit_logs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE user_public_keys (
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE PRIMARY KEY,
+  public_key TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE direct_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  sender_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  receiver_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  encrypted_content TEXT NOT NULL,
+  iv TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Indexes
 CREATE INDEX idx_club_members_club_id ON club_members(club_id);
 CREATE INDEX idx_club_members_user_id ON club_members(user_id);
@@ -295,6 +332,9 @@ CREATE INDEX idx_polls_event_id_active ON polls(event_id) WHERE is_active = TRUE
 CREATE INDEX idx_poll_options_poll_id ON poll_options(poll_id);
 CREATE INDEX idx_poll_votes_poll_id ON poll_votes(poll_id);
 CREATE INDEX idx_poll_votes_poll_id_user_id ON poll_votes(poll_id, user_id);
+CREATE INDEX idx_direct_messages_sender_id ON direct_messages(sender_id);
+CREATE INDEX idx_direct_messages_receiver_id ON direct_messages(receiver_id);
+CREATE INDEX idx_direct_messages_created_at ON direct_messages(created_at);
 
 -- Helper function: check if user is system admin
 CREATE OR REPLACE FUNCTION public.is_system_admin()
@@ -395,6 +435,8 @@ ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE polls ENABLE ROW LEVEL SECURITY;
 ALTER TABLE poll_options ENABLE ROW LEVEL SECURITY;
 ALTER TABLE poll_votes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_public_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE direct_messages ENABLE ROW LEVEL SECURITY;
 
 -- event_co_hosts policies
 CREATE POLICY "Co-hosts are viewable by everyone." ON event_co_hosts FOR SELECT USING (true);
@@ -536,6 +578,15 @@ CREATE POLICY "Users can unsave events." ON saved_events FOR DELETE USING (auth.
 CREATE POLICY "Users can view their own notifications" ON notifications FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can update their own notifications" ON notifications FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own notifications" ON notifications FOR DELETE USING (auth.uid() = user_id);
+
+-- user_public_keys: E2EE public keys are readable by all authenticated users; owners can insert/update their own
+CREATE POLICY "Public keys are readable by authenticated users." ON user_public_keys FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Users can insert their own public key." ON user_public_keys FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own public key." ON user_public_keys FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- direct_messages: E2EE ciphertext only visible to sender and receiver; only sender can insert
+CREATE POLICY "Users can view direct messages sent by or to them." ON direct_messages FOR SELECT TO authenticated USING (auth.uid() = sender_id OR auth.uid() = receiver_id);
+CREATE POLICY "Users can send direct messages." ON direct_messages FOR INSERT TO authenticated WITH CHECK (auth.uid() = sender_id);
 
 -- saved_events: users can manage their own saved events/bookmarks
 CREATE POLICY "Users can read own saved events." ON saved_events FOR SELECT USING (auth.uid() = user_id);
@@ -1096,6 +1147,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE comments;
 ALTER PUBLICATION supabase_realtime ADD TABLE event_rsvps;
 ALTER PUBLICATION supabase_realtime ADD TABLE saved_events;
 ALTER PUBLICATION supabase_realtime ADD TABLE poll_votes;
+ALTER PUBLICATION supabase_realtime ADD TABLE direct_messages;
 
 -- Backfill any missing profiles for existing authenticated users
 INSERT INTO public.profiles (id, first_name, last_name, avatar_url)
@@ -1335,7 +1387,6 @@ SELECT id, raw_user_meta_data->>'full_name', raw_user_meta_data->>'avatar_url'
 FROM auth.users
 ON CONFLICT (id) DO NOTHING;
 
-
 -- Enable pg_trgm extension
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
@@ -1361,4 +1412,3 @@ BEGIN
     ORDER BY similarity(name, search_term) DESC;
 END;
 $$;
-

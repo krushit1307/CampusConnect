@@ -51,10 +51,12 @@ function LoginButton() {
 import { ModalRoot, makeRegistrations } from "@/components/modal";
 import { BugReportModalBody } from "@/components/modal/adapters/BugReportModalBody";
 
-<ModalRoot registrations={makeRegistrations({
-  BUG_REPORT: BugReportModalBody,
-  LOGIN: LoginModalBody,
-})} />
+<ModalRoot
+  registrations={makeRegistrations({
+    BUG_REPORT: BugReportModalBody,
+    LOGIN: LoginModalBody,
+  })}
+/>;
 ```
 
 ## Adding a new modal kind
@@ -68,12 +70,12 @@ TypeScript catches missing steps at compile time.
 
 ## Public API
 
-| Export | Purpose |
-| --- | --- |
-| `ModalProvider` | Owns the modal state. |
-| `useModal` | Hook for consumers; throws if used outside `<ModalProvider>`. |
-| `ModalRoot` | The renderer; sits at the top of the app and listens to the context. |
-| `makeRegistrations` | Ergonomic helper for wiring body components into the renderer. |
+| Export              | Purpose                                                              |
+| ------------------- | -------------------------------------------------------------------- |
+| `ModalProvider`     | Owns the modal state.                                                |
+| `useModal`          | Hook for consumers; throws if used outside `<ModalProvider>`.        |
+| `ModalRoot`         | The renderer; sits at the top of the app and listens to the context. |
+| `makeRegistrations` | Ergonomic helper for wiring body components into the renderer.       |
 
 ## Out of scope (future work)
 

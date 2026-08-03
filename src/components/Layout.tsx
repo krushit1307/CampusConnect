@@ -5,13 +5,12 @@ import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ScrollToTop } from "@/components/ScrollToTop";
-import { SpeedDial } from "@/components/SpeedDial";
+import { RadialFAB } from "@/components/RadialFAB";
 import { FloatingChat } from "@/components/FloatingChat";
 import { createClient } from "@/lib/supabase/client";
 import TopProgressBar from "@/components/TopProgressBar";
 import ShortcutsModal from "@/components/ShortcutsModal";
 import { SessionExpiryModal } from "@/components/SessionExpiryModal";
-import { WebRTCProvider } from "@/components/VideoCall/WebRTCProvider";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import { showAnnouncementToast } from "@/lib/announcements/sse";
 
@@ -166,7 +165,7 @@ export default function Layout() {
         <Outlet />
         <Toaster />
         <ScrollToTop />
-        <SpeedDial />
+        <RadialFAB />
         {userId && <FloatingChat />}
       </WebRTCProvider>
     </TooltipProvider>

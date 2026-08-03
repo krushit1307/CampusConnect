@@ -15,7 +15,11 @@ describe("Timezone Handling across 3 distinct timezones", () => {
   it("correctly parses UTC timestamps in America/New_York timezone", () => {
     const parsed = parseUtcToLocal(utcDateString, "America/New_York");
     expect(parsed).not.toBeNull();
-    const formatted = formatEventInTimeZone(utcDateString, "yyyy-MM-dd HH:mm zzz", "America/New_York");
+    const formatted = formatEventInTimeZone(
+      utcDateString,
+      "yyyy-MM-dd HH:mm zzz",
+      "America/New_York",
+    );
     // 12:00 UTC is 08:00 EDT (UTC-4)
     expect(formatted).toContain("08:00");
   });
