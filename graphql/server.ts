@@ -6,6 +6,9 @@ import {
   publishNotification,
   publishMentionNotification,
   publishEventUpdateNotification,
+  createProfileLoader,
+  createClubLoader,
+  createCommentsByPostLoader,
 } from "./resolvers";
 import { authDirectiveTypeDefs, authDirectiveTransformer } from "./directives/authDirective";
 import { createClient } from "../src/lib/supabase/client";
@@ -61,7 +64,16 @@ export const yoga = createYoga({
       }
     }
 
-    return { user };
+    const profileLoader = createProfileLoader();
+    const clubLoader = createClubLoader();
+    const commentsByPostLoader = createCommentsByPostLoader();
+
+    return {
+      user,
+      profileLoader,
+      clubLoader,
+      commentsByPostLoader,
+    };
   },
   plugins: [requestLoggingPlugin(), openTelemetryPlugin()],
 });
@@ -80,10 +92,10 @@ async function gracefulShutdown(signal: string) {
   if (isShuttingDown) return;
   isShuttingDown = true;
 
-  console.log(`[server] Received ${signal}, closing Postgres pool...`);
+  console.warn(`[server] Received ${signal}, closing Postgres pool...`);
   try {
     await closePool();
-    console.log("[server] Postgres pool closed cleanly.");
+    console.warn("[server] Postgres pool closed cleanly.");
   } catch (err) {
     console.error("[server] Error while closing Postgres pool:", err);
   } finally {
@@ -93,4 +105,10 @@ async function gracefulShutdown(signal: string) {
 
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
-export { schema, pubsub, publishNotification, publishMentionNotification, publishEventUpdateNotification };
+export {
+  schema,
+  pubsub,
+  publishNotification,
+  publishMentionNotification,
+  publishEventUpdateNotification,
+};
