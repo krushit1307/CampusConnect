@@ -34,6 +34,14 @@ describe("image optimization helpers", () => {
     expect(getOptimizedImageUrl(source, { width: 96 })).toBe(source);
   });
 
+  it("handles image format transformations correctly", () => {
+    const result = getOptimizedImageUrl(supabaseImage, {
+      width: 800,
+      format: "avif",
+    });
+    expect(result).toContain("format=avif");
+  });
+
   it("builds a sorted responsive srcset without duplicate widths", () => {
     const srcSet = buildResponsiveImageSrcSet(supabaseImage, [896, 448, 896]);
 

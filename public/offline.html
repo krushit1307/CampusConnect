@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>You're Offline — CampusConnect</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        background: #faf7f0;
+        color: #000;
+        font-family: monospace;
+        text-align: center;
+        padding: 24px;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin-bottom: 8px;
+      }
+      p {
+        color: rgba(0, 0, 0, 0.6);
+        max-width: 320px;
+      }
+      button {
+        margin-top: 20px;
+        padding: 10px 20px;
+        background: #000;
+        color: #faf7f0;
+        border: 2px solid #000;
+        font-family: monospace;
+        font-weight: bold;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>You're Offline</h1>
+    <p>
+      Campus WiFi playing up again? Check your connection — we'll reconnect automatically once
+      you're back online.
+    </p>
+    <button onclick="window.location.reload()">Try Again</button>
+  </body>
+</html>
