@@ -403,19 +403,12 @@ export default function Landing() {
 
           <ScrollReveal delay={150}>
             {isLoadingEvents ? (
-              <div className="grid grid-cols-1 md:grid-cols-4 md:grid-rows-2 gap-4 h-[500px] md:h-[600px]">
-                <div className="md:col-span-2 md:row-span-2 relative h-full">
-                  <EventCardSkeleton />
-                </div>
-                <div className="md:col-span-2 md:row-span-1 relative h-full">
-                  <EventCardSkeleton />
-                </div>
-                <div className="md:col-span-1 md:row-span-1 relative h-full">
-                  <EventCardSkeleton />
-                </div>
-                <div className="md:col-span-1 md:row-span-1 relative h-full">
-                  <EventCardSkeleton />
-                </div>
+              <div className="flex overflow-hidden gap-4" aria-hidden="true">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="flex-[0_0_85%] md:flex-[0_0_45%] shrink-0">
+                    <EventCardSkeleton index={i} />
+                  </div>
+                ))}
               </div>
             ) : (
               <FeaturedEvents events={featuredEvents || []} />

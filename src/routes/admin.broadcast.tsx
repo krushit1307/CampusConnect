@@ -32,9 +32,10 @@ export default function AdminBroadcast() {
       setTitle("");
       setMessage("");
       setUrl("");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Broadcast failed:", error);
-      toast.error(error.message || "Failed to broadcast message");
+      const errorMsg = error instanceof Error ? error.message : "Failed to broadcast message";
+      toast.error(errorMsg);
     } finally {
       setIsSending(false);
     }

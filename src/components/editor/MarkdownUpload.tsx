@@ -6,6 +6,7 @@
  */
 
 import * as React from "react";
+import { useState, useRef } from "react";
 import { Upload, FileText, AlertCircle, CheckCircle } from "lucide-react";
 import { parseMarkdownToTiptap } from "../../lib/tiptap/markdown-parser";
 import { Progress } from "@/components/ui/progress";
@@ -26,8 +27,6 @@ export const MarkdownUpload: React.FC<MarkdownUploadProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (file: File) => {
-    const { useState, useRef } = React;
-
     setError(null);
     setSuccess(null);
     setIsLoading(true);
@@ -76,8 +75,6 @@ export const MarkdownUpload: React.FC<MarkdownUploadProps> = ({
       handleFile(files[0]);
     }
   };
-
-  const { useState, useRef } = React;
 
   return (
     <div className="w-full max-w-md mx-auto">

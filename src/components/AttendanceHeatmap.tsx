@@ -106,10 +106,9 @@ export function AttendanceHeatmap({ userId }: { userId: string }) {
           labels={{
             totalCount: "{{count}} contributions in the last year",
           }}
-          renderBlock={(block: any, activity: any) => (
-            // @ts-expect-error type mismatch legacy component
+          renderBlock={(block: React.ReactElement, activity: { date: string; count: number }) => (
             <div
-              {...block}
+              {...(block.props as React.HTMLAttributes<HTMLDivElement>)}
               data-tooltip-id="heatmap-tooltip"
               data-tooltip-content={`${activity.count} activities on ${format(new Date(activity.date), "MMM d, yyyy")}`}
             />

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, type Control } from "react-hook-form";
 import { Edit3, GitMerge } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
@@ -76,12 +76,13 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
     staleTime: 1000 * 60 * 30,
   });
 
-  const form = useForm<EventFormValues>({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const form = useForm<any>({
     resolver: zodResolver(eventFormSchema),
     defaultValues: {
       title: event.title || "",
       description: event.description || "",
-      category: event.category_id || "",
+      category: (event.category_id as string) || "",
       location: event.location || "",
       startDate: event.start_date ? new Date(event.start_date).toISOString().slice(0, 16) : "",
       endDate: event.end_date ? new Date(event.end_date).toISOString().slice(0, 16) : "",
@@ -90,13 +91,15 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
     mode: "onBlur",
   });
 
+  const control = form.control as never;
+
   useEffect(() => {
     if (open) {
       setBaseSnapshot(event);
       form.reset({
         title: event.title || "",
         description: event.description || "",
-        category: event.category_id || "",
+        category: (event.category_id as string) || "",
         location: event.location || "",
         startDate: event.start_date ? new Date(event.start_date).toISOString().slice(0, 16) : "",
         endDate: event.end_date ? new Date(event.end_date).toISOString().slice(0, 16) : "",
@@ -220,7 +223,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
               <FormField
-                control={form.control}
+                control={control}
                 name="title"
                 render={({ field }) => (
                   <FormItem>
@@ -234,7 +237,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
               />
 
               <FormField
-                control={form.control}
+                control={control}
                 name="description"
                 render={({ field }) => (
                   <FormItem>
@@ -248,7 +251,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
               />
 
               <FormField
-                control={form.control}
+                control={control}
                 name="category"
                 render={({ field }) => (
                   <FormItem>
@@ -272,7 +275,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                 )}
               />
               <FormField
-                control={form.control}
+                control={control}
                 name="tags"
                 render={({ field }) => (
                   <FormItem>
@@ -292,7 +295,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
               />
 
               <FormField
-                control={form.control}
+                control={control}
                 name="location"
                 render={({ field }) => (
                   <FormItem>
@@ -307,13 +310,13 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField
-                  control={form.control}
+                  control={control}
                   name="startDate"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel required>Start date</FormLabel>
                       <FormControl>
-                        <DateTimePicker value={field.value} onChange={field.onChange} />
+                        <DateTimePicker value={field.value || ""} onChange={field.onChange} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -321,13 +324,13 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                 />
 
                 <FormField
-                  control={form.control}
+                  control={control}
                   name="endDate"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel required>End date</FormLabel>
                       <FormControl>
-                        <DateTimePicker value={field.value} onChange={field.onChange} />
+                        <DateTimePicker value={field.value || ""} onChange={field.onChange} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

@@ -135,7 +135,7 @@ export function hasDraftContent(values: EventFormValues): boolean {
 }
 
 export function eventFormToDbPayload(
-  values: EventFormValues,
+  values: EventFormValues & { requiresApproval?: boolean },
   userId: string,
   clubId: string | null,
 ) {

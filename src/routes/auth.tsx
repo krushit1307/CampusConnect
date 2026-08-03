@@ -16,15 +16,33 @@ import { sendVerificationEmail } from "@/lib/email/service";
 import { getFriendlyAuthError } from "@/utils/authErrors";
 import { PasskeyLoginButton } from "@/components/PasskeyLoginButton";
 import { useWebAuthn } from "@/hooks/useWebAuthn";
-
+import { Turnstile } from "@marsidev/react-turnstile";
 import { AuthSocialProviderGrid } from "@/components/auth/AuthSocialProviderGrid";
 import { PasskeyAuthModal } from "@/components/auth/PasskeyAuthModal";
+import { MfaVerificationModal } from "@/components/auth/MfaVerificationModal";
+import {
+  signInSchema,
+  type SignInFormValues,
+  signUpSchema,
+  type SignUpFormValues,
+} from "@/lib/schemas";
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage,
+} from "@/components/ui/form";
 
 export default function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPasskeyModalOpen, setIsPasskeyModalOpen] = useState(false);
+  const [isMfaVerifyOpen, setIsMfaVerifyOpen] = useState(false);
+  const [mfaFactorId, setMfaFactorId] = useState("");
   const navigate = useNavigate();
   const supabase = createClient();
   const { registerPasskey } = useWebAuthn();
@@ -50,6 +68,7 @@ export default function AuthPage() {
   function switchMode(nextMode: "signin" | "signup") {
     setMode(nextMode);
     setError(null);
+    setCaptchaToken("");
     signInForm.reset();
     signUpForm.reset();
   }
@@ -81,6 +100,22 @@ export default function AuthPage() {
 
       if (setSessionError) throw setSessionError;
 
+      // Check if MFA TOTP is enabled/enforced for the user
+      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      const { data: factorsData } = await supabase.auth.mfa.listFactors();
+      const verifiedTotpFactor = factorsData?.totp?.find((f) => f.status === "verified");
+
+      if (
+        (aalData && aalData.nextLevel === "aal2" && aalData.currentLevel === "aal1") ||
+        verifiedTotpFactor
+      ) {
+        if (verifiedTotpFactor) {
+          setMfaFactorId(verifiedTotpFactor.id);
+          setIsMfaVerifyOpen(true);
+          return;
+        }
+      }
+
       navigate("/dashboard", { replace: true });
     } catch (err: unknown) {
       const message = getFriendlyAuthError(err);
@@ -96,11 +131,17 @@ export default function AuthPage() {
     setError(null);
 
     try {
+      if (!captchaToken) {
+        toast.error("Please complete CAPTCHA verification.");
+        setLoading(false);
+        return;
+      }
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: values.email,
         password: values.password,
         options: {
           data: {
+            captcha_token: captchaToken,
             first_name: values.firstName,
             last_name: values.lastName,
             full_name: `${values.firstName} ${values.lastName}`.trim(),
@@ -112,12 +153,13 @@ export default function AuthPage() {
       if (signUpError) throw signUpError;
 
       toast.success("Account created! A verification link has been sent to your email.");
-
+      setCaptchaToken("");
       if (signUpData?.session) {
         try {
           const enrolled = await registerPasskey("Passkey");
           if (enrolled) {
             toast.success("Passkey registered successfully!");
+            setCaptchaToken("");
           }
         } catch (e) {
           console.error("Passkey enrollment skipped or failed", e);
@@ -406,10 +448,25 @@ export default function AuthPage() {
                       </FormItem>
                     )}
                   />
+                  <Turnstile
+                    siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+                    onSuccess={(token) => setCaptchaToken(token)}
+                    onExpire={() => setCaptchaToken("")}
+                    onError={() => setCaptchaToken("")}
+                  />
+                  <Turnstile
+                    siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+                    onSuccess={(token) => setCaptchaToken(token)}
+                    onExpire={() => setCaptchaToken("")}
+                    onError={() => setCaptchaToken("")}
+                  />
 
+                  {captchaToken && <p className="text-green-600 text-sm">CAPTCHA verified</p>}
                   <Button
                     type="submit"
-                    disabled={loading || getPasswordStrength(signUpPassword) === "weak"}
+                    disabled={
+                      loading || !captchaToken || getPasswordStrength(signUpPassword) === "weak"
+                    }
                     variant="primary"
                     className="w-full bg-black text-cream hover:bg-black/90 cursor-pointer shadow-[3px_3px_0_0_var(--color-ink)]"
                   >
@@ -462,6 +519,19 @@ export default function AuthPage() {
             </p>
           </div>
         </div>
+
+        <MfaVerificationModal
+          isOpen={isMfaVerifyOpen}
+          factorId={mfaFactorId}
+          onSuccess={() => {
+            setIsMfaVerifyOpen(false);
+            navigate("/dashboard", { replace: true });
+          }}
+          onCancel={() => {
+            setIsMfaVerifyOpen(false);
+            void supabase.auth.signOut();
+          }}
+        />
       </div>
     </div>
   );

@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+// --- Database Native Enums (#2020) -------------------------------------------
+
+export const UserRoleEnum = z.enum(["student", "faculty", "admin", "moderator"]);
+export type UserRole = z.infer<typeof UserRoleEnum>;
+
+export const EventStatusEnum = z.enum(["draft", "published", "cancelled"]);
+export type EventStatus = z.infer<typeof EventStatusEnum>;
+
 // Predefined brand gradients users can pick as a fallback avatar background
 // when they choose not to upload a custom profile picture. Defined once here
 // so the settings UI and the validation schema always agree on valid ids.
@@ -42,6 +50,7 @@ export const profileSchema = z.object({
   avatarTheme: z.enum(avatarThemeIds).optional().or(z.literal("")),
   firstName: z.string().trim().min(1, "First name is required."),
   lastName: z.string().trim().min(1, "Last name is required."),
+  role: UserRoleEnum.default("student"),
   handle: z
     .string()
     .trim()
@@ -81,6 +90,15 @@ export const profileSchema = z.object({
 
 export type ProfileFormValues = z.infer<typeof profileSchema>;
 
+export const notificationPreferencesSchema = z.object({
+  email_alerts: z.boolean().default(true),
+  push_notifications: z.boolean().default(true),
+  digest: z.boolean().default(true),
+  dark_mode_default: z.boolean().default(false),
+});
+
+export type NotificationPreferencesValues = z.infer<typeof notificationPreferencesSchema>;
+
 // --- Auth: sign in ---------------------------------------------------------
 
 export const signInSchema = z.object({
@@ -108,6 +126,7 @@ export const signUpSchema = z
   .object({
     firstName: z.string().trim().min(1, "First name is required."),
     lastName: z.string().trim().min(1, "Last name is required."),
+    role: UserRoleEnum.default("student"),
     email: z
       .string()
       .trim()

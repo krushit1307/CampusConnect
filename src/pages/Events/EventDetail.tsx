@@ -2,7 +2,7 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect, lazy, Suspense, useMemo } from "react";
-import { motion } from "framer-motion";
+import { LazyMotion, m } from "framer-motion";
 import { Helmet } from "react-helmet-async";
 import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
 import { TableOfContents } from "@/components/events/TableOfContents";
@@ -11,6 +11,8 @@ import NotFound from "./NotFound";
 import LazyHydrate from "@/components/LazyHydrate";
 import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
+import { useBreadcrumbs } from "@/components/BreadcrumbsContext";
+import { triggerConfetti } from "@/utils/confetti";
 // Removed SiteShell import
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { MapSkeleton } from "@/components/ui/MapSkeleton";
@@ -38,9 +40,10 @@ import {
 
 const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ default: m.EventMap })));
 import { formatEventDateRange } from "@/lib/utils";
+import { loadDomMax } from "@/lib/motionFeatures";
 import { downloadIcs, getGoogleCalendarUrl } from "@/lib/calendarUtils";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
-import { formatStandardDate } from "@/utils/dateUtils";
+import { formatDateLong } from "@/lib/dateFormatter";
 import { toast } from "sonner";
 import { ShareMenu } from "@/components/ui/ShareMenu";
 import {
@@ -94,6 +97,7 @@ import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
 import { CaptchaWidget } from "@/components/CaptchaWidget";
 import { SeatingChart } from "@/components/events/SeatingChart";
 import { useEventSeats } from "@/hooks/useEventSeats";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 interface SimilarEventItem {
   id: string;
@@ -192,8 +196,7 @@ function SimilarEvents({
             </h3>
             {evt.event_date && (
               <p className="font-mono text-xs text-black/60 mt-1">
-                📅 {formatStandardDate(evt.event_date)}
-                📅 {new Date(evt.event_date).toLocaleDateString()}
+                📅 {formatDateLong(evt.event_date)}
               </p>
             )}
           </Link>
@@ -211,7 +214,7 @@ function rsvpRowsToCsv(rows: { name: string; email: string; rsvp_date: string; s
   };
   const lines = [headers.join(",")];
   for (const r of rows) {
-    lines.push([r.name, r.email, formatStandardDate(r.rsvp_date), r.status].map(escape).join(","));
+    lines.push([r.name, r.email, formatDateLong(r.rsvp_date), r.status].map(escape).join(","));
   }
   return lines.join("\n");
 }
@@ -229,25 +232,93 @@ function downloadCsv(csvContent: string, filename: string) {
 }
 
 export default function EventDetailsPage() {
-  const { eventId = "" } = useParams();
+  const { eventId = "", lang = "en" } = useParams();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const emailVerified = useEmailVerification();
-  const [copied, setCopied] = useState(false);
-  const [idCopied, setIdCopied] = useState(false);
+  const { copyToClipboard: copyEventLink, isCopied: isEventLinkCopied } = useCopyToClipboard();
+  const { copyToClipboard: copyEventId, isCopied: isEventIdCopied } = useCopyToClipboard();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | undefined>(undefined);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const viewerCount = useEventViewerCount(eventId);
+  const { setCustomTrail } = useBreadcrumbs();
 
   // Safe window URL handling for SSR / hydration safety
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 
   useEffect(() => {
+    if (!event) {
+      const skeleton = (
+        <span className="h-3 w-16 animate-pulse rounded bg-gray-200 dark:bg-gray-700 inline-block align-middle" />
+      );
+      setCustomTrail([
+        { label: "Home", path: `/${lang}` },
+        { label: "Clubs", path: `/${lang}/clubs` },
+        { label: skeleton },
+        { label: "Events", path: `/${lang}/events` },
+        { label: skeleton },
+      ]);
+      return;
+    }
+
+    const clubObj = event.clubs ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
+    const trail = [
+      { label: "Home", path: `/${lang}` },
+      { label: "Clubs", path: `/${lang}/clubs` },
+    ];
+
+    if (clubObj) {
+      trail.push({
+        label: clubObj.name,
+        path: `/${lang}/clubs/${clubObj.slug}`,
+      });
+    }
+
+    trail.push({
+      label: "Events",
+      path: `/${lang}/events`,
+    });
+
+    trail.push({
+      label: event.title,
+    });
+
+    setCustomTrail(trail);
+
+    return () => {
+      setCustomTrail(null);
+    };
+  }, [event, lang, setCustomTrail]);
+
+  useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
+
+  // Listen for Service Worker background sync messages for offline RSVP reconciliation
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+
+    const handleSwMessage = (event: MessageEvent) => {
+      if (event.data?.type === "OFFLINE_RSVP_SYNC_SUCCESS") {
+        toast.success("Your offline RSVP was synchronized successfully!");
+        refetch();
+      } else if (event.data?.type === "OFFLINE_RSVP_SYNC_ERROR") {
+        toast.error(
+          `Offline RSVP sync failed: ${event.data.reason || "Event capacity reached or conflict occurred."}`,
+        );
+        refetch(); // Refetch to reset optimistic UI to server ground truth
+      }
+    }
+
+    navigator.serviceWorker.addEventListener("message", handleSwMessage);
+    return () => {
+      navigator.serviceWorker.removeEventListener("message", handleSwMessage);
+    };
+  }, [refetch]);
 
   // Gallery States and Queries
   interface UploadingFile {
@@ -752,13 +823,26 @@ export default function EventDetailsPage() {
         toast.error((err?.message as string) || "Failed to update RSVP. Please try again.");
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       // Refetch to ensure server state matches
       refetch();
+      if (!variables.hasRsvpd) {
+        triggerConfetti();
+      }
       // Reserve selected seats after successful RSVP
       if (hasSeats && selectedSeats.length > 0) {
         selectedSeats.forEach((seatId) => {
           supabase.rpc("reserve_seat", { p_seat_id: seatId });
+        });
+      }
+
+      // Eagerly cache event banner if they just RSVP'd
+      if (!variables.hasRsvpd && event?.banner_url && "caches" in window) {
+        window.caches.open("supabase-images-cache").then((cache) => {
+          cache.add(event.banner_url!).catch((err) => {
+            // eslint-disable-next-line no-console
+            console.error("Failed to eagerly cache banner image", err);
+          });
         });
       }
     },
@@ -1136,23 +1220,17 @@ export default function EventDetailsPage() {
   };
 
   const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl || window.location.href);
-      setCopied(true);
+    if (await copyEventLink(shareUrl || window.location.href)) {
       toast.success("Event link copied to clipboard!");
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
+    } else {
       toast.error("Failed to copy link.");
     }
   };
 
   const handleCopyEventId = async () => {
-    try {
-      await navigator.clipboard.writeText(event.id);
-      setIdCopied(true);
+    if (await copyEventId(event.id)) {
       toast.success("Event ID copied to clipboard!");
-      setTimeout(() => setIdCopied(false), 2000);
-    } catch {
+    } else {
       toast.error("Failed to copy event ID.");
     }
   };
@@ -1164,7 +1242,9 @@ export default function EventDetailsPage() {
   const attendeeCount =
     ((event as Record<string, unknown>).attendee_count as number) ?? rsvps.length;
   const maxAttendees = (event as Record<string, unknown>).max_attendees as
-    number | null | undefined;
+    | number
+    | null
+    | undefined;
   const isAtCapacity =
     maxAttendees !== null &&
     maxAttendees !== undefined &&
@@ -1192,45 +1272,8 @@ export default function EventDetailsPage() {
   });
 
   return (
-    <>
-      {/* Breadcrumb nav */}
-      <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6" aria-label="Breadcrumb">
-        <div className="mx-auto max-w-4xl">
-          {/* Mobile: simple back link */}
-          <Link
-            to="/events"
-            className="inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider hover:underline sm:hidden"
-          >
-            <ArrowLeft size={14} /> Events
-          </Link>
-          {/* sm+: full breadcrumb */}
-          <Breadcrumb className="hidden sm:block">
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link to="/" className="font-mono text-xs font-bold uppercase">
-                    Home
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link to="/events" className="font-mono text-xs font-bold uppercase">
-                    Events
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage className="font-mono text-xs font-bold uppercase">
-                  {event.title}
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-        </div>
-      </nav>
+    <LazyMotion features={loadDomMax} strict={import.meta.env.DEV}>
+
 
       <Helmet>
         {/* OpenGraph (Facebook / Discord / iMessage) */}
@@ -1250,49 +1293,12 @@ export default function EventDetailsPage() {
         {og.ogImage && <meta name="twitter:image" content={og.ogImage} />}
       </Helmet>
       <SiteShell>
-        {/* Breadcrumb nav */}
-        <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6" aria-label="Breadcrumb">
-          <div className="mx-auto max-w-4xl">
-            {/* Mobile: simple back link */}
-            <Link
-              to="/events"
-              className="inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider hover:underline sm:hidden"
-            >
-              <ArrowLeft size={14} /> Events
-            </Link>
-            {/* sm+: full breadcrumb */}
-            <Breadcrumb className="hidden sm:block">
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/" className="font-mono text-xs font-bold uppercase">
-                      Home
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/events" className="font-mono text-xs font-bold uppercase">
-                      Events
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage className="font-mono text-xs font-bold uppercase">
-                    {event.title}
-                  </BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-        </nav>
+
 
         {/* Hero Section */}
         <section className="relative w-full overflow-hidden border-b-2 border-black bg-peach/30">
           {event.banner_url ? (
-            <motion.div layoutId={`event-image-${event.id}`} className="absolute inset-0">
+            <m.div layoutId={`event-image-${event.id}`} className="absolute inset-0">
               <OptimizedImage
                 src={event.banner_url}
                 alt={`${event.title} event banner`}
@@ -1307,9 +1313,9 @@ export default function EventDetailsPage() {
                 }
               />
               <div className="absolute inset-0 bg-black/50" />
-            </motion.div>
+            </m.div>
           ) : (
-            <motion.div
+            <m.div
               layoutId={`event-image-${event.id}`}
               className="absolute inset-0 bg-linear-to-br from-peach via-pink-200 to-lime/40"
             />
@@ -1339,7 +1345,11 @@ export default function EventDetailsPage() {
                       className="neu-border rounded-2xl h-8 w-8 shrink-0 bg-black text-white transition-all duration-300 hover:scale-105 active:scale-95"
                       aria-label="Copy Event ID"
                     >
-                      {idCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      {isEventIdCopied ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -1500,12 +1510,12 @@ export default function EventDetailsPage() {
                       variant="outline"
                       className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
                     >
-                      {copied ? (
+                      {isEventLinkCopied ? (
                         <Check className="mr-2 h-4 w-4" />
                       ) : (
                         <LinkIcon className="mr-2 h-4 w-4" />
                       )}
-                      {copied ? "Copied" : "Copy Link"}
+                      {isEventLinkCopied ? "Copied! ✓" : "Copy Link"}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -2490,6 +2500,6 @@ export default function EventDetailsPage() {
           />
         </div>
       )}
-    </>
+    </LazyMotion>
   );
 }

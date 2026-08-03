@@ -1,5 +1,5 @@
 import { act, render, screen, fireEvent } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { createRef } from "react";
 
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "./resizable";

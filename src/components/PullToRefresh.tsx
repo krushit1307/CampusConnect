@@ -7,8 +7,8 @@ interface PullToRefreshProps {
   children: React.ReactNode;
 }
 
-const ACTIVATION_THRESHOLD = 80;
-const MAX_PULL_DISTANCE = 140;
+const ACTIVATION_THRESHOLD = 100;
+const MAX_PULL_DISTANCE = 160;
 const PULL_RESISTANCE = 0.4;
 
 export function PullToRefresh({ onRefresh, isRefreshing, children }: PullToRefreshProps) {

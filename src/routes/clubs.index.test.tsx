@@ -1,4 +1,3 @@
-/* eslint-disable local-rules/no-cross-page-imports */
 import "@testing-library/jest-dom/vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
@@ -30,6 +29,7 @@ vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
+      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
       onAuthStateChange: vi.fn().mockReturnValue({
         data: { subscription: { unsubscribe: vi.fn() } },
       }),
@@ -42,24 +42,26 @@ vi.mock("@/lib/supabase/client", () => ({
     }),
     from: vi.fn().mockReturnValue({
       select: vi.fn().mockReturnValue({
-        range: vi.fn().mockResolvedValue({
-          data: [
-            {
-              id: "1",
-              name: "Robotics Club",
-              slug: "robotics-club",
-              description: "Build cool robots and compete.",
-              club_stats: [{ total_members: 42, total_events: 5, total_posts: 10 }],
-            },
-            {
-              id: "2",
-              name: "Drama Society",
-              slug: "drama-society",
-              description: "Theater and acting performance.",
-              club_stats: [{ total_members: 28, total_events: 3, total_posts: 7 }],
-            },
-          ],
-          count: 2,
+        order: vi.fn().mockReturnValue({
+          range: vi.fn().mockResolvedValue({
+            data: [
+              {
+                id: "1",
+                name: "Robotics Club",
+                slug: "robotics-club",
+                description: "Build cool robots and compete.",
+                club_stats: [{ total_members: 42, total_events: 5, total_posts: 10 }],
+              },
+              {
+                id: "2",
+                name: "Drama Society",
+                slug: "drama-society",
+                description: "Theater and acting performance.",
+                club_stats: [{ total_members: 28, total_events: 3, total_posts: 7 }],
+              },
+            ],
+            count: 2,
+          }),
         }),
       }),
     }),

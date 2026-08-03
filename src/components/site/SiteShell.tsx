@@ -1,19 +1,35 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
+import { useIdleTimeout } from "@/hooks/useIdleTimeout";
 import { Joyride } from "react-joyride";
 import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
 import { BugReportWidget } from "@/components/BugReportWidget";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 export function SiteShell({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
   const [supabase] = useState(() => createClient());
   const [user, setUser] = useState<User | null>(null);
   const emailVerified = useEmailVerification();
   const [hasCompletedTour, setHasCompletedTour] = useState<boolean>(
     () => localStorage.getItem("hasCompletedTour") === "true",
   );
+
+  // Automated session inactivity timeout (30 mins default, triggers Supabase signOut)
+  useIdleTimeout({
+    onTimeout: async () => {
+      if (user) {
+        await supabase.auth.signOut();
+        localStorage.clear();
+        sessionStorage.clear();
+        navigate("/login?reason=timeout", { replace: true });
+      }
+    },
+  });
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -80,7 +96,11 @@ export function SiteShell({ children }: { children: ReactNode }) {
     },
   ];
 
+  const JoyrideComponent = Joyride as unknown as React.ComponentType<Record<string, unknown>>;
   const isEmailUnverified = !!user && !emailVerified;
+
+  // Render Joyride dynamic wrapper component safely
+  const JoyrideComponent = Joyride as unknown as React.ComponentType<Record<string, unknown>>;
 
   return (
     <div className="college-shell flex min-h-screen flex-col bg-cream text-black transition-colors dark:bg-brand-gray-base-900 dark:text-cream">
@@ -147,6 +167,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
         </div>
       )}
       <main id="main-content" tabIndex={-1} className="flex-1 pb-16 md:pb-0">
+        <Breadcrumbs />
         {children}
       </main>
       <Footer />

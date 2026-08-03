@@ -49,7 +49,6 @@ HTMLCanvasElement.prototype.getContext = vi.fn().mockImplementation((type: strin
 
       deleteProgram: vi.fn(),
       deleteBuffer: vi.fn(),
-      deleteShader: vi.fn(),
 
       ARRAY_BUFFER: 34962,
       STATIC_DRAW: 35044,

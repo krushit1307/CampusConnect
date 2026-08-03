@@ -24,31 +24,33 @@ export declare function getCountdown(dateStr: string): string;
  */
 export declare const formatDateOnly: (dateString: string, monthFormat?: "short" | "long") => string;
 export declare function formatEventDateRange(event: {
-    event_date: string | null;
-    start_date?: string | null;
-    end_date?: string | null;
+  event_date: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
 }): string;
 export declare function getGoogleCalendarUrl(event: {
-    title: string;
-    description: string | null;
-    event_date: string | null;
-    start_date?: string | null;
-    end_date?: string | null;
-    location: string | null;
+  title: string;
+  description: string | null;
+  event_date: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  location: string | null;
 }): string | null;
 export declare function getIcsContent(event: {
-    title: string;
-    description: string | null;
-    event_date: string | null;
-    start_date?: string | null;
-    end_date?: string | null;
-    location: string | null;
+  title: string;
+  description: string | null;
+  event_date: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  location: string | null;
 }): string | null;
-export declare function getMultiIcsContent(events: {
+export declare function getMultiIcsContent(
+  events: {
     title: string;
     description: string | null;
     event_date: string | null;
     start_date?: string | null;
     end_date?: string | null;
     location: string | null;
-}[]): string | null;
+  }[],
+): string | null;

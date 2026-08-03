@@ -17,6 +17,10 @@ interface FakeRequest<T> {
 class FakeObjectStore {
   private data = new Map<string, unknown>();
 
+  clear() {
+    this.data.clear();
+  }
+
   put(item: { id: string }) {
     this.data.set(item.id, item);
     const req: FakeRequest<undefined> = { result: undefined, onsuccess: null, onerror: null };
@@ -80,8 +84,7 @@ describe("Offline Background Sync Module (offlineSync.ts)", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    // @ts-expect-error - reset private data
-    sharedStore["data"].clear();
+    sharedStore.clear();
     fakeDb = new FakeIDBDatabase();
 
     // Mock global indexedDB
@@ -92,13 +95,12 @@ describe("Offline Background Sync Module (offlineSync.ts)", () => {
       onupgradeneeded: null,
     };
 
-    // @ts-expect-error - mock indexedDB
     globalThis.indexedDB = {
       open: () => {
         setTimeout(() => openReq.onsuccess?.(), 0);
         return openReq;
       },
-    };
+    } as unknown as IDBFactory;
   });
 
   afterEach(() => {

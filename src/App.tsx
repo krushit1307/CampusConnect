@@ -1,6 +1,7 @@
 import { QueryClientProvider, queryClient } from "@/hooks/useReactQueryReplacement";
 import { Suspense, lazy, useEffect, useState } from "react";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, LazyMotion, MotionConfig } from "framer-motion";
+import { loadDomAnimation } from "@/lib/motionFeatures";
 import {
   createBrowserRouter,
   RouterProvider,
@@ -19,8 +20,17 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CommandPalette } from "./components/ui/command-palette";
 import MaintenancePage from "./components/MaintenancePage";
+import { NotFoundPage } from "./components/NotFoundPage";
 import { createClient } from "./lib/supabase/client";
-import RouteSkeleton from "@/components/RouteSkeleton";
+import { BreadcrumbProvider } from "@/components/BreadcrumbsContext";
+
+function RemoteLoadingScreen() {
+  return (
+    <div className="flex h-screen w-full items-center justify-center bg-slate-950 text-white">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+    </div>
+  );
+}
 
 const HEALTH_CHECK_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_HEALTH_URL) ||
@@ -67,9 +77,12 @@ const Index = lazy(() => import("./routes/index"));
 const Auth = lazy(() => import("./routes/auth"));
 const Certificates = lazy(() => import("./routes/certificates"));
 const ClubsIndex = lazy(() => import("./routes/clubs.index"));
+const ClubNew = lazy(() => import("./routes/clubs.new"));
 const ClubDetails = lazy(() => import("./routes/clubs.$slug"));
 const ClubManageRoute = lazy(() => import("./routes/clubs.$slug.manage"));
 const ClubNotesRoute = lazy(() => import("./routes/clubs.$slug.notes"));
+const ClubArticlesRoute = lazy(() => import("./routes/clubs.$slug.articles"));
+const ClubArticleDetailsRoute = lazy(() => import("./routes/clubs.$slug.articles.$articleId"));
 const ClubsLayout = lazy(() => import("./routes/clubs"));
 const Dashboard = lazy(() => import("./routes/dashboard"));
 const DashboardOverview = lazy(() => import("./routes/dashboard.index"));
@@ -90,9 +103,11 @@ const AnalyticsAdmin = lazy(() => import("./routes/admin.analytics"));
 const AdminReportsPage = lazy(() => import("./routes/admin.reports"));
 const AdminUsersPage = lazy(() => import("./routes/admin.users"));
 const AdminRestorePage = lazy(() => import("./routes/admin.restore"));
+const AdminDlqPage = lazy(() => import("./routes/admin.dlq"));
 const NotFound = lazy(() => import("./routes/NotFound"));
 const ChallengeArena = lazy(() => import("./routes/challenge"));
 const EventDashboard = lazy(() => import("./routes/events.$eventId.dashboard"));
+const LostFound = lazy(() => import("./routes/lost-found"));
 const Leaderboard = lazy(() =>
   import("./components/Leaderboard").then((m) => ({ default: m.Leaderboard })),
 );
@@ -140,9 +155,12 @@ const router = createBrowserRouter(
 
         <Route path="/clubs" element={<ClubsLayout />}>
           <Route index element={<ClubsIndex />} />
+          <Route path="new" element={<ClubNew />} />
           <Route path=":slug" element={<ClubDetails />} />
           <Route path=":slug/manage" element={<ClubManageRoute />} />
           <Route path=":slug/notes" element={<ClubNotesRoute />} />
+          <Route path=":slug/articles" element={<ClubArticlesRoute />} />
+          <Route path=":slug/articles/:articleId" element={<ClubArticleDetailsRoute />} />
         </Route>
 
         <Route path="/dashboard" element={<Dashboard />}>
@@ -178,7 +196,7 @@ const router = createBrowserRouter(
         <Route path="leaderboard" element={<Leaderboard />} />
 
         <Route path="/feed" element={<Feed />} />
-        <Route path="/directory" element={<Directory />} />
+        <Route path="/lost-found" element={<LostFound />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/settings" element={<Settings />} />
@@ -189,10 +207,11 @@ const router = createBrowserRouter(
         <Route path="/admin/reports" element={<AdminReportsPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/restore" element={<AdminRestorePage />} />
+        <Route path="/admin/dlq" element={<AdminDlqPage />} />
+        <Route path="*" element={<NotFoundPage />} />
         {/* Catch-all route for 404 errors */}
         <Route path="*" element={<NotFound />} />
       </Route>
-      ,
     </Route>,
   ),
 );
@@ -255,17 +274,31 @@ export default function App() {
 
   return (
     <ThemeProvider>
-      {" "}
       <TooltipProvider>
         <QueryClientProvider client={queryClient}>
           <ErrorBoundary>
-            <CommandPalette />
-            {/* Floating Dark Mode Toggle */}
-            <div className="fixed bottom-4 right-4 z-[9999]">
-              <ThemeToggle />
-            </div>
+            {/*
+              App-wide LazyMotion provider. Every `m.*` component in the tree
+              renders using this lightweight `domAnimation` feature set
+              (fetched from a separate chunk) instead of statically bundling
+              framer-motion's full ~35kb `motion` object. `strict` is only
+              enabled in dev so that any stray `motion.div` (which would
+              silently pull in the full bundle) throws loudly during
+              development instead of shipping to production.
+            */}
+            <LazyMotion features={loadDomAnimation} strict={import.meta.env.DEV}>
+              <CommandPalette />
+              {/* Floating Dark Mode Toggle */}
+              <div className="fixed bottom-4 right-4 z-[9999]">
+                <ThemeToggle />
+              </div>
 
-            <RouterProvider router={router} />
+              <BreadcrumbProvider>
+                <MotionConfig reducedMotion="user">
+                  <RouterProvider router={router} />
+                </MotionConfig>
+              </BreadcrumbProvider>
+            </LazyMotion>
           </ErrorBoundary>
         </QueryClientProvider>
       </TooltipProvider>

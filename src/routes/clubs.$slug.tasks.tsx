@@ -2,7 +2,7 @@ import React from "react";
 import { useParams, Navigate } from "react-router-dom";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { KanbanBoard } from "@/components/clubs/tasks/KanbanBoard";
+import { KanbanBoard } from "@/components/Clubs/tasks/KanbanBoard";
 
 export default function ClubTasksRoute() {
   const { slug } = useParams<{ slug: string }>();

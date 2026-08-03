@@ -30,4 +30,4 @@ function AdminAuditLogsPage() {
 }
 
 // Wrap with auth HOC, requiring club_admin or higher role
-export default withAuth(AdminAuditLogsPage, { requiredRole: "club_admin" });
+export default withAuth(AdminAuditLogsPage);

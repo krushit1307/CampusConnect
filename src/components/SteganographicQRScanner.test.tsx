@@ -12,11 +12,13 @@ vi.mock("@/lib/steganography", () => ({
 }));
 
 class MockFileReader {
-  onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
+  onload: ((ev: { target: MockFileReader }) => void) | null = null;
   result: string | ArrayBuffer | null = null;
   readAsDataURL() {
     this.result = "data:image/png;base64,abc";
-    this.onload?.({ target: this } as ProgressEvent<FileReader>);
+    if (this.onload) {
+      this.onload({ target: this });
+    }
   }
 }
 
@@ -24,8 +26,12 @@ class MockImage {
   onload: (() => void) | null = null;
   width = 200;
   height = 200;
-  src = "";
+  private _src = "";
+  get src() {
+    return this._src;
+  }
   set src(value: string) {
+    this._src = value;
     this.onload?.();
   }
 }
@@ -36,6 +42,18 @@ describe("SteganographicQRScanner", () => {
     vi.stubGlobal("Image", MockImage);
     mockVerifyTicketPayload.mockReset();
     mockExtractLSBData.mockReset();
+
+    // Mock canvas 2D context so JSDOM doesn't fail when creating the image canvas
+    HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue({
+      drawImage: vi.fn(),
+      getImageData: vi.fn().mockReturnValue({
+        data: new Uint8ClampedArray(200 * 200 * 4),
+        width: 200,
+        height: 200,
+      }),
+      clearRect: vi.fn(),
+      putImageData: vi.fn(),
+    }) as unknown as typeof HTMLCanvasElement.prototype.getContext;
   });
 
   it("reports a verified payload to the parent when a ticket image is uploaded", async () => {
@@ -54,9 +72,17 @@ describe("SteganographicQRScanner", () => {
       timestamp: payload.timestamp,
     });
 
-    render(<SteganographicQRScanner onVerificationSuccess={onVerificationSuccess} />);
+    const { container } = render(
+      <SteganographicQRScanner onVerificationSuccess={onVerificationSuccess} />,
+    );
 
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    // Switch to upload mode first (the file input only renders in upload mode)
+    const uploadButton = screen.getByText(/Upload Ticket/i);
+    fireEvent.click(uploadButton);
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(input).not.toBeNull();
+
     const file = new File(["ticket"], "ticket.png", { type: "image/png" });
 
     fireEvent.change(input, { target: { files: [file] } });
