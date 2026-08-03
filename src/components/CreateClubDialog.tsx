@@ -114,6 +114,31 @@ export function CreateClubDialog({ user }: { user: User | null }) {
       if (error) {
         throw new Error(error.message);
       }
+
+      // Automatically add creator as admin member
+      if (newClub) {
+        // First, get the admin role for this club
+        const { data: adminRole, error: roleError } = await supabase
+          .from("club_roles")
+          .select("id")
+          .eq("club_id", newClub.id)
+          .eq("title", "Admin")
+          .single();
+
+        if (roleError || !adminRole) {
+          console.error("[CreateClubDialog] Failed to get admin role:", roleError);
+        } else {
+          const { error: memberError } = await supabase.from("club_members").insert({
+            club_id: newClub.id,
+            user_id: user.id,
+            role_id: adminRole.id,
+            status: "approved",
+          });
+          if (memberError) {
+            console.error("[CreateClubDialog] Failed to add creator as member:", memberError);
+          }
+        }
+      }
     },
     onSuccess: () => {
       toast.success("Club submitted for administrator review.");

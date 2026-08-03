@@ -262,9 +262,23 @@ export default function ClubProfile() {
     mutationFn: async () => {
       if (!user || !club) throw new Error("Must be logged in");
       const isPublic = (club as { visibility?: string }).visibility === "public";
+      
+      // Get the default Member role for this club
+      const { data: memberRole, error: roleError } = await supabase
+        .from("club_roles")
+        .select("id")
+        .eq("club_id", club.id)
+        .eq("title", "Member")
+        .single();
+
+      if (roleError || !memberRole) {
+        throw new Error("Failed to get default member role");
+      }
+
       const { error } = await supabase.from("club_members").insert({
         club_id: club.id,
         user_id: user.id,
+        role_id: memberRole.id,
         status: isPublic ? "approved" : "pending",
       });
       if (error) throw error;
@@ -286,10 +300,10 @@ export default function ClubProfile() {
   const membership =
     user && club && Array.isArray(club.club_members)
       ? club.club_members.find(
-          (m: { user_id: string; role: string; status: string }) => m.user_id === user.id,
+          (m: { user_id: string; club_roles: { title: string } | null; status: string }) => m.user_id === user.id,
         )
       : null;
-  const isAdmin = membership && (membership.role === "admin" || membership.role === "organizer");
+  const isAdmin = membership && (membership.club_roles?.title === "Admin" || membership.club_roles?.title === "Organizer");
 
   useEffect(() => {
     if (!isAdmin || !club) return;
@@ -398,8 +412,10 @@ export default function ClubProfile() {
     : [];
   const memberList = members.map((m: ClubMember) => {
     const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
+    const clubRole = m.club_roles as { title: string } | null;
     return {
       name: profile?.full_name || "Unknown User",
+      role: clubRole?.title || "Member",
       handle: profile?.handle || "",
       role: m.role as "admin" | "member" | "organizer" | "alumni",
       avatarUrl: profile?.avatar_url || null,
