@@ -34,22 +34,13 @@ interface MutationResponse {
   }[];
 }
 
+import { fetchGraphQL, GraphQLPartialError } from "@/lib/graphql-client";
+
 async function graphqlRequest<T>(
   query: string,
   variables: Record<string, unknown> = {},
 ): Promise<T> {
-  const res = await fetch("/api/graphql", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-  const json = await res.json();
-  if (json.errors) {
-    throw new Error(json.errors[0].message || "GraphQL Error");
-  }
-  return json.data as T;
+  return fetchGraphQL<T, Record<string, unknown>>(query, variables);
 }
 
 export default function AdminUsersPage() {
@@ -137,9 +128,17 @@ export default function AdminUsersPage() {
       setTotal(data.totalProfiles);
     } catch (err: unknown) {
       console.error(err);
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to load users from GraphQL.";
-      toast.error(errorMessage);
+      // Partial failure: render what we got, warn the user
+      if (err instanceof GraphQLPartialError) {
+        const partial = err.data as GraphQLResponse;
+        if (partial?.profiles) setProfiles(partial.profiles);
+        if (partial?.totalProfiles != null) setTotal(partial.totalProfiles);
+        toast.warning("Some user data failed to load. Showing partial results.");
+      } else {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to load users from GraphQL.";
+        toast.error(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
