@@ -20,7 +20,6 @@ afterEach(() => {
 
 // Mock react-resizable-panels since its components require real DOM layout
 vi.mock("react-resizable-panels", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   type MockProps = Record<string, any>;
 
   const Group = vi.fn(({ children, className, id, "data-testid": testId, ...props }: MockProps) => {

@@ -103,9 +103,11 @@ const AnalyticsAdmin = lazy(() => import("./routes/admin.analytics"));
 const AdminReportsPage = lazy(() => import("./routes/admin.reports"));
 const AdminUsersPage = lazy(() => import("./routes/admin.users"));
 const AdminRestorePage = lazy(() => import("./routes/admin.restore"));
+const AdminDlqPage = lazy(() => import("./routes/admin.dlq"));
 const NotFound = lazy(() => import("./routes/NotFound"));
 const ChallengeArena = lazy(() => import("./routes/challenge"));
 const EventDashboard = lazy(() => import("./routes/events.$eventId.dashboard"));
+const EventGantt = lazy(() => import("./routes/events.$eventId.gantt"));
 const LostFound = lazy(() => import("./routes/lost-found"));
 const Leaderboard = lazy(() =>
   import("./components/Leaderboard").then((m) => ({ default: m.Leaderboard })),
@@ -189,6 +191,7 @@ const router = createBrowserRouter(
         />
 
         <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
+        <Route path="/events/:eventId/gantt" element={<EventGantt />} />
         {/* Events Map View with clustering */}
         <Route path="events/map" element={<EventsMapPage />} />
         <Route path="challenge" element={<ChallengeArena />} />
@@ -206,6 +209,7 @@ const router = createBrowserRouter(
         <Route path="/admin/reports" element={<AdminReportsPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/restore" element={<AdminRestorePage />} />
+        <Route path="/admin/dlq" element={<AdminDlqPage />} />
         <Route path="*" element={<NotFoundPage />} />
         {/* Catch-all route for 404 errors */}
         <Route path="*" element={<NotFound />} />

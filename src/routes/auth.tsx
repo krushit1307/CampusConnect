@@ -19,6 +19,7 @@ import { useWebAuthn } from "@/hooks/useWebAuthn";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { AuthSocialProviderGrid } from "@/components/auth/AuthSocialProviderGrid";
 import { PasskeyAuthModal } from "@/components/auth/PasskeyAuthModal";
+import { MfaVerificationModal } from "@/components/auth/MfaVerificationModal";
 import {
   signInSchema,
   type SignInFormValues,
@@ -40,6 +41,8 @@ export default function AuthPage() {
   const [captchaToken, setCaptchaToken] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPasskeyModalOpen, setIsPasskeyModalOpen] = useState(false);
+  const [isMfaVerifyOpen, setIsMfaVerifyOpen] = useState(false);
+  const [mfaFactorId, setMfaFactorId] = useState("");
   const navigate = useNavigate();
   const supabase = createClient();
   const { registerPasskey } = useWebAuthn();
@@ -96,6 +99,22 @@ export default function AuthPage() {
       });
 
       if (setSessionError) throw setSessionError;
+
+      // Check if MFA TOTP is enabled/enforced for the user
+      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      const { data: factorsData } = await supabase.auth.mfa.listFactors();
+      const verifiedTotpFactor = factorsData?.totp?.find((f) => f.status === "verified");
+
+      if (
+        (aalData && aalData.nextLevel === "aal2" && aalData.currentLevel === "aal1") ||
+        verifiedTotpFactor
+      ) {
+        if (verifiedTotpFactor) {
+          setMfaFactorId(verifiedTotpFactor.id);
+          setIsMfaVerifyOpen(true);
+          return;
+        }
+      }
 
       navigate("/dashboard", { replace: true });
     } catch (err: unknown) {
@@ -500,6 +519,19 @@ export default function AuthPage() {
             </p>
           </div>
         </div>
+
+        <MfaVerificationModal
+          isOpen={isMfaVerifyOpen}
+          factorId={mfaFactorId}
+          onSuccess={() => {
+            setIsMfaVerifyOpen(false);
+            navigate("/dashboard", { replace: true });
+          }}
+          onCancel={() => {
+            setIsMfaVerifyOpen(false);
+            void supabase.auth.signOut();
+          }}
+        />
       </div>
     </div>
   );

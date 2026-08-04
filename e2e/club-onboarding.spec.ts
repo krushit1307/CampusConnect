@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./analytics-fixture";
 
 const MOCK_USER = {
   id: "00000000-0000-0000-0000-000000000000",

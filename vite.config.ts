@@ -80,117 +80,119 @@ export default defineConfig({
     port: 3000,
     host: true,
     headers: {
+      "Content-Security-Policy":
+        "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.google-analytics.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.supabase.co https://s3.amazonaws.com https://images.unsplash.com https://www.google-analytics.com; frame-src 'self' https://js.stripe.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none';",
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
   },
   preview: {
     headers: {
+      "Content-Security-Policy":
+        "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.google-analytics.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.supabase.co https://s3.amazonaws.com https://images.unsplash.com https://www.google-analytics.com; frame-src 'self' https://js.stripe.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none';",
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",
+      "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
     },
   },
   // Ensure Vite treats .lottie and .json files as raw static assets
   assetsInclude: ["**/*.lottie", "**/*.json"],
+  // Storybook sets STORYBOOK=true. Skip the PWA service-worker generation in
+  // Storybook builds — it precaches Storybook's own 3MB+ manager bundle and
+  // fails on the default 2MiB workbox limit.
   plugins: [
     lucideImportOptimizer(),
     viteReact(),
     tailwindcss(),
-    VitePWA({
-      registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "apple-touch-icon.png", "masked-icon.svg"],
-      manifest: {
-        name: "CampusConnect",
-        short_name: "CampusConnect",
-        description: "CampusConnect PWA App",
-        theme_color: "#ffffff",
-        icons: [
-          {
-            src: "pwa-192x192.png",
-            sizes: "192x192",
-            type: "image/png",
-          },
-          {
-            src: "pwa-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-          },
-        ],
-      },
-      workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,json,lottie}"],
-        runtimeCaching: [
-          {
-            urlPattern: ({ request }) =>
-              request.destination === "style" ||
-              request.destination === "script" ||
-              request.destination === "worker",
-            handler: "StaleWhileRevalidate",
-            options: {
-              cacheName: "static-resources",
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+    ...(process.env.STORYBOOK === "true"
+      ? []
+      : [
+          VitePWA({
+            registerType: "autoUpdate",
+            includeAssets: ["favicon.ico", "apple-touch-icon.png", "masked-icon.svg"],
+            manifest: {
+              name: "CampusConnect",
+              short_name: "CampusConnect",
+              description: "CampusConnect PWA App",
+              theme_color: "#ffffff",
+              icons: [
+                {
+                  src: "pwa-192x192.png",
+                  sizes: "192x192",
+                  type: "image/png",
+                },
+                {
+                  src: "pwa-512x512.png",
+                  sizes: "512x512",
+                  type: "image/png",
+                },
+              ],
+            },
+            workbox: {
+              globPatterns: ["**/*.{js,css,html,ico,png,svg,json,lottie}"],
+              runtimeCaching: [
+                {
+                  urlPattern: ({ request }) =>
+                    request.destination === "style" ||
+                    request.destination === "script" ||
+                    request.destination === "worker",
+                  handler: "StaleWhileRevalidate",
+                  options: {
+                    cacheName: "static-resources",
+                    expiration: {
+                      maxEntries: 50,
+                      maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+                    },
+                  },
+                },
+                {
+                  urlPattern: ({ url, request }) =>
+                    request.method === "GET" && url.pathname.startsWith("/api/"),
+                  handler: "StaleWhileRevalidate",
+                  options: {
+                    cacheName: "api-get-cache",
+                    expiration: {
+                      maxEntries: 100,
+                      maxAgeSeconds: 24 * 60 * 60, // 24 Hours
+                    },
+                    cacheableResponse: {
+                      statuses: [0, 200],
+                    },
+                  },
+                },
+                {
+                  urlPattern: ({ request }) => request.destination === "image",
+                  handler: "CacheFirst",
+                  options: {
+                    cacheName: "images-cache",
+                    expiration: {
+                      maxEntries: 60,
+                      maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+                    },
+                  },
+                },
+              ],
+            },
+          }),
+        ]),
+    ...(process.env.STORYBOOK === "true"
+      ? []
+      : [
+          federation({
+            name: "host",
+            remotes: {},
+            shared: {
+              react: {
+                singleton: true,
+                requiredVersion: "^19.2.7",
+              },
+              "react-dom": {
+                singleton: true,
+                requiredVersion: "^19.2.0",
               },
             },
-          },
-          {
-            urlPattern: ({ url, request }) =>
-              request.method === "GET" && url.pathname.startsWith("/api/"),
-            handler: "StaleWhileRevalidate",
-            options: {
-              cacheName: "api-get-cache",
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 24 * 60 * 60, // 24 Hours
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/v1\/object\/public\/.*/i,
-            handler: "StaleWhileRevalidate",
-            options: {
-              cacheName: "supabase-images-cache",
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
-          {
-            urlPattern: ({ request }) => request.destination === "image",
-            handler: "CacheFirst",
-            options: {
-              cacheName: "images-cache",
-              expiration: {
-                maxEntries: 60,
-                maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
-              },
-            },
-          },
-        ],
-      },
-    }),
-    federation({
-      name: "host",
-      remotes: {},
-      shared: {
-        react: {
-          singleton: true,
-          requiredVersion: "^19.2.7",
-        },
-        "react-dom": {
-          singleton: true,
-          requiredVersion: "^19.2.0",
-        },
-      },
-    }),
+          }),
+        ]),
   ],
   resolve: {
     alias: {
@@ -204,16 +206,28 @@ export default defineConfig({
   build: {
     target: "esnext",
     chunkSizeWarningLimit: 1000,
-  },
-  build: {
-    // Raises warning threshold (optional, e.g. set to 1000kB / 1MB)
-    chunkSizeWarningLimit: 1000,
-    // Bundler options for chunking
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("recharts") || id.includes("echarts") || id.includes("chart.js")) {
+              return "chunk-admin-charts";
+            }
+            if (id.includes("react") || id.includes("react-dom")) {
+              return "vendor-react";
+            }
+            return "vendor";
+          }
+        },
+      },
+    },
     rolldownOptions: {
       output: {
         manualChunks(id) {
-          // Separates third-party packages from node_modules into vendor chunks
           if (id.includes("node_modules")) {
+            if (id.includes("recharts") || id.includes("echarts") || id.includes("chart.js")) {
+              return "chunk-admin-charts";
+            }
             if (id.includes("react") || id.includes("react-dom")) {
               return "vendor-react";
             }
@@ -224,4 +238,3 @@ export default defineConfig({
     },
   },
 });
-plugins: [react(), svgr()];
