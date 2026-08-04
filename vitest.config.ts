@@ -19,6 +19,7 @@ export default defineConfig({
     globals: true,
     include: [
       "src/**/*.test.{ts,tsx}",
+      "src/**/*.spec.{ts,tsx}",
       "graphql/**/*.test.{ts,tsx}",
       "tests/**/*.test.{ts,tsx}",
       "tests/**/*.test.ts",
