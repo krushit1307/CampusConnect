@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Link } from "react-router-dom";
-import { format } from "date-fns";
+import { formatTime } from "@/lib/dateFormatter";
 import { EmptyState } from "@/components/EmptyState";
 import { useGraphQLSubscription } from "@/hooks/useGraphQLSubscription";
 
@@ -225,7 +225,7 @@ export function NotificationLiveFeedWidget() {
                         {n.message}
                       </p>
                       <span className="block font-mono text-[9px] text-gray-400 mt-1">
-                        {format(new Date(n.created_at), "h:mm a")}
+                        {formatTime(n.created_at)}
                       </span>
                     </div>
                   </div>

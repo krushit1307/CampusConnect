@@ -1,283 +1,196 @@
-/**
- * WebAuthn / Passkey utility functions for CampusConnect.
- *
- * Handles browser capability detection, credential creation,
- * and credential retrieval using the Web Authentication API.
- */
+import {
+  startRegistration,
+  startAuthentication,
+  browserSupportsWebAuthn,
+} from "@simplewebauthn/browser";
+import { createClient } from "@/lib/supabase/client";
 
-// Base64URL encoding/decoding utilities
-function bufferToBase64url(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+export interface UserPasskey {
+  id: string;
+  user_id: string;
+  credential_id: string;
+  name: string;
+  device_type: string;
+  backed_up: boolean;
+  transports: string[];
+  created_at: string;
+  last_used_at: string | null;
 }
 
-function base64urlToBuffer(base64url: string): ArrayBuffer {
-  const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-  const binary = atob(padded);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes.buffer;
-}
-
-/**
- * Detects whether the current browser supports WebAuthn.
- */
 export function isWebAuthnSupported(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.PublicKeyCredential !== "undefined" &&
-    typeof navigator.credentials !== "undefined" &&
-    typeof navigator.credentials.create === "function" &&
-    typeof navigator.credentials.get === "function"
-  );
-}
-
-/**
- * Checks if the device supports platform authenticators (biometrics).
- * Falls back to false on browsers that don't support this check.
- */
-export async function isPlatformAuthenticatorAvailable(): Promise<boolean> {
-  if (!isWebAuthnSupported()) return false;
   try {
-    return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+    return (
+      typeof window !== "undefined" &&
+      typeof window.PublicKeyCredential !== "undefined" &&
+      browserSupportsWebAuthn()
+    );
   } catch {
     return false;
   }
 }
 
-/**
- * Checks if the browser supports conditional mediation (autofill).
- */
-export async function isConditionalMediationSupported(): Promise<boolean> {
-  if (!isWebAuthnSupported()) return false;
-  try {
-    if (typeof PublicKeyCredential.isConditionalMediationAvailable === "function") {
-      return await PublicKeyCredential.isConditionalMediationAvailable();
-    }
-  } catch {
-    // Not supported
-  }
-  return false;
-}
-
-export interface WebAuthnRegistrationOptions {
-  challenge: string;
-  rp: {
-    name: string;
-    id: string;
-  };
-  user: {
-    id: string;
-    name: string;
-    displayName: string;
-  };
-  pubKeyCredParams: Array<{ alg: number; type: string }>;
-  excludeCredentials?: Array<{
-    id: string;
-    type: string;
-    transports?: string[];
-  }>;
-  authenticatorSelection?: {
-    authenticatorAttachment?: string;
-    residentKey?: string;
-    requireResidentKey?: boolean;
-    userVerification?: string;
-  };
-  timeout?: number;
-  attestation?: string;
-}
-
-export interface WebAuthnAuthOptions {
-  challenge: string;
-  rpId: string;
-  allowCredentials?: Array<{
-    id: string;
-    type: string;
-    transports?: string[];
-  }>;
-  userVerification?: string;
-  timeout?: number;
-}
-
-/**
- * Creates a new WebAuthn credential (passkey registration).
- * Calls navigator.credentials.create() with the provided options.
- */
-export async function createPasskeyCredential(options: WebAuthnRegistrationOptions): Promise<{
-  credentialId: string;
-  clientDataJSON: string;
-  attestationObject: string;
-  authenticatorData: string;
-  transports: string[];
-}> {
+export async function registerPasskey(
+  name?: string,
+): Promise<{ success: boolean; error?: string }> {
   if (!isWebAuthnSupported()) {
-    throw new Error("WebAuthn is not supported in this browser");
+    return {
+      success: false,
+      error: "WebAuthn / Passkeys are not supported on this browser or device.",
+    };
   }
 
-  // Convert base64url strings to ArrayBuffers for the browser API
-  const publicKeyOptions: PublicKeyCredentialCreationOptions = {
-    challenge: base64urlToBuffer(options.challenge),
-    rp: {
-      name: options.rp.name,
-      id: options.rp.id,
+  const supabase = createClient();
+
+  const { data: options, error: optionsErr } = await supabase.functions.invoke(
+    "webauthn-register",
+    {
+      body: { action: "generate-options" },
     },
-    user: {
-      id: base64urlToBuffer(options.user.id),
-      name: options.user.name,
-      displayName: options.user.displayName,
+  );
+
+  if (optionsErr || !options) {
+    return {
+      success: false,
+      error: optionsErr?.message || options?.error || "Failed to generate registration options.",
+    };
+  }
+
+  if (options.error) {
+    return { success: false, error: options.error };
+  }
+
+  try {
+    const registrationResponse = await startRegistration({ optionsJSON: options });
+
+    const { data: verifyResult, error: verifyErr } = await supabase.functions.invoke(
+      "webauthn-register",
+      {
+        body: {
+          action: "verify",
+          registrationResponse,
+          name: name || "Passkey",
+        },
+      },
+    );
+
+    if (verifyErr || !verifyResult?.verified) {
+      return {
+        success: false,
+        error: verifyErr?.message || verifyResult?.error || "Passkey verification failed.",
+      };
+    }
+
+    return { success: true };
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error ? err.message : "Passkey registration failed or was cancelled.";
+    return { success: false, error: message };
+  }
+}
+
+export async function authenticateWithPasskey(
+  email?: string,
+): Promise<{ success: boolean; error?: string }> {
+  if (!isWebAuthnSupported()) {
+    return {
+      success: false,
+      error: "WebAuthn / Passkeys are not supported on this browser or device.",
+    };
+  }
+
+  const supabase = createClient();
+
+  const { data: options, error: optionsErr } = await supabase.functions.invoke(
+    "webauthn-authenticate",
+    {
+      body: { action: "generate-options", email },
     },
-    pubKeyCredParams: options.pubKeyCredParams.map((p) => ({
-      alg: p.alg,
-      type: p.type as PublicKeyCredentialType,
-    })),
-    excludeCredentials: options.excludeCredentials?.map((c) => ({
-      id: base64urlToBuffer(c.id),
-      type: c.type as PublicKeyCredentialType,
-      transports: c.transports as AuthenticatorTransport[] | undefined,
-    })),
-    authenticatorSelection: options.authenticatorSelection
-      ? {
-          ...(options.authenticatorSelection.authenticatorAttachment && {
-            authenticatorAttachment: options.authenticatorSelection
-              .authenticatorAttachment as AuthenticatorAttachment,
-          }),
-          ...(options.authenticatorSelection.residentKey && {
-            residentKey: options.authenticatorSelection.residentKey as ResidentKeyRequirement,
-          }),
-          ...(options.authenticatorSelection.requireResidentKey !== undefined && {
-            requireResidentKey: options.authenticatorSelection.requireResidentKey as boolean,
-          }),
-          ...(options.authenticatorSelection.userVerification && {
-            userVerification: options.authenticatorSelection
-              .userVerification as UserVerificationRequirement,
-          }),
+  );
+
+  if (optionsErr || !options) {
+    return {
+      success: false,
+      error: optionsErr?.message || options?.error || "Failed to generate authentication options.",
+    };
+  }
+
+  if (options.error) {
+    return { success: false, error: options.error };
+  }
+
+  try {
+    const authenticationResponse = await startAuthentication({ optionsJSON: options });
+
+    const { data: verifyResult, error: verifyErr } = await supabase.functions.invoke(
+      "webauthn-authenticate",
+      {
+        body: {
+          action: "verify",
+          authenticationResponse,
+          email,
+        },
+      },
+    );
+
+    if (verifyErr || !verifyResult?.verified) {
+      return {
+        success: false,
+        error: verifyErr?.message || verifyResult?.error || "Passkey authentication failed.",
+      };
+    }
+
+    if (verifyResult.token_hash) {
+      const { error: otpErr } = await supabase.auth.verifyOtp({
+        token_hash: verifyResult.token_hash,
+        type: "magiclink",
+      });
+
+      if (otpErr) {
+        if (verifyResult.email_otp && verifyResult.email) {
+          const { error: fallbackErr } = await supabase.auth.verifyOtp({
+            email: verifyResult.email,
+            token: verifyResult.email_otp,
+            type: "email",
+          });
+          if (fallbackErr) throw fallbackErr;
+        } else {
+          throw otpErr;
         }
-      : undefined,
-    timeout: options.timeout,
-    attestation: (options.attestation as AttestationConveyancePreference) || "none",
-  };
-
-  const credential = (await navigator.credentials.create({
-    publicKey: publicKeyOptions,
-  })) as PublicKeyCredential | null;
-
-  if (!credential) {
-    throw new Error("Credential creation was cancelled or failed");
-  }
-
-  const response = credential.response as AuthenticatorAttestationResponse;
-
-  // Get transports if available
-  let transports: string[] = [];
-  try {
-    if (typeof response.getTransports === "function") {
-      transports = response.getTransports();
+      }
+    } else if (verifyResult.email_otp && verifyResult.email) {
+      const { error: otpErr } = await supabase.auth.verifyOtp({
+        email: verifyResult.email,
+        token: verifyResult.email_otp,
+        type: "email",
+      });
+      if (otpErr) throw otpErr;
     }
-  } catch {
-    // getTransports not available
-  }
 
-  return {
-    credentialId: bufferToBase64url(credential.rawId),
-    clientDataJSON: bufferToBase64url(response.clientDataJSON),
-    attestationObject: bufferToBase64url(response.attestationObject),
-    authenticatorData:
-      typeof response.getAuthenticatorData === "function"
-        ? bufferToBase64url(response.getAuthenticatorData())
-        : "", // Backend verification will safely reject or decode if we implement fallback
-    transports,
-  };
+    return { success: true };
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error ? err.message : "Passkey authentication cancelled or failed.";
+    return { success: false, error: message };
+  }
 }
 
-/**
- * Gets a WebAuthn credential (passkey authentication).
- * Calls navigator.credentials.get() with the provided options.
- */
-export async function getPasskeyCredential(options: WebAuthnAuthOptions): Promise<{
-  credentialId: string;
-  clientDataJSON: string;
-  authenticatorData: string;
-  signature: string;
-  userHandle: string | null;
-}> {
-  if (!isWebAuthnSupported()) {
-    throw new Error("WebAuthn is not supported in this browser");
+export async function getUserPasskeys(): Promise<UserPasskey[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("user_passkeys")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching passkeys:", error);
+    return [];
   }
 
-  const publicKeyOptions: PublicKeyCredentialRequestOptions = {
-    challenge: base64urlToBuffer(options.challenge),
-    rpId: options.rpId,
-    allowCredentials: options.allowCredentials?.map((c) => ({
-      id: base64urlToBuffer(c.id),
-      type: c.type as PublicKeyCredentialType,
-      ...(c.transports && { transports: c.transports as AuthenticatorTransport[] }),
-    })),
-    userVerification: (options.userVerification as UserVerificationRequirement) || "preferred",
-    timeout: options.timeout,
-  };
-
-  const credential = (await navigator.credentials.get({
-    publicKey: publicKeyOptions,
-  })) as PublicKeyCredential | null;
-
-  if (!credential) {
-    throw new Error("Authentication was cancelled or failed");
-  }
-
-  const response = credential.response as AuthenticatorAssertionResponse;
-
-  return {
-    credentialId: bufferToBase64url(credential.rawId),
-    clientDataJSON: bufferToBase64url(response.clientDataJSON),
-    authenticatorData: bufferToBase64url(response.authenticatorData),
-    signature: bufferToBase64url(response.signature),
-    userHandle: response.userHandle ? bufferToBase64url(response.userHandle) : null,
-  };
+  return (data as UserPasskey[]) || [];
 }
 
-/**
- * Returns the current RP ID (Relying Party ID) based on the hostname.
- */
-export function getRpId(): string {
-  return window.location.hostname;
-}
-
-/**
- * Returns the current origin for WebAuthn validation.
- */
-export function getOrigin(): string {
-  return window.location.origin;
-}
-
-/**
- * Friendly error message for WebAuthn errors.
- */
-export function getWebAuthnErrorMessage(error: unknown): string {
-  if (error instanceof DOMException) {
-    switch (error.name) {
-      case "NotAllowedError":
-        return "The operation was cancelled or timed out. Please try again.";
-      case "SecurityError":
-        return "A security error occurred. Make sure you're on a secure connection (HTTPS).";
-      case "InvalidStateError":
-        return "This passkey is already registered on this device.";
-      case "NotSupportedError":
-        return "This device doesn't support the requested authentication method.";
-      case "AbortError":
-        return "The operation was cancelled.";
-      default:
-        return `Authentication error: ${error.message}`;
-    }
-  }
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return "An unexpected error occurred during authentication.";
+export async function deletePasskey(passkeyId: string): Promise<boolean> {
+  const supabase = createClient();
+  const { error } = await supabase.from("user_passkeys").delete().eq("id", passkeyId);
+  return !error;
 }

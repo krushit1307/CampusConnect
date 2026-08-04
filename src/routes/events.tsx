@@ -104,8 +104,8 @@ function EventsPage() {
         .from("events")
         .select(
           `
-          id, title, description, event_date, location, banner_url,
-          clubs (name),
+          id, title, description, event_date, location, banner_url, created_at, announce_date,
+          clubs (name, average_lead_time_days),
           event_rsvps (id, user_id),
           saved_events (id, user_id)
         `,
@@ -307,14 +307,26 @@ function EventsPage() {
 
   return (
     <SiteShell>
-      <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
-        <div className="mx-auto flex max-w-7xl flex-col gap-6 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="eyebrow font-bold">All events · Fall semester</p>
-            <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">
-              What's on this week.
-            </h1>
-          </div>
+<PullToRefresh
+  isRefreshing={isFetching}
+  onRefresh={async () => {
+    await refetch();
+  }}
+>        <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
+          <div className="mx-auto flex max-w-7xl flex-col gap-6 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="eyebrow font-bold">All events · Fall semester</p>
+                {totalCount !== null && (
+                  <span className="neu-border bg-white px-2 py-0.5 text-[11px] font-mono font-extrabold text-black">
+                    ⚡ {totalCount} TOTAL DB EVENTS
+                  </span>
+                )}
+              </div>
+              <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">
+                What's on this week.
+              </h1>
+            </div>
 
           <div className="flex flex-col items-end gap-3 w-full md:w-auto">
             <div className="relative w-full md:w-80">

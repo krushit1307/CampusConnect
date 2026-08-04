@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./analytics-fixture";
 
 test.describe("Event Creation Flow", () => {
   test.beforeEach(async ({ page }) => {

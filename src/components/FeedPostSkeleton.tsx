@@ -1,25 +1,33 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { OrganicSkeleton, TextSkeleton } from "@/components/ui/OrganicSkeleton";
 
-export function FeedPostSkeleton() {
+interface FeedPostSkeletonProps {
+  index?: number;
+}
+
+export function FeedPostSkeleton({ index = 0 }: FeedPostSkeletonProps) {
   return (
-    <article className="neu-border bg-white p-6">
-      <header className="mb-3 flex items-center justify-between gap-2 border-b-2 border-black pb-3">
-        <div>
-          <Skeleton className="h-5 w-48" />
-          <Skeleton className="mt-2 h-3.5 w-64" />
+    <article className="neu-border bg-white p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] font-mono">
+      <header className="mb-4 flex items-center justify-between gap-3 border-b-2 border-black pb-3">
+        <div className="flex items-center gap-3 w-full">
+          <OrganicSkeleton width="40px" height="h-10" className="rounded-full flex-shrink-0" />
+          <div className="space-y-1.5 flex-1">
+            <OrganicSkeleton width="55%" height="h-4" seed={`post-title-${index}`} />
+            <OrganicSkeleton width="30%" height="h-3" seed={`post-sub-${index}`} />
+          </div>
         </div>
       </header>
 
-      <div className="mt-4 space-y-2.5">
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-11/12" />
-        <Skeleton className="h-4 w-2/3" />
+      {/* Jagged Organic Paragraph Skeleton */}
+      <div className="my-4">
+        <TextSkeleton lines={3} seed={`feed-post-body-${index}`} />
       </div>
 
-      <div className="mt-4 flex gap-2">
-        <Skeleton className="h-8 w-16" />
-        <Skeleton className="h-8 w-16" />
-        <Skeleton className="h-8 w-16" />
+      <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-3">
+        <div className="flex gap-2">
+          <OrganicSkeleton width="70px" height="h-8" className="rounded-none border border-black" />
+          <OrganicSkeleton width="70px" height="h-8" className="rounded-none border border-black" />
+        </div>
+        <OrganicSkeleton width="80px" height="h-7" className="rounded-none" />
       </div>
     </article>
   );

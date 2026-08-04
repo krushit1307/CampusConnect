@@ -319,7 +319,7 @@ export const AudioReactiveBackground: React.FC<AudioReactiveBackgroundProps> = (
     <div
       ref={containerRef}
       className={cn(
-        "relative w-full h-full min-h-[350px] overflow-hidden rounded-xl bg-slate-950 border border-slate-800 shadow-2xl",
+        "relative w-full h-full min-h-[200px] md:min-h-[350px] overflow-hidden rounded-xl bg-slate-950 border border-slate-800 shadow-2xl",
         className,
       )}
     >

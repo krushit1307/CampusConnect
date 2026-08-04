@@ -1,5 +1,5 @@
-name: Feature Request
-description: Suggest an idea for CampusConnect
+name: "✨ Feature Request"
+description: Suggest a new idea or feature for CampusConnect.
 title: "[Feature]: "
 labels: ["enhancement"]
 body:

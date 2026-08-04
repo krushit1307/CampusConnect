@@ -226,52 +226,67 @@ export function decodeCursor(cursor: string): { createdAt: string; id: string } 
 // ── DataLoaders for batching nested relations (solving N+1) ──
 
 // Batch fetch profiles by ID array
-const profileLoader = new SimpleDataLoader<string, ProfileRecord>(async (userIds) => {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .in("id", userIds as string[]);
+export const createProfileLoader = () =>
+  new SimpleDataLoader<string, ProfileRecord>(async (userIds) => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .in("id", userIds as string[]);
 
-  if (error) throw error;
+    if (error) throw error;
 
-  const profileMap = new Map<string, ProfileRecord>(
-    (data || []).map((p: ProfileRecord) => [p.id, p]),
-  );
-  return userIds.map((id) => profileMap.get(id) || null);
-});
+    const profileMap = new Map<string, ProfileRecord>(
+      (data || []).map((p: ProfileRecord) => [p.id, p]),
+    );
 
-// Batch fetch clubs by ID array
-const clubLoader = new SimpleDataLoader<string, ClubRecord>(async (clubIds) => {
-  const { data, error } = await supabase
-    .from("clubs")
-    .select("*")
-    .in("id", clubIds as string[]);
-
-  if (error) throw error;
-
-  const clubMap = new Map<string, ClubRecord>((data || []).map((c: ClubRecord) => [c.id, c]));
-  return clubIds.map((id) => clubMap.get(id) || null);
-});
-
-// Batch fetch comments for a set of post IDs
-const commentsByPostLoader = new SimpleDataLoader<string, CommentRecord[]>(async (postIds) => {
-  const { data, error } = await supabase
-    .from("comments")
-    .select("*")
-    .in("post_id", postIds as string[])
-    .is("deleted_at", null);
-
-  if (error) throw error;
-
-  const commentsGrouped = new Map<string, CommentRecord[]>();
-  postIds.forEach((id) => commentsGrouped.set(id, []));
-
-  (data || []).forEach((comment: CommentRecord) => {
-    commentsGrouped.get(comment.post_id)?.push(comment);
+    return userIds.map((id) => profileMap.get(id) || null);
   });
 
-  return postIds.map((id) => commentsGrouped.get(id) || null);
-});
+// Batch fetch clubs by ID array
+export const createClubLoader = () =>
+  new SimpleDataLoader<string, ClubRecord>(async (clubIds) => {
+    const { data, error } = await supabase
+      .from("clubs")
+      .select("*")
+      .in("id", clubIds as string[]);
+
+    if (error) throw error;
+
+    const clubMap = new Map<string, ClubRecord>((data || []).map((c: ClubRecord) => [c.id, c]));
+
+    return clubIds.map((id) => clubMap.get(id) || null);
+  });
+
+// Batch fetch comments for a set of post IDs
+export const createCommentsByPostLoader = () =>
+  new SimpleDataLoader<string, CommentRecord[]>(async (postIds) => {
+    const { data, error } = await supabase
+      .from("comments")
+      .select("*")
+      .in("post_id", postIds as string[])
+      .is("deleted_at", null);
+
+    if (error) throw error;
+
+    const commentsGrouped = new Map<string, CommentRecord[]>();
+
+    postIds.forEach((id) => commentsGrouped.set(id, []));
+
+    (data || []).forEach((comment: CommentRecord) => {
+      commentsGrouped.get(comment.post_id)?.push(comment);
+    });
+
+    return postIds.map((id) => commentsGrouped.get(id) || null);
+  });
+interface GraphQLContext {
+  user: {
+    id: string;
+    role: string;
+  } | null;
+  profileLoader: ReturnType<typeof createProfileLoader>;
+  clubLoader: ReturnType<typeof createClubLoader>;
+  commentsByPostLoader: ReturnType<typeof createCommentsByPostLoader>;
+}
 
 // ── GraphQL Type Definitions ──
 
@@ -309,6 +324,18 @@ export const typeDefs = /* GraphQL */ `
     author: Profile
     club: Club
     comments: [Comment!]!
+  }
+
+  type PostEdge {
+    cursor: String!
+    node: Post!
+  }
+
+  type PostConnection {
+    edges: [PostEdge!]!
+    nodes: [Post!]!
+    pageInfo: PageInfo!
+    totalCount: Int!
   }
 
   type Event {
@@ -377,7 +404,7 @@ export const typeDefs = /* GraphQL */ `
   }
 
   type Query {
-    posts(limit: Int, offset: Int): [Post!]!
+    posts(first: Int, after: String): PostConnection!
     post(id: ID!): Post
     clubs: [Club!]!
     profiles(limit: Int, offset: Int, sortBy: String, sortOrder: String): [Profile!]!
@@ -446,16 +473,51 @@ export const resolvers = {
   },
 
   Query: {
-    posts: async (_: unknown, { limit = 10, offset = 0 }: { limit?: number; offset?: number }) => {
-      const { data, error } = await supabase
-        .from("posts")
-        .select("*")
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1);
+    posts: async (_: unknown, { first = 10, after }: { first?: number; after?: string }) => {
+      const limit = Math.max(1, Math.min(first, 100));
+      let query = supabase.from("posts").select("*", { count: "exact" }).is("deleted_at", null);
 
+      if (after) {
+        const decoded = decodeCursor(after);
+        if (decoded) {
+          query = query.or(
+            `created_at.lt.${decoded.createdAt},and(created_at.eq.${decoded.createdAt},id.lt.${decoded.id})`,
+          );
+        }
+      }
+
+      // Fetch limit + 1 items to accurately calculate hasNextPage
+      query = query
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(limit + 1);
+
+      const { data, count, error } = await query;
       if (error) throw error;
-      return data || [];
+
+      const rawPosts = data || [];
+      const hasNextPage = rawPosts.length > limit;
+      const nodes = hasNextPage ? rawPosts.slice(0, limit) : rawPosts;
+
+      const edges = nodes.map((node) => ({
+        cursor: encodeCursor(node),
+        node,
+      }));
+
+      const startCursor = edges.length > 0 ? edges[0].cursor : null;
+      const endCursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
+
+      return {
+        edges,
+        nodes,
+        pageInfo: {
+          hasNextPage,
+          hasPreviousPage: !!after,
+          startCursor,
+          endCursor,
+        },
+        totalCount: count ?? nodes.length,
+      };
     },
     post: async (_: unknown, { id }: { id: string }) => {
       const { data, error } = await supabase
@@ -609,31 +671,36 @@ export const resolvers = {
   },
 
   Post: {
-    author: (parent: { author_id: string }) => {
-      return parent.author_id ? profileLoader.load(parent.author_id) : null;
+    author: (parent: { author_id: string }, _: unknown, context: GraphQLContext) => {
+      return parent.author_id ? context.profileLoader.load(parent.author_id) : null;
     },
-    club: (parent: { club_id: string }) => {
-      return parent.club_id ? clubLoader.load(parent.club_id) : null;
+
+    club: (parent: { club_id: string }, _: unknown, context: GraphQLContext) => {
+      return parent.club_id ? context.clubLoader.load(parent.club_id) : null;
     },
-    comments: (parent: { id: string }) => {
-      return commentsByPostLoader.load(parent.id);
+
+    comments: (parent: { id: string }, _: unknown, context: GraphQLContext) => {
+      return context.commentsByPostLoader.load(parent.id);
     },
   },
 
   Comment: {
-    author: (parent: { author_id: string }) => {
-      return parent.author_id ? profileLoader.load(parent.author_id) : null;
+    author: (parent: { author_id: string }, _: unknown, context: GraphQLContext) => {
+      return parent.author_id ? context.profileLoader.load(parent.author_id) : null;
     },
   },
 
   Event: {
-    club: (parent: { club_id: string }) => {
-      return parent.club_id ? clubLoader.load(parent.club_id) : null;
+    club: (parent: { club_id: string }, _: unknown, context: GraphQLContext) => {
+      return parent.club_id ? context.clubLoader.load(parent.club_id) : null;
     },
-    organizer: (parent: { created_by: string }) => {
-      return parent.created_by ? profileLoader.load(parent.created_by) : null;
+
+    organizer: (parent: { created_by: string }, _: unknown, context: GraphQLContext) => {
+      return parent.created_by ? context.profileLoader.load(parent.created_by) : null;
     },
+
     maxAttendees: (parent: { max_attendees?: number | null }) => parent.max_attendees ?? null,
+
     availableSpots: (parent: { available_spots?: number | null }) => parent.available_spots ?? null,
   },
 

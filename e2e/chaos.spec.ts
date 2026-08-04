@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./analytics-fixture";
 
 test.describe("Chaos Engineering - Sudden Network Drop Simulation", () => {
   test("should handle abrupt network disconnect during navigation and render offline banner", async ({

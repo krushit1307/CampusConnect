@@ -1,8 +1,12 @@
+// For more info, see https://github.com/storybookjs/eslint-plugin-storybook#configuration-flat-config-format
+import storybook from "eslint-plugin-storybook";
+
 import js from "@eslint/js";
 import eslintPluginPrettier from "eslint-plugin-prettier/recommended";
 import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
+import reactCompiler from "eslint-plugin-react-compiler";
 import tseslint from "typescript-eslint";
 import noCrossPageImports from "./tools/eslint-rules/no-cross-page-imports.js";
 
@@ -34,11 +38,14 @@ export default tseslint.config(
     plugins: {
       "react-hooks": reactHooks,
       "react-refresh": reactRefresh,
+      "react-compiler": reactCompiler,
       "local-rules": localRulesPlugin,
     },
     rules: {
+      "react-compiler/react-compiler": "error",
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-explicit-any": "warn",
       "local-rules/no-cross-page-imports": "error",
       "no-restricted-syntax": [
         "error",
@@ -62,5 +69,17 @@ export default tseslint.config(
       "react-refresh/only-export-components": "off",
     },
   },
+  {
+    files: [
+      "scripts/**/*.{ts,js,mjs,cjs}",
+      "**/*.test.{ts,tsx}",
+      "**/*.cy.{ts,tsx}",
+      "cypress/**/*.{ts,tsx}",
+    ],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
   eslintPluginPrettier,
+  storybook.configs["flat/recommended"],
 );

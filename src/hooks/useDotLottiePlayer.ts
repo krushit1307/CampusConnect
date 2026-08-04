@@ -106,7 +106,11 @@ export const useDotLottiePlayer = ({
   }, [src, autoplay]);
 
   const PlayerComponent = useCallback(
+<<<<<<< HEAD
     (props: Record<string, unknown>) =>
+=======
+    (props: any) =>
+>>>>>>> f1150bd (fix(ci): update build scripts and adjust lint configuration)
       React.createElement(DotLottiePlayer, {
         ref: playerRef,
         src,
