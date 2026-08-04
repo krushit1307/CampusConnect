@@ -33,7 +33,7 @@ function copyWithLegacyFallback(text: string): boolean {
   }
 }
 
-export function useCopyToClipboard() {
+export function useCopyToClipboard(timeout = 2000) {
   const [isCopied, setIsCopied] = useState(false);
   const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -67,9 +67,10 @@ export function useCopyToClipboard() {
     if (resetTimeoutRef.current) {
       clearTimeout(resetTimeoutRef.current);
     }
-    resetTimeoutRef.current = setTimeout(() => setIsCopied(false), COPIED_DURATION_MS);
+    resetTimeoutRef.current = setTimeout(() => setIsCopied(false), timeout);
     return true;
-  }, []);
+  }, [timeout]);
 
   return { copyToClipboard, isCopied };
 }
+

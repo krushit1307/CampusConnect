@@ -5,6 +5,7 @@ import { User } from "@supabase/supabase-js";
 import { CalendarDays, ChevronDown, X } from "lucide-react";
 import { startOfWeek, endOfWeek, isWithinInterval } from "date-fns";
 import { CampusTimeline, type TimelineEvent } from "@/components/events/CampusTimeline";
+import { AdminCalendar } from "@/components/admin/AdminCalendar";
 import { CalendarSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -224,9 +225,28 @@ export default function DashboardCalendar() {
             <h3 className="mb-3 font-mono text-sm font-bold uppercase">This week's timeline</h3>
             <CampusTimeline events={weekEvents} />
           </div>
-          <Suspense fallback={<CalendarSkeleton />}>
-            <EventsCalendar events={filteredEvents} />
-          </Suspense>{" "}
+          <div className="mt-6">
+            <AdminCalendar
+              events={filteredEvents.map((e) => ({
+                id: e.id,
+                title: e.title,
+                description: e.description,
+                start_date: e.start_date || e.event_date || new Date().toISOString(),
+                end_date: e.end_date,
+                location: e.location,
+                category:
+                  typeof e.event_categories === "object" &&
+                  e.event_categories &&
+                  "name" in e.event_categories
+                    ? e.event_categories.name
+                    : undefined,
+                club_name:
+                  typeof e.clubs === "object" && e.clubs && "name" in e.clubs
+                    ? e.clubs.name
+                    : undefined,
+              }))}
+            />
+          </div>
         </>
       )}
     </div>

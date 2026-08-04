@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./analytics-fixture";
 
 test.describe("Visual Regression: Auth Pages", () => {
   test("login page full layout", async ({ page }) => {

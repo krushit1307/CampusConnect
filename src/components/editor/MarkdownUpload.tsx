@@ -12,7 +12,6 @@ import { parseMarkdownToTiptap } from "../../lib/tiptap/markdown-parser";
 import { Progress } from "@/components/ui/progress";
 
 interface MarkdownUploadProps {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onContentLoaded: (jsonContent: Record<string, any>) => void;
 }
 
