@@ -5,6 +5,7 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
 import {
   Settings,
   Users,
@@ -223,7 +224,7 @@ setWebsiteUrl(links.website || "");
         .from("clubs")
         .update({
           name,
-          description,
+          description: sanitizeHtml(description),
           banner_url: bannerUrl,
           logo_url: logoUrl,
           promo_video_url: promoVideoUrl || null,

@@ -11,6 +11,7 @@ import { CommentThreadSkeleton } from "@/components/Feed/CommentSkeleton";
 import { DiscussionEmptyState } from "@/components/Feed/DiscussionEmptyState";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import type { User } from "@supabase/supabase-js";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
 import {
   Link2,
   ArrowUp,
@@ -765,7 +766,7 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
       const { error } = await supabase.from("posts").insert({
         club_id: selectedClubId,
         author_id: user.id,
-        content: newPost,
+        content: sanitizeHtml(newPost),
         image_url: imageUrl,
       });
 
