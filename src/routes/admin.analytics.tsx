@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, Link } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
 import { BarChart3, LayoutPanelLeft, X } from "lucide-react";
@@ -19,6 +19,7 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { DateRangePicker } from "@/components/ui/DateRangePicker";
+import { ChartSkeleton } from "@/components/ui/ChartSkeleton";
 
 interface ProfileRole {
   role: string | null;
@@ -170,12 +171,139 @@ function Metric({ label, value }: { label: string; value: number | string }) {
   );
 }
 
+/**
+ * DauChartSection — owns its own data fetching so it can be wrapped in a
+ * Suspense boundary, allowing the page shell (navbar/sidebar) to stream
+ * to the client before the heavy analytics payload resolves.
+ */
+function DauChartSection({ dateRange }: { dateRange: DateRange | undefined }) {
+  const [supabase] = useState(() => createClient());
+  const [dauData, setDauData] = useState<DauRecord[]>([]);
+  const [isChartLoading, setIsChartLoading] = useState(true);
+  const [chartError, setChartError] = useState<string | null>(null);
+
+  const loadDauData = useCallback(
+    async (start?: Date, end?: Date) => {
+      setIsChartLoading(true);
+      setChartError(null);
+      try {
+        const params: { start_date?: string; end_date?: string } = {};
+        if (start) params.start_date = format(start, "yyyy-MM-dd");
+        if (end) params.end_date = format(end, "yyyy-MM-dd");
+
+        const { data, error } = await supabase.rpc("get_dau_analytics", params);
+        if (error) throw new Error(error.message);
+
+        const formatted: DauRecord[] = (
+          (data || []) as { activity_date: string; daily_active_users: string | number }[]
+        )
+          .map((item) => ({
+            activity_date: item.activity_date,
+            daily_active_users: Number(item.daily_active_users),
+          }))
+          .reverse();
+        setDauData(formatted);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Could not load analytics data.";
+        setChartError(message);
+        toast.error(message);
+      } finally {
+        setIsChartLoading(false);
+      }
+    },
+    [supabase],
+  );
+
+  useEffect(() => {
+    void loadDauData(dateRange?.from, dateRange?.to);
+  }, [dateRange, loadDauData]);
+
+  const totalDays = dauData.length;
+  const maxDau = totalDays > 0 ? Math.max(...dauData.map((day) => day.daily_active_users)) : 0;
+  const averageDau =
+    totalDays > 0
+      ? Math.round(dauData.reduce((total, day) => total + day.daily_active_users, 0) / totalDays)
+      : 0;
+  const currentDau = totalDays > 0 ? dauData[totalDays - 1].daily_active_users : 0;
+  const dateRangeDays =
+    dateRange?.from && dateRange?.to
+      ? differenceInDays(dateRange.to, dateRange.from) + 1
+      : totalDays;
+
+  if (isChartLoading) {
+    return <ChartSkeleton height="450px" />;
+  }
+
+  if (chartError) {
+    return (
+      <div className="neu-border flex h-96 items-center justify-center border-red-500 bg-red-50 p-6 text-center font-mono text-sm text-red-700">
+        {chartError}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <Metric label="Current DAU" value={currentDau} />
+        <Metric label="Average DAU" value={averageDau} />
+        <Metric label="Peak DAU" value={maxDau} />
+        <Metric label="Time horizon" value={`${dateRangeDays} days`} />
+      </div>
+      <div className="neu-border bg-white p-6 dark:bg-zinc-900">
+        <h2 className="font-display text-xl font-bold uppercase">Active user trend</h2>
+        <p className="mb-6 font-mono text-xs text-gray-500">
+          {dateRange?.from && dateRange?.to
+            ? `Daily active users mapped from ${format(dateRange.from, "LLL dd, yyyy")} to ${format(dateRange.to, "LLL dd, yyyy")}`
+            : "Daily active users mapped across the selected range"}
+        </p>
+        <div className="h-96 w-full">
+          {dauData.length === 0 ? (
+            <div className="flex h-full items-center justify-center font-mono text-sm text-gray-400">
+              No active session data recorded yet.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={dauData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="dauGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#A3E635" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#A3E635" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="activity_date" stroke="#000" fontSize={10} fontFamily="monospace" />
+                <YAxis stroke="#000" fontSize={10} fontFamily="monospace" />
+                <Tooltip
+                  contentStyle={{
+                    border: "2px solid #000",
+                    boxShadow: "4px 4px 0 #000",
+                    fontFamily: "monospace",
+                    fontSize: "12px",
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="daily_active_users"
+                  name="Active Users"
+                  stroke="#000"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#dauGradient)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function AnalyticsAdmin() {
   const [supabase] = useState(() => createClient());
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<string | null>(null);
-  const [dauData, setDauData] = useState<DauRecord[]>([]);
-  const [loading, setLoading] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const today = new Date();
@@ -187,28 +315,6 @@ export default function AnalyticsAdmin() {
   const [leftPanelWidth, setLeftPanelWidth] = useState(50);
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
   const comparisonRef = useRef<HTMLDivElement>(null);
-
-  const loadDauData = useCallback(
-    async (start?: Date, end?: Date) => {
-      const params: { start_date?: string; end_date?: string } = {};
-      if (start) params.start_date = format(start, "yyyy-MM-dd");
-      if (end) params.end_date = format(end, "yyyy-MM-dd");
-
-      const { data, error } = await supabase.rpc("get_dau_analytics", params);
-      if (error) throw new Error(error.message);
-
-      const formatted: DauRecord[] = (
-        (data || []) as { activity_date: string; daily_active_users: string | number }[]
-      )
-        .map((item) => ({
-          activity_date: item.activity_date,
-          daily_active_users: Number(item.daily_active_users),
-        }))
-        .reverse();
-      setDauData(formatted);
-    },
-    [supabase],
-  );
 
   const { data: events = [] } = useQuery<EventOption[]>({
     queryKey: ["analytics-comparison-events"],
@@ -223,6 +329,7 @@ export default function AnalyticsAdmin() {
     enabled: role === "system_admin",
   });
 
+  // Auth check only — no data fetching here so the shell renders instantly
   useEffect(() => {
     let active = true;
     const initialise = async () => {
@@ -246,10 +353,7 @@ export default function AnalyticsAdmin() {
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Could not load analytics data.");
       } finally {
-        if (active) {
-          setLoading(false);
-          setAuthChecked(true);
-        }
+        if (active) setAuthChecked(true);
       }
     };
 
@@ -257,15 +361,7 @@ export default function AnalyticsAdmin() {
     return () => {
       active = false;
     };
-  }, [loadDauData, supabase]);
-
-  useEffect(() => {
-    if (role !== "system_admin" || !authChecked) return;
-
-    loadDauData(dateRange?.from, dateRange?.to).catch((error) => {
-      toast.error(error instanceof Error ? error.message : "Could not load analytics data.");
-    });
-  }, [authChecked, dateRange, loadDauData, role]);
+  }, [supabase]);
 
   useEffect(() => {
     if (!isSplitScreen || events.length === 0) return;
@@ -294,29 +390,8 @@ export default function AnalyticsAdmin() {
     };
   }, [isDraggingDivider]);
 
-  if (loading) {
-    return (
-      <SiteShell>
-        <div className="flex min-h-[50vh] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-black border-t-transparent" />
-        </div>
-      </SiteShell>
-    );
-  }
-
+  // Redirect unauthenticated or unauthorized users once the auth check completes
   if (authChecked && (!user || role !== "system_admin")) return <Navigate to="/" replace />;
-
-  const totalDays = dauData.length;
-  const maxDau = totalDays > 0 ? Math.max(...dauData.map((day) => day.daily_active_users)) : 0;
-  const averageDau =
-    totalDays > 0
-      ? Math.round(dauData.reduce((total, day) => total + day.daily_active_users, 0) / totalDays)
-      : 0;
-  const currentDau = totalDays > 0 ? dauData[totalDays - 1].daily_active_users : 0;
-  const dateRangeDays =
-    dateRange?.from && dateRange?.to
-      ? differenceInDays(dateRange.to, dateRange.from) + 1
-      : totalDays;
 
   return (
     <SiteShell>
@@ -416,65 +491,14 @@ export default function AnalyticsAdmin() {
               </div>
             </div>
           ) : (
-            <>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                <Metric label="Current DAU" value={currentDau} />
-                <Metric label="Average DAU" value={averageDau} />
-                <Metric label="Peak DAU" value={maxDau} />
-                <Metric label="Time horizon" value={`${dateRangeDays} days`} />
-              </div>
-              <div className="neu-border bg-white p-6 dark:bg-zinc-900">
-                <h2 className="font-display text-xl font-bold uppercase">Active user trend</h2>
-                <p className="mb-6 font-mono text-xs text-gray-500">
-                  {dateRange?.from && dateRange?.to
-                    ? `Daily active users mapped from ${format(dateRange.from, "LLL dd, yyyy")} to ${format(dateRange.to, "LLL dd, yyyy")}`
-                    : "Daily active users mapped across the selected range"}
-                </p>
-                <div className="h-96 w-full">
-                  {dauData.length === 0 ? (
-                    <div className="flex h-full items-center justify-center font-mono text-sm text-gray-400">
-                      No active session data recorded yet.
-                    </div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={dauData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="dauGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#A3E635" stopOpacity={0.8} />
-                            <stop offset="95%" stopColor="#A3E635" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis
-                          dataKey="activity_date"
-                          stroke="#000"
-                          fontSize={10}
-                          fontFamily="monospace"
-                        />
-                        <YAxis stroke="#000" fontSize={10} fontFamily="monospace" />
-                        <Tooltip
-                          contentStyle={{
-                            border: "2px solid #000",
-                            boxShadow: "4px 4px 0 #000",
-                            fontFamily: "monospace",
-                            fontSize: "12px",
-                          }}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="daily_active_users"
-                          name="Active Users"
-                          stroke="#000"
-                          strokeWidth={2}
-                          fillOpacity={1}
-                          fill="url(#dauGradient)"
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  )}
-                </div>
-              </div>
-            </>
+            /**
+             * Suspense boundary — the page shell, header, and sidebar are already
+             * painted. Only the heavy DAU chart section streams in after its data
+             * resolves. <ChartSkeleton> acts as the streaming placeholder.
+             */
+            <Suspense fallback={<ChartSkeleton height="450px" />}>
+              <DauChartSection dateRange={dateRange} />
+            </Suspense>
           )}
         </div>
       </section>
