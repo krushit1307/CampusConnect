@@ -121,14 +121,17 @@ export const OrganicSkeletonStudioModal: React.FC<OrganicSkeletonStudioModalProp
               <div>
                 <h4 className="font-bold text-sm uppercase">100% SSR & Hydration Safe</h4>
                 <p className="text-xs opacity-90">
-                  Calculated using deterministic seed generators & line presets. Zero Math.random() SSR hydration crashes.
+                  Calculated using deterministic seed generators & line presets. Zero Math.random()
+                  SSR hydration crashes.
                 </p>
               </div>
             </div>
           </div>
 
           {/* Comparison Grid */}
-          <div className={`grid ${showComparison ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"} gap-6`}>
+          <div
+            className={`grid ${showComparison ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"} gap-6`}
+          >
             {/* New Organic Jagged Skeleton */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -191,7 +194,9 @@ export const OrganicSkeletonStudioModal: React.FC<OrganicSkeletonStudioModalProp
                 <div key={idx} className="flex justify-between">
                   <span>Line #{idx + 1}</span>
                   <span className="text-emerald-400 font-bold">
-                    {idx === lineCount - 1 ? "42% (End of Paragraph Shortening)" : `${88 - idx * 6}%`}
+                    {idx === lineCount - 1
+                      ? "42% (End of Paragraph Shortening)"
+                      : `${88 - idx * 6}%`}
                   </span>
                   <span className="text-slate-300">
                     {idx === lineCount - 1 ? "Jagged End" : "Body Line"}

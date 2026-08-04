@@ -29,7 +29,8 @@ const rsvpBgSyncPlugin = new BackgroundSyncPlugin("rsvp-mutations-queue", {
       for (const client of clients) {
         client.postMessage({
           type: "OFFLINE_RSVP_SYNC_ERROR",
-          reason: err instanceof Error ? err.message : "Sync failed due to conflict or full capacity",
+          reason:
+            err instanceof Error ? err.message : "Sync failed due to conflict or full capacity",
         });
       }
     }

@@ -15,7 +15,7 @@ export interface ApiImportResponse {
  */
 export async function handleBulkUserImportApiRequest(
   csvContent: string | Buffer,
-  batchSize: number = 500
+  batchSize: number = 500,
 ): Promise<ApiImportResponse> {
   try {
     const repository = new UserImportRepository();

@@ -60,7 +60,8 @@ export const MfaVerificationModal: React.FC<MfaVerificationModalProps> = ({
       toast.success("MFA verification successful!");
       onSuccess();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Invalid authentication code. Please try again.";
+      const msg =
+        err instanceof Error ? err.message : "Invalid authentication code. Please try again.";
       setErrorMsg(msg);
       toast.error(msg);
     } finally {
@@ -124,7 +125,11 @@ export const MfaVerificationModal: React.FC<MfaVerificationModalProps> = ({
               disabled={loading || code.length !== 6}
               className="flex-1 border-2 border-black bg-black text-cream hover:bg-black/90 font-mono text-xs uppercase font-bold shadow-[3px_3px_0_0_var(--color-ink)]"
             >
-              {loading ? <RefreshCw className="h-4 w-4 animate-spin mr-1" /> : <ShieldCheck className="h-4 w-4 mr-1" />}
+              {loading ? (
+                <RefreshCw className="h-4 w-4 animate-spin mr-1" />
+              ) : (
+                <ShieldCheck className="h-4 w-4 mr-1" />
+              )}
               Verify Sign-in
             </Button>
           </div>

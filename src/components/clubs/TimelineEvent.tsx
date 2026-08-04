@@ -1,7 +1,7 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { Calendar, Award, Users, Rocket, Star, Zap } from 'lucide-react';
-import { TimelineMilestone } from './Timeline';
+import React from "react";
+import { motion } from "framer-motion";
+import { Calendar, Award, Users, Rocket, Star, Zap } from "lucide-react";
+import { TimelineMilestone } from "./Timeline";
 
 interface TimelineEventProps {
   /** The milestone data to render */
@@ -28,68 +28,67 @@ const ICON_MAP: Record<string, React.FC<any>> = {
 
 /**
  * TimelineEvent Component
- * 
+ *
  * Represents a single card within the horizontal Timeline.
  * It is configured with CSS scroll snapping (`scroll-snap-align: center`)
  * to ensure that when the user swipes or scrolls, the card perfectly
  * locks into the dead center of the viewport.
- * 
+ *
  * It features a dynamic scale and opacity effect based on its active state,
  * providing a visually engaging "focus" effect as the user navigates through
  * the club's history.
  */
 const TimelineEvent: React.FC<TimelineEventProps> = ({ milestone, index, isActive }) => {
   // Resolve the icon component from the map, defaulting to a Star if not found
-  const IconComponent = ICON_MAP[milestone.icon || 'star'] || Star;
+  const IconComponent = ICON_MAP[milestone.icon || "star"] || Star;
 
   return (
     <motion.div
       data-timeline-event
       data-year={milestone.year}
       initial={{ opacity: 0, y: 50 }}
-      animate={{ 
-        opacity: 1, 
+      animate={{
+        opacity: 1,
         y: 0,
         // Scale up slightly when active to draw attention
         scale: isActive ? 1.05 : 1,
       }}
-      transition={{ 
-        duration: 0.5, 
+      transition={{
+        duration: 0.5,
         delay: index * 0.1,
-        scale: { type: 'spring', stiffness: 300, damping: 20 }
+        scale: { type: "spring", stiffness: 300, damping: 20 },
       }}
       className="relative flex-shrink-0 w-[80%] sm:w-[60%] md:w-[40%] lg:w-[30%] scroll-snap-align-center z-10"
       style={{
         // Enforce scroll snap alignment for the fluid snapping behavior
-        scrollSnapAlign: 'center',
+        scrollSnapAlign: "center",
       }}
     >
-      <div 
+      <div
         className={`
           relative h-full p-6 rounded-2xl shadow-xl transition-all duration-300
           bg-white dark:bg-slate-800 
           border-2 
-          ${isActive 
-            ? 'border-indigo-500 dark:border-indigo-400 shadow-indigo-200 dark:shadow-indigo-900/50' 
-            : 'border-gray-100 dark:border-slate-700'
+          ${
+            isActive
+              ? "border-indigo-500 dark:border-indigo-400 shadow-indigo-200 dark:shadow-indigo-900/50"
+              : "border-gray-100 dark:border-slate-700"
           }
         `}
       >
         {/* Decorative Node connecting the card to the background timeline line */}
-        <div 
+        <div
           className={`
             absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full border-4 
             flex items-center justify-center transition-colors duration-300
-            ${isActive 
-              ? 'bg-indigo-500 border-white dark:border-slate-900' 
-              : 'bg-gray-300 dark:bg-slate-600 border-white dark:border-slate-900'
+            ${
+              isActive
+                ? "bg-indigo-500 border-white dark:border-slate-900"
+                : "bg-gray-300 dark:bg-slate-600 border-white dark:border-slate-900"
             }
           `}
         >
-          <IconComponent 
-            className="w-4 h-4 text-white" 
-            strokeWidth={2.5}
-          />
+          <IconComponent className="w-4 h-4 text-white" strokeWidth={2.5} />
         </div>
 
         {/* Card Content */}
@@ -107,8 +106,8 @@ const TimelineEvent: React.FC<TimelineEventProps> = ({ milestone, index, isActiv
           {/* Event Image (if provided) */}
           {milestone.imageUrl && (
             <div className="mb-4 rounded-lg overflow-hidden shadow-inner">
-              <img 
-                src={milestone.imageUrl} 
+              <img
+                src={milestone.imageUrl}
                 alt={milestone.title}
                 className="w-full h-40 object-cover transition-transform duration-500 hover:scale-105"
                 loading="lazy"

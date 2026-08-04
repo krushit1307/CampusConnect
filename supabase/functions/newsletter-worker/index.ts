@@ -39,17 +39,22 @@ serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Dequeue next pending job using SKIP LOCKED database RPC
-    const { data: job, error: dequeueError } = await supabase.rpc("dequeue_bulk_email_job").single();
+    const { data: job, error: dequeueError } = await supabase
+      .rpc("dequeue_bulk_email_job")
+      .single();
 
     if (dequeueError) {
       throw new Error(`Failed to dequeue job: ${dequeueError.message}`);
     }
 
     if (!job) {
-      return new Response(JSON.stringify({ message: "No pending email newsletter jobs in queue" }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ message: "No pending email newsletter jobs in queue" }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     const jobId = job.id;
@@ -90,10 +95,13 @@ serve(async (req: Request) => {
           })
           .eq("id", jobId);
 
-        return new Response(JSON.stringify({ message: "Job completed: No members found for club", jobId }), {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ message: "Job completed: No members found for club", jobId }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
 
       // Update total_count on the job
@@ -168,13 +176,17 @@ serve(async (req: Request) => {
         })
         .eq("id", jobId);
 
-      return new Response(JSON.stringify({ message: "Newsletter sent successfully to all members", jobId }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ message: "Newsletter sent successfully to all members", jobId }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     } catch (jobError: unknown) {
       console.error(`Error processing job ${jobId}:`, jobError);
-      const errorMessage = jobError instanceof Error ? jobError.message : "Unknown processing error";
+      const errorMessage =
+        jobError instanceof Error ? jobError.message : "Unknown processing error";
 
       // Mark the job as failed with the captured error message
       await supabase

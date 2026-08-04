@@ -36,9 +36,7 @@ export function PresenceList({ provider }: PresenceListProps) {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="font-mono text-xs text-gray-500 uppercase tracking-widest">
-        Active:
-      </span>
+      <span className="font-mono text-xs text-gray-500 uppercase tracking-widest">Active:</span>
       <div className="flex -space-x-2 overflow-hidden">
         {activeUsers.map((user, idx) => (
           <div

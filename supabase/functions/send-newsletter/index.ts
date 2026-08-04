@@ -49,10 +49,13 @@ serve(async (req: Request) => {
       .single();
 
     if (memberError || !member || (member.role !== "admin" && member.role !== "organizer")) {
-      return new Response(JSON.stringify({ error: "Forbidden: Only club admins or organizers can send newsletters" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Forbidden: Only club admins or organizers can send newsletters" }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // Insert a pending job into the bulk_email_jobs table
@@ -76,7 +79,7 @@ serve(async (req: Request) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${supabaseServiceKey}`,
+        Authorization: `Bearer ${supabaseServiceKey}`,
       },
       body: JSON.stringify({ jobId: job.id }),
     }).catch((err) => console.error("Failed to asynchronously trigger newsletter-worker:", err));
@@ -89,7 +92,7 @@ serve(async (req: Request) => {
       {
         status: 202,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
     );
   } catch (error: unknown) {
     console.error("send-newsletter function error:", error);

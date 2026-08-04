@@ -3,7 +3,15 @@ import { Navigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { ShieldAlert, CheckCircle, XCircle, ChevronUp, ChevronDown, Loader2, FileSpreadsheet } from "lucide-react";
+import {
+  ShieldAlert,
+  CheckCircle,
+  XCircle,
+  ChevronUp,
+  ChevronDown,
+  Loader2,
+  FileSpreadsheet,
+} from "lucide-react";
 import { BulkUserImportModal } from "@/components/admin/BulkUserImportModal";
 
 interface Profile {

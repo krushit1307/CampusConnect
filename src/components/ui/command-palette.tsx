@@ -117,7 +117,8 @@ export function CommandPalette({ open: externalOpen, onOpenChange }: CommandPale
           <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
           <input
             type="text"
-placeholder="Search, or type events: / clubs: / users: to filter..."            value={query}
+            placeholder="Search, or type events: / clubs: / users: to filter..."
+            value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
             autoFocus
@@ -126,8 +127,7 @@ placeholder="Search, or type events: / clubs: / users: to filter..."            
             ESC
           </kbd>
         </div>
-
-<div className="max-h-[300px] overflow-y-auto p-2">
+        <div className="max-h-[300px] overflow-y-auto p-2">
           {isSearching && (
             <div className="px-2 py-1.5 text-xs text-muted-foreground">Searching…</div>
           )}
@@ -156,7 +156,8 @@ placeholder="Search, or type events: / clubs: / users: to filter..."            
               })}
             </div>
           )}
-        </div>      </div>
+        </div>{" "}
+      </div>
     </div>
   );
 }

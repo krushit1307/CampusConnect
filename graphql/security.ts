@@ -1,4 +1,10 @@
-import { GraphQLError, DocumentNode, Kind, OperationDefinitionNode, SelectionSetNode } from "graphql";
+import {
+  GraphQLError,
+  DocumentNode,
+  Kind,
+  OperationDefinitionNode,
+  SelectionSetNode,
+} from "graphql";
 import type { Plugin } from "graphql-yoga";
 
 export interface RateLimitConfig {

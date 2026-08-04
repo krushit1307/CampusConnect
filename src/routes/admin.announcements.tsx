@@ -17,7 +17,7 @@ export default function AdminAnnouncements() {
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
-  
+
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [url, setUrl] = useState("");
@@ -65,7 +65,7 @@ export default function AdminAnnouncements() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!title || !message) {
       toast.error("Title and message are required.");
       return;
@@ -82,7 +82,9 @@ export default function AdminAnnouncements() {
         throw new Error(error.message);
       }
 
-      toast.success(`Announcement sent! Successful: ${data.successCount}, Removed: ${data.removedCount}, Errors: ${data.errorCount}`);
+      toast.success(
+        `Announcement sent! Successful: ${data.successCount}, Removed: ${data.removedCount}, Errors: ${data.errorCount}`,
+      );
       setTitle("");
       setMessage("");
       setUrl("");
@@ -137,9 +139,7 @@ export default function AdminAnnouncements() {
       <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
         <div className="mx-auto max-w-7xl">
           <p className="eyebrow font-bold text-black">System administration</p>
-          <h1 className="mt-2 text-4xl font-bold text-black md:text-6xl">
-            Campus Announcements
-          </h1>
+          <h1 className="mt-2 text-4xl font-bold text-black md:text-6xl">Campus Announcements</h1>
           <p className="mt-4 max-w-2xl font-mono text-sm leading-6 text-gray-800">
             Send critical push notifications to all opted-in students.
           </p>

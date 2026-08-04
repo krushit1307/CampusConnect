@@ -55,15 +55,21 @@ export default function ClubArticlesPage() {
   });
 
   // Query all articles for this club
-  const { data: articles = [], isLoading: isArticlesLoading, refetch } = useQuery({
+  const {
+    data: articles = [],
+    isLoading: isArticlesLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["clubArticles", club?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("articles")
-        .select(`
+        .select(
+          `
           id, club_id, title, content, read_time_minutes, created_at,
           profiles (first_name, last_name, avatar_url)
-        `)
+        `,
+        )
         .eq("club_id", club?.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -127,9 +133,7 @@ export default function ClubArticlesPage() {
     },
   });
 
-  const isClubAdmin = 
-    club?.created_by === user?.id || 
-    membership?.role === "admin";
+  const isClubAdmin = club?.created_by === user?.id || membership?.role === "admin";
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -259,7 +263,9 @@ export default function ClubArticlesPage() {
                   disabled={createArticleMutation.isPending}
                   className="neu-border bg-black text-cream hover:bg-cream hover:text-black px-4 py-2 font-mono text-xs font-bold uppercase disabled:opacity-50 flex items-center gap-2"
                 >
-                  {createArticleMutation.isPending && <Loader2 size={14} className="animate-spin" />}
+                  {createArticleMutation.isPending && (
+                    <Loader2 size={14} className="animate-spin" />
+                  )}
                   Publish
                 </button>
               </div>

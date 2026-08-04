@@ -40,7 +40,8 @@ export class UserImportRepository {
       return { inserted: 0, failed: [] };
     }
 
-    const failedInBatch: Array<{ rowNumber: number; email: string; error: string; rawRow: any }> = [];
+    const failedInBatch: Array<{ rowNumber: number; email: string; error: string; rawRow: any }> =
+      [];
     let batchInserted = 0;
 
     for (const row of batch) {

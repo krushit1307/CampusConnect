@@ -68,11 +68,14 @@ export const DualRangeSliderStudioModal: React.FC<DualRangeSliderStudioModalProp
                 <Tag className="w-4 h-4 text-indigo-600" /> Active Price Filter Bounds
               </span>
               <div className="text-2xl font-extrabold text-black mt-1">
-                ${priceRange[0]} <span className="text-gray-400 font-normal">to</span> ${priceRange[1]}
+                ${priceRange[0]} <span className="text-gray-400 font-normal">to</span> $
+                {priceRange[1]}
               </div>
             </div>
             <div className="text-right">
-              <span className="text-[11px] font-bold text-slate-500 uppercase">Committed State</span>
+              <span className="text-[11px] font-bold text-slate-500 uppercase">
+                Committed State
+              </span>
               <div className="text-sm font-extrabold text-emerald-600">
                 ${committedRange[0]} – ${committedRange[1]}
               </div>
@@ -141,7 +144,8 @@ export const DualRangeSliderStudioModal: React.FC<DualRangeSliderStudioModalProp
               <div>
                 <h5 className="font-bold text-xs uppercase">Radix Primitive Clamping</h5>
                 <p className="text-[11px] opacity-80">
-                  Min thumb physically cannot cross Max thumb. Distance collision is mathematically enforced.
+                  Min thumb physically cannot cross Max thumb. Distance collision is mathematically
+                  enforced.
                 </p>
               </div>
             </div>

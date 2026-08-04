@@ -5,25 +5,25 @@
  */
 
 export const STRIPE_TEST_CARD = {
-    number: "4242 4242 4242 4242",
-    expiry: "12/34", // Any future date
-    cvc: "123",       // Any 3 digits
-    zip: "12345",     // Optional, but good for completeness
+  number: "4242 4242 4242 4242",
+  expiry: "12/34", // Any future date
+  cvc: "123", // Any 3 digits
+  zip: "12345", // Optional, but good for completeness
 };
 
 export const TEST_EVENT_DETAILS = {
-    title: "Test Event for Checkout",
-    price: "$10.00",
-    slug: "test-event-checkout",
+  title: "Test Event for Checkout",
+  price: "$10.00",
+  slug: "test-event-checkout",
 };
 
 /**
  * Generates a unique test user email to prevent collision across test runs.
  */
 export const generateTestEmail = (): string => {
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 8);
-    return `test.checkout.${timestamp}.${random}@example.com`;
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  return `test.checkout.${timestamp}.${random}@example.com`;
 };
 
 /**
@@ -31,7 +31,7 @@ export const generateTestEmail = (): string => {
  * Stripe uses dynamic iframe names, so we target by title or role.
  */
 export const waitForStripeFrame = async (page: any) => {
-    await page.waitForLoadState("networkidle");
-    // Stripe iframes typically have titles like "Secure payment input frame"
-    return page.frameLocator('iframe[title*="Secure payment"], iframe[name^="__privateStripeFrame"]');
+  await page.waitForLoadState("networkidle");
+  // Stripe iframes typically have titles like "Secure payment input frame"
+  return page.frameLocator('iframe[title*="Secure payment"], iframe[name^="__privateStripeFrame"]');
 };

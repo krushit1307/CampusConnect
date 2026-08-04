@@ -58,11 +58,11 @@ export const DualRangeSlider = React.forwardRef<
       disabled = false,
       ...props
     },
-    ref
+    ref,
   ) => {
     // Internal state for uncontrolled usage or continuous drag rendering
     const [internalValue, setInternalValue] = React.useState<[number, number]>(
-      value || defaultValue
+      value || defaultValue,
     );
 
     // Sync state if controlled value prop updates externally
@@ -165,7 +165,7 @@ export const DualRangeSlider = React.forwardRef<
           disabled={disabled}
           className={cn(
             "relative flex w-full touch-none select-none items-center h-5 cursor-pointer",
-            disabled && "opacity-50 cursor-not-allowed"
+            disabled && "opacity-50 cursor-not-allowed",
           )}
           {...props}
         >
@@ -202,7 +202,7 @@ export const DualRangeSlider = React.forwardRef<
         )}
       </div>
     );
-  }
+  },
 );
 
 DualRangeSlider.displayName = "DualRangeSlider";
@@ -236,8 +236,7 @@ export const PriceFilterPresetGroup: React.FC<PriceFilterPresetGroupProps> = ({
   return (
     <div className={cn("flex flex-wrap items-center gap-2 font-mono text-xs", className)}>
       {presets.map((preset) => {
-        const isActive =
-          activeRange[0] === preset.range[0] && activeRange[1] === preset.range[1];
+        const isActive = activeRange[0] === preset.range[0] && activeRange[1] === preset.range[1];
         return (
           <button
             key={preset.label}
@@ -247,7 +246,7 @@ export const PriceFilterPresetGroup: React.FC<PriceFilterPresetGroupProps> = ({
               "px-3 py-1.5 font-bold uppercase rounded-lg border transition-all cursor-pointer",
               isActive
                 ? "bg-black text-white border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100",
             )}
           >
             {preset.label}
@@ -257,4 +256,3 @@ export const PriceFilterPresetGroup: React.FC<PriceFilterPresetGroupProps> = ({
     </div>
   );
 };
-

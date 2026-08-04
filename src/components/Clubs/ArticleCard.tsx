@@ -23,14 +23,15 @@ interface ArticleCardProps {
 export function ArticleCard({ article, clubSlug }: ArticleCardProps) {
   // Strip HTML to display preview snippet
   const snippet = article.content
-    ? article.content.replace(/(<([^>]+)>)/gi, "").slice(0, 160) + (article.content.length > 160 ? "..." : "")
+    ? article.content.replace(/(<([^>]+)>)/gi, "").slice(0, 160) +
+      (article.content.length > 160 ? "..." : "")
     : "";
 
   const authorName = article.profiles
     ? `${article.profiles.first_name} ${article.profiles.last_name}`
     : "Club Writer";
 
-  const readTimeStr = article.read_time_minutes 
+  const readTimeStr = article.read_time_minutes
     ? `${article.read_time_minutes} min read`
     : "1 min read";
 

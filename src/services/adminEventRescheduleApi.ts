@@ -50,7 +50,10 @@ export async function patchRescheduleEvent({
     }
   } catch (apiError) {
     // Fall back to direct Supabase database update
-    console.warn("REST API endpoint unavailable, falling back to direct Supabase table update", apiError);
+    console.warn(
+      "REST API endpoint unavailable, falling back to direct Supabase table update",
+      apiError,
+    );
   }
 
   // 2. Direct Supabase Client fallback update

@@ -1,24 +1,24 @@
-import { supabase } from '../lib/supabase';
-import { User } from '@supabase/supabase-js';
-import { generateUUIDv7 } from '../lib/uuidv7';
+import { supabase } from "../lib/supabase";
+import { User } from "@supabase/supabase-js";
+import { generateUUIDv7 } from "../lib/uuidv7";
 
 /**
  * Authentication Service
- * 
+ *
  * Provides a centralized, type-safe wrapper around Supabase authentication
  * and user management operations. Integrates with the custom progressive
  * backoff login Edge Function and handles session persistence.
  */
 
 export interface SignUpData {
-    email: string;
-    password: string;
-    fullName: string;
-    college?: string;
+  email: string;
+  password: string;
+  fullName: string;
+  college?: string;
 }
 
 export interface ResetPasswordData {
-    email: string;
+  email: string;
 }
 
 /**
@@ -27,52 +27,52 @@ export interface ResetPasswordData {
  * though Supabase Auth handles the primary `auth.users` ID generation.
  */
 export async function signUp(data: SignUpData): Promise<User> {
-    const { data: authData, error } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-            data: {
-                full_name: data.fullName,
-                college: data.college || null,
-                // Pass a client-generated UUIDv7 to ensure the profile row
-                // created by the database trigger has a time-sortable ID immediately
-                client_generated_id: generateUUIDv7(),
-            },
-        },
-    });
+  const { data: authData, error } = await supabase.auth.signUp({
+    email: data.email,
+    password: data.password,
+    options: {
+      data: {
+        full_name: data.fullName,
+        college: data.college || null,
+        // Pass a client-generated UUIDv7 to ensure the profile row
+        // created by the database trigger has a time-sortable ID immediately
+        client_generated_id: generateUUIDv7(),
+      },
+    },
+  });
 
-    if (error) {
-        throw new Error(error.message);
-    }
+  if (error) {
+    throw new Error(error.message);
+  }
 
-    if (!authData.user) {
-        throw new Error('User creation failed: No user object returned.');
-    }
+  if (!authData.user) {
+    throw new Error("User creation failed: No user object returned.");
+  }
 
-    return authData.user;
+  return authData.user;
 }
 
 /**
  * Signs out the current user and clears all local session data.
  */
 export async function signOut(): Promise<void> {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-        throw new Error(error.message);
-    }
+  const { error } = await supabase.auth.signOut();
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 /**
  * Initiates the password reset flow by sending a recovery email.
  */
 export async function requestPasswordReset(data: ResetPasswordData): Promise<void> {
-    const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
-    });
+  const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
+    redirectTo: `${window.location.origin}/auth/reset-password`,
+  });
 
-    if (error) {
-        throw new Error(error.message);
-    }
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 /**
@@ -80,13 +80,13 @@ export async function requestPasswordReset(data: ResetPasswordData): Promise<voi
  * Typically called on the `/auth/reset-password` page after clicking the email link.
  */
 export async function updatePassword(newPassword: string): Promise<void> {
-    const { error } = await supabase.auth.updateUser({
-        password: newPassword,
-    });
+  const { error } = await supabase.auth.updateUser({
+    password: newPassword,
+  });
 
-    if (error) {
-        throw new Error(error.message);
-    }
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 /**
@@ -94,14 +94,17 @@ export async function updatePassword(newPassword: string): Promise<void> {
  * Returns null if no user is logged in.
  */
 export async function getCurrentUser(): Promise<User | null> {
-    const { data: { user }, error } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
-    if (error) {
-        console.error('Error fetching current user:', error);
-        return null;
-    }
+  if (error) {
+    console.error("Error fetching current user:", error);
+    return null;
+  }
 
-    return user;
+  return user;
 }
 
 /**
@@ -109,8 +112,8 @@ export async function getCurrentUser(): Promise<User | null> {
  * Useful for long-running applications to prevent token expiry (401 errors).
  */
 export async function refreshSession(): Promise<void> {
-    const { error } = await supabase.auth.refreshSession();
-    if (error) {
-        throw new Error('Failed to refresh session: ' + error.message);
-    }
+  const { error } = await supabase.auth.refreshSession();
+  if (error) {
+    throw new Error("Failed to refresh session: " + error.message);
+  }
 }
