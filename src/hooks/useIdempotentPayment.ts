@@ -62,8 +62,9 @@ export function useIdempotentPayment(): UseIdempotentPaymentReturn {
 
         toast.success("Payment processed successfully!");
         return data;
-      } catch (err: any) {
-        const errorMessage = err.message || "An unexpected error occurred during payment.";
+      } catch (err: unknown) {
+        const errorMessage =
+          err instanceof Error ? err.message : "An unexpected error occurred during payment.";
         setError(errorMessage);
         toast.error(errorMessage);
         throw err;

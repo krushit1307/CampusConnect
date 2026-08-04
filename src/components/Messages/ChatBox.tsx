@@ -13,8 +13,14 @@ import {
   decryptMessage,
 } from "@/lib/crypto";
 import { toast } from "sonner";
-import { ShieldCheck, Send, Search, Lock, AlertTriangle, RefreshCw } from "lucide-react";
+import { ShieldCheck, Send, Search, Lock, AlertTriangle, RefreshCw, Smile } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import EmojiPicker from "emoji-picker-react";
+import { EmptyState } from "@/components/EmptyState";
+import { LinkPreview } from "./LinkPreview";
+import { extractFirstUrl } from "@/lib/extractUrls";
+import { getBlockedUserIds, validateDirectMessageSend } from "@/lib/userBlockUtils";
 
 interface Profile {
   id: string;
@@ -725,6 +731,13 @@ export default function ChatBox() {
                             <p className="whitespace-pre-wrap font-sans text-sm font-medium">
                               {msg.content}
                             </p>
+                            {/* Link Preview — rendered below message text if a URL is detected */}
+                            {(() => {
+                              const previewUrl = extractFirstUrl(msg.content ?? "");
+                              return previewUrl ? (
+                                <LinkPreview url={previewUrl} isMe={isMe} />
+                              ) : null;
+                            })()}
                             <div className="mt-1.5 flex items-center justify-between gap-4 font-mono text-[9px] uppercase opacity-60">
                               <span>{time}</span>
                               <span className="flex items-center gap-0.5">

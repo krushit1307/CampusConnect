@@ -152,7 +152,6 @@ export function SiteShell({ children }: { children: ReactNode }) {
               fontFamily: "monospace",
               fontWeight: "bold",
             },
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } as any
         }
       />

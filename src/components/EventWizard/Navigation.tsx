@@ -1,11 +1,12 @@
 import React from "react";
 import { useEventWizard } from "../../hooks/useEventWizard";
+import { StickyActionBar } from "@/components/ui/StickyActionBar";
 
 export function Navigation({ wizard }: { wizard: ReturnType<typeof useEventWizard> }) {
   const { stateValue, canNext, canBack, next, back, submit, canSubmit } = wizard;
 
   return (
-    <div className="flex justify-between mt-8 pt-4 border-t border-border">
+    <StickyActionBar className="mt-8 sm:pt-4">
       <button
         type="button"
         onClick={back}
@@ -34,6 +35,6 @@ export function Navigation({ wizard }: { wizard: ReturnType<typeof useEventWizar
           Next
         </button>
       )}
-    </div>
+    </StickyActionBar>
   );
 }

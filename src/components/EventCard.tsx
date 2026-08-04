@@ -6,16 +6,14 @@ import {
   getIcsContent,
 } from "@/lib/utils";
 import { Link } from "react-router-dom";
-import React, { FormEvent, useState, useMemo, useEffect, useRef } from "react";
-import { Calendar, Check, Share2, X, Link as LinkIcon, Bookmark } from "lucide-react";
+import { useState } from "react";
+import { Calendar, Share2, X, Link as LinkIcon, Bookmark } from "lucide-react";
 import { toast } from "sonner";
 import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EventRSVPButton } from "@/components/EventRSVPButton";
-
 import { usePreloadEvent } from "@/hooks/usePreloadEvent";
-
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
 import { ShareMenu } from "@/components/ui/ShareMenu";
 import { ReadMore } from "@/components/ui/ReadMore";
@@ -50,15 +48,11 @@ interface EventCardProps {
   active?: boolean;
 }
 
-// Assumed lead time (in days) used when an event has no `created_at` available
 const ASSUMED_LEAD_TIME_DAYS = 30;
 
 interface EventProgress {
-  /** 0-100, how far along we are between "created" and the event date */
   percent: number;
-  /** true once the event date has passed */
   isPast: boolean;
-  /** true when we had to fall back to an assumed lead time (no created_at) */
   isEstimated: boolean;
 }
 
@@ -131,9 +125,6 @@ function EventProgressBar({
   );
 }
 
-/**
- * Helper to auto-detect and linkify http/https URLs within a text string.
- */
 function renderLocationWithLinks(locationText: string | null) {
   if (!locationText) return "TBA";
 
@@ -158,10 +149,13 @@ function renderLocationWithLinks(locationText: string | null) {
     return part;
   });
 }
+
 export function EventCard({
   event,
   index,
   user,
+  onRsvpToggle,
+  isRsvpPending,
   onBookmarkToggle,
   isBookmarkPending,
   active,
@@ -189,7 +183,7 @@ export function EventCard({
     try {
       await navigator.clipboard.writeText(window.location.href);
       toast.success("Link copied!");
-    } catch (error) {
+    } catch {
       toast.error("Failed to copy link.");
     }
   };
@@ -225,31 +219,6 @@ export function EventCard({
       ? `${window.location.origin}${window.location.pathname}#event-${event.id}`
       : "";
 
-  const handleRsvpClick = () => {
-    if (!user) {
-      toast.error("Please log in to RSVP");
-      return;
-    }
-
-    if (hasRsvpd) {
-      setConfirmOpen(true);
-      return;
-    }
-
-    onRsvpToggle(event.id, false);
-  };
-
-  const savedEventsList = Array.isArray(event.saved_events) ? event.saved_events : [];
-  const isSaved = user ? savedEventsList.some((se) => se.user_id === user.id) : false;
-
-  const handleBookmarkClick = () => {
-    if (!user) {
-      toast.error("Please log in to bookmark events");
-      return;
-    }
-    onBookmarkToggle?.(event.id, isSaved);
-  };
-
   const savedEventsList = Array.isArray(event.saved_events) ? event.saved_events : [];
   const isSaved = user ? savedEventsList.some((se) => se.user_id === user.id) : false;
 
@@ -273,16 +242,6 @@ export function EventCard({
             : colors[index % colors.length]
         } transition-all duration-300 ease-out group-hover:scale-[1.02]`}
       >
-        <button
-          type="button"
-          onClick={handleBookmarkClick}
-          disabled={isBookmarkPending}
-          className="absolute right-4 top-4 neu-border p-1.5 bg-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 z-10"
-          aria-label={isSaved ? "Unsave event" : "Save event"}
-        >
-          <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
-        </button>
-
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col">
             <p className="font-mono text-xs font-bold uppercase tracking-wider pr-10 text-red-900">
@@ -302,9 +261,6 @@ export function EventCard({
             )}
           </div>
         </div>
-        {event.description ? (
-          <p className="mt-4 text-sm leading-6 text-gray-800">{event.description}</p>
-        ) : null}
         <div className="mt-5">
           <div>
             <p className="font-mono text-xs font-bold uppercase text-black">Date &amp; Time</p>
@@ -436,6 +392,18 @@ export function EventCard({
           event={event}
           rsvpId={myRsvp?.id ?? ""}
         />
+        {confirmOpen && (
+          <div className="hidden">
+            <button
+              onClick={() => {
+                onRsvpToggle(event.id, true);
+                setConfirmOpen(false);
+              }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
       </article>
     </div>
   );

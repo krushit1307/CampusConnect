@@ -1,258 +1,260 @@
 .mapContainer {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    min-height: 400px;
-    overflow: hidden;
-    background-color: #f8fafc;
-    user-select: none;
-    cursor: grab;
-    touch-action: none;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  overflow: hidden;
+  background-color: #f8fafc;
+  user-select: none;
+  cursor: grab;
+  touch-action: none;
 }
 
 .mapContainer:active {
-    cursor: grabbing;
+  cursor: grabbing;
 }
 
 .svgWrapper {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transform-origin: center center;
-    transition: transform 0.05s ease-out;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+  transition: transform 0.05s ease-out;
 }
 
 .svgContent {
-    width: 100%;
-    height: 100%;
-    max-width: 100%;
-    max-height: 100%;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 /* Default SVG building styles */
 :global(.building) {
-    cursor: pointer;
-    transition: fill 0.3s ease, stroke 0.3s ease;
-    fill: #cbd5e1;
-    stroke: #64748b;
-    stroke-width: 1.5;
+  cursor: pointer;
+  transition:
+    fill 0.3s ease,
+    stroke 0.3s ease;
+  fill: #cbd5e1;
+  stroke: #64748b;
+  stroke-width: 1.5;
 }
 
 :global(.building:hover) {
-    fill: #94a3b8;
+  fill: #94a3b8;
 }
 
 /* Active Highlight + Gentle Pulse Effect */
 .activeBuilding {
-    fill: #22c55e !important;
-    /* Glowing green */
-    stroke: #15803d !important;
-    stroke-width: 2.5;
-    animation: pulseHighlight 1.8s infinite ease-in-out;
+  fill: #22c55e !important;
+  /* Glowing green */
+  stroke: #15803d !important;
+  stroke-width: 2.5;
+  animation: pulseHighlight 1.8s infinite ease-in-out;
 }
 
 @keyframes pulseHighlight {
-    0% {
-        fill-opacity: 1;
-        stroke-width: 2.5;
-    }
+  0% {
+    fill-opacity: 1;
+    stroke-width: 2.5;
+  }
 
-    50% {
-        fill-opacity: 0.55;
-        stroke-width: 4;
-    }
+  50% {
+    fill-opacity: 0.55;
+    stroke-width: 4;
+  }
 
-    100% {
-        fill-opacity: 1;
-        stroke-width: 2.5;
-    }
+  100% {
+    fill-opacity: 1;
+    stroke-width: 2.5;
+  }
 }
 
 /* UI Overlays */
 .resetButton {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    z-index: 10;
-    padding: 6px 12px;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #334155;
-    cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  padding: 6px 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .resetButton:hover {
-    background: #f1f5f9;
+  background: #f1f5f9;
 }
 
 .controls {
-    position: absolute;
-    bottom: 16px;
-    right: 16px;
-    z-index: 10;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-    border-radius: 8px;
-    overflow: hidden;
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .controlButton {
-    width: 36px;
-    height: 36px;
-    background: #ffffff;
-    border: none;
-    font-size: 1.25rem;
-    font-weight: bold;
-    color: #1e293b;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: #ffffff;
+  border: none;
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #1e293b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .controlButton:hover {
-    background: #f1f5f9;
+  background: #f1f5f9;
 }
 
 .tooltip {
-    position: absolute;
-    transform: translate(-50%, -100%);
-    background-color: #0f172a;
-    color: #ffffff;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.15s ease;
-    z-index: 20;
-    white-space: nowrap;
+  position: absolute;
+  transform: translate(-50%, -100%);
+  background-color: #0f172a;
+  color: #ffffff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 20;
+  white-space: nowrap;
 }
 
 .tooltipVisible {
-    opacity: 1;
+  opacity: 1;
 }
 
 .mapContainer {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    min-height: 400px;
-    background-color: #f8fafc;
-    border-radius: 1rem;
-    overflow: hidden;
-    border: 1px solid #e2e8f0;
-    touch-action: none;
-    /* Prevent default touch scrolling for pan/zoom */
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  background-color: #f8fafc;
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  touch-action: none;
+  /* Prevent default touch scrolling for pan/zoom */
 }
 
-:root[data-theme='dark'] .mapContainer {
-    background-color: #0f172a;
-    border-color: #1e293b;
+:root[data-theme="dark"] .mapContainer {
+  background-color: #0f172a;
+  border-color: #1e293b;
 }
 
 .svgWrapper {
-    width: 100%;
-    height: 100%;
-    cursor: grab;
-    transform-origin: 0 0;
-    transition: transform 0.1s ease-out;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  transform-origin: 0 0;
+  transition: transform 0.1s ease-out;
 }
 
 .svgWrapper:active {
-    cursor: grabbing;
+  cursor: grabbing;
 }
 
 .controls {
-    position: absolute;
-    bottom: 1rem;
-    right: 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    z-index: 10;
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 10;
 }
 
 .controlButton {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    border: 1px solid #cbd5e1;
-    background-color: white;
-    color: #334155;
-    font-size: 1.25rem;
-    font-weight: bold;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    transition: all 0.2s ease;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid #cbd5e1;
+  background-color: white;
+  color: #334155;
+  font-size: 1.25rem;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
 }
 
 .controlButton:hover {
-    background-color: #f1f5f9;
-    transform: scale(1.05);
+  background-color: #f1f5f9;
+  transform: scale(1.05);
 }
 
 .controlButton:active {
-    transform: scale(0.95);
+  transform: scale(0.95);
 }
 
-:root[data-theme='dark'] .controlButton {
-    background-color: #1e293b;
-    border-color: #334155;
-    color: #f1f5f9;
+:root[data-theme="dark"] .controlButton {
+  background-color: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
 }
 
-:root[data-theme='dark'] .controlButton:hover {
-    background-color: #334155;
+:root[data-theme="dark"] .controlButton:hover {
+  background-color: #334155;
 }
 
 .tooltip {
-    position: absolute;
-    background-color: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: 0.5rem 1rem;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    z-index: 20;
-    transform: translate(-50%, -100%);
-    margin-top: -10px;
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 20;
+  transform: translate(-50%, -100%);
+  margin-top: -10px;
 }
 
 .tooltip.visible {
-    opacity: 1;
+  opacity: 1;
 }
 
 .resetButton {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    padding: 0.5rem 1rem;
-    background-color: white;
-    border: 1px solid #cbd5e1;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
-    cursor: pointer;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    z-index: 10;
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.5rem 1rem;
+  background-color: white;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  z-index: 10;
 }
 
-:root[data-theme='dark'] .resetButton {
-    background-color: #1e293b;
-    border-color: #334155;
-    color: #f1f5f9;
+:root[data-theme="dark"] .resetButton {
+  background-color: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
 }

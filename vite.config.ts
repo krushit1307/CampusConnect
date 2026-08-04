@@ -80,14 +80,19 @@ export default defineConfig({
     port: 3000,
     host: true,
     headers: {
+      "Content-Security-Policy":
+        "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.google-analytics.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.supabase.co https://s3.amazonaws.com https://images.unsplash.com https://www.google-analytics.com; frame-src 'self' https://js.stripe.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none';",
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
   },
   preview: {
     headers: {
+      "Content-Security-Policy":
+        "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.google-analytics.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.supabase.co https://s3.amazonaws.com https://images.unsplash.com https://www.google-analytics.com; frame-src 'self' https://js.stripe.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none';",
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",
+      "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
     },
   },
   // Ensure Vite treats .lottie and .json files as raw static assets
@@ -201,16 +206,28 @@ export default defineConfig({
   build: {
     target: "esnext",
     chunkSizeWarningLimit: 1000,
-  },
-  build: {
-    // Raises warning threshold (optional, e.g. set to 1000kB / 1MB)
-    chunkSizeWarningLimit: 1000,
-    // Bundler options for chunking
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("recharts") || id.includes("echarts") || id.includes("chart.js")) {
+              return "chunk-admin-charts";
+            }
+            if (id.includes("react") || id.includes("react-dom")) {
+              return "vendor-react";
+            }
+            return "vendor";
+          }
+        },
+      },
+    },
     rolldownOptions: {
       output: {
         manualChunks(id) {
-          // Separates third-party packages from node_modules into vendor chunks
           if (id.includes("node_modules")) {
+            if (id.includes("recharts") || id.includes("echarts") || id.includes("chart.js")) {
+              return "chunk-admin-charts";
+            }
             if (id.includes("react") || id.includes("react-dom")) {
               return "vendor-react";
             }
@@ -221,4 +238,3 @@ export default defineConfig({
     },
   },
 });
-plugins: [react(), svgr()];
