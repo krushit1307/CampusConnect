@@ -95,8 +95,8 @@ const { data: queryData, isLoading, isFetching, refetch } = useQuery({    queryK
         .from("events")
         .select(
           `
-          id, title, description, event_date, location, banner_url,
-          clubs (name),
+          id, title, description, event_date, location, banner_url, created_at, announce_date,
+          clubs (name, average_lead_time_days),
           event_rsvps (id, user_id),
           saved_events (id, user_id)
         `,

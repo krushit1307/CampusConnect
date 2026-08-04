@@ -42,8 +42,12 @@ export interface EventItem {
   end_date?: string | null;
   location: string | null;
   banner_url?: string | null;
+  announce_date?: string | null;
   created_at?: string | null;
-  clubs: { name: string } | { name: string }[] | null;
+  clubs:
+    | { name: string; average_lead_time_days?: number | null }
+    | { name: string; average_lead_time_days?: number | null }[]
+    | null;
   event_rsvps: { id: string; user_id: string }[] | null;
   saved_events: { id: string; user_id: string }[] | null;
   rsvp_count?: number;
@@ -195,8 +199,8 @@ export default function EventsList() {
           .from("events")
           .select(
             `
-            id, title, description, event_date, start_date, end_date, location, banner_url, created_at, max_attendees,
-            clubs (name),
+            id, title, description, event_date, start_date, end_date, location, banner_url, created_at, announce_date, max_attendees,
+            clubs (name, average_lead_time_days),
             event_rsvps(count),
             saved_events(count)
           `,
