@@ -74,7 +74,10 @@ export interface BulkImportSummary {
 export function normalizeCsvHeaderKeys(rawRow: RawUserCsvRow): RawUserCsvRow {
   const normalized: RawUserCsvRow = {};
   for (const [key, value] of Object.entries(rawRow)) {
-    const cleanKey = key.trim().toLowerCase().replace(/[\s\-_]+/g, "");
+    const cleanKey = key
+      .trim()
+      .toLowerCase()
+      .replace(/[\s\-_]+/g, "");
     if (["email", "mail", "emailaddress"].includes(cleanKey)) {
       normalized.email = value;
     } else if (["name", "fullname", "username", "studentname"].includes(cleanKey)) {
@@ -97,10 +100,7 @@ export function normalizeCsvHeaderKeys(rawRow: RawUserCsvRow): RawUserCsvRow {
 /**
  * Helper to generate mock CSV content for benchmarks & unit testing
  */
-export function generateDummyUserCsv(
-  totalRows: number,
-  invalidRowIndices: number[] = []
-): string {
+export function generateDummyUserCsv(totalRows: number, invalidRowIndices: number[] = []): string {
   const invalidSet = new Set(invalidRowIndices);
   const lines: string[] = ["email,name,role,department,studentId,phone"];
 
@@ -108,14 +108,25 @@ export function generateDummyUserCsv(
     if (invalidSet.has(i)) {
       if (i % 2 === 0) {
         // Invalid email missing domain
-        lines.push(`invalid-user-${i}-email-missing,Student ${i},student,Computer Science,CS${1000 + i},+1555000${i}`);
+        lines.push(
+          `invalid-user-${i}-email-missing,Student ${i},student,Computer Science,CS${1000 + i},+1555000${i}`,
+        );
       } else {
         // Missing required name field
-        lines.push(`student${i}@campusconnect.edu,,student,Mathematics,MATH${1000 + i},+1555000${i}`);
+        lines.push(
+          `student${i}@campusconnect.edu,,student,Mathematics,MATH${1000 + i},+1555000${i}`,
+        );
       }
     } else {
-      const dept = i % 3 === 0 ? "Computer Science" : i % 3 === 1 ? "Electrical Engineering" : "Business Administration";
-      lines.push(`student${i}@campusconnect.edu,Student ${i},student,${dept},STU${10000 + i},+15551234${(i % 1000).toString().padStart(3, "0")}`);
+      const dept =
+        i % 3 === 0
+          ? "Computer Science"
+          : i % 3 === 1
+            ? "Electrical Engineering"
+            : "Business Administration";
+      lines.push(
+        `student${i}@campusconnect.edu,Student ${i},student,${dept},STU${10000 + i},+15551234${(i % 1000).toString().padStart(3, "0")}`,
+      );
     }
   }
 

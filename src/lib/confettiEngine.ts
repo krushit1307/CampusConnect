@@ -64,7 +64,7 @@ class ConfettiParticle {
     ticks: number,
     colors: string[],
     shapes: ConfettiShape[],
-    scalar: number
+    scalar: number,
   ) {
     this.x = startX;
     this.y = startY;
@@ -115,7 +115,10 @@ class ConfettiParticle {
 
     // Fade out towards the end of lifecycle
     if (this.currentTick > this.totalTicks * 0.6) {
-      this.opacity = Math.max(0, 1 - (this.currentTick - this.totalTicks * 0.6) / (this.totalTicks * 0.4));
+      this.opacity = Math.max(
+        0,
+        1 - (this.currentTick - this.totalTicks * 0.6) / (this.totalTicks * 0.4),
+      );
     }
 
     return true;
@@ -155,7 +158,12 @@ class ConfettiParticle {
     ctx.restore();
   }
 
-  private drawStar(ctx: CanvasRenderingContext2D, points: number, outerRadius: number, innerRadius: number): void {
+  private drawStar(
+    ctx: CanvasRenderingContext2D,
+    points: number,
+    outerRadius: number,
+    innerRadius: number,
+  ): void {
     let rotation = (Math.PI / 2) * 3;
     let step = Math.PI / points;
 
@@ -273,8 +281,8 @@ export function fireConfetti(options: ConfettiOptions = {}): boolean {
         ticks,
         colors,
         shapes,
-        scalar
-      )
+        scalar,
+      ),
     );
   }
 

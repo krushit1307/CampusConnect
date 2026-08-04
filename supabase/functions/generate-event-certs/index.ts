@@ -4,6 +4,7 @@ import { z } from "https://esm.sh/zod@3.24.2";
 import { PDFDocument, rgb, StandardFonts, PDFFont } from "https://esm.sh/pdf-lib@1.17.1";
 import { limitRate } from "../shared/rate_limiter.ts";
 import { parseJsonBody } from "../_shared/validation.ts";
+import { computeCertificateLeafHash } from "../shared/merkle.ts";
 
 // Accepts a storage/db webhook envelope ({ record: {...} }) or the fields
 // at the top level.
@@ -192,23 +193,52 @@ serve(async (req) => {
     const { data: publicUrlData } = supabase.storage.from("certificates").getPublicUrl(fileName);
 
     // Save to database
-    const { error: insertError } = await supabase.from("certificates").upsert(
-      {
-        event_id: eventId,
-        user_id: userId,
-        certificate_url: publicUrlData.publicUrl,
-      },
-      { onConflict: "event_id,user_id" },
-    );
+    const { data: certRow, error: insertError } = await supabase
+      .from("certificates")
+      .upsert(
+        {
+          event_id: eventId,
+          user_id: userId,
+          certificate_url: publicUrlData.publicUrl,
+        },
+        { onConflict: "event_id,user_id" },
+      )
+      .select("id")
+      .single();
 
     if (insertError) {
       throw new Error(`Failed to save record for user ${userId}: ${insertError.message}`);
     }
 
-    return new Response(JSON.stringify({ success: true, url: publicUrlData.publicUrl }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
+    // Anchor preparation: compute the canonical leaf hash (see shared/merkle.ts)
+    // and a public proof URL so employers can verify authenticity on-chain.
+    const verificationHash = computeCertificateLeafHash(eventId, userId, certRow.id);
+    const siteUrl = Deno.env.get("SITE_URL") ?? "";
+    const verifyUrl = siteUrl
+      ? `${siteUrl.replace(/\/+$/, "")}/verify?cert=${certRow.id}`
+      : `/verify?cert=${certRow.id}`;
+
+    const { error: ledgerError } = await supabase
+      .from("certificates")
+      .update({ verification_hash: verificationHash, verify_url: verifyUrl })
+      .eq("id", certRow.id);
+
+    if (ledgerError) {
+      console.warn(`Failed to store ledger hash for certificate ${certRow.id}: ${ledgerError.message}`);
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        url: publicUrlData.publicUrl,
+        verificationHash,
+        verifyUrl,
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      },
+    );
   } catch (error: unknown) {
     console.error("Internal Error:", error);
     return new Response(

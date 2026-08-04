@@ -265,7 +265,7 @@ export default function ClubProfile() {
     mutationFn: async () => {
       if (!user || !club) throw new Error("Must be logged in");
       const isPublic = (club as { visibility?: string }).visibility === "public";
-      
+
       // Get the default Member role for this club
       const { data: memberRole, error: roleError } = await supabase
         .from("club_roles")
@@ -303,10 +303,13 @@ export default function ClubProfile() {
   const membership =
     user && club && Array.isArray(club.club_members)
       ? club.club_members.find(
-          (m: { user_id: string; club_roles: { title: string } | null; status: string }) => m.user_id === user.id,
+          (m: { user_id: string; club_roles: { title: string } | null; status: string }) =>
+            m.user_id === user.id,
         )
       : null;
-  const isAdmin = membership && (membership.club_roles?.title === "Admin" || membership.club_roles?.title === "Organizer");
+  const isAdmin =
+    membership &&
+    (membership.club_roles?.title === "Admin" || membership.club_roles?.title === "Organizer");
 
   useEffect(() => {
     if (!isAdmin || !club) return;
@@ -700,7 +703,7 @@ export default function ClubProfile() {
                   )}
 
                   {/* Officers — 3D flip cards for club leadership (issue #2324) */}
-                  {officers.length > 0 && (
+                  {officers && officers.length > 0 && (
                     <div className="mt-8 max-w-2xl">
                       <h3 className="font-display text-lg font-bold text-blue-900">Officers</h3>
                       <p className="font-mono text-xs text-black mt-1 mb-3">
@@ -991,6 +994,7 @@ export default function ClubProfile() {
                         ))}
                       </ul>
                     )}
+
                   </div>
                 </div>
               </section>
@@ -1007,4 +1011,6 @@ export default function ClubProfile() {
       </SiteShell>
     </>
   );
+}
+
 }

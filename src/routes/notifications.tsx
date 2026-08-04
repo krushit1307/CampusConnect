@@ -49,12 +49,12 @@ interface GQLNotification {
   link: string | null;
   isRead: boolean;
   createdAt: string;
-  metadata?: Record<string, any> | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 export function getNotificationLink(
   type: string,
-  metadata: any,
+  metadata: Record<string, unknown> | null | undefined,
   fallbackLink?: string | null,
 ): string | undefined {
   if (!metadata || typeof metadata !== "object") {
@@ -66,21 +66,21 @@ export function getNotificationLink(
     case "event_rsvp":
     case "event_invite":
     case "event_update":
-      if (metadata.event_id) return `/events/${metadata.event_id}`;
+      if (metadata.event_id) return `/events/${metadata.event_id as string}`;
       break;
     case "club":
     case "club_application_approved":
     case "club_invite":
-      if (metadata.club_id) return `/clubs/${metadata.club_id}`;
+      if (metadata.club_id) return `/clubs/${metadata.club_id as string}`;
       break;
     case "mention":
     case "reply":
     case "post_like":
       if (metadata.post_id) {
         if (metadata.comment_id) {
-          return `/posts/${metadata.post_id}#comment-${metadata.comment_id}`;
+          return `/posts/${metadata.post_id as string}#comment-${metadata.comment_id as string}`;
         }
-        return `/posts/${metadata.post_id}`;
+        return `/posts/${metadata.post_id as string}`;
       }
       break;
     case "message":

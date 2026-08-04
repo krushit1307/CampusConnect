@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Link } from "react-router-dom";
 import NotificationItem from "./NotificationItem";
 import { createClient } from "@/lib/supabase/client";
-import { getNotificationLink } from "@/routes/notifications";
+import { getNotificationLink } from "@/lib/notificationUtils";
 
 export interface Notification {
   id: string;
@@ -15,7 +15,7 @@ export interface Notification {
   isRead: boolean;
   link?: string;
   createdAt: string;
-  metadata?: Record<string, any> | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 function formatRelativeTime(dateString: string): string {
@@ -91,7 +91,7 @@ export const NavbarNotificationDropdown: React.FC = () => {
           message: string;
           is_read: boolean;
           link?: string;
-          metadata?: Record<string, any> | null;
+          metadata?: Record<string, unknown> | null;
           created_at: string;
         }[]
       ).map((n) => ({

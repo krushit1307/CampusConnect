@@ -2,7 +2,11 @@ import { Readable, pipeline } from "node:stream";
 import { promisify } from "node:util";
 import { CSVStreamParser } from "../lib/streams/csvParserStream";
 import { UserImportStreamProcessor } from "../lib/streams/userImportStreamProcessor";
-import { BulkImportOptions, BulkImportSummary, FailedRowReport } from "../lib/validations/bulkImportValidation";
+import {
+  BulkImportOptions,
+  BulkImportSummary,
+  FailedRowReport,
+} from "../lib/validations/bulkImportValidation";
 import { UserImportRepository } from "../lib/db/userImportRepository";
 
 const streamPipeline = promisify(pipeline);
@@ -20,7 +24,7 @@ export class BulkImportService {
    */
   public async processUserImportStream(
     inputStream: Readable,
-    options: BulkImportOptions = {}
+    options: BulkImportOptions = {},
   ): Promise<BulkImportSummary> {
     const csvParser = new CSVStreamParser();
     const streamProcessor = new UserImportStreamProcessor(options, this.dbRepository);
@@ -35,10 +39,11 @@ export class BulkImportService {
    */
   public async processUserImportBuffer(
     bufferOrString: Buffer | string,
-    options: BulkImportOptions = {}
+    options: BulkImportOptions = {},
   ): Promise<BulkImportSummary> {
     const chunkSize = 64 * 1024; // 64KB chunks to simulate streaming
-    const content = typeof bufferOrString === "string" ? Buffer.from(bufferOrString, "utf8") : bufferOrString;
+    const content =
+      typeof bufferOrString === "string" ? Buffer.from(bufferOrString, "utf8") : bufferOrString;
 
     let offset = 0;
     const readableStream = new Readable({

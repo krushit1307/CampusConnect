@@ -1,5 +1,4 @@
 import { useNavigate, useBlocker } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, useId, type ChangeEvent, type KeyboardEvent } from "react";
@@ -364,12 +363,11 @@ function SettingsPageContent({ user }: WithAuthProps) {
     localStorage.setItem("border-radius", String(value));
   };
 
-  interface ProfileStats {
+  const pStats = profile as typeof profile & {
     lastActivityAt?: string;
     welcomeSource?: string;
     processedClaimCommentIds?: number[];
-  }
-  const pStats = profile as typeof profile & ProfileStats;
+  };
 
   if (isProfileLoading && !profile) {
     return (

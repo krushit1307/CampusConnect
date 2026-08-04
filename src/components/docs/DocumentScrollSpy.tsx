@@ -109,7 +109,7 @@ export const DocumentScrollSpy: React.FC<DocumentScrollSpyProps> = ({
     return () => {
       observerRef.current?.disconnect();
     };
-}, [headings]);
+  }, [headings]);
 
   // Silently reflect the active section in the URL hash so it can be
   // copied and shared, without adding browser history entries or
@@ -128,7 +128,8 @@ export const DocumentScrollSpy: React.FC<DocumentScrollSpyProps> = ({
     }
   }, [activeId]);
 
-  const scrollToHeading = useCallback((id: string) => {    const element = document.getElementById(id);
+  const scrollToHeading = useCallback((id: string) => {
+    const element = document.getElementById(id);
     if (element) {
       element.scrollIntoView({ behavior: "smooth", block: "start" });
       setActiveId(id);

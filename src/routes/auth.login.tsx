@@ -19,7 +19,9 @@ export default function AuthLogin() {
 
   const checkMfaStatus = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) return;
 
       const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();

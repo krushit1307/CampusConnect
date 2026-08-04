@@ -11,7 +11,8 @@ interface Announcement {
   content: string;
   created_at: string;
   club_id: string;
-  profiles: { id: string; full_name: string | null }[] | { id: string; full_name: string | null } | null;
+  profiles:
+    { id: string; full_name: string | null }[] | { id: string; full_name: string | null } | null;
   clubs: { id: string; name: string }[] | { id: string; name: string } | null;
 }
 
@@ -41,9 +42,9 @@ serve(async (req) => {
   }
 
   if (req.method !== "GET") {
-    return new Response("Method not allowed", { 
-      status: 405, 
-      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    return new Response("Method not allowed", {
+      status: 405,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
@@ -85,7 +86,7 @@ serve(async (req) => {
           (payload) => {
             const newPost = payload.new as Announcement;
             broadcastAnnouncement(newPost);
-          }
+          },
         )
         .subscribe();
     },
@@ -99,7 +100,7 @@ serve(async (req) => {
       ...corsHeaders,
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
+      Connection: "keep-alive",
     },
   });
 });

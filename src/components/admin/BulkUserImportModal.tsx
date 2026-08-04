@@ -13,7 +13,10 @@ import {
   Database,
   FileText,
 } from "lucide-react";
-import { generateDummyUserCsv, BulkImportSummary } from "../../lib/validations/bulkImportValidation";
+import {
+  generateDummyUserCsv,
+  BulkImportSummary,
+} from "../../lib/validations/bulkImportValidation";
 import { handleBulkUserImportApiRequest } from "../../services/adminUsersImportApi";
 import { BulkImportService } from "../../services/bulkImportService";
 
@@ -106,7 +109,8 @@ export const BulkUserImportModal: React.FC<BulkUserImportModalProps> = ({
   };
 
   const handleDownloadSampleTemplate = () => {
-    const template = "email,name,role,department,studentId,phone\njohn.doe@campusconnect.edu,John Doe,student,Computer Science,CS1001,+1555123456\njane.smith@campusconnect.edu,Jane Smith,faculty,Electrical Engineering,FAC2002,+1555987654\n";
+    const template =
+      "email,name,role,department,studentId,phone\njohn.doe@campusconnect.edu,John Doe,student,Computer Science,CS1001,+1555123456\njane.smith@campusconnect.edu,Jane Smith,faculty,Electrical Engineering,FAC2002,+1555987654\n";
     const blob = new Blob([template], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -160,8 +164,8 @@ export const BulkUserImportModal: React.FC<BulkUserImportModalProps> = ({
               !summary
                 ? "text-gray-300 cursor-not-allowed border-transparent"
                 : activeTab === "summary"
-                ? "border-indigo-600 text-indigo-600 bg-white rounded-t-lg"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                  ? "border-indigo-600 text-indigo-600 bg-white rounded-t-lg"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
             <CheckCircle2 className="w-4 h-4" /> Import Metrics
@@ -173,8 +177,8 @@ export const BulkUserImportModal: React.FC<BulkUserImportModalProps> = ({
               !summary || summary.failedCount === 0
                 ? "text-gray-300 cursor-not-allowed border-transparent"
                 : activeTab === "errors"
-                ? "border-amber-600 text-amber-600 bg-white rounded-t-lg"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                  ? "border-amber-600 text-amber-600 bg-white rounded-t-lg"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
             <AlertTriangle className="w-4 h-4" /> Failed Rows ({summary?.failedCount || 0})
@@ -209,10 +213,8 @@ export const BulkUserImportModal: React.FC<BulkUserImportModalProps> = ({
                     <Upload className="w-8 h-8" />
                   </div>
                   <div>
-                    <span className="font-semibold text-gray-800">
-                      Click to upload CSV file
-                    </span>{" "}
-                    or drag and drop
+                    <span className="font-semibold text-gray-800">Click to upload CSV file</span> or
+                    drag and drop
                   </div>
                   <span className="text-xs text-gray-500">
                     Supports 10,000+ student rows (e.g. 15MB CSV) via Node.js Streams
@@ -247,7 +249,8 @@ export const BulkUserImportModal: React.FC<BulkUserImportModalProps> = ({
                     <option value={1000}>1000 rows per batch (High Throughput)</option>
                   </select>
                   <p className="text-xs text-gray-500">
-                    Stream pauses every {batchSize} rows to execute bulk SQL insert, ensuring RAM stays flat.
+                    Stream pauses every {batchSize} rows to execute bulk SQL insert, ensuring RAM
+                    stays flat.
                   </p>
                 </div>
 

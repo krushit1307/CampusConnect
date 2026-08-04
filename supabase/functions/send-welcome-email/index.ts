@@ -154,9 +154,7 @@ serve(async (req: Request) => {
               ],
               from: { email: "welcome@campusconnect.app", name: "CampusConnect" },
               subject: subject,
-              content: [
-                { type: "text/html", value: html },
-              ],
+              content: [{ type: "text/html", value: html }],
             }),
           });
 
@@ -180,18 +178,16 @@ serve(async (req: Request) => {
       if (!success) {
         // Insert into dead_letter_queue
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
-        const { error: insertError } = await supabase
-          .from("dead_letter_queue")
-          .insert({
-            payload: {
-              to: email,
-              from: "welcome@campusconnect.app",
-              subject: subject,
-              body: html,
-            },
-            error_message: lastError,
-            attempt_count: maxAttempts,
-          });
+        const { error: insertError } = await supabase.from("dead_letter_queue").insert({
+          payload: {
+            to: email,
+            from: "welcome@campusconnect.app",
+            subject: subject,
+            body: html,
+          },
+          error_message: lastError,
+          attempt_count: maxAttempts,
+        });
 
         if (insertError) {
           console.error("Failed to insert into dead_letter_queue:", insertError);

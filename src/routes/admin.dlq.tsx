@@ -268,7 +268,9 @@ function AdminDlqPage({ user }: WithAuthProps) {
                         disabled={resendingId === item.id}
                         className="neu-border inline-flex items-center gap-1.5 bg-black px-4 py-1.5 font-mono text-xs font-bold uppercase text-cream hover:bg-lime hover:text-black disabled:opacity-50 cursor-pointer"
                       >
-                        <RefreshCw className={`h-4 w-4 ${resendingId === item.id ? "animate-spin" : ""}`} />
+                        <RefreshCw
+                          className={`h-4 w-4 ${resendingId === item.id ? "animate-spin" : ""}`}
+                        />
                         Resend
                       </button>
                     </div>

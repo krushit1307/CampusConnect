@@ -5,14 +5,7 @@ import { DualRangeSlider } from "./DualRangeSlider";
 
 describe("DualRangeSlider Component Suite (#2320)", () => {
   it("should render dual thumbs with min and max bounds", () => {
-    render(
-      <DualRangeSlider
-        min={0}
-        max={100}
-        value={[20, 80]}
-        formatLabel={(v) => `$${v}`}
-      />
-    );
+    render(<DualRangeSlider min={0} max={100} value={[20, 80]} formatLabel={(v) => `$${v}`} />);
 
     const minThumb = screen.getByTestId("slider-min-thumb");
     const maxThumb = screen.getByTestId("slider-max-thumb");
@@ -32,7 +25,7 @@ describe("DualRangeSlider Component Suite (#2320)", () => {
         value={[25, 75]}
         showFloatingLabels={true}
         formatLabel={(v) => `$${v}`}
-      />
+      />,
     );
 
     const minLabel = screen.getByTestId("min-thumb-label");
@@ -53,7 +46,7 @@ describe("DualRangeSlider Component Suite (#2320)", () => {
         minStepsBetweenThumbs={5}
         value={[20, 80]}
         onValueChange={handleValueChange}
-      />
+      />,
     );
 
     const minThumb = screen.getByTestId("slider-min-thumb");
@@ -73,7 +66,7 @@ describe("DualRangeSlider Component Suite (#2320)", () => {
         value={[50, 250]}
         formatLabel={(v) => `€${v}`}
         showTicks={true}
-      />
+      />,
     );
 
     expect(screen.getByText("€0")).toBeDefined();
