@@ -28,7 +28,7 @@ export function CollaborativeEditor({ groupId, user }: CollaborativeEditorProps)
   const [provider, setProvider] = useState<SupabaseProvider | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const ydoc = useMemo(() => new Y.Doc(), []);
-  
+
   const userColor = user.color || getRandomColor();
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export function CollaborativeEditor({ groupId, user }: CollaborativeEditorProps)
       // 1. Fetch the latest snapshot from DB
       const snapshot = await fetchNoteSnapshot(groupId);
       if (!active) return;
-      
+
       // 2. Apply snapshot to ydoc if it exists
       if (snapshot) {
         try {
@@ -54,7 +54,7 @@ export function CollaborativeEditor({ groupId, user }: CollaborativeEditorProps)
         channel: `group_notes:${groupId}`,
         id: groupId,
         tableName: "group_notes", // y-supabase can do some persistence but we'll do it manually to be safe or rely on it if configured
-        columnName: "yjs_state", 
+        columnName: "yjs_state",
         resyncInterval: 5000,
       });
 
@@ -75,7 +75,7 @@ export function CollaborativeEditor({ groupId, user }: CollaborativeEditorProps)
           saveNoteSnapshot(groupId, ydoc);
         }, 3000); // Debounce save every 3 seconds of inactivity
       };
-      
+
       ydoc.on("update", onUpdate);
 
       return () => {
@@ -91,28 +91,31 @@ export function CollaborativeEditor({ groupId, user }: CollaborativeEditorProps)
     };
   }, [groupId, ydoc, user.name, userColor]);
 
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        history: false,
-      } as any),
-      Collaboration.configure({
-        document: ydoc,
-      }),
-      CollaborationCursor.configure({
-        provider: provider,
-        user: {
-          name: user.name,
-          color: userColor,
+  const editor = useEditor(
+    {
+      extensions: [
+        StarterKit.configure({
+          history: false,
+        } as any),
+        Collaboration.configure({
+          document: ydoc,
+        }),
+        CollaborationCursor.configure({
+          provider: provider,
+          user: {
+            name: user.name,
+            color: userColor,
+          },
+        }),
+      ],
+      editorProps: {
+        attributes: {
+          class: "prose prose-sm sm:prose-base focus:outline-none min-h-[300px]",
         },
-      }),
-    ],
-    editorProps: {
-      attributes: {
-        class: "prose prose-sm sm:prose-base focus:outline-none min-h-[300px]",
       },
     },
-  }, [provider]);
+    [provider],
+  );
 
   if (isLoading || !provider) {
     return (
@@ -126,12 +129,10 @@ export function CollaborativeEditor({ groupId, user }: CollaborativeEditorProps)
     <div className="neu-border bg-white overflow-hidden">
       {/* Editor Toolbar (minimal) */}
       <div className="flex flex-wrap items-center justify-between border-b-2 border-black bg-peach px-4 py-2">
-        <div className="flex gap-2 font-mono text-xs font-bold uppercase">
-          Collaborative Notes
-        </div>
+        <div className="flex gap-2 font-mono text-xs font-bold uppercase">Collaborative Notes</div>
         <PresenceList provider={provider} />
       </div>
-      
+
       {/* The Editor itself */}
       <div className="p-4 md:p-6 bg-cream">
         <EditorContent editor={editor} />

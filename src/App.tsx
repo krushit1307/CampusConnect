@@ -76,6 +76,7 @@ async function checkDatabaseHealth(): Promise<HealthStatus> {
 const Index = lazy(() => import("./routes/index"));
 const Auth = lazy(() => import("./routes/auth"));
 const Certificates = lazy(() => import("./routes/certificates"));
+const VerifyCertificate = lazy(() => import("./routes/verify"));
 const ClubsIndex = lazy(() => import("./routes/clubs.index"));
 const ClubNew = lazy(() => import("./routes/clubs.new"));
 const ClubDetails = lazy(() => import("./routes/clubs.$slug"));
@@ -153,6 +154,7 @@ const router = createBrowserRouter(
         <Route index element={<Index />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/certificates" element={<Certificates />} />
+        <Route path="/verify" element={<VerifyCertificate />} />
 
         <Route path="/clubs" element={<ClubsLayout />}>
           <Route index element={<ClubsIndex />} />

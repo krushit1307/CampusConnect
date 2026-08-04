@@ -11,7 +11,7 @@ beforeAll(() => {
   });
   HTMLDialogElement.prototype.close = vi.fn(function mock(this: HTMLDialogElement) {
     this.open = false;
-    this.dispatchEvent(new Event('close'));
+    this.dispatchEvent(new Event("close"));
   });
 });
 
@@ -56,7 +56,7 @@ describe("Modal Component", () => {
 
     const dialog = screen.getByRole("dialog", { hidden: true });
     fireEvent(dialog, new Event("close"));
-    
+
     expect(handleClose).toHaveBeenCalledTimes(1);
   });
 
@@ -69,7 +69,7 @@ describe("Modal Component", () => {
     );
 
     const dialog = screen.getByRole("dialog", { hidden: true }) as HTMLDialogElement;
-    
+
     // Mock getBoundingClientRect
     dialog.getBoundingClientRect = vi.fn(() => ({
       left: 100,
@@ -80,7 +80,7 @@ describe("Modal Component", () => {
       height: 400,
       x: 100,
       y: 100,
-      toJSON: () => {}
+      toJSON: () => {},
     }));
 
     // Click outside (e.clientX = 50)
@@ -97,7 +97,7 @@ describe("Modal Component", () => {
     );
 
     const dialog = screen.getByRole("dialog", { hidden: true }) as HTMLDialogElement;
-    
+
     dialog.getBoundingClientRect = vi.fn(() => ({
       left: 100,
       right: 500,
@@ -107,7 +107,7 @@ describe("Modal Component", () => {
       height: 400,
       x: 100,
       y: 100,
-      toJSON: () => {}
+      toJSON: () => {},
     }));
 
     // Click inside (e.clientX = 200)

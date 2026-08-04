@@ -73,8 +73,8 @@ serve(async (req) => {
     const page = await fetchPage(after, first);
     await setCachedPage(cacheKey, page);
 
-    const nextCursor = (page as { pageInfo?: { endCursor?: string | null } })?.pageInfo
-      ?.endCursor ?? null;
+    const nextCursor =
+      (page as { pageInfo?: { endCursor?: string | null } })?.pageInfo?.endCursor ?? null;
     if (nextCursor) {
       EdgeRuntime.waitUntil(prefetchAndCache(nextCursor, first));
     }

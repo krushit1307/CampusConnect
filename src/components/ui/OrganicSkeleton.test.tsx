@@ -62,7 +62,7 @@ describe("Organic Skeleton Loader Suite (#2328)", () => {
   describe("OrganicSkeleton Components Rendering", () => {
     it("should render base OrganicSkeleton with calculated width", () => {
       const { container } = render(
-        <OrganicSkeleton width="82%" height="h-5" data-testid="base-skeleton" />
+        <OrganicSkeleton width="82%" height="h-5" data-testid="base-skeleton" />,
       );
 
       const el = screen.getByTestId("base-skeleton");
@@ -86,7 +86,7 @@ describe("Organic Skeleton Loader Suite (#2328)", () => {
 
     it("should render ParagraphSkeleton with multiple paragraph blocks", () => {
       const { container } = render(
-        <ParagraphSkeleton paragraphs={2} linesPerParagraph={3} seed="article-99" />
+        <ParagraphSkeleton paragraphs={2} linesPerParagraph={3} seed="article-99" />,
       );
 
       const textContainers = container.querySelectorAll("[data-testid='text-skeleton-container']");

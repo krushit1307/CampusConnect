@@ -6,10 +6,7 @@ import { toast } from "sonner";
 
 import { createClient } from "@/lib/supabase/client";
 import { triggerConfetti } from "@/utils/confetti";
-import {
-  clubFormSchema,
-  type ClubFormValues,
-} from "@/lib/clubUtils";
+import { clubFormSchema, type ClubFormValues } from "@/lib/clubUtils";
 import { Wizard, type WizardStep } from "@/components/wizard/Wizard";
 import { SiteShell } from "@/components/site/SiteShell";
 import { Input } from "@/components/ui/input";

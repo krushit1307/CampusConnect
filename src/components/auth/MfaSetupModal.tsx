@@ -81,7 +81,9 @@ export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, o
 
         // Generate backup recovery codes
         const generatedCodes = Array.from({ length: 6 }, () =>
-          Array.from({ length: 3 }, () => Math.random().toString(36).substring(2, 6).toUpperCase()).join("-")
+          Array.from({ length: 3 }, () =>
+            Math.random().toString(36).substring(2, 6).toUpperCase(),
+          ).join("-"),
         );
         setRecoveryCodes(generatedCodes);
 
@@ -150,7 +152,8 @@ export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, o
         toast.success("SMS Authentication verified successfully!");
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Invalid authentication code. Please try again.";
+      const msg =
+        err instanceof Error ? err.message : "Invalid authentication code. Please try again.";
       setErrorMsg(msg);
       toast.error(msg);
     } finally {
@@ -217,7 +220,11 @@ export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, o
                 className="w-full flex items-start gap-4 p-4 border-2 border-black bg-cream hover:bg-yellow-100 text-left transition-colors cursor-pointer shadow-[3px_3px_0_0_var(--color-ink)] disabled:opacity-50"
               >
                 <div className="p-2 border border-black bg-white">
-                  {loading ? <Loader2 className="h-6 w-6 animate-spin text-black" /> : <QrCode className="h-6 w-6 text-black" />}
+                  {loading ? (
+                    <Loader2 className="h-6 w-6 animate-spin text-black" />
+                  ) : (
+                    <QrCode className="h-6 w-6 text-black" />
+                  )}
                 </div>
                 <div>
                   <h4 className="font-bold text-sm text-black">Authenticator App (Recommended)</h4>
@@ -445,4 +452,3 @@ export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, o
     </Dialog>
   );
 };
-

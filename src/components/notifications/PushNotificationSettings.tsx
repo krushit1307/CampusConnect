@@ -47,7 +47,9 @@ export function PushNotificationSettings({ userId }: PushNotificationSettingsPro
           setIsSubscribed(true);
           toast.success("Successfully subscribed to notifications");
         } else {
-          toast.error("Failed to subscribe. Please ensure notifications are allowed in your browser settings.");
+          toast.error(
+            "Failed to subscribe. Please ensure notifications are allowed in your browser settings.",
+          );
         }
       } else {
         const success = await unsubscribeFromPushNotifications();
@@ -77,7 +79,11 @@ export function PushNotificationSettings({ userId }: PushNotificationSettingsPro
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center space-x-4">
-        {isSubscribed ? <Bell className="h-5 w-5 text-black" /> : <BellOff className="h-5 w-5 text-gray-500" />}
+        {isSubscribed ? (
+          <Bell className="h-5 w-5 text-black" />
+        ) : (
+          <BellOff className="h-5 w-5 text-gray-500" />
+        )}
         <div className="space-y-0.5">
           <label className="font-bold text-black">Campus Announcements (Push)</label>
           <p className="text-sm font-mono text-gray-500">
@@ -85,11 +91,7 @@ export function PushNotificationSettings({ userId }: PushNotificationSettingsPro
           </p>
         </div>
       </div>
-      <Switch
-        checked={isSubscribed}
-        onCheckedChange={handleToggle}
-        disabled={isLoading}
-      />
+      <Switch checked={isSubscribed} onCheckedChange={handleToggle} disabled={isLoading} />
     </div>
   );
 }

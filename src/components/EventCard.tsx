@@ -30,9 +30,13 @@ interface Event {
   end_date?: string | null;
   location: string | null;
   banner_url?: string | null;
+  announce_date?: string | null;
   created_at?: string | null;
   max_attendees?: number | null;
-  clubs: { name: string } | { name: string }[] | null;
+  clubs:
+    | { name: string; average_lead_time_days?: number | null }
+    | { name: string; average_lead_time_days?: number | null }[]
+    | null;
   event_rsvps: { id: string; user_id: string }[] | null;
   saved_events: { id: string; user_id: string }[] | null;
   rsvp_count?: number;
@@ -50,19 +54,25 @@ interface EventCardProps {
   active?: boolean;
 }
 
-// Assumed lead time (in days) used when an event has no `created_at` available
-const ASSUMED_LEAD_TIME_DAYS = 30;
+// Default lead time (in days) used when an event has no announce/creation date
+// and the club has no average lead time available
+const DEFAULT_LEAD_TIME_DAYS = 30;
 
 interface EventProgress {
   /** 0-100, how far along we are between "created" and the event date */
   percent: number;
   /** true once the event date has passed */
   isPast: boolean;
-  /** true when we had to fall back to an assumed lead time (no created_at) */
+  /** true when we had to fall back to an assumed lead time (no announce/creation date) */
   isEstimated: boolean;
 }
 
-function getEventProgress(createdAt: string | null | undefined, eventDate: string): EventProgress {
+function getEventProgress(
+  announceDate: string | null | undefined,
+  createdAt: string | null | undefined,
+  eventDate: string,
+  fallbackLeadTimeDays: number,
+): EventProgress {
   const now = Date.now();
   const eventTime = new Date(eventDate).getTime();
 
@@ -73,10 +83,11 @@ function getEventProgress(createdAt: string | null | undefined, eventDate: strin
   let startTime: number;
   let isEstimated = false;
 
-  if (createdAt) {
-    startTime = new Date(createdAt).getTime();
+  const windowStart = announceDate ?? createdAt;
+  if (windowStart) {
+    startTime = new Date(windowStart).getTime();
   } else {
-    startTime = eventTime - ASSUMED_LEAD_TIME_DAYS * 24 * 60 * 60 * 1000;
+    startTime = eventTime - fallbackLeadTimeDays * 24 * 60 * 60 * 1000;
     isEstimated = true;
   }
 
@@ -92,15 +103,24 @@ function getEventProgress(createdAt: string | null | undefined, eventDate: strin
 }
 
 function EventProgressBar({
+  announceDate,
   createdAt,
   eventDate,
+  fallbackLeadTimeDays,
 }: {
+  announceDate: string | null | undefined;
   createdAt: string | null | undefined;
   eventDate: string | null;
+  fallbackLeadTimeDays: number;
 }) {
   if (!eventDate) return null;
 
-  const { percent, isPast, isEstimated } = getEventProgress(createdAt, eventDate);
+  const { percent, isPast, isEstimated } = getEventProgress(
+    announceDate,
+    createdAt,
+    eventDate,
+    fallbackLeadTimeDays,
+  );
 
   return (
     <div className="mt-4">
@@ -124,7 +144,7 @@ function EventProgressBar({
       </div>
       {isEstimated && !isPast && (
         <p className="mt-1 font-mono text-[8px] sm:text-[9px] text-gray-500">
-          Estimated — creation date unavailable
+          Estimated — using club average lead time
         </p>
       )}
     </div>
@@ -167,6 +187,12 @@ export function EventCard({
   active,
 }: EventCardProps) {
   const club = Array.isArray(event.clubs) ? event.clubs[0] : event.clubs;
+  const clubLeadTimeDays =
+    typeof club?.average_lead_time_days === "number" &&
+    Number.isFinite(club.average_lead_time_days) &&
+    club.average_lead_time_days > 0
+      ? club.average_lead_time_days
+      : DEFAULT_LEAD_TIME_DAYS;
   const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
   const myRsvp = user ? rsvps.find((rsvp) => rsvp.user_id === user.id) : null;
   const preloadEvent = usePreloadEvent(event.id);
@@ -248,17 +274,6 @@ export function EventCard({
       return;
     }
     onBookmarkToggle?.(event.id, isSaved);
-  };
-
-  const savedEventsList = Array.isArray(event.saved_events) ? event.saved_events : [];
-  const isSaved = user ? savedEventsList.some((se) => se.user_id === user.id) : false;
-
-  const handleBookmarkClick = () => {
-    if (!user) {
-      toast.error("Please log in to bookmark events");
-      return;
-    }
-    onBookmarkToggle(event.id, isSaved);
   };
 
   return (
@@ -348,7 +363,12 @@ export function EventCard({
             <ReadMore text={event.description} />
           </div>
         ) : null}
-        <EventProgressBar createdAt={event.created_at} eventDate={event.event_date} />
+        <EventProgressBar
+          announceDate={event.announce_date}
+          createdAt={event.created_at}
+          eventDate={event.event_date}
+          fallbackLeadTimeDays={clubLeadTimeDays}
+        />
         <div className="mt-4">
           <EventCapacityGauge
             eventId={event.id}

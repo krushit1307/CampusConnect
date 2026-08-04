@@ -48,7 +48,7 @@ export function hashStringToSeed(str: string): number {
 export function getOrganicLineWidth(
   lineIndex: number,
   totalLines: number = 3,
-  seed?: number | string
+  seed?: number | string,
 ): string {
   // If it's the last line of a multi-line paragraph, force a short width (35% to 55%)
   const isLastLine = totalLines > 1 && lineIndex === totalLines - 1;
@@ -83,10 +83,7 @@ export function getOrganicLineWidth(
 /**
  * Generates an array of organic line widths for an entire paragraph
  */
-export function getParagraphLineWidths(
-  lineCount: number = 3,
-  seed?: number | string
-): string[] {
+export function getParagraphLineWidths(lineCount: number = 3, seed?: number | string): string[] {
   const widths: string[] = [];
   for (let i = 0; i < lineCount; i++) {
     widths.push(getOrganicLineWidth(i, lineCount, seed));

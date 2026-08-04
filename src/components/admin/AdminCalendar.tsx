@@ -104,7 +104,9 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
       })
       .map((ev) => {
         const start = new Date(ev.start_date);
-        const end = ev.end_date ? new Date(ev.end_date) : new Date(start.getTime() + 60 * 60 * 1000);
+        const end = ev.end_date
+          ? new Date(ev.end_date)
+          : new Date(start.getTime() + 60 * 60 * 1000);
 
         return {
           id: ev.id,
@@ -128,7 +130,9 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
       const { event, start: droppedStart } = args;
       const targetEvent = event.resource;
       const originalStartIso = targetEvent.start_date;
-      const originalEndIso = targetEvent.end_date || new Date(new Date(originalStartIso).getTime() + 3600000).toISOString();
+      const originalEndIso =
+        targetEvent.end_date ||
+        new Date(new Date(originalStartIso).getTime() + 3600000).toISOString();
 
       const dropDate = typeof droppedStart === "string" ? new Date(droppedStart) : droppedStart;
 
@@ -136,14 +140,14 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
       const { newStart, newEnd, startIso, endIso, formattedLabel } = calculateRescheduledTimestamps(
         originalStartIso,
         originalEndIso,
-        dropDate
+        dropDate,
       );
 
       // 1. Optimistically update local React state for immediate UI feedback
       setLocalEvents((prev) =>
         prev.map((e) =>
-          e.id === targetEvent.id ? { ...e, start_date: startIso, end_date: endIso } : e
-        )
+          e.id === targetEvent.id ? { ...e, start_date: startIso, end_date: endIso } : e,
+        ),
       );
 
       setIsRescheduling(true);
@@ -171,8 +175,8 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
                 prev.map((e) =>
                   e.id === targetEvent.id
                     ? { ...e, start_date: originalStartIso, end_date: originalEndIso }
-                    : e
-                )
+                    : e,
+                ),
               );
 
               // Dispatch rollback API request
@@ -192,8 +196,8 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
           prev.map((e) =>
             e.id === targetEvent.id
               ? { ...e, start_date: originalStartIso, end_date: originalEndIso }
-              : e
-          )
+              : e,
+          ),
         );
 
         toast.error(`Failed to reschedule event: ${err?.message || "Server error"}`);
@@ -201,7 +205,7 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
         setIsRescheduling(false);
       }
     },
-    [readOnly, onEventRescheduled]
+    [readOnly, onEventRescheduled],
   );
 
   return (
@@ -213,7 +217,9 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
             <CalendarIcon className="w-4 h-4 text-indigo-600" />
             <span>{clubName} Event Schedule</span>
           </div>
-          <h2 className="text-2xl font-extrabold uppercase mt-0.5">Interactive Drag-and-Drop Calendar</h2>
+          <h2 className="text-2xl font-extrabold uppercase mt-0.5">
+            Interactive Drag-and-Drop Calendar
+          </h2>
         </div>
 
         {/* View Switcher & Navigation */}
@@ -345,7 +351,7 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
                       new Date(selectedEvent.start_date),
                       selectedEvent.end_date
                         ? new Date(selectedEvent.end_date)
-                        : new Date(new Date(selectedEvent.start_date).getTime() + 3600000)
+                        : new Date(new Date(selectedEvent.start_date).getTime() + 3600000),
                     )}
                   </span>
                 </div>
@@ -363,7 +369,9 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
 
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex items-center gap-2">
                 <Info className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                <span>To reschedule, drag this event box directly to another day in the calendar grid.</span>
+                <span>
+                  To reschedule, drag this event box directly to another day in the calendar grid.
+                </span>
               </div>
             </div>
           )}

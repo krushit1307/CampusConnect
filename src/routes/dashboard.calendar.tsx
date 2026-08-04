@@ -234,8 +234,16 @@ export default function DashboardCalendar() {
                 start_date: e.start_date || e.event_date || new Date().toISOString(),
                 end_date: e.end_date,
                 location: e.location,
-                category: typeof e.event_categories === "object" && e.event_categories && "name" in e.event_categories ? e.event_categories.name : undefined,
-                club_name: typeof e.clubs === "object" && e.clubs && "name" in e.clubs ? e.clubs.name : undefined,
+                category:
+                  typeof e.event_categories === "object" &&
+                  e.event_categories &&
+                  "name" in e.event_categories
+                    ? e.event_categories.name
+                    : undefined,
+                club_name:
+                  typeof e.clubs === "object" && e.clubs && "name" in e.clubs
+                    ? e.clubs.name
+                    : undefined,
               }))}
             />
           </div>

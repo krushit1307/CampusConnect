@@ -475,10 +475,7 @@ export const resolvers = {
   Query: {
     posts: async (_: unknown, { first = 10, after }: { first?: number; after?: string }) => {
       const limit = Math.max(1, Math.min(first, 100));
-      let query = supabase
-        .from("posts")
-        .select("*", { count: "exact" })
-        .is("deleted_at", null);
+      let query = supabase.from("posts").select("*", { count: "exact" }).is("deleted_at", null);
 
       if (after) {
         const decoded = decodeCursor(after);
