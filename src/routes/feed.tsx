@@ -26,7 +26,8 @@ import {
   Flag,
   MoreVertical,
 } from "lucide-react";
-import { ViewToggleGroup, type FeedViewMode } from "@/components/ui/ViewToggleGroup";import { useEffect, useRef, useState, useCallback } from "react";
+import { ViewToggleGroup, type FeedViewMode } from "@/components/ui/ViewToggleGroup";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -238,7 +239,7 @@ export default function Feed() {
     enabled: !!user?.id,
   });
 
-const [selectedClubId, setSelectedClubId] = useState("");
+  const [selectedClubId, setSelectedClubId] = useState("");
   const [feedMode, setFeedMode] = useState<"latest" | "trending">("latest");
   const [viewMode, setViewMode] = useState<FeedViewMode>("list");
   useEffect(() => {
@@ -266,12 +267,12 @@ const [selectedClubId, setSelectedClubId] = useState("");
       const afterCursor = pageParam as string | undefined;
 
       // Try get_posts_relay RPC first
-const res = await fetch(
-  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-feed?after=${afterCursor ?? ""}&first=${POSTS_PER_PAGE}`,
-  { headers: { Authorization: `Bearer ${session?.access_token}` } }
-);
-const relayData = res.ok ? await res.json() : null;
-const relayError = res.ok ? null : new Error("get-feed request failed");
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-feed?after=${afterCursor ?? ""}&first=${POSTS_PER_PAGE}`,
+        { headers: { Authorization: `Bearer ${session?.access_token}` } },
+      );
+      const relayData = res.ok ? await res.json() : null;
+      const relayError = res.ok ? null : new Error("get-feed request failed");
       if (!relayError && relayData && typeof relayData === "object" && "edges" in relayData) {
         const connection = relayData as unknown as RelayConnection<Post>;
         return connection;
@@ -1176,13 +1177,14 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
               />
             </div>
 
-{/* ── Feed mode tabs ── */}
+            {/* ── Feed mode tabs ── */}
             <div
               role="tablist"
               aria-label="Feed mode"
               className="flex items-center justify-between gap-2 border-b-2 border-black pb-4 dark:border-cream"
             >
-              <ViewToggleGroup value={viewMode} onValueChange={setViewMode} />              <button
+              <ViewToggleGroup value={viewMode} onValueChange={setViewMode} />{" "}
+              <button
                 role="tab"
                 type="button"
                 id="tab-latest"
@@ -1262,10 +1264,13 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
 
                   const authorMembership = clubMembers.find((m) => m.user_id === author?.id);
 
-                  const authorRoleTitle = authorMembership?.club_roles?.title?.toLowerCase() ?? "member";
-                  const authorRole = (["admin", "organizer", "member", "alumni"].includes(authorRoleTitle)
-                    ? (authorRoleTitle as MemberRole)
-                    : "member") as MemberRole;
+                  const authorRoleTitle =
+                    authorMembership?.club_roles?.title?.toLowerCase() ?? "member";
+                  const authorRole = (
+                    ["admin", "organizer", "member", "alumni"].includes(authorRoleTitle)
+                      ? (authorRoleTitle as MemberRole)
+                      : "member"
+                  ) as MemberRole;
 
                   const postComments: Comment[] = (
                     lazyComments[post.id] !== undefined
@@ -1634,9 +1639,11 @@ const MemoizedFeedPost = React.memo(
 
     const authorMembership = clubMembers.find((m) => m.user_id === author?.id);
     const authorRoleTitle = authorMembership?.club_roles?.title?.toLowerCase() ?? "member";
-    const authorRole = (["admin", "organizer", "member", "alumni"].includes(authorRoleTitle)
-      ? (authorRoleTitle as MemberRole)
-      : "member") as MemberRole;
+    const authorRole = (
+      ["admin", "organizer", "member", "alumni"].includes(authorRoleTitle)
+        ? (authorRoleTitle as MemberRole)
+        : "member"
+    ) as MemberRole;
 
     if (isOptimisticallyDeleted) return null;
 
@@ -1687,8 +1694,9 @@ const MemoizedFeedPost = React.memo(
           <div className="flex items-center gap-2">
             {(() => {
               const isClubAdmin =
-                clubMembers.some((m) => m.user_id === user?.id && m.club_roles?.title === "Admin") ||
-                userProfile?.role === "system_admin";
+                clubMembers.some(
+                  (m) => m.user_id === user?.id && m.club_roles?.title === "Admin",
+                ) || userProfile?.role === "system_admin";
               return isClubAdmin ? (
                 <button
                   type="button"
@@ -2020,10 +2028,13 @@ function PostComments({ postId, user, userProfile, clubMembers, timeAgo }: PostC
       : commentNode.profiles;
 
     const commentAuthorMembership = clubMembers.find((m) => m.user_id === commentAuthor?.id);
-    const commentAuthorRoleTitle = commentAuthorMembership?.club_roles?.title?.toLowerCase() ?? "member";
-    const commentAuthorRole = (["admin", "organizer", "member", "alumni"].includes(commentAuthorRoleTitle)
-      ? (commentAuthorRoleTitle as MemberRole)
-      : "member") as MemberRole;
+    const commentAuthorRoleTitle =
+      commentAuthorMembership?.club_roles?.title?.toLowerCase() ?? "member";
+    const commentAuthorRole = (
+      ["admin", "organizer", "member", "alumni"].includes(commentAuthorRoleTitle)
+        ? (commentAuthorRoleTitle as MemberRole)
+        : "member"
+    ) as MemberRole;
 
     const indentClass = depth === 1 ? "ml-4" : depth >= 2 ? "ml-8" : "";
 
