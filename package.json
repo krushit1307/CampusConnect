@@ -148,7 +148,9 @@
     "y-protocols": "^1.0.7",
     "yjs": "^13.6.31",
     "zod": "^3.24.2",
-    "zustand": "^5.0.14"
+    "zustand": "^5.0.14",
+    "embla-carousel-react": "^8.5.1",
+    "embla-carousel-autoplay": "^8.5.1"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
