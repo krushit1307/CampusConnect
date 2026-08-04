@@ -265,7 +265,11 @@ export default function EventDetailsPage() {
       return;
     }
 
-    const clubObj = event.clubs ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
+    const clubObj = event.clubs
+      ? Array.isArray(event.clubs)
+        ? event.clubs[0]
+        : event.clubs
+      : null;
     const trail = [
       { label: "Home", path: `/${lang}` },
       { label: "Clubs", path: `/${lang}/clubs` },
@@ -312,7 +316,7 @@ export default function EventDetailsPage() {
         );
         refetch(); // Refetch to reset optimistic UI to server ground truth
       }
-    }
+    };
 
     navigator.serviceWorker.addEventListener("message", handleSwMessage);
     return () => {
@@ -840,7 +844,6 @@ export default function EventDetailsPage() {
       if (!variables.hasRsvpd && event?.banner_url && "caches" in window) {
         window.caches.open("supabase-images-cache").then((cache) => {
           cache.add(event.banner_url!).catch((err) => {
-            // eslint-disable-next-line no-console
             console.error("Failed to eagerly cache banner image", err);
           });
         });
@@ -1242,9 +1245,7 @@ export default function EventDetailsPage() {
   const attendeeCount =
     ((event as Record<string, unknown>).attendee_count as number) ?? rsvps.length;
   const maxAttendees = (event as Record<string, unknown>).max_attendees as
-    | number
-    | null
-    | undefined;
+    number | null | undefined;
   const isAtCapacity =
     maxAttendees !== null &&
     maxAttendees !== undefined &&
@@ -1273,8 +1274,6 @@ export default function EventDetailsPage() {
 
   return (
     <LazyMotion features={loadDomMax} strict={import.meta.env.DEV}>
-
-
       <Helmet>
         {/* OpenGraph (Facebook / Discord / iMessage) */}
         <meta property="og:type" content="event" />
@@ -1293,8 +1292,6 @@ export default function EventDetailsPage() {
         {og.ogImage && <meta name="twitter:image" content={og.ogImage} />}
       </Helmet>
       <SiteShell>
-
-
         {/* Hero Section */}
         <section className="relative w-full overflow-hidden border-b-2 border-black bg-peach/30">
           {event.banner_url ? (
@@ -1526,6 +1523,14 @@ export default function EventDetailsPage() {
 
               {isOrganizer && (
                 <>
+                  <Button
+                    onClick={() => navigate(`/events/${eventId}/gantt`)}
+                    variant="outline"
+                    className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Gantt Chart
+                  </Button>
                   <Button
                     onClick={() => exportCsv.mutate()}
                     disabled={exportCsv.isPending}

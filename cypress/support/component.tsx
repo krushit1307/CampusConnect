@@ -36,7 +36,7 @@ Cypress.Commands.add("mount", (component, options = {}) => {
   const wrapper = ({ children }: { children: React.ReactNode }) => (
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
+        <ThemeProvider defaultTheme="light">
           <MemoryRouter>{children}</MemoryRouter>
         </ThemeProvider>
       </QueryClientProvider>

@@ -3,11 +3,12 @@ import Cropper from "react-easy-crop";
 import { Loader2, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 
-import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
-import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
+import { createClient } from "@/lib/supabase/client";
+import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
 import { getCroppedImg, type Area } from "@/utils/cropImage";
 import { compressImage } from "@/utils/imageCompressor";
-import { getExifOrientation, correctImageOrientation } from "@/utils/exifOrientation";import {
+import { getExifOrientation, correctImageOrientation } from "@/utils/exifOrientation";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -95,7 +96,7 @@ export function ImageCropUpload({
   // ------------------------------------------------------------------
   // File selection → open crop dialog
   // ------------------------------------------------------------------
-function openCropDialog(file: File) {
+  function openCropDialog(file: File) {
     if (!validateFile(file)) return;
     setSelectedFile(file);
     const reader = new FileReader();
@@ -151,7 +152,8 @@ function openCropDialog(file: File) {
   }
 
   // ------------------------------------------------------------------
-  // Supabase Storage upload (reuses uploadFileWithProgress)
+  // Signed-URL upload: request a pre-signed URL from the backend, then PUT
+  // the file straight to Supabase Storage (bypasses our Node.js server).
   // ------------------------------------------------------------------
   async function uploadFile(file: File): Promise<string | undefined> {
     const {
@@ -162,15 +164,6 @@ function openCropDialog(file: File) {
       return undefined;
     }
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) {
-      toast.error("Session expired. Please sign in again.");
-      return undefined;
-    }
-
-    const supabaseUrl = getSupabaseUrl();
     const compressedFile = await compressImage(file, {
       maxWidth: 1920,
       maxHeight: 1080,
@@ -179,19 +172,13 @@ function openCropDialog(file: File) {
     const extension = compressedFile.name.split(".").pop()?.toLowerCase() ?? "webp";
     const filePath = `${user.id}/${crypto.randomUUID()}.${extension}`;
 
-    await uploadFileWithProgress(
-      supabaseUrl,
-      session.access_token,
+    const publicUrl = await uploadImageWithSignedUrl(
       bucket,
       filePath,
       compressedFile,
       setUploadProgress,
     );
     setUploadProgress(null);
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from(bucket).getPublicUrl(filePath);
 
     return publicUrl;
   }

@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
+import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
 import { useState, useEffect, lazy, Suspense, useMemo } from "react";
 import { TableOfContents } from "@/components/events/TableOfContents";
 import { NotFound } from "@/components/NotFound";
@@ -336,30 +337,14 @@ export default function EventDetailsPage() {
           );
         }, 200);
 
-        supabase.storage
-          .from("event-gallery")
-          .upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: false,
-          })
-          .then(({ error }) => {
+        uploadImageWithSignedUrl("event-gallery", filePath, file)
+          .then(() => {
             clearInterval(progressInterval);
-            if (error) {
-              setUploadingFiles((prev) =>
-                prev.map((item) =>
-                  item.id === uploadItem.id
-                    ? { ...item, status: "error", progress: 0, errorMsg: error.message }
-                    : item,
-                ),
-              );
-              toast.error(`Failed to upload ${file.name}: ${error.message}`);
-            } else {
-              setUploadingFiles((prev) =>
-                prev.map((item) =>
-                  item.id === uploadItem.id ? { ...item, status: "success", progress: 100 } : item,
-                ),
-              );
-            }
+            setUploadingFiles((prev) =>
+              prev.map((item) =>
+                item.id === uploadItem.id ? { ...item, status: "success", progress: 100 } : item,
+              ),
+            );
           })
           .catch((err: unknown) => {
             clearInterval(progressInterval);
@@ -1042,9 +1027,7 @@ export default function EventDetailsPage() {
   const attendeeCount =
     ((event as Record<string, unknown>).attendee_count as number) ?? rsvps.length;
   const maxAttendees = (event as Record<string, unknown>).max_attendees as
-    | number
-    | null
-    | undefined;
+    number | null | undefined;
   const isAtCapacity =
     maxAttendees !== null &&
     maxAttendees !== undefined &&

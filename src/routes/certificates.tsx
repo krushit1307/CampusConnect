@@ -11,6 +11,7 @@ import { formatStandardDate } from "@/utils/dateUtils";
 import { downloadCertificatePdf } from "@/lib/certificateUtils";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { useConfetti } from "@/hooks/useConfetti";
 
 interface CertificateClub {
   name: string;
@@ -29,6 +30,7 @@ interface Certificate {
 }
 
 export default function Certificates() {
+  const { fireCannon } = useConfetti();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
@@ -219,6 +221,7 @@ export default function Certificates() {
                           onClick={() => {
                             setSelectedCert(c);
                             setIsDialogOpen(true);
+                            fireCannon();
                           }}
                           className="neu-border neu-press flex-1 bg-black text-cream hover:bg-lime hover:text-black py-2.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer"
                         >

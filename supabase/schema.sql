@@ -93,14 +93,17 @@ CREATE TABLE clubs (
 );
 
 CREATE TABLE club_members (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   club_id UUID REFERENCES clubs(id) ON DELETE CASCADE,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  role member_role DEFAULT 'member'::member_role,
+  role_id UUID REFERENCES club_roles(id, club_id) ON DELETE RESTRICT NOT NULL,
   status join_status DEFAULT 'pending'::join_status,
   joined_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(club_id, user_id)
+  PRIMARY KEY (club_id, user_id)
 );
+
+CREATE INDEX idx_club_members_club_id ON club_members(club_id);
+CREATE INDEX idx_club_members_user_id ON club_members(user_id);
+CREATE INDEX idx_club_members_status ON club_members(status);
 
 CREATE TABLE event_categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

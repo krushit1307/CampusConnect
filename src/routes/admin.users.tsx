@@ -3,7 +3,8 @@ import { Navigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { ShieldAlert, CheckCircle, XCircle, ChevronUp, ChevronDown, Loader2 } from "lucide-react";
+import { ShieldAlert, CheckCircle, XCircle, ChevronUp, ChevronDown, Loader2, FileSpreadsheet } from "lucide-react";
+import { BulkUserImportModal } from "@/components/admin/BulkUserImportModal";
 
 interface Profile {
   id: string;
@@ -48,6 +49,7 @@ export default function AdminUsersPage() {
   const [user, setUser] = useState<unknown>(null);
   const [role, setRole] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Grid states
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -256,6 +258,13 @@ export default function AdminUsersPage() {
             </div>
             <div className="flex items-center gap-4">
               <button
+                onClick={() => setIsImportModalOpen(true)}
+                className="neu-border px-4 py-2 text-sm font-bold uppercase transition-all flex items-center gap-2 rounded-none cursor-pointer bg-lime hover:-translate-y-0.5 active:translate-y-0 text-black border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                Bulk Import CSV
+              </button>
+              <button
                 onClick={handleBulkSuspend}
                 disabled={selectedIds.size === 0}
                 className={`neu-border px-4 py-2 text-sm font-bold uppercase transition-all flex items-center gap-2 rounded-none cursor-pointer ${
@@ -442,6 +451,11 @@ export default function AdminUsersPage() {
           </div>
         </div>
       </div>
+      <BulkUserImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccessRefresh={() => void loadProfiles()}
+      />
     </SiteShell>
   );
 }
