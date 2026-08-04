@@ -55,7 +55,8 @@ function EventsPage() {
   const [hidePastEvents, setHidePastEvents] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">(() => {
-    return (sessionStorage.getItem(SORT_KEY) as "newest" | "oldest") || "oldest";
+    const stored = sessionStorage.getItem(SORT_KEY);
+    return stored === "newest" || stored === "oldest" ? stored : "oldest";
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [isAutocompleteOpen, setIsAutocompleteOpen] = useState(false);
@@ -294,7 +295,6 @@ function EventsPage() {
   });
 
   const filteredEvents = events.filter((e) => {
-    if (filter !== "All") return false;
     if (hidePastEvents && e.event_date && new Date(e.event_date) < new Date()) return false;
     if (debouncedSearchQuery.trim()) {
       const q = debouncedSearchQuery.toLowerCase();

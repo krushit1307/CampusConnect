@@ -7,6 +7,7 @@ export function useDraft(key: string, value: string, setValue: (v: string) => vo
   const [hasDraft, setHasDraft] = useState(false);
   const [draftContent, setDraftContent] = useState<string | null>(null);
   const valueRef = useRef(value);
+  const isClearingRef = useRef(false);
 
   useEffect(() => {
     valueRef.current = value;
@@ -14,19 +15,26 @@ export function useDraft(key: string, value: string, setValue: (v: string) => vo
 
   // Load draft on mount
   useEffect(() => {
-    getDraft(key).then((saved) => {
-      if (saved && saved.trim()) {
-        setDraftContent(saved);
-        setHasDraft(true);
-      }
-    });
+    getDraft(key)
+      .then((saved) => {
+        if (saved && saved.trim()) {
+          setDraftContent(saved);
+          setHasDraft(true);
+        }
+      })
+      .catch(() => {
+        // IndexedDB unavailable or blocked — silently skip restore
+      });
   }, [key]);
 
   // Auto-save every 5 seconds
   useEffect(() => {
     const id = setInterval(() => {
+      if (isClearingRef.current) return;
       if (valueRef.current.trim()) {
-        saveDraft(key, valueRef.current);
+        saveDraft(key, valueRef.current).catch(() => {
+          // Storage full or unavailable — silently skip
+        });
       }
     }, AUTOSAVE_INTERVAL_MS);
     return () => clearInterval(id);
@@ -40,12 +48,19 @@ export function useDraft(key: string, value: string, setValue: (v: string) => vo
   };
 
   const discardDraft = () => {
-    clearDraft(key);
+    clearDraft(key).catch(() => {});
     setHasDraft(false);
   };
 
-  const clearSavedDraft = () => {
-    clearDraft(key);
+  const clearSavedDraft = async () => {
+    isClearingRef.current = true;
+    try {
+      await clearDraft(key);
+    } catch {
+      // Silently ignore
+    } finally {
+      isClearingRef.current = false;
+    }
   };
 
   return { hasDraft, restoreDraft, discardDraft, clearSavedDraft };

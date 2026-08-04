@@ -768,7 +768,7 @@ export default function Feed() {
 
       if (error) throw error;
 
-      clearSavedDraft();
+      await clearSavedDraft();
       setNewPost("");
       setAttachedImage(null);
       setImagePreviewUrl(null);

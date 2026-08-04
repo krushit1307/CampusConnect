@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { localizedPath } from "@/lib/i18n";
 import { Bookmark } from "lucide-react";
@@ -7,6 +7,7 @@ import { Bookmark } from "lucide-react";
 import { ThemeToggle } from "../ThemeToggle";
 import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
 import { BookmarksPanel } from "@/components/BookmarksPanel";
+import { createClient } from "@/lib/supabase/client";
 
 import { Menu, X, WifiOff } from "lucide-react";
 import { useAuthHydration } from "@/hooks/useAuthHydration";
@@ -25,6 +26,14 @@ export function Navbar() {
   const location = useLocation();
   const { t, i18n } = useTranslation();
   const currentPath = location.pathname;
+  const supabase = createClient();
+
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth");
+  };
 
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
@@ -240,7 +249,10 @@ export function Navbar() {
                   <Link to="/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600">
+                <DropdownMenuItem
+                  className="cursor-pointer text-red-600 focus:text-red-600"
+                  onClick={handleSignOut}
+                >
                   Sign Out
                 </DropdownMenuItem>
               </DropdownMenuContent>
