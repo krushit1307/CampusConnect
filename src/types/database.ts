@@ -45,6 +45,8 @@ export interface Club {
   created_by: string;
   created_at: string;
   updated_at: string;
+  /** Cached average days between announce_date and event_date (see #980) */
+  average_lead_time_days?: number | null;
 }
 
 /**
@@ -77,6 +79,8 @@ export interface Event {
   banner_url: string | null;
   /** UUIDv7 foreign key to profiles.id */
   created_by: string;
+  /** Date the event was announced (falls back to created_at, see #980) */
+  announce_date?: string | null;
   created_at: string;
   updated_at: string;
 }
