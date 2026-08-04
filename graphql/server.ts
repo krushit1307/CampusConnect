@@ -80,7 +80,7 @@ export const yoga = createYoga({
     openTelemetryPlugin(),
     createGraphQLSecurityPlugin({
       maxDepth: 5,
-      rateLimit: { maxMutations: 10, windowMs: 60000 },
+      rateLimit: { maxRequests: 100, maxMutations: 10, windowMs: 60000 },
     }),
   ],
 });
