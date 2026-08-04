@@ -68,7 +68,7 @@ export const EventCapacityGauge: React.FC<EventCapacityGaugeProps> = ({
     );
   }
 
-const spotsLeft = Math.max(0, maxAttendees - currentCapacity);
+  const spotsLeft = Math.max(0, maxAttendees - currentCapacity);
   const percentage = Math.min(100, Math.round((currentCapacity / maxAttendees) * 100));
 
   // Progress bar fill color escalates as the event fills up (FOMO cue)
@@ -121,7 +121,7 @@ const spotsLeft = Math.max(0, maxAttendees - currentCapacity);
       </div>
 
       {/* Progress Bar */}
-<div className="relative w-full">
+      <div className="relative w-full">
         <Progress
           value={percentage}
           className="h-3.5 border-2 border-black bg-slate-100"

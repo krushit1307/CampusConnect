@@ -187,20 +187,24 @@ export function DraggableAdminTable<TData>({
 
       {/* Desktop / Table View with DndContext */}
       <div className="neu-border hidden overflow-x-auto md:block">
-        <DndContext id={dndContextId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <DndContext
+          id={dndContextId}
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
           <table className="w-full font-mono text-sm" aria-label={ariaLabel}>
             <thead>
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id} className="border-b-2 border-black bg-gray-50">
-                  <SortableContext items={sortableColumnIds} strategy={horizontalListSortingStrategy}>
+                  <SortableContext
+                    items={sortableColumnIds}
+                    strategy={horizontalListSortingStrategy}
+                  >
                     {headerGroup.headers.map((header) => {
                       const isPinned = pinnedColumns.includes(header.id);
                       return (
-                        <DraggableHeaderCell
-                          key={header.id}
-                          header={header}
-                          isPinned={isPinned}
-                        />
+                        <DraggableHeaderCell key={header.id} header={header} isPinned={isPinned} />
                       );
                     })}
                   </SortableContext>
@@ -210,7 +214,10 @@ export function DraggableAdminTable<TData>({
             <tbody>
               {table.getRowModel().rows.map((row) => {
                 const trContent = (
-                  <tr key={row.id} className="border-b border-black/10 last:border-b-0 hover:bg-gray-50">
+                  <tr
+                    key={row.id}
+                    className="border-b border-black/10 last:border-b-0 hover:bg-gray-50"
+                  >
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id} className="p-3">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -269,14 +276,14 @@ export function DraggableAdminTable<TData>({
             </div>
 
             <p className="text-xs text-gray-600">
-              Reorder columns using the buttons below to customize your layout. Preference is saved automatically.
+              Reorder columns using the buttons below to customize your layout. Preference is saved
+              automatically.
             </p>
 
             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
               {columnOrder.map((colId, index) => {
                 const headerObj = visibleHeaders.find((h) => h.id === colId);
-                const title =
-                  headerObj?.column.columnDef.header?.toString() || colId;
+                const title = headerObj?.column.columnDef.header?.toString() || colId;
                 const isPinned = pinnedColumns.includes(colId);
 
                 return (

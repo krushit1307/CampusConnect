@@ -2,7 +2,6 @@
 CREATE OR REPLACE VIEW club_analytics_view AS
 SELECT 
     e.id,
-    e.short_id,
     e.club_id,
     e.title,
     e.description,
@@ -17,7 +16,7 @@ SELECT
     COALESCE(COUNT(r.id), 0)::integer AS attendee_count
 FROM events e
 LEFT JOIN event_rsvps r ON e.id = r.event_id
-GROUP BY e.id, e.short_id;
+GROUP BY e.id;
 
 -- Grant select access to authenticated and anonymous roles
 GRANT SELECT ON club_analytics_view TO authenticated, anon;

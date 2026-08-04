@@ -40,14 +40,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { CollaborativeEditor } from "@/components/notes/CollaborativeEditor";
 import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
 import { ClubHeader } from "@/components/Clubs/ClubHeader";
 import { ClubJobsSection } from "@/components/Clubs/ClubJobsSection";
+import { FlipCard } from "@/components/ui/FlipCard";
 
 interface ClubMemberProfile {
   full_name: string;
   avatar_url: string | null;
   handle: string;
+  bio: string | null;
 }
 
 interface ClubMember {
@@ -69,6 +72,7 @@ interface MemberItem {
   handle: string;
   role: "admin" | "member" | "organizer" | "alumni";
   avatarUrl: string | null;
+  bio: string | null;
   userId: string;
 }
 
@@ -188,6 +192,12 @@ export default function ClubProfile() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
+  const [joinSuccess, setJoinSuccess] = useState(false);
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [isClubBookmarked, setIsClubBookmarked] = useState(false);
+  const [bookmarkPending, setBookmarkPending] = useState(false);
+  const { setLabel } = useBreadcrumbs();
+
   interface BulkEmailJob {
     id: string;
     club_id: string;
@@ -255,9 +265,23 @@ export default function ClubProfile() {
     mutationFn: async () => {
       if (!user || !club) throw new Error("Must be logged in");
       const isPublic = (club as { visibility?: string }).visibility === "public";
+
+      // Get the default Member role for this club
+      const { data: memberRole, error: roleError } = await supabase
+        .from("club_roles")
+        .select("id")
+        .eq("club_id", club.id)
+        .eq("title", "Member")
+        .single();
+
+      if (roleError || !memberRole) {
+        throw new Error("Failed to get default member role");
+      }
+
       const { error } = await supabase.from("club_members").insert({
         club_id: club.id,
         user_id: user.id,
+        role_id: memberRole.id,
         status: isPublic ? "approved" : "pending",
       });
       if (error) throw error;
@@ -279,10 +303,13 @@ export default function ClubProfile() {
   const membership =
     user && club && Array.isArray(club.club_members)
       ? club.club_members.find(
-          (m: { user_id: string; role: string; status: string }) => m.user_id === user.id,
+          (m: { user_id: string; club_roles: { title: string } | null; status: string }) =>
+            m.user_id === user.id,
         )
       : null;
-  const isAdmin = membership && (membership.role === "admin" || membership.role === "organizer");
+  const isAdmin =
+    membership &&
+    (membership.club_roles?.title === "Admin" || membership.club_roles?.title === "Organizer");
 
   useEffect(() => {
     if (!isAdmin || !club) return;
@@ -391,11 +418,14 @@ export default function ClubProfile() {
     : [];
   const memberList = members.map((m: ClubMember) => {
     const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
+    const clubRole = m.club_roles as { title: string } | null;
     return {
       name: profile?.full_name || "Unknown User",
+      role: clubRole?.title || "Member",
       handle: profile?.handle || "",
       role: m.role as "admin" | "member" | "organizer" | "alumni",
       avatarUrl: profile?.avatar_url || null,
+      bio: profile?.bio || null,
       userId: m.user_id,
     };
   });
@@ -404,6 +434,8 @@ export default function ClubProfile() {
     const query = searchQuery.toLowerCase();
     return m.name.toLowerCase().includes(query) || m.handle.toLowerCase().includes(query);
   });
+
+  const officers = memberList.filter((m: MemberItem) => m.role === "admin");
 
   const displayedMembers = isExpanded ? filteredMembers : filteredMembers.slice(0, 10);
 
@@ -653,6 +685,77 @@ export default function ClubProfile() {
                     </div>
                   )}
 
+                  {user && membership && membership.status === "approved" && (
+                    <div className="mt-12 max-w-2xl">
+                      <h3 className="font-display text-xl font-bold text-indigo-900 uppercase tracking-tight mb-4">
+                        Collaborative Group Notes
+                      </h3>
+                      <div className="neu-border bg-white p-6">
+                        <CollaborativeEditor
+                          groupId={club.id}
+                          user={{
+                            id: user.id,
+                            name: user.user_metadata?.full_name || user.email || "Member",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Officers — 3D flip cards for club leadership (issue #2324) */}
+                  {officers && officers.length > 0 && (
+                    <div className="mt-8 max-w-2xl">
+                      <h3 className="font-display text-lg font-bold text-blue-900">Officers</h3>
+                      <p className="font-mono text-xs text-black mt-1 mb-3">
+                        Meet the team running {clubName} — hover or tap a card to flip it over.
+                      </p>
+                      <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                        {officers.map((m) => (
+                          <li key={m.userId} className="h-44">
+                            <FlipCard
+                              className="h-full w-full"
+                              ariaLabel={`${m.name}'s bio`}
+                              front={
+                                <div className="neu-border bg-white h-full w-full flex flex-col items-center justify-center gap-2 p-3 text-center">
+                                  <Avatar className="h-16 w-16 border-2 border-black rounded-full">
+                                    <AvatarImage
+                                      src={m.avatarUrl || undefined}
+                                      alt={m.name}
+                                      className="rounded-full"
+                                    />
+                                    <AvatarFallback className="rounded-full bg-brand-blue-light text-black font-bold">
+                                      {getInitials(m.name)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="min-w-0">
+                                    <p
+                                      className="font-mono text-sm font-bold truncate"
+                                      title={m.name}
+                                    >
+                                      {m.name}
+                                    </p>
+                                    <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-black/70">
+                                      Officer
+                                    </p>
+                                  </div>
+                                </div>
+                              }
+                              back={
+                                <div className="neu-border bg-lime h-full w-full overflow-y-auto p-4">
+                                  <p className="font-mono text-sm font-bold mb-2">{m.name}</p>
+                                  <p className="font-mono text-xs leading-relaxed text-gray-800">
+                                    {m.bio ||
+                                      `${m.name} is one of ${clubName}'s officers and helps keep this club running.`}
+                                  </p>
+                                </div>
+                              }
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
                   {/* Members section below the description */}
                   <div className="mt-8 max-w-2xl">
                     <h3 className="font-display text-lg font-bold text-blue-900">Members</h3>
@@ -773,7 +876,10 @@ export default function ClubProfile() {
                       disabled={bookmarkPending}
                       className="neu-border neu-press inline-flex items-center gap-2 bg-white px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-lime disabled:opacity-50"
                     >
-                      <Bookmark className="h-3.5 w-3.5" fill={isClubBookmarked ? "black" : "none"} />
+                      <Bookmark
+                        className="h-3.5 w-3.5"
+                        fill={isClubBookmarked ? "black" : "none"}
+                      />
                       {isClubBookmarked ? "Bookmarked" : "Bookmark"}
                     </button>
                     <button
@@ -808,8 +914,9 @@ export default function ClubProfile() {
                         Club Newsletter Dispatcher
                       </h3>
                       <p className="mt-2 font-mono text-xs text-gray-600 dark:text-gray-400">
-                        Send a bulk announcement/newsletter to all {memberList.length} members. This will be
-                        processed asynchronously in the background to prevent server timeouts.
+                        Send a bulk announcement/newsletter to all {memberList.length} members. This
+                        will be processed asynchronously in the background to prevent server
+                        timeouts.
                       </p>
 
                       <div className="mt-6 flex flex-wrap items-center gap-4">
@@ -887,6 +994,7 @@ export default function ClubProfile() {
                         ))}
                       </ul>
                     )}
+
                   </div>
                 </div>
               </section>
@@ -903,4 +1011,6 @@ export default function ClubProfile() {
       </SiteShell>
     </>
   );
+}
+
 }

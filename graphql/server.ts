@@ -1,4 +1,5 @@
-import { createSchema, createYoga, createGraphQLError, type Plugin } from "graphql-yoga";
+import { createYoga } from "graphql-yoga";
+import { makeExecutableSchema } from "@graphql-tools/schema";
 import {
   typeDefs,
   resolvers,
@@ -6,92 +7,34 @@ import {
   publishNotification,
   publishMentionNotification,
   publishEventUpdateNotification,
+  createProfileLoader,
+  createClubLoader,
+  createCommentsByPostLoader,
 } from "./resolvers";
 import { authDirectiveTypeDefs, authDirectiveTransformer } from "./directives/authDirective";
 import { createClient } from "../src/lib/supabase/client";
 import { closePool } from "./db";
 import { requestLoggingPlugin } from "./request-logging";
 import { openTelemetryPlugin, initializeBackendTracing } from "./tracing";
-
-// Rate limiting in-memory map
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-
-// Periodic cleanup of expired rate limit entries to prevent unbounded memory growth
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of rateLimitMap.entries()) {
-    if (value.resetAt < now) {
-      rateLimitMap.delete(key);
-    }
-  }
-}, 60000).unref();
-
-function checkRateLimit(contextValue: unknown) {
-  const context = contextValue as Record<string, unknown>;
-  const request = context.request as Request | undefined;
-  const user = context.user as { id?: string } | undefined;
-
-  let ip = request?.headers?.get("x-forwarded-for") || request?.headers?.get("x-real-ip");
-  if (!ip) {
-    const req = context.req as
-      { socket?: { remoteAddress?: string }; info?: { remoteAddress?: string } } | undefined;
-    ip = req?.socket?.remoteAddress || req?.info?.remoteAddress || "127.0.0.1";
-  }
-
-  const identifier = user?.id ? `user:${user.id}` : `ip:${ip}`;
-
-  const limit = user?.id ? 120 : 30;
-  const now = Date.now();
-
-  let record = rateLimitMap.get(identifier);
-  if (!record || record.resetAt < now) {
-    record = { count: 0, resetAt: now + 60000 };
-    rateLimitMap.set(identifier, record);
-  }
-
-  record.count += 1;
-
-  if (record.count > limit) {
-    throw createGraphQLError("Too Many Requests", {
-      extensions: {
-        http: { status: 429 },
-      },
-    });
-  }
-}
-
-function rateLimitPlugin(): Plugin {
-  return {
-    onExecute({ args }) {
-      checkRateLimit(args.contextValue);
-    },
-    onSubscribe({ args }) {
-      checkRateLimit(args.contextValue);
-    },
-  };
-}
+import { createGraphQLSecurityPlugin } from "./security";
 
 // Initialize OpenTelemetry backend tracing provider on server startup
 initializeBackendTracing();
 
 const supabase = createClient();
 
-let schema = createSchema({
+// 1. Create base executable schema using makeExecutableSchema
+let schema = makeExecutableSchema({
   typeDefs: [authDirectiveTypeDefs, typeDefs],
   resolvers,
 });
 
-// Apply the @auth directive transformer
+// 2. Apply the @auth directive transformer
 schema = authDirectiveTransformer(schema, "auth");
 
 /**
  * GraphQL Yoga server instance.
- *
- * Subscriptions are served via Server-Sent Events (SSE) — the default
- * transport in GraphQL Yoga v5. Clients connect to /api/graphql using
- * the multipart SSE protocol supported by graphql-sse.
- *
- * No extra WebSocket configuration is required; Yoga handles SSE natively.
+ * Subscriptions are served via Server-Sent Events (SSE).
  */
 export const yoga = createYoga({
   schema,
@@ -108,7 +51,8 @@ export const yoga = createYoga({
 
       if (authUser) {
         user = { id: authUser.id, role: "USER" };
-        // Fetch role
+        
+        // Fetch role from profiles
         const { data: profile } = await supabase
           .from("profiles")
           .select("role")
@@ -119,18 +63,31 @@ export const yoga = createYoga({
       }
     }
 
-    return { user };
-  },
-  plugins: [requestLoggingPlugin(), openTelemetryPlugin(), rateLimitPlugin()],
-});
+    const profileLoader = createProfileLoader();
+    const clubLoader = createClubLoader();
+    const commentsByPostLoader = createCommentsByPostLoader();
 
-// Re-export for use by server-side event producers (mention handlers, etc.)
-export { pubsub, publishNotification };
+    return {
+      request,
+      user,
+      profileLoader,
+      clubLoader,
+      commentsByPostLoader,
+    };
+  },
+  plugins: [
+    requestLoggingPlugin(),
+    openTelemetryPlugin(),
+    createGraphQLSecurityPlugin({
+      maxDepth: 5,
+      rateLimit: { maxRequests: 100, maxMutations: 10, windowMs: 60000 },
+    }),
+  ],
+});
 
 /**
  * Graceful shutdown: release all pooled Postgres connections when the
- * process receives a termination signal (e.g. during deploys/restarts),
- * so connections aren't left dangling on the Supavisor/pgBouncer side.
+ * process receives a termination signal.
  */
 let isShuttingDown = false;
 
@@ -140,6 +97,7 @@ async function gracefulShutdown(signal: string) {
 
   // eslint-disable-next-line no-console
   console.log(`[server] Received ${signal}, closing Postgres pool...`);
+  
   try {
     await closePool();
     // eslint-disable-next-line no-console
@@ -153,6 +111,7 @@ async function gracefulShutdown(signal: string) {
 
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
 export {
   schema,
   pubsub,
@@ -160,3 +119,5 @@ export {
   publishMentionNotification,
   publishEventUpdateNotification,
 };
+
+export default yoga;

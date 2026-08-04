@@ -3,7 +3,16 @@ import { Navigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { ShieldAlert, CheckCircle, XCircle, ChevronUp, ChevronDown, Loader2 } from "lucide-react";
+import {
+  ShieldAlert,
+  CheckCircle,
+  XCircle,
+  ChevronUp,
+  ChevronDown,
+  Loader2,
+  FileSpreadsheet,
+} from "lucide-react";
+import { BulkUserImportModal } from "@/components/admin/BulkUserImportModal";
 
 interface Profile {
   id: string;
@@ -25,22 +34,13 @@ interface MutationResponse {
   }[];
 }
 
+import { fetchGraphQL, GraphQLPartialError } from "@/lib/graphql-client";
+
 async function graphqlRequest<T>(
   query: string,
   variables: Record<string, unknown> = {},
 ): Promise<T> {
-  const res = await fetch("/api/graphql", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-  const json = await res.json();
-  if (json.errors) {
-    throw new Error(json.errors[0].message || "GraphQL Error");
-  }
-  return json.data as T;
+  return fetchGraphQL<T, Record<string, unknown>>(query, variables);
 }
 
 export default function AdminUsersPage() {
@@ -48,6 +48,7 @@ export default function AdminUsersPage() {
   const [user, setUser] = useState<unknown>(null);
   const [role, setRole] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Grid states
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -127,9 +128,17 @@ export default function AdminUsersPage() {
       setTotal(data.totalProfiles);
     } catch (err: unknown) {
       console.error(err);
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to load users from GraphQL.";
-      toast.error(errorMessage);
+      // Partial failure: render what we got, warn the user
+      if (err instanceof GraphQLPartialError) {
+        const partial = err.data as GraphQLResponse;
+        if (partial?.profiles) setProfiles(partial.profiles);
+        if (partial?.totalProfiles != null) setTotal(partial.totalProfiles);
+        toast.warning("Some user data failed to load. Showing partial results.");
+      } else {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to load users from GraphQL.";
+        toast.error(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -255,6 +264,13 @@ export default function AdminUsersPage() {
               <h1 className="text-4xl font-extrabold uppercase mt-1">User Directory</h1>
             </div>
             <div className="flex items-center gap-4">
+              <button
+                onClick={() => setIsImportModalOpen(true)}
+                className="neu-border px-4 py-2 text-sm font-bold uppercase transition-all flex items-center gap-2 rounded-none cursor-pointer bg-lime hover:-translate-y-0.5 active:translate-y-0 text-black border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                Bulk Import CSV
+              </button>
               <button
                 onClick={handleBulkSuspend}
                 disabled={selectedIds.size === 0}
@@ -442,6 +458,11 @@ export default function AdminUsersPage() {
           </div>
         </div>
       </div>
+      <BulkUserImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccessRefresh={() => void loadProfiles()}
+      />
     </SiteShell>
   );
 }

@@ -76,7 +76,9 @@ export function AuthSecurityHub() {
     },
   ]);
 
-  const [isMfaActive, setIsMfaActive] = useState(true);
+  const [isMfaActive, setIsMfaActive] = useState(false);
+  const [verifiedFactorId, setVerifiedFactorId] = useState<string | null>(null);
+  const [disablingMfa, setDisablingMfa] = useState(false);
   const [isMfaModalOpen, setIsMfaModalOpen] = useState(false);
   const [isPasskeyModalOpen, setIsPasskeyModalOpen] = useState(false);
 
@@ -90,7 +92,44 @@ export function AuthSecurityHub() {
     // Ensure the current device appears in its own session list, then load.
     void registerDeviceSession();
     fetchDeviceSessions();
+    fetchMfaFactors();
   }, []);
+
+  const fetchMfaFactors = async () => {
+    try {
+      const { data, error } = await supabase.auth.mfa.listFactors();
+      if (error) throw error;
+      if (data && data.totp) {
+        const verified = data.totp.find((f) => f.status === "verified");
+        if (verified) {
+          setIsMfaActive(true);
+          setVerifiedFactorId(verified.id);
+        } else {
+          setIsMfaActive(false);
+          setVerifiedFactorId(null);
+        }
+      }
+    } catch {
+      // Fallback gracefully
+    }
+  };
+
+  const handleUnenrollMfa = async () => {
+    if (!verifiedFactorId) return;
+    setDisablingMfa(true);
+    try {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: verifiedFactorId });
+      if (error) throw error;
+      toast.success("Two-Factor Authentication has been disabled.");
+      setIsMfaActive(false);
+      setVerifiedFactorId(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to disable 2FA.";
+      toast.error(msg);
+    } finally {
+      setDisablingMfa(false);
+    }
+  };
 
   const fetchDeviceSessions = async () => {
     setLoading(true);
@@ -242,10 +281,23 @@ export function AuthSecurityHub() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => setIsMfaModalOpen(true)}
+            disabled={disablingMfa}
+            onClick={() => {
+              if (isMfaActive && verifiedFactorId) {
+                handleUnenrollMfa();
+              } else {
+                setIsMfaModalOpen(true);
+              }
+            }}
             className="mt-4 border-2 border-black font-mono text-xs font-bold uppercase bg-cream hover:bg-yellow-200 shadow-[2px_2px_0_0_var(--color-ink)]"
           >
-            {isMfaActive ? "Manage 2FA Settings" : "Enable 2FA"}
+            {disablingMfa ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-1 text-black" />
+            ) : isMfaActive ? (
+              "Disable 2FA"
+            ) : (
+              "Enable 2FA"
+            )}
           </Button>
         </div>
 
@@ -480,7 +532,10 @@ export function AuthSecurityHub() {
       <MfaSetupModal
         isOpen={isMfaModalOpen}
         onClose={() => setIsMfaModalOpen(false)}
-        onSuccess={() => setIsMfaActive(true)}
+        onSuccess={() => {
+          setIsMfaActive(true);
+          fetchMfaFactors();
+        }}
       />
       <PasskeyAuthModal isOpen={isPasskeyModalOpen} onClose={() => setIsPasskeyModalOpen(false)} />
     </div>

@@ -93,24 +93,7 @@ export const EVENTS_CONNECTION_QUERY = /* GraphQL */ `
   }
 `;
 
-export async function fetchGraphQL<TData, TVariables>(
-  query: string,
-  variables?: TVariables,
-): Promise<TData> {
-  const res = await fetch("/api/graphql", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-
-  const json = await res.json();
-  if (json.errors && json.errors.length > 0) {
-    throw new Error(json.errors[0].message);
-  }
-  return json.data;
-}
+export { fetchGraphQL } from "@/lib/graphql-client";
 
 /**
  * Hook to consume the GraphQL Relay-style cursor-paginated events connection API (`events(first: $first, after: $after)`).

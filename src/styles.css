@@ -349,6 +349,20 @@
   }
 }
 
+/*
+ * Glassmorphism navbar effect, toggled on/off via IntersectionObserver
+ * (see useScrollSentinel + Navbar.tsx) rather than always-on, since
+ * backdrop-filter is expensive to composite on mobile GPUs.
+ *
+ * Safari (desktop + iOS) only recognizes the -webkit- prefixed property.
+ * Without it, Safari silently ignores backdrop-filter and the navbar
+ * renders as a flat, opaque block instead of frosted glass.
+ */
+@utility navbar-glass {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
 @utility neu-border {
   border: 2px solid #000000;
 }

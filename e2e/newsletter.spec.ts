@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./analytics-fixture";
 
 test("asynchronous bulk newsletter queue dispatch and status polling", async ({ page }) => {
   // 1. Authenticate User (Admin of Tech Club)

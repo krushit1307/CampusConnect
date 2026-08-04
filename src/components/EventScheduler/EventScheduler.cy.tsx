@@ -68,7 +68,7 @@ describe("<EventScheduler />", () => {
 
     // Verify the payload contains the updated timestamp
     cy.get("@onSaveSpy").should((spy) => {
-      const calls = (spy as any).getCalls();
+      const calls = (spy as sinon.SinonSpy).getCalls();
       const updatedEvents = calls[0].args[0];
       const movedEvent = updatedEvents.find((e: ScheduledEvent) => e.id === "evt-1");
 
@@ -105,7 +105,7 @@ describe("<EventScheduler />", () => {
     cy.get('[data-testid="event-block-evt-1"]').dragAndDrop(200, 0);
 
     cy.get("@onSaveSpy").should((spy) => {
-      const calls = (spy as any).getCalls();
+      const calls = (spy as sinon.SinonSpy).getCalls();
       const updatedEvents = calls[0].args[0];
       const movedEvent = updatedEvents.find((e: ScheduledEvent) => e.id === "evt-1");
 

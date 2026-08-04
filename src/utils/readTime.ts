@@ -1,6 +1,6 @@
 export const calculateReadTime = (richTextHtml: string): string => {
   const content = richTextHtml || "";
-  
+
   // 1. Strip all HTML tags using regex
   const rawText = content.replace(/(<([^>]+)>)/gi, "").trim();
 

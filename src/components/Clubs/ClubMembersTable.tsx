@@ -219,7 +219,7 @@ export function ClubMembersTable({
         m.fullName.toLowerCase().includes(query) ||
         m.handle.toLowerCase().includes(query) ||
         m.role.toLowerCase().includes(query) ||
-        m.status.toLowerCase().includes(query)
+        m.status.toLowerCase().includes(query),
     );
   }, [data, globalFilter]);
 
@@ -260,7 +260,7 @@ export function ClubMembersTable({
         ),
       },
     ],
-    [currentUserId, isMutating, onApprove, onReject, onToggleRole]
+    [currentUserId, isMutating, onApprove, onReject, onToggleRole],
   );
 
   return (

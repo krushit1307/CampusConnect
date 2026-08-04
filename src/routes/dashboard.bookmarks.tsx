@@ -63,7 +63,8 @@ export default function DashboardBookmarks() {
             location,
             banner_url,
             created_at,
-            clubs (name),
+            announce_date,
+            clubs (name, average_lead_time_days),
             event_rsvps (id, user_id)
           )
         `,

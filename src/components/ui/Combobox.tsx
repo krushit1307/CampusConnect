@@ -17,7 +17,7 @@ export interface ComboboxOption {
   value: string;
   label: string;
   // Allow additional metadata if needed
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface ComboboxProps {
