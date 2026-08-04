@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useId, type ChangeEvent, type KeyboardEven
 import { Camera, Loader2, X, Plus, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 import { announce } from "@/store/ariaAnnouncer";
-import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import { withAuth, WithAuthProps } from "@/hoc/withAuth";
 import { PasswordInput } from "@/components/ui/password-input";
 import {
@@ -17,11 +17,15 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useTheme } from "@/components/theme-provider";
+
 import { OptimizedImage } from "@/components/media/OptimizedImage";
+import { PushNotificationSettings } from "@/components/notifications/PushNotificationSettings";
+
+import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
+import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
 import {
   profileSchema,
   notificationPreferencesSchema,
@@ -143,9 +147,9 @@ function SettingsPageContent({ user }: WithAuthProps) {
       setDeletePassword("");
       toast.success("Account deleted successfully.");
     } catch (err) {
-      setDeleteError(
-        err instanceof Error ? err.message : "An unexpected error occurred during verification.",
-      );
+      const message =
+        err instanceof Error ? err.message : "An unexpected error occurred during verification.";
+      setDeleteError(message);
     } finally {
       setIsDeleting(false);
     }
@@ -187,7 +191,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
     enabled: !!user?.id,
   });
 
-  const { data: preferences } = useQuery({
+  const { data: preferences, isLoading: isPreferencesLoading } = useQuery({
     queryKey: ["user_preferences", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -685,25 +689,31 @@ function SettingsPageContent({ user }: WithAuthProps) {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between gap-4 border-t-2 border-black pt-4">
-                <div>
-                  <label className="eyebrow font-bold text-black dark:text-cream">
-                    Dark Mode by Default
-                  </label>
-                  <p className="font-mono text-xs text-muted-foreground">
-                    When enabled, the app will default to dark mode on each visit unless you
-                    manually switch themes.
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={form.watch("dark_mode_default")}
-                  onChange={(e) =>
-                    form.setValue("dark_mode_default", e.target.checked, { shouldDirty: true })
-                  }
-                  className="h-5 w-5 accent-black"
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="dark_mode_default"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormControl>
+                      <div className="flex items-center justify-between gap-4 border-t-2 border-black pt-4">
+                        <div>
+                          <label
+                            htmlFor={field.id}
+                            className="eyebrow font-bold text-black dark:text-cream"
+                          >
+                            Dark Mode by Default
+                          </label>
+                          <p className="font-mono text-xs text-muted-foreground">
+                            When enabled, the app will default to dark mode on each visit unless you
+                            manually switch themes.
+                          </p>
+                        </div>
+                        <input {...field} type="checkbox" className="h-5 w-5 accent-black" />
+                      </div>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
 
               <div className="flex items-center justify-between gap-4 border-t-2 border-black pt-4">
                 <label htmlFor="ui-sounds" className="eyebrow font-bold text-black dark:text-cream">
@@ -787,7 +797,6 @@ function SettingsPageContent({ user }: WithAuthProps) {
               </button>
             </div>
           </Panel>
-
           <Panel title="Blocked Users">
             <BlockedUsersPanel currentUserId={user.id} />
           </Panel>
@@ -797,6 +806,8 @@ function SettingsPageContent({ user }: WithAuthProps) {
           </Panel>
 
           <Panel title="Notifications">
+            {user && <PushNotificationSettings userId={user.id} />}
+
             <FormField
               control={form.control}
               name="email_alerts"
@@ -1001,7 +1012,7 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
@@ -1063,10 +1074,6 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
 
     try {
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) throw new Error("No session");
-      const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) throw new Error("No user");
@@ -1074,19 +1081,12 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
       const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
       const filePath = `${user.id}/${crypto.randomUUID()}.${extension}`;
 
-      const supabaseUrl = getSupabaseUrl();
-      await uploadFileWithProgress(
-        supabaseUrl,
-        session.access_token,
+      const publicUrl = await uploadImageWithSignedUrl(
         "avatars",
         filePath,
         file,
         setUploadProgress,
       );
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("avatars").getPublicUrl(filePath);
 
       await handleUploaded(publicUrl);
       toast.success("Profile picture updated.");

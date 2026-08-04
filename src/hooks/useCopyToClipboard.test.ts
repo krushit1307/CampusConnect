@@ -77,4 +77,24 @@ describe("useCopyToClipboard", () => {
     act(() => vi.advanceTimersByTime(2000));
     expect(result.current.isCopied).toBe(false);
   });
+
+  it("resets copied state after custom timeout duration", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
+    const { result } = renderHook(() => useCopyToClipboard(5000));
+
+    await act(async () => {
+      await result.current.copyToClipboard("event-link-custom");
+    });
+    expect(result.current.isCopied).toBe(true);
+
+    act(() => vi.advanceTimersByTime(2000));
+    expect(result.current.isCopied).toBe(true);
+
+    act(() => vi.advanceTimersByTime(3000));
+    expect(result.current.isCopied).toBe(false);
+  });
 });

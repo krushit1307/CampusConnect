@@ -1,16 +1,20 @@
+/* eslint-disable @typescript-eslint/no-namespace */
 import { mount } from "cypress/react";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "../../src/contexts/ThemeContext";
+import { ThemeProvider } from "../../src/components/theme-provider";
 import { MemoryRouter } from "react-router-dom";
-import "../../src/index.css"; // Import global tailwind styles
+import "../../src/styles.css"; // Import global styles
 
 // Augment the Cypress namespace to include custom commands
 declare global {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Cypress {
     interface Chainable {
       mount: typeof mount;
+      /**
+       * Custom command to drag an element to a specific coordinate offset.
+       * Used for testing drag-and-drop event scheduling logic.
+       */
       dragAndDrop(offsetX: number, offsetY: number): Chainable<JQuery<HTMLElement>>;
     }
   }

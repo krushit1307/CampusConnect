@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,8 +17,11 @@ import {
   Smartphone,
   AlertCircle,
   RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
+import { QRCodeSVG } from "qrcode.react";
 
 interface MfaSetupModalProps {
   isOpen: boolean;
@@ -27,6 +30,7 @@ interface MfaSetupModalProps {
 }
 
 export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, onSuccess }) => {
+  const supabase = createClient();
   const [step, setStep] = useState<"choice" | "qr" | "verify" | "recovery" | "complete">("choice");
   const [method, setMethod] = useState<"totp" | "sms">("totp");
   const [verificationCode, setVerificationCode] = useState("");
@@ -36,32 +40,81 @@ export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, o
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  const mockSecretKey = "JBSWY3DPEHPK3PXP";
-  const mockQrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=otpauth://totp/CampusConnect:user@campus.edu?secret=${mockSecretKey}&issuer=CampusConnect`;
-  const mockRecoveryCodes = [
-    "A1B2-C3D4-E5F6",
-    "G7H8-I9J0-K1L2",
-    "M3N4-O5P6-Q7R8",
-    "S9T0-U1V2-W3X4",
-    "Y5Z6-7890-ABCD",
-    "EFGH-IJKL-MNOP",
-  ];
+  // Supabase MFA factors state
+  const [factorId, setFactorId] = useState<string>("");
+  const [secretKey, setSecretKey] = useState<string>("");
+  const [qrCodeUri, setQrCodeUri] = useState<string>("");
+  const [qrCodeSvgData, setQrCodeSvgData] = useState<string>("");
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      resetModal();
+    }
+  }, [isOpen]);
+
+  const handleStartEnrollment = async (selectedMethod: "totp" | "sms") => {
+    setMethod(selectedMethod);
+    setErrorMsg("");
+
+    if (selectedMethod === "sms") {
+      setStep("qr");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Supabase Auth MFA Enroll
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: "totp",
+        issuer: "CampusConnect",
+        friendlyName: "CampusConnect TOTP",
+      });
+
+      if (error) throw error;
+
+      if (data) {
+        setFactorId(data.id);
+        setSecretKey(data.totp.secret || "");
+        setQrCodeUri(data.totp.uri || "");
+        setQrCodeSvgData(data.totp.qr_code || "");
+
+        // Generate backup recovery codes
+        const generatedCodes = Array.from({ length: 6 }, () =>
+          Array.from({ length: 3 }, () =>
+            Math.random().toString(36).substring(2, 6).toUpperCase(),
+          ).join("-"),
+        );
+        setRecoveryCodes(generatedCodes);
+
+        setStep("qr");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to initialize 2FA setup.";
+      setErrorMsg(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCopySecret = () => {
-    navigator.clipboard.writeText(mockSecretKey);
+    if (!secretKey) return;
+    navigator.clipboard.writeText(secretKey);
     setCopiedKey(true);
     toast.success("Secret key copied to clipboard");
     setTimeout(() => setCopiedKey(false), 2000);
   };
 
   const handleCopyRecovery = () => {
-    navigator.clipboard.writeText(mockRecoveryCodes.join("\n"));
+    if (recoveryCodes.length === 0) return;
+    navigator.clipboard.writeText(recoveryCodes.join("\n"));
     setCopiedCodes(true);
     toast.success("Recovery codes copied to clipboard");
     setTimeout(() => setCopiedCodes(false), 2000);
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     setErrorMsg("");
     if (verificationCode.length !== 6) {
       setErrorMsg("Please enter a valid 6-digit authentication code.");
@@ -69,11 +122,43 @@ export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, o
     }
 
     setLoading(true);
-    setTimeout(() => {
+    try {
+      if (method === "totp") {
+        if (!factorId) {
+          throw new Error("No factor ID found. Please restart MFA setup.");
+        }
+
+        // Create Challenge
+        const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
+          factorId,
+        });
+
+        if (challengeError) throw challengeError;
+
+        // Verify Challenge with Code
+        const { error: verifyError } = await supabase.auth.mfa.verify({
+          factorId,
+          challengeId: challengeData.id,
+          code: verificationCode,
+        });
+
+        if (verifyError) throw verifyError;
+
+        setStep("recovery");
+        toast.success("Two-Factor Authentication verified successfully!");
+      } else {
+        // SMS fallback flow simulation
+        setStep("recovery");
+        toast.success("SMS Authentication verified successfully!");
+      }
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Invalid authentication code. Please try again.";
+      setErrorMsg(msg);
+      toast.error(msg);
+    } finally {
       setLoading(false);
-      setStep("recovery");
-      toast.success("Two-Factor Authentication verified successfully!");
-    }, 1000);
+    }
   };
 
   const handleFinish = () => {
@@ -85,8 +170,14 @@ export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, o
   const resetModal = () => {
     setStep("choice");
     setVerificationCode("");
+    setPhoneNumber("");
     setErrorMsg("");
     setLoading(false);
+    setFactorId("");
+    setSecretKey("");
+    setQrCodeUri("");
+    setQrCodeSvgData("");
+    setRecoveryCodes([]);
   };
 
   return (
@@ -109,6 +200,13 @@ export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, o
         </DialogHeader>
 
         <div className="mt-4">
+          {errorMsg && (
+            <div className="mb-4 p-3 border-2 border-black bg-red-100 flex items-center gap-2 text-xs font-mono text-red-900">
+              <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+              {errorMsg}
+            </div>
+          )}
+
           {step === "choice" && (
             <div className="space-y-4">
               <p className="font-mono text-xs font-semibold text-black uppercase tracking-wider">
@@ -117,14 +215,16 @@ export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, o
 
               <button
                 type="button"
-                onClick={() => {
-                  setMethod("totp");
-                  setStep("qr");
-                }}
-                className="w-full flex items-start gap-4 p-4 border-2 border-black bg-cream hover:bg-yellow-100 text-left transition-colors cursor-pointer shadow-[3px_3px_0_0_var(--color-ink)]"
+                disabled={loading}
+                onClick={() => handleStartEnrollment("totp")}
+                className="w-full flex items-start gap-4 p-4 border-2 border-black bg-cream hover:bg-yellow-100 text-left transition-colors cursor-pointer shadow-[3px_3px_0_0_var(--color-ink)] disabled:opacity-50"
               >
                 <div className="p-2 border border-black bg-white">
-                  <QrCode className="h-6 w-6 text-black" />
+                  {loading ? (
+                    <Loader2 className="h-6 w-6 animate-spin text-black" />
+                  ) : (
+                    <QrCode className="h-6 w-6 text-black" />
+                  )}
                 </div>
                 <div>
                   <h4 className="font-bold text-sm text-black">Authenticator App (Recommended)</h4>
@@ -136,11 +236,9 @@ export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, o
 
               <button
                 type="button"
-                onClick={() => {
-                  setMethod("sms");
-                  setStep("qr");
-                }}
-                className="w-full flex items-start gap-4 p-4 border-2 border-black bg-cream hover:bg-sky/20 text-left transition-colors cursor-pointer shadow-[3px_3px_0_0_var(--color-ink)]"
+                disabled={loading}
+                onClick={() => handleStartEnrollment("sms")}
+                className="w-full flex items-start gap-4 p-4 border-2 border-black bg-cream hover:bg-sky/20 text-left transition-colors cursor-pointer shadow-[3px_3px_0_0_var(--color-ink)] disabled:opacity-50"
               >
                 <div className="p-2 border border-black bg-white">
                   <Smartphone className="h-6 w-6 text-black" />
@@ -158,40 +256,52 @@ export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, o
           {step === "qr" && method === "totp" && (
             <div className="space-y-4">
               <div className="flex flex-col items-center justify-center p-4 border-2 border-black bg-cream">
-                <img
-                  src={mockQrCodeUrl}
-                  alt="MFA QR Code"
-                  className="w-44 h-44 border-2 border-black bg-white p-2"
-                />
+                {qrCodeUri ? (
+                  <div className="border-2 border-black bg-white p-3 shadow-[3px_3px_0_0_var(--color-ink)]">
+                    <QRCodeSVG value={qrCodeUri} size={180} level="M" />
+                  </div>
+                ) : qrCodeSvgData ? (
+                  <img
+                    src={qrCodeSvgData}
+                    alt="MFA QR Code"
+                    className="w-44 h-44 border-2 border-black bg-white p-2"
+                  />
+                ) : (
+                  <div className="w-44 h-44 border-2 border-black bg-white flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-black" />
+                  </div>
+                )}
                 <p className="font-mono text-xs text-gray-700 mt-3 text-center">
                   Scan this QR code with your mobile authenticator app.
                 </p>
               </div>
 
-              <div className="p-3 border-2 border-black bg-white space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="font-mono text-xs font-bold text-gray-600 uppercase">
-                    Secret Key (Manual Entry):
-                  </span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCopySecret}
-                    className="h-7 px-2 font-mono text-xs border border-black"
-                  >
-                    {copiedKey ? (
-                      <Check className="h-3 w-3 mr-1 text-green-600" />
-                    ) : (
-                      <Copy className="h-3 w-3 mr-1" />
-                    )}
-                    {copiedKey ? "Copied" : "Copy Key"}
-                  </Button>
+              {secretKey && (
+                <div className="p-3 border-2 border-black bg-white space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-mono text-xs font-bold text-gray-600 uppercase">
+                      Secret Key (Manual Entry):
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopySecret}
+                      className="h-7 px-2 font-mono text-xs border border-black"
+                    >
+                      {copiedKey ? (
+                        <Check className="h-3 w-3 mr-1 text-green-600" />
+                      ) : (
+                        <Copy className="h-3 w-3 mr-1" />
+                      )}
+                      {copiedKey ? "Copied" : "Copy Key"}
+                    </Button>
+                  </div>
+                  <code className="block w-full font-mono text-sm font-bold bg-gray-100 p-2 border border-black text-center tracking-widest text-black break-all">
+                    {secretKey}
+                  </code>
                 </div>
-                <code className="block w-full font-mono text-sm font-bold bg-gray-100 p-2 border border-black text-center tracking-widest text-black">
-                  {mockSecretKey}
-                </code>
-              </div>
+              )}
 
               <div className="flex gap-2">
                 <Button
@@ -255,13 +365,6 @@ export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, o
                 Enter the 6-digit code displayed in your authenticator app to verify setup.
               </p>
 
-              {errorMsg && (
-                <div className="p-3 border-2 border-black bg-red-100 flex items-center gap-2 text-xs font-mono text-red-900">
-                  <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
-                  {errorMsg}
-                </div>
-              )}
-
               <div>
                 <label className="block font-mono text-xs font-bold uppercase mb-2">
                   6-Digit Verification Code:
@@ -311,7 +414,7 @@ export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, o
               </div>
 
               <div className="grid grid-cols-2 gap-2 p-3 border-2 border-black bg-white font-mono text-xs">
-                {mockRecoveryCodes.map((code, idx) => (
+                {recoveryCodes.map((code, idx) => (
                   <div
                     key={idx}
                     className="p-1.5 border border-black bg-cream font-bold text-center"

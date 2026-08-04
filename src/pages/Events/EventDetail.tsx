@@ -11,6 +11,8 @@ import NotFound from "./NotFound";
 import LazyHydrate from "@/components/LazyHydrate";
 import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
+import { useBreadcrumbs } from "@/components/BreadcrumbsContext";
+import { triggerConfetti } from "@/utils/confetti";
 // Removed SiteShell import
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { MapSkeleton } from "@/components/ui/MapSkeleton";
@@ -41,7 +43,7 @@ import { formatEventDateRange } from "@/lib/utils";
 import { loadDomMax } from "@/lib/motionFeatures";
 import { downloadIcs, getGoogleCalendarUrl } from "@/lib/calendarUtils";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
-import { formatStandardDate } from "@/utils/dateUtils";
+import { formatDateLong } from "@/lib/dateFormatter";
 import { toast } from "sonner";
 import { ShareMenu } from "@/components/ui/ShareMenu";
 import {
@@ -96,6 +98,11 @@ import { CaptchaWidget } from "@/components/CaptchaWidget";
 import { SeatingChart } from "@/components/events/SeatingChart";
 import { useEventSeats } from "@/hooks/useEventSeats";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import React from 'react';
+import { useParams } from 'react-router-dom';
+import { GalleryCarousel, GallerySlide } from '@/components/ui/GalleryCarousel';
+import { Button } from '@/components/ui/button';
+import { Calendar, MapPin, Users } from 'lucide-react';
 
 interface SimilarEventItem {
   id: string;
@@ -166,6 +173,29 @@ function SimilarEvents({
     return null;
   }
 
+  /**
+ * EventDetail Page
+ * Displays comprehensive information about a specific campus event.
+ * Now features a fluid, auto-advancing image carousel at the top.
+ */
+export const EventDetail: React.FC = () => {
+  const { eventId } = useParams<{ eventId: string }>();
+
+  // Mock data - in production, this would be fetched via GraphQL or Supabase
+  const event = {
+    id: eventId,
+    title: 'Annual Spring Tech Fest 2026',
+    description: 'Join us for a day of innovation, workshops, and networking with industry leaders.',
+    date: '2026-09-15T10:00:00Z',
+    location: 'Main Campus Auditorium',
+    attendees: 250,
+    images: [
+      { id: 'img1', imageUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800', altText: 'Crowd at tech fest' },
+      { id: 'img2', imageUrl: 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=800', altText: 'Speaker on stage' },
+      { id: 'img3', imageUrl: 'https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=800', altText: 'Networking session' },
+    ] as GallerySlide[],
+  };
+
   return (
     <div className="mt-10 border-t-2 border-black pt-8">
       <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900 mb-6">
@@ -194,14 +224,50 @@ function SimilarEvents({
             </h3>
             {evt.event_date && (
               <p className="font-mono text-xs text-black/60 mt-1">
-                📅 {formatStandardDate(evt.event_date)}
-                📅 {new Date(evt.event_date).toLocaleDateString()}
+                📅 {formatDateLong(evt.event_date)}
               </p>
             )}
           </Link>
         ))}
       </div>
     </div>
+    <div className="max-w-4xl mx-auto p-6 space-y-8">
+      {/* NEW: Fluid Auto-Advancing Image Carousel */}
+      <GalleryCarousel 
+        slides={event.images} 
+        autoplayDelayMs={5000} 
+        className="shadow-lg"
+      />
+
+      <div className="space-y-4">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          {event.title}
+        </h1>
+        
+        <div className="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-300">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            <span>{new Date(event.date).toLocaleDateString()}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4" />
+            <span>{event.location}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            <span>{event.attendees} attending</span>
+          </div>
+        </div>
+
+        <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+          {event.description}
+        </p>
+
+        <div className="flex gap-4 pt-4">
+          <Button className="flex-1">RSVP Now</Button>
+          <Button variant="outline" className="flex-1">Add to Calendar</Button>
+        </div>
+</think>
   );
 }
 
@@ -213,7 +279,7 @@ function rsvpRowsToCsv(rows: { name: string; email: string; rsvp_date: string; s
   };
   const lines = [headers.join(",")];
   for (const r of rows) {
-    lines.push([r.name, r.email, formatStandardDate(r.rsvp_date), r.status].map(escape).join(","));
+    lines.push([r.name, r.email, formatDateLong(r.rsvp_date), r.status].map(escape).join(","));
   }
   return lines.join("\n");
 }
@@ -231,7 +297,7 @@ function downloadCsv(csvContent: string, filename: string) {
 }
 
 export default function EventDetailsPage() {
-  const { eventId = "" } = useParams();
+  const { eventId = "", lang = "en" } = useParams();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const emailVerified = useEmailVerification();
@@ -243,13 +309,85 @@ export default function EventDetailsPage() {
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const viewerCount = useEventViewerCount(eventId);
+  const { setCustomTrail } = useBreadcrumbs();
 
   // Safe window URL handling for SSR / hydration safety
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 
   useEffect(() => {
+    if (!event) {
+      const skeleton = (
+        <span className="h-3 w-16 animate-pulse rounded bg-gray-200 dark:bg-gray-700 inline-block align-middle" />
+      );
+      setCustomTrail([
+        { label: "Home", path: `/${lang}` },
+        { label: "Clubs", path: `/${lang}/clubs` },
+        { label: skeleton },
+        { label: "Events", path: `/${lang}/events` },
+        { label: skeleton },
+      ]);
+      return;
+    }
+
+    const clubObj = event.clubs
+      ? Array.isArray(event.clubs)
+        ? event.clubs[0]
+        : event.clubs
+      : null;
+    const trail = [
+      { label: "Home", path: `/${lang}` },
+      { label: "Clubs", path: `/${lang}/clubs` },
+    ];
+
+    if (clubObj) {
+      trail.push({
+        label: clubObj.name,
+        path: `/${lang}/clubs/${clubObj.slug}`,
+      });
+    }
+
+    trail.push({
+      label: "Events",
+      path: `/${lang}/events`,
+    });
+
+    trail.push({
+      label: event.title,
+    });
+
+    setCustomTrail(trail);
+
+    return () => {
+      setCustomTrail(null);
+    };
+  }, [event, lang, setCustomTrail]);
+
+  useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
+
+  // Listen for Service Worker background sync messages for offline RSVP reconciliation
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+
+    const handleSwMessage = (event: MessageEvent) => {
+      if (event.data?.type === "OFFLINE_RSVP_SYNC_SUCCESS") {
+        toast.success("Your offline RSVP was synchronized successfully!");
+        refetch();
+      } else if (event.data?.type === "OFFLINE_RSVP_SYNC_ERROR") {
+        toast.error(
+          `Offline RSVP sync failed: ${event.data.reason || "Event capacity reached or conflict occurred."}`,
+        );
+        refetch(); // Refetch to reset optimistic UI to server ground truth
+      }
+    };
+
+    navigator.serviceWorker.addEventListener("message", handleSwMessage);
+    return () => {
+      navigator.serviceWorker.removeEventListener("message", handleSwMessage);
+    };
+  }, [refetch]);
 
   // Gallery States and Queries
   interface UploadingFile {
@@ -754,13 +892,25 @@ export default function EventDetailsPage() {
         toast.error((err?.message as string) || "Failed to update RSVP. Please try again.");
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       // Refetch to ensure server state matches
       refetch();
+      if (!variables.hasRsvpd) {
+        triggerConfetti();
+      }
       // Reserve selected seats after successful RSVP
       if (hasSeats && selectedSeats.length > 0) {
         selectedSeats.forEach((seatId) => {
           supabase.rpc("reserve_seat", { p_seat_id: seatId });
+        });
+      }
+
+      // Eagerly cache event banner if they just RSVP'd
+      if (!variables.hasRsvpd && event?.banner_url && "caches" in window) {
+        window.caches.open("supabase-images-cache").then((cache) => {
+          cache.add(event.banner_url!).catch((err) => {
+            console.error("Failed to eagerly cache banner image", err);
+          });
         });
       }
     },
@@ -1189,45 +1339,6 @@ export default function EventDetailsPage() {
 
   return (
     <LazyMotion features={loadDomMax} strict={import.meta.env.DEV}>
-      {/* Breadcrumb nav */}
-      <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6" aria-label="Breadcrumb">
-        <div className="mx-auto max-w-4xl">
-          {/* Mobile: simple back link */}
-          <Link
-            to="/events"
-            className="inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider hover:underline sm:hidden"
-          >
-            <ArrowLeft size={14} /> Events
-          </Link>
-          {/* sm+: full breadcrumb */}
-          <Breadcrumb className="hidden sm:block">
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link to="/" className="font-mono text-xs font-bold uppercase">
-                    Home
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link to="/events" className="font-mono text-xs font-bold uppercase">
-                    Events
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage className="font-mono text-xs font-bold uppercase">
-                  {event.title}
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-        </div>
-      </nav>
-
       <Helmet>
         {/* OpenGraph (Facebook / Discord / iMessage) */}
         <meta property="og:type" content="event" />
@@ -1246,45 +1357,6 @@ export default function EventDetailsPage() {
         {og.ogImage && <meta name="twitter:image" content={og.ogImage} />}
       </Helmet>
       <SiteShell>
-        {/* Breadcrumb nav */}
-        <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6" aria-label="Breadcrumb">
-          <div className="mx-auto max-w-4xl">
-            {/* Mobile: simple back link */}
-            <Link
-              to="/events"
-              className="inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider hover:underline sm:hidden"
-            >
-              <ArrowLeft size={14} /> Events
-            </Link>
-            {/* sm+: full breadcrumb */}
-            <Breadcrumb className="hidden sm:block">
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/" className="font-mono text-xs font-bold uppercase">
-                      Home
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/events" className="font-mono text-xs font-bold uppercase">
-                      Events
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage className="font-mono text-xs font-bold uppercase">
-                    {event.title}
-                  </BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-        </nav>
-
         {/* Hero Section */}
         <section className="relative w-full overflow-hidden border-b-2 border-black bg-peach/30">
           {event.banner_url ? (
@@ -1336,7 +1408,7 @@ export default function EventDetailsPage() {
                       aria-label="Copy Event ID"
                     >
                       {isEventIdCopied ? (
-                        <Check className="h-4 w-4" />
+                        <Check className="h-4 w-4 text-green-600" />
                       ) : (
                         <Copy className="h-4 w-4" />
                       )}
@@ -1501,7 +1573,7 @@ export default function EventDetailsPage() {
                       className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
                     >
                       {isEventLinkCopied ? (
-                        <Check className="mr-2 h-4 w-4" />
+                        <Check className="mr-2 h-4 w-4 text-green-600" />
                       ) : (
                         <LinkIcon className="mr-2 h-4 w-4" />
                       )}
@@ -1516,6 +1588,14 @@ export default function EventDetailsPage() {
 
               {isOrganizer && (
                 <>
+                  <Button
+                    onClick={() => navigate(`/events/${eventId}/gantt`)}
+                    variant="outline"
+                    className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Gantt Chart
+                  </Button>
                   <Button
                     onClick={() => exportCsv.mutate()}
                     disabled={exportCsv.isPending}

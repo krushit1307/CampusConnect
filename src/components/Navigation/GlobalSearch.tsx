@@ -35,14 +35,16 @@ export default function GlobalSearch() {
       // description matches (weight 'B'), with typo correction and synonym
       // rewriting handled inside the Postgres function (see
       // supabase/migrations/20260725000004_nlp_search_engine.sql). Fixes #1231.
-      const { data, error: rpcError } = await supabase.rpc("search_events_advanced", {
-        query_string: query,
+      const { data, error } = await supabase.functions.invoke("global-search", {
+        body: {
+          query,
+        },
       });
 
       if (ignore) return;
 
-      if (rpcError) {
-        setError(rpcError.message);
+      if (error) {
+        setError(error.message);
         setResults([]);
       } else {
         setResults((data as EventSearchResult[]) ?? []);

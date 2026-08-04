@@ -1,4 +1,5 @@
-import { createSchema, createYoga } from "graphql-yoga";
+import { createYoga } from "graphql-yoga";
+import { makeExecutableSchema } from "@graphql-tools/schema";
 import {
   typeDefs,
   resolvers,
@@ -6,34 +7,34 @@ import {
   publishNotification,
   publishMentionNotification,
   publishEventUpdateNotification,
+  createProfileLoader,
+  createClubLoader,
+  createCommentsByPostLoader,
 } from "./resolvers";
 import { authDirectiveTypeDefs, authDirectiveTransformer } from "./directives/authDirective";
 import { createClient } from "../src/lib/supabase/client";
 import { closePool } from "./db";
 import { requestLoggingPlugin } from "./request-logging";
 import { openTelemetryPlugin, initializeBackendTracing } from "./tracing";
+import { createGraphQLSecurityPlugin } from "./security";
 
 // Initialize OpenTelemetry backend tracing provider on server startup
 initializeBackendTracing();
 
 const supabase = createClient();
 
-let schema = createSchema({
+// 1. Create base executable schema using makeExecutableSchema
+let schema = makeExecutableSchema({
   typeDefs: [authDirectiveTypeDefs, typeDefs],
   resolvers,
 });
 
-// Apply the @auth directive transformer
+// 2. Apply the @auth directive transformer
 schema = authDirectiveTransformer(schema, "auth");
 
 /**
  * GraphQL Yoga server instance.
- *
- * Subscriptions are served via Server-Sent Events (SSE) — the default
- * transport in GraphQL Yoga v5. Clients connect to /api/graphql using
- * the multipart SSE protocol supported by graphql-sse.
- *
- * No extra WebSocket configuration is required; Yoga handles SSE natively.
+ * Subscriptions are served via Server-Sent Events (SSE).
  */
 export const yoga = createYoga({
   schema,
@@ -50,7 +51,8 @@ export const yoga = createYoga({
 
       if (authUser) {
         user = { id: authUser.id, role: "USER" };
-        // Fetch role
+        
+        // Fetch role from profiles
         const { data: profile } = await supabase
           .from("profiles")
           .select("role")
@@ -61,18 +63,31 @@ export const yoga = createYoga({
       }
     }
 
-    return { user };
-  },
-  plugins: [requestLoggingPlugin(), openTelemetryPlugin()],
-});
+    const profileLoader = createProfileLoader();
+    const clubLoader = createClubLoader();
+    const commentsByPostLoader = createCommentsByPostLoader();
 
-// Re-export for use by server-side event producers (mention handlers, etc.)
-export { pubsub, publishNotification };
+    return {
+      request,
+      user,
+      profileLoader,
+      clubLoader,
+      commentsByPostLoader,
+    };
+  },
+  plugins: [
+    requestLoggingPlugin(),
+    openTelemetryPlugin(),
+    createGraphQLSecurityPlugin({
+      maxDepth: 5,
+      rateLimit: { maxRequests: 100, maxMutations: 10, windowMs: 60000 },
+    }),
+  ],
+});
 
 /**
  * Graceful shutdown: release all pooled Postgres connections when the
- * process receives a termination signal (e.g. during deploys/restarts),
- * so connections aren't left dangling on the Supavisor/pgBouncer side.
+ * process receives a termination signal.
  */
 let isShuttingDown = false;
 
@@ -80,10 +95,13 @@ async function gracefulShutdown(signal: string) {
   if (isShuttingDown) return;
   isShuttingDown = true;
 
-  console.warn(`[server] Received ${signal}, closing Postgres pool...`);
+  // eslint-disable-next-line no-console
+  console.log(`[server] Received ${signal}, closing Postgres pool...`);
+  
   try {
     await closePool();
-    console.warn("[server] Postgres pool closed cleanly.");
+    // eslint-disable-next-line no-console
+    console.log("[server] Postgres pool closed cleanly.");
   } catch (err) {
     console.error("[server] Error while closing Postgres pool:", err);
   } finally {
@@ -93,6 +111,7 @@ async function gracefulShutdown(signal: string) {
 
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
 export {
   schema,
   pubsub,
@@ -100,3 +119,5 @@ export {
   publishMentionNotification,
   publishEventUpdateNotification,
 };
+
+export default yoga;

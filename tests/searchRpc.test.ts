@@ -2,7 +2,9 @@ import { describe, it, expect, vi } from "vitest";
 import { searchService } from "../src/services/searchService";
 import { createClient } from "@/lib/supabase/client";
 
-vi.mock("@/lib/supabase/client");
+vi.mock("@/lib/supabase/client", () => ({
+  createClient: vi.fn(),
+}));
 
 describe("searchService", () => {
   it("should not call RPC if query is empty", async () => {

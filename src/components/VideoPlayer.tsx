@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import * as Slider from "@radix-ui/react-slider";
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, PictureInPicture2 } from "lucide-react";
 
 interface VideoPlayerProps {
   src: string;
@@ -19,7 +19,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) 
   const [volume, setVolume] = useState<number>(1);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isPictureInPicture, setIsPictureInPicture] = useState<boolean>(false);
   const [showControls, setShowControls] = useState<boolean>(true);
+
+  const isPictureInPictureSupported =
+    typeof document !== "undefined" &&
+    "pictureInPictureEnabled" in document &&
+    document.pictureInPictureEnabled;
 
   // Toggle Play / Pause
   const togglePlay = useCallback(() => {
@@ -90,6 +96,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) 
     }
   };
 
+  // Picture-in-Picture Toggle using native browser API
+  const togglePictureInPicture = useCallback(async () => {
+    if (!videoRef.current || !isPictureInPictureSupported) return;
+
+    try {
+      if (document.pictureInPictureElement === videoRef.current) {
+        await document.exitPictureInPicture();
+      } else {
+        await videoRef.current.requestPictureInPicture();
+      }
+    } catch (error) {
+      console.error("Picture-in-Picture failed:", error);
+    }
+  }, [isPictureInPictureSupported]);
+
   // Time Formatter Utility
   const formatTime = (timeInSeconds: number) => {
     if (isNaN(timeInSeconds)) return "0:00";
@@ -118,6 +139,33 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [togglePlay, handleSeekBy]);
+
+  // Keep isFullscreen state in sync with the browser. Users can exit fullscreen
+  // via the physical ESC key, which bypasses the React onClick logic entirely.
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  // Keep isPictureInPicture state in sync with the native PiP window.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleEnterPictureInPicture = () => setIsPictureInPicture(true);
+    const handleLeavePictureInPicture = () => setIsPictureInPicture(false);
+
+    video.addEventListener("enterpictureinpicture", handleEnterPictureInPicture);
+    video.addEventListener("leavepictureinpicture", handleLeavePictureInPicture);
+    return () => {
+      video.removeEventListener("enterpictureinpicture", handleEnterPictureInPicture);
+      video.removeEventListener("leavepictureinpicture", handleLeavePictureInPicture);
+    };
+  }, []);
 
   return (
     <div
@@ -152,6 +200,23 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) 
         onPause={() => setIsPlaying(false)}
         onEnded={() => setIsPlaying(false)}
       />
+
+      {/* Center Play Overlay */}
+      <div
+        data-testid="video-center-play-overlay"
+        className={`absolute inset-0 z-10 flex items-center justify-center transition-opacity duration-300 ${
+          isPlaying ? "opacity-0 pointer-events-none" : "opacity-100"
+        }`}
+      >
+        <button
+          type="button"
+          onClick={togglePlay}
+          aria-label="Play video"
+          className="group/center-play rounded-full bg-black/50 p-4 sm:p-6 backdrop-blur-sm transition-transform duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/70"
+        >
+          <Play className="w-12 h-12 sm:w-16 sm:h-16 text-white fill-current drop-shadow-lg" />
+        </button>
+      </div>
 
       {/* Control Overlay Bar */}
       <div
@@ -234,6 +299,23 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) 
               {formatTime(progress)} / {formatTime(duration)}
             </div>
           </div>
+
+          {/* Picture-in-Picture Button */}
+          {isPictureInPictureSupported && (
+            <button
+              type="button"
+              onClick={togglePictureInPicture}
+              aria-label={
+                isPictureInPicture ? "Exit picture in picture" : "Enter picture in picture"
+              }
+              title="Picture in Picture"
+              className="p-1 hover:text-indigo-400 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 rounded"
+            >
+              <PictureInPicture2
+                className={`w-5 h-5 ${isPictureInPicture ? "text-indigo-400" : ""}`}
+              />
+            </button>
+          )}
 
           {/* Fullscreen Button */}
           <button

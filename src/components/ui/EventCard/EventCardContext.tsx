@@ -12,8 +12,12 @@ export interface Event {
   end_date?: string | null;
   location: string | null;
   banner_url?: string | null;
+  announce_date?: string | null;
   created_at?: string | null;
-  clubs: { name: string } | { name: string }[] | null;
+  clubs:
+    | { name: string; average_lead_time_days?: number | null }
+    | { name: string; average_lead_time_days?: number | null }[]
+    | null;
   event_rsvps: { id: string; user_id: string }[] | null;
   saved_events: { id: string; user_id: string }[] | null;
 }

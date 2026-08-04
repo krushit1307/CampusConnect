@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
+import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
 import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import { Camera, Loader2, Trash2 } from "lucide-react";
@@ -42,20 +43,12 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
       const fileExt = file.name.split(".").pop();
       const fileName = `${eventId}/${user.id}-${Date.now()}.${fileExt}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("event-galleries")
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: publicUrlData } = supabase.storage
-        .from("event-galleries")
-        .getPublicUrl(fileName);
+      const publicUrl = await uploadImageWithSignedUrl("event-galleries", fileName, file);
 
       const { error: dbError } = await supabase.from("event_photos").insert({
         event_id: eventId,
         user_id: user.id,
-        url: publicUrlData.publicUrl,
+        url: publicUrl,
       });
 
       if (dbError) throw dbError;
