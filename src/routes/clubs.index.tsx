@@ -178,7 +178,7 @@ export default function ClubsIndex() {
             {filteredClubs.map((c, index) => {
               const membersCount = Array.isArray(c.club_stats)
                 ? (c.club_stats[0]?.total_members ?? 0)
-                : ((c.club_stats as any)?.total_members ?? 0);
+                : ((c.club_stats as { total_members: number } | null)?.total_members ?? 0);
 
               return (
                 <div

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useMemo, ReactNode } from "react";
-import { getCountdown, getGoogleCalendarUrl } from "@/lib/utils";
+import { getGoogleCalendarUrl } from "@/lib/utils";
 import { toast } from "sonner";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
@@ -42,7 +42,7 @@ export interface EventCardContextValue {
   myRsvp: { id: string; user_id: string } | null;
   hasRsvpd: boolean;
   isSaved: boolean;
-  googleCalendarUrl: string;
+  googleCalendarUrl: string | null | undefined;
   countdown: string;
   cardBg: string;
   copied: boolean;
@@ -80,7 +80,6 @@ export function EventCardProvider({
   isBookmarkPending = false,
   children,
 }: EventCardProps) {
-  // Derived state memoization
   const club = useMemo(
     () => (Array.isArray(event.clubs) ? event.clubs[0] || null : event.clubs || null),
     [event.clubs],
@@ -108,16 +107,6 @@ export function EventCardProvider({
     [user, savedEventsList],
   );
 
-  const googleCalendarUrl =
-    getGoogleCalendarUrl({
-      title: event.title,
-      description: event.description,
-      event_date: event.event_date,
-      start_date: event.start_date,
-      end_date: event.end_date,
-      location: event.location,
-    }) || "";
-
   const googleCalendarUrl = useMemo(
     () =>
       getGoogleCalendarUrl({
@@ -138,18 +127,26 @@ export function EventCardProvider({
     ],
   );
 
+  const countdown = event.event_date
+    ? new Date(event.event_date) > new Date()
+      ? "Upcoming"
+      : "Ended"
+    : "TBA";
+
+  const cardBg = COLORS[index % COLORS.length];
+
   const { copyToClipboard, isCopied: copied } = useCopyToClipboard();
   const [ticketOpen, setTicketOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
-  const handleCopyLink = async () => {
+  const handleCopyLink = useCallback(async () => {
     if (await copyToClipboard(window.location.href)) {
       toast.success("Link copied!");
     } else {
       toast.error("Failed to copy link.");
     }
-  }, []);
+  }, [copyToClipboard]);
 
   const handleShare = useCallback(async () => {
     const shareUrl = `${window.location.origin}${window.location.pathname}#event-${event.id}`;
@@ -158,7 +155,7 @@ export function EventCardProvider({
     } else {
       toast.error("Failed to copy link.");
     }
-  }, [event.id]);
+  }, [event.id, copyToClipboard]);
 
   const handleRsvpToggleClick = useCallback(
     (eventId: string, currentHasRsvpd: boolean) => {
@@ -179,7 +176,6 @@ export function EventCardProvider({
     onBookmarkToggle?.(event.id, isSaved);
   }, [user, onBookmarkToggle, event.id, isSaved]);
 
-  // Context value object memoization
   const value: EventCardContextValue = useMemo(
     () => ({
       event,

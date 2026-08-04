@@ -18,7 +18,7 @@ interface TicketTierItemProps {
   errors: FieldErrors<EventFormData>;
   onRemove: (index: number) => void;
   isDragging?: boolean;
-  dragHandleProps?: any;
+  dragHandleProps?: Record<string, unknown>;
 }
 
 /**
@@ -34,7 +34,7 @@ export const TicketTierItem: React.FC<TicketTierItemProps> = ({
   isDragging,
   dragHandleProps,
 }) => {
-  const tierErrors = errors.tickets?.[index] as any;
+  const tierErrors = errors.tickets?.[index] as Record<string, { message?: string }>;
 
   return (
     <div

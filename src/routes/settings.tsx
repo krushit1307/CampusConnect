@@ -1,5 +1,4 @@
 import { useNavigate, useBlocker } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, useId, type ChangeEvent, type KeyboardEvent } from "react";
@@ -18,22 +17,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useTheme } from "@/components/theme-provider";
-import { ThemeToggle } from "@/components/ThemeToggle";
-
 import { OptimizedImage } from "@/components/media/OptimizedImage";
-
-import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useTheme } from "@/components/theme-provider";
-import { SecuritySection } from "@/components/Settings/SecuritySection";
 import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
-import { Progress } from "@/components/ui/progress";
-import { useTheme } from "@/components/theme-provider";
-import { SecuritySection } from "@/components/Settings/SecuritySection";
-import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
-import { Progress } from "@/components/ui/progress";
 import {
   profileSchema,
   notificationPreferencesSchema,
@@ -52,7 +40,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { PasskeyManager } from "@/components/PasskeyManager";
-import { useTheme } from "@/components/theme-provider";
 import { AudioEngine, SOUND_ENABLED_KEY } from "@/lib/audio/audioEngine";
 
 const FONT_SIZE_KEY = "campusconnect-font-size";
@@ -155,8 +142,10 @@ function SettingsPageContent({ user }: WithAuthProps) {
       setConfirmOpen(false);
       setDeletePassword("");
       toast.success("Account deleted successfully.");
-    } catch (err: any) {
-      setDeleteError(err.message || "An unexpected error occurred during verification.");
+    } catch (err) {
+      setDeleteError(
+        err instanceof Error ? err.message : "An unexpected error occurred during verification.",
+      );
     } finally {
       setIsDeleting(false);
     }
@@ -198,10 +187,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
     enabled: !!user?.id,
   });
 
-  const {
-    data: preferences,
-    isLoading: isPreferencesLoading,
-  } = useQuery({
+  const { data: preferences } = useQuery({
     queryKey: ["user_preferences", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -317,15 +303,13 @@ function SettingsPageContent({ user }: WithAuthProps) {
       if (profileError) throw profileError;
 
       // Update user_preferences table
-      const { error: prefError } = await supabase
-        .from("user_preferences")
-        .upsert({
-          user_id: user.id,
-          email_alerts: values.email_alerts,
-          push_notifications: values.push_notifications,
-          digest: values.digest,
-          dark_mode_default: values.dark_mode_default,
-        });
+      const { error: prefError } = await supabase.from("user_preferences").upsert({
+        user_id: user.id,
+        email_alerts: values.email_alerts,
+        push_notifications: values.push_notifications,
+        digest: values.digest,
+        dark_mode_default: values.dark_mode_default,
+      });
       if (prefError) throw prefError;
 
       // Update email if it has changed
@@ -375,12 +359,11 @@ function SettingsPageContent({ user }: WithAuthProps) {
     localStorage.setItem("border-radius", String(value));
   };
 
-  interface ProfileStats {
+  const pStats = profile as typeof profile & {
     lastActivityAt?: string;
     welcomeSource?: string;
     processedClaimCommentIds?: number[];
-  }
-  const pStats = profile as typeof profile & ProfileStats;
+  };
 
   if (isProfileLoading && !profile) {
     return (
@@ -447,7 +430,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <FormField
-                    control={form.control as any}
+                    control={form.control}
                     name="firstName"
                     render={({ field }) => (
                       <FormItem className="space-y-1">
@@ -466,7 +449,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
                   />
 
                   <FormField
-                    control={form.control as any}
+                    control={form.control}
                     name="lastName"
                     render={({ field }) => (
                       <FormItem className="space-y-1">
@@ -486,7 +469,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
                 </div>
 
                 <FormField
-                  control={form.control as any}
+                  control={form.control}
                   name="handle"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
@@ -506,7 +489,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
                 />
 
                 <FormField
-                  control={form.control as any}
+                  control={form.control}
                   name="collegeEmail"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
@@ -526,7 +509,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
                 />
 
                 <FormField
-                  control={form.control as any}
+                  control={form.control}
                   name="phoneNumber"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
@@ -544,7 +527,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
                 />
 
                 <FormField
-                  control={form.control as any}
+                  control={form.control}
                   name="linkedinUrl"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
@@ -562,7 +545,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
                 />
 
                 <FormField
-                  control={form.control as any}
+                  control={form.control}
                   name="bio"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
@@ -702,50 +685,41 @@ function SettingsPageContent({ user }: WithAuthProps) {
                 </div>
               </div>
 
-              <FormField
-              control={form.control as any}
-              name="dark_mode_default"
-              render={({ field }) => (
-                <FormItem className="space-y-1">
-                  <FormControl>
-                    <div className="flex items-center justify-between gap-4 border-t-2 border-black pt-4">
-                      <div>
-                        <label htmlFor={field.id} className="eyebrow font-bold text-black dark:text-cream">
-                          Dark Mode by Default
-                        </label>
-                        <p className="font-mono text-xs text-muted-foreground">
-                          When enabled, the app will default to dark mode on each visit unless you manually switch themes.
-                        </p>
-                      </div>
-                      <input
-                        {...field}
-                        type="checkbox"
-                        className="h-5 w-5 accent-black"
-                      />
-                    </div>
-                  </FormControl>
-                </FormItem>
-              )}
-            </FormField>
+              <div className="flex items-center justify-between gap-4 border-t-2 border-black pt-4">
+                <div>
+                  <label className="eyebrow font-bold text-black dark:text-cream">
+                    Dark Mode by Default
+                  </label>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    When enabled, the app will default to dark mode on each visit unless you
+                    manually switch themes.
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={form.watch("dark_mode_default")}
+                  onChange={(e) =>
+                    form.setValue("dark_mode_default", e.target.checked, { shouldDirty: true })
+                  }
+                  className="h-5 w-5 accent-black"
+                />
+              </div>
 
-            <div className="flex items-center justify-between gap-4 border-t-2 border-black pt-4">
-              <label
-                htmlFor="ui-sounds"
-                className="eyebrow font-bold text-black dark:text-cream"
-              >
-                UI Sounds
-              </label>
-              <p className="font-mono text-xs text-muted-foreground">
-                Play subtle synthesized clicks, toggles, and like pops.
-              </p>
-              <input
-                id="ui-sounds"
-                type="checkbox"
-                checked={soundEnabled}
-                onChange={(event) => handleSoundEnabledChange(event.target.checked)}
-                className="h-5 w-5 accent-black"
-              />
-            </div>
+              <div className="flex items-center justify-between gap-4 border-t-2 border-black pt-4">
+                <label htmlFor="ui-sounds" className="eyebrow font-bold text-black dark:text-cream">
+                  UI Sounds
+                </label>
+                <p className="font-mono text-xs text-muted-foreground">
+                  Play subtle synthesized clicks, toggles, and like pops.
+                </p>
+                <input
+                  id="ui-sounds"
+                  type="checkbox"
+                  checked={soundEnabled}
+                  onChange={(event) => handleSoundEnabledChange(event.target.checked)}
+                  className="h-5 w-5 accent-black"
+                />
+              </div>
 
               {/* Border Thickness */}
               <div className="space-y-2">
@@ -824,7 +798,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
 
           <Panel title="Notifications">
             <FormField
-              control={form.control as any}
+              control={form.control}
               name="email_alerts"
               render={({ field }) => (
                 <FormItem className="space-y-1">
@@ -833,18 +807,14 @@ function SettingsPageContent({ user }: WithAuthProps) {
                       <label htmlFor={field.id} className="font-mono text-sm">
                         Email me about upcoming RSVPs
                       </label>
-                      <input
-                        {...field}
-                        type="checkbox"
-                        className="h-5 w-5 accent-black"
-                      />
+                      <input {...field} type="checkbox" className="h-5 w-5 accent-black" />
                     </div>
                   </FormControl>
                 </FormItem>
               )}
-            </FormField>
+            />
             <FormField
-              control={form.control as any}
+              control={form.control}
               name="digest"
               render={({ field }) => (
                 <FormItem className="space-y-1">
@@ -853,18 +823,14 @@ function SettingsPageContent({ user }: WithAuthProps) {
                       <label htmlFor={field.id} className="font-mono text-sm">
                         Weekly digest of club activity
                       </label>
-                      <input
-                        {...field}
-                        type="checkbox"
-                        className="h-5 w-5 accent-black"
-                      />
+                      <input {...field} type="checkbox" className="h-5 w-5 accent-black" />
                     </div>
                   </FormControl>
                 </FormItem>
               )}
-            </FormField>
+            />
             <FormField
-              control={form.control as any}
+              control={form.control}
               name="push_notifications"
               render={({ field }) => (
                 <FormItem className="space-y-1">
@@ -873,16 +839,12 @@ function SettingsPageContent({ user }: WithAuthProps) {
                       <label htmlFor={field.id} className="font-mono text-sm">
                         New certificates
                       </label>
-                      <input
-                        {...field}
-                        type="checkbox"
-                        className="h-5 w-5 accent-black"
-                      />
+                      <input {...field} type="checkbox" className="h-5 w-5 accent-black" />
                     </div>
                   </FormControl>
                 </FormItem>
               )}
-            </FormField>
+            />
           </Panel>
 
           <Panel title="Danger zone" tone="bg-red-50">
@@ -1039,14 +1001,8 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
-  const [uploading, setUploading] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from "react";
 
 interface SplitPaneProps {
   /** The sidebar content (e.g., navigation) */
@@ -17,14 +17,14 @@ interface SplitPaneProps {
 
 /**
  * SplitPane Component
- * 
+ *
  * Provides a draggable vertical divider between a sidebar and main content area.
- * 
+ *
  * Key Features:
  * - Persists user preference in localStorage.
  * - Enforces min/max width constraints.
- * - CRITICAL: Applies `pointer-events: none` to the main content area during 
- *   dragging to prevent iframe mouse event trapping (a common browser bug where 
+ * - CRITICAL: Applies `pointer-events: none` to the main content area during
+ *   dragging to prevent iframe mouse event trapping (a common browser bug where
  *   mousemove events stop firing when the cursor enters an iframe).
  */
 export const SplitPane: React.FC<SplitPaneProps> = ({
@@ -33,11 +33,11 @@ export const SplitPane: React.FC<SplitPaneProps> = ({
   minSidebarWidth = 200,
   maxSidebarWidth = 600,
   defaultSidebarWidth = 280,
-  storageKey = 'campusconnect-admin-sidebar-width',
+  storageKey = "campusconnect-admin-sidebar-width",
 }) => {
   // Initialize width from localStorage or fallback to default
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       const stored = localStorage.getItem(storageKey);
       if (stored) {
         const parsed = parseInt(stored, 10);
@@ -54,7 +54,7 @@ export const SplitPane: React.FC<SplitPaneProps> = ({
 
   // Persist width to localStorage whenever it changes and is valid
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       localStorage.setItem(storageKey, sidebarWidth.toString());
     }
   }, [sidebarWidth, storageKey]);
@@ -67,7 +67,7 @@ export const SplitPane: React.FC<SplitPaneProps> = ({
       startXRef.current = e.clientX;
       startWidthRef.current = sidebarWidth;
     },
-    [sidebarWidth]
+    [sidebarWidth],
   );
 
   // Handle global mouse move while dragging
@@ -80,7 +80,7 @@ export const SplitPane: React.FC<SplitPaneProps> = ({
 
       // Enforce constraints
       newWidth = Math.max(minSidebarWidth, Math.min(maxSidebarWidth, newWidth));
-      
+
       setSidebarWidth(newWidth);
     };
 
@@ -89,35 +89,35 @@ export const SplitPane: React.FC<SplitPaneProps> = ({
     };
 
     // Attach listeners to window to ensure we catch events even if mouse moves fast
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
 
     // Cleanup listeners on unmount or when dragging stops
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isDragging, minSidebarWidth, maxSidebarWidth]);
 
   // Prevent text selection while dragging
   useEffect(() => {
     if (isDragging) {
-      document.body.style.userSelect = 'none';
-      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "col-resize";
     } else {
-      document.body.style.userSelect = '';
-      document.body.style.cursor = '';
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
     }
     return () => {
-      document.body.style.userSelect = '';
-      document.body.style.cursor = '';
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
     };
   }, [isDragging]);
 
   return (
     <div className="flex h-full w-full overflow-hidden">
       {/* Sidebar Area */}
-      <aside 
+      <aside
         className="flex-shrink-0 bg-background border-r border-border transition-none"
         style={{ width: `${sidebarWidth}px` }}
       >
@@ -127,7 +127,7 @@ export const SplitPane: React.FC<SplitPaneProps> = ({
       {/* Resizer Handle */}
       <div
         className={`resizer cursor-col-resize w-1 bg-border hover:bg-primary/50 active:bg-primary transition-colors flex-shrink-0 relative z-10 ${
-          isDragging ? 'bg-primary' : ''
+          isDragging ? "bg-primary" : ""
         }`}
         onMouseDown={handleMouseDown}
         role="separator"
@@ -140,15 +140,15 @@ export const SplitPane: React.FC<SplitPaneProps> = ({
         {/* Visual grip indicator */}
         <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-4 flex items-center justify-center">
           <div className="h-8 w-1 bg-muted-foreground/30 rounded-full" />
-        </div
+        </div>
       </div>
 
       {/* Main Content Area */}
-      <main 
+      <main
         className="flex-1 overflow-auto bg-background relative"
-        // CRITICAL FIX: Disable pointer events on main content while dragging 
+        // CRITICAL FIX: Disable pointer events on main content while dragging
         // to prevent iframe from stealing mousemove events.
-        style={{ pointerEvents: isDragging ? 'none' : 'auto' }}
+        style={{ pointerEvents: isDragging ? "none" : "auto" }}
       >
         {mainContent}
       </main>

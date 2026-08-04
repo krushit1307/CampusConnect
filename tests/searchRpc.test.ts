@@ -2,8 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { searchService } from "../src/services/searchService";
 import { createClient } from "@/lib/supabase/client";
 
-vi.mock("@/lib/supabase/client", () => ({
-expect(mockRpc).toHaveBeenCalledWith("search_events_advanced", { query_string: "Test" });}));
+vi.mock("@/lib/supabase/client");
 
 describe("searchService", () => {
   it("should not call RPC if query is empty", async () => {
@@ -23,6 +22,7 @@ describe("searchService", () => {
     >);
 
     const result = await searchService.searchEvents({ query: "Test" });
-expect(mockRpc).toHaveBeenCalledWith("search_events_advanced", { query_string: "Test" });    expect(result).toEqual([{ id: "1", title: "Test Event" }]);
+    expect(mockRpc).toHaveBeenCalledWith("search_events_advanced", { query_string: "Test" });
+    expect(result).toEqual([{ id: "1", title: "Test Event" }]);
   });
 });

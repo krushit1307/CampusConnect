@@ -5,7 +5,6 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
-import { Settings, Users, Calendar } from "lucide-react";
 import {
   Settings,
   Users,
@@ -63,7 +62,7 @@ export default function ClubManageRoute() {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [promoVideoUrl, setPromoVideoUrl] = useState("");
   const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
-  const [serverClub, setServerClub] = useState<any>(null);
+  const [serverClub, setServerClub] = useState<ServerClub | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -531,10 +530,19 @@ export default function ClubManageRoute() {
                       Manage Members
                     </h2>
                     <ClubMembersTable
-                      members={(club.club_members || []).map((m: any) => ({
-                        ...m,
-                        role: optimisticRoles[m.id] || m.role,
-                      }))}
+                      members={(club.club_members || []).map(
+                        (m: {
+                          id: string;
+                          role: string;
+                          status: string;
+                          user_id: string;
+                          joined_at: string | null;
+                          profiles: unknown;
+                        }) => ({
+                          ...m,
+                          role: optimisticRoles[m.id] || m.role,
+                        }),
+                      )}
                       currentUserId={user?.id}
                       isMutating={updateMemberMutation.isPending}
                       onApprove={(memberId) =>

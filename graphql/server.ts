@@ -80,10 +80,10 @@ async function gracefulShutdown(signal: string) {
   if (isShuttingDown) return;
   isShuttingDown = true;
 
-  console.log(`[server] Received ${signal}, closing Postgres pool...`);
+  console.warn(`[server] Received ${signal}, closing Postgres pool...`);
   try {
     await closePool();
-    console.log("[server] Postgres pool closed cleanly.");
+    console.warn("[server] Postgres pool closed cleanly.");
   } catch (err) {
     console.error("[server] Error while closing Postgres pool:", err);
   } finally {
