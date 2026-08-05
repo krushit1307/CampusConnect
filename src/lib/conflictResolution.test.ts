@@ -5,6 +5,7 @@ import {
   incrementVersionVector,
   mergeArrays,
   mergeEventDocuments,
+  mergeObjects,
 } from "./conflictResolution";
 
 describe("conflictResolution - Version Vectors", () => {
@@ -164,5 +165,19 @@ describe("conflictResolution - 3-Way Event Merge", () => {
     const customFields = result.mergedDocument.custom_fields as Record<string, unknown>;
     expect(customFields.capacity).toBe(200);
     expect(customFields.prizePool).toBe("$10,000");
+  });
+
+  it("prevents prototype pollution from malicious payloads in both local and server objects", () => {
+    const testObj = {};
+    const maliciousPayload = JSON.parse('{"__proto__": {"hacked": "yes"}}');
+
+    const result1 = mergeObjects({}, maliciousPayload, {});
+    expect((testObj as any).hacked).toBeUndefined();
+
+    const result2 = mergeObjects({}, {}, maliciousPayload);
+    expect((testObj as any).hacked).toBeUndefined();
+
+    const result3 = mergeObjects(maliciousPayload, {}, {});
+    expect((testObj as any).hacked).toBeUndefined();
   });
 });

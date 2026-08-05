@@ -1,16 +1,14 @@
 import * as React from "react";
 import { CalendarIcon } from "lucide-react";
 import type { DateRange } from "react-day-picker";
-import {
-  format,
-  subDays,
-  startOfDay,
-  endOfDay,
-  startOfWeek,
-  endOfWeek,
-  startOfYear,
-  isSameDay,
-} from "date-fns";
+import format from "date-fns/format";
+import subDays from "date-fns/subDays";
+import startOfDay from "date-fns/startOfDay";
+import endOfDay from "date-fns/endOfDay";
+import startOfWeek from "date-fns/startOfWeek";
+import endOfWeek from "date-fns/endOfWeek";
+import startOfYear from "date-fns/startOfYear";
+import isSameDay from "date-fns/isSameDay";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";

@@ -1,15 +1,13 @@
 import React, { useState, useRef, useMemo } from "react";
 import { EventTask } from "@/types/eventTasks";
 import { Calendar, Plus, Trash2, Edit2, ArrowRight, CheckCircle2, Clock } from "lucide-react";
-import {
-  format,
-  differenceInDays,
-  addDays,
-  parseISO,
-  isAfter,
-  isBefore,
-  isSameDay,
-} from "date-fns";
+import format from "date-fns/format";
+import differenceInDays from "date-fns/differenceInDays";
+import addDays from "date-fns/addDays";
+import parseISO from "date-fns/parseISO";
+import isAfter from "date-fns/isAfter";
+import isBefore from "date-fns/isBefore";
+import isSameDay from "date-fns/isSameDay";
 
 interface GanttChartProps {
   tasks: EventTask[];

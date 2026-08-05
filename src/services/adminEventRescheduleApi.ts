@@ -16,6 +16,9 @@ export interface RescheduleApiResponse {
 
 /**
  * Executes PATCH request / database update to reschedule an event to a new start and end time.
+ *
+ * The update uses optimistic concurrency control (version column) so a concurrent
+ * edit/reschedule of the same event is detected instead of silently overwritten.
  */
 export async function patchRescheduleEvent({
   eventId,
@@ -23,6 +26,19 @@ export async function patchRescheduleEvent({
   newEndIso,
 }: RescheduleEventApiParams): Promise<RescheduleApiResponse> {
   const supabase = createClient();
+
+  // Read the current version so the write can be guarded with OCC
+  const { data: current, error: fetchError } = await supabase
+    .from("events")
+    .select("version")
+    .eq("id", eventId)
+    .maybeSingle();
+
+  if (fetchError) {
+    throw new Error(`Failed to load event version: ${fetchError.message}`);
+  }
+
+  const targetVersion = current?.version ?? 1;
 
   try {
     // 1. First attempt PATCH via REST endpoint if available
@@ -35,6 +51,7 @@ export async function patchRescheduleEvent({
         start_date: newStartIso,
         end_date: newEndIso,
         event_date: newStartIso,
+        version: targetVersion,
       }),
     });
 
@@ -56,19 +73,29 @@ export async function patchRescheduleEvent({
     );
   }
 
-  // 2. Direct Supabase Client fallback update
-  const { error } = await supabase
+  // 2. Direct Supabase Client fallback update (optimistic locking on version)
+  const { data, error } = await supabase
     .from("events")
     .update({
       start_date: newStartIso,
       end_date: newEndIso,
       event_date: newStartIso,
       updated_at: new Date().toISOString(),
+      version: targetVersion + 1,
     })
-    .eq("id", eventId);
+    .eq("id", eventId)
+    .eq("version", targetVersion)
+    .select("id, version");
 
   if (error) {
     throw new Error(`Failed to update event schedule: ${error.message}`);
+  }
+
+  // rowCount === 0 -> the event was modified by another user concurrently
+  if (!data || data.length === 0) {
+    throw new Error(
+      "Conflict: This event was modified by another user. Please refresh and try again.",
+    );
   }
 
   return {
