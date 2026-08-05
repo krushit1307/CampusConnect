@@ -1,3 +1,5 @@
+import { getCsrfToken } from "../lib/csrf";
+
 interface FetchOptions extends RequestInit {
   isStaticMetadata?: boolean;
 }
@@ -18,6 +20,18 @@ export async function customFetch(url: string, options: FetchOptions = {}) {
     // We want the browser default caching which will respect the Cache-Control headers
     init.cache = "default";
   }
+
+  const headers = new Headers(init.headers);
+
+  const token = getCsrfToken();
+
+  if (token) {
+    headers.set("X-CSRF-Token", token);
+  }
+
+  init.headers = headers;
+
+  init.credentials = "include";
 
   const response = await fetch(requestUrl, init);
 
