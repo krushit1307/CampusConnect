@@ -7,7 +7,7 @@ import {
 } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { useState } from "react";
-import { Calendar, Share2, Link as LinkIcon, Bookmark } from "lucide-react";
+import { Calendar, Share2, X, Link as LinkIcon, Bookmark } from "lucide-react";
 import { toast } from "sonner";
 import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";
@@ -391,6 +391,18 @@ export function EventCard({
           event={event}
           rsvpId={myRsvp?.id ?? ""}
         />
+        {confirmOpen && (
+          <div className="hidden">
+            <button
+              onClick={() => {
+                onRsvpToggle(event.id, true);
+                setConfirmOpen(false);
+              }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
       </article>
     </div>
   );

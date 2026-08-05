@@ -295,6 +295,7 @@ function EventsPage() {
   });
 
   const filteredEvents = events.filter((e) => {
+    if (filter !== "All") return false;
     if (hidePastEvents && e.event_date && new Date(e.event_date) < new Date()) return false;
     if (debouncedSearchQuery.trim()) {
       const q = debouncedSearchQuery.toLowerCase();

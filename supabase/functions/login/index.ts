@@ -4,6 +4,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth } from "../shared/auth-middleware.ts";
+import { createCsrfToken, buildCsrfCookie } from "../_shared/csrf.ts";
 
 /**
  * Login Edge Function with Progressive Backoff (Tarpit)
@@ -157,16 +158,25 @@ serve(async (req) => {
     }
 
     // Return the session data to the client
-    return new Response(
+    const csrfToken = createCsrfToken();
+
+    const response = new Response(
       JSON.stringify({
         user: data.user,
         session: data.session,
       }),
       {
         status: 200,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
       },
     );
+
+    response.headers.append("Set-Cookie", buildCsrfCookie(csrfToken));
+
+    return response;
   } catch (err) {
     console.error("Unexpected error in login Edge Function:", err);
     return new Response(JSON.stringify({ error: "Internal server error" }), {

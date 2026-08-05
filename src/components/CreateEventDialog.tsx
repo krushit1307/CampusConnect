@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import type { DateRange } from "react-day-picker";
 
-import { format } from "date-fns";
+import format from "date-fns/format";
 import { createClient } from "@/lib/supabase/client";
 import {
   eventFormSchema,

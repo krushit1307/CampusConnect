@@ -11,6 +11,7 @@ import { CommentThreadSkeleton } from "@/components/Feed/CommentSkeleton";
 import { DiscussionEmptyState } from "@/components/Feed/DiscussionEmptyState";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import type { User } from "@supabase/supabase-js";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
 import {
   Link2,
   ArrowUp,
@@ -25,7 +26,8 @@ import {
   Flag,
   MoreVertical,
 } from "lucide-react";
-import { ViewToggleGroup, type FeedViewMode } from "@/components/ui/ViewToggleGroup";import { useEffect, useRef, useState, useCallback } from "react";
+import { ViewToggleGroup, type FeedViewMode } from "@/components/ui/ViewToggleGroup";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -44,6 +46,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SiteShell } from "@/components/site/SiteShell";
+import { GlobalFeedStats } from "@/components/Feed/GlobalFeedStats";
 import { createClient } from "@/lib/supabase/client";
 import { calculateReadTime } from "@/utils/readTime";
 import {
@@ -237,7 +240,7 @@ export default function Feed() {
     enabled: !!user?.id,
   });
 
-const [selectedClubId, setSelectedClubId] = useState("");
+  const [selectedClubId, setSelectedClubId] = useState("");
   const [feedMode, setFeedMode] = useState<"latest" | "trending">("latest");
   const [viewMode, setViewMode] = useState<FeedViewMode>("list");
   useEffect(() => {
@@ -265,12 +268,12 @@ const [selectedClubId, setSelectedClubId] = useState("");
       const afterCursor = pageParam as string | undefined;
 
       // Try get_posts_relay RPC first
-const res = await fetch(
-  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-feed?after=${afterCursor ?? ""}&first=${POSTS_PER_PAGE}`,
-  { headers: { Authorization: `Bearer ${session?.access_token}` } }
-);
-const relayData = res.ok ? await res.json() : null;
-const relayError = res.ok ? null : new Error("get-feed request failed");
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-feed?after=${afterCursor ?? ""}&first=${POSTS_PER_PAGE}`,
+        { headers: { Authorization: `Bearer ${session?.access_token}` } },
+      );
+      const relayData = res.ok ? await res.json() : null;
+      const relayError = res.ok ? null : new Error("get-feed request failed");
       if (!relayError && relayData && typeof relayData === "object" && "edges" in relayData) {
         const connection = relayData as unknown as RelayConnection<Post>;
         return connection;
@@ -765,7 +768,7 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
       const { error } = await supabase.from("posts").insert({
         club_id: selectedClubId,
         author_id: user.id,
-        content: newPost,
+        content: sanitizeHtml(newPost),
         image_url: imageUrl,
       });
 
@@ -1016,6 +1019,9 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
             </h1>
           </div>
         </section>
+        <section className="border-b-2 border-black bg-cream px-4 py-8 md:px-6">
+          <GlobalFeedStats />
+        </section>
 
         <section className="bg-cream px-4 py-12 md:px-6">
           <div className="mx-auto max-w-4xl space-y-6">
@@ -1175,23 +1181,23 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
               />
             </div>
 
-{/* ── Feed mode tabs ── */}
+            {/* ── Feed mode tabs ── */}
             <div
               role="tablist"
               aria-label="Feed mode"
               className="flex items-center justify-between gap-2 border-b-2 border-black pb-4 dark:border-cream"
             >
-              <ViewToggleGroup value={viewMode} onValueChange={setViewMode} />              <button
+              <ViewToggleGroup value={viewMode} onValueChange={setViewMode} />{" "}
+              <button
                 role="tab"
                 type="button"
                 id="tab-latest"
                 aria-selected={feedMode === "latest"}
                 onClick={() => setFeedMode("latest")}
-                className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${
-                  feedMode === "latest"
+                className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${feedMode === "latest"
                     ? "bg-black text-cream dark:bg-cream dark:text-black"
                     : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
-                }`}
+                  }`}
               >
                 Latest
               </button>
@@ -1201,11 +1207,10 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
                 id="tab-trending"
                 aria-selected={feedMode === "trending"}
                 onClick={() => setFeedMode("trending")}
-                className={`neu-border inline-flex items-center gap-1.5 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${
-                  feedMode === "trending"
+                className={`neu-border inline-flex items-center gap-1.5 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${feedMode === "trending"
                     ? "bg-black text-cream dark:bg-cream dark:text-black"
                     : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
-                }`}
+                  }`}
               >
                 <Flame className="h-3.5 w-3.5" />
                 Trending
@@ -1261,10 +1266,13 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
 
                   const authorMembership = clubMembers.find((m) => m.user_id === author?.id);
 
-                  const authorRoleTitle = authorMembership?.club_roles?.title?.toLowerCase() ?? "member";
-                  const authorRole = (["admin", "organizer", "member", "alumni"].includes(authorRoleTitle)
-                    ? (authorRoleTitle as MemberRole)
-                    : "member") as MemberRole;
+                  const authorRoleTitle =
+                    authorMembership?.club_roles?.title?.toLowerCase() ?? "member";
+                  const authorRole = (
+                    ["admin", "organizer", "member", "alumni"].includes(authorRoleTitle)
+                      ? (authorRoleTitle as MemberRole)
+                      : "member"
+                  ) as MemberRole;
 
                   const postComments: Comment[] = (
                     lazyComments[post.id] !== undefined
@@ -1294,9 +1302,8 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
                         width: "100%",
                         transform: `translateY(${virtualRow.start - rowVirtualizer.options.scrollMargin}px)`,
                       }}
-                      className={`neu-border p-6 ${
-                        post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
-                      }`}
+                      className={`neu-border p-6 ${post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
+                        }`}
                     >
                       {post.is_pinned && (
                         <div className="mb-3 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#B45309]">
@@ -1339,11 +1346,10 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
                                   })
                                 }
                                 disabled={pinMutation.isPending}
-                                className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${
-                                  post.is_pinned
+                                className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${post.is_pinned
                                     ? "bg-[#FDE68A] hover:bg-[#FCD34D] text-black"
                                     : "bg-white hover:bg-cream text-black"
-                                }`}
+                                  }`}
                                 aria-label={post.is_pinned ? "Unpin post" : "Pin post"}
                               >
                                 <Pin size={10} strokeWidth={2.5} />
@@ -1457,9 +1463,8 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
                                 }));
                                 reactionMutation.mutate({ postId: post.id, emoji, isReacted });
                               }}
-                              className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${
-                                isReacted ? "bg-lime" : "bg-white hover:bg-cream"
-                              }`}
+                              className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${isReacted ? "bg-lime" : "bg-white hover:bg-cream"
+                                }`}
                             >
                               <span
                                 key={`${burstKey}-${burstNonce}`}
@@ -1633,9 +1638,11 @@ const MemoizedFeedPost = React.memo(
 
     const authorMembership = clubMembers.find((m) => m.user_id === author?.id);
     const authorRoleTitle = authorMembership?.club_roles?.title?.toLowerCase() ?? "member";
-    const authorRole = (["admin", "organizer", "member", "alumni"].includes(authorRoleTitle)
-      ? (authorRoleTitle as MemberRole)
-      : "member") as MemberRole;
+    const authorRole = (
+      ["admin", "organizer", "member", "alumni"].includes(authorRoleTitle)
+        ? (authorRoleTitle as MemberRole)
+        : "member"
+    ) as MemberRole;
 
     if (isOptimisticallyDeleted) return null;
 
@@ -1654,9 +1661,8 @@ const MemoizedFeedPost = React.memo(
           width: "100%",
           transform: `translateY(${virtualRow.start - scrollMargin}px)`,
         }}
-        className={`neu-border p-6 ${
-          post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
-        }`}
+        className={`neu-border p-6 ${post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
+          }`}
       >
         {post.is_pinned && (
           <div className="mb-3 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#B45309]">
@@ -1686,18 +1692,18 @@ const MemoizedFeedPost = React.memo(
           <div className="flex items-center gap-2">
             {(() => {
               const isClubAdmin =
-                clubMembers.some((m) => m.user_id === user?.id && m.club_roles?.title === "Admin") ||
-                userProfile?.role === "system_admin";
+                clubMembers.some(
+                  (m) => m.user_id === user?.id && m.club_roles?.title === "Admin",
+                ) || userProfile?.role === "system_admin";
               return isClubAdmin ? (
                 <button
                   type="button"
                   onClick={() => onPinToggle(post.id, !post.is_pinned)}
                   disabled={isPinnedPending}
-                  className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${
-                    post.is_pinned
+                  className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${post.is_pinned
                       ? "bg-[#FDE68A] hover:bg-[#FCD34D] text-black"
                       : "bg-white hover:bg-cream text-black"
-                  }`}
+                    }`}
                   aria-label={post.is_pinned ? "Unpin post" : "Pin post"}
                 >
                   <Pin size={10} strokeWidth={2.5} />
@@ -1808,9 +1814,8 @@ const MemoizedFeedPost = React.memo(
                   }));
                   onReact(post.id, emoji, isReacted);
                 }}
-                className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${
-                  isReacted ? "bg-lime" : "bg-white hover:bg-cream"
-                }`}
+                className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${isReacted ? "bg-lime" : "bg-white hover:bg-cream"
+                  }`}
               >
                 <span
                   key={`${burstKey}-${burstNonce}`}
@@ -1992,7 +1997,7 @@ function PostComments({ postId, user, userProfile, clubMembers, timeAgo }: PostC
       execute: async () => {
         deleteCommentMutation.mutate(commentId);
       },
-      rollback: () => {},
+      rollback: () => { },
     });
 
     toast("Comment deleted", {
@@ -2019,10 +2024,13 @@ function PostComments({ postId, user, userProfile, clubMembers, timeAgo }: PostC
       : commentNode.profiles;
 
     const commentAuthorMembership = clubMembers.find((m) => m.user_id === commentAuthor?.id);
-    const commentAuthorRoleTitle = commentAuthorMembership?.club_roles?.title?.toLowerCase() ?? "member";
-    const commentAuthorRole = (["admin", "organizer", "member", "alumni"].includes(commentAuthorRoleTitle)
-      ? (commentAuthorRoleTitle as MemberRole)
-      : "member") as MemberRole;
+    const commentAuthorRoleTitle =
+      commentAuthorMembership?.club_roles?.title?.toLowerCase() ?? "member";
+    const commentAuthorRole = (
+      ["admin", "organizer", "member", "alumni"].includes(commentAuthorRoleTitle)
+        ? (commentAuthorRoleTitle as MemberRole)
+        : "member"
+    ) as MemberRole;
 
     const indentClass = depth === 1 ? "ml-4" : depth >= 2 ? "ml-8" : "";
 

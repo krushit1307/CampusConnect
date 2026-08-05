@@ -703,7 +703,7 @@ export default function ClubProfile() {
                   )}
 
                   {/* Officers — 3D flip cards for club leadership (issue #2324) */}
-                  {officers.length > 0 && (
+                  {officers && officers.length > 0 && (
                     <div className="mt-8 max-w-2xl">
                       <h3 className="font-display text-lg font-bold text-blue-900">Officers</h3>
                       <p className="font-mono text-xs text-black mt-1 mb-3">
@@ -1024,6 +1024,7 @@ export default function ClubProfile() {
                         ))}
                       </ul>
                     )}
+
                   </div>
                 </div>
               </section>
@@ -1040,4 +1041,6 @@ export default function ClubProfile() {
       </SiteShell>
     </>
   );
+}
+
 }

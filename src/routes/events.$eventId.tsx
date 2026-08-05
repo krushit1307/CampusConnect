@@ -87,6 +87,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { isCaptchaConfigured, shouldRequireCaptcha } from "@/lib/captcha";
+import { EditEventDialog } from "@/components/EditEventDialog";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
 import { ActivePoll } from "@/components/polls/ActivePoll";
@@ -384,7 +385,7 @@ export default function EventDetailsPage() {
         .from("events")
         .select(
           `
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id, max_attendees, requires_approval,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector,
           profiles (full_name, email),
           clubs (name, slug),
           event_rsvps (id, user_id, status, checked_in, rsvp_at, profiles (first_name, last_name, avatar_url)),
@@ -1309,6 +1310,7 @@ export default function EventDetailsPage() {
                   {exportCsv.isPending ? "Exporting..." : "Export CSV"}
                 </Button>
                 <CreatePollDialog eventId={eventId} user={user!} onPollCreated={() => refetch()} />
+                <EditEventDialog event={event} user={user} onSuccess={() => refetch()} />
               </>
             )}
 

@@ -1,7 +1,11 @@
 // src/components/EventScheduler/EventScheduler.cy.tsx
 import React from "react";
 import { EventScheduler, ScheduledEvent } from "./EventScheduler";
-import { addDays, setHours, setMinutes, addHours, format } from "date-fns";
+import addDays from "date-fns/addDays";
+import setHours from "date-fns/setHours";
+import setMinutes from "date-fns/setMinutes";
+import addHours from "date-fns/addHours";
+import format from "date-fns/format";
 
 describe("<EventScheduler />", () => {
   const baseDate = setMinutes(setHours(addDays(new Date(), 1), 10), 0);

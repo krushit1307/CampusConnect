@@ -5,6 +5,7 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
 import {
   Settings,
   Users,
@@ -19,7 +20,8 @@ import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { RosterExport } from "@/components/RosterExport";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { ClubMembersTable } from "@/components/Clubs/ClubMembersTable";
-import { ClubSocialLinksEditor } from "@/components/Clubs/ClubSocialLinksEditor";import {
+import { ClubSocialLinksEditor } from "@/components/Clubs/ClubSocialLinksEditor";
+import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogHeader,
@@ -59,12 +61,13 @@ export default function ClubManageRoute() {
   const [githubRepoUrl, setGithubRepoUrl] = useState("");
   const [twitterUrl, setTwitterUrl] = useState("");
   const [instagramUrl, setInstagramUrl] = useState("");
-const [websiteUrl, setWebsiteUrl] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
   const [socialLinksOrder, setSocialLinksOrder] = useState<string[]>([
     "website",
     "twitter",
     "instagram",
-  ]);  const [promoVideoUrl, setPromoVideoUrl] = useState("");
+  ]);
+  const [promoVideoUrl, setPromoVideoUrl] = useState("");
   const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
   const [serverClub, setServerClub] = useState<ServerClub | null>(null);
 
@@ -117,11 +120,10 @@ id, name, slug, description, banner_url, logo_url, visibility, github_repo_url, 
       const links = (club.social_links || {}) as Record<string, string>;
       setTwitterUrl(links.twitter || "");
       setInstagramUrl(links.instagram || "");
-setWebsiteUrl(links.website || "");
+      setWebsiteUrl(links.website || "");
       const savedOrder = (club.social_links_order || []) as string[];
-      setSocialLinksOrder(
-        savedOrder.length > 0 ? savedOrder : ["website", "twitter", "instagram"],
-      );      setPromoVideoUrl(club.promo_video_url || "");
+      setSocialLinksOrder(savedOrder.length > 0 ? savedOrder : ["website", "twitter", "instagram"]);
+      setPromoVideoUrl(club.promo_video_url || "");
     }
   }, [club]);
 
@@ -223,7 +225,7 @@ setWebsiteUrl(links.website || "");
         .from("clubs")
         .update({
           name,
-          description,
+          description: sanitizeHtml(description),
           banner_url: bannerUrl,
           logo_url: logoUrl,
           promo_video_url: promoVideoUrl || null,
@@ -446,7 +448,7 @@ setWebsiteUrl(links.website || "");
                       <option value="private">Private</option>
                     </select>
                   </div>
-<div>
+                  <div>
                     <label className="font-mono text-sm font-bold uppercase mb-1 block">
                       GitHub Repo URL
                     </label>
@@ -467,7 +469,8 @@ setWebsiteUrl(links.website || "");
                       if (platform === "instagram") setInstagramUrl(value);
                     }}
                     onOrderChange={setSocialLinksOrder}
-                  />                  <button
+                  />{" "}
+                  <button
                     type="submit"
                     disabled={updateClubMutation.isPending}
                     className="neu-border neu-press w-full bg-lime p-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 disabled:opacity-50"

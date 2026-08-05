@@ -46,6 +46,8 @@ import {
 import { TagMultiSelect } from "@/components/ui/TagMultiSelect";
 import { DateTimePicker } from "@/components/DateTimePicker";
 
+const EVENT_CONCURRENT_EDIT_CONFLICT = "EVENT_CONCURRENT_EDIT_CONFLICT";
+
 interface EditEventDialogProps {
   event: EventDocument;
   user: User | null;
@@ -113,7 +115,12 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
     setIsSaving(true);
 
     try {
-      const { error } = await supabase
+      // Optimistic concurrency control: the version the document was merged
+      // against (docToSave.version is the NEXT version to write, so the WHERE
+      // predicate must target the CURRENT database version).
+      const targetVersion = (docToSave.version || 1) - 1;
+
+      const { data, error } = await supabase
         .from("events")
         .update({
           title: docToSave.title,
@@ -125,22 +132,71 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
           event_date: docToSave.start_date,
           tags: docToSave.tags || [],
           version_vector: docToSave.version_vector || {},
-          version: (docToSave.version || 1) + 1,
+          version: docToSave.version || 1,
         })
-        .eq("id", event.id);
+        .eq("id", event.id)
+        .eq("version", targetVersion)
+        .select("id, version");
 
       if (error) throw new Error(error.message);
 
-      toast.success("Event updated with CRDT differential merge!");
+      // rowCount === 0 -> the database version no longer matches the version
+      // this user fetched (another admin already bumped it). Reject the save.
+      if (!data || data.length === 0) {
+        await handleConcurrentConflict(docToSave);
+        throw new Error(EVENT_CONCURRENT_EDIT_CONFLICT);
+      }
+
+      toast.success("Event updated with optimistic concurrency control!");
       window.dispatchEvent(new Event("refetchEvents"));
       setOpen(false);
       if (onSuccess) onSuccess();
     } catch (err) {
+      if (err instanceof Error && err.message === EVENT_CONCURRENT_EDIT_CONFLICT) {
+        return;
+      }
       console.error("[EditEventDialog] Save error:", err);
       toast.error("Failed to update event. Please try again.");
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleConcurrentConflict = async (docToSave: EventDocument) => {
+    toast.error(
+      "Conflict detected: This event was modified by another user while you were editing.",
+    );
+
+    // UI recovery: fetch the new database state and show exactly what changed
+    // so the user never loses their work.
+    const { data: freshServer, error: serverError } = await supabase
+      .from("events")
+      .select("*")
+      .eq("id", event.id)
+      .single();
+
+    if (serverError || !freshServer) {
+      toast.error("Failed to load the latest event state. Please refresh and try again.");
+      return;
+    }
+
+    const serverDoc = freshServer as EventDocument;
+    const localDraft: EventDocument = {
+      ...docToSave,
+      version: baseSnapshot.version || 1,
+      version_vector: baseSnapshot.version_vector || {},
+    };
+
+    const mergeResult = mergeEventDocuments(
+      baseSnapshot,
+      localDraft,
+      serverDoc,
+      user?.id || "local-admin",
+    );
+
+    setConflicts(mergeResult.conflicts);
+    setMergedDoc(mergeResult.mergedDocument);
+    setConflictModalOpen(true);
   };
 
   const handleFormSubmit = async (values: EventFormValues) => {
@@ -187,6 +243,11 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
         await executeSave(mergeResult.mergedDocument);
       }
     } catch (err) {
+      if (err instanceof Error && err.message === EVENT_CONCURRENT_EDIT_CONFLICT) {
+        // Conflict UI already surfaced by executeSave
+        setIsSaving(false);
+        return;
+      }
       console.error("[EditEventDialog] Submit error:", err);
       toast.error("Error evaluating concurrent event edits.");
       setIsSaving(false);
