@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
 import { verifyAuth } from "../shared/auth-middleware.ts";
+import { outboundCommunicationLimiter } from "../_shared/rateLimiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,6 +40,20 @@ serve(async (req: Request) => {
       });
     }
 
+    // --- Outbound Communication Rate Limiting ---
+    const ipAddress = req.headers.get("x-forwarded-for") || "unknown-ip";
+    const identifier = user?.id || ipAddress;
+    const { success } = await outboundCommunicationLimiter.limit(identifier);
+
+    if (!success) {
+      console.warn(`[RateLimit] Outbound communication blocked for identifier: ${identifier}`);
+      return new Response(
+        JSON.stringify({ error: "Too Many Requests. Maximum 5 requests per 15 minutes." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    // --------------------------------------------
+
     // Verify that the user is an approved admin or organizer of the club
     const { data: member, error: memberError } = await supabase
       .from("club_members")
@@ -49,10 +64,13 @@ serve(async (req: Request) => {
       .single();
 
     if (memberError || !member || (member.role !== "admin" && member.role !== "organizer")) {
-      return new Response(JSON.stringify({ error: "Forbidden: Only club admins or organizers can send newsletters" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Forbidden: Only club admins or organizers can send newsletters" }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // Insert a pending job into the bulk_email_jobs table
@@ -76,7 +94,7 @@ serve(async (req: Request) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${supabaseServiceKey}`,
+        Authorization: `Bearer ${supabaseServiceKey}`,
       },
       body: JSON.stringify({ jobId: job.id }),
     }).catch((err) => console.error("Failed to asynchronously trigger newsletter-worker:", err));
@@ -89,7 +107,7 @@ serve(async (req: Request) => {
       {
         status: 202,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
     );
   } catch (error: unknown) {
     console.error("send-newsletter function error:", error);

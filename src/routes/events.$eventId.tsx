@@ -87,6 +87,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { isCaptchaConfigured, shouldRequireCaptcha } from "@/lib/captcha";
+import { EditEventDialog } from "@/components/EditEventDialog";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
 import { ActivePoll } from "@/components/polls/ActivePoll";
@@ -128,8 +129,8 @@ function SimilarEvents({
           p_limit: 3,
         });
 
-        if (!error && data && data.length > 0) {
-          setSimilarEvents(data as SimilarEventItem[]);
+        if (!error && Array.isArray(data) && data.length > 0) {
+          setSimilarEvents(data as unknown as SimilarEventItem[]);
           setLoading(false);
           return;
         }
@@ -138,7 +139,7 @@ function SimilarEvents({
         const { data: fallbackData, error: fallbackError } = await supabase
           .from("events")
           .select("id, title, category_id, event_date, banner_url, description")
-          .eq("category_id", categoryId)
+          .eq("category_id", categoryId!)
           .neq("id", currentEventId)
           .eq("status", "published")
           .limit(3);
@@ -384,7 +385,7 @@ export default function EventDetailsPage() {
         .from("events")
         .select(
           `
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id, max_attendees, requires_approval,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector,
           profiles (full_name, email),
           clubs (name, slug),
           event_rsvps (id, user_id, status, checked_in, rsvp_at, profiles (first_name, last_name, avatar_url)),
@@ -1026,8 +1027,7 @@ export default function EventDetailsPage() {
 
   const attendeeCount =
     ((event as Record<string, unknown>).attendee_count as number) ?? rsvps.length;
-  const maxAttendees = (event as Record<string, unknown>).max_attendees as
-    number | null | undefined;
+  const maxAttendees = (event as Record<string, unknown>).max_attendees as number | null | undefined;
   const isAtCapacity =
     maxAttendees !== null &&
     maxAttendees !== undefined &&
@@ -1309,6 +1309,7 @@ export default function EventDetailsPage() {
                   {exportCsv.isPending ? "Exporting..." : "Export CSV"}
                 </Button>
                 <CreatePollDialog eventId={eventId} user={user!} onPollCreated={() => refetch()} />
+                <EditEventDialog event={event} user={user} onSuccess={() => refetch()} />
               </>
             )}
 
@@ -1468,7 +1469,7 @@ export default function EventDetailsPage() {
                 <div
                   id="event-description-container"
                   className="prose prose-lg max-w-none dark:prose-invert prose-headings:scroll-mt-24"
-                  dangerouslySetInnerHTML={{ __html: event.description }}
+                  dangerouslySetInnerHTML={{ __html: event.description || "" }}
                 />
               </main>
               <aside className="lg:w-64 shrink-0">

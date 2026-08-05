@@ -1,3 +1,4 @@
+import React from "react";
 import { FeedPostSkeleton } from "@/components/FeedPostSkeleton";
 import { OrganicSkeletonStudioModal } from "@/components/common/OrganicSkeletonStudioModal";
 import {
@@ -11,6 +12,7 @@ import { CommentThreadSkeleton } from "@/components/Feed/CommentSkeleton";
 import { DiscussionEmptyState } from "@/components/Feed/DiscussionEmptyState";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import type { User } from "@supabase/supabase-js";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
 import {
   Link2,
   ArrowUp,
@@ -24,8 +26,10 @@ import {
   Flame,
   Flag,
   MoreVertical,
+  X,
 } from "lucide-react";
-import { ViewToggleGroup, type FeedViewMode } from "@/components/ui/ViewToggleGroup";import { useEffect, useRef, useState, useCallback } from "react";
+import { ViewToggleGroup, type FeedViewMode } from "@/components/ui/ViewToggleGroup";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -44,6 +48,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SiteShell } from "@/components/site/SiteShell";
+import { GlobalFeedStats } from "@/components/Feed/GlobalFeedStats";
 import { createClient } from "@/lib/supabase/client";
 import { calculateReadTime } from "@/utils/readTime";
 import {
@@ -55,6 +60,8 @@ import {
 } from "@/lib/feedUtils";
 import { useActionQueue } from "@/store/actionQueue";
 import { type CommentNode } from "@/lib/feedUtils";
+import { toggleBookmark } from "@/lib/bookmarks";
+import { getBlockedUserIds, filterBlockedContent } from "@/lib/userBlockUtils";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
@@ -68,6 +75,7 @@ import {
   MarkdownEditorWithMentions,
   type MarkdownEditorWithMentionsRef,
 } from "@/components/MarkdownEditorWithMentions";
+import { useDraft } from "@/hooks/useDraft";
 import { MentionRenderer } from "@/components/MentionRenderer";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { LazyImage } from "@/components/ui/LazyImage";
@@ -141,6 +149,11 @@ export default function Feed() {
   const [user, setUser] = useState<User | null>(null);
   const emailVerified = useEmailVerification();
   const [newPost, setNewPost] = useState("");
+  const { hasDraft, restoreDraft, discardDraft, clearSavedDraft } = useDraft(
+    "feed-post-draft",
+    newPost,
+    setNewPost,
+  );
   const editorRef = useRef<MarkdownEditorWithMentionsRef>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showNewPostsBanner, setShowNewPostsBanner] = useState(false);
@@ -148,7 +161,9 @@ export default function Feed() {
   const [hiddenPosts, setHiddenPosts] = useState<Post[]>([]);
   const [confirmPostId, setConfirmPostId] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
-  const [optimisticReactions, setOptimisticReactions] = useState<Record<string, unknown>>({});
+  const [optimisticReactions, setOptimisticReactions] = useState<
+    Record<string, { countOffset: number; userReacted: boolean }>
+  >({});
   const [reactionBursts, setReactionBursts] = useState<Record<string, string>>({});
   const [reportTarget, setReportTarget] = useState<{ type: "post" | "comment"; id: string } | null>(
     null,
@@ -161,9 +176,10 @@ export default function Feed() {
   const [loadingCommentPostIds, setLoadingCommentPostIds] = useState<Set<string>>(new Set());
   // Cache of lazily-fetched comment threads keyed by postId
   const [lazyComments, setLazyComments] = useState<Record<string, Comment[]>>({});
-  const [optimisticReactions, setOptimisticReactions] = useState<
-    Record<string, { countOffset: number; userReacted: boolean }>
-  >({});
+  const [queuedPosts, setQueuedPosts] = useState<Post[]>([]);
+  const [replyValues, setReplyValues] = useState<Record<string, string>>({});
+  const [activeReplyIds, setActiveReplyIds] = useState<Set<string>>(new Set());
+  const [newComments, setNewComments] = useState<Record<string, string>>({});
 
   // Attached Image States
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -231,7 +247,7 @@ export default function Feed() {
     enabled: !!user?.id,
   });
 
-const [selectedClubId, setSelectedClubId] = useState("");
+  const [selectedClubId, setSelectedClubId] = useState("");
   const [feedMode, setFeedMode] = useState<"latest" | "trending">("latest");
   const [viewMode, setViewMode] = useState<FeedViewMode>("list");
   useEffect(() => {
@@ -259,12 +275,12 @@ const [selectedClubId, setSelectedClubId] = useState("");
       const afterCursor = pageParam as string | undefined;
 
       // Try get_posts_relay RPC first
-const res = await fetch(
-  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-feed?after=${afterCursor ?? ""}&first=${POSTS_PER_PAGE}`,
-  { headers: { Authorization: `Bearer ${session?.access_token}` } }
-);
-const relayData = res.ok ? await res.json() : null;
-const relayError = res.ok ? null : new Error("get-feed request failed");
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-feed?after=${afterCursor ?? ""}&first=${POSTS_PER_PAGE}`,
+        { headers: { Authorization: `Bearer ${session?.access_token}` } },
+      );
+      const relayData = res.ok ? await res.json() : null;
+      const relayError = res.ok ? null : new Error("get-feed request failed");
       if (!relayError && relayData && typeof relayData === "object" && "edges" in relayData) {
         const connection = relayData as unknown as RelayConnection<Post>;
         return connection;
@@ -759,12 +775,13 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
       const { error } = await supabase.from("posts").insert({
         club_id: selectedClubId,
         author_id: user.id,
-        content: newPost,
+        content: sanitizeHtml(newPost),
         image_url: imageUrl,
       });
 
       if (error) throw error;
 
+      clearSavedDraft();
       setNewPost("");
       setAttachedImage(null);
       setImagePreviewUrl(null);
@@ -797,8 +814,8 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
       if (parentCommentId) {
         setReplyValues((prev) => ({ ...prev, [parentCommentId]: "" }));
         setActiveReplyIds((prev) => {
-          const next = { ...prev };
-          delete next[postId];
+          const next = new Set(prev);
+          next.delete(parentCommentId);
           return next;
         });
       } else {
@@ -914,7 +931,7 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
       .from("bookmarks")
       .select("post_id")
       .eq("user_id", user.id)
-      .not("post_id", "is", null)
+      .neq("post_id", null)
       .then(({ data }) => {
         if (data) {
           setPersistedBookmarkedPostIds(new Set(data.map((r: { post_id: string }) => r.post_id)));
@@ -1000,128 +1017,151 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
 
   return (
     <SiteShell>
-      <PullToRefresh onRefresh={handleRefetch} isRefreshing={isFetching}>
-        <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
+      <div>
+        <PullToRefresh onRefresh={handleRefetch} isRefreshing={isFetching}>
+          <div>
+          <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
           <div className="mx-auto max-w-4xl">
             <p className="eyebrow font-bold">Discussion feed</p>
             <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">
               What clubs are talking about.
             </h1>
-          </div>
-        </section>
+            </div>
+          </section>
+          <section className="border-b-2 border-black bg-cream px-4 py-8 md:px-6">
+            <GlobalFeedStats />
+          </section>
 
-          <section className="bg-cream px-4 py-12 md:px-6">
-            <div className="mx-auto max-w-4xl space-y-6">
-              <div className="space-y-3">
-                <MarkdownEditorWithMentions
-                  ref={editorRef}
-                  value={newPost}
-                  onChange={setNewPost}
-                  clubId={selectedClubId}
-                />
+        <section className="bg-cream px-4 py-12 md:px-6">
+          <div className="mx-auto max-w-4xl space-y-6">
+            <div className="space-y-3">
+              {hasDraft && (
+                <div className="neu-border flex items-center justify-between gap-3 bg-[#FFF9C4] px-4 py-2 font-mono text-xs">
+                  <span className="font-bold">📝 You have an unsaved draft. Restore it?</span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={restoreDraft}
+                      className="neu-border bg-black px-3 py-1 font-bold text-cream uppercase hover:bg-gray-800"
+                    >
+                      Restore
+                    </button>
+                    <button
+                      type="button"
+                      onClick={discardDraft}
+                      className="neu-border bg-white px-3 py-1 font-bold uppercase hover:bg-cream"
+                    >
+                      Discard
+                    </button>
+                  </div>
+                </div>
+              )}
+              <MarkdownEditorWithMentions
+                ref={editorRef}
+                value={newPost}
+                onChange={setNewPost}
+                clubId={selectedClubId}
+              />
 
-                {imagePreviewUrl && (
-                  <div className="relative mt-4 overflow-hidden neu-border w-fit max-w-full">
-                    <img src={imagePreviewUrl} alt="Preview" className="max-h-96 w-auto" />
+              {imagePreviewUrl && (
+                <div className="relative mt-4 overflow-hidden neu-border w-fit max-w-full">
+                  <img src={imagePreviewUrl} alt="Preview" className="max-h-96 w-auto" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAttachedImage(null);
+                      setImagePreviewUrl(null);
+                    }}
+                    className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white hover:bg-black"
+                    disabled={postMutation.isPending}
+                  >
+                    <X size={16} />
+                  </button>
+                  {uploadProgress !== null && (
+                    <div className="absolute inset-x-0 bottom-0 bg-black/50 p-2">
+                      <span className="font-mono text-xs font-bold text-white mb-1 block">
+                        Uploading {uploadProgress}%
+                      </span>
+                      <Progress value={uploadProgress} className="h-1.5" />
+                    </div>
+                  )}
+                  {compressing && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-mono text-xs">
+                      Compressing...
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                <Select
+                  value={selectedClubId}
+                  onValueChange={setSelectedClubId}
+                  disabled={userClubs.length === 0}
+                >
+                  <SelectTrigger
+                    className="w-full border-none bg-transparent font-mono text-xs shadow-none sm:w-auto"
+                    aria-label="Choose club for post"
+                  >
+                    <SelectValue placeholder="No clubs joined" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {userClubs.map((userClub) => {
+                      const club = Array.isArray(userClub.clubs)
+                        ? userClub.clubs[0]
+                        : userClub.clubs;
+                      return club ? (
+                        <SelectItem key={club.id} value={club.id}>
+                          Posting to · {club.name}
+                        </SelectItem>
+                      ) : null;
+                    })}
+                  </SelectContent>
+                </Select>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={postMutation.isPending || compressing}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-cream flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    📷 Attach Image
+                  </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImageSelect}
+                    accept="image/*"
+                    className="hidden"
+                  />
+
+                  <AnimatedTooltip
+                    content={!emailVerified ? "Please verify your email to post" : null}
+                  >
                     <button
                       type="button"
                       onClick={() => {
-                        setAttachedImage(null);
-                        setImagePreviewUrl(null);
+                        if (!user) return alert("Log in first");
+                        if (!emailVerified) return alert("Please verify your email to post");
+                        if (!selectedClubId) return alert("Join or select a club first");
+                        if (newPost.trim()) postMutation.mutate();
                       }}
-                      className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white hover:bg-black"
-                      disabled={postMutation.isPending}
-                    >
-                      <X size={16} />
-                    </button>
-                    {uploadProgress !== null && (
-                      <div className="absolute inset-x-0 bottom-0 bg-black/50 p-2">
-                        <span className="font-mono text-xs font-bold text-white mb-1 block">
-                          Uploading {uploadProgress}%
-                        </span>
-                        <Progress value={uploadProgress} className="h-1.5" />
-                      </div>
-                    )}
-                    {compressing && (
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-mono text-xs">
-                        Compressing...
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
-                  <Select
-                    value={selectedClubId}
-                    onValueChange={setSelectedClubId}
-                    disabled={userClubs.length === 0}
-                  >
-                    <SelectTrigger
-                      className="w-full border-none bg-transparent font-mono text-xs shadow-none sm:w-auto"
-                      aria-label="Choose club for post"
-                    >
-                      <SelectValue placeholder="No clubs joined" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {userClubs.map((userClub) => {
-                        const club = Array.isArray(userClub.clubs)
-                          ? userClub.clubs[0]
-                          : userClub.clubs;
-                        return club ? (
-                          <SelectItem key={club.id} value={club.id}>
-                            Posting to · {club.name}
-                          </SelectItem>
-                        ) : null;
-                      })}
-                    </SelectContent>
-                  </Select>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={postMutation.isPending || compressing}
-                      onClick={() => fileInputRef.current?.click()}
-                      className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-cream flex items-center gap-1.5 disabled:opacity-50"
-                    >
-                      📷 Attach Image
-                    </button>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleImageSelect}
-                      accept="image/*"
-                      className="hidden"
-                    />
-
-                    <AnimatedTooltip
-                      content={!emailVerified ? "Please verify your email to post" : null}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!user) return alert("Log in first");
-                          if (!emailVerified) return alert("Please verify your email to post");
-                          if (!selectedClubId) return alert("Join or select a club first");
-                          if (newPost.trim()) postMutation.mutate();
-                        }}
-                        disabled={
-                          !newPost.trim() ||
-                          !selectedClubId ||
-                          postMutation.isPending ||
-                          !emailVerified ||
-                          compressing
-                        }
-                        className={`neu-border neu-press px-5 py-2 font-mono text-xs font-bold uppercase disabled:cursor-not-allowed disabled:opacity-50 ${
-                          emailVerified ? "bg-black text-cream" : "bg-gray-400 text-gray-700"
+                      disabled={
+                        !newPost.trim() ||
+                        !selectedClubId ||
+                        postMutation.isPending ||
+                        !emailVerified ||
+                        compressing
+                      }
+                      className={`neu-border neu-press px-5 py-2 font-mono text-xs font-bold uppercase disabled:cursor-not-allowed disabled:opacity-50 ${emailVerified ? "bg-black text-cream" : "bg-gray-400 text-gray-700"
                         }`}
-                      >
-                        {postMutation.isPending ? "Posting…" : "Post Markdown"}
-                      </button>
-                    </AnimatedTooltip>
-                  </div>
+                    >
+                      {postMutation.isPending ? "Posting…" : "Post Markdown"}
+                    </button>
+                  </AnimatedTooltip>
                 </div>
               </div>
-            </div>
 
             <style>{`
               @keyframes slideDown {
@@ -1148,23 +1188,23 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
               />
             </div>
 
-{/* ── Feed mode tabs ── */}
+            {/* ── Feed mode tabs ── */}
             <div
               role="tablist"
               aria-label="Feed mode"
               className="flex items-center justify-between gap-2 border-b-2 border-black pb-4 dark:border-cream"
             >
-              <ViewToggleGroup value={viewMode} onValueChange={setViewMode} />              <button
+              <ViewToggleGroup value={viewMode} onValueChange={setViewMode} />{" "}
+              <button
                 role="tab"
                 type="button"
                 id="tab-latest"
                 aria-selected={feedMode === "latest"}
                 onClick={() => setFeedMode("latest")}
-                className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${
-                  feedMode === "latest"
+                className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${feedMode === "latest"
                     ? "bg-black text-cream dark:bg-cream dark:text-black"
                     : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
-                }`}
+                  }`}
               >
                 Latest
               </button>
@@ -1174,11 +1214,10 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
                 id="tab-trending"
                 aria-selected={feedMode === "trending"}
                 onClick={() => setFeedMode("trending")}
-                className={`neu-border inline-flex items-center gap-1.5 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${
-                  feedMode === "trending"
+                className={`neu-border inline-flex items-center gap-1.5 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${feedMode === "trending"
                     ? "bg-black text-cream dark:bg-cream dark:text-black"
                     : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
-                }`}
+                  }`}
               >
                 <Flame className="h-3.5 w-3.5" />
                 Trending
@@ -1234,10 +1273,13 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
 
                   const authorMembership = clubMembers.find((m) => m.user_id === author?.id);
 
-                  const authorRoleTitle = authorMembership?.club_roles?.title?.toLowerCase() ?? "member";
-                  const authorRole = (["admin", "organizer", "member", "alumni"].includes(authorRoleTitle)
-                    ? (authorRoleTitle as MemberRole)
-                    : "member") as MemberRole;
+                  const authorRoleTitle =
+                    authorMembership?.club_roles?.title?.toLowerCase() ?? "member";
+                  const authorRole = (
+                    ["admin", "organizer", "member", "alumni"].includes(authorRoleTitle)
+                      ? (authorRoleTitle as MemberRole)
+                      : "member"
+                  ) as MemberRole;
 
                   const postComments: Comment[] = (
                     lazyComments[post.id] !== undefined
@@ -1267,9 +1309,8 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
                         width: "100%",
                         transform: `translateY(${virtualRow.start - rowVirtualizer.options.scrollMargin}px)`,
                       }}
-                      className={`neu-border p-6 ${
-                        post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
-                      }`}
+                      className={`neu-border p-6 ${post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
+                        }`}
                     >
                       {post.is_pinned && (
                         <div className="mb-3 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#B45309]">
@@ -1312,11 +1353,10 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
                                   })
                                 }
                                 disabled={pinMutation.isPending}
-                                className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${
-                                  post.is_pinned
+                                className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${post.is_pinned
                                     ? "bg-[#FDE68A] hover:bg-[#FCD34D] text-black"
                                     : "bg-white hover:bg-cream text-black"
-                                }`}
+                                  }`}
                                 aria-label={post.is_pinned ? "Unpin post" : "Pin post"}
                               >
                                 <Pin size={10} strokeWidth={2.5} />
@@ -1430,9 +1470,8 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
                                 }));
                                 reactionMutation.mutate({ postId: post.id, emoji, isReacted });
                               }}
-                              className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${
-                                isReacted ? "bg-lime" : "bg-white hover:bg-cream"
-                              }`}
+                              className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${isReacted ? "bg-lime" : "bg-white hover:bg-cream"
+                                }`}
                             >
                               <span
                                 key={`${burstKey}-${burstNonce}`}
@@ -1533,24 +1572,26 @@ const relayError = res.ok ? null : new Error("get-feed request failed");
             )}
           </div>
         </section>
-      </PullToRefresh>
-      <ConfirmModal
-        open={!!confirmPostId}
-        onCancel={() => setConfirmPostId(null)}
-        title="Delete post?"
-        description="Are you sure you want to delete this post? This action cannot be undone."
-        confirmText="Yes, delete"
-        onConfirm={() => {
-          if (confirmPostId) deletePostMutation.mutate(confirmPostId);
-          setConfirmPostId(null);
-        }}
-      />
-      <ReportDialog
-        isOpen={!!reportTarget}
-        onClose={() => setReportTarget(null)}
-        targetType={reportTarget?.type || "post"}
-        targetId={reportTarget?.id || ""}
-      />
+          </div>
+        </PullToRefresh>
+        <ConfirmModal
+          open={!!confirmPostId}
+          onCancel={() => setConfirmPostId(null)}
+          title="Delete post?"
+          description="Are you sure you want to delete this post? This action cannot be undone."
+          confirmText="Yes, delete"
+          onConfirm={() => {
+            if (confirmPostId) deletePostMutation.mutate(confirmPostId);
+            setConfirmPostId(null);
+          }}
+        />
+        <ReportDialog
+          isOpen={!!reportTarget}
+          onClose={() => setReportTarget(null)}
+          targetType={reportTarget?.type || "post"}
+          targetId={reportTarget?.id || ""}
+        />
+      </div>
     </SiteShell>
   );
 }
@@ -1606,9 +1647,11 @@ const MemoizedFeedPost = React.memo(
 
     const authorMembership = clubMembers.find((m) => m.user_id === author?.id);
     const authorRoleTitle = authorMembership?.club_roles?.title?.toLowerCase() ?? "member";
-    const authorRole = (["admin", "organizer", "member", "alumni"].includes(authorRoleTitle)
-      ? (authorRoleTitle as MemberRole)
-      : "member") as MemberRole;
+    const authorRole = (
+      ["admin", "organizer", "member", "alumni"].includes(authorRoleTitle)
+        ? (authorRoleTitle as MemberRole)
+        : "member"
+    ) as MemberRole;
 
     if (isOptimisticallyDeleted) return null;
 
@@ -1627,9 +1670,8 @@ const MemoizedFeedPost = React.memo(
           width: "100%",
           transform: `translateY(${virtualRow.start - scrollMargin}px)`,
         }}
-        className={`neu-border p-6 ${
-          post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
-        }`}
+        className={`neu-border p-6 ${post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
+          }`}
       >
         {post.is_pinned && (
           <div className="mb-3 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#B45309]">
@@ -1659,18 +1701,18 @@ const MemoizedFeedPost = React.memo(
           <div className="flex items-center gap-2">
             {(() => {
               const isClubAdmin =
-                clubMembers.some((m) => m.user_id === user?.id && m.club_roles?.title === "Admin") ||
-                userProfile?.role === "system_admin";
+                clubMembers.some(
+                  (m) => m.user_id === user?.id && m.club_roles?.title === "Admin",
+                ) || userProfile?.role === "system_admin";
               return isClubAdmin ? (
                 <button
                   type="button"
                   onClick={() => onPinToggle(post.id, !post.is_pinned)}
                   disabled={isPinnedPending}
-                  className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${
-                    post.is_pinned
+                  className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${post.is_pinned
                       ? "bg-[#FDE68A] hover:bg-[#FCD34D] text-black"
                       : "bg-white hover:bg-cream text-black"
-                  }`}
+                    }`}
                   aria-label={post.is_pinned ? "Unpin post" : "Pin post"}
                 >
                   <Pin size={10} strokeWidth={2.5} />
@@ -1781,9 +1823,8 @@ const MemoizedFeedPost = React.memo(
                   }));
                   onReact(post.id, emoji, isReacted);
                 }}
-                className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${
-                  isReacted ? "bg-lime" : "bg-white hover:bg-cream"
-                }`}
+                className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${isReacted ? "bg-lime" : "bg-white hover:bg-cream"
+                  }`}
               >
                 <span
                   key={`${burstKey}-${burstNonce}`}
@@ -1965,7 +2006,7 @@ function PostComments({ postId, user, userProfile, clubMembers, timeAgo }: PostC
       execute: async () => {
         deleteCommentMutation.mutate(commentId);
       },
-      rollback: () => {},
+      rollback: () => { },
     });
 
     toast("Comment deleted", {
@@ -1992,10 +2033,13 @@ function PostComments({ postId, user, userProfile, clubMembers, timeAgo }: PostC
       : commentNode.profiles;
 
     const commentAuthorMembership = clubMembers.find((m) => m.user_id === commentAuthor?.id);
-    const commentAuthorRoleTitle = commentAuthorMembership?.club_roles?.title?.toLowerCase() ?? "member";
-    const commentAuthorRole = (["admin", "organizer", "member", "alumni"].includes(commentAuthorRoleTitle)
-      ? (commentAuthorRoleTitle as MemberRole)
-      : "member") as MemberRole;
+    const commentAuthorRoleTitle =
+      commentAuthorMembership?.club_roles?.title?.toLowerCase() ?? "member";
+    const commentAuthorRole = (
+      ["admin", "organizer", "member", "alumni"].includes(commentAuthorRoleTitle)
+        ? (commentAuthorRoleTitle as MemberRole)
+        : "member"
+    ) as MemberRole;
 
     const indentClass = depth === 1 ? "ml-4" : depth >= 2 ? "ml-8" : "";
 

@@ -28,13 +28,7 @@ describe("DraggableAdminTable component (#1730)", () => {
   });
 
   it("renders headers and data rows correctly", () => {
-    render(
-      <DraggableAdminTable
-        tableId="test_table"
-        data={mockData}
-        columns={columns}
-      />
-    );
+    render(<DraggableAdminTable tableId="test_table" data={mockData} columns={columns} />);
 
     expect(screen.getAllByText("Name")[0]).toBeInTheDocument();
     expect(screen.getAllByText("Email")[0]).toBeInTheDocument();
@@ -44,13 +38,7 @@ describe("DraggableAdminTable component (#1730)", () => {
   });
 
   it("persists column order to localStorage when initialized", () => {
-    render(
-      <DraggableAdminTable
-        tableId="test_table_persist"
-        data={mockData}
-        columns={columns}
-      />
-    );
+    render(<DraggableAdminTable tableId="test_table_persist" data={mockData} columns={columns} />);
 
     const saved = localStorage.getItem("table_layout_test_table_persist");
     expect(saved).toBeDefined();
@@ -60,16 +48,10 @@ describe("DraggableAdminTable component (#1730)", () => {
   it("loads initial column order from localStorage if present", () => {
     localStorage.setItem(
       "table_layout_test_table_custom",
-      JSON.stringify(["email", "role", "name"])
+      JSON.stringify(["email", "role", "name"]),
     );
 
-    render(
-      <DraggableAdminTable
-        tableId="test_table_custom"
-        data={mockData}
-        columns={columns}
-      />
-    );
+    render(<DraggableAdminTable tableId="test_table_custom" data={mockData} columns={columns} />);
 
     const headers = screen.getAllByRole("columnheader");
     expect(headers[0]).toHaveTextContent("Email");
@@ -78,13 +60,7 @@ describe("DraggableAdminTable component (#1730)", () => {
   });
 
   it("opens Manage Columns modal and allows column reordering", () => {
-    render(
-      <DraggableAdminTable
-        tableId="test_table_modal"
-        data={mockData}
-        columns={columns}
-      />
-    );
+    render(<DraggableAdminTable tableId="test_table_modal" data={mockData} columns={columns} />);
 
     const manageBtn = screen.getByLabelText("Manage columns layout");
     fireEvent.click(manageBtn);

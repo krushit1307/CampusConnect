@@ -2,13 +2,16 @@ import confetti from "canvas-confetti";
 
 export function triggerConfetti() {
   // OS-level prefers-reduced-motion check
-  if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  if (
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  ) {
     return;
   }
 
   const duration = 2.5 * 1000;
   const animationEnd = Date.now() + duration;
-  
+
   const defaults = {
     startVelocity: 45,
     spread: 60,

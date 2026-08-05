@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { SiteShell } from "@/components/site/SiteShell";
 import { HoverLink } from "@/components/ui/HoverLink";
-import { EmptyState } from "@/components/EmptyState";
+import { SmartLink } from "@/components/ui/SmartLink";import { EmptyState } from "@/components/EmptyState";
 import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
 import { FilterSidebar, TAGS_SEARCH_PARAM } from "@/components/Clubs/FilterSidebar";
 import { Input } from "@/components/ui/input";
@@ -28,7 +28,7 @@ const SKELETON_SIZES: Array<"sm" | "md" | "lg"> = [
   "lg",
   "sm",
 ];
-interface Club {
+export interface Club {
   id: string;
   name: string;
   slug: string;
@@ -73,7 +73,7 @@ export default function ClubsIndex() {
           const { data, error } = await supabase.rpc("search_clubs", {
             search_term: searchQuery,
           });
-          if (!error && data) return data as Club[];
+          if (!error && data) return data as unknown as Club[];
         } catch (e) {
           console.warn("RPC search_clubs failed, falling back to client filter", e);
         }
@@ -85,7 +85,7 @@ export default function ClubsIndex() {
           club_tags(tag_id, club_tag_labels(name))
         `);
       if (error) throw error;
-      return (data || []) as Club[];
+      return (data || []) as unknown as Club[];
     },
   });
 
@@ -252,14 +252,10 @@ export default function ClubsIndex() {
                       : 0;
 
                   return (
-                    <div
-                      key={c.id}
-                      className="animate-fade-in-up flex flex-col"
-                      onMouseEnter={() => handlePrefetch(c.slug)}
-                    >
-                      <HoverLink
-                        to={`/clubs/${c.slug}`}
-                        className="neu-border group flex flex-col bg-white p-6 shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_rgba(0,0,0,1)] h-full justify-between"
+<div key={c.id} className="animate-fade-in-up flex flex-col">
+                  <SmartLink
+                    to={`/clubs/${c.slug}`}
+                    prefetch={() => handlePrefetch(c.slug)}                        className="neu-border group flex flex-col bg-white p-6 shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_rgba(0,0,0,1)] h-full justify-between"
                       >
                         <div>
                           <div className="flex items-center justify-between gap-2 mb-4">
@@ -296,11 +292,10 @@ export default function ClubsIndex() {
                             </span>
                           </div>
                         </div>
-                      </HoverLink>
-                    </div>
-                  );
-                })}
-              </div>
+</SmartLink>
+                </div>
+              );
+            })}              </div>
             )}
           </div>
         </div>

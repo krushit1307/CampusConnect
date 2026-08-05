@@ -18,8 +18,8 @@ import { PageWrapper } from "./components/PageWrapper";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { CommandPalette } from "./components/ui/command-palette";
 import MaintenancePage from "./components/MaintenancePage";
+import { CommandPaletteProvider } from "@/components/CommandPaletteProvider";
 import { NotFoundPage } from "./components/NotFoundPage";
 import { createClient } from "./lib/supabase/client";
 import { BreadcrumbProvider } from "@/components/BreadcrumbsContext";
@@ -77,6 +77,7 @@ async function checkDatabaseHealth(): Promise<HealthStatus> {
 const Index = lazy(() => import("./routes/index"));
 const Auth = lazy(() => import("./routes/auth"));
 const Certificates = lazy(() => import("./routes/certificates"));
+const VerifyCertificate = lazy(() => import("./routes/verify"));
 const ClubsIndex = lazy(() => import("./routes/clubs.index"));
 const ClubNew = lazy(() => import("./routes/clubs.new"));
 const ClubDetails = lazy(() => import("./routes/clubs.$slug"));
@@ -154,6 +155,7 @@ const router = createBrowserRouter(
         <Route index element={<Index />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/certificates" element={<Certificates />} />
+        <Route path="/verify" element={<VerifyCertificate />} />
 
         <Route path="/clubs" element={<ClubsLayout />}>
           <Route index element={<ClubsIndex />} />
@@ -292,17 +294,18 @@ export default function App() {
               development instead of shipping to production.
             */}
             <LazyMotion features={loadDomAnimation} strict={import.meta.env.DEV}>
-              <CommandPalette />
-              {/* Floating Dark Mode Toggle */}
-              <div className="fixed bottom-4 right-4 z-[9999]">
-                <ThemeToggle />
-              </div>
+              <CommandPaletteProvider>
+                {/* Floating Dark Mode Toggle */}
+                <div className="fixed bottom-4 right-4 z-[9999]">
+                  <ThemeToggle />
+                </div>
 
-              <BreadcrumbProvider>
-                <MotionConfig reducedMotion="user">
-                  <RouterProvider router={router} />
-                </MotionConfig>
-              </BreadcrumbProvider>
+                <BreadcrumbProvider>
+                  <MotionConfig reducedMotion="user">
+                    <RouterProvider router={router} />
+                  </MotionConfig>
+                </BreadcrumbProvider>
+              </CommandPaletteProvider>
             </LazyMotion>
           </ErrorBoundary>
         </QueryClientProvider>

@@ -43,7 +43,7 @@ export default function Profile() {
           linkedin_url
         `,
         )
-        .eq("handle", handle)
+        .eq("handle", handle!)
         .single();
       if (error) throw error;
       return data;

@@ -1,9 +1,6 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-import {
-  getOrganicLineWidth,
-  getParagraphLineWidths,
-} from "@/lib/deterministicSkeletonUtils";
+import { getOrganicLineWidth, getParagraphLineWidths } from "@/lib/deterministicSkeletonUtils";
 
 export interface OrganicSkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
   /** Width override or 'organic' for deterministic jagged width */
@@ -48,7 +45,7 @@ export const OrganicSkeleton: React.FC<OrganicSkeletonProps> = ({
         shimmer &&
           "before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_1.8s_infinite] before:bg-gradient-to-r before:from-transparent before:via-white/40 before:to-transparent dark:before:via-white/10",
         !shimmer && "animate-pulse",
-        className
+        className,
       )}
       style={{
         width: calculatedWidth,
@@ -177,7 +174,9 @@ export const OrganicCardSkeleton: React.FC<OrganicCardSkeletonProps> = ({
 
     case "comment":
       return (
-        <div className={cn("flex gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl", className)}>
+        <div
+          className={cn("flex gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl", className)}
+        >
           <OrganicSkeleton width="36px" height="h-9" className="rounded-full flex-shrink-0" />
           <div className="space-y-2 flex-1">
             <div className="flex justify-between items-center">
@@ -228,7 +227,11 @@ export const OrganicCardSkeleton: React.FC<OrganicCardSkeletonProps> = ({
       return (
         <div className={cn("neu-border bg-white p-6 space-y-6", className)}>
           <div className="flex items-center gap-5">
-            <OrganicSkeleton width="80px" height="h-20" className="rounded-full border-2 border-black" />
+            <OrganicSkeleton
+              width="80px"
+              height="h-20"
+              className="rounded-full border-2 border-black"
+            />
             <div className="space-y-2.5 flex-1">
               <OrganicSkeleton width="55%" height="h-6" seed="prof-name" />
               <OrganicSkeleton width="35%" height="h-4" seed="prof-handle" />

@@ -178,10 +178,15 @@ export async function replayOfflineMutations(): Promise<{
   try {
     const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
     if (sessionErr || !sessionData.session) {
-      console.warn("[OfflineMutationQueue] No active session or token expired. Attempting refresh...");
+      console.warn(
+        "[OfflineMutationQueue] No active session or token expired. Attempting refresh...",
+      );
       const { error: refreshErr } = await supabase.auth.refreshSession();
       if (refreshErr) {
-        console.error("[OfflineMutationQueue] Auth refresh failed. Retaining queue for re-login:", refreshErr);
+        console.error(
+          "[OfflineMutationQueue] Auth refresh failed. Retaining queue for re-login:",
+          refreshErr,
+        );
         toast.error("Offline sync paused: Please log in to sync saved actions.");
         return { successCount: 0, failedCount: items.length };
       }

@@ -21,6 +21,7 @@ import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/Dashb
 import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
 import LazyHydrate from "@/components/LazyHydrate";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import type { Club } from "./clubs.index";
 
 interface SavedEventDetails {
   id: string;
@@ -50,13 +51,13 @@ interface ActivityPostRow {
 
 interface ActivityRsvpRow {
   id: string;
-  rsvp_at: string;
+  rsvp_at: string | null;
   events: { id: string; title: string } | { id: string; title: string }[] | null;
 }
 
 interface ActivityClubMemberRow {
   id: string;
-  joined_at: string;
+  joined_at: string | null;
   clubs: { name: string } | { name: string }[] | null;
 }
 
@@ -195,7 +196,7 @@ export default function DashboardOverview() {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", user?.id)
+        .eq("id", user!.id)
         .single();
       if (error) throw error;
       return data;
@@ -262,7 +263,7 @@ export default function DashboardOverview() {
       const { data, error } = await supabase
         .from("club_members")
         .select(`role_id, club_roles (id, title, permissions_level), clubs (id, name, slug)`)
-        .eq("user_id", user?.id)
+        .eq("user_id", user!.id)
         .eq("status", "approved");
       if (error) throw error;
       return data || [];
@@ -276,7 +277,7 @@ export default function DashboardOverview() {
       const { data, error } = await supabase
         .from("events")
         .select(`*, clubs (name), event_rsvps!inner (id, user_id)`)
-        .eq("event_rsvps.user_id", user?.id)
+        .eq("event_rsvps.user_id", user!.id)
         .gte("event_date", new Date().toISOString())
         .order("event_date", { ascending: true })
         .limit(3);
@@ -304,8 +305,8 @@ export default function DashboardOverview() {
           )
         `,
         )
-        .eq("user_id", user?.id)
-        .order("saved_at", { ascending: false });
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -319,20 +320,20 @@ export default function DashboardOverview() {
         supabase
           .from("posts")
           .select("id, content, created_at, clubs(name)")
-          .eq("author_id", user?.id)
+          .eq("author_id", user!.id)
           .is("deleted_at", null)
           .order("created_at", { ascending: false })
           .limit(5),
         supabase
           .from("event_rsvps")
           .select("id, rsvp_at, events(id, title)")
-          .eq("user_id", user?.id)
+          .eq("user_id", user!.id)
           .order("rsvp_at", { ascending: false })
           .limit(5),
         supabase
           .from("club_members")
-          .select("joined_at, clubs(name)")
-          .eq("user_id", user?.id)
+          .select("id, joined_at, clubs(name)")
+          .eq("user_id", user!.id)
           .eq("status", "approved")
           .order("joined_at", { ascending: false })
           .limit(5),
@@ -354,7 +355,7 @@ export default function DashboardOverview() {
           id: `rsvp-${r.id}`,
           type: "rsvp",
           description: event?.title ? `You RSVP'd to ${event.title}` : "You RSVP'd to an event",
-          created_at: r.rsvp_at,
+          created_at: r.rsvp_at || "",
         };
       });
 
@@ -364,7 +365,7 @@ export default function DashboardOverview() {
           id: `club-${m.id}`,
           type: "club_join",
           description: club?.name ? `You joined ${club.name}` : "You joined a club",
-          created_at: m.joined_at,
+          created_at: m.joined_at || "",
         };
       });
 
@@ -401,7 +402,7 @@ export default function DashboardOverview() {
             onClick={() => {
               setAnimateIn(false);
               setTimeout(() => {
-                setDismissed(true);
+                setWelcomeDismissed(true);
                 localStorage.setItem("cc_welcome_dismissed", "true");
               }, 500); // Wait for transition out
             }}
@@ -513,7 +514,7 @@ export default function DashboardOverview() {
         {isTrendingLoading ? (
           <TrendingCarouselSkeleton />
         ) : (
-          <TrendingCarousel clubs={trendingClubs} />
+          <TrendingCarousel clubs={trendingClubs as unknown as Club[]} />
         )}
       </div>
 

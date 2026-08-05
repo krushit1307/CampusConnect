@@ -4,7 +4,7 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { Award, ArrowRight, Copy, Download, Loader2, QrCode, X } from "lucide-react";
+import { Award, ArrowRight, Copy, Download, Loader2, QrCode, X, BadgeCheck } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { formatStandardDate } from "@/utils/dateUtils";
@@ -25,6 +25,8 @@ interface CertificateEvent {
 interface Certificate {
   id: string;
   certificate_url: string;
+  verify_url?: string | null;
+  verification_hash?: string | null;
   issued_at: string | null;
   events: CertificateEvent | CertificateEvent[] | null;
 }
@@ -55,11 +57,11 @@ export default function Certificates() {
         .from("certificates")
         .select(
           `
-          id, certificate_url, issued_at,
+          id, certificate_url, verify_url, verification_hash, issued_at,
           events (title, clubs (name))
         `,
         )
-        .eq("user_id", user?.id)
+        .eq("user_id", user!.id)
         .order("issued_at", { ascending: false });
 
       if (error) {
@@ -238,6 +240,16 @@ export default function Certificates() {
                           <QrCode className="h-4 w-4" />
                         </button>
                       </div>
+                      {c.verify_url && (
+                        <a
+                          href={c.verify_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-3 neu-border neu-press flex w-full items-center justify-center gap-2 bg-white hover:bg-lime py-2.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer"
+                        >
+                          <BadgeCheck className="h-4 w-4" /> Verify on Blockchain
+                        </a>
+                      )}
                     </div>
                   </article>
                 );
@@ -260,7 +272,7 @@ export default function Certificates() {
                   ? event.clubs[0]
                   : event.clubs
                 : null;
-              const ticketUrl = ticketCert.certificate_url || window.location.href;
+              const ticketUrl = ticketCert.verify_url || ticketCert.certificate_url || window.location.href;
               return (
                 <div className="flex flex-col">
                   {/* Top Bar */}
@@ -435,10 +447,23 @@ export default function Certificates() {
                         <div>
                           <span className="font-bold uppercase">Certificate ID: </span>
                           <span className="select-all">{selectedCert.id}</span>
+                          {selectedCert.verification_hash && (
+                            <div className="mt-1">
+                              <span className="font-bold uppercase">Ledger Hash: </span>
+                              <span className="select-all break-all">
+                                {selectedCert.verification_hash.slice(0, 24)}…
+                              </span>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex items-center gap-1.5 bg-black text-cream px-2 py-0.5 border border-black font-bold uppercase text-[9px]">
-                          <span>Verifiable Link Active</span>
-                        </div>
+                        <a
+                          href={selectedCert.verify_url || `/verify?cert=${selectedCert.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 bg-black text-cream px-2 py-0.5 border border-black font-bold uppercase text-[9px] hover:bg-lime hover:text-black transition-colors"
+                        >
+                          <span>Verify on Chain</span>
+                        </a>
                       </div>
                     </div>
                   </div>

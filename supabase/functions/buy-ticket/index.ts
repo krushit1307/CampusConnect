@@ -84,13 +84,10 @@ serve(async (req: Request) => {
     }
 
     if (!userId) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized: Missing user authentication" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      return new Response(JSON.stringify({ error: "Unauthorized: Missing user authentication" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Initialize Redis client using Upstash Redis variables
@@ -138,7 +135,8 @@ serve(async (req: Request) => {
         throw new Error(eventError?.message || "Event not found");
       }
 
-      const available = event.available_spots !== null ? event.available_spots : event.max_attendees;
+      const available =
+        event.available_spots !== null ? event.available_spots : event.max_attendees;
 
       if (available === null || available <= 0) {
         return new Response(JSON.stringify({ error: "Sold Out" }), {
@@ -163,13 +161,11 @@ serve(async (req: Request) => {
       }
 
       // 3. Process the ticket purchase: Create RSVP record and decrement available_spots
-      const { error: rsvpError } = await supabase
-        .from("event_rsvps")
-        .insert({
-          event_id: eventId,
-          user_id: userId,
-          status: "FREE", // Mark as FREE ticket type
-        });
+      const { error: rsvpError } = await supabase.from("event_rsvps").insert({
+        event_id: eventId,
+        user_id: userId,
+        status: "FREE", // Mark as FREE ticket type
+      });
 
       if (rsvpError) {
         throw rsvpError;
@@ -187,10 +183,13 @@ serve(async (req: Request) => {
       }
 
       console.log(`[Ticket Sale] Successfully sold ticket for event ${eventId} to user ${userId}`);
-      return new Response(JSON.stringify({ success: true, message: "Ticket purchased successfully." }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ success: true, message: "Ticket purchased successfully." }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     } finally {
       // Guarantee lock release immediate execution
       await lock.release();

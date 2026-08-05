@@ -9,17 +9,17 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     try {
       const body = JSON.parse(init?.body as string);
       const command = body[0]; // e.g. "SET" or "EVAL"
-      
+
       if (command === "SET") {
         const key = body[1];
         const val = body[2];
         const nx = body[3] === "NX" || body[4] === "NX";
-        
+
         if (nx && redisLocks.has(key)) {
           // Already locked: return null/failure
           return new Response(JSON.stringify({ result: null }), { status: 200 });
         }
-        
+
         redisLocks.set(key, val);
         return new Response(JSON.stringify({ result: "OK" }), { status: 200 });
       }
@@ -48,11 +48,11 @@ Deno.env.set("UPSTASH_REDIS_REST_TOKEN", "mock-token");
 
 Deno.test("Buy Ticket - Redlock distributed lock acquisition and release", async () => {
   redisLocks.clear();
-  
+
   // Try to acquire the same lock concurrently
   const lockKey = "ticket_lock_event123";
   const client1Uuid = "uuid-1";
-  
+
   // Client 1 sets lock
   const res1 = await fetch("https://mock-upstash.io", {
     method: "POST",
@@ -60,7 +60,7 @@ Deno.test("Buy Ticket - Redlock distributed lock acquisition and release", async
   });
   const data1 = await res1.json();
   assertEquals(data1.result, "OK");
-  
+
   // Client 2 attempts to lock (fails)
   const res2 = await fetch("https://mock-upstash.io", {
     method: "POST",
@@ -68,7 +68,7 @@ Deno.test("Buy Ticket - Redlock distributed lock acquisition and release", async
   });
   const data2 = await res2.json();
   assertEquals(data2.result, null);
-  
+
   // Client 1 releases lock
   const res3 = await fetch("https://mock-upstash.io", {
     method: "POST",

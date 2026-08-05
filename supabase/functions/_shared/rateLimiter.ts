@@ -15,3 +15,11 @@ export const globalSearchLimiter = new Ratelimit({
   analytics: true,
   prefix: "global-search-limit",
 });
+
+// Dedicated rate limiter for outbound communication endpoints (emails, SMS)
+export const outboundCommunicationLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, "15 m"),
+  analytics: true,
+  prefix: "outbound-comm-limit",
+});

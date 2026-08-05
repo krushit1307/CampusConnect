@@ -109,7 +109,7 @@ export function useConfetti(): UseConfettiReturn {
         });
       }, 200);
     },
-    [shouldSuppress]
+    [shouldSuppress],
   );
 
   const fireCelebration = useCallback(
@@ -126,7 +126,7 @@ export function useConfetti(): UseConfettiReturn {
         ...customOptions,
       });
     },
-    [shouldSuppress]
+    [shouldSuppress],
   );
 
   const fireFireworks = useCallback(
@@ -155,7 +155,7 @@ export function useConfetti(): UseConfettiReturn {
         }, i * 300);
       }
     },
-    [shouldSuppress]
+    [shouldSuppress],
   );
 
   const fireStars = useCallback(
@@ -173,7 +173,7 @@ export function useConfetti(): UseConfettiReturn {
         ...customOptions,
       });
     },
-    [shouldSuppress]
+    [shouldSuppress],
   );
 
   const fireCustom = useCallback(
@@ -181,7 +181,7 @@ export function useConfetti(): UseConfettiReturn {
       if (shouldSuppress) return;
       fireConfetti(options);
     },
-    [shouldSuppress]
+    [shouldSuppress],
   );
 
   return {

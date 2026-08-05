@@ -7,28 +7,10 @@
 
 import { supabase } from "./client";
 import type { PostgrestError } from "@supabase/supabase-js";
+import type { Database, Tables } from "@/types/database.types";
 
-// Fallback type definition if database.types is not yet generated
-export type Database = {
-  public: {
-    Tables: {
-      events: {
-        Row: {
-          id: string;
-          title: string;
-          description: string | null;
-          event_date: string | null;
-          banner_url: string | null;
-          views: number;
-          created_at: string;
-          club_id: string;
-        };
-      };
-    };
-  };
-};
-
-export type Event = Database["public"]["Tables"]["events"]["Row"];
+export type { Database };
+export type Event = Tables<"events">;
 export type EventWithPopularity = {
   id: string;
   title: string;

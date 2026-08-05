@@ -39,7 +39,7 @@ const dateTimeSecondsFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 function formatDate(dateInput: string | Date, formatter: Intl.DateTimeFormat): string {
-  const date = new Date(dateInput);
+  const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
   return Number.isNaN(date.getTime()) ? "" : formatter.format(date);
 }
 
@@ -64,7 +64,7 @@ export function formatWeekdayTime(dateInput: string | Date): string {
 }
 
 export function formatDateTimeSeconds(dateInput: string | Date): string {
-  const date = new Date(dateInput);
+  const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
   if (Number.isNaN(date.getTime())) return "";
 
   const parts = Object.fromEntries(

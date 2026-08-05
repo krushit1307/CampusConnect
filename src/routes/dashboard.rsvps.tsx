@@ -54,8 +54,10 @@ export default function DashboardRsvps() {
             location,
             banner_url,
             created_at,
+            announce_date,
             clubs (
-              name
+              name,
+              average_lead_time_days
             ),
             event_rsvps (
               id,
@@ -68,7 +70,7 @@ export default function DashboardRsvps() {
           )
         `,
         )
-        .eq("user_id", user?.id);
+        .eq("user_id", user!.id);
 
       if (error) throw error;
       return data || [];

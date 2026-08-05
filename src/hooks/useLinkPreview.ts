@@ -113,7 +113,9 @@ export function useLinkPreview(url: string | null | undefined): UseLinkPreviewRe
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [url]);
 
   return { data, loading, error };

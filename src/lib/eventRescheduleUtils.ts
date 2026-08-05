@@ -24,9 +24,10 @@ export interface RescheduleTimestampResult {
  */
 export function preserveTimeAndMutateDate(
   originalTimestamp: Date | string,
-  newTargetDate: Date
+  newTargetDate: Date,
 ): Date {
-  const orig = typeof originalTimestamp === "string" ? new Date(originalTimestamp) : originalTimestamp;
+  const orig =
+    typeof originalTimestamp === "string" ? new Date(originalTimestamp) : originalTimestamp;
 
   const result = new Date(newTargetDate.getTime());
 
@@ -51,7 +52,7 @@ export function preserveTimeAndMutateDate(
 export function calculateRescheduledTimestamps(
   originalStart: Date | string,
   originalEnd: Date | string | undefined | null,
-  newDroppedStart: Date
+  newDroppedStart: Date,
 ): RescheduleTimestampResult {
   const origStart = typeof originalStart === "string" ? new Date(originalStart) : originalStart;
   const origEnd = originalEnd

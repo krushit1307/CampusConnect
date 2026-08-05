@@ -72,8 +72,8 @@ export const ConfettiStudioModal: React.FC<ConfettiStudioModalProps> = ({ isOpen
                   {isReducedMotion
                     ? "OS Setting 'prefers-reduced-motion: reduce' detected. Animations auto-disabled."
                     : reducedMotionOverride
-                    ? "Manual Accessibility Preview Override enabled."
-                    : "Full 60 FPS physics confetti particles enabled for major milestones."}
+                      ? "Manual Accessibility Preview Override enabled."
+                      : "Full 60 FPS physics confetti particles enabled for major milestones."}
                 </p>
               </div>
             </div>
@@ -176,7 +176,8 @@ export const ConfettiStudioModal: React.FC<ConfettiStudioModalProps> = ({ isOpen
         {/* Footer */}
         <div className="px-6 py-4 bg-gray-100 border-t-2 border-black flex justify-between items-center text-xs text-gray-600">
           <span className="flex items-center gap-1">
-            <Info className="w-4 h-4 text-indigo-600" /> Bound to Create Club, Charter Approval & RSVP mutations
+            <Info className="w-4 h-4 text-indigo-600" /> Bound to Create Club, Charter Approval &
+            RSVP mutations
           </span>
           <button
             onClick={onClose}
