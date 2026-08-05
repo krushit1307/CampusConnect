@@ -46,6 +46,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SiteShell } from "@/components/site/SiteShell";
+import { GlobalFeedStats } from "@/components/Feed/GlobalFeedStats";
 import { createClient } from "@/lib/supabase/client";
 import { calculateReadTime } from "@/utils/readTime";
 import {
@@ -1018,6 +1019,9 @@ export default function Feed() {
             </h1>
           </div>
         </section>
+        <section className="border-b-2 border-black bg-cream px-4 py-8 md:px-6">
+          <GlobalFeedStats />
+        </section>
 
         <section className="bg-cream px-4 py-12 md:px-6">
           <div className="mx-auto max-w-4xl space-y-6">
@@ -1141,9 +1145,8 @@ export default function Feed() {
                         !emailVerified ||
                         compressing
                       }
-                      className={`neu-border neu-press px-5 py-2 font-mono text-xs font-bold uppercase disabled:cursor-not-allowed disabled:opacity-50 ${
-                        emailVerified ? "bg-black text-cream" : "bg-gray-400 text-gray-700"
-                      }`}
+                      className={`neu-border neu-press px-5 py-2 font-mono text-xs font-bold uppercase disabled:cursor-not-allowed disabled:opacity-50 ${emailVerified ? "bg-black text-cream" : "bg-gray-400 text-gray-700"
+                        }`}
                     >
                       {postMutation.isPending ? "Posting…" : "Post Markdown"}
                     </button>
@@ -1190,11 +1193,10 @@ export default function Feed() {
                 id="tab-latest"
                 aria-selected={feedMode === "latest"}
                 onClick={() => setFeedMode("latest")}
-                className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${
-                  feedMode === "latest"
+                className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${feedMode === "latest"
                     ? "bg-black text-cream dark:bg-cream dark:text-black"
                     : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
-                }`}
+                  }`}
               >
                 Latest
               </button>
@@ -1204,11 +1206,10 @@ export default function Feed() {
                 id="tab-trending"
                 aria-selected={feedMode === "trending"}
                 onClick={() => setFeedMode("trending")}
-                className={`neu-border inline-flex items-center gap-1.5 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${
-                  feedMode === "trending"
+                className={`neu-border inline-flex items-center gap-1.5 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${feedMode === "trending"
                     ? "bg-black text-cream dark:bg-cream dark:text-black"
                     : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
-                }`}
+                  }`}
               >
                 <Flame className="h-3.5 w-3.5" />
                 Trending
@@ -1300,9 +1301,8 @@ export default function Feed() {
                         width: "100%",
                         transform: `translateY(${virtualRow.start - rowVirtualizer.options.scrollMargin}px)`,
                       }}
-                      className={`neu-border p-6 ${
-                        post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
-                      }`}
+                      className={`neu-border p-6 ${post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
+                        }`}
                     >
                       {post.is_pinned && (
                         <div className="mb-3 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#B45309]">
@@ -1345,11 +1345,10 @@ export default function Feed() {
                                   })
                                 }
                                 disabled={pinMutation.isPending}
-                                className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${
-                                  post.is_pinned
+                                className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${post.is_pinned
                                     ? "bg-[#FDE68A] hover:bg-[#FCD34D] text-black"
                                     : "bg-white hover:bg-cream text-black"
-                                }`}
+                                  }`}
                                 aria-label={post.is_pinned ? "Unpin post" : "Pin post"}
                               >
                                 <Pin size={10} strokeWidth={2.5} />
@@ -1463,9 +1462,8 @@ export default function Feed() {
                                 }));
                                 reactionMutation.mutate({ postId: post.id, emoji, isReacted });
                               }}
-                              className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${
-                                isReacted ? "bg-lime" : "bg-white hover:bg-cream"
-                              }`}
+                              className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${isReacted ? "bg-lime" : "bg-white hover:bg-cream"
+                                }`}
                             >
                               <span
                                 key={`${burstKey}-${burstNonce}`}
@@ -1662,9 +1660,8 @@ const MemoizedFeedPost = React.memo(
           width: "100%",
           transform: `translateY(${virtualRow.start - scrollMargin}px)`,
         }}
-        className={`neu-border p-6 ${
-          post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
-        }`}
+        className={`neu-border p-6 ${post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
+          }`}
       >
         {post.is_pinned && (
           <div className="mb-3 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#B45309]">
@@ -1702,11 +1699,10 @@ const MemoizedFeedPost = React.memo(
                   type="button"
                   onClick={() => onPinToggle(post.id, !post.is_pinned)}
                   disabled={isPinnedPending}
-                  className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${
-                    post.is_pinned
+                  className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${post.is_pinned
                       ? "bg-[#FDE68A] hover:bg-[#FCD34D] text-black"
                       : "bg-white hover:bg-cream text-black"
-                  }`}
+                    }`}
                   aria-label={post.is_pinned ? "Unpin post" : "Pin post"}
                 >
                   <Pin size={10} strokeWidth={2.5} />
@@ -1817,9 +1813,8 @@ const MemoizedFeedPost = React.memo(
                   }));
                   onReact(post.id, emoji, isReacted);
                 }}
-                className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${
-                  isReacted ? "bg-lime" : "bg-white hover:bg-cream"
-                }`}
+                className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${isReacted ? "bg-lime" : "bg-white hover:bg-cream"
+                  }`}
               >
                 <span
                   key={`${burstKey}-${burstNonce}`}
@@ -2001,7 +1996,7 @@ function PostComments({ postId, user, userProfile, clubMembers, timeAgo }: PostC
       execute: async () => {
         deleteCommentMutation.mutate(commentId);
       },
-      rollback: () => {},
+      rollback: () => { },
     });
 
     toast("Comment deleted", {
