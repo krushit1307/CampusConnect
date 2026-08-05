@@ -38,6 +38,7 @@ const HEALTH_CHECK_URL =
   "/api/health";
 
 const HEALTH_CHECK_TIMEOUT = 8000; // 8 seconds
+const PrintableCharter = lazy(() => import("./routes/print.charter.$slug"));
 
 interface HealthStatus {
   ok: boolean;
@@ -163,6 +164,8 @@ const router = createBrowserRouter(
           <Route path=":slug/articles" element={<ClubArticlesRoute />} />
           <Route path=":slug/articles/:articleId" element={<ClubArticleDetailsRoute />} />
         </Route>
+
+        <Route path="/print/charter/:slug" element={<PrintableCharter />} />
 
         <Route path="/dashboard" element={<Dashboard />}>
           <Route index element={<DashboardOverview />} />

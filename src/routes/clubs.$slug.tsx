@@ -45,6 +45,7 @@ import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
 import { ClubHeader } from "@/components/Clubs/ClubHeader";
 import { ClubJobsSection } from "@/components/Clubs/ClubJobsSection";
 import { FlipCard } from "@/components/ui/FlipCard";
+import { useSearchParams } from "react-router-dom";
 
 interface ClubMemberProfile {
   full_name: string;
@@ -178,9 +179,9 @@ function ClubProfileSkeletonContent() {
 
 function ClubProfileSkeleton() {
   return (
-    <SiteShell>
+    <>
       <ClubProfileSkeletonContent />
-    </SiteShell>
+    </>
   );
 }
 
@@ -197,6 +198,9 @@ export default function ClubProfile() {
   const [isClubBookmarked, setIsClubBookmarked] = useState(false);
   const [bookmarkPending, setBookmarkPending] = useState(false);
   const { setLabel } = useBreadcrumbs();
+  const [searchParams] = useSearchParams();
+
+  const isPrintMode = searchParams.get("print") === "1";
 
   interface BulkEmailJob {
     id: string;
@@ -265,7 +269,7 @@ export default function ClubProfile() {
     mutationFn: async () => {
       if (!user || !club) throw new Error("Must be logged in");
       const isPublic = (club as { visibility?: string }).visibility === "public";
-      
+
       // Get the default Member role for this club
       const { data: memberRole, error: roleError } = await supabase
         .from("club_roles")
@@ -303,10 +307,13 @@ export default function ClubProfile() {
   const membership =
     user && club && Array.isArray(club.club_members)
       ? club.club_members.find(
-          (m: { user_id: string; club_roles: { title: string } | null; status: string }) => m.user_id === user.id,
+          (m: { user_id: string; club_roles: { title: string } | null; status: string }) =>
+            m.user_id === user.id,
         )
       : null;
-  const isAdmin = membership && (membership.club_roles?.title === "Admin" || membership.club_roles?.title === "Organizer");
+  const isAdmin =
+    membership &&
+    (membership.club_roles?.title === "Admin" || membership.club_roles?.title === "Organizer");
 
   useEffect(() => {
     if (!isAdmin || !club) return;
@@ -566,445 +573,469 @@ export default function ClubProfile() {
         <meta name="twitter:description" content={clubDescription} />
       </Helmet>
 
-      <SiteShell>
-        <AnimatePresence mode="sync">
-          {isLoading || !club ? (
-            <motion.div
-              key="club-profile-skeleton"
-              layout
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-            >
-              <ClubProfileSkeletonContent />
-            </motion.div>
-          ) : (
-            <motion.div
-              key="club-profile-loaded"
-              layout
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-            >
-              {/* Sticky header: shrinks the massive banner/logo away and pins the
+      {!isPrintMode && (
+        <SiteShell>
+          <AnimatePresence mode="sync">
+            {isLoading || !club ? (
+              <motion.div
+                key="club-profile-skeleton"
+                layout
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+              >
+                <ClubProfileSkeletonContent />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="club-profile-loaded"
+                layout
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+              >
+                {/* Sticky header: shrinks the massive banner/logo away and pins the
                   club name + Join button to the top as the user scrolls the feed. */}
-              <ClubHeader
-                clubName={club.name}
-                logoInitials={getInitials(club.name)}
-                eyebrow={<p className="eyebrow font-bold text-blue-900">Club</p>}
-                banner={
-                  <AudioReactiveBackground
-                    className="h-64 md:h-80 border-2 border-black rounded-lg shadow-xl"
-                    defaultPreset="neonPulse"
-                    interactive={true}
-                  />
-                }
-                secondaryActions={
-                  <>
-                    {membership && (
+                <ClubHeader
+                  clubName={club.name}
+                  logoInitials={getInitials(club.name)}
+                  eyebrow={<p className="eyebrow font-bold text-blue-900">Club</p>}
+                  banner={
+                    <AudioReactiveBackground
+                      className="h-64 md:h-80 border-2 border-black rounded-lg shadow-xl"
+                      defaultPreset="neonPulse"
+                      interactive={true}
+                    />
+                  }
+                  secondaryActions={
+                    <>
+                      {membership && (
+                        <Link
+                          to={`/clubs/${club.slug}/tasks`}
+                          className="neu-border neu-press bg-brand-blue-base text-white px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
+                        >
+                          Tasks
+                        </Link>
+                      )}
+                      {membership && (
+                        <Link
+                          to={`/clubs/${club.slug}/notes`}
+                          className="neu-border neu-press bg-lime px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
+                        >
+                          Meeting Notes
+                        </Link>
+                      )}
                       <Link
-                        to={`/clubs/${club.slug}/tasks`}
-                        className="neu-border neu-press bg-brand-blue-base text-white px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
+                        to={`/clubs/${club.slug}/articles`}
+                        className="neu-border neu-press bg-peach px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
                       >
-                        Tasks
+                        Club News
                       </Link>
-                    )}
-                    {membership && (
-                      <Link
-                        to={`/clubs/${club.slug}/notes`}
-                        className="neu-border neu-press bg-lime px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
-                      >
-                        Meeting Notes
-                      </Link>
-                    )}
-                    <Link
-                      to={`/clubs/${club.slug}/articles`}
-                      className="neu-border neu-press bg-peach px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
-                    >
-                      Club News
-                    </Link>
-                    {membership?.role === "admin" && (
-                      <Link
-                        to={`/clubs/${club.slug}/manage`}
-                        className="neu-border neu-press bg-brand-yellow-base px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
-                      >
-                        Manage Club
-                      </Link>
-                    )}
-                  </>
-                }
-                actions={renderJoinAction}
-              />
+                      {membership?.role === "admin" && (
+                        <Link
+                          to={`/clubs/${club.slug}/manage`}
+                          className="neu-border neu-press bg-brand-yellow-base px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
+                        >
+                          Manage Club
+                        </Link>
+                      )}
+                    </>
+                  }
+                  actions={renderJoinAction}
+                />
 
-              <section className="relative border-b-2 border-black px-4 pb-8 md:px-6 bg-slate-950 overflow-hidden">
-                <div className="mx-auto max-w-6xl">
-                  <div className="markdown-content mt-4 max-w-2xl font-mono text-sm md:text-base leading-relaxed border-b-2 border-black pb-6">
-                    {headings.length > 1 && (
-                      <nav
-                        className="mb-4 border-2 border-black bg-cream p-4"
-                        aria-label="Table of contents"
-                      >
-                        <p className="font-bold text-xs uppercase tracking-wider mb-2">
-                          Table of Contents
+                <div className="mx-auto max-w-6xl px-4 py-4">
+                  <a
+                    href={`/api/clubs/${club.slug}/charter.pdf`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="neu-border bg-white px-4 py-2 font-mono text-sm font-bold uppercase hover:bg-black hover:text-white transition"
+                  >
+                    Download Charter PDF
+                  </a>
+                </div>
+
+                <section className="relative border-b-2 border-black px-4 pb-8 md:px-6 bg-slate-950 overflow-hidden">
+                  <div className="mx-auto max-w-6xl">
+                    <div className="markdown-content mt-4 max-w-2xl font-mono text-sm md:text-base leading-relaxed border-b-2 border-black pb-6">
+                      {headings.length > 1 && (
+                        <nav
+                          className="mb-4 border-2 border-black bg-cream p-4"
+                          aria-label="Table of contents"
+                        >
+                          <p className="font-bold text-xs uppercase tracking-wider mb-2">
+                            Table of Contents
+                          </p>
+                          <ul className="space-y-1">
+                            {headings.map((h) => (
+                              <li key={h.id} style={{ paddingLeft: (h.depth - 1) * 16 }}>
+                                <a
+                                  href={`#${h.id}`}
+                                  onClick={(e) => handleTocClick(e, h.id)}
+                                  className="text-blue-900 underline hover:text-black"
+                                >
+                                  {h.text}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </nav>
+                      )}
+                      <ReactMarkdown components={mdComponents}>
+                        {club.description || ""}
+                      </ReactMarkdown>
+                    </div>
+
+                    {club.promo_video_url && (
+                      <div className="mt-8 max-w-2xl">
+                        <h3 className="font-display text-xl font-bold text-indigo-900 uppercase tracking-tight">
+                          Featured Club Promo
+                        </h3>
+                        <div className="neu-border bg-black aspect-video mt-4 overflow-hidden">
+                          <LazyHydrate height="360px">
+                            <VideoPlayer src={club.promo_video_url} title="Club Promo" />
+                          </LazyHydrate>
+                        </div>{" "}
+                      </div>
+                    )}
+
+                    {user && membership && membership.status === "approved" && (
+                      <div className="mt-12 max-w-2xl">
+                        <h3 className="font-display text-xl font-bold text-indigo-900 uppercase tracking-tight mb-4">
+                          Collaborative Group Notes
+                        </h3>
+                        <div className="neu-border bg-white p-6">
+                          <CollaborativeEditor
+                            groupId={club.id}
+                            user={{
+                              id: user.id,
+                              name: user.user_metadata?.full_name || user.email || "Member",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Officers — 3D flip cards for club leadership (issue #2324) */}
+                    {officers.length > 0 && (
+                      <div className="mt-8 max-w-2xl">
+                        <h3 className="font-display text-lg font-bold text-blue-900">Officers</h3>
+                        <p className="font-mono text-xs text-black mt-1 mb-3">
+                          Meet the team running {clubName} — hover or tap a card to flip it over.
                         </p>
-                        <ul className="space-y-1">
-                          {headings.map((h) => (
-                            <li key={h.id} style={{ paddingLeft: (h.depth - 1) * 16 }}>
-                              <a
-                                href={`#${h.id}`}
-                                onClick={(e) => handleTocClick(e, h.id)}
-                                className="text-blue-900 underline hover:text-black"
-                              >
-                                {h.text}
-                              </a>
+                        <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                          {officers.map((m) => (
+                            <li key={m.userId} className="h-44">
+                              <FlipCard
+                                className="h-full w-full"
+                                ariaLabel={`${m.name}'s bio`}
+                                front={
+                                  <div className="neu-border bg-white h-full w-full flex flex-col items-center justify-center gap-2 p-3 text-center">
+                                    <Avatar className="h-16 w-16 border-2 border-black rounded-full">
+                                      <AvatarImage
+                                        src={m.avatarUrl || undefined}
+                                        alt={m.name}
+                                        className="rounded-full"
+                                      />
+                                      <AvatarFallback className="rounded-full bg-brand-blue-light text-black font-bold">
+                                        {getInitials(m.name)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div className="min-w-0">
+                                      <p
+                                        className="font-mono text-sm font-bold truncate"
+                                        title={m.name}
+                                      >
+                                        {m.name}
+                                      </p>
+                                      <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-black/70">
+                                        Officer
+                                      </p>
+                                    </div>
+                                  </div>
+                                }
+                                back={
+                                  <div className="neu-border bg-lime h-full w-full overflow-y-auto p-4">
+                                    <p className="font-mono text-sm font-bold mb-2">{m.name}</p>
+                                    <p className="font-mono text-xs leading-relaxed text-gray-800">
+                                      {m.bio ||
+                                        `${m.name} is one of ${clubName}'s officers and helps keep this club running.`}
+                                    </p>
+                                  </div>
+                                }
+                              />
                             </li>
                           ))}
                         </ul>
-                      </nav>
-                    )}
-                    <ReactMarkdown components={mdComponents}>
-                      {club.description || ""}
-                    </ReactMarkdown>
-                  </div>
-
-                  {club.promo_video_url && (
-                    <div className="mt-8 max-w-2xl">
-                      <h3 className="font-display text-xl font-bold text-indigo-900 uppercase tracking-tight">
-                        Featured Club Promo
-                      </h3>
-                      <div className="neu-border bg-black aspect-video mt-4 overflow-hidden">
-                        <LazyHydrate height="360px">
-                          <VideoPlayer src={club.promo_video_url} title="Club Promo" />
-                        </LazyHydrate>
-                      </div>{" "}
-                    </div>
-                  )}
-
-                  {user && membership && membership.status === "approved" && (
-                    <div className="mt-12 max-w-2xl">
-                      <h3 className="font-display text-xl font-bold text-indigo-900 uppercase tracking-tight mb-4">
-                        Collaborative Group Notes
-                      </h3>
-                      <div className="neu-border bg-white p-6">
-                        <CollaborativeEditor
-                          groupId={club.id}
-                          user={{
-                            id: user.id,
-                            name: user.user_metadata?.full_name || user.email || "Member",
-                          }}
-                        />
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Officers — 3D flip cards for club leadership (issue #2324) */}
-                  {officers.length > 0 && (
+                    {/* Members section below the description */}
                     <div className="mt-8 max-w-2xl">
-                      <h3 className="font-display text-lg font-bold text-blue-900">Officers</h3>
+                      <h3 className="font-display text-lg font-bold text-blue-900">Members</h3>
                       <p className="font-mono text-xs text-black mt-1 mb-3">
-                        Meet the team running {clubName} — hover or tap a card to flip it over.
+                        {memberList.length} members total
                       </p>
-                      <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                        {officers.map((m) => (
-                          <li key={m.userId} className="h-44">
-                            <FlipCard
-                              className="h-full w-full"
-                              ariaLabel={`${m.name}'s bio`}
-                              front={
-                                <div className="neu-border bg-white h-full w-full flex flex-col items-center justify-center gap-2 p-3 text-center">
-                                  <Avatar className="h-16 w-16 border-2 border-black rounded-full">
-                                    <AvatarImage
-                                      src={m.avatarUrl || undefined}
-                                      alt={m.name}
-                                      className="rounded-full"
-                                    />
-                                    <AvatarFallback className="rounded-full bg-brand-blue-light text-black font-bold">
-                                      {getInitials(m.name)}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <div className="min-w-0">
-                                    <p
-                                      className="font-mono text-sm font-bold truncate"
-                                      title={m.name}
-                                    >
-                                      {m.name}
-                                    </p>
-                                    <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-black/70">
-                                      Officer
-                                    </p>
-                                  </div>
-                                </div>
-                              }
-                              back={
-                                <div className="neu-border bg-lime h-full w-full overflow-y-auto p-4">
-                                  <p className="font-mono text-sm font-bold mb-2">{m.name}</p>
-                                  <p className="font-mono text-xs leading-relaxed text-gray-800">
-                                    {m.bio ||
-                                      `${m.name} is one of ${clubName}'s officers and helps keep this club running.`}
-                                  </p>
-                                </div>
-                              }
+                      {memberList.length === 0 ? (
+                        <EmptyState
+                          illustration="no-members"
+                          title="No members yet."
+                          description="Be the first to join this club and help it grow."
+                        />
+                      ) : (
+                        <>
+                          <div className="mb-4">
+                            <input
+                              type="text"
+                              placeholder="Search members by name or handle..."
+                              aria-label="Search members by name or handle"
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              className="w-full border-2 border-black bg-white px-3 py-2 font-mono text-sm outline-none focus:bg-lime/10"
                             />
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Members section below the description */}
-                  <div className="mt-8 max-w-2xl">
-                    <h3 className="font-display text-lg font-bold text-blue-900">Members</h3>
-                    <p className="font-mono text-xs text-black mt-1 mb-3">
-                      {memberList.length} members total
-                    </p>
-                    {memberList.length === 0 ? (
-                      <EmptyState
-                        illustration="no-members"
-                        title="No members yet."
-                        description="Be the first to join this club and help it grow."
-                      />
-                    ) : (
-                      <>
-                        <div className="mb-4">
-                          <input
-                            type="text"
-                            placeholder="Search members by name or handle..."
-                            aria-label="Search members by name or handle"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full border-2 border-black bg-white px-3 py-2 font-mono text-sm outline-none focus:bg-lime/10"
-                          />
-                        </div>
-                        {filteredMembers.length === 0 ? (
-                          <EmptyState
-                            illustration="no-results"
-                            title="No members match your search."
-                          />
-                        ) : (
-                          <>
-                            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                              {displayedMembers.map((m: MemberItem, i: number) => (
-                                <li
-                                  key={m.handle || `${m.name}-${i}`}
-                                  className="neu-border bg-white flex items-center gap-3 p-3 font-mono text-sm"
-                                >
-                                  {m.handle ? (
-                                    <Link
-                                      to={`/profile/${m.handle}`}
-                                      className="relative h-10 w-10 shrink-0"
-                                    >
-                                      <Avatar className="h-10 w-10 border-2 border-black rounded-full transition-transform hover:scale-105">
-                                        <AvatarImage
-                                          src={m.avatarUrl || undefined}
-                                          alt={m.name}
-                                          className="rounded-full"
-                                        />
-                                        <AvatarFallback className="rounded-full bg-brand-blue-light text-black font-bold">
-                                          {getInitials(m.name)}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <span className="absolute bottom-0 right-0 rounded-full border-2 border-white bg-white p-0.5">
-                                        <span
-                                          className={getPresenceBadgeClass(
-                                            presenceMap[m.userId]?.status ?? "offline",
-                                          )}
-                                          aria-hidden="true"
-                                        />
-                                      </span>
-                                    </Link>
-                                  ) : (
-                                    <div className="relative h-10 w-10 shrink-0">
-                                      <Avatar className="h-10 w-10 border-2 border-black rounded-full">
-                                        <AvatarImage
-                                          src={m.avatarUrl || undefined}
-                                          alt={m.name}
-                                          className="rounded-full"
-                                        />
-                                        <AvatarFallback className="rounded-full bg-brand-blue-light text-black font-bold">
-                                          {getInitials(m.name)}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <span className="absolute bottom-0 right-0 rounded-full border-2 border-white bg-white p-0.5">
-                                        <span
-                                          className={getPresenceBadgeClass(
-                                            presenceMap[m.userId]?.status ?? "offline",
-                                          )}
-                                          aria-hidden="true"
-                                        />
-                                      </span>
-                                    </div>
-                                  )}
-                                  <div className="flex-1 min-w-0">
+                          </div>
+                          {filteredMembers.length === 0 ? (
+                            <EmptyState
+                              illustration="no-results"
+                              title="No members match your search."
+                            />
+                          ) : (
+                            <>
+                              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                {displayedMembers.map((m: MemberItem, i: number) => (
+                                  <li
+                                    key={m.handle || `${m.name}-${i}`}
+                                    className="neu-border bg-white flex items-center gap-3 p-3 font-mono text-sm"
+                                  >
                                     {m.handle ? (
-                                      <Link to={`/profile/${m.handle}`} className="hover:underline">
+                                      <Link
+                                        to={`/profile/${m.handle}`}
+                                        className="relative h-10 w-10 shrink-0"
+                                      >
+                                        <Avatar className="h-10 w-10 border-2 border-black rounded-full transition-transform hover:scale-105">
+                                          <AvatarImage
+                                            src={m.avatarUrl || undefined}
+                                            alt={m.name}
+                                            className="rounded-full"
+                                          />
+                                          <AvatarFallback className="rounded-full bg-brand-blue-light text-black font-bold">
+                                            {getInitials(m.name)}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <span className="absolute bottom-0 right-0 rounded-full border-2 border-white bg-white p-0.5">
+                                          <span
+                                            className={getPresenceBadgeClass(
+                                              presenceMap[m.userId]?.status ?? "offline",
+                                            )}
+                                            aria-hidden="true"
+                                          />
+                                        </span>
+                                      </Link>
+                                    ) : (
+                                      <div className="relative h-10 w-10 shrink-0">
+                                        <Avatar className="h-10 w-10 border-2 border-black rounded-full">
+                                          <AvatarImage
+                                            src={m.avatarUrl || undefined}
+                                            alt={m.name}
+                                            className="rounded-full"
+                                          />
+                                          <AvatarFallback className="rounded-full bg-brand-blue-light text-black font-bold">
+                                            {getInitials(m.name)}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <span className="absolute bottom-0 right-0 rounded-full border-2 border-white bg-white p-0.5">
+                                          <span
+                                            className={getPresenceBadgeClass(
+                                              presenceMap[m.userId]?.status ?? "offline",
+                                            )}
+                                            aria-hidden="true"
+                                          />
+                                        </span>
+                                      </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      {m.handle ? (
+                                        <Link
+                                          to={`/profile/${m.handle}`}
+                                          className="hover:underline"
+                                        >
+                                          <p className="font-bold truncate" title={m.name}>
+                                            {m.name}
+                                          </p>
+                                        </Link>
+                                      ) : (
                                         <p className="font-bold truncate" title={m.name}>
                                           {m.name}
                                         </p>
-                                      </Link>
-                                    ) : (
-                                      <p className="font-bold truncate" title={m.name}>
-                                        {m.name}
-                                      </p>
-                                    )}
-                                  </div>
-                                  <RoleBadge role={m.role} />
-                                </li>
-                              ))}
-                            </ul>
-                            {filteredMembers.length > 10 && (
-                              <button
-                                onClick={() => setIsExpanded(!isExpanded)}
-                                className="neu-border neu-press mt-4 bg-cream px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-black hover:text-cream transition-colors"
-                              >
-                                {isExpanded ? "View less" : "View all"}
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  <div className="mt-6 flex flex-wrap gap-3">
-                    <button
-                      onClick={handleClubBookmark}
-                      disabled={bookmarkPending}
-                      className="neu-border neu-press inline-flex items-center gap-2 bg-white px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-lime disabled:opacity-50"
-                    >
-                      <Bookmark
-                        className="h-3.5 w-3.5"
-                        fill={isClubBookmarked ? "black" : "none"}
-                      />
-                      {isClubBookmarked ? "Bookmarked" : "Bookmark"}
-                    </button>
-                    <button
-                      onClick={() => toast.info("Follow feature coming soon!")}
-                      className="neu-border neu-press bg-cream px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider"
-                    >
-                      Follow
-                    </button>
-                    <button
-                      onClick={() => setIsReportDialogOpen(true)}
-                      className="neu-border neu-press bg-white hover:bg-peach px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5"
-                    >
-                      <Flag size={12} />
-                      Report
-                    </button>
-                    {club.github_repo_url && (
-                      <a
-                        href={club.github_repo_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="neu-border neu-press inline-flex items-center gap-2 bg-white px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-lime/20"
-                      >
-                        <Github className="h-4 w-4" />
-                        GitHub Repo
-                      </a>
-                    )}
-                  </div>
-
-                  {isAdmin && (
-                    <div className="neu-border mt-8 border-2 border-black bg-white p-6 dark:bg-zinc-900 dark:border-cream">
-                      <h3 className="font-display text-xl font-bold uppercase tracking-tight text-indigo-900 dark:text-indigo-400">
-                        Club Newsletter Dispatcher
-                      </h3>
-                      <p className="mt-2 font-mono text-xs text-gray-600 dark:text-gray-400">
-                        Send a bulk announcement/newsletter to all {memberList.length} members. This
-                        will be processed asynchronously in the background to prevent server
-                        timeouts.
-                      </p>
-
-                      <div className="mt-6 flex flex-wrap items-center gap-4">
-                        <button
-                          onClick={() => sendNewsletterMutation.mutate()}
-                          disabled={sendNewsletterMutation.isPending}
-                          className="neu-border neu-press bg-lime px-6 py-2.5 font-mono text-xs font-bold uppercase tracking-wider text-black disabled:opacity-50"
-                        >
-                          {sendNewsletterMutation.isPending ? "Queuing..." : "Send Newsletter Now"}
-                        </button>
-
-                        {latestJob && (
-                          <div className="flex flex-col gap-1 border-l-2 border-black pl-4 font-mono text-xs dark:border-cream">
-                            <div>
-                              Status:{" "}
-                              <span
-                                className={`font-bold uppercase ${
-                                  latestJob.status === "completed"
-                                    ? "text-emerald-600"
-                                    : latestJob.status === "failed"
-                                      ? "text-rose-600"
-                                      : "text-amber-500 animate-pulse"
-                                }`}
-                              >
-                                {latestJob.status}
-                              </span>
-                            </div>
-                            {latestJob.total_count > 0 && (
-                              <div>
-                                Progress:{" "}
-                                <span className="font-bold">
-                                  {latestJob.processed_count} / {latestJob.total_count}
-                                </span>{" "}
-                                emails sent
-                              </div>
-                            )}
-                            {latestJob.error_message && (
-                              <div className="text-rose-600 text-[10px]">
-                                Error: {latestJob.error_message}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                                      )}
+                                    </div>
+                                    <RoleBadge role={m.role} />
+                                  </li>
+                                ))}
+                              </ul>
+                              {filteredMembers.length > 10 && (
+                                <button
+                                  onClick={() => setIsExpanded(!isExpanded)}
+                                  className="neu-border neu-press mt-4 bg-cream px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-black hover:text-cream transition-colors"
+                                >
+                                  {isExpanded ? "View less" : "View all"}
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </>
+                      )}
                     </div>
-                  )}
-                </div>
-              </section>
 
-              <section className="px-4 py-12 md:px-6">
-                <div className="mx-auto max-w-6xl">
-                  <div className="neu-border bg-white p-6">
-                    <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold text-black">
-                      Upcoming events
-                    </h2>
-                    {events.length === 0 ? (
-                      <EmptyState
-                        illustration="no-events"
-                        title="No upcoming events."
-                        description="Check back soon — this club hasn't scheduled anything yet."
-                      />
-                    ) : (
-                      <ul className="divide-y-2 divide-black">
-                        {events.map((e: ClubEvent) => (
-                          <li key={e.id} className="flex items-center gap-4 py-4">
-                            <div className="neu-border bg-gray-100 px-3 py-2 font-mono text-xs font-bold text-gray-700">
-                              {e.event_date
-                                ? new Date(e.event_date)
-                                    .toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                                    .toUpperCase()
-                                : "TBA"}
+                    <div className="mt-6 flex flex-wrap gap-3">
+                      <button
+                        onClick={handleClubBookmark}
+                        disabled={bookmarkPending}
+                        className="neu-border neu-press inline-flex items-center gap-2 bg-white px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-lime disabled:opacity-50"
+                      >
+                        <Bookmark
+                          className="h-3.5 w-3.5"
+                          fill={isClubBookmarked ? "black" : "none"}
+                        />
+                        {isClubBookmarked ? "Bookmarked" : "Bookmark"}
+                      </button>
+                      <button
+                        onClick={() => toast.info("Follow feature coming soon!")}
+                        className="neu-border neu-press bg-cream px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider"
+                      >
+                        Follow
+                      </button>
+                      <button
+                        onClick={() => setIsReportDialogOpen(true)}
+                        className="neu-border neu-press bg-white hover:bg-peach px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5"
+                      >
+                        <Flag size={12} />
+                        Report
+                      </button>
+                      {club.github_repo_url && (
+                        <a
+                          href={club.github_repo_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="neu-border neu-press inline-flex items-center gap-2 bg-white px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-lime/20"
+                        >
+                          <Github className="h-4 w-4" />
+                          GitHub Repo
+                        </a>
+                      )}
+                    </div>
+
+                    {isAdmin && (
+                      <div className="neu-border mt-8 border-2 border-black bg-white p-6 dark:bg-zinc-900 dark:border-cream">
+                        <h3 className="font-display text-xl font-bold uppercase tracking-tight text-indigo-900 dark:text-indigo-400">
+                          Club Newsletter Dispatcher
+                        </h3>
+                        <p className="mt-2 font-mono text-xs text-gray-600 dark:text-gray-400">
+                          Send a bulk announcement/newsletter to all {memberList.length} members.
+                          This will be processed asynchronously in the background to prevent server
+                          timeouts.
+                        </p>
+
+                        <div className="mt-6 flex flex-wrap items-center gap-4">
+                          <button
+                            onClick={() => sendNewsletterMutation.mutate()}
+                            disabled={sendNewsletterMutation.isPending}
+                            className="neu-border neu-press bg-lime px-6 py-2.5 font-mono text-xs font-bold uppercase tracking-wider text-black disabled:opacity-50"
+                          >
+                            {sendNewsletterMutation.isPending
+                              ? "Queuing..."
+                              : "Send Newsletter Now"}
+                          </button>
+
+                          {latestJob && (
+                            <div className="flex flex-col gap-1 border-l-2 border-black pl-4 font-mono text-xs dark:border-cream">
+                              <div>
+                                Status:{" "}
+                                <span
+                                  className={`font-bold uppercase ${
+                                    latestJob.status === "completed"
+                                      ? "text-emerald-600"
+                                      : latestJob.status === "failed"
+                                        ? "text-rose-600"
+                                        : "text-amber-500 animate-pulse"
+                                  }`}
+                                >
+                                  {latestJob.status}
+                                </span>
+                              </div>
+                              {latestJob.total_count > 0 && (
+                                <div>
+                                  Progress:{" "}
+                                  <span className="font-bold">
+                                    {latestJob.processed_count} / {latestJob.total_count}
+                                  </span>{" "}
+                                  emails sent
+                                </div>
+                              )}
+                              {latestJob.error_message && (
+                                <div className="text-rose-600 text-[10px]">
+                                  Error: {latestJob.error_message}
+                                </div>
+                              )}
                             </div>
-                            <p className="flex-1 font-display font-bold">{e.title}</p>
-                          </li>
-                        ))}
-                      </ul>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
-                </div>
-              </section>
+                </section>
 
-              <ReportDialog
-                isOpen={isReportDialogOpen}
-                onClose={() => setIsReportDialogOpen(false)}
-                targetType="club"
-                targetId={club.id}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </SiteShell>
+                <section className="px-4 py-12 md:px-6">
+                  <div className="mx-auto max-w-6xl">
+                    <div className="neu-border bg-white p-6">
+                      <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold text-black">
+                        Upcoming events
+                      </h2>
+                      {events.length === 0 ? (
+                        <EmptyState
+                          illustration="no-events"
+                          title="No upcoming events."
+                          description="Check back soon — this club hasn't scheduled anything yet."
+                        />
+                      ) : (
+                        <ul className="divide-y-2 divide-black">
+                          {events.map((e: ClubEvent) => (
+                            <li key={e.id} className="flex items-center gap-4 py-4">
+                              <div className="neu-border bg-gray-100 px-3 py-2 font-mono text-xs font-bold text-gray-700">
+                                {e.event_date
+                                  ? new Date(e.event_date)
+                                      .toLocaleDateString("en-US", {
+                                        month: "short",
+                                        day: "numeric",
+                                      })
+                                      .toUpperCase()
+                                  : "TBA"}
+                              </div>
+                              <p className="flex-1 font-display font-bold">{e.title}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </section>
+
+                <ReportDialog
+                  isOpen={isReportDialogOpen}
+                  onClose={() => setIsReportDialogOpen(false)}
+                  targetType="club"
+                  targetId={club.id}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </SiteShell>
+      )}
+      {isPrintMode && (
+        <div className="mx-auto max-w-4xl p-10 bg-white text-black">{/* Charter */}</div>
+      )}
     </>
   );
 }
