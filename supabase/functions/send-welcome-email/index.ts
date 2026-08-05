@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
+import { outboundCommunicationLimiter } from "../_shared/rateLimiter.ts";
 
 declare const Deno: {
   env: {
@@ -42,6 +43,20 @@ serve(async (req: Request) => {
       body?.fullName ||
       "CampusConnect Member";
     const dlqId = body?.dlq_id;
+
+    // --- Rate Limiting Logic ---
+    const ipAddress = req.headers.get("x-forwarded-for") || "unknown-ip";
+    const identifier = userId || ipAddress;
+    const { success } = await outboundCommunicationLimiter.limit(identifier);
+
+    if (!success) {
+      console.warn(`[RateLimit] Outbound communication blocked for identifier: ${identifier}`);
+      return new Response(
+        JSON.stringify({ error: "Too Many Requests. Maximum 5 requests per 15 minutes." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    // ---------------------------
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
