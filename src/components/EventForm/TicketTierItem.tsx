@@ -9,7 +9,7 @@ import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { Trash2, GripVertical, DollarSign, Users, Tag } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { format } from "date-fns";
+import format from "date-fns/format";
 
 interface TicketTierItemProps {
   index: number;

@@ -1,5 +1,10 @@
 import React, { useState, useCallback, useMemo } from "react";
-import { format, addHours, differenceInHours, isSameDay, startOfWeek, addDays } from "date-fns";
+import format from "date-fns/format";
+import addHours from "date-fns/addHours";
+import differenceInHours from "date-fns/differenceInHours";
+import isSameDay from "date-fns/isSameDay";
+import startOfWeek from "date-fns/startOfWeek";
+import addDays from "date-fns/addDays";
 import { cn } from "../../lib/utils";
 import { Calendar, Clock, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 import { Button } from "../ui/button";

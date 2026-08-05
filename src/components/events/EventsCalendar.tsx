@@ -1,5 +1,8 @@
-import { format, getDay, parse, startOfWeek } from "date-fns";
-import { enUS } from "date-fns/locale";
+import format from "date-fns/format";
+import getDay from "date-fns/getDay";
+import parse from "date-fns/parse";
+import startOfWeek from "date-fns/startOfWeek";
+import enUS from "date-fns/locale/en-US";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useRef } from "react";
 import "react-big-calendar/lib/css/react-big-calendar.css";

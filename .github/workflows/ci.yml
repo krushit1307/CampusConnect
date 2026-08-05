@@ -162,7 +162,8 @@ jobs:
       - name: Run pgTAP database tests
         run: ./scripts/run-pgtap-tests.sh \
           supabase/tests/member_count_trigger.test.sql \
-          supabase/tests/upcoming_events_feed_rpc.test.sql
+          supabase/tests/upcoming_events_feed_rpc.test.sql \
+          supabase/tests/sanitize_club_description_trigger.test.sql
 
       - name: Stop Supabase
         if: always()

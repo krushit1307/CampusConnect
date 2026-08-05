@@ -18,8 +18,8 @@ import { PageWrapper } from "./components/PageWrapper";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { CommandPalette } from "./components/ui/command-palette";
 import MaintenancePage from "./components/MaintenancePage";
+import { CommandPaletteProvider } from "@/components/CommandPaletteProvider";
 import { NotFoundPage } from "./components/NotFoundPage";
 import { createClient } from "./lib/supabase/client";
 import { BreadcrumbProvider } from "@/components/BreadcrumbsContext";
@@ -291,17 +291,18 @@ export default function App() {
               development instead of shipping to production.
             */}
             <LazyMotion features={loadDomAnimation} strict={import.meta.env.DEV}>
-              <CommandPalette />
-              {/* Floating Dark Mode Toggle */}
-              <div className="fixed bottom-4 right-4 z-[9999]">
-                <ThemeToggle />
-              </div>
+              <CommandPaletteProvider>
+                {/* Floating Dark Mode Toggle */}
+                <div className="fixed bottom-4 right-4 z-[9999]">
+                  <ThemeToggle />
+                </div>
 
-              <BreadcrumbProvider>
-                <MotionConfig reducedMotion="user">
-                  <RouterProvider router={router} />
-                </MotionConfig>
-              </BreadcrumbProvider>
+                <BreadcrumbProvider>
+                  <MotionConfig reducedMotion="user">
+                    <RouterProvider router={router} />
+                  </MotionConfig>
+                </BreadcrumbProvider>
+              </CommandPaletteProvider>
             </LazyMotion>
           </ErrorBoundary>
         </QueryClientProvider>

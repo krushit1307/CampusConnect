@@ -14,7 +14,10 @@ import {
   WifiOff,
 } from "lucide-react";
 import { toast } from "sonner";
-import { format, isToday, isYesterday, isThisWeek } from "date-fns";
+import format from "date-fns/format";
+import isToday from "date-fns/isToday";
+import isYesterday from "date-fns/isYesterday";
+import isThisWeek from "date-fns/isThisWeek";
 import { SwipeToDismiss } from "@/components/ui/SwipeToDismiss";
 import { useGraphQLSubscription } from "@/hooks/useGraphQLSubscription";
 import {

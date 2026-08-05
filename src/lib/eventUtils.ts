@@ -1,14 +1,12 @@
 import { z } from "zod";
-import { format } from "date-fns";
-import {
-  startOfWeek,
-  endOfWeek,
-  addMonths,
-  startOfMonth,
-  endOfMonth,
-  isSameDay,
-  isWithinInterval,
-} from "date-fns";
+import format from "date-fns/format";
+import startOfWeek from "date-fns/startOfWeek";
+import endOfWeek from "date-fns/endOfWeek";
+import addMonths from "date-fns/addMonths";
+import startOfMonth from "date-fns/startOfMonth";
+import endOfMonth from "date-fns/endOfMonth";
+import isSameDay from "date-fns/isSameDay";
+import isWithinInterval from "date-fns/isWithinInterval";
 
 export const TITLE_MAX_LENGTH = 100;
 
