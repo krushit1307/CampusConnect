@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
 import {
   clubFormSchema,
   MAX_DESCRIPTION_LENGTH,
@@ -104,7 +105,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
         .insert({
           name: values.name.trim(),
           slug: values.slug.trim(),
-          description: values.description.trim(),
+          description: sanitizeHtml(values.description.trim()),
           logo_url: values.logo_url || null,
           category_id: values.category_id || null,
           created_by: user.id,

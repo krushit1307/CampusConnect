@@ -3,7 +3,10 @@ import { ActivityCalendar, ThemeInput } from "react-activity-calendar";
 import { createClient } from "@/lib/supabase/client";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import "react-tooltip/dist/react-tooltip.css";
-import { format, subDays, startOfYear, isSameDay } from "date-fns";
+import format from "date-fns/format";
+import subDays from "date-fns/subDays";
+import startOfYear from "date-fns/startOfYear";
+import isSameDay from "date-fns/isSameDay";
 
 interface HeatmapData {
   date: string;

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Mail, UserCheck } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
 import { triggerConfetti } from "@/utils/confetti";
 import { clubFormSchema, type ClubFormValues } from "@/lib/clubUtils";
 import { Wizard, type WizardStep } from "@/components/wizard/Wizard";
@@ -126,7 +127,7 @@ export default function CreateClubWizard() {
         .insert({
           name: values.name.trim(),
           slug: values.slug.trim(),
-          description: values.description.trim(),
+          description: sanitizeHtml(values.description.trim()),
           logo_url: values.logo_url || null,
           category_id: values.category_id || null,
           github_repo_url: values.github_repo_url ?? null,
