@@ -165,7 +165,7 @@ class ConfettiParticle {
     innerRadius: number,
   ): void {
     let rotation = (Math.PI / 2) * 3;
-    let step = Math.PI / points;
+    const step = Math.PI / points;
 
     ctx.beginPath();
     ctx.moveTo(0, -outerRadius);

@@ -5,14 +5,10 @@ type HoverLinkProps = LinkProps & {
   prefetch?: () => void | Promise<void>;
 };
 
-export const HoverLink = forwardRef<HTMLAnchorElement, HoverLinkProps>(function HoverLink({
-  prefetch,
-  onMouseEnter,
-  onMouseLeave,
-  onTouchStart,
-  onFocus,
-  ...props
-}, ref) {
+export const HoverLink = forwardRef<HTMLAnchorElement, HoverLinkProps>(function HoverLink(
+  { prefetch, onMouseEnter, onMouseLeave, onTouchStart, onFocus, ...props },
+  ref,
+) {
   const hasPrefetchedRef = useRef(false);
   const triggerPrefetch = useCallback(() => {
     if (!prefetch || hasPrefetchedRef.current) return;
@@ -52,7 +48,7 @@ export const HoverLink = forwardRef<HTMLAnchorElement, HoverLinkProps>(function 
     [onFocus, triggerPrefetch],
   );
 
-return (
+  return (
     <Link
       ref={ref}
       {...props}

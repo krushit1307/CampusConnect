@@ -8,7 +8,12 @@ export interface StepIndicatorProps {
   isStepReachable?: (stepIndex: number) => boolean;
 }
 
-export function StepIndicator({ currentStep, steps, onStepClick, isStepReachable }: StepIndicatorProps) {
+export function StepIndicator({
+  currentStep,
+  steps,
+  onStepClick,
+  isStepReachable,
+}: StepIndicatorProps) {
   const totalSteps = steps.length;
   // Calculate percentage fill of the line (0% to 100%)
   const fillPercentage = totalSteps > 1 ? ((currentStep - 1) / (totalSteps - 1)) * 100 : 0;
@@ -69,7 +74,11 @@ export function StepIndicator({ currentStep, steps, onStepClick, isStepReachable
               <div className="absolute top-12 hidden md:block w-32 text-center">
                 <span
                   className={`font-mono text-xs uppercase tracking-wider font-bold block truncate ${
-                    isActive ? "text-black font-black" : isCompleted ? "text-emerald-600" : "text-gray-400"
+                    isActive
+                      ? "text-black font-black"
+                      : isCompleted
+                        ? "text-emerald-600"
+                        : "text-gray-400"
                   }`}
                 >
                   {title}

@@ -34,9 +34,7 @@ describe("Cosine Similarity Recommendations API", () => {
   });
 
   it("should fail with 401 if authorization header is missing", async () => {
-    const res = await request(app)
-      .get("/api/activitypub/users/me/recommendations")
-      .expect(401);
+    const res = await request(app).get("/api/activitypub/users/me/recommendations").expect(401);
 
     expect(res.body.error).toBe("Unauthorized");
   });
