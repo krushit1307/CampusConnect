@@ -21,7 +21,13 @@ import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/Dashb
 import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
 import LazyHydrate from "@/components/LazyHydrate";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import type { Club } from "./clubs.index";
+interface Club {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  member_count?: number;
+}
 
 interface SavedEventDetails {
   id: string;

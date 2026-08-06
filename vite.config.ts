@@ -20,7 +20,7 @@ function lucideImportOptimizer() {
 
       // Matches imports like: import { ... } from "lucide-react";
       // Excludes "import type { ... }" by checking negative lookahead (?!type\s+)
-      const regex = /import\s+(?!type\s+)\{([\s\S]*?)\}\s+from\s+['"]lucide-react['"];?/g;
+      const regex = /import\s+(?!type\s+)\{([^}]+)\}\s+from\s+['"]lucide-react['"];?/g;
 
       let hasChanged = false;
       const newCode = code.replace(regex, (match, specifiers) => {
@@ -175,24 +175,24 @@ export default defineConfig({
             },
           }),
         ]),
-    ...(process.env.STORYBOOK === "true"
-      ? []
-      : [
-          federation({
-            name: "host",
-            remotes: {},
-            shared: {
-              react: {
-                singleton: true,
-                requiredVersion: "^19.2.7",
-              },
-              "react-dom": {
-                singleton: true,
-                requiredVersion: "^19.2.0",
-              },
-            },
-          }),
-        ]),
+    // ...(process.env.STORYBOOK === "true"
+    //   ? []
+    //   : [
+    //       federation({
+    //         name: "host",
+    //         remotes: {},
+    //         shared: {
+    //           react: {
+    //             singleton: true,
+    //             requiredVersion: "^19.2.7",
+    //           },
+    //           "react-dom": {
+    //             singleton: true,
+    //             requiredVersion: "^19.2.0",
+    //           },
+    //         },
+    //       }),
+    //     ]),
   ],
   resolve: {
     alias: {
