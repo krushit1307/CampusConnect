@@ -307,12 +307,14 @@ function EventsPage() {
 
   return (
     <SiteShell>
-<PullToRefresh
-  isRefreshing={isFetching}
-  onRefresh={async () => {
-    await refetch();
-  }}
->        <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
+      <PullToRefresh
+        isRefreshing={isFetching}
+        onRefresh={async () => {
+          await refetch();
+        }}
+      >
+        {" "}
+        <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
           <div className="mx-auto flex max-w-7xl flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -328,155 +330,157 @@ function EventsPage() {
               </h1>
             </div>
 
-          <div className="flex flex-col items-end gap-3 w-full md:w-auto">
-            <div className="relative w-full md:w-80">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setIsAutocompleteOpen(true);
-                }}
-                onFocus={() => {
-                  if (searchQuery.trim().length > 0) setIsAutocompleteOpen(true);
-                }}
-                placeholder="Search events by name, location..."
-                className="neu-border w-full bg-white pl-9 pr-8 py-2 font-mono text-xs focus:outline-none placeholder:text-neutral-500"
-              />
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-neutral-500 pointer-events-none" />
-              {searchQuery && (
-                <button
-                  onClick={() => {
-                    setSearchQuery("");
+            <div className="flex flex-col items-end gap-3 w-full md:w-auto">
+              <div className="relative w-full md:w-80">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setIsAutocompleteOpen(true);
+                  }}
+                  onFocus={() => {
+                    if (searchQuery.trim().length > 0) setIsAutocompleteOpen(true);
+                  }}
+                  placeholder="Search events by name, location..."
+                  className="neu-border w-full bg-white pl-9 pr-8 py-2 font-mono text-xs focus:outline-none placeholder:text-neutral-500"
+                />
+                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-neutral-500 pointer-events-none" />
+                {searchQuery && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery("");
+                      setIsAutocompleteOpen(false);
+                    }}
+                    className="absolute right-2.5 top-1.5 font-mono text-sm font-bold text-neutral-500 hover:text-black cursor-pointer"
+                  >
+                    ×
+                  </button>
+                )}
+                <AutocompleteDropdown
+                  query={debouncedSearchQuery}
+                  isOpen={isAutocompleteOpen && debouncedSearchQuery.length > 0}
+                  isLoading={isAutocompleteLoading}
+                  results={autocompleteResults || []}
+                  onSelect={(result) => {
+                    setSearchQuery(result.title);
+                    setFilter("All");
                     setIsAutocompleteOpen(false);
                   }}
-                  className="absolute right-2.5 top-1.5 font-mono text-sm font-bold text-neutral-500 hover:text-black cursor-pointer"
-                >
-                  ×
-                </button>
-              )}
-              <AutocompleteDropdown
-                query={debouncedSearchQuery}
-                isOpen={isAutocompleteOpen && debouncedSearchQuery.length > 0}
-                isLoading={isAutocompleteLoading}
-                results={autocompleteResults || []}
-                onSelect={(result) => {
-                  setSearchQuery(result.title);
-                  setFilter("All");
-                  setIsAutocompleteOpen(false);
-                }}
-                onClose={() => setIsAutocompleteOpen(false)}
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="neu-border flex cursor-pointer select-none items-center gap-2 bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-white md:mr-2 text-black">
-                <input
-                  type="checkbox"
-                  checked={hidePastEvents}
-                  onChange={(e) => setHidePastEvents(e.target.checked)}
-                  className="h-4 w-4 accent-black cursor-pointer text-black"
+                  onClose={() => setIsAutocompleteOpen(false)}
                 />
-                Hide Past Events
-              </label>
-              {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setFilter(t)}
-                  className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase ${filter === t ? "bg-black text-cream" : "bg-white text-black"}`}
-                >
-                  {t}
-                </button>
-              ))}
-              {filter !== "All" && (
-                <button
-                  onClick={() => setFilter("All")}
-                  className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream cursor-pointer"
-                >
-                  Clear All
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-              <div className="neu-border flex bg-white p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setViewMode("list")}
-                  className={`px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer ${
-                    viewMode === "list"
-                      ? "bg-black text-cream"
-                      : "bg-white text-black hover:bg-cream"
-                  }`}
-                >
-                  List
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode("calendar")}
-                  className={`px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer ${
-                    viewMode === "calendar"
-                      ? "bg-black text-cream"
-                      : "bg-white text-black hover:bg-cream"
-                  }`}
-                >
-                  Calendar
-                </button>
               </div>
 
-              <Select
-                value={sortOrder}
-                onValueChange={(value) => setSortOrder(value as "newest" | "oldest")}
-              >
-                <SelectTrigger className="neu-border w-44 bg-white font-mono text-xs text-black">
-                  <SelectValue placeholder="Sort by date" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">Newest First</SelectItem>
-                  <SelectItem value="oldest">Oldest First</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="neu-border flex cursor-pointer select-none items-center gap-2 bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-white md:mr-2 text-black">
+                  <input
+                    type="checkbox"
+                    checked={hidePastEvents}
+                    onChange={(e) => setHidePastEvents(e.target.checked)}
+                    className="h-4 w-4 accent-black cursor-pointer text-black"
+                  />
+                  Hide Past Events
+                </label>
+                {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setFilter(t)}
+                    className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase ${filter === t ? "bg-black text-cream" : "bg-white text-black"}`}
+                  >
+                    {t}
+                  </button>
+                ))}
+                {filter !== "All" && (
+                  <button
+                    onClick={() => setFilter("All")}
+                    className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream cursor-pointer"
+                  >
+                    Clear All
+                  </button>
+                )}
+              </div>
 
-              <CreateEventDialog user={user} />
+              <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+                <div className="neu-border flex bg-white p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("list")}
+                    className={`px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer ${
+                      viewMode === "list"
+                        ? "bg-black text-cream"
+                        : "bg-white text-black hover:bg-cream"
+                    }`}
+                  >
+                    List
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("calendar")}
+                    className={`px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer ${
+                      viewMode === "calendar"
+                        ? "bg-black text-cream"
+                        : "bg-white text-black hover:bg-cream"
+                    }`}
+                  >
+                    Calendar
+                  </button>
+                </div>
+
+                <Select
+                  value={sortOrder}
+                  onValueChange={(value) => setSortOrder(value as "newest" | "oldest")}
+                >
+                  <SelectTrigger className="neu-border w-44 bg-white font-mono text-xs text-black">
+                    <SelectValue placeholder="Sort by date" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest">Newest First</SelectItem>
+                    <SelectItem value="oldest">Oldest First</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <CreateEventDialog user={user} />
+              </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      <section className="bg-cream px-4 py-12 md:px-6">
-        <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {isFetching && !isLoading && (
-            <div className="col-span-full text-center font-mono text-xs text-gray-500">
-              Refreshing...
-            </div>
-          )}
-          {isLoading ? (
-            <div className="col-span-full font-mono text-center py-10">Loading events...</div>
-          ) : (
-            filteredEvents.map((e, index) => (
-              <EventCard
-                key={e.id}
-                event={e}
-                index={index}
-                user={user}
-                onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
-                isRsvpPending={toggleRsvp.isPending}
-                onBookmarkToggle={(eventId, isSaved) => toggleBookmark.mutate({ eventId, isSaved })}
-                isBookmarkPending={toggleBookmark.isPending}
-              />
-            ))
-          )}
-        </div>
-        <div className="mx-auto max-w-7xl mt-4 flex justify-center">
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="neu-border bg-white px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-cream"
-          >
-            Refresh
-          </button>
-        </div>
-      </section>
+        </section>
+        <section className="bg-cream px-4 py-12 md:px-6">
+          <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {isFetching && !isLoading && (
+              <div className="col-span-full text-center font-mono text-xs text-gray-500">
+                Refreshing...
+              </div>
+            )}
+            {isLoading ? (
+              <div className="col-span-full font-mono text-center py-10">Loading events...</div>
+            ) : (
+              filteredEvents.map((e, index) => (
+                <EventCard
+                  key={e.id}
+                  event={e}
+                  index={index}
+                  user={user}
+                  onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
+                  isRsvpPending={toggleRsvp.isPending}
+                  onBookmarkToggle={(eventId, isSaved) =>
+                    toggleBookmark.mutate({ eventId, isSaved })
+                  }
+                  isBookmarkPending={toggleBookmark.isPending}
+                />
+              ))
+            )}
+          </div>
+          <div className="mx-auto max-w-7xl mt-4 flex justify-center">
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="neu-border bg-white px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-cream"
+            >
+              Refresh
+            </button>
+          </div>
+        </section>
+      </PullToRefresh>
     </SiteShell>
   );
 }

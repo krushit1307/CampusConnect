@@ -258,11 +258,7 @@ export default function ClubProfile() {
       if (next) {
         await supabase.from("bookmarks").insert({ user_id: user.id, club_id: club.id });
       } else {
-        await supabase
-          .from("bookmarks")
-          .delete()
-          .eq("user_id", user.id)
-          .eq("club_id", club.id);
+        await supabase.from("bookmarks").delete().eq("user_id", user.id).eq("club_id", club.id);
       }
       toast.success(next ? "Club bookmarked!" : "Bookmark removed.");
     } catch {
@@ -998,7 +994,6 @@ export default function ClubProfile() {
                         </div>
                       </div>
                     )}
-
                   </div>
                 </section>
 
@@ -1053,6 +1048,4 @@ export default function ClubProfile() {
       )}
     </>
   );
-}
-
 }

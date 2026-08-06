@@ -52,11 +52,7 @@ function ResultCard({ result }: { result: VerificationResult }) {
         }`}
       >
         <div className="neu-border bg-white p-2.5 shrink-0">
-          {verified ? (
-            <ShieldCheck className="h-7 w-7" />
-          ) : (
-            <ShieldX className="h-7 w-7" />
-          )}
+          {verified ? <ShieldCheck className="h-7 w-7" /> : <ShieldX className="h-7 w-7" />}
         </div>
         <div>
           <p className="eyebrow font-bold text-xs uppercase mb-1">
@@ -65,9 +61,7 @@ function ResultCard({ result }: { result: VerificationResult }) {
           <p className="font-display text-xl font-bold leading-tight">
             {verified ? "Verified on the blockchain" : result.status.replace(/_/g, " ")}
           </p>
-          <p className="font-mono text-xs text-gray-700 mt-1">
-            {result.message || result.error}
-          </p>
+          <p className="font-mono text-xs text-gray-700 mt-1">{result.message || result.error}</p>
         </div>
       </div>
 
@@ -161,7 +155,6 @@ export default function VerifyCertificate() {
         .catch((err) => setError(err.message))
         .finally(() => setLoading(false));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuery]);
 
   const handleVerify = async (e: FormEvent) => {
@@ -195,7 +188,9 @@ export default function VerifyCertificate() {
             </div>
             <div>
               <p className="eyebrow font-bold text-xs uppercase mb-1">CampusConnect</p>
-              <h1 className="font-display text-3xl md:text-4xl font-bold">Certificate Verification</h1>
+              <h1 className="font-display text-3xl md:text-4xl font-bold">
+                Certificate Verification
+              </h1>
               <p className="font-mono text-sm text-gray-700 mt-2 max-w-xl">
                 Every certificate hash is anchored to the Polygon blockchain in daily Merkle
                 batches. Paste a certificate ID, verification hash, or full proof URL below to
@@ -217,7 +212,11 @@ export default function VerifyCertificate() {
               disabled={loading}
               className="neu-border neu-press bg-black text-cream hover:bg-sky hover:text-black py-3 px-6 font-mono text-xs font-bold uppercase inline-flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
               Verify
             </button>
           </form>

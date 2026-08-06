@@ -4,11 +4,16 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { SortableList } from "@/components/ui/SortableList";
 
-const PLATFORM_META: Record<string, { label: string; icon: typeof Twitter; placeholder: string }> = {
-  website: { label: "Website URL", icon: Globe, placeholder: "https://example.com" },
-  twitter: { label: "Twitter URL", icon: Twitter, placeholder: "https://twitter.com/username" },
-  instagram: { label: "Instagram URL", icon: Link2, placeholder: "https://instagram.com/username" },
-};
+const PLATFORM_META: Record<string, { label: string; icon: typeof Twitter; placeholder: string }> =
+  {
+    website: { label: "Website URL", icon: Globe, placeholder: "https://example.com" },
+    twitter: { label: "Twitter URL", icon: Twitter, placeholder: "https://twitter.com/username" },
+    instagram: {
+      label: "Instagram URL",
+      icon: Link2,
+      placeholder: "https://instagram.com/username",
+    },
+  };
 
 interface ClubSocialLinksEditorProps {
   clubId: string;

@@ -1020,151 +1020,151 @@ export default function Feed() {
       <div>
         <PullToRefresh onRefresh={handleRefetch} isRefreshing={isFetching}>
           <div>
-          <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
-          <div className="mx-auto max-w-4xl">
-            <p className="eyebrow font-bold">Discussion feed</p>
-            <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">
-              What clubs are talking about.
-            </h1>
-            </div>
-          </section>
-          <section className="border-b-2 border-black bg-cream px-4 py-8 md:px-6">
-            <GlobalFeedStats />
-          </section>
+            <section className="border-b-2 border-black bg-peach px-4 py-14 md:px-6">
+              <div className="mx-auto max-w-4xl">
+                <p className="eyebrow font-bold">Discussion feed</p>
+                <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-6xl">
+                  What clubs are talking about.
+                </h1>
+              </div>
+            </section>
+            <section className="border-b-2 border-black bg-cream px-4 py-8 md:px-6">
+              <GlobalFeedStats />
+            </section>
 
-        <section className="bg-cream px-4 py-12 md:px-6">
-          <div className="mx-auto max-w-4xl space-y-6">
-            <div className="space-y-3">
-              {hasDraft && (
-                <div className="neu-border flex items-center justify-between gap-3 bg-[#FFF9C4] px-4 py-2 font-mono text-xs">
-                  <span className="font-bold">📝 You have an unsaved draft. Restore it?</span>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={restoreDraft}
-                      className="neu-border bg-black px-3 py-1 font-bold text-cream uppercase hover:bg-gray-800"
-                    >
-                      Restore
-                    </button>
-                    <button
-                      type="button"
-                      onClick={discardDraft}
-                      className="neu-border bg-white px-3 py-1 font-bold uppercase hover:bg-cream"
-                    >
-                      Discard
-                    </button>
-                  </div>
-                </div>
-              )}
-              <MarkdownEditorWithMentions
-                ref={editorRef}
-                value={newPost}
-                onChange={setNewPost}
-                clubId={selectedClubId}
-              />
-
-              {imagePreviewUrl && (
-                <div className="relative mt-4 overflow-hidden neu-border w-fit max-w-full">
-                  <img src={imagePreviewUrl} alt="Preview" className="max-h-96 w-auto" />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAttachedImage(null);
-                      setImagePreviewUrl(null);
-                    }}
-                    className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white hover:bg-black"
-                    disabled={postMutation.isPending}
-                  >
-                    <X size={16} />
-                  </button>
-                  {uploadProgress !== null && (
-                    <div className="absolute inset-x-0 bottom-0 bg-black/50 p-2">
-                      <span className="font-mono text-xs font-bold text-white mb-1 block">
-                        Uploading {uploadProgress}%
-                      </span>
-                      <Progress value={uploadProgress} className="h-1.5" />
+            <section className="bg-cream px-4 py-12 md:px-6">
+              <div className="mx-auto max-w-4xl space-y-6">
+                <div className="space-y-3">
+                  {hasDraft && (
+                    <div className="neu-border flex items-center justify-between gap-3 bg-[#FFF9C4] px-4 py-2 font-mono text-xs">
+                      <span className="font-bold">📝 You have an unsaved draft. Restore it?</span>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={restoreDraft}
+                          className="neu-border bg-black px-3 py-1 font-bold text-cream uppercase hover:bg-gray-800"
+                        >
+                          Restore
+                        </button>
+                        <button
+                          type="button"
+                          onClick={discardDraft}
+                          className="neu-border bg-white px-3 py-1 font-bold uppercase hover:bg-cream"
+                        >
+                          Discard
+                        </button>
+                      </div>
                     </div>
                   )}
-                  {compressing && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-mono text-xs">
-                      Compressing...
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
-                <Select
-                  value={selectedClubId}
-                  onValueChange={setSelectedClubId}
-                  disabled={userClubs.length === 0}
-                >
-                  <SelectTrigger
-                    className="w-full border-none bg-transparent font-mono text-xs shadow-none sm:w-auto"
-                    aria-label="Choose club for post"
-                  >
-                    <SelectValue placeholder="No clubs joined" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {userClubs.map((userClub) => {
-                      const club = Array.isArray(userClub.clubs)
-                        ? userClub.clubs[0]
-                        : userClub.clubs;
-                      return club ? (
-                        <SelectItem key={club.id} value={club.id}>
-                          Posting to · {club.name}
-                        </SelectItem>
-                      ) : null;
-                    })}
-                  </SelectContent>
-                </Select>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={postMutation.isPending || compressing}
-                    onClick={() => fileInputRef.current?.click()}
-                    className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-cream flex items-center gap-1.5 disabled:opacity-50"
-                  >
-                    📷 Attach Image
-                  </button>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleImageSelect}
-                    accept="image/*"
-                    className="hidden"
+                  <MarkdownEditorWithMentions
+                    ref={editorRef}
+                    value={newPost}
+                    onChange={setNewPost}
+                    clubId={selectedClubId}
                   />
 
-                  <AnimatedTooltip
-                    content={!emailVerified ? "Please verify your email to post" : null}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!user) return alert("Log in first");
-                        if (!emailVerified) return alert("Please verify your email to post");
-                        if (!selectedClubId) return alert("Join or select a club first");
-                        if (newPost.trim()) postMutation.mutate();
-                      }}
-                      disabled={
-                        !newPost.trim() ||
-                        !selectedClubId ||
-                        postMutation.isPending ||
-                        !emailVerified ||
-                        compressing
-                      }
-                      className={`neu-border neu-press px-5 py-2 font-mono text-xs font-bold uppercase disabled:cursor-not-allowed disabled:opacity-50 ${
-                        emailVerified ? "bg-black text-cream" : "bg-gray-400 text-gray-700"
-                      }`}
-                    >
-                      {postMutation.isPending ? "Posting…" : "Post Markdown"}
-                    </button>
-                  </AnimatedTooltip>
-                </div>
-              </div>
+                  {imagePreviewUrl && (
+                    <div className="relative mt-4 overflow-hidden neu-border w-fit max-w-full">
+                      <img src={imagePreviewUrl} alt="Preview" className="max-h-96 w-auto" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAttachedImage(null);
+                          setImagePreviewUrl(null);
+                        }}
+                        className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white hover:bg-black"
+                        disabled={postMutation.isPending}
+                      >
+                        <X size={16} />
+                      </button>
+                      {uploadProgress !== null && (
+                        <div className="absolute inset-x-0 bottom-0 bg-black/50 p-2">
+                          <span className="font-mono text-xs font-bold text-white mb-1 block">
+                            Uploading {uploadProgress}%
+                          </span>
+                          <Progress value={uploadProgress} className="h-1.5" />
+                        </div>
+                      )}
+                      {compressing && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-mono text-xs">
+                          Compressing...
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-            <style>{`
+                  <div className="neu-border flex flex-col gap-3 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                    <Select
+                      value={selectedClubId}
+                      onValueChange={setSelectedClubId}
+                      disabled={userClubs.length === 0}
+                    >
+                      <SelectTrigger
+                        className="w-full border-none bg-transparent font-mono text-xs shadow-none sm:w-auto"
+                        aria-label="Choose club for post"
+                      >
+                        <SelectValue placeholder="No clubs joined" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {userClubs.map((userClub) => {
+                          const club = Array.isArray(userClub.clubs)
+                            ? userClub.clubs[0]
+                            : userClub.clubs;
+                          return club ? (
+                            <SelectItem key={club.id} value={club.id}>
+                              Posting to · {club.name}
+                            </SelectItem>
+                          ) : null;
+                        })}
+                      </SelectContent>
+                    </Select>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={postMutation.isPending || compressing}
+                        onClick={() => fileInputRef.current?.click()}
+                        className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase hover:bg-cream flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        📷 Attach Image
+                      </button>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleImageSelect}
+                        accept="image/*"
+                        className="hidden"
+                      />
+
+                      <AnimatedTooltip
+                        content={!emailVerified ? "Please verify your email to post" : null}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!user) return alert("Log in first");
+                            if (!emailVerified) return alert("Please verify your email to post");
+                            if (!selectedClubId) return alert("Join or select a club first");
+                            if (newPost.trim()) postMutation.mutate();
+                          }}
+                          disabled={
+                            !newPost.trim() ||
+                            !selectedClubId ||
+                            postMutation.isPending ||
+                            !emailVerified ||
+                            compressing
+                          }
+                          className={`neu-border neu-press px-5 py-2 font-mono text-xs font-bold uppercase disabled:cursor-not-allowed disabled:opacity-50 ${
+                            emailVerified ? "bg-black text-cream" : "bg-gray-400 text-gray-700"
+                          }`}
+                        >
+                          {postMutation.isPending ? "Posting…" : "Post Markdown"}
+                        </button>
+                      </AnimatedTooltip>
+                    </div>
+                  </div>
+
+                  <style>{`
               @keyframes slideDown {
                 from {
                   opacity: 0;
@@ -1177,402 +1177,431 @@ export default function Feed() {
               }
             `}</style>
 
-            {/* ── Search Bar ── */}
-            <div>
-              <input
-                type="text"
-                placeholder="Search posts by content, author, or club..."
-                aria-label="Search posts"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full border-2 border-black bg-white px-4 py-2 font-mono text-sm outline-none focus:bg-lime/10"
-              />
-            </div>
+                  {/* ── Search Bar ── */}
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="Search posts by content, author, or club..."
+                      aria-label="Search posts"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full border-2 border-black bg-white px-4 py-2 font-mono text-sm outline-none focus:bg-lime/10"
+                    />
+                  </div>
 
-            {/* ── Feed mode tabs ── */}
-            <div
-              role="tablist"
-              aria-label="Feed mode"
-              className="flex items-center justify-between gap-2 border-b-2 border-black pb-4 dark:border-cream"
-            >
-              <ViewToggleGroup value={viewMode} onValueChange={setViewMode} />{" "}
-              <button
-                role="tab"
-                type="button"
-                id="tab-latest"
-                aria-selected={feedMode === "latest"}
-                onClick={() => setFeedMode("latest")}
-                className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${feedMode === "latest"
-                    ? "bg-black text-cream dark:bg-cream dark:text-black"
-                    : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
-                  }`}
-              >
-                Latest
-              </button>
-              <button
-                role="tab"
-                type="button"
-                id="tab-trending"
-                aria-selected={feedMode === "trending"}
-                onClick={() => setFeedMode("trending")}
-                className={`neu-border inline-flex items-center gap-1.5 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${feedMode === "trending"
-                    ? "bg-black text-cream dark:bg-cream dark:text-black"
-                    : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
-                  }`}
-              >
-                <Flame className="h-3.5 w-3.5" />
-                Trending
-              </button>
-            </div>
-
-            {showNewPostsBanner && feedMode === "latest" && (
-              <button
-                type="button"
-                onClick={handleLoadNewPosts}
-                style={{
-                  animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards",
-                }}
-                className="neu-border flex w-full items-center justify-center gap-2 bg-[#FFD93D] hover:bg-[#FFD93D]/90 py-3 text-center font-display text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_#000] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_#000] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[4px_4px_0_0_#000] cursor-pointer"
-              >
-                <Sparkles size={16} className="animate-pulse" />
-                Load {hiddenPosts.length} new {hiddenPosts.length === 1 ? "post" : "posts"}
-              </button>
-            )}
-
-            {isActiveFeedLoading ? (
-              <div className="space-y-6">
-                {Array.from({ length: 5 }).map((_, index) => (
-                  <FeedPostSkeleton key={index} index={index} />
-                ))}
-              </div>
-            ) : filteredPosts.length === 0 ? (
-              <DiscussionEmptyState
-                searchQuery={searchQuery}
-                onStartDiscussion={() => {
-                  editorRef.current?.focusWrite();
-                }}
-              />
-            ) : (
-              <div
-                ref={parentRef}
-                style={{
-                  height: `${rowVirtualizer.getTotalSize()}px`,
-                  width: "100%",
-                  position: "relative",
-                }}
-              >
-                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                  const post = filteredPosts[virtualRow.index];
-                  if (!post) return null;
-                  const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
-                  const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
-                  const clubMembers = Array.isArray(club?.club_members)
-                    ? club.club_members
-                    : club?.club_members
-                      ? [club.club_members]
-                      : [];
-
-                  const authorMembership = clubMembers.find((m) => m.user_id === author?.id);
-
-                  const authorRoleTitle =
-                    authorMembership?.club_roles?.title?.toLowerCase() ?? "member";
-                  const authorRole = (
-                    ["admin", "organizer", "member", "alumni"].includes(authorRoleTitle)
-                      ? (authorRoleTitle as MemberRole)
-                      : "member"
-                  ) as MemberRole;
-
-                  const postComments: Comment[] = (
-                    lazyComments[post.id] !== undefined
-                      ? lazyComments[post.id]
-                      : Array.isArray(post.comments)
-                        ? (post.comments as Comment[])
-                        : []
-                  ).filter((c) => !c.deleted_at);
-
-                  const isCommentsLoading = loadingCommentPostIds.has(post.id);
-                  const isCommentsExpanded = expandedPostIds.has(post.id);
-
-                  if (optimisticDeletedIds.includes(post.id)) return null;
-
-                  const shareUrl = `${window.location.origin}${window.location.pathname}#post-${post.id}`;
-
-                  return (
-                    <article
-                      id={`post-${post.id}`}
-                      key={post.id}
-                      data-index={virtualRow.index}
-                      ref={rowVirtualizer.measureElement}
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        width: "100%",
-                        transform: `translateY(${virtualRow.start - rowVirtualizer.options.scrollMargin}px)`,
-                      }}
-                      className={`neu-border p-6 ${post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
-                        }`}
+                  {/* ── Feed mode tabs ── */}
+                  <div
+                    role="tablist"
+                    aria-label="Feed mode"
+                    className="flex items-center justify-between gap-2 border-b-2 border-black pb-4 dark:border-cream"
+                  >
+                    <ViewToggleGroup value={viewMode} onValueChange={setViewMode} />{" "}
+                    <button
+                      role="tab"
+                      type="button"
+                      id="tab-latest"
+                      aria-selected={feedMode === "latest"}
+                      onClick={() => setFeedMode("latest")}
+                      className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${
+                        feedMode === "latest"
+                          ? "bg-black text-cream dark:bg-cream dark:text-black"
+                          : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
+                      }`}
                     >
-                      {post.is_pinned && (
-                        <div className="mb-3 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#B45309]">
-                          <Pin size={12} className="fill-[#B45309]" />
-                          Pinned
-                        </div>
-                      )}
-                      <header className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b-2 border-black pb-3">
-                        <div>
-                          <div className="font-display text-lg font-bold flex items-center gap-2">
-                            {author?.handle ? (
-                              <Link to={`/profile/${author.handle}`} className="hover:underline">
-                                {author.full_name || "Unknown User"}
-                              </Link>
-                            ) : (
-                              <span>{author?.full_name || "Unknown User"}</span>
-                            )}
-                            <RoleBadge role={authorRole} />
-                          </div>
-                          <p className="font-mono text-xs flex flex-wrap items-center">
-                            in {club?.name || "Unknown Club"} · {timeAgo(post.created_at)}
-                            <span className="text-gray-500 dark:text-gray-300 ml-1">
-                              · {calculateReadTime(post.content)}
-                            </span>
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {(() => {
-                            const isClubAdmin =
-                              clubMembers.some(
-                                (m) => m.user_id === user?.id && m.club_roles?.title === "Admin",
-                              ) || userProfile?.role === "system_admin";
-                            return isClubAdmin ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  pinMutation.mutate({
-                                    postId: post.id,
-                                    is_pinned: !post.is_pinned,
-                                  })
-                                }
-                                disabled={pinMutation.isPending}
-                                className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${post.is_pinned
-                                    ? "bg-[#FDE68A] hover:bg-[#FCD34D] text-black"
-                                    : "bg-white hover:bg-cream text-black"
-                                  }`}
-                                aria-label={post.is_pinned ? "Unpin post" : "Pin post"}
-                              >
-                                <Pin size={10} strokeWidth={2.5} />
-                                {post.is_pinned ? "Unpin" : "Pin"}
-                              </button>
-                            ) : null;
-                          })()}
-                          {user && user.id !== author?.id && (
-                            <button
-                              type="button"
-                              onClick={() => setReportTarget({ type: "post", id: post.id })}
-                              className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 hover:bg-peach"
-                              title="Report post"
-                            >
-                              <Flag size={14} strokeWidth={2.5} />
-                            </button>
-                          )}
-                          {(user?.id === author?.id || userProfile?.role === "system_admin") && (
-                            <button
-                              type="button"
-                              onClick={() => setConfirmPostId(post.id)}
-                              className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 hover:bg-[#FF6B6B]"
-                              aria-label="Delete post"
-                            >
-                              <Trash2 size={14} strokeWidth={2.5} />
-                            </button>
-                          )}
-                        </div>
-                      </header>
+                      Latest
+                    </button>
+                    <button
+                      role="tab"
+                      type="button"
+                      id="tab-trending"
+                      aria-selected={feedMode === "trending"}
+                      onClick={() => setFeedMode("trending")}
+                      className={`neu-border inline-flex items-center gap-1.5 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${
+                        feedMode === "trending"
+                          ? "bg-black text-cream dark:bg-cream dark:text-black"
+                          : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
+                      }`}
+                    >
+                      <Flame className="h-3.5 w-3.5" />
+                      Trending
+                    </button>
+                  </div>
 
-                      <div className="markdown-content mt-2 font-mono text-sm leading-relaxed">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={{
-                            a: ({ href, children }) => {
-                              if (href && /youtube\.com|youtu\.be|vimeo\.com/.test(href)) {
-                                return <VideoEmbed url={href} />;
-                              }
-                              return <a href={href}>{children}</a>;
-                            },
-                            img: ({ src, alt }) => (
-                              <LazyImage
-                                src={src}
-                                alt={alt || ""}
-                                onClick={() => typeof src === "string" && setLightboxSrc(src)}
-                                className="max-h-64 cursor-zoom-in rounded-none neu-border"
-                              />
-                            ),
-                            p: ({ children }) => (
-                              <p>
-                                <MentionRenderer content={String(children)} />
-                              </p>
-                            ),
-                          }}
-                        >
-                          {post.content}
-                        </ReactMarkdown>
-                      </div>
+                  {showNewPostsBanner && feedMode === "latest" && (
+                    <button
+                      type="button"
+                      onClick={handleLoadNewPosts}
+                      style={{
+                        animation: "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+                      }}
+                      className="neu-border flex w-full items-center justify-center gap-2 bg-[#FFD93D] hover:bg-[#FFD93D]/90 py-3 text-center font-display text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_#000] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_#000] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[4px_4px_0_0_#000] cursor-pointer"
+                    >
+                      <Sparkles size={16} className="animate-pulse" />
+                      Load {hiddenPosts.length} new {hiddenPosts.length === 1 ? "post" : "posts"}
+                    </button>
+                  )}
 
-                      {post.image_url && (
-                        <div className="mt-3">
-                          <LazyImage
-                            src={post.image_url}
-                            alt="Post attachment"
-                            onClick={() => setLightboxSrc(post.image_url ?? null)}
-                            className="max-h-96 cursor-zoom-in rounded-none neu-border object-cover"
-                          />
-                        </div>
-                      )}
-
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {["👍", "👏", "🔥"].map((emoji) => {
-                          const postReactions: PostReaction[] = Array.isArray(post.post_reactions)
-                            ? post.post_reactions
+                  {isActiveFeedLoading ? (
+                    <div className="space-y-6">
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <FeedPostSkeleton key={index} index={index} />
+                      ))}
+                    </div>
+                  ) : filteredPosts.length === 0 ? (
+                    <DiscussionEmptyState
+                      searchQuery={searchQuery}
+                      onStartDiscussion={() => {
+                        editorRef.current?.focusWrite();
+                      }}
+                    />
+                  ) : (
+                    <div
+                      ref={parentRef}
+                      style={{
+                        height: `${rowVirtualizer.getTotalSize()}px`,
+                        width: "100%",
+                        position: "relative",
+                      }}
+                    >
+                      {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                        const post = filteredPosts[virtualRow.index];
+                        if (!post) return null;
+                        const author = Array.isArray(post.profiles)
+                          ? post.profiles[0]
+                          : post.profiles;
+                        const club = Array.isArray(post.clubs) ? post.clubs[0] : post.clubs;
+                        const clubMembers = Array.isArray(club?.club_members)
+                          ? club.club_members
+                          : club?.club_members
+                            ? [club.club_members]
                             : [];
-                          const baseCount = postReactions.filter((r) => r.emoji === emoji).length;
-                          const baseIsReacted = postReactions.some(
-                            (r) => r.emoji === emoji && r.user_id === user?.id,
-                          );
 
-                          const opt = optimisticReactions[`${post.id}-${emoji}`];
-                          const reactionCount = opt
-                            ? Math.max(0, baseCount + opt.countOffset)
-                            : baseCount;
-                          const isReacted = opt ? opt.userReacted : baseIsReacted;
+                        const authorMembership = clubMembers.find((m) => m.user_id === author?.id);
 
-                          const burstKey = `${post.id}-${emoji}`;
-                          const burstNonce = reactionBursts[burstKey] ?? 0;
+                        const authorRoleTitle =
+                          authorMembership?.club_roles?.title?.toLowerCase() ?? "member";
+                        const authorRole = (
+                          ["admin", "organizer", "member", "alumni"].includes(authorRoleTitle)
+                            ? (authorRoleTitle as MemberRole)
+                            : "member"
+                        ) as MemberRole;
 
-                          return (
-                            <button
-                              key={emoji}
-                              type="button"
-                              onClick={() => {
-                                if (!user) return alert("Log in first");
-                                if (!emailVerified)
-                                  return alert("Please verify your email to react");
+                        const postComments: Comment[] = (
+                          lazyComments[post.id] !== undefined
+                            ? lazyComments[post.id]
+                            : Array.isArray(post.comments)
+                              ? (post.comments as Comment[])
+                              : []
+                        ).filter((c) => !c.deleted_at);
 
-                                const optKey = `${post.id}-${emoji}`;
-                                setOptimisticReactions((prev) => ({
-                                  ...prev,
-                                  [optKey]: {
-                                    countOffset: isReacted ? -1 : 1,
-                                    userReacted: !isReacted,
+                        const isCommentsLoading = loadingCommentPostIds.has(post.id);
+                        const isCommentsExpanded = expandedPostIds.has(post.id);
+
+                        if (optimisticDeletedIds.includes(post.id)) return null;
+
+                        const shareUrl = `${window.location.origin}${window.location.pathname}#post-${post.id}`;
+
+                        return (
+                          <article
+                            id={`post-${post.id}`}
+                            key={post.id}
+                            data-index={virtualRow.index}
+                            ref={rowVirtualizer.measureElement}
+                            style={{
+                              position: "absolute",
+                              top: 0,
+                              left: 0,
+                              width: "100%",
+                              transform: `translateY(${virtualRow.start - rowVirtualizer.options.scrollMargin}px)`,
+                            }}
+                            className={`neu-border p-6 ${
+                              post.is_pinned
+                                ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]"
+                                : "bg-white"
+                            }`}
+                          >
+                            {post.is_pinned && (
+                              <div className="mb-3 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#B45309]">
+                                <Pin size={12} className="fill-[#B45309]" />
+                                Pinned
+                              </div>
+                            )}
+                            <header className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b-2 border-black pb-3">
+                              <div>
+                                <div className="font-display text-lg font-bold flex items-center gap-2">
+                                  {author?.handle ? (
+                                    <Link
+                                      to={`/profile/${author.handle}`}
+                                      className="hover:underline"
+                                    >
+                                      {author.full_name || "Unknown User"}
+                                    </Link>
+                                  ) : (
+                                    <span>{author?.full_name || "Unknown User"}</span>
+                                  )}
+                                  <RoleBadge role={authorRole} />
+                                </div>
+                                <p className="font-mono text-xs flex flex-wrap items-center">
+                                  in {club?.name || "Unknown Club"} · {timeAgo(post.created_at)}
+                                  <span className="text-gray-500 dark:text-gray-300 ml-1">
+                                    · {calculateReadTime(post.content)}
+                                  </span>
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {(() => {
+                                  const isClubAdmin =
+                                    clubMembers.some(
+                                      (m) =>
+                                        m.user_id === user?.id && m.club_roles?.title === "Admin",
+                                    ) || userProfile?.role === "system_admin";
+                                  return isClubAdmin ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        pinMutation.mutate({
+                                          postId: post.id,
+                                          is_pinned: !post.is_pinned,
+                                        })
+                                      }
+                                      disabled={pinMutation.isPending}
+                                      className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${
+                                        post.is_pinned
+                                          ? "bg-[#FDE68A] hover:bg-[#FCD34D] text-black"
+                                          : "bg-white hover:bg-cream text-black"
+                                      }`}
+                                      aria-label={post.is_pinned ? "Unpin post" : "Pin post"}
+                                    >
+                                      <Pin size={10} strokeWidth={2.5} />
+                                      {post.is_pinned ? "Unpin" : "Pin"}
+                                    </button>
+                                  ) : null;
+                                })()}
+                                {user && user.id !== author?.id && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setReportTarget({ type: "post", id: post.id })}
+                                    className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 hover:bg-peach"
+                                    title="Report post"
+                                  >
+                                    <Flag size={14} strokeWidth={2.5} />
+                                  </button>
+                                )}
+                                {(user?.id === author?.id ||
+                                  userProfile?.role === "system_admin") && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setConfirmPostId(post.id)}
+                                    className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 hover:bg-[#FF6B6B]"
+                                    aria-label="Delete post"
+                                  >
+                                    <Trash2 size={14} strokeWidth={2.5} />
+                                  </button>
+                                )}
+                              </div>
+                            </header>
+
+                            <div className="markdown-content mt-2 font-mono text-sm leading-relaxed">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                  a: ({ href, children }) => {
+                                    if (href && /youtube\.com|youtu\.be|vimeo\.com/.test(href)) {
+                                      return <VideoEmbed url={href} />;
+                                    }
+                                    return <a href={href}>{children}</a>;
                                   },
-                                }));
-
-                                setReactionBursts((prev) => ({
-                                  ...prev,
-                                  [burstKey]: (prev[burstKey] ?? 0) + 1,
-                                }));
-                                reactionMutation.mutate({ postId: post.id, emoji, isReacted });
-                              }}
-                              className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${isReacted ? "bg-lime" : "bg-white hover:bg-cream"
-                                }`}
-                            >
-                              <span
-                                key={`${burstKey}-${burstNonce}`}
-                                className="reaction-burst inline-flex items-center"
+                                  img: ({ src, alt }) => (
+                                    <LazyImage
+                                      src={src}
+                                      alt={alt || ""}
+                                      onClick={() => typeof src === "string" && setLightboxSrc(src)}
+                                      className="max-h-64 cursor-zoom-in rounded-none neu-border"
+                                    />
+                                  ),
+                                  p: ({ children }) => (
+                                    <p>
+                                      <MentionRenderer content={String(children)} />
+                                    </p>
+                                  ),
+                                }}
                               >
-                                {emoji}
-                              </span>
-                              {reactionCount > 0 && <span>{reactionCount}</span>}
-                            </button>
-                          );
-                        })}
-                      </div>
+                                {post.content}
+                              </ReactMarkdown>
+                            </div>
 
-                      <div className="mt-4 flex items-center gap-2 border-t-2 border-black pt-4">
-                        <ShareMenu
-                          url={shareUrl}
-                          title={`Post by ${author?.full_name ?? "User"}`}
-                          text={`Check out this post: ${post.content.substring(0, 50)}...`}
-                        />
+                            {post.image_url && (
+                              <div className="mt-3">
+                                <LazyImage
+                                  src={post.image_url}
+                                  alt="Post attachment"
+                                  onClick={() => setLightboxSrc(post.image_url ?? null)}
+                                  className="max-h-96 cursor-zoom-in rounded-none neu-border object-cover"
+                                />
+                              </div>
+                            )}
 
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              await navigator.clipboard.writeText(shareUrl);
-                              toast.success("Link copied!");
-                            } catch (err) {
-                              toast.error("Failed to copy link.");
-                            }
-                          }}
-                          className="neu-border inline-flex items-center gap-2 px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-gray-200"
-                        >
-                          <Link2 size={14} />
-                          Copy Link
-                        </button>
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              {["👍", "👏", "🔥"].map((emoji) => {
+                                const postReactions: PostReaction[] = Array.isArray(
+                                  post.post_reactions,
+                                )
+                                  ? post.post_reactions
+                                  : [];
+                                const baseCount = postReactions.filter(
+                                  (r) => r.emoji === emoji,
+                                ).length;
+                                const baseIsReacted = postReactions.some(
+                                  (r) => r.emoji === emoji && r.user_id === user?.id,
+                                );
 
-                        {user &&
-                          (() => {
-                            const persisted = persistedBookmarkedPostIds.has(post.id);
-                            const optimistic = optimisticBookmarks[post.id];
-                            const isBookmarked = optimistic !== undefined ? optimistic : persisted;
-                            return (
+                                const opt = optimisticReactions[`${post.id}-${emoji}`];
+                                const reactionCount = opt
+                                  ? Math.max(0, baseCount + opt.countOffset)
+                                  : baseCount;
+                                const isReacted = opt ? opt.userReacted : baseIsReacted;
+
+                                const burstKey = `${post.id}-${emoji}`;
+                                const burstNonce = reactionBursts[burstKey] ?? 0;
+
+                                return (
+                                  <button
+                                    key={emoji}
+                                    type="button"
+                                    onClick={() => {
+                                      if (!user) return alert("Log in first");
+                                      if (!emailVerified)
+                                        return alert("Please verify your email to react");
+
+                                      const optKey = `${post.id}-${emoji}`;
+                                      setOptimisticReactions((prev) => ({
+                                        ...prev,
+                                        [optKey]: {
+                                          countOffset: isReacted ? -1 : 1,
+                                          userReacted: !isReacted,
+                                        },
+                                      }));
+
+                                      setReactionBursts((prev) => ({
+                                        ...prev,
+                                        [burstKey]: (prev[burstKey] ?? 0) + 1,
+                                      }));
+                                      reactionMutation.mutate({
+                                        postId: post.id,
+                                        emoji,
+                                        isReacted,
+                                      });
+                                    }}
+                                    className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${
+                                      isReacted ? "bg-lime" : "bg-white hover:bg-cream"
+                                    }`}
+                                  >
+                                    <span
+                                      key={`${burstKey}-${burstNonce}`}
+                                      className="reaction-burst inline-flex items-center"
+                                    >
+                                      {emoji}
+                                    </span>
+                                    {reactionCount > 0 && <span>{reactionCount}</span>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            <div className="mt-4 flex items-center gap-2 border-t-2 border-black pt-4">
+                              <ShareMenu
+                                url={shareUrl}
+                                title={`Post by ${author?.full_name ?? "User"}`}
+                                text={`Check out this post: ${post.content.substring(0, 50)}...`}
+                              />
+
                               <button
                                 type="button"
-                                onClick={() =>
-                                  bookmarkPostMutation.mutate({ postId: post.id, isBookmarked })
-                                }
-                                disabled={bookmarkPostMutation.isPending}
-                                aria-label={isBookmarked ? "Remove bookmark" : "Bookmark post"}
-                                className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 disabled:opacity-60"
+                                onClick={async () => {
+                                  try {
+                                    await navigator.clipboard.writeText(shareUrl);
+                                    toast.success("Link copied!");
+                                  } catch (err) {
+                                    toast.error("Failed to copy link.");
+                                  }
+                                }}
+                                className="neu-border inline-flex items-center gap-2 px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-gray-200"
                               >
-                                <Bookmark
-                                  className="h-4 w-4"
-                                  fill={isBookmarked ? "black" : "none"}
-                                />
+                                <Link2 size={14} />
+                                Copy Link
                               </button>
-                            );
-                          })()}
+
+                              {user &&
+                                (() => {
+                                  const persisted = persistedBookmarkedPostIds.has(post.id);
+                                  const optimistic = optimisticBookmarks[post.id];
+                                  const isBookmarked =
+                                    optimistic !== undefined ? optimistic : persisted;
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        bookmarkPostMutation.mutate({
+                                          postId: post.id,
+                                          isBookmarked,
+                                        })
+                                      }
+                                      disabled={bookmarkPostMutation.isPending}
+                                      aria-label={
+                                        isBookmarked ? "Remove bookmark" : "Bookmark post"
+                                      }
+                                      className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white transition-all duration-300 disabled:opacity-60"
+                                    >
+                                      <Bookmark
+                                        className="h-4 w-4"
+                                        fill={isBookmarked ? "black" : "none"}
+                                      />
+                                    </button>
+                                  );
+                                })()}
+                            </div>
+
+                            <PostComments
+                              postId={post.id}
+                              user={user}
+                              userProfile={userProfile}
+                              clubMembers={clubMembers}
+                              timeAgo={timeAgo}
+                            />
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {hasNextPage && feedMode === "latest" && (
+                    <button
+                      type="button"
+                      onClick={() => fetchNextPage()}
+                      disabled={isFetchingNextPage}
+                      className="neu-border neu-press w-full bg-white hover:bg-cream py-4 text-center font-mono text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_#000] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_#000] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[4px_4px_0_0_#000] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isFetchingNextPage ? "Loading more..." : "Load More Posts"}
+                    </button>
+                  )}
+
+                  {isFetchingNextPage &&
+                    Array.from({ length: 2 }).map((_, i) => (
+                      <div key={`loading-${i}`} className="neu-border bg-white p-6 animate-pulse">
+                        <div className="h-6 w-1/3 rounded bg-gray-200" />
+                        <div className="mt-4 h-4 w-full rounded bg-gray-200" />
+                        <div className="mt-2 h-4 w-5/6 rounded bg-gray-200" />
                       </div>
+                    ))}
 
-                      <PostComments
-                        postId={post.id}
-                        user={user}
-                        userProfile={userProfile}
-                        clubMembers={clubMembers}
-                        timeAgo={timeAgo}
-                      />
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-
-            {hasNextPage && feedMode === "latest" && (
-              <button
-                type="button"
-                onClick={() => fetchNextPage()}
-                disabled={isFetchingNextPage}
-                className="neu-border neu-press w-full bg-white hover:bg-cream py-4 text-center font-mono text-sm font-bold uppercase transition-all shadow-[4px_4px_0_0_#000] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_#000] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[4px_4px_0_0_#000] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isFetchingNextPage ? "Loading more..." : "Load More Posts"}
-              </button>
-            )}
-
-            {isFetchingNextPage &&
-              Array.from({ length: 2 }).map((_, i) => (
-                <div key={`loading-${i}`} className="neu-border bg-white p-6 animate-pulse">
-                  <div className="h-6 w-1/3 rounded bg-gray-200" />
-                  <div className="mt-4 h-4 w-full rounded bg-gray-200" />
-                  <div className="mt-2 h-4 w-5/6 rounded bg-gray-200" />
+                  {!hasNextPage && posts.length > 0 && (
+                    <div className="py-10 text-center font-mono text-sm font-bold text-gray-500 dark:text-gray-300 uppercase">
+                      You're all caught up! 🎉
+                    </div>
+                  )}
                 </div>
-              ))}
-
-            {!hasNextPage && posts.length > 0 && (
-              <div className="py-10 text-center font-mono text-sm font-bold text-gray-500 dark:text-gray-300 uppercase">
-                You're all caught up! 🎉
               </div>
-            )}
-          </div>
-        </section>
+            </section>
           </div>
         </PullToRefresh>
         <ConfirmModal
@@ -1671,8 +1700,9 @@ const MemoizedFeedPost = React.memo(
           width: "100%",
           transform: `translateY(${virtualRow.start - scrollMargin}px)`,
         }}
-        className={`neu-border p-6 ${post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
-          }`}
+        className={`neu-border p-6 ${
+          post.is_pinned ? "bg-[#FFFBEA] border-[3px] border-[#F59E0B]" : "bg-white"
+        }`}
       >
         {post.is_pinned && (
           <div className="mb-3 flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-[#B45309]">
@@ -1710,10 +1740,11 @@ const MemoizedFeedPost = React.memo(
                   type="button"
                   onClick={() => onPinToggle(post.id, !post.is_pinned)}
                   disabled={isPinnedPending}
-                  className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${post.is_pinned
+                  className={`neu-border neu-press flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold uppercase transition-all duration-300 cursor-pointer ${
+                    post.is_pinned
                       ? "bg-[#FDE68A] hover:bg-[#FCD34D] text-black"
                       : "bg-white hover:bg-cream text-black"
-                    }`}
+                  }`}
                   aria-label={post.is_pinned ? "Unpin post" : "Pin post"}
                 >
                   <Pin size={10} strokeWidth={2.5} />
@@ -1824,8 +1855,9 @@ const MemoizedFeedPost = React.memo(
                   }));
                   onReact(post.id, emoji, isReacted);
                 }}
-                className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${isReacted ? "bg-lime" : "bg-white hover:bg-cream"
-                  }`}
+                className={`neu-border flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold transition-transform hover:-translate-y-0.5 ${
+                  isReacted ? "bg-lime" : "bg-white hover:bg-cream"
+                }`}
               >
                 <span
                   key={`${burstKey}-${burstNonce}`}
@@ -2007,7 +2039,7 @@ function PostComments({ postId, user, userProfile, clubMembers, timeAgo }: PostC
       execute: async () => {
         deleteCommentMutation.mutate(commentId);
       },
-      rollback: () => { },
+      rollback: () => {},
     });
 
     toast("Comment deleted", {

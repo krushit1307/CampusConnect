@@ -272,7 +272,8 @@ export default function Certificates() {
                   ? event.clubs[0]
                   : event.clubs
                 : null;
-              const ticketUrl = ticketCert.verify_url || ticketCert.certificate_url || window.location.href;
+              const ticketUrl =
+                ticketCert.verify_url || ticketCert.certificate_url || window.location.href;
               return (
                 <div className="flex flex-col">
                   {/* Top Bar */}
