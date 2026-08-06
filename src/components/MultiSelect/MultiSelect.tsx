@@ -5,6 +5,23 @@ import { MultiSelectContext } from "./hooks";
 import { MultiSelectTrigger } from "./MultiSelectTrigger";
 import { MultiSelectPopover } from "./MultiSelectPopover";
 
+/**
+ * MultiSelect
+ *
+ * A reusable multi-select component built with Radix Popover and Cmdk.
+ *
+ * Features:
+ * - Multiple selection
+ * - Searchable options
+ * - Optional custom value creation (`allowCustom`)
+ * - Keyboard navigation
+ * - Removable pill tags
+ * - Backspace removes the last selected tag when the input is empty
+ *
+ * Used by:
+ * - Event creation
+ * - Event editing
+ */
 export function MultiSelect({
   options,
   value,
