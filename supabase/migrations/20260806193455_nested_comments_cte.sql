@@ -1,11 +1,11 @@
 -- Migration: add recursive CTE view for nested comments (#608)
 
 ALTER TABLE comments
-ADD COLUMN parent_comment_id UUID
+ADD COLUMN IF NOT EXISTS parent_comment_id UUID
 REFERENCES comments(id)
 ON DELETE CASCADE;
 
-CREATE INDEX idx_comments_parent_comment_id
+CREATE INDEX IF NOT EXISTS idx_comments_parent_comment_id
 ON comments(parent_comment_id);
 
 CREATE OR REPLACE VIEW comment_threads AS
