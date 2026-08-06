@@ -129,8 +129,8 @@ function SimilarEvents({
           p_limit: 3,
         });
 
-        if (!error && data && data.length > 0) {
-          setSimilarEvents(data as SimilarEventItem[]);
+        if (!error && Array.isArray(data) && data.length > 0) {
+          setSimilarEvents(data as unknown as SimilarEventItem[]);
           setLoading(false);
           return;
         }
@@ -139,7 +139,7 @@ function SimilarEvents({
         const { data: fallbackData, error: fallbackError } = await supabase
           .from("events")
           .select("id, title, category_id, event_date, banner_url, description")
-          .eq("category_id", categoryId)
+          .eq("category_id", categoryId!)
           .neq("id", currentEventId)
           .eq("status", "published")
           .limit(3);
@@ -1469,7 +1469,7 @@ export default function EventDetailsPage() {
                 <div
                   id="event-description-container"
                   className="prose prose-lg max-w-none dark:prose-invert prose-headings:scroll-mt-24"
-                  dangerouslySetInnerHTML={{ __html: event.description }}
+                  dangerouslySetInnerHTML={{ __html: event.description || "" }}
                 />
               </main>
               <aside className="lg:w-64 shrink-0">

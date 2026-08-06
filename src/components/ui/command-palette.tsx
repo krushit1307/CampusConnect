@@ -119,7 +119,7 @@ export function CommandPalette({ open: externalOpen, onOpenChange }: CommandPale
           <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
           <input
             type="text"
-            placeholder="Type a command or search..."
+            placeholder="Search, or type events: / clubs: / users: to filter..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
@@ -129,9 +129,11 @@ export function CommandPalette({ open: externalOpen, onOpenChange }: CommandPale
             ESC
           </kbd>
         </div>
-
         <div className="max-h-[300px] overflow-y-auto p-2">
-          {!hasResults ? (
+          {isSearching && (
+            <div className="px-2 py-1.5 text-xs text-muted-foreground">Searching…</div>
+          )}
+          {filteredItems.length === 0 ? (
             <div className="py-6 text-center text-sm text-muted-foreground">No results found.</div>
           ) : (
             <div className="space-y-1">
@@ -178,7 +180,7 @@ export function CommandPalette({ open: externalOpen, onOpenChange }: CommandPale
               )}
             </div>
           )}
-        </div>
+        </div>{" "}
       </div>
     </div>
   );

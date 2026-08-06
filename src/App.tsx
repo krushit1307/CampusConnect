@@ -23,6 +23,7 @@ import { CommandPaletteProvider } from "@/components/CommandPaletteProvider";
 import { NotFoundPage } from "./components/NotFoundPage";
 import { createClient } from "./lib/supabase/client";
 import { BreadcrumbProvider } from "@/components/BreadcrumbsContext";
+import AriaAnnouncer from "@/components/accessibility/AriaAnnouncer";
 
 function RemoteLoadingScreen() {
   return (
@@ -38,6 +39,7 @@ const HEALTH_CHECK_URL =
   "/api/health";
 
 const HEALTH_CHECK_TIMEOUT = 8000; // 8 seconds
+const PrintableCharter = lazy(() => import("./routes/print.charter.$slug"));
 
 interface HealthStatus {
   ok: boolean;
@@ -166,6 +168,8 @@ const router = createBrowserRouter(
           <Route path=":slug/articles/:articleId" element={<ClubArticleDetailsRoute />} />
         </Route>
 
+        <Route path="/print/charter/:slug" element={<PrintableCharter />} />
+
         <Route path="/dashboard" element={<Dashboard />}>
           <Route index element={<DashboardOverview />} />
           <Route path="rsvps" element={<DashboardRsvps />} />
@@ -278,6 +282,7 @@ export default function App() {
 
   return (
     <ThemeProvider>
+      <AriaAnnouncer />
       <TooltipProvider>
         <QueryClientProvider client={queryClient}>
           <ErrorBoundary>

@@ -327,6 +327,40 @@ export default function EventsList() {
     },
   });
 
+  const { data: trendingEvents, isLoading: isTrendingLoading } = useQuery({
+    queryKey: ["trendingEvents"],
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("trending-events");
+        if (error) throw error;
+
+        const uuids = data?.events || [];
+        if (!uuids || uuids.length === 0) return [];
+
+        const { data: eventsData, error: dbError } = await supabase
+          .from("events")
+          .select(
+            `
+            id, title, description, event_date, start_date, end_date, location, banner_url, created_at, max_attendees,
+            clubs (name),
+            event_rsvps(count),
+            saved_events(count)
+          `,
+          )
+          .in("id", uuids);
+
+        if (dbError) throw dbError;
+
+        return (eventsData as unknown as EventItem[]).sort((a, b) => {
+          return uuids.indexOf(a.id) - uuids.indexOf(b.id);
+        });
+      } catch (err) {
+        console.error("Failed to load trending events:", err);
+        return [];
+      }
+    },
+  });
+
   const [events, setEvents] = useState<EventItem[]>([]);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -671,7 +705,6 @@ export default function EventsList() {
 
       // Show confetti only when successfully RSVPing (not when cancelling)
       if (!hasRsvpd) {
-        // @ts-expect-error - canvas-confetti lacks type declarations
         import("canvas-confetti")
           .then((m) => {
             const fireConfetti = m.default || m;
@@ -1082,7 +1115,50 @@ export default function EventsList() {
               <section className="bg-cream px-4 py-12 md:px-6">
                 {viewMode === "list" ? (
                   <>
+ feat/redis-trending-scores-2005
+                    {(isTrendingLoading || (trendingEvents && trendingEvents.length > 0)) &&
+                      filter === "All" &&
+                      !searchQuery && (
+                        <div className="mx-auto max-w-7xl mb-12">
+                          <div className="flex items-center gap-2 mb-6">
+                            <h2 className="text-2xl font-bold font-display">Trending Now</h2>
+                            <span className="text-xl">🔥</span>
+                          </div>
+                          <div className="flex gap-4 overflow-x-auto pb-4 snap-x hide-scrollbar">
+                            {isTrendingLoading
+                              ? Array.from({ length: 4 }).map((_, i) => (
+                                  <div
+                                    key={`trending-skel-${i}`}
+                                    className="min-w-[300px] md:min-w-[350px] snap-start"
+                                  >
+                                    <EventCardSkeleton index={i} />
+                                  </div>
+                                ))
+                              : trendingEvents?.map((e, index) => (
+                                  <div
+                                    key={`trending-${e.id}`}
+                                    className="min-w-[300px] md:min-w-[350px] snap-start"
+                                  >
+                                    <EventCard
+                                      event={e}
+                                      index={index}
+                                      user={user}
+                                      active={e.id === eventId}
+                                      onRsvpToggle={handleRsvpToggle}
+                                      isRsvpPending={toggleRsvp.isPending}
+                                      onBookmarkToggle={handleBookmarkToggle}
+                                      isBookmarkPending={toggleBookmark.isPending}
+                                    />
+                                  </div>
+                                ))}
+                          </div>
+                        </div>
+                      )}
+
+                    <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
+
                     <AnimatePresence mode="sync">
+ main
                       {isLoading ? (
                         <motion.div
                           key="events-loading-skeletons"

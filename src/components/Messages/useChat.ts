@@ -290,6 +290,17 @@ export function useChat() {
                   sharedKey,
                 );
                 store.addMessage({ ...newMsg, content: plainText, decryptFailed: false });
+
+                // Announce new message if the user is not actively focused on the chat window
+                // and the message was sent to the current user (not from them)
+                if (
+                  newMsg.receiver_id === currentUser.id &&
+                  (!document.hasFocus() || window.location.pathname !== "/messages")
+                ) {
+                  // We dynamically import announce to avoid circular dependencies if any
+                  const { announce } = await import("@/store/ariaAnnouncer");
+                  announce(`New message from ${activeRecipient.full_name || "user"}: ${plainText}`);
+                }
               } catch (err) {
                 console.warn("Real-time decryption failure:", err);
                 store.addMessage({

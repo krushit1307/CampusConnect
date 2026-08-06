@@ -7,11 +7,11 @@ constraints and RLS policies — the same way we test application code.
 
 ## What is covered
 
-| File                                         | Subject                                                                                                                                                                                                         |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `member_count_trigger.test.sql`              | The `update_club_member_count` trigger (aka `on_member_added`) that keeps `clubs.member_count` in sync via `handle_club_member_change()`.                                                                       |
-| `upcoming_events_feed_rpc.test.sql`          | The event discovery RPC `public.get_upcoming_events_feed(UUID)` (upcoming/canceled filtering, ordering, RSVP counts, saved/bookmark state).                                                                     |
-| `sanitize_club_description_trigger.test.sql` | The `trg_sanitize_club_description` trigger + `public.sanitize_html_string()` that strip XSS (script tags, event handlers, `javascript:`/`vbscript:`/`data:` URIs) from `clubs.description` before persistence. |
+| File                                 | Subject                                                                                                                                     |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `member_count_trigger.test.sql`      | The `update_club_member_count` trigger (aka `on_member_added`) that keeps `clubs.member_count` in sync via `handle_club_member_change()`.   |
+| `upcoming_events_feed_rpc.test.sql`  | The event discovery RPC `public.get_upcoming_events_feed(UUID)` (upcoming/canceled filtering, ordering, RSVP counts, saved/bookmark state). |
+| `club_attendance_stats_rpc.test.sql` | The attendance aggregation RPC `public.get_club_attendance_stats(UUID)` (average & median RSVPs computed in Postgres, empty-club handling). |
 
 ## Prerequisites
 

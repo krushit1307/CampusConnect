@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { Navigate } from "react-router-dom";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";import { Navigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -54,9 +54,7 @@ export default function AdminUsersPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [limit] = useState(10);
-  const [page, setPage] = useState(0);
-  const [sortBy, setSortBy] = useState<string>("full_name");
+const [limit] = useState(10000);  const [sortBy, setSortBy] = useState<string>("full_name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -116,13 +114,12 @@ export default function AdminUsersPage() {
           totalProfiles
         }
       `;
-      const variables = {
+const variables = {
         limit,
-        offset: page * limit,
+        offset: 0,
         sortBy,
         sortOrder,
       };
-
       const data = await graphqlRequest<GraphQLResponse>(query, variables);
       setProfiles(data.profiles);
       setTotal(data.totalProfiles);
@@ -142,8 +139,7 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [authChecked, role, page, limit, sortBy, sortOrder]);
-
+}, [authChecked, role, limit, sortBy, sortOrder]);
   useEffect(() => {
     void loadProfiles();
   }, [loadProfiles]);
@@ -184,9 +180,7 @@ export default function AdminUsersPage() {
       setSortBy(field);
       setSortOrder("asc");
     }
-    setPage(0);
-  };
-
+};
   // Bulk Suspend action
   const handleBulkSuspend = async () => {
     if (selectedIds.size === 0) return;
@@ -247,10 +241,17 @@ export default function AdminUsersPage() {
     );
   }
 
-  const currentPageIds = profiles.map((p) => p.id);
+const currentPageIds = profiles.map((p) => p.id);
   const allCurrentSelected =
     currentPageIds.length > 0 && currentPageIds.every((id) => selectedIds.has(id));
 
+  const parentRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: profiles.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 35, // estimated row height in px
+    overscan: 5, // buffer rows above/below viewport
+  });
   return (
     <SiteShell>
       <div className="bg-cream min-h-screen px-4 py-12 md:px-8 font-mono text-black">
@@ -294,9 +295,8 @@ export default function AdminUsersPage() {
                 <span className="text-sm font-bold uppercase">Loading profiles...</span>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
+<div ref={parentRef} className="overflow-auto" style={{ height: "600px" }}>
+                <table className="w-full text-left border-collapse">                  <thead>
                     <tr className="border-b-4 border-black font-bold uppercase text-sm">
                       <th className="py-4 px-3 w-12 text-center">
                         <input
@@ -364,9 +364,10 @@ export default function AdminUsersPage() {
                       </th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {profiles.length === 0 ? (
-                      <tr>
+<tbody
+                    style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: "relative" }}
+                  >
+                    {profiles.length === 0 ? (                      <tr>
                         <td
                           colSpan={5}
                           className="py-12 text-center text-gray-500 font-bold uppercase"
@@ -375,7 +376,8 @@ export default function AdminUsersPage() {
                         </td>
                       </tr>
                     ) : (
-                      profiles.map((profile) => {
+rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                        const profile = profiles[virtualRow.index];
                         const isSelected = selectedIds.has(profile.id);
                         const isSuspended =
                           profile.is_banned || optimisticSuspendedIds.has(profile.id);
@@ -383,11 +385,20 @@ export default function AdminUsersPage() {
                         return (
                           <tr
                             key={profile.id}
+                            data-index={virtualRow.index}
+                            ref={rowVirtualizer.measureElement}
+                            style={{
+                              position: "absolute",
+                              top: 0,
+                              left: 0,
+                              width: "100%",
+                              display: "table",
+                              transform: `translateY(${virtualRow.start}px)`,
+                            }}
                             className={`border-b-2 border-black font-semibold text-sm hover:bg-cream/20 transition-colors ${
                               isSelected ? "bg-lime/5" : ""
                             }`}
-                          >
-                            <td className="py-4 px-3 text-center">
+                          >                            <td className="py-4 px-3 text-center">
                               <input
                                 type="checkbox"
                                 checked={isSelected}
@@ -424,38 +435,10 @@ export default function AdminUsersPage() {
               </div>
             )}
 
-            {/* Pagination Controls */}
-            <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-t-2 border-black pt-6 text-sm font-bold">
-              <div>
-                Showing {total === 0 ? 0 : page * limit + 1} to{" "}
-                {Math.min(total, (page + 1) * limit)} of {total} users
-              </div>
-              <div className="flex gap-4">
-                <button
-                  disabled={page === 0}
-                  onClick={() => setPage((p) => p - 1)}
-                  className={`neu-border px-4 py-1.5 uppercase transition-all rounded-none cursor-pointer ${
-                    page > 0
-                      ? "bg-white hover:-translate-y-0.5 active:translate-y-0 text-black border-black"
-                      : "bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed"
-                  }`}
-                >
-                  Previous
-                </button>
-                <button
-                  disabled={(page + 1) * limit >= total}
-                  onClick={() => setPage((p) => p + 1)}
-                  className={`neu-border px-4 py-1.5 uppercase transition-all rounded-none cursor-pointer ${
-                    (page + 1) * limit < total
-                      ? "bg-white hover:-translate-y-0.5 active:translate-y-0 text-black border-black"
-                      : "bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed"
-                  }`}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          </div>
+{/* Row count summary — pagination replaced by virtual scrolling */}
+            <div className="mt-6 flex items-center border-t-2 border-black pt-6 text-sm font-bold">
+              <div>Showing all {total} users</div>
+            </div>          </div>
         </div>
       </div>
       <BulkUserImportModal

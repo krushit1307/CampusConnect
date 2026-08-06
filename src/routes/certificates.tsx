@@ -61,7 +61,7 @@ export default function Certificates() {
           events (title, clubs (name))
         `,
         )
-        .eq("user_id", user?.id)
+        .eq("user_id", user!.id)
         .order("issued_at", { ascending: false });
 
       if (error) {

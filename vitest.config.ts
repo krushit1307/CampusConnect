@@ -7,6 +7,11 @@ const dirname =
   typeof __dirname !== "undefined" ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./src/test-setup.ts"],
+    exclude: ["**/node_modules/**", "**/dist/**", "**/.github/**", "**/e2e/**"],
+  },
   plugins: [viteReact()],
   resolve: {
     alias: {

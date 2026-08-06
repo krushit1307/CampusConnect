@@ -177,7 +177,6 @@ export function EventCard({
   const countdown = event.event_date ? getCountdown(event.event_date) : "TBA";
 
   const [ticketOpen, setTicketOpen] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const handleCopyLink = async () => {
     try {
@@ -219,6 +218,20 @@ export function EventCard({
       ? `${window.location.origin}${window.location.pathname}#event-${event.id}`
       : "";
 
+  const handleRsvpClick = () => {
+    if (!user) {
+      toast.error("Please log in to RSVP");
+      return;
+    }
+
+    if (hasRsvpd) {
+      setConfirmOpen(true);
+      return;
+    }
+
+    onRsvpToggle(event.id, false);
+  };
+
   const savedEventsList = Array.isArray(event.saved_events) ? event.saved_events : [];
   const isSaved = user ? savedEventsList.some((se) => se.user_id === user.id) : false;
 
@@ -227,8 +240,9 @@ export function EventCard({
       toast.error("Please log in to bookmark events");
       return;
     }
-    onBookmarkToggle(event.id, isSaved);
+    onBookmarkToggle?.(event.id, isSaved);
   };
+
 
   return (
     <div className="group">

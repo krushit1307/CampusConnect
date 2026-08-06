@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export const CLUB_PROFILE_STALE_TIME_MS = 1000 * 60 * 5;
 
 export function getClubProfileQueryKey(slug: string) {
-  return ["club", slug] as const;
+  return ["club", slug] as string[];
 }
 
 export function createClubProfileQueryOptions(supabase: SupabaseClient, slug: string) {
