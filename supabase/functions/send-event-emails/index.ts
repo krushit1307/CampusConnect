@@ -72,6 +72,7 @@ serve(async (req) => {
       .from("events")
       .select("*, clubs(name)")
       .eq("id", event_id)
+      .is("deleted_at", null)
       .single();
 
     if (eventError || !event) {
