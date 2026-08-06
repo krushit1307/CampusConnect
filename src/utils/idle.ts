@@ -14,12 +14,12 @@ export function runIdle(callback: IdleCallback, options?: { timeout?: number }):
     return (window as any).requestIdleCallback(callback, options);
   }
   const start = Date.now();
-  return window.setTimeout(() => {
+  return setTimeout(() => {
     callback({
       didTimeout: false,
       timeRemaining: () => Math.max(0, 50 - (Date.now() - start)),
     });
-  }, 1);
+  }, 1) as unknown as number;
 }
 
 /**
@@ -30,7 +30,7 @@ export function cancelIdle(id: number): void {
     (window as any).cancelIdleCallback(id);
     return;
   }
-  window.clearTimeout(id);
+  clearTimeout(id);
 }
 
 /**

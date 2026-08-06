@@ -70,7 +70,7 @@ export default function ClubArticlesPage() {
           profiles (first_name, last_name, avatar_url)
         `,
         )
-        .eq("club_id", club!.id)
+        .eq("club_id", club?.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];

@@ -21,13 +21,18 @@ jobs:
           github-token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
-            const WAITING_PERIOD_MS = 30 * 60 * 1000; // 30 minutes inactivity delay
+            const WAITING_PERIOD_MS = 15 * 60 * 1000; // 15 minutes inactivity delay
 
             async function processPR(prNumber, prBody, prTitle, prData) {
               console.log(`\nEvaluating PR #${prNumber}`);
               
+              if (prData.draft) {
+                console.log(`PR #${prNumber} is a draft. Skipping auto-merge.`);
+                return false;
+              }
+              
               const bodyAndTitle = `${prTitle}\n${prBody || ""}`;
-              const hasClosingKeyword = /(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved):?\s+(#\d+|https:\/\/github\.com\/[^\/]+\/[^\/]+\/issues\/\d+)/i.test(bodyAndTitle);
+              const hasClosingKeyword = /(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved):?\s*(#\d+|https:\/\/github\.com\/[^\/]+\/[^\/]+\/issues\/\d+)/i.test(bodyAndTitle);
               
               let mergeable = null;
               let mergeableState = null;
@@ -129,25 +134,18 @@ jobs:
               console.log(`PR mergeable state is: ${mergeableState}`);
               
               if (mergeable === true) {
-                // Check 30-minute window since PR creation
+                // Check 15-minute window since PR creation
                 const createdAtTime = new Date(prData.created_at).getTime();
                 const timeElapsedMs = Date.now() - createdAtTime;
 
                 if (timeElapsedMs < WAITING_PERIOD_MS) {
                   const minutesElapsed = Math.floor(timeElapsedMs / 60000);
                   const minutesRemaining = Math.ceil((WAITING_PERIOD_MS - timeElapsedMs) / 60000);
-                  console.log(`⏳ PR #${prNumber} was created ${minutesElapsed} minute(s) ago. Waiting for 30 minutes since creation before auto-merging (${minutesRemaining} minute(s) remaining).`);
+                  console.log(`⏳ PR #${prNumber} was created ${minutesElapsed} minute(s) ago. Waiting for 15 minutes since creation before auto-merging (${minutesRemaining} minute(s) remaining).`);
                   return false;
                 }
 
-                // If state is blocked, unstable, etc, it might not merge, but we'll try or skip based on state
-                if (mergeableState === 'blocked' || mergeableState === 'unstable') {
-                    console.log(`PR is blocked or unstable (failing checks). Will not attempt to merge yet.`);
-                    await removeLabel("Blue");
-                    return false;
-                }
-
-                console.log("No merge conflicts, requirements met, checks passed, and 30 minutes have passed since PR creation. Proceeding with auto-merge.");
+                console.log("Requirements met, checks passed, and 15 minutes have passed since PR creation. Proceeding with immediate auto-merge.");
                 await addLabel("Blue");
                 
                 try {

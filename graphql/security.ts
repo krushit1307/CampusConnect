@@ -1,5 +1,4 @@
 import {
-  FragmentDefinitionNode,
   GraphQLError,
   DocumentNode,
   Kind,

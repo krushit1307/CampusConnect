@@ -193,28 +193,63 @@ export default function ClubsIndex() {
           </div>
         </div>
 
-        {/* Filters + Content */}
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-          <FilterSidebar availableTags={availableTags} />
+        {/* Categories Toolbar */}
+        <div className="mb-8 p-4 border-2 border-black bg-cream shadow-[4px_4px_0_0_#000] flex flex-col sm:flex-row sm:items-center gap-3">
+          <span className="font-mono text-xs font-bold uppercase text-gray-700">
+            Category Filter:
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {categories.map((cat) => (
+              <Button
+                key={cat}
+                type="button"
+                variant={activeCategory === cat ? "primary" : "outline"}
+                onClick={() => setActiveCategory(cat)}
+                className={`font-mono text-xs font-bold uppercase border-2 border-black h-8 px-3 rounded-none transition-all ${
+                  activeCategory === cat
+                    ? "bg-black text-white shadow-[2px_2px_0_0_rgba(0,0,0,1)]"
+                    : "bg-white text-black hover:bg-yellow-100"
+                }`}
+              >
+                {cat}
+              </Button>
+            ))}
+          </div>
+        </div>
 
-          <div className="min-w-0 flex-1">
-            {/* Categories Toolbar */}
-            <div className="mb-8 p-4 border-2 border-black bg-cream shadow-[4px_4px_0_0_#000] flex flex-col sm:flex-row sm:items-center gap-3">
-              <span className="font-mono text-xs font-bold uppercase text-gray-700">
-                Category Filter:
-              </span>
-              <div className="flex flex-wrap gap-2">
-                {categories.map((cat) => (
-                  <Button
-                    key={cat}
-                    type="button"
-                    variant={activeCategory === cat ? "default" : "outline"}
-                    onClick={() => setActiveCategory(cat)}
-                    className={`font-mono text-xs font-bold uppercase border-2 border-black h-8 px-3 rounded-none transition-all ${
-                      activeCategory === cat
-                        ? "bg-black text-white shadow-[2px_2px_0_0_rgba(0,0,0,1)]"
-                        : "bg-white text-black hover:bg-yellow-100"
-                    }`}
+        {/* Content */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {SKELETON_SIZES.map((size, i) => (
+              <ClubCardSkeleton key={i} size={size} />
+            ))}
+          </div>
+        ) : filteredClubs.length === 0 ? (
+          <div className="p-4">
+            <EmptyState
+              illustrationType="no-results"
+              title={searchQuery ? `No clubs match "${searchQuery}"` : "No clubs found"}
+              description="Try adjusting your search query or choosing a different category filter."
+            />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredClubs.map((c, index) => {
+              const membersCount = Array.isArray(c.club_stats)
+                ? (c.club_stats[0]?.total_members ?? 0)
+                : c.club_stats
+                  ? (c.club_stats as { total_members: number }).total_members
+                  : 0;
+
+              return (
+                <div
+                  key={c.id}
+                  className="animate-fade-in-up flex flex-col"
+                  onMouseEnter={() => handlePrefetch(c.slug)}
+                >
+                  <HoverLink
+                    to={`/clubs/${c.slug}`}
+                    className="neu-border group flex flex-col bg-white p-6 shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_rgba(0,0,0,1)] h-full justify-between"
                   >
                     {cat}
                   </Button>

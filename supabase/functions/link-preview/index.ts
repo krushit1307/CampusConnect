@@ -13,15 +13,18 @@ import { corsHeaders, parseJsonBody } from "../_shared/validation.ts";
 // every hop (a hostile site could otherwise redirect to an internal IP).
 // ---------------------------------------------------------------------------
 
-/** Thrown when the target host is explicitly private/local/reserved. Maps to 403. */
-class SsrFBlockedError extends Error {}
-
-function isPrivateIp(rawIp: string): boolean {
-  const ip = rawIp.replace(/^\[|\]$/g, "").replace(/^::ffff:/i, "");
-  if (ip.includes(":")) {
-    const lower = ip.toLowerCase();
-    if (lower === "::" || lower === "::1") return true;
-    // Unique local addresses (fc00::/7)
+function isPrivateIp(ip: string): boolean {
+  const mapped = ip.replace(/^::ffff:/i, "");
+  if (mapped.includes(":")) {
+    if (mapped === "::1") return true;
+    const lower = mapped.toLowerCase();
+    if (
+      lower.startsWith("fe8") ||
+      lower.startsWith("fe9") ||
+      lower.startsWith("fea") ||
+      lower.startsWith("feb")
+    )
+      return true;
     if (lower.startsWith("fc") || lower.startsWith("fd")) return true;
     // Link-local (fe80::/10)
     if (
@@ -141,18 +144,7 @@ function extractOgMetadata(html: string, baseUrl: URL): OgData {
       if (prop === "title" && !metadata.title) metadata.title = decodeHtmlEntities(cm[1]);
       else if (prop === "description" && !metadata.description)
         metadata.description = decodeHtmlEntities(cm[1]);
-      else if (prop === "image" && !metadata.image) {
-        // Resolve relative images and reject non-http(s) schemes so the value
-        // is safe to render in an <img> tag.
-        try {
-          const imageUrl = new URL(cm[1].trim(), baseUrl);
-          if (imageUrl.protocol === "http:" || imageUrl.protocol === "https:") {
-            metadata.image = imageUrl.toString();
-          }
-        } catch {
-          /* ignore malformed URLs */
-        }
-      }
+      else if (prop === "image" && !metadata.image) metadata.image = cm[1].trim();
     }
   }
   if (!metadata.title) {
@@ -217,52 +209,11 @@ async function getCached(url: string): Promise<OgData | null> {
 }
 
 async function setCached(url: string, data: OgData): Promise<void> {
-  const client = getRedis();
-  if (!client) return;
   try {
-    await client.set(makeCacheKey(url), JSON.stringify(data), { ex: CACHE_TTL_SECONDS });
+    await redis.set(makeCacheKey(url), JSON.stringify(data), { ex: CACHE_TTL_SECONDS });
   } catch {
     /* non-fatal */
   }
-}
-
-// ---------------------------------------------------------------------------
-// Fetch limits
-// ---------------------------------------------------------------------------
-
-/** Overall deadline for connect + headers + body. The issue mandates 3000ms. */
-const DEFAULT_TIMEOUT_MS = 3000;
-
-/** Abort the body stream once it exceeds this many bytes (2 MB cap per issue, tighter here). */
-const MAX_RESPONSE_BYTES = 200_000;
-
-/** Thrown when the response body exceeds MAX_RESPONSE_BYTES. Maps to 413. */
-class OversizeError extends Error {}
-
-async function readHtmlWithLimit(response: Response, maxBytes: number): Promise<string> {
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error("No response body.");
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (!value) continue;
-    chunks.push(value);
-    total += value.byteLength;
-    if (total > maxBytes) {
-      // Abort the stream entirely instead of buffering a massive download.
-      await reader.cancel().catch(() => {});
-      throw new OversizeError("Response body exceeds the size limit.");
-    }
-  }
-  const merged = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    merged.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return new TextDecoder().decode(merged);
 }
 
 // ---------------------------------------------------------------------------
@@ -293,25 +244,11 @@ function jsonResponse(
 export async function handler(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  // Accept both GET /link-preview?url=... and POST { url } so the endpoint is
-  // easy to call from any client while keeping the existing frontend working.
-  let rawUrl: string;
-  if (req.method === "GET") {
-    const candidate = new URL(req.url).searchParams.get("url") ?? undefined;
-    const result = RequestSchema.safeParse({ url: candidate });
-    if (!result.success) {
-      return jsonResponse(
-        { error: "Invalid request body", fields: { url: ["Must be a valid URL"] } },
-        400,
-      );
-    }
-    rawUrl = result.data.url;
-  } else if (req.method === "POST") {
-    const parsed = await parseJsonBody(RequestSchema, req);
-    if (!parsed.ok) return parsed.response;
-    rawUrl = parsed.data.url;
-  } else {
-    return jsonResponse({ error: "Method not allowed. Use GET or POST." }, 405);
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method not allowed. Use POST." }), {
+      status: 405,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   let parsedUrl: URL;
@@ -319,14 +256,20 @@ export async function handler(req: Request): Promise<Response> {
     parsedUrl = new URL(rawUrl);
     if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") throw new Error();
   } catch {
-    return jsonResponse({ error: "Invalid URL format or unsupported protocol." }, 400);
+    return new Response(JSON.stringify({ error: "Invalid URL format or unsupported protocol." }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
-  // SSRF guard — reject internal targets with 403 BEFORE any fetch or cache hit.
+  // SSRF guard
   try {
     await assertHostIsPublic(parsedUrl);
   } catch (err) {
-    return jsonResponse({ error: (err as Error).message }, 403);
+    return new Response(JSON.stringify({ error: (err as Error).message }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   // Cache check
@@ -341,15 +284,13 @@ export async function handler(req: Request): Promise<Response> {
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetchWithRedirectValidation(
-      parsedUrl.toString(),
-      {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (compatible; CampusConnectBot/1.0; +https://campusconnect.app/bot)",
-          Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
-          "Accept-Language": "en-US,en;q=0.5",
-        },
+    const response = await fetch(parsedUrl.toString(), {
+      signal: controller.signal,
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; CampusConnectBot/1.0; +https://campusconnect.app/bot)",
+        Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
       },
       controller.signal,
     );
@@ -368,33 +309,54 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     if (!response.ok) {
-      await response.body?.cancel().catch(() => {});
-      return jsonResponse({ error: `Remote page returned HTTP ${response.status}.` }, 502);
+      return new Response(
+        JSON.stringify({ error: `Remote page returned HTTP ${response.status}.` }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
-
-    const html = await readHtmlWithLimit(response, MAX_RESPONSE_BYTES);
-    const data = extractOgMetadata(html, parsedUrl);
-    if (!data.title && !data.description && !data.image) {
-      return jsonResponse({ error: "No OpenGraph metadata found on the target page." }, 422);
+    const MAX_BYTES = 200_000;
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error("No response body");
+    const chunks: Uint8Array[] = [];
+    let totalBytes = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done || !value) break;
+      chunks.push(value);
+      totalBytes += value.byteLength;
+      if (totalBytes >= MAX_BYTES) {
+        reader.cancel();
+        break;
+      }
     }
-
-    await setCached(rawUrl, data);
-
-    return jsonResponse(data, 200, { "X-Cache": "MISS" });
+    const merged = new Uint8Array(totalBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      merged.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    html = new TextDecoder().decode(merged);
   } catch (err) {
-    if (err instanceof SsrFBlockedError) return jsonResponse({ error: err.message }, 403);
-    if (err instanceof OversizeError) {
-      return jsonResponse({ error: "Response body exceeds the size limit." }, 413);
-    }
     if (err instanceof DOMException && err.name === "AbortError") {
-      return jsonResponse({ error: "Request timed out fetching the URL." }, 504);
+      return new Response(JSON.stringify({ error: "Request timed out fetching the URL." }), {
+        status: 504,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
-    if (err instanceof Error && err.message.startsWith("SSRF:")) {
-      return jsonResponse({ error: err.message }, 403);
-    }
-    return jsonResponse({ error: `Network error: ${(err as Error).message}` }, 502);
+    return new Response(JSON.stringify({ error: `Network error: ${(err as Error).message}` }), {
+      status: 502,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } finally {
     clearTimeout(timeoutId);
+  }
+
+  const data = extractOgMetadata(html, parsedUrl);
+  if (!data.title && !data.description && !data.image) {
+    return new Response(
+      JSON.stringify({ error: "No OpenGraph metadata found on the target page." }),
+      { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 }
 

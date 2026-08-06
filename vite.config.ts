@@ -3,72 +3,12 @@ import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
-import svgr from "vite-plugin-svgr";
 import { fileURLToPath } from "url";
 import { federation } from "@module-federation/vite";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function lucideImportOptimizer() {
-  return {
-    name: "lucide-import-optimizer",
-    transform(code: string, id: string) {
-      if (!id.includes("/src/") || !/\.[jt]sx?$/.test(id)) {
-        return null;
-      }
-
-      // Matches imports like: import { ... } from "lucide-react";
-      // Excludes "import type { ... }" by checking negative lookahead (?!type\s+)
-      const regex = /import\s+(?!type\s+)\{([^}]+)\}\s+from\s+['"]lucide-react['"];?/g;
-
-      let hasChanged = false;
-      const newCode = code.replace(regex, (match, specifiers) => {
-        if (!specifiers) return match;
-
-        const icons = specifiers
-          .split(",")
-          .map((s: string) => s.trim())
-          .filter(Boolean);
-
-        const newImports = icons.map((icon: string) => {
-          let iconName = icon;
-          let aliasName = icon;
-
-          if (icon.includes(" as ")) {
-            const parts = icon.split(" as ");
-            iconName = parts[0].trim();
-            aliasName = parts[1].trim();
-          }
-
-          if (iconName.startsWith("type ")) {
-            const cleanTypeName = iconName.slice(5).trim();
-            return `import type { ${cleanTypeName} } from 'lucide-react';`;
-          }
-
-          // Map camelCase/PascalCase to kebab-case
-          const kebabName = iconName
-            .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-            .replace(/([a-zA-Z])([0-9])/g, "$1-$2")
-            .toLowerCase();
-
-          return `import ${aliasName} from 'lucide-react/dist/esm/icons/${kebabName}';`;
-        });
-
-        hasChanged = true;
-        return newImports.join("\n");
-      });
-
-      if (hasChanged) {
-        return {
-          code: newCode,
-          map: null,
-        };
-      }
-      return null;
-    },
-  };
-}
 
 /**
  * Vite configuration for CampusConnect
@@ -101,7 +41,7 @@ export default defineConfig({
   // Storybook builds — it precaches Storybook's own 3MB+ manager bundle and
   // fails on the default 2MiB workbox limit.
   plugins: [
-    lucideImportOptimizer(),
+    // lucideImportOptimizer(),
     viteReact(),
     tailwindcss(),
     ...(process.env.STORYBOOK === "true"
@@ -205,22 +145,9 @@ export default defineConfig({
   },
   build: {
     target: "esnext",
+    // Raises warning threshold (optional, e.g. set to 1000kB / 1MB)
     chunkSizeWarningLimit: 1000,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes("node_modules")) {
-            if (id.includes("recharts") || id.includes("echarts") || id.includes("chart.js")) {
-              return "chunk-admin-charts";
-            }
-            if (id.includes("react") || id.includes("react-dom")) {
-              return "vendor-react";
-            }
-            return "vendor";
-          }
-        },
-      },
-    },
+    // Bundler options for chunking
     rolldownOptions: {
       output: {
         manualChunks(id) {

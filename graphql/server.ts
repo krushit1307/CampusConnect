@@ -74,6 +74,8 @@ export const yoga = createYoga({
       clubLoader,
       commentsByPostLoader,
     };
+
+    return { user, request };
   },
   plugins: [
     requestLoggingPlugin(),

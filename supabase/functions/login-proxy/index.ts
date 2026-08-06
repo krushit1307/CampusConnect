@@ -8,7 +8,7 @@ import { parseJsonBody } from "../_shared/validation.ts";
 // Each branch is validated strictly so stray fields are rejected.
 const loginSchema = z
   .object({
-    email: z.string().email("email must be a valid email address"),
+    email: z.string().max(255, "email is too long").email("email must be a valid email address"),
     password: z.string().min(1, "password is required").max(256),
   })
   .strict();
@@ -16,11 +16,10 @@ const loginSchema = z
 const unlockSchema = z
   .object({
     action: z.literal("unlock"),
-    email: z.string().email("email must be a valid email address"),
+    email: z.string().max(255, "email is too long").email("email must be a valid email address"),
     token: z.string().min(1, "token is required"),
   })
   .strict();
-
 const loginProxySchema = z.union([loginSchema, unlockSchema]);
 
 const corsHeaders = {

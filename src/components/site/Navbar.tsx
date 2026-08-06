@@ -9,7 +9,7 @@ import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
 import { BookmarksPanel } from "@/components/BookmarksPanel";
 import { createClient } from "@/lib/supabase/client";
 
-import { Menu, X, WifiOff } from "lucide-react";
+import { Menu, X, WifiOff, Bookmark } from "lucide-react";
 import { useAuthHydration } from "@/hooks/useAuthHydration";
 import { ProfileHeaderSkeleton } from "@/components/ProfileHeaderSkeleton";
 import {
@@ -22,7 +22,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function Navbar() {
-  const { user } = useAuthHydration();
+  const { user, isInitializing } = useAuthHydration();
+  const handleSignOut = () => {
+    // TODO: wire to actual sign out
+  };
   const location = useLocation();
   const { t, i18n } = useTranslation();
   const currentPath = location.pathname;
@@ -224,7 +227,10 @@ export function Navbar() {
               <Bookmark size={16} />
             </button>
           )}
-          {user ? (
+
+          {isInitializing ? (
+            <ProfileHeaderSkeleton />
+          ) : user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -237,21 +243,30 @@ export function Navbar() {
               </DropdownMenuTrigger>
 
               <DropdownMenuContent align="end" className="w-56">
+                {/* Email */}
                 <DropdownMenuLabel className="break-all text-xs">{user.email}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+
+                {/* Dashboard */}
                 <DropdownMenuItem asChild>
                   <Link to="/dashboard">Dashboard</Link>
                 </DropdownMenuItem>
+
+                {/* Messages */}
                 <DropdownMenuItem asChild>
                   <Link to="/messages">Messages</Link>
                 </DropdownMenuItem>
+
+                {/* Settings */}
                 <DropdownMenuItem asChild>
                   <Link to="/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+
+                {/* Sign Out */}
                 <DropdownMenuItem
-                  className="cursor-pointer text-red-600 focus:text-red-600"
                   onClick={handleSignOut}
+                  className="cursor-pointer text-red-600 focus:text-red-600"
                 >
                   Sign Out
                 </DropdownMenuItem>
@@ -267,6 +282,18 @@ export function Navbar() {
               Sign in
             </Link>
           )}
+
+          {/* Mobile menu toggle button */}
+          <button
+            ref={hamburgerRef}
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="neu-border flex h-8 w-8 shrink-0 items-center justify-center bg-white p-1 text-black transition-colors hover:bg-lime dark:bg-black dark:text-cream md:hidden"
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-navigation"
+          >
+            {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
         </div>
 
         {user && <NavbarNotificationDropdown />}

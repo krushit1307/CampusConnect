@@ -1,5 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { formatDate } from "../lib/utils";
+
 import { SiteShell } from "@/components/site/SiteShell";
+import { PullToRefresh } from "@/components/PullToRefresh";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
@@ -9,8 +11,9 @@ import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { toast } from "sonner";
 import { Search } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
-import { AutocompleteDropdown } from "@/components/AutocompleteDropdown";
+import { AutocompleteDropdown, AutocompleteResult } from "@/components/AutocompleteDropdown";
 import { useNavigate } from "react-router-dom";
+import { PullToRefresh } from "@/components/PullToRefresh";
 import {
   Select,
   SelectContent,
@@ -19,18 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export const Route = createFileRoute("/events")({
-  head: () => ({
-    meta: [
-      { title: "Events — CampusConnect" },
-      {
-        name: "description",
-        content: "Discover and RSVP to workshops, talks, hackathons, and meetups on campus.",
-      },
-    ],
-  }),
-  component: EventsPage,
-});
+export default EventsPage;
 
 interface EventItem {
   id: string;
@@ -52,16 +44,24 @@ function EventsPage() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [filter, setFilter] = useState("All");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | "newest" | "oldest">("asc");
+  const [sortLoaded, setSortLoaded] = useState(false);
   const [hidePastEvents, setHidePastEvents] = useState(false);
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">(() => {
-    const stored = sessionStorage.getItem(SORT_KEY);
-    return stored === "newest" || stored === "oldest" ? stored : "oldest";
-  });
+  const [viewMode, setViewMode] = useState<"list" | "map" | "calendar">("list");
+
+  useEffect(() => {
+    if (!sortLoaded) return;
+
+    sessionStorage.setItem("event-sort-order", sortOrder);
+  }, [sortOrder, sortLoaded]);
+
+  const [totalCount, setTotalCount] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAutocompleteOpen, setIsAutocompleteOpen] = useState(false);
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
-
+const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const [nearMeActive, setNearMeActive] = useState(false);
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [radiusMiles, setRadiusMiles] = useState(5);
   useEffect(() => {
     sessionStorage.setItem(SORT_KEY, sortOrder);
   }, [sortOrder]);
@@ -75,7 +75,7 @@ function EventsPage() {
     queryFn: async () => {
       if (!debouncedSearchQuery.trim()) return [];
       const { data, error } = await supabase
-        .from("club_analytics_view")
+        .from("events")
         .select("id, title, location")
         .or(`title.ilike.%${debouncedSearchQuery}%,location.ilike.%${debouncedSearchQuery}%`)
         .limit(5);
@@ -87,11 +87,12 @@ function EventsPage() {
       return (data || []).map((event: Record<string, unknown>) => ({
         id: event.id as string,
         title: event.title as string,
-        subtitle: (event.location as string) || undefined,
-        raw: event,
       }));
     },
   });
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+  }, [supabase]);
 
   const {
     data: queryData,
@@ -155,8 +156,41 @@ function EventsPage() {
     },
   });
 
-  const events = queryData || [];
+const events = queryData || [];
 
+  const { data: nearbyEvents, isFetching: isFetchingNearby } = useQuery({
+    queryKey: ["events-nearby", userCoords, radiusMiles],
+    queryFn: async () => {
+      if (!userCoords) return [];
+      const radiusMeters = radiusMiles * 1609.34; // miles -> meters, since the RPC expects meters
+      const { data, error } = await getEventsNearby(userCoords.lat, userCoords.lng, radiusMeters);
+      if (error) {
+        toast.error("Could not load nearby events.");
+        return [];
+      }
+      return data || [];
+    },
+    enabled: nearMeActive && !!userCoords,
+  });
+
+  const handleFindNearMe = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        // Browser GPS reports latitude first, then longitude — we keep that
+        // order here; getEventsNearby/get_events_nearby handle converting it
+        // into the Lng-then-Lat order PostGIS's ST_MakePoint requires.
+        setUserCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
+        setNearMeActive(true);
+      },
+      () => {
+        toast.error("Unable to retrieve your location.");
+      },
+    );
+  };
   useEffect(() => {
     const channel = supabase
       .channel("realtime_changes")
@@ -399,7 +433,6 @@ function EventsPage() {
                   </button>
                 )}
               </div>
-
               <div className="flex items-center gap-2 w-full md:w-auto justify-end">
                 <div className="neu-border flex bg-white p-0.5">
                   <button
@@ -428,14 +461,14 @@ function EventsPage() {
 
                 <Select
                   value={sortOrder}
-                  onValueChange={(value) => setSortOrder(value as "newest" | "oldest")}
+                  onValueChange={(value) => setSortOrder(value as "asc" | "desc")}
                 >
                   <SelectTrigger className="neu-border w-44 bg-white font-mono text-xs text-black">
                     <SelectValue placeholder="Sort by date" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="newest">Newest First</SelectItem>
-                    <SelectItem value="oldest">Oldest First</SelectItem>
+                    <SelectItem value="asc">Oldest First</SelectItem>
+                    <SelectItem value="desc">Newest First</SelectItem>
                   </SelectContent>
                 </Select>
 
