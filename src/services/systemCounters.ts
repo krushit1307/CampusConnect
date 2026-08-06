@@ -2,7 +2,8 @@
  * System Counters Service
  * Provides optimized access to table row counts without expensive COUNT(*) queries.
  */
-import { supabase } from "../lib/supabaseClient";
+import { createClient } from "@/lib/supabase/client";
+const supabase = createClient();
 
 export interface SystemCount {
   table_name: "events" | "profiles" | "clubs";
@@ -18,7 +19,7 @@ export const getSystemCounts = async (): Promise<SystemCount[]> => {
     throw new Error("Failed to retrieve system statistics");
   }
 
-  return data || [];
+  return (data as unknown as SystemCount[]) || [];
 };
 
 export const getCountForTable = async (

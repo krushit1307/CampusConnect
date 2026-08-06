@@ -40,7 +40,7 @@ export default function ClubArticleDetailsPage() {
           profiles (first_name, last_name, avatar_url)
         `,
         )
-        .eq("id", articleId)
+        .eq("id", articleId!)
         .single();
       if (error) throw error;
       return data;
@@ -104,8 +104,9 @@ export default function ClubArticleDetailsPage() {
     );
   }
 
-  const authorName = article.profiles
-    ? `${article.profiles.first_name} ${article.profiles.last_name}`
+  const authorProfile = Array.isArray(article.profiles) ? article.profiles[0] : article.profiles;
+  const authorName = authorProfile
+    ? `${authorProfile.first_name || ""} ${authorProfile.last_name || ""}`.trim() || "Club Writer"
     : "Club Writer";
 
   const readTimeStr = article.read_time_minutes

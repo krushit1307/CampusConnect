@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { limitRate } from "../shared/rate_limiter.ts";
+import { outboundCommunicationLimiter } from "../_shared/rateLimiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +21,19 @@ serve(async (req: Request) => {
   if (ipRateLimitResponse) {
     return ipRateLimitResponse;
   }
+
+  // --- Outbound Communication Rate Limiting ---
+  const ipAddress = req.headers.get("x-forwarded-for") || "unknown-ip";
+  const { success } = await outboundCommunicationLimiter.limit(ipAddress);
+
+  if (!success) {
+    console.warn(`[RateLimit] Outbound communication blocked for IP: ${ipAddress}`);
+    return new Response(
+      JSON.stringify({ error: "Too Many Requests. Maximum 5 requests per 15 minutes." }),
+      { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+  // --------------------------------------------
 
   try {
     const { email, redirectTo } = await req.json();

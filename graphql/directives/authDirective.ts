@@ -41,7 +41,7 @@ export function authDirectiveTransformer(
       const authDirective = getDirective(schema, fieldConfig, directiveName)?.[0] as AuthDirectiveArgs | undefined;
       if (authDirective) {
         return wrapResolver(fieldConfig, authDirective.requires, _fieldName, typeName);
-     9:12 PM
+      }
       return fieldConfig;
     },
   });

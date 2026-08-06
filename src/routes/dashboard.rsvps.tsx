@@ -70,7 +70,7 @@ export default function DashboardRsvps() {
           )
         `,
         )
-        .eq("user_id", user?.id);
+        .eq("user_id", user!.id);
 
       if (error) throw error;
       return data || [];

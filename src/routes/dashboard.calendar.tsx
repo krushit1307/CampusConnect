@@ -105,7 +105,7 @@ export default function DashboardCalendar() {
           )
         `,
         )
-        .eq("user_id", user?.id);
+        .eq("user_id", user!.id);
 
       if (error) throw error;
       return (data as unknown as RsvpQueryRow[]) || [];

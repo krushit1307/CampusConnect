@@ -28,7 +28,7 @@ const SKELETON_SIZES: Array<"sm" | "md" | "lg"> = [
   "lg",
   "sm",
 ];
-interface Club {
+export interface Club {
   id: string;
   name: string;
   slug: string;
@@ -73,7 +73,7 @@ export default function ClubsIndex() {
           const { data, error } = await supabase.rpc("search_clubs", {
             search_term: searchQuery,
           });
-          if (!error && data) return data as Club[];
+          if (!error && data) return data as unknown as Club[];
         } catch (e) {
           console.warn("RPC search_clubs failed, falling back to client filter", e);
         }
@@ -85,7 +85,7 @@ export default function ClubsIndex() {
           club_tags(tag_id, club_tag_labels(name))
         `);
       if (error) throw error;
-      return (data || []) as Club[];
+      return (data || []) as unknown as Club[];
     },
   });
 

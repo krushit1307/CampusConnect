@@ -19,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import EmojiPicker from "emoji-picker-react";
 import { EmptyState } from "@/components/EmptyState";
 import { LinkPreview } from "./LinkPreview";
+import { TypingBubble } from "./TypingBubble";
 import { extractFirstUrl } from "@/lib/extractUrls";
 import { getBlockedUserIds, validateDirectMessageSend } from "@/lib/userBlockUtils";
 
@@ -433,6 +434,7 @@ export default function ChatBox() {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputMessage.trim() || !activeRecipient || !currentUser || !userKeys) return;
+    clearTyping();
 
     try {
       // Execute validation check: Throw 403 error if receiver blocked sender or sender blocked receiver
@@ -798,22 +800,7 @@ export default function ChatBox() {
                   className="border-t-2 border-black p-3 bg-white dark:bg-zinc-900 dark:border-cream flex flex-col gap-2"
                 >
                   {/* Typing indicator — visible only when someone else is typing */}
-                  <div
-                    className="min-h-[1.25rem] flex items-center gap-1.5"
-                    aria-live="polite"
-                    aria-atomic="true"
-                  >
-                    {typingUsers.length > 0 && (
-                      <p className="font-mono text-[11px] text-gray-500 dark:text-gray-400 italic animate-pulse">
-                        💬{" "}
-                        {typingUsers.length === 1
-                          ? `${typingUsers[0]} is typing…`
-                          : typingUsers.length === 2
-                            ? `${typingUsers[0]} and ${typingUsers[1]} are typing…`
-                            : "Several people are typing…"}
-                      </p>
-                    )}
-                  </div>
+                  <TypingBubble typingUsers={typingUsers} />
 
                   <div className="flex gap-2">
                     <input

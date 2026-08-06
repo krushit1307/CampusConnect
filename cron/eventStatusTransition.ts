@@ -47,7 +47,9 @@ if (process.argv[1] && (process.argv[1].endsWith("eventStatusTransition.ts") || 
       console.error("[CLI Execution] Failed:", err);
       try {
         await closePool();
-      } catch {}
+      } catch (e) {
+        // ignore
+      }
       process.exit(1);
     }
   })();

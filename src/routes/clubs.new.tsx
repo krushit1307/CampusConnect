@@ -48,7 +48,7 @@ export default function CreateClubWizard() {
   const { formData, updateFormData, resetWizard } = useClubWizardStore();
 
   const form = useForm<ClubWizardFormValues>({
-    resolver: zodResolver(clubFormSchema),
+    resolver: zodResolver(clubFormSchema) as any,
     defaultValues: {
       name: formData.name || "",
       slug: formData.slug || "",

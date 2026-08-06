@@ -20,6 +20,7 @@ interface ClubHeaderProps {
   eyebrow?: ReactNode;
   /** Secondary links (Tasks / Meeting Notes / Manage). Hidden when compact to save space. */
   secondaryActions?: ReactNode;
+  downloadPdfButton?: ReactNode;
   /**
    * Primary action (the Join/Leave button). Rendered as a function so the
    * caller can size it down once the header is compact.
@@ -44,6 +45,7 @@ export function ClubHeader({
   banner,
   eyebrow,
   secondaryActions,
+  downloadPdfButton,
   actions,
   threshold = DEFAULT_THRESHOLD,
 }: ClubHeaderProps) {
@@ -131,6 +133,7 @@ export function ClubHeader({
           <div
             className={`flex shrink-0 flex-wrap items-center gap-2 w-full sm:w-auto ${isCompact ? "" : "mt-1"}`}
           >
+            {downloadPdfButton}
             {actions(isCompact)}
           </div>
         </div>

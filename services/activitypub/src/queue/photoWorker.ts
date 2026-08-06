@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Worker } from "bullmq";
 import AdmZip from "adm-zip";
 import * as fs from "fs";

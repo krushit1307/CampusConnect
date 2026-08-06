@@ -45,8 +45,8 @@ export default function ClubArticlesPage() {
       const { data, error } = await supabase
         .from("club_members")
         .select("role, status")
-        .eq("club_id", club?.id)
-        .eq("user_id", user?.id)
+        .eq("club_id", club!.id)
+        .eq("user_id", user!.id)
         .single();
       if (error) return null;
       return data;
@@ -70,7 +70,7 @@ export default function ClubArticlesPage() {
           profiles (first_name, last_name, avatar_url)
         `,
         )
-        .eq("club_id", club?.id)
+        .eq("club_id", club!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
@@ -113,6 +113,7 @@ export default function ClubArticlesPage() {
           club_id: club.id,
           author_id: user.id,
           title: newTitle,
+          slug: newTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "article",
           content: newContent,
         })
         .select()
