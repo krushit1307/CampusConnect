@@ -54,6 +54,19 @@ if (typeof globalThis.ResizeObserver === "undefined") {
   } as unknown as typeof globalThis.ResizeObserver;
 }
 
+// Polyfill IntersectionObserver for components that use it (e.g. Embla
+// Carousel, lazy-loading media) in jsdom, which does not implement it.
+if (typeof globalThis.IntersectionObserver === "undefined") {
+  globalThis.IntersectionObserver = class IntersectionObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
+  } as unknown as typeof globalThis.IntersectionObserver;
+}
+
 // Mock lucide-react using importOriginal so that ALL icons are available
 // in tests without enumerating them one by one.
 vi.mock("lucide-react", async (importOriginal) => {
