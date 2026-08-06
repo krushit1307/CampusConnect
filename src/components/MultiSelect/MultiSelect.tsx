@@ -12,6 +12,7 @@ export function MultiSelect({
   placeholder = "Select options...",
   emptyText = "No results found.",
   disabled = false,
+  allowCustom = false,
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
@@ -24,7 +25,7 @@ export function MultiSelect({
   }, [options, selected]);
 
   const addTag = (tag: Tag) => {
-    if (!selected.some((s) => s.value === tag.value)) {
+    if (!selected.some((s) => s.value.toLowerCase() === tag.value.toLowerCase())) {
       onChange([...selected, tag]);
     }
   };
@@ -46,6 +47,7 @@ export function MultiSelect({
     disabled,
     placeholder,
     emptyText,
+    allowCustom,
   };
 
   return (

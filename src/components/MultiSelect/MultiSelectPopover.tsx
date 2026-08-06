@@ -6,7 +6,7 @@ import { MultiSelectList } from "./MultiSelectList";
 import { cn } from "../../lib/utils";
 
 export function MultiSelectPopover() {
-  const { inputValue, setInputValue } = useMultiSelectContext();
+  const { inputValue, setInputValue, selected, removeTag } = useMultiSelectContext();
 
   return (
     <Popover.Portal>
@@ -28,6 +28,16 @@ export function MultiSelectPopover() {
               placeholder="Search..."
               value={inputValue}
               onValueChange={setInputValue}
+              onKeyDown={(e) => {
+                if (
+                  e.key === "Backspace" &&
+                  inputValue === "" &&
+                  e.currentTarget.selectionStart === 0 &&
+                  selected.length > 0
+                ) {
+                  removeTag(selected[selected.length - 1]);
+                }
+              }}
               className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
