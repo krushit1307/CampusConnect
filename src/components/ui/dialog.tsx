@@ -110,6 +110,14 @@ const DialogContent = React.forwardRef<
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      onOpenAutoFocus={(e) => {
+        // Move focus to the modal heading/title when opened for screen reader support
+        const target = (e.currentTarget as HTMLElement).querySelector("[data-dialog-title]");
+        if (target) {
+          e.preventDefault();
+          (target as HTMLElement).focus();
+        }
+      }}
       className={cn(dialogContentVariants({ variant }), className)}
       {...props}
     >
@@ -142,7 +150,12 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn("text-lg font-semibold leading-none tracking-tight", className)}
+    data-dialog-title="true"
+    tabIndex={-1}
+    className={cn(
+      "text-lg font-semibold leading-none tracking-tight focus:outline-none",
+      className,
+    )}
     {...props}
   />
 ));

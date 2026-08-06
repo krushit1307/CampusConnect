@@ -4,7 +4,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
-import SupabaseProvider from "y-supabase";
+import { SupabaseProvider } from "@supabase-labs/y-supabase";
 import { createClient } from "@/lib/supabase/client";
 import { fetchNoteSnapshot, saveNoteSnapshot } from "@/services/collaborativeNotes";
 import { PresenceList } from "./PresenceList";
@@ -50,25 +50,24 @@ export function CollaborativeEditor({ groupId, user }: CollaborativeEditorProps)
 
       // 3. Connect to Supabase Realtime Provider
       const supabase = createClient();
-      const supaProvider = new SupabaseProvider(ydoc, supabase, {
-        channel: `group_notes:${groupId}`,
-        id: groupId,
-        tableName: "group_notes", // y-supabase can do some persistence but we'll do it manually to be safe or rely on it if configured
-        columnName: "yjs_state",
-        resyncInterval: 5000,
+      const supaProvider = new SupabaseProvider(`group_notes:${groupId}`, ydoc, supabase, {
+        awareness: true,
       });
 
       // 4. Set our presence awareness
-      supaProvider.awareness.setLocalStateField("user", {
-        name: user.name,
-        color: userColor,
-      });
+      const awareness = supaProvider.getAwareness();
+      if (awareness) {
+        awareness.setLocalStateField("user", {
+          name: user.name,
+          color: userColor,
+        });
+      }
 
       setProvider(supaProvider);
       setIsLoading(false);
 
       // 5. Set up our manual debounce save for persistence
-      let timeoutId: any;
+      let timeoutId: ReturnType<typeof setTimeout>;
       const onUpdate = () => {
         clearTimeout(timeoutId);
         timeoutId = setTimeout(() => {
@@ -96,7 +95,7 @@ export function CollaborativeEditor({ groupId, user }: CollaborativeEditorProps)
       extensions: [
         StarterKit.configure({
           history: false,
-        } as any),
+        }),
         Collaboration.configure({
           document: ydoc,
         }),

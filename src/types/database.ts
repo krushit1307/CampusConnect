@@ -17,18 +17,6 @@
  * Auto-created via database trigger on `auth.users` insertion.
  */
 export interface Profile {
-    /** UUIDv7 matching auth.users.id */
-    id: string;
-    full_name: string | null;
-    avatar_url: string | null;
-    college: string | null;
-    bio: string | null;
-    role: 'student' | 'club_admin';
-    /** Fallback timestamp, kept for legacy queries but not used for primary sorting */
-    created_at: string;
-    updated_at: string;
-    /** Set when the profile is soft-deleted; NULL means active */
-    deleted_at: string | null;
   /** UUIDv7 matching auth.users.id */
   id: string;
   full_name: string | null;
@@ -45,21 +33,6 @@ export interface Profile {
  * Represents a campus club/society in the `clubs` table.
  */
 export interface Club {
-    /** UUIDv7 primary key */
-    id: string;
-    name: string;
-    /** Unique URL slug for the club (e.g., 'robotics-society') */
-    slug: string;
-    description: string | null;
-    banner_url: string | null;
-    logo_url: string | null;
-    /** UUIDv7 of the user who created the club */
-    created_by: string;
-    created_at: string;
-    updated_at: string;
-    /** Set when the club is soft-deleted; NULL means active */
-    deleted_at: string | null;
-
   /** UUIDv7 primary key */
   id: string;
   name: string;
@@ -72,8 +45,6 @@ export interface Club {
   created_by: string;
   created_at: string;
   updated_at: string;
-  /** Cached average days between announce_date and event_date (see #980) */
-  average_lead_time_days?: number | null;
 }
 
 /**
@@ -95,21 +66,6 @@ export interface ClubMember {
  * Represents an event hosted by a club.
  */
 export interface Event {
-    /** UUIDv7 primary key (Time-sortable) */
-    id: string;
-    /** UUIDv7 foreign key to clubs.id */
-    club_id: string;
-    title: string;
-    description: string | null;
-    event_date: string; // timestamptz
-    location: string | null;
-    banner_url: string | null;
-    /** UUIDv7 foreign key to profiles.id */
-    created_by: string;
-    created_at: string;
-    updated_at: string;
-    /** Set when the event is soft-deleted; NULL means active */
-    deleted_at: string | null;
   /** UUIDv7 primary key (Time-sortable) */
   id: string;
   /** UUIDv7 foreign key to clubs.id */
@@ -121,8 +77,6 @@ export interface Event {
   banner_url: string | null;
   /** UUIDv7 foreign key to profiles.id */
   created_by: string;
-  /** Date the event was announced (falls back to created_at, see #980) */
-  announce_date?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -213,16 +167,6 @@ export type DatabaseTable =
  * Generic Row Type
  * Maps a table name to its corresponding TypeScript interface.
  */
-export type DatabaseRow<T extends DatabaseTable> =
-    T extends 'profiles' ? Profile :
-    T extends 'clubs' ? Club :
-    T extends 'club_members' ? ClubMember :
-    T extends 'events' ? Event :
-    T extends 'event_rsvps' ? EventRsvp :
-    T extends 'posts' ? Post :
-    T extends 'comments' ? Comment :
-    T extends 'certificates' ? Certificate :
-    never;
 export type DatabaseRow<T extends DatabaseTable> = T extends "profiles"
   ? Profile
   : T extends "clubs"

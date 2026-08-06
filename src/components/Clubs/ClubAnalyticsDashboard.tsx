@@ -55,6 +55,13 @@ export interface TopEventData {
   event_date: string;
 }
 
+export interface AttendanceStats {
+  club_id: string;
+  event_count: number;
+  average: number;
+  median: number;
+}
+
 export interface AnalyticsPayload {
   range: TimeRange;
   start_date: string;
@@ -93,6 +100,27 @@ export function ClubAnalyticsDashboard({ clubId }: ClubAnalyticsDashboardProps) 
   const { data, isLoading, isError, refetch } = useQuery<AnalyticsPayload>({
     queryKey: ["club-analytics", clubId, timeRange],
     queryFn: fetchAnalytics,
+    enabled: !!clubId,
+  });
+
+  // Fetch average & median attendance pre-computed in Postgres (issue #2308).
+  // Returns null on error so this secondary metric never breaks the dashboard.
+  const fetchAttendanceStats = useCallback(async (): Promise<AttendanceStats | null> => {
+    const { data, error } = await supabase.rpc("get_club_attendance_stats", {
+      p_club_id: clubId,
+    });
+
+    if (error) {
+      console.error("[ClubAnalytics] attendance stats RPC error:", error);
+      return null;
+    }
+
+    return (data as AttendanceStats) ?? null;
+  }, [clubId, supabase]);
+
+  const attendanceQuery = useQuery<AttendanceStats | null>({
+    queryKey: ["club-attendance-stats", clubId],
+    queryFn: fetchAttendanceStats,
     enabled: !!clubId,
   });
 
@@ -248,6 +276,39 @@ export function ClubAnalyticsDashboard({ clubId }: ClubAnalyticsDashboardProps) 
               </p>
               <p className="mt-2 font-mono text-[11px] font-bold text-gray-700 dark:text-gray-300 border-t border-black/20 pt-1">
                 Total active roster
+              </p>
+            </div>
+          </div>
+
+          {/* ─── Attendance Stats (aggregated in Postgres) ─── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="border-2 border-black bg-white p-4 shadow-[4px_4px_0_0_#000] dark:bg-zinc-900 dark:border-white">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs font-bold uppercase tracking-wider text-black dark:text-cream">
+                  Average Attendance
+                </span>
+                <Users className="h-5 w-5 text-black" />
+              </div>
+              <p className="font-display font-black text-3xl mt-2 text-black dark:text-white">
+                {attendanceQuery.data?.average ?? 0}
+              </p>
+              <p className="mt-2 font-mono text-[11px] font-bold text-gray-700 dark:text-gray-300 border-t border-black/20 pt-1">
+                Mean RSVPs per event · computed in Postgres
+              </p>
+            </div>
+
+            <div className="border-2 border-black bg-white p-4 shadow-[4px_4px_0_0_#000] dark:bg-zinc-900 dark:border-white">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs font-bold uppercase tracking-wider text-black dark:text-cream">
+                  Median Attendance
+                </span>
+                <Calendar className="h-5 w-5 text-black" />
+              </div>
+              <p className="font-display font-black text-3xl mt-2 text-black dark:text-white">
+                {attendanceQuery.data?.median ?? 0}
+              </p>
+              <p className="mt-2 font-mono text-[11px] font-bold text-gray-700 dark:text-gray-300 border-t border-black/20 pt-1">
+                PERCENTILE_CONT(0.5) · resists outlier events
               </p>
             </div>
           </div>

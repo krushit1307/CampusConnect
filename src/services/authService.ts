@@ -1,4 +1,4 @@
-import { supabase } from "../lib/supabase";
+import { supabase } from "../lib/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { generateUUIDv7 } from "../lib/uuidv7";
 

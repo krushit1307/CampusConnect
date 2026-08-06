@@ -1,3 +1,12 @@
+import { vi, expect } from "vitest";
+import * as matchers from "@testing-library/jest-dom/matchers";
+import { toHaveNoViolations } from "jest-axe";
+
+// Extend Vitest expect with jest-dom matchers
+expect.extend(matchers);
+
+// Extend Vitest with jest-axe custom matcher
+expect.extend(toHaveNoViolations);
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
 import React from "react";

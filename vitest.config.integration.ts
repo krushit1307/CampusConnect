@@ -12,8 +12,8 @@ export default defineConfig({
     globals: true,
     // Only include files in the integration test directory
     include: ["supabase/tests/integration/**/*.test.ts"],
-    // Global setup handles starting/stopping the Supabase Docker stack
-    globalSetup: ["supabase/tests/integration/global-setup.ts"],
+    setupFiles: ["supabase/tests/integration/test-setup.integration.ts"],
+    fileParallelism: false,
     // Extended timeouts to account for Docker spin-up and real DB queries
     testTimeout: 60000,
     hookTimeout: 60000,

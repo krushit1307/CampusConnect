@@ -5,8 +5,6 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
-import type { TablesUpdate } from "@/types/database.types";
-import { sanitizeHtml } from "@/lib/sanitizeHtml";
 import {
   Settings,
   Users,
@@ -14,14 +12,12 @@ import {
   ShieldCheck,
   XCircle,
   CheckCircle,
-  Trash2,
-  RefreshCw,
+  Download,
 } from "lucide-react";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { ClubMembersTable } from "@/components/Clubs/ClubMembersTable";
-import { PermissionsGrid, PermissionUpdate } from "@/components/Clubs/PermissionsGrid";
 import { ClubSocialLinksEditor } from "@/components/Clubs/ClubSocialLinksEditor";
 import {
   AlertDialog,
@@ -464,7 +460,7 @@ export default function ClubManageRoute() {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    updateClubMutation.mutate(false);
+                    updateClubMutation.mutate(undefined as any);
                   }}
                   className="space-y-4"
                 >

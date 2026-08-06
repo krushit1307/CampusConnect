@@ -163,7 +163,7 @@ jobs:
         run: ./scripts/run-pgtap-tests.sh \
           supabase/tests/member_count_trigger.test.sql \
           supabase/tests/upcoming_events_feed_rpc.test.sql \
-          supabase/tests/sanitize_club_description_trigger.test.sql
+          supabase/tests/club_attendance_stats_rpc.test.sql
 
       - name: Stop Supabase
         if: always()

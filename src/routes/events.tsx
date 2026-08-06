@@ -1,5 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { formatDate } from "../lib/utils";
+
 import { SiteShell } from "@/components/site/SiteShell";
+import { PullToRefresh } from "@/components/PullToRefresh";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
@@ -9,8 +11,9 @@ import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { toast } from "sonner";
 import { Search } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
-import { AutocompleteDropdown } from "@/components/AutocompleteDropdown";
+import { AutocompleteDropdown, AutocompleteResult } from "@/components/AutocompleteDropdown";
 import { useNavigate } from "react-router-dom";
+import { PullToRefresh } from "@/components/PullToRefresh";
 import {
   Select,
   SelectContent,
@@ -19,18 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export const Route = createFileRoute("/events")({
-  head: () => ({
-    meta: [
-      { title: "Events — CampusConnect" },
-      {
-        name: "description",
-        content: "Discover and RSVP to workshops, talks, hackathons, and meetups on campus.",
-      },
-    ],
-  }),
-  component: EventsPage,
-});
+export default EventsPage;
 
 interface EventItem {
   id: string;
@@ -52,16 +44,24 @@ function EventsPage() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [filter, setFilter] = useState("All");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | "newest" | "oldest">("asc");
+  const [sortLoaded, setSortLoaded] = useState(false);
   const [hidePastEvents, setHidePastEvents] = useState(false);
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">(() => {
-    const stored = sessionStorage.getItem(SORT_KEY);
-    return stored === "newest" || stored === "oldest" ? stored : "oldest";
-  });
+  const [viewMode, setViewMode] = useState<"list" | "map" | "calendar">("list");
+
+  useEffect(() => {
+    if (!sortLoaded) return;
+
+    sessionStorage.setItem("event-sort-order", sortOrder);
+  }, [sortOrder, sortLoaded]);
+
+  const [totalCount, setTotalCount] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAutocompleteOpen, setIsAutocompleteOpen] = useState(false);
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
-
+const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const [nearMeActive, setNearMeActive] = useState(false);
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [radiusMiles, setRadiusMiles] = useState(5);
   useEffect(() => {
     sessionStorage.setItem(SORT_KEY, sortOrder);
   }, [sortOrder]);
@@ -75,7 +75,7 @@ function EventsPage() {
     queryFn: async () => {
       if (!debouncedSearchQuery.trim()) return [];
       const { data, error } = await supabase
-        .from("club_analytics_view")
+        .from("events")
         .select("id, title, location")
         .or(`title.ilike.%${debouncedSearchQuery}%,location.ilike.%${debouncedSearchQuery}%`)
         .limit(5);
@@ -87,11 +87,12 @@ function EventsPage() {
       return (data || []).map((event: Record<string, unknown>) => ({
         id: event.id as string,
         title: event.title as string,
-        subtitle: (event.location as string) || undefined,
-        raw: event,
       }));
     },
   });
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+  }, [supabase]);
 
   const {
     data: queryData,
@@ -155,8 +156,41 @@ function EventsPage() {
     },
   });
 
-  const events = queryData || [];
+const events = queryData || [];
 
+  const { data: nearbyEvents, isFetching: isFetchingNearby } = useQuery({
+    queryKey: ["events-nearby", userCoords, radiusMiles],
+    queryFn: async () => {
+      if (!userCoords) return [];
+      const radiusMeters = radiusMiles * 1609.34; // miles -> meters, since the RPC expects meters
+      const { data, error } = await getEventsNearby(userCoords.lat, userCoords.lng, radiusMeters);
+      if (error) {
+        toast.error("Could not load nearby events.");
+        return [];
+      }
+      return data || [];
+    },
+    enabled: nearMeActive && !!userCoords,
+  });
+
+  const handleFindNearMe = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        // Browser GPS reports latitude first, then longitude — we keep that
+        // order here; getEventsNearby/get_events_nearby handle converting it
+        // into the Lng-then-Lat order PostGIS's ST_MakePoint requires.
+        setUserCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
+        setNearMeActive(true);
+      },
+      () => {
+        toast.error("Unable to retrieve your location.");
+      },
+    );
+  };
   useEffect(() => {
     const channel = supabase
       .channel("realtime_changes")
@@ -307,12 +341,14 @@ function EventsPage() {
 
   return (
     <SiteShell>
-<PullToRefresh
-  isRefreshing={isFetching}
-  onRefresh={async () => {
-    await refetch();
-  }}
->        <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
+      <PullToRefresh
+        isRefreshing={isFetching}
+        onRefresh={async () => {
+          await refetch();
+        }}
+      >
+        {" "}
+        <section className="border-b-2 border-black bg-sky px-4 py-14 md:px-6">
           <div className="mx-auto flex max-w-7xl flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -350,133 +386,108 @@ function EventsPage() {
                     setSearchQuery("");
                     setIsAutocompleteOpen(false);
                   }}
-                  className="absolute right-2.5 top-1.5 font-mono text-sm font-bold text-neutral-500 hover:text-black cursor-pointer"
-                >
-                  ×
-                </button>
-              )}
-              <AutocompleteDropdown
-                query={debouncedSearchQuery}
-                isOpen={isAutocompleteOpen && debouncedSearchQuery.length > 0}
-                isLoading={isAutocompleteLoading}
-                results={autocompleteResults || []}
-                onSelect={(result) => {
-                  setSearchQuery(result.title);
-                  setFilter("All");
-                  setIsAutocompleteOpen(false);
-                }}
-                onClose={() => setIsAutocompleteOpen(false)}
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="neu-border flex cursor-pointer select-none items-center gap-2 bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-white md:mr-2 text-black">
-                <input
-                  type="checkbox"
-                  checked={hidePastEvents}
-                  onChange={(e) => setHidePastEvents(e.target.checked)}
-                  className="h-4 w-4 accent-black cursor-pointer text-black"
+                  onClose={() => setIsAutocompleteOpen(false)}
                 />
-                Hide Past Events
-              </label>
-              {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setFilter(t)}
-                  className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase ${filter === t ? "bg-black text-cream" : "bg-white text-black"}`}
-                >
-                  {t}
-                </button>
-              ))}
-              {filter !== "All" && (
-                <button
-                  onClick={() => setFilter("All")}
-                  className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream cursor-pointer"
-                >
-                  Clear All
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-              <div className="neu-border flex bg-white p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setViewMode("list")}
-                  className={`px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer ${
-                    viewMode === "list"
-                      ? "bg-black text-cream"
-                      : "bg-white text-black hover:bg-cream"
-                  }`}
-                >
-                  List
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode("calendar")}
-                  className={`px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer ${
-                    viewMode === "calendar"
-                      ? "bg-black text-cream"
-                      : "bg-white text-black hover:bg-cream"
-                  }`}
-                >
-                  Calendar
-                </button>
               </div>
 
-              <Select
-                value={sortOrder}
-                onValueChange={(value) => setSortOrder(value as "newest" | "oldest")}
-              >
-                <SelectTrigger className="neu-border w-44 bg-white font-mono text-xs text-black">
-                  <SelectValue placeholder="Sort by date" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">Newest First</SelectItem>
-                  <SelectItem value="oldest">Oldest First</SelectItem>
-                </SelectContent>
-              </Select>
+              {/* Filter Tags */}
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="neu-border flex cursor-pointer select-none items-center gap-2 bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-white md:mr-2 text-black">
+                  <input
+                    type="checkbox"
+                    checked={hidePastEvents}
+                    onChange={(e) => setHidePastEvents(e.target.checked)}
+                    className="h-4 w-4 accent-black cursor-pointer text-black"
+                  />
+                  Hide Past Events
+                </label>
+                {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t, i) => (
+                  <button
+                    key={t}
+                    onClick={() => setFilter(t)}
+                    className={`neu-border px-3 py-2 font-mono text-xs font-bold uppercase ${filter === t ? "bg-black text-cream" : "bg-white text-black"}`}
+                  >
+                    {t}
+                  </button>
+                ))}
+                {filter !== "All" && (
+                  <button
+                    onClick={() => setFilter("All")}
+                    className="neu-border bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-cream cursor-pointer"
+                  >
+                    Clear All
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+                <div className="neu-border flex bg-white p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("list")}
+                    className={`px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer ${
+                      viewMode === "list"
+                        ? "bg-black text-cream"
+                        : "bg-white text-black hover:bg-cream"
+                    }`}
+                  >
+                    List
+                  </button>
 
-              <CreateEventDialog user={user} />
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("calendar")}
+                    className={`px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer ${
+                      viewMode === "calendar"
+                        ? "bg-black text-cream"
+                        : "bg-white text-black hover:bg-cream"
+                    }`}
+                  >
+                    Calendar
+                  </button>
+                </div>
+
+                <Select
+                  value={sortOrder}
+                  onValueChange={(value) => setSortOrder(value as "asc" | "desc")}
+                >
+                  <SelectTrigger className="neu-border w-44 bg-white font-mono text-xs text-black">
+                    <SelectValue placeholder="Sort by date" />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value="asc">Oldest First</SelectItem>
+                    <SelectItem value="desc">Newest First</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <CreateEventDialog user={user} />
+              </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      <section className="bg-cream px-4 py-12 md:px-6">
-        <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {isFetching && !isLoading && (
-            <div className="col-span-full text-center font-mono text-xs text-gray-500">
-              Refreshing...
-            </div>
-          )}
-          {isLoading ? (
-            <div className="col-span-full font-mono text-center py-10">Loading events...</div>
-          ) : (
-            filteredEvents.map((e, index) => (
-              <EventCard
-                key={e.id}
-                event={e}
-                index={index}
-                user={user}
-                onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
-                isRsvpPending={toggleRsvp.isPending}
-                onBookmarkToggle={(eventId, isSaved) => toggleBookmark.mutate({ eventId, isSaved })}
-                isBookmarkPending={toggleBookmark.isPending}
-              />
-            ))
-          )}
-        </div>
-        <div className="mx-auto max-w-7xl mt-4 flex justify-center">
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="neu-border bg-white px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-cream"
-          >
-            Refresh
-          </button>
-        </div>
-      </section>
+        </section>
+        <section className="bg-cream px-4 py-12 md:px-6">
+          <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {isLoading ? (
+              <div className="col-span-full font-mono text-center py-10">Loading events...</div>
+            ) : (
+              filteredEvents.map((e, index) => (
+                <EventCard
+                  key={e.id}
+                  event={e}
+                  index={index}
+                  user={user}
+                  onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
+                  isRsvpPending={toggleRsvp.isPending}
+                  onBookmarkToggle={(eventId, isSaved) =>
+                    toggleBookmark.mutate({ eventId, isSaved })
+                  }
+                  isBookmarkPending={toggleBookmark.isPending}
+                />
+              ))
+            )}
+          </div>
+        </section>
+      </PullToRefresh>
     </SiteShell>
   );
 }

@@ -106,10 +106,10 @@ export const signInSchema = z.object({
     .string()
     .trim()
     .min(1, "Email is required.")
+    .max(255, "Email cannot exceed 255 characters.")
     .email("Please enter a valid email address."),
-  password: z.string().min(1, "Password is required."),
+  password: z.string().min(1, "Password is required.").max(128, "Password cannot exceed 128 characters."),
 });
-
 export type SignInFormValues = z.infer<typeof signInSchema>;
 
 // --- Auth: sign up ----------------------------------------------------------
@@ -119,21 +119,21 @@ export type SignInFormValues = z.infer<typeof signInSchema>;
 const passwordRules = z
   .string()
   .min(8, "Password must be at least 8 characters.")
+  .max(128, "Password cannot exceed 128 characters.")
   .regex(/[a-zA-Z]/, "Password must contain at least one letter.")
   .regex(/[0-9]/, "Password must contain at least one number.");
-
 export const signUpSchema = z
   .object({
     firstName: z.string().trim().min(1, "First name is required."),
     lastName: z.string().trim().min(1, "Last name is required."),
     role: UserRoleEnum.default("student"),
-    email: z
+email: z
       .string()
       .trim()
       .min(1, "Email is required.")
+      .max(255, "Email cannot exceed 255 characters.")
       .email("Please enter a valid email address."),
-    password: passwordRules,
-    confirmPassword: z.string().min(1, "Please confirm your password."),
+    password: passwordRules,    confirmPassword: z.string().min(1, "Please confirm your password."),
     newsletterOptIn: z.boolean().default(false),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -150,9 +150,9 @@ export const forgotPasswordSchema = z.object({
     .string()
     .trim()
     .min(1, "Email is required.")
+    .max(255, "Email cannot exceed 255 characters.")
     .email("Please enter a valid email address."),
 });
-
 export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 
 // --- Reset password ----------------------------------------------------------
