@@ -1,40 +1,28 @@
 import { useNavigate, useBlocker } from "react-router-dom";
-import { Progress } from "@/components/ui/progress";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SiteShell } from "@/components/site/SiteShell";
-import { useEffect, useRef, useState, useId, type ChangeEvent, type KeyboardEvent } from "react";
-import { Camera, Loader2, X, Plus, UploadCloud } from "lucide-react";
-import { toast } from "sonner";
-import { announce } from "@/store/ariaAnnouncer";
-import { createClient } from "@/lib/supabase/client";
-import { withAuth, WithAuthProps } from "@/hoc/withAuth";
-import { PasswordInput } from "@/components/ui/password-input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { useTheme } from "@/components/theme-provider";
+import { Check, Loader2, X, Plus } from "lucide-react";
+import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
 
 import { OptimizedImage } from "@/components/media/OptimizedImage";
-import { PushNotificationSettings } from "@/components/notifications/PushNotificationSettings";
+import { Switch } from "@/components/ui/switch";
 
 import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
 import {
   profileSchema,
-  notificationPreferencesSchema,
+  normalizeProfileHandle,
+  PROFILE_HANDLE_PATTERN,
+  HANDLE_UNAVAILABLE_MESSAGE,
   AVATAR_THEMES,
   type ProfileFormValues,
-  type NotificationPreferencesValues,
   type AvatarThemeId,
 } from "@/lib/schemas";
-import { BlockedUsersPanel } from "@/components/Settings/BlockedUsersPanel";
 import {
   Form,
   FormField,
@@ -43,8 +31,7 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
-import { PasskeyManager } from "@/components/PasskeyManager";
-import { AudioEngine, SOUND_ENABLED_KEY } from "@/lib/audio/audioEngine";
+import { ImageCropUpload } from "@/components/ImageCropUpload";
 
 const FONT_SIZE_KEY = "campusconnect-font-size";
 
@@ -58,6 +45,16 @@ const FONT_SIZE_MIN = 12;
 const FONT_SIZE_MAX = 24;
 const FONT_SIZE_DEFAULT = 16;
 const FONT_SIZE_STEP = 1;
+
+type HandleAvailability = "idle" | "checking" | "available" | "taken" | "error";
+
+const HANDLE_CHECK_DEBOUNCE_MS = 500;
+
+function isHandleLocallyValid(handle: string) {
+  const normalized = normalizeProfileHandle(handle);
+
+  return normalized.length >= 2 && PROFILE_HANDLE_PATTERN.test(normalized);
+}
 
 function useFontSize() {
   const [fontSize, setFontSizeState] = useState<number>(() => {
@@ -78,18 +75,18 @@ function useFontSize() {
   return { fontSize, increment, decrement, reset };
 }
 
-function SettingsPageContent({ user }: WithAuthProps) {
+export default function SettingsPage() {
   const navigate = useNavigate();
   const supabase = createClient();
   const { theme, setTheme } = useTheme();
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [deletePassword, setDeletePassword] = useState("");
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
+  const [user, setUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [handleAvailability, setHandleAvailability] = useState<HandleAvailability>("idle");
+  const [handleFeedback, setHandleFeedback] = useState<string | null>(null);
+  const handleCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [borderThickness, setBorderThickness] = useState(2);
   const [borderRadius, setBorderRadius] = useState(0);
-  const [soundEnabled, setSoundEnabled] = useState(false);
   const { fontSize, increment, decrement, reset } = useFontSize();
 
   // --- Skills tags state ---
@@ -117,48 +114,18 @@ function SettingsPageContent({ user }: WithAuthProps) {
     setSkills((prev) => prev.filter((s) => s !== skill));
   };
 
-  const handleDeleteAccount = async () => {
-    if (!user) {
-      setDeleteError("User session not found.");
-      return;
-    }
-    if (!deletePassword.trim()) {
-      setDeleteError("Password is required.");
-      return;
-    }
-
-    setIsDeleting(true);
-    setDeleteError("");
-
-    try {
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: user.email || "",
-        password: deletePassword,
-      });
-
-      if (authError) {
-        setDeleteError(authError.message || "Incorrect password. Please try again.");
-        setIsDeleting(false);
-        return;
-      }
-
-      // Credentials verified successfully. Continue with existing deletion flow.
-      setConfirmOpen(false);
-      setDeletePassword("");
-      toast.success("Account deleted successfully.");
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "An unexpected error occurred during verification.";
-      setDeleteError(message);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
   useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) {
+        navigate("/auth", { replace: true });
+      } else {
+        setUser(user);
+      }
+    });
+
     // Load appearance settings from localStorage
     const savedThickness = localStorage.getItem("border-thickness");
     const savedRadius = localStorage.getItem("border-radius");
-    setSoundEnabled(localStorage.getItem(SOUND_ENABLED_KEY) === "true");
 
     if (savedThickness) {
       const thickness = parseInt(savedThickness, 10);
@@ -191,22 +158,10 @@ function SettingsPageContent({ user }: WithAuthProps) {
     enabled: !!user?.id,
   });
 
-  const { data: preferences, isLoading: isPreferencesLoading } = useQuery({
-    queryKey: ["user_preferences", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_preferences")
-        .select("*")
-        .eq("user_id", user?.id)
-        .single();
-      if (error && error.code !== "PGRST116") throw error; // PGRST116 = no rows found
-      return data;
-    },
-    enabled: !!user?.id,
-  });
-
-  const form = useForm<ProfileFormValues & NotificationPreferencesValues>({
-    resolver: zodResolver(profileSchema.merge(notificationPreferencesSchema)),
+  const form = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileSchema) as any,
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: {
       avatarTheme: "",
       firstName: "",
@@ -216,14 +171,11 @@ function SettingsPageContent({ user }: WithAuthProps) {
       bio: "",
       linkedinUrl: "",
       phoneNumber: "",
-      email_alerts: true,
-      push_notifications: true,
-      digest: true,
-      dark_mode_default: false,
+      role: "student",
     },
   });
   const {
-    formState: { isDirty },
+    formState: { isDirty, isValid, errors },
   } = form;
   const blocker = useBlocker(isDirty);
   useEffect(() => {
@@ -252,6 +204,10 @@ function SettingsPageContent({ user }: WithAuthProps) {
     }
   }, [blocker]);
   useEffect(() => {
+    return () => clearPendingHandleCheck();
+  }, []);
+
+  useEffect(() => {
     if (user) {
       // Auth metadata (from OAuth sign-up, etc.) may only ever have a single
       // full_name string. If the profile row hasn't been saved with split
@@ -268,23 +224,112 @@ function SettingsPageContent({ user }: WithAuthProps) {
         bio: profile?.bio || "",
         linkedinUrl: profile?.linkedin_url || "",
         phoneNumber: profile?.phone_number || "",
-        email_alerts: preferences?.email_alerts ?? true,
-        push_notifications: preferences?.push_notifications ?? true,
-        digest: preferences?.digest ?? true,
-        dark_mode_default: preferences?.dark_mode_default ?? false,
+        role: (profile?.role as any) || "student",
       });
       // Hydrate skills from profile (text[])
       if (Array.isArray(profile?.skills)) {
         setSkills(profile.skills as string[]);
       }
     }
-  }, [profile, preferences, user, form]);
+  }, [profile, user, form]);
 
-  const onSubmit = async (values: ProfileFormValues & NotificationPreferencesValues) => {
+  const clearPendingHandleCheck = () => {
+    if (handleCheckTimeoutRef.current) {
+      clearTimeout(handleCheckTimeoutRef.current);
+      handleCheckTimeoutRef.current = null;
+    }
+  };
+
+  const validateHandleAvailability = async (rawHandle: string) => {
+    const handle = normalizeProfileHandle(rawHandle);
+
+    clearPendingHandleCheck();
+
+    if (!isHandleLocallyValid(handle)) {
+      setHandleAvailability("idle");
+      setHandleFeedback(null);
+      return false;
+    }
+
+    if (!user?.id) {
+      setHandleAvailability("idle");
+      setHandleFeedback(null);
+      return false;
+    }
+
+    if (profile?.handle && handle.toLowerCase() === String(profile.handle).toLowerCase()) {
+      setHandleAvailability("available");
+      setHandleFeedback("This handle is available");
+      form.clearErrors("handle");
+      return true;
+    }
+
+    setHandleAvailability("checking");
+    setHandleFeedback("Checking handle availability...");
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("handle", handle)
+      .neq("id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error(error);
+      setHandleAvailability("error");
+      setHandleFeedback("Unable to verify handle right now. Please try again.");
+      form.setError("handle", {
+        type: "validate",
+        message: "Unable to verify handle right now. Please try again.",
+      });
+      return false;
+    }
+
+    if (data?.id) {
+      setHandleAvailability("taken");
+      setHandleFeedback(HANDLE_UNAVAILABLE_MESSAGE);
+      form.setError("handle", {
+        type: "validate",
+        message: HANDLE_UNAVAILABLE_MESSAGE,
+      });
+      return false;
+    }
+
+    setHandleAvailability("available");
+    setHandleFeedback("This handle is available");
+    form.clearErrors("handle");
+    return true;
+  };
+
+  const scheduleHandleAvailabilityCheck = (handle: string) => {
+    clearPendingHandleCheck();
+
+    if (!isHandleLocallyValid(handle)) {
+      setHandleAvailability("idle");
+      setHandleFeedback(null);
+      return;
+    }
+
+    setHandleAvailability("checking");
+    setHandleFeedback("Checking handle availability...");
+
+    handleCheckTimeoutRef.current = setTimeout(() => {
+      validateHandleAvailability(handle);
+    }, HANDLE_CHECK_DEBOUNCE_MS);
+  };
+
+  const onSubmit = async (values: ProfileFormValues) => {
     setIsSaving(true);
     try {
       if (!user) {
         toast.error("You must be logged in to update your profile.");
+        return;
+      }
+
+      const isHandleAvailable = await validateHandleAvailability(values.handle);
+
+      if (!isHandleAvailable) {
+        toast.error(HANDLE_UNAVAILABLE_MESSAGE);
         return;
       }
 
@@ -306,16 +351,6 @@ function SettingsPageContent({ user }: WithAuthProps) {
 
       if (profileError) throw profileError;
 
-      // Update user_preferences table
-      const { error: prefError } = await supabase.from("user_preferences").upsert({
-        user_id: user.id,
-        email_alerts: values.email_alerts,
-        push_notifications: values.push_notifications,
-        digest: values.digest,
-        dark_mode_default: values.dark_mode_default,
-      });
-      if (prefError) throw prefError;
-
       // Update email if it has changed
       if (values.collegeEmail !== user.email) {
         const { error: authError } = await supabase.auth.updateUser({
@@ -323,10 +358,8 @@ function SettingsPageContent({ user }: WithAuthProps) {
         });
         if (authError) throw authError;
         toast.success("Profile updated! Verification email sent to your new address.");
-        announce("Profile updated! Verification email sent to your new address.");
       } else {
         toast.success("Profile updated successfully!");
-        announce("Profile updated successfully");
       }
 
       refetch();
@@ -342,6 +375,14 @@ function SettingsPageContent({ user }: WithAuthProps) {
   const currentLastName = form.watch("lastName");
   const currentFullName = `${currentFirstName} ${currentLastName}`.trim();
   const currentAvatarTheme = form.watch("avatarTheme");
+  const currentHandle = form.watch("handle");
+  const isHandleCheckBlocking =
+    handleAvailability === "checking" ||
+    handleAvailability === "taken" ||
+    (handleAvailability === "error" &&
+      normalizeProfileHandle(currentHandle || "") !==
+        normalizeProfileHandle(profile?.handle || ""));
+  const isSubmitDisabled = isSaving || isProfileLoading || !isValid || isHandleCheckBlocking;
 
   const handleBorderThicknessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value, 10);
@@ -350,18 +391,30 @@ function SettingsPageContent({ user }: WithAuthProps) {
     localStorage.setItem("border-thickness", String(value));
   };
 
-  const handleSoundEnabledChange = (enabled: boolean) => {
-    setSoundEnabled(enabled);
-    AudioEngine.setEnabled(enabled);
-    if (enabled) AudioEngine.playToggle();
-  };
-
   const handleBorderRadiusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value, 10);
     setBorderRadius(value);
     document.documentElement.style.setProperty("--border-radius", `${value}px`);
     localStorage.setItem("border-radius", String(value));
   };
+
+  useEffect(() => {
+    const normalizedCurrent = normalizeProfileHandle(currentHandle || "");
+    const normalizedSaved = normalizeProfileHandle(profile?.handle || "");
+
+    if (!normalizedCurrent || normalizedCurrent === normalizedSaved) {
+      clearPendingHandleCheck();
+      setHandleAvailability(normalizedCurrent ? "available" : "idle");
+      setHandleFeedback(normalizedCurrent ? "This is your current handle" : null);
+      return;
+    }
+
+    if (!isHandleLocallyValid(normalizedCurrent)) {
+      clearPendingHandleCheck();
+      setHandleAvailability("idle");
+      setHandleFeedback(null);
+    }
+  }, [currentHandle, profile?.handle]);
 
   const pStats = profile as typeof profile & {
     lastActivityAt?: string;
@@ -431,7 +484,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
             />
 
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <FormField
                     control={form.control}
@@ -481,13 +534,53 @@ function SettingsPageContent({ user }: WithAuthProps) {
                         Handle
                       </FormLabel>
                       <FormControl>
-                        <input
-                          {...field}
-                          placeholder="username"
-                          className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
-                        />
+                        <div className="relative">
+                          <input
+                            {...field}
+                            placeholder="username"
+                            aria-invalid={!!errors.handle || handleAvailability === "taken"}
+                            aria-describedby="handle-feedback handle-error"
+                            onChange={(event) => {
+                              field.onChange(event);
+                              scheduleHandleAvailabilityCheck(event.target.value);
+                            }}
+                            onBlur={(event) => {
+                              field.onBlur();
+                              validateHandleAvailability(event.target.value);
+                            }}
+                            className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 pr-8 font-mono text-sm outline-none focus:bg-lime/40"
+                          />
+                          <span className="absolute right-1 top-1/2 -translate-y-1/2">
+                            {handleAvailability === "checking" ? (
+                              <Loader2
+                                className="h-4 w-4 animate-spin text-black/60"
+                                aria-label="Checking handle"
+                              />
+                            ) : handleAvailability === "available" && !errors.handle ? (
+                              <Check
+                                className="h-4 w-4 text-green-700"
+                                aria-label="Handle available"
+                              />
+                            ) : null}
+                          </span>
+                        </div>
                       </FormControl>
-                      <FormMessage className="font-mono text-xs text-destructive" />
+                      {handleFeedback && !errors.handle ? (
+                        <p
+                          id="handle-feedback"
+                          className={`font-mono text-xs ${
+                            handleAvailability === "available"
+                              ? "text-green-700"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {handleFeedback}
+                        </p>
+                      ) : null}
+                      <FormMessage
+                        id="handle-error"
+                        className="font-mono text-xs text-destructive"
+                      />
                     </FormItem>
                   )}
                 />
@@ -619,7 +712,7 @@ function SettingsPageContent({ user }: WithAuthProps) {
                 <div className="flex justify-end pt-4">
                   <button
                     type="submit"
-                    disabled={isSaving || isProfileLoading}
+                    disabled={isSubmitDisabled}
                     className="neu-border neu-press flex items-center gap-2 bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream disabled:opacity-50"
                   >
                     {isSaving ? (
@@ -641,94 +734,20 @@ function SettingsPageContent({ user }: WithAuthProps) {
               {/* Theme Toggle */}
               <div className="space-y-2">
                 <label className="eyebrow font-bold text-black dark:text-cream">Theme Mode</label>
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setTheme("light")}
-                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${
-                      theme === "light"
-                        ? "bg-black text-cream dark:bg-cream dark:text-black"
-                        : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
-                    }`}
-                  >
-                    ☀️ Light
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTheme("dark")}
-                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${
-                      theme === "dark"
-                        ? "bg-black text-cream dark:bg-cream dark:text-black"
-                        : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
-                    }`}
-                  >
-                    🌙 Dark
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTheme("system")}
-                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${
-                      theme === "system"
-                        ? "bg-black text-cream dark:bg-cream dark:text-black"
-                        : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
-                    }`}
-                  >
-                    💻 System
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTheme("high-contrast")}
-                    className={`neu-border neu-press px-4 py-2 font-mono text-xs font-bold uppercase ${
-                      theme === "high-contrast"
-                        ? "bg-black text-cream dark:bg-cream dark:text-black"
-                        : "bg-white text-black hover:bg-lime dark:bg-brand-gray-base-800 dark:text-cream"
-                    }`}
-                  >
-                    ⬛ High Contrast
-                  </button>
+
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <label className="eyebrow font-bold text-black dark:text-cream">
+                      Dark Mode
+                    </label>
+
+                    <p className="font-mono text-xs text-muted-foreground">
+                      Toggle between light and dark theme
+                    </p>
+                  </div>
+
+                  <ThemeToggle theme={theme} setTheme={setTheme} />
                 </div>
-              </div>
-
-              <FormField
-                control={form.control}
-                name="dark_mode_default"
-                render={({ field }) => (
-                  <FormItem className="space-y-1">
-                    <FormControl>
-                      <div className="flex items-center justify-between gap-4 border-t-2 border-black pt-4">
-                        <div>
-                          <label
-                            htmlFor={field.id}
-                            className="eyebrow font-bold text-black dark:text-cream"
-                          >
-                            Dark Mode by Default
-                          </label>
-                          <p className="font-mono text-xs text-muted-foreground">
-                            When enabled, the app will default to dark mode on each visit unless you
-                            manually switch themes.
-                          </p>
-                        </div>
-                        <input {...field} type="checkbox" className="h-5 w-5 accent-black" />
-                      </div>
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <div className="flex items-center justify-between gap-4 border-t-2 border-black pt-4">
-                <label htmlFor="ui-sounds" className="eyebrow font-bold text-black dark:text-cream">
-                  UI Sounds
-                </label>
-                <p className="font-mono text-xs text-muted-foreground">
-                  Play subtle synthesized clicks, toggles, and like pops.
-                </p>
-                <input
-                  id="ui-sounds"
-                  type="checkbox"
-                  checked={soundEnabled}
-                  onChange={(event) => handleSoundEnabledChange(event.target.checked)}
-                  className="h-5 w-5 accent-black"
-                />
               </div>
 
               {/* Border Thickness */}
@@ -797,65 +816,11 @@ function SettingsPageContent({ user }: WithAuthProps) {
               </button>
             </div>
           </Panel>
-          <Panel title="Blocked Users">
-            <BlockedUsersPanel currentUserId={user.id} />
-          </Panel>
-
-          <Panel title="Passkeys">
-            <PasskeyManager />
-          </Panel>
 
           <Panel title="Notifications">
-            {user && <PushNotificationSettings userId={user.id} />}
-
-            <FormField
-              control={form.control}
-              name="email_alerts"
-              render={({ field }) => (
-                <FormItem className="space-y-1">
-                  <FormControl>
-                    <div className="flex cursor-pointer items-center justify-between gap-3">
-                      <label htmlFor={field.id} className="font-mono text-sm">
-                        Email me about upcoming RSVPs
-                      </label>
-                      <input {...field} type="checkbox" className="h-5 w-5 accent-black" />
-                    </div>
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="digest"
-              render={({ field }) => (
-                <FormItem className="space-y-1">
-                  <FormControl>
-                    <div className="flex cursor-pointer items-center justify-between gap-3">
-                      <label htmlFor={field.id} className="font-mono text-sm">
-                        Weekly digest of club activity
-                      </label>
-                      <input {...field} type="checkbox" className="h-5 w-5 accent-black" />
-                    </div>
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="push_notifications"
-              render={({ field }) => (
-                <FormItem className="space-y-1">
-                  <FormControl>
-                    <div className="flex cursor-pointer items-center justify-between gap-3">
-                      <label htmlFor={field.id} className="font-mono text-sm">
-                        New certificates
-                      </label>
-                      <input {...field} type="checkbox" className="h-5 w-5 accent-black" />
-                    </div>
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+            <Toggle label="Email me about upcoming RSVPs" defaultChecked />
+            <Toggle label="Weekly digest of club activity" defaultChecked />
+            <Toggle label="New certificates" />
           </Panel>
 
           <Panel title="Danger zone" tone="bg-red-50">
@@ -866,67 +831,17 @@ function SettingsPageContent({ user }: WithAuthProps) {
               Delete account
             </button>
 
-            <Dialog
+            <ConfirmModal
               open={confirmOpen}
-              onOpenChange={(isOpen) => {
-                if (!isOpen && !isDeleting) {
-                  setConfirmOpen(false);
-                  setDeletePassword("");
-                  setDeleteError("");
-                }
+              title="Delete account?"
+              description="This action cannot be undone."
+              confirmText="Delete"
+              cancelText="Cancel"
+              onCancel={() => setConfirmOpen(false)}
+              onConfirm={() => {
+                setConfirmOpen(false);
               }}
-            >
-              <DialogContent className="border-2 border-black bg-white p-6 shadow-[6px_6px_0px_rgba(0,0,0,1)]">
-                <DialogHeader>
-                  <DialogTitle className="font-display text-2xl font-extrabold tracking-tight text-black">
-                    Delete account?
-                  </DialogTitle>
-                  <DialogDescription className="font-mono text-xs text-gray-600 mt-2">
-                    This action cannot be undone. Please enter your password to confirm deletion.
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="my-4 space-y-2">
-                  <label className="block font-mono text-xs font-bold uppercase text-black">
-                    Current Password
-                  </label>
-                  <PasswordInput
-                    value={deletePassword}
-                    onChange={(e) => setDeletePassword(e.target.value)}
-                    placeholder="Enter your password"
-                    disabled={isDeleting}
-                    className="w-full border-2 border-black bg-white p-2 font-mono text-xs outline-none"
-                  />
-                  {deleteError && (
-                    <p className="font-mono text-xs text-red-600 font-bold">{deleteError}</p>
-                  )}
-                </div>
-
-                <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2 border-t border-black/10">
-                  <button
-                    type="button"
-                    disabled={isDeleting}
-                    onClick={() => {
-                      setConfirmOpen(false);
-                      setDeletePassword("");
-                      setDeleteError("");
-                    }}
-                    className="neu-border neu-press bg-white text-black hover:bg-cream px-4 py-2 font-mono text-xs font-bold uppercase disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isDeleting}
-                    onClick={handleDeleteAccount}
-                    className="neu-border neu-press bg-brand-blue-dark hover:bg-brand-blue-dark/90 px-4 py-2 font-mono text-xs font-bold uppercase text-white disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {isDeleting && <Loader2 className="h-3 w-3 animate-spin text-white" />}
-                    {isDeleting ? "Deleting..." : "Delete"}
-                  </button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            />
           </Panel>
         </div>
       </section>
@@ -968,17 +883,11 @@ function AvatarThemePicker({
 }) {
   return (
     <div className="space-y-2 border-b-2 border-black pb-6">
-      <p className="eyebrow font-bold" id="avatar-theme-label">
-        Avatar theme
-      </p>
-      <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
+      <p className="eyebrow font-bold">Avatar theme</p>
+      <p className="font-mono text-xs text-muted-foreground">
         Pick a gradient background to use when you don&apos;t have a custom photo.
       </p>
-      <div
-        className="flex flex-wrap gap-3 pt-1"
-        role="radiogroup"
-        aria-labelledby="avatar-theme-label"
-      >
+      <div className="flex flex-wrap gap-3 pt-1">
         {AVATAR_THEMES.map((theme) => {
           const isSelected = selected === theme.id;
           return (
@@ -986,9 +895,8 @@ function AvatarThemePicker({
               key={theme.id}
               type="button"
               onClick={() => onSelect(theme.id)}
-              role="radio"
-              aria-checked={isSelected}
               aria-label={`${theme.label} gradient`}
+              aria-pressed={isSelected}
               title={theme.label}
               className={`h-10 w-10 rounded-full border-2 border-black transition-transform ${theme.gradient} ${
                 isSelected
@@ -1009,97 +917,6 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
   const [preview, setPreview] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
   const [initials, setInitials] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
-  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!uploading) setIsDragging(true);
-  };
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!uploading) setIsDragging(true);
-  };
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      await handleUpload(file);
-    }
-  };
-
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    if (uploading) return;
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      await handleUpload(file);
-    }
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-  };
-
-  const handleUpload = async (file: File) => {
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Image must be under 2 MB.");
-      return;
-    }
-    const allowed = ["image/jpeg", "image/png", "image/webp"];
-    if (!allowed.includes(file.type)) {
-      toast.error("Only JPG, PNG and WEBP images are allowed.");
-      return;
-    }
-
-    setSelectedFile(file);
-    setUploading(true);
-    setUploadProgress(0);
-
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("No user");
-
-      const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-      const filePath = `${user.id}/${crypto.randomUUID()}.${extension}`;
-
-      const publicUrl = await uploadImageWithSignedUrl(
-        "avatars",
-        filePath,
-        file,
-        setUploadProgress,
-      );
-
-      await handleUploaded(publicUrl);
-      toast.success("Profile picture updated.");
-    } catch (err) {
-      console.error(err);
-      toast.error((err as Error).message || "Failed to upload image.");
-    } finally {
-      setUploading(false);
-      setUploadProgress(null);
-      setSelectedFile(null);
-      if (inputRef.current) inputRef.current.value = "";
-    }
-  };
 
   useEffect(() => {
     let isMounted = true;
@@ -1171,8 +988,6 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
     <div className="flex flex-col gap-4 border-b-2 border-black pb-6 sm:flex-row sm:items-start">
       <div className="relative mx-auto shrink-0 sm:mx-0">
         <div
-          role="img"
-          aria-label={`${name}'s avatar profile picture`}
           className={`neu-border flex h-24 w-24 items-center justify-center overflow-hidden rounded-full ${backgroundClass}`}
         >
           {preview && !imageError ? (
@@ -1199,101 +1014,50 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
           <p className="eyebrow font-bold text-black">Profile picture</p>
         </div>
 
-        {/* Neubrutalist drag-and-drop zone — replaces the raw <input type="file"> trigger */}
-        <div
-          onClick={() => !uploading && inputRef.current?.click()}
-          onDragEnter={handleDragEnter}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(event) => {
-            if ((event.key === "Enter" || event.key === " ") && !uploading) {
-              event.preventDefault();
-              inputRef.current?.click();
-            }
-          }}
-          aria-label="Upload profile picture. Click to browse, or drag and drop an image."
-          className={`neu-border flex cursor-pointer flex-col items-center justify-center gap-1.5 border-2 border-dashed p-5 text-center transition-colors duration-150 ${
-            uploading
-              ? "cursor-not-allowed border-black bg-gray-100 opacity-70"
-              : isDragging
-                ? "border-black bg-lime/40 scale-[1.01]"
-                : "border-black bg-white hover:bg-cream"
-          }`}
-        >
-          {uploading ? (
-            <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
-          ) : (
-            <UploadCloud className="h-6 w-6" aria-hidden="true" />
-          )}
-          <p className="font-mono text-xs font-bold uppercase">
-            {uploading
-              ? "Uploading..."
-              : isDragging
-                ? "Drop to upload"
-                : "Drag & drop or click to upload"}
-          </p>
-          <p className="font-mono text-[10px] text-gray-500 dark:text-gray-400">
-            JPG, PNG or WEBP · Max 2 MB · Square images look best
-          </p>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-        </div>
-
-        {/* Selected file name + size preview */}
-        {selectedFile && (
-          <div className="neu-border flex items-center justify-between gap-3 bg-white px-3 py-2 font-mono text-xs">
-            <span className="flex items-center gap-2 truncate">
-              <Camera className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <span className="truncate" title={selectedFile.name}>
-                {selectedFile.name}
-              </span>
-            </span>
-            <span className="shrink-0 font-bold text-gray-600 dark:text-gray-300">
-              {formatFileSize(selectedFile.size)}
-            </span>
-          </div>
-        )}
-
-        {uploadProgress !== null && (
-          <div className="w-full space-y-1">
-            <Progress value={uploadProgress} className="h-2" />
-            <p className="font-mono text-xs text-gray-500 dark:text-gray-300">{uploadProgress}%</p>
-          </div>
-        )}
-      </div>
-      <div className="text-center sm:text-left">
-        <p className="eyebrow font-bold text-black">Profile picture</p>
-        <p className="font-mono text-xs text-gray-500 dark:text-gray-300">
-          JPG, PNG or WEBP. Max 2 MB. Square images look best.
-        </p>
+        <ImageCropUpload
+          aspect={1}
+          bucket="avatars"
+          value={preview ?? undefined}
+          onUploaded={handleUploaded}
+          accept="image/jpeg,image/png,image/webp"
+          maxSizeBytes={2 * 1024 * 1024}
+          label="profile picture"
+          hint="JPG, PNG or WEBP · Max 2 MB · Square images look best"
+        />
       </div>
     </div>
+  );
+}
+function ThemeToggle({
+  theme,
+  setTheme,
+}: {
+  theme: "light" | "dark" | "system" | "high-contrast";
+  setTheme: (theme: "light" | "dark" | "system" | "high-contrast") => void;
+}) {
+  const isDark =
+    theme === "dark" ||
+    (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+  const handleToggle = (checked: boolean) => {
+    setTheme(checked ? "dark" : "light");
+  };
+
+  return (
+    <Switch
+      checked={isDark}
+      onCheckedChange={handleToggle}
+      aria-label="Toggle dark mode"
+      className="data-[state=checked]:bg-black data-[state=unchecked]:bg-gray-200 h-7 w-14 [&>span]:h-5 [&>span]:w-5 data-[state=checked]:[&>span]:translate-x-7 data-[state=unchecked]:[&>span]:translate-x-1 border-2 border-black"
+    />
   );
 }
 
 function Toggle({ label, defaultChecked }: { label: string; defaultChecked?: boolean }) {
-  const id = useId();
   return (
-    <div className="flex cursor-pointer items-center justify-between gap-3">
-      <label htmlFor={id} className="font-mono text-sm">
-        {label}
-      </label>
-      <input
-        id={id}
-        type="checkbox"
-        defaultChecked={defaultChecked}
-        className="h-5 w-5 accent-black"
-      />
-    </div>
+    <label className="flex cursor-pointer items-center justify-between gap-3">
+      <span className="font-mono text-sm">{label}</span>
+      <input type="checkbox" defaultChecked={defaultChecked} className="h-5 w-5 accent-black" />
+    </label>
   );
 }
-
-export default withAuth(SettingsPageContent);

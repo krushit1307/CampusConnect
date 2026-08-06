@@ -13,28 +13,6 @@ serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  // 1. IP Rate Limiting: 5 requests per hour per IP
-  const ipRateLimitResponse = await limitRate(req, "request-password-reset-ip", {
-    limit: 5,
-    windowMs: 3600000,
-  });
-  if (ipRateLimitResponse) {
-    return ipRateLimitResponse;
-  }
-
-  // --- Outbound Communication Rate Limiting ---
-  const ipAddress = req.headers.get("x-forwarded-for") || "unknown-ip";
-  const { success } = await outboundCommunicationLimiter.limit(ipAddress);
-
-  if (!success) {
-    console.warn(`[RateLimit] Outbound communication blocked for IP: ${ipAddress}`);
-    return new Response(
-      JSON.stringify({ error: "Too Many Requests. Maximum 5 requests per 15 minutes." }),
-      { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  }
-  // --------------------------------------------
-
   try {
     const { email, redirectTo } = await req.json();
 
@@ -45,17 +23,6 @@ serve(async (req: Request) => {
       });
     }
 
-    // 2. Email Rate Limiting: 3 requests per hour per email
-    const emailRateLimitResponse = await limitRate(req, "request-password-reset-email", {
-      limit: 3,
-      windowMs: 3600000,
-      identifier: email,
-    });
-    if (emailRateLimitResponse) {
-      return emailRateLimitResponse;
-    }
-
-    // Initialize Supabase Admin client
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
@@ -102,7 +69,8 @@ serve(async (req: Request) => {
       console.error("[request-password-reset] Supabase reset error:", resetError);
     }
 
-    // 5. Record this password reset request so throttling cooldown works
+    // 3. Record this request regardless of outcome, so throttling works even
+    // for emails that don't have an account.
     const { error: insertError } = await supabaseAdmin
       .from("password_reset_requests")
       .insert({ email });
@@ -111,15 +79,18 @@ serve(async (req: Request) => {
       console.error("[request-password-reset] Failed to record reset request:", insertError);
     }
 
-    // 6. Generic success response (identical to the cooldown response)
+    // Always respond with success so we don't leak which emails have accounts.
     return new Response(
-      JSON.stringify({ message: "If this email exists, a reset link has been sent." }),
+      JSON.stringify({
+        success: true,
+        message: "If this email exists, a reset link has been sent.",
+      }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       },
     );
-  } catch (err: any) {
+  } catch (err) {
     console.error("[request-password-reset] Unexpected error:", err);
     return new Response(JSON.stringify({ error: "Something went wrong. Please try again." }), {
       status: 500,

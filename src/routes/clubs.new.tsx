@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, UseFormReturn } from "react-hook-form";
 import { toast } from "sonner";
 import { Plus, Trash2, Mail, UserCheck } from "lucide-react";
 
@@ -49,17 +49,7 @@ export default function CreateClubWizard() {
 
   const form = useForm<ClubWizardFormValues>({
     resolver: zodResolver(clubFormSchema) as any,
-    defaultValues: {
-      name: formData.name || "",
-      slug: formData.slug || "",
-      description: formData.description || "",
-      visibility: formData.visibility || "public",
-      category_id: formData.category_id || null,
-      github_repo_url: formData.github_repo_url || "",
-      logo_url: formData.logo_url || "",
-      social_links: formData.social_links || {},
-      admin_invites: formData.admin_invites || [],
-    },
+    defaultValues,
     mode: "onBlur",
   });
 
@@ -183,7 +173,7 @@ export default function CreateClubWizard() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="name"
                 render={({ field }) => (
                   <FormItem>
@@ -197,7 +187,7 @@ export default function CreateClubWizard() {
               />
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="slug"
                 render={({ field }) => (
                   <FormItem>
@@ -211,50 +201,27 @@ export default function CreateClubWizard() {
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="category_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel required>Club Category</FormLabel>
-                    <FormControl>
-                      <CascadingCategorySelect
-                        value={field.value ?? null}
-                        onChange={(categoryId) =>
-                          form.setValue("category_id", categoryId, {
-                            shouldValidate: true,
-                            shouldDirty: true,
-                          })
-                        }
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="visibility"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel required>Visibility</FormLabel>
-                    <FormControl>
-                      <select
-                        {...field}
-                        className="w-full neu-border bg-white p-2.5 font-mono text-xs font-bold uppercase text-black focus:outline-none"
-                      >
-                        <option value="public">Public (Open to all students)</option>
-                        <option value="private">Private (Invite / Approval only)</option>
-                        <option value="unlisted">Unlisted (Direct link only)</option>
-                      </select>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control as any}
+              name="category_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel required>Club Category</FormLabel>
+                  <FormControl>
+                    <CascadingCategorySelect
+                      value={field.value ?? null}
+                      onChange={(categoryId) =>
+                        form.setValue("category_id", categoryId, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        })
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
         ),
       },
@@ -266,7 +233,7 @@ export default function CreateClubWizard() {
         render: () => (
           <div className="space-y-6">
             <FormField
-              control={form.control}
+              control={form.control as any}
               name="description"
               render={({ field }) => (
                 <FormItem>
@@ -286,7 +253,7 @@ export default function CreateClubWizard() {
             />
 
             <FormField
-              control={form.control}
+              control={form.control as any}
               name="github_repo_url"
               render={({ field }) => (
                 <FormItem>
@@ -302,48 +269,51 @@ export default function CreateClubWizard() {
                 </FormItem>
               )}
             />
-
-            <div className="neu-border bg-gray-50 p-4">
-              <FormLabel>Club Logo Upload</FormLabel>
-              <div className="mt-3 flex flex-col items-center gap-3 sm:flex-row sm:items-start sm:gap-5">
-                <div className="relative shrink-0">
-                  <div className="neu-border flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-lime">
-                    {form.watch("logo_url") ? (
-                      <img
-                        src={form.watch("logo_url")!}
-                        alt="Club Logo preview"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span className="font-display text-lg font-bold text-black">
-                        {form.watch("name")
-                          ? form
-                              .watch("name")
-                              .split(" ")
-                              .filter(Boolean)
-                              .map((p: string) => p[0])
-                              .join("")
-                              .slice(0, 2)
-                              .toUpperCase()
-                          : "CL"}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <ImageCropUpload
-                    aspect={1}
-                    bucket="avatars"
-                    value={form.watch("logo_url") ?? undefined}
-                    onUploaded={(url) =>
-                      form.setValue("logo_url", url, {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      })
-                    }
-                    accept="image/jpeg,image/png,image/webp"
-                    maxSizeBytes={2 * 1024 * 1024}
-                    hint="JPG, PNG or WEBP · Max 2 MB · Fixed 1:1 crop"
+          </div>
+        ),
+      },
+      {
+        id: "socials",
+        title: "Socials",
+        description: "Link your club's social profiles so members can follow along.",
+        fields: [],
+        render: () => (
+          <div className="space-y-4">
+            <SocialLinkField
+              form={form as any}
+              name="twitter"
+              label="Twitter / X URL"
+              placeholder="https://x.com/your-club"
+            />
+            <SocialLinkField
+              form={form as any}
+              name="instagram"
+              label="Instagram URL"
+              placeholder="https://instagram.com/your-club"
+            />
+            <SocialLinkField
+              form={form as any}
+              name="website"
+              label="Website URL"
+              placeholder="https://your-club.example.com"
+            />
+          </div>
+        ),
+      },
+      {
+        id: "logo",
+        title: "Logo",
+        description: "Upload a square logo — it appears on the club's profile and badge.",
+        fields: ["logo_url"],
+        render: () => (
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start sm:gap-5">
+            <div className="relative shrink-0">
+              <div className="neu-border flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-lime">
+                {form.watch("logo_url") ? (
+                  <img
+                    src={form.watch("logo_url")!}
+                    alt="Club Logo preview"
+                    className="h-full w-full object-cover"
                   />
                 </div>
               </div>
@@ -391,7 +361,7 @@ export default function CreateClubWizard() {
         title: "Review & Submit",
         description: "Double-check all club details and team invites before submitting.",
         fields: [],
-        render: () => <ReviewSummary form={form} />,
+        render: () => <ReviewSummary form={form as any} />,
       },
     ],
     [form],
@@ -416,7 +386,7 @@ export default function CreateClubWizard() {
             }}
           >
             <Wizard
-              form={form}
+              form={form as any}
               steps={steps}
               storageKey={STORAGE_KEY}
               basePath="/clubs/new"
@@ -559,8 +529,8 @@ function SocialLinkField({
   label,
   placeholder,
 }: {
-  form: ReturnType<typeof useForm<ClubWizardFormValues>>;
-  name: "twitter" | "instagram" | "website";
+  form: UseFormReturn<ClubWizardFormValues, any, undefined>;
+  name: string;
   label: string;
   placeholder: string;
 }) {
@@ -585,9 +555,8 @@ function SocialLinkField({
   );
 }
 
-function ReviewSummary({ form }: { form: ReturnType<typeof useForm<ClubWizardFormValues>> }) {
-  const values = form.getValues();
-  const invites = values.admin_invites ?? [];
+function ReviewSummary({ form }: { form: UseFormReturn<ClubWizardFormValues, any, undefined> }) {
+  const values = form.watch();
 
   const rows = [
     { label: "Club Name", value: values.name },

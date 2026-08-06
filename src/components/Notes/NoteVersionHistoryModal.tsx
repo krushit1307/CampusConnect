@@ -96,11 +96,7 @@ export const NoteVersionHistoryModal: React.FC<NoteVersionHistoryModalProps> = (
       toast.error("Only club admins can restore historical document versions.");
       return;
     }
-    if (
-      confirm(
-        `Are you sure you want to restore Version ${version.version_number}? This will update the active document.`,
-      )
-    ) {
+    if (confirm(`Are you sure you want to restore Version ${version.version_number}? This will update the active document.`)) {
       const ok = await restoreVersion(version);
       if (ok) {
         onVersionRestored?.();
@@ -331,7 +327,9 @@ export const NoteVersionHistoryModal: React.FC<NoteVersionHistoryModalProps> = (
                       oldText={compareText}
                       newText={selectedVersion.content_text || ""}
                       oldVersionLabel={
-                        compareTarget === "current" ? "Current Live Note" : "Previous Snapshot"
+                        compareTarget === "current"
+                          ? "Current Live Note"
+                          : "Previous Snapshot"
                       }
                       newVersionLabel={`Version ${selectedVersion.version_number}`}
                     />

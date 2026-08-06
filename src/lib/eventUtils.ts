@@ -8,6 +8,25 @@ import endOfMonth from "date-fns/endOfMonth";
 import isSameDay from "date-fns/isSameDay";
 import isWithinInterval from "date-fns/isWithinInterval";
 
+export const DEFAULT_EVENT_TAGS = [
+  "Tech",
+  "Career",
+  "Food",
+  "Workshop",
+  "Social",
+  "Design",
+  "Gaming",
+  "Music",
+  "Sports",
+  "Networking",
+  "AI/ML",
+  "Hackathon",
+  "Arts",
+  "Academic",
+];
+
+export const DEFAULT_EVENT_TAG_OPTIONS = DEFAULT_EVENT_TAGS.map(tag => ({ value: tag, label: tag }));
+
 export const TITLE_MAX_LENGTH = 100;
 
 export const eventFormSchema = z

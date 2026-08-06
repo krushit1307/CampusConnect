@@ -20,7 +20,9 @@ export const NoteDiffViewer: React.FC<NoteDiffViewerProps> = ({
   const [granularity, setGranularity] = useState<"word" | "line">("word");
 
   const diffResult =
-    granularity === "word" ? computeWordDiff(oldText, newText) : computeLineDiff(oldText, newText);
+    granularity === "word"
+      ? computeWordDiff(oldText, newText)
+      : computeLineDiff(oldText, newText);
 
   return (
     <div className="space-y-4">
@@ -74,9 +76,7 @@ export const NoteDiffViewer: React.FC<NoteDiffViewerProps> = ({
               size="sm"
               onClick={() => setGranularity("word")}
               className={`h-7 px-2 font-mono text-[11px] uppercase ${
-                granularity === "word"
-                  ? "bg-lime text-black font-bold"
-                  : "text-black dark:text-white"
+                granularity === "word" ? "bg-lime text-black font-bold" : "text-black dark:text-white"
               }`}
             >
               Words
@@ -87,9 +87,7 @@ export const NoteDiffViewer: React.FC<NoteDiffViewerProps> = ({
               size="sm"
               onClick={() => setGranularity("line")}
               className={`h-7 px-2 font-mono text-[11px] uppercase ${
-                granularity === "line"
-                  ? "bg-lime text-black font-bold"
-                  : "text-black dark:text-white"
+                granularity === "line" ? "bg-lime text-black font-bold" : "text-black dark:text-white"
               }`}
             >
               Lines

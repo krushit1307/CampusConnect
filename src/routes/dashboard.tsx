@@ -26,17 +26,6 @@ function DashboardContent({ user }: WithAuthProps) {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
-  const getInitials = (name?: string | null) => {
-    if (!name) return "U";
-    return name
-      .split(" ")
-      .map((part) => part[0])
-      .filter(Boolean)
-      .slice(0, 2)
-      .join("")
-      .toUpperCase();
-  };
-
   return (
     <SiteShell>
       <section className="border-b-4 border-black bg-lime px-4 py-12 md:px-6">

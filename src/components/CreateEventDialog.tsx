@@ -30,6 +30,7 @@ import {
   addFaq,
   removeFaq,
   updateFaq,
+  DEFAULT_EVENT_TAG_OPTIONS,
   type EventFormValues,
 } from "@/lib/eventUtils";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -67,7 +68,7 @@ import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FlyerUploader } from "@/components/FlyerUploader";
 import type { ParsedFlyer } from "@/lib/parser";
-import { TagMultiSelect } from "@/components/ui/TagMultiSelect";
+import { MultiSelect } from "@/components/MultiSelect";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 
 const STEPS = [
@@ -516,10 +517,12 @@ export function CreateEventDialog({
                         Event Tags
                       </FormLabel>
                       <FormControl>
-                        <TagMultiSelect
-                          value={field.value || []}
-                          onChange={field.onChange}
+                        <MultiSelect
+                          value={(field.value || []).map((tag: string) => ({ value: tag, label: tag }))}
+                          onChange={(tags) => field.onChange(tags.map((t) => t.value))}
+                          options={DEFAULT_EVENT_TAG_OPTIONS}
                           placeholder="Select or type event tags (e.g. #Tech, #Career)..."
+                          allowCustom={true}
                         />
                       </FormControl>
                       <FormMessage />

@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@config "../tailwind.config.js";
+@plugin "@tailwindcss/typography";
 @import "./styles/disabled-buttons.css";
 @source "../src";
 /* Runtime-selected utility maps must remain available in production builds. */

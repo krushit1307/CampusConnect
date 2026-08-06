@@ -1,4 +1,8 @@
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { SiteShell } from "@/components/site/SiteShell";
+import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
+// import { LiveQA } from "@/components/events/LiveQA";
+import { useEventViewerCount } from "@/hooks/useEventViewerCount";
+import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect, lazy, Suspense, useMemo, useCallback } from "react";
@@ -8,7 +12,7 @@ import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
 import { useCommand } from "@/components/CommandPaletteProvider";
 import { TableOfContents } from "@/components/events/TableOfContents";
 import { buildOpenGraphTags } from "@/lib/seo/eventMeta";
-import NotFound from "./NotFound";
+import { NotFound } from "@/components/NotFound";
 import LazyHydrate from "@/components/LazyHydrate";
 import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
@@ -253,6 +257,129 @@ export default function EventDetailsPage() {
   const viewerCount = useEventViewerCount(eventId);
   const { setCustomTrail } = useBreadcrumbs();
 
+  const {
+    data: event,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["event", eventId],
+    queryFn: async () => {
+      // Try to lookup by short_id first, then fall back to UUID for backwards compatibility
+      const { data, error } = await supabase
+        .from("events")
+        .select(
+          `
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, max_attendees, requires_approval,
+          clubs (name, slug),
+          event_rsvps (id, user_id, status, checked_in, rsvp_at, profiles (first_name, last_name, avatar_url)),
+          event_waitlist (id, user_id, created_at, profiles (first_name, last_name, avatar_url))
+        `,
+        )
+        .or(`short_id.eq.${eventId},id.eq.${eventId}`)
+        .single();
+
+      if (error) {
+        // Fallback to mock data in development if db fails or doesn't exist
+        if (import.meta.env.DEV && eventId.startsWith("mock-")) {
+          return {
+            id: eventId,
+            category_id: "cat-1",
+            created_by: "mock-user-1",
+            title:
+              eventId === "mock-1"
+                ? "Hackathon 2024"
+                : eventId === "mock-2"
+                  ? "Watercolor Workshop"
+                  : "Open Mic Night",
+            description:
+              eventId === "mock-1"
+                ? "Annual college hackathon. Build something awesome in 24 hours!"
+                : eventId === "mock-2"
+                  ? "Learn the basics of watercolor painting with live demonstrations."
+                  : "Showcase your music talent or just come to enjoy the acoustic performances.",
+            event_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            start_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            end_date: new Date(
+              Date.now() + 7 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
+            ).toISOString(),
+            location:
+              eventId === "mock-1"
+                ? "Main Auditorium, Thapar Institute of Engineering and Technology, Patiala, Punjab"
+                : eventId === "mock-2"
+                  ? "Art Block, Jawaharlal Nehru University, New Delhi"
+                  : "Student Activity Centre, IIT Bombay, Powai, Mumbai",
+            banner_url: null as string | null,
+            max_attendees: eventId === "mock-1" ? 1 : null,
+            latitude: eventId === "mock-1" ? 30.3564 : eventId === "mock-2" ? 28.5355 : 19.076,
+            longitude: eventId === "mock-1" ? 76.3647 : eventId === "mock-2" ? 77.209 : 72.8777,
+            clubs: [
+              {
+                name:
+                  eventId === "mock-1"
+                    ? "Tech Club"
+                    : eventId === "mock-2"
+                      ? "Art & Design"
+                      : "Music Society",
+                slug:
+                  eventId === "mock-1"
+                    ? "tech-club"
+                    : eventId === "mock-2"
+                      ? "art-design"
+                      : "music-society",
+              },
+            ],
+            requires_approval: true,
+            event_rsvps:
+              eventId === "mock-1"
+                ? [
+                    {
+                      id: "rsvp-1",
+                      user_id: "user-1",
+                      status: "approved",
+                      checked_in: false,
+                      rsvp_at: new Date().toISOString(),
+                      profiles: { first_name: "John", last_name: "Doe", avatar_url: null },
+                    },
+                    {
+                      id: "rsvp-2",
+                      user_id: "user-2",
+                      status: "waitlisted",
+                      checked_in: false,
+                      rsvp_at: new Date().toISOString(),
+                      profiles: { first_name: "Alice", last_name: "Smith", avatar_url: null },
+                    },
+                    {
+                      id: "rsvp-3",
+                      user_id: "user-3",
+                      status: "rejected",
+                      checked_in: false,
+                      rsvp_at: new Date().toISOString(),
+                      profiles: { first_name: "Bob", last_name: "Johnson", avatar_url: null },
+                    },
+                  ]
+                : [],
+            event_waitlist:
+              eventId === "mock-1"
+                ? [
+                    {
+                      id: "wait-1",
+                      user_id: "user-4",
+                      created_at: new Date().toISOString(),
+                      profiles: { first_name: "Emma", last_name: "Brown", avatar_url: null },
+                    },
+                  ]
+                : [],
+            attendee_count: eventId === "mock-1" ? 1 : 0,
+            profiles: { full_name: "Mock Organizer", email: "mock@example.com" },
+          };
+        }
+        throw error;
+      }
+      return data;
+    },
+  });
+
   // Safe window URL handling for SSR / hydration safety
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 
@@ -294,7 +421,7 @@ export default function EventDetailsPage() {
     });
 
     trail.push({
-      label: event.title,
+      label: (event as any).title,
     });
 
     setCustomTrail(trail);
@@ -371,7 +498,7 @@ export default function EventDetailsPage() {
     if (!event?.description) return [];
 
     const parser = new DOMParser();
-    const doc = parser.parseFromString(event.description, "text/html");
+    const doc = parser.parseFromString((event as any).description, "text/html");
     const headings = doc.querySelectorAll("h2, h3");
 
     return Array.from(headings).map((heading) => {
@@ -606,129 +733,6 @@ export default function EventDetailsPage() {
       });
   };
 
-  const {
-    data: event,
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey: ["event", eventId],
-    queryFn: async () => {
-      // Try to lookup by short_id first, then fall back to UUID for backwards compatibility
-      const { data, error } = await supabase
-        .from("events")
-        .select(
-          `
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id,
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, max_attendees, requires_approval,
-          clubs (name, slug),
-          event_rsvps (id, user_id, status, checked_in, rsvp_at, profiles (first_name, last_name, avatar_url)),
-          event_waitlist (id, user_id, created_at, profiles (first_name, last_name, avatar_url))
-        `,
-        )
-        .or(`short_id.eq.${eventId},id.eq.${eventId}`)
-        .single();
-
-      if (error) {
-        // Fallback to mock data in development if db fails or doesn't exist
-        if (import.meta.env.DEV && eventId.startsWith("mock-")) {
-          return {
-            id: eventId,
-            category_id: "cat-1",
-            created_by: "mock-user-1",
-            title:
-              eventId === "mock-1"
-                ? "Hackathon 2024"
-                : eventId === "mock-2"
-                  ? "Watercolor Workshop"
-                  : "Open Mic Night",
-            description:
-              eventId === "mock-1"
-                ? "Annual college hackathon. Build something awesome in 24 hours!"
-                : eventId === "mock-2"
-                  ? "Learn the basics of watercolor painting with live demonstrations."
-                  : "Showcase your music talent or just come to enjoy the acoustic performances.",
-            event_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-            start_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-            end_date: new Date(
-              Date.now() + 7 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
-            ).toISOString(),
-            location:
-              eventId === "mock-1"
-                ? "Main Auditorium, Thapar Institute of Engineering and Technology, Patiala, Punjab"
-                : eventId === "mock-2"
-                  ? "Art Block, Jawaharlal Nehru University, New Delhi"
-                  : "Student Activity Centre, IIT Bombay, Powai, Mumbai",
-            banner_url: null as string | null,
-            max_attendees: eventId === "mock-1" ? 1 : null,
-            latitude: eventId === "mock-1" ? 30.3564 : eventId === "mock-2" ? 28.5355 : 19.076,
-            longitude: eventId === "mock-1" ? 76.3647 : eventId === "mock-2" ? 77.209 : 72.8777,
-            clubs: [
-              {
-                name:
-                  eventId === "mock-1"
-                    ? "Tech Club"
-                    : eventId === "mock-2"
-                      ? "Art & Design"
-                      : "Music Society",
-                slug:
-                  eventId === "mock-1"
-                    ? "tech-club"
-                    : eventId === "mock-2"
-                      ? "art-design"
-                      : "music-society",
-              },
-            ],
-            requires_approval: true,
-            event_rsvps:
-              eventId === "mock-1"
-                ? [
-                    {
-                      id: "rsvp-1",
-                      user_id: "user-1",
-                      status: "approved",
-                      checked_in: false,
-                      rsvp_at: new Date().toISOString(),
-                      profiles: { first_name: "John", last_name: "Doe", avatar_url: null },
-                    },
-                    {
-                      id: "rsvp-2",
-                      user_id: "user-2",
-                      status: "waitlisted",
-                      checked_in: false,
-                      rsvp_at: new Date().toISOString(),
-                      profiles: { first_name: "Alice", last_name: "Smith", avatar_url: null },
-                    },
-                    {
-                      id: "rsvp-3",
-                      user_id: "user-3",
-                      status: "rejected",
-                      checked_in: false,
-                      rsvp_at: new Date().toISOString(),
-                      profiles: { first_name: "Bob", last_name: "Johnson", avatar_url: null },
-                    },
-                  ]
-                : [],
-            event_waitlist:
-              eventId === "mock-1"
-                ? [
-                    {
-                      id: "wait-1",
-                      user_id: "user-4",
-                      created_at: new Date().toISOString(),
-                      profiles: { first_name: "Emma", last_name: "Brown", avatar_url: null },
-                    },
-                  ]
-                : [],
-            attendee_count: eventId === "mock-1" ? 1 : 0,
-            profiles: { full_name: "Mock Organizer", email: "mock@example.com" },
-          };
-        }
-        throw error;
-      }
-      return data;
-    },
-  });
-
   const toggleWaitlist = useMutation({
     mutationFn: async ({ isOnWaitlist }: { isOnWaitlist: boolean }) => {
       if (!user) throw new Error("Please log in to join waitlist");
@@ -792,9 +796,11 @@ export default function EventDetailsPage() {
 
       // Optimistically update the cache
       if (event) {
-        const eventRsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
+        const eventRsvps = Array.isArray((event as any).event_rsvps)
+          ? (event as any).event_rsvps
+          : [];
         const updatedRsvps = hasRsvpd
-          ? eventRsvps.filter((r) => r.user_id !== user?.id)
+          ? eventRsvps.filter((r: any) => r.user_id !== user?.id)
           : [...eventRsvps, { id: `temp-${Date.now()}`, user_id: user?.id || "" }];
 
         const updatedEvent = {
@@ -849,7 +855,8 @@ export default function EventDetailsPage() {
       // Eagerly cache event banner if they just RSVP'd
       if (!variables.hasRsvpd && event?.banner_url && "caches" in window) {
         window.caches.open("supabase-images-cache").then((cache) => {
-          cache.add(event.banner_url!).catch((err) => {
+          cache.add((event as any).banner_url!).catch((err) => {
+            // eslint-disable-next-line no-console
             console.error("Failed to eagerly cache banner image", err);
           });
         });
@@ -1053,8 +1060,8 @@ export default function EventDetailsPage() {
 
     setColumns(
       buildKanbanColumns(
-        typedEvent.event_waitlist || [],
-        typedEvent.event_rsvps || [],
+        (typedEvent as any).event_waitlist || [],
+        (typedEvent as any).event_rsvps || [],
       ) as unknown as typeof columns,
     );
   }, [event]);
@@ -1190,8 +1197,14 @@ export default function EventDetailsPage() {
     );
   }
 
-  const rsvps = Array.isArray(event.event_rsvps) ? (event.event_rsvps as unknown[]) : [];
-  const { hasRsvpd, isCheckedIn, hasEnded } = buildRsvpStatus(rsvps, user?.id, event.end_date);
+  const rsvps = Array.isArray((event as any).event_rsvps)
+    ? ((event as any).event_rsvps as any[])
+    : [];
+  const { hasRsvpd, isCheckedIn, hasEnded } = buildRsvpStatus(
+    rsvps,
+    user?.id,
+    (event as any).end_date,
+  );
   const rawFeedbacks = (event as Record<string, unknown>).event_feedbacks;
   const { hasSubmittedFeedback } = buildFeedbackStatus(
     Array.isArray(rawFeedbacks) ? (rawFeedbacks as { user_id: string }[]) : undefined,
@@ -1208,20 +1221,22 @@ export default function EventDetailsPage() {
     toggleSeat,
     hasSeats,
     isLoading: isSeatsLoading,
-  } = useEventSeats(event?.id && !event.id.startsWith("mock-") ? event.id : undefined);
+  } = useEventSeats(
+    event?.id && !(event as any).id.startsWith("mock-") ? (event as any).id : undefined,
+  );
 
   const club = event.clubs ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
-  const coordsCheck = event.location
-    ? parseCoordinates(event.location)
+  const coordsCheck = (event as any).location
+    ? parseCoordinates((event as any).location)
     : { isCoordinates: false, isValid: true };
 
   const googleCalendarUrl = getGoogleCalendarUrl({
-    title: event.title,
-    description: event.description || "",
+    title: (event as any).title,
+    description: (event as any).description || "",
     event_date: event.event_date || "",
     start_date: event.start_date,
-    end_date: event.end_date,
-    location: event.location || "",
+    end_date: (event as any).end_date,
+    location: (event as any).location || "",
   });
 
   const captchaSiteKey =
@@ -1255,7 +1270,7 @@ export default function EventDetailsPage() {
       return;
     }
 
-    toggleRsvp.mutate({ eventId: event.id, hasRsvpd: false, captchaToken });
+    toggleRsvp.mutate({ eventId: (event as any).id, hasRsvpd: false, captchaToken });
   };
 
   const handleCopyLink = async () => {
@@ -1267,14 +1282,14 @@ export default function EventDetailsPage() {
   };
 
   const handleCopyEventId = async () => {
-    if (await copyEventId(event.id)) {
+    if (await copyEventId((event as any).id)) {
       toast.success("Event ID copied to clipboard!");
     } else {
       toast.error("Failed to copy event ID.");
     }
   };
   const handleConfirmCancel = () => {
-    toggleRsvp.mutate({ eventId: event.id, hasRsvpd: true });
+    toggleRsvp.mutate({ eventId: (event as any).id, hasRsvpd: true });
     setConfirmOpen(false);
   };
 
@@ -1300,11 +1315,11 @@ export default function EventDetailsPage() {
   // The pure helper lives in src/lib/seo/eventMeta.ts so it can be unit
   // tested without React / Supabase / react-helmet-async.
   const og = buildOpenGraphTags({
-    title: event.title,
-    description: event.description,
-    bannerUrl: event.banner_url,
+    title: (event as any).title,
+    description: (event as any).description,
+    bannerUrl: (event as any).banner_url,
     eventDate: event.event_date,
-    location: event.location,
+    location: (event as any).location,
     url: shareUrl || (typeof window !== "undefined" ? window.location.href : null),
   });
 
@@ -1330,11 +1345,11 @@ export default function EventDetailsPage() {
       <SiteShell>
         {/* Hero Section */}
         <section className="relative w-full overflow-hidden border-b-2 border-black bg-peach/30">
-          {event.banner_url ? (
-            <m.div layoutId={`event-image-${event.id}`} className="absolute inset-0">
+          {(event as any).banner_url ? (
+            <m.div layoutId={`event-image-${(event as any).id}`} className="absolute inset-0">
               <OptimizedImage
-                src={event.banner_url}
-                alt={`${event.title} event banner`}
+                src={(event as any).banner_url}
+                alt={`${(event as any).title} event banner`}
                 className="h-full w-full object-cover"
                 width={1344}
                 height={700}
@@ -1349,7 +1364,7 @@ export default function EventDetailsPage() {
             </m.div>
           ) : (
             <m.div
-              layoutId={`event-image-${event.id}`}
+              layoutId={`event-image-${(event as any).id}`}
               className="absolute inset-0 bg-linear-to-br from-peach via-pink-200 to-lime/40"
             />
           )}
@@ -1363,11 +1378,11 @@ export default function EventDetailsPage() {
 
             <div className="flex items-center gap-3">
               <h1
-                className={`text-4xl font-black tracking-tight md:text-6xl ${event.banner_url ? "text-white" : "text-black"}`}
+                className={`text-4xl font-black tracking-tight md:text-6xl ${(event as any).banner_url ? "text-white" : "text-black"}`}
               >
-                {event.title}
+                {(event as any).title}
               </h1>
-              <ShareMenu url={shareUrl} title={event.title} />
+              <ShareMenu url={shareUrl} title={(event as any).title} />
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1394,7 +1409,7 @@ export default function EventDetailsPage() {
 
             {club && (
               <p
-                className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"}`}
+                className={`mt-4 font-mono text-base font-bold ${(event as any).banner_url ? "text-white/90" : "text-black/80"}`}
               >
                 Organized by:{" "}
                 <Link to={`/clubs/${club.slug}`} className="underline hover:opacity-80">
@@ -1405,7 +1420,7 @@ export default function EventDetailsPage() {
 
             {!club && event.profiles && (
               <div
-                className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"} flex items-center gap-4`}
+                className={`mt-4 font-mono text-base font-bold ${(event as any).banner_url ? "text-white/90" : "text-black/80"} flex items-center gap-4`}
               >
                 <span>Organized by: {(event.profiles as { full_name: string }).full_name}</span>
                 <Button
@@ -1425,7 +1440,7 @@ export default function EventDetailsPage() {
             )}
 
             <div
-              className={`mt-8 flex flex-wrap gap-4 font-mono text-sm font-bold sm:gap-8 ${event.banner_url ? "text-white" : "text-black"}`}
+              className={`mt-8 flex flex-wrap gap-4 font-mono text-sm font-bold sm:gap-8 ${(event as any).banner_url ? "text-white" : "text-black"}`}
             >
               <div className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
@@ -1433,7 +1448,7 @@ export default function EventDetailsPage() {
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="h-5 w-5" />
-                <span>{event.location || "TBA"}</span>
+                <span>{(event as any).location || "TBA"}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
@@ -1443,7 +1458,7 @@ export default function EventDetailsPage() {
 
             <div className="mt-6 max-w-md">
               <EventCapacityGauge
-                eventId={event.id}
+                eventId={(event as any).id}
                 initialCapacity={attendeeCount}
                 maxAttendees={maxAttendees || null}
                 showDetails={true}
@@ -1486,7 +1501,7 @@ export default function EventDetailsPage() {
                   </Button>
                   {isOnWaitlist && waitlistPosition > 0 && (
                     <span
-                      className={`font-mono text-xs font-bold ${event.banner_url ? "text-white" : "text-black"}`}
+                      className={`font-mono text-xs font-bold ${(event as any).banner_url ? "text-white" : "text-black"}`}
                     >
                       You are #{waitlistPosition} on the waitlist
                     </span>
@@ -1505,7 +1520,7 @@ export default function EventDetailsPage() {
                   {captchaEnabled && (
                     <div className="flex flex-col gap-2">
                       <span
-                        className={`font-mono text-xs font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
+                        className={`font-mono text-xs font-bold ${(event as any).banner_url ? "text-white/80" : "text-black/60"}`}
                       >
                         Verification required before RSVP
                       </span>
@@ -1521,7 +1536,7 @@ export default function EventDetailsPage() {
                 </div>
               )}
               <span
-                className={`font-mono text-sm font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
+                className={`font-mono text-sm font-bold ${(event as any).banner_url ? "text-white/80" : "text-black/60"}`}
               >
                 {attendeeCount} {maxAttendees ? `/ ${maxAttendees}` : ""} people going
                 {isAtCapacity && !hasRsvpd && " (At Capacity)"}
@@ -1647,7 +1662,7 @@ export default function EventDetailsPage() {
                         Event Feedback
                       </DialogTitle>
                       <DialogDescription className="font-mono text-sm">
-                        How was {event.title}? Share your experience!
+                        How was {(event as any).title}? Share your experience!
                       </DialogDescription>
                     </DialogHeader>
                     <div className="flex flex-col gap-6 py-4">
@@ -1709,9 +1724,9 @@ export default function EventDetailsPage() {
               </h2>
               <div className="flex flex-col gap-8 lg:flex-row">
                 <main className="flex-1 min-w-0">
-                  {event.description ? (
+                  {(event as any).description ? (
                     <p className="mt-4 whitespace-pre-line text-base leading-7 text-black/80">
-                      {event.description}
+                      {(event as any).description}
                     </p>
                   ) : (
                     <p className="mt-4 font-mono text-sm italic text-black/40">
@@ -1722,7 +1737,7 @@ export default function EventDetailsPage() {
                   <div
                     id="event-description-container"
                     className="prose prose-lg max-w-none dark:prose-invert prose-headings:scroll-mt-24"
-                    dangerouslySetInnerHTML={{ __html: event.description }}
+                    dangerouslySetInnerHTML={{ __html: (event as any).description }}
                   />
                 </main>
                 <aside className="lg:w-64 shrink-0">
@@ -1740,7 +1755,7 @@ export default function EventDetailsPage() {
                     rsvpCount={attendeeCount}
                     latitude={(event as Record<string, unknown>).latitude as number | null}
                     longitude={(event as Record<string, unknown>).longitude as number | null}
-                    location={event.location || ""}
+                    location={(event as any).location || ""}
                     clubName={club?.name || ""}
                   />
                 </div>
@@ -1753,7 +1768,7 @@ export default function EventDetailsPage() {
 
             {/* Live Q&A */}
             <div className="mt-8">
-              <LiveQA eventId={eventId} userId={user?.id} isOrganizer={isOrganizer} />
+              {/* <LiveQA eventId={eventId} userId={user?.id} isOrganizer={isOrganizer} /> */}
             </div>
             {/* Description */}
             <div className="mt-8 flex flex-col lg:flex-row gap-8">
@@ -1762,11 +1777,11 @@ export default function EventDetailsPage() {
                   About the Event
                 </h2>
 
-                {event.description ? (
+                {(event as any).description ? (
                   <div
                     id="event-description-container"
                     className="prose prose-lg max-w-none dark:prose-invert prose-headings:scroll-mt-24 mt-4"
-                    dangerouslySetInnerHTML={{ __html: event.description }}
+                    dangerouslySetInnerHTML={{ __html: (event as any).description }}
                   />
                 ) : (
                   <p className="mt-4 font-mono text-sm italic text-black/40">
@@ -1791,12 +1806,12 @@ export default function EventDetailsPage() {
                           <EventMap
                             lat={coordsCheck.lat}
                             lng={coordsCheck.lng}
-                            locationName={event.location}
+                            locationName={(event as any).location}
                           />
                         </Suspense>
                       </LazyHydrate>
                       <a
-                        href={buildGoogleMapsSearchUrl(event.location)}
+                        href={buildGoogleMapsSearchUrl((event as any).location)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="mt-2 inline-block font-mono text-xs font-bold underline text-blue-500"
@@ -1815,8 +1830,9 @@ export default function EventDetailsPage() {
                         Unable to load map preview
                       </h3>
                       <p className="mb-3 font-mono text-xs leading-relaxed text-gray-700">
-                        The coordinates provided (<code>{event.location}</code>) are invalid.
-                        Latitude must be between -90 and 90, and Longitude between -180 and 180.
+                        The coordinates provided (<code>{(event as any).location}</code>) are
+                        invalid. Latitude must be between -90 and 90, and Longitude between -180 and
+                        180.
                       </p>
                     </div>
                   </div>
@@ -1863,7 +1879,7 @@ export default function EventDetailsPage() {
               )}
 
             {/* Interactive Map */}
-            {event.location && event.location.toLowerCase() !== "online" && (
+            {(event as any).location && (event as any).location.toLowerCase() !== "online" && (
               <div className="mt-8">
                 <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
                   Location
@@ -1881,12 +1897,12 @@ export default function EventDetailsPage() {
                         <EventMap
                           lat={coordsCheck.lat}
                           lng={coordsCheck.lng}
-                          locationName={event.location}
+                          locationName={(event as any).location}
                         />
                       </Suspense>
                     </LazyHydrate>
                     <a
-                      href={buildGoogleMapsSearchUrl(event.location)}
+                      href={buildGoogleMapsSearchUrl((event as any).location)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-2 inline-block font-mono text-xs font-bold underline text-blue-500"
@@ -1904,11 +1920,12 @@ export default function EventDetailsPage() {
                         Unable to load map preview
                       </h3>
                       <p className="mb-3 font-mono text-xs leading-relaxed text-gray-700">
-                        The coordinates provided (<code>{event.location}</code>) are invalid.
-                        Latitude must be between -90 and 90, and Longitude between -180 and 180.
+                        The coordinates provided (<code>{(event as any).location}</code>) are
+                        invalid. Latitude must be between -90 and 90, and Longitude between -180 and
+                        180.
                       </p>
                       <a
-                        href={buildGoogleMapsSearchUrl(event.location)}
+                        href={buildGoogleMapsSearchUrl((event as any).location)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 font-mono text-xs font-bold underline hover:no-underline text-black"
@@ -1919,13 +1936,13 @@ export default function EventDetailsPage() {
                   </div>
                 ) : (
                   <a
-                    href={buildGoogleMapsSearchUrl(event.location)}
+                    href={buildGoogleMapsSearchUrl((event as any).location)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="neu-border mt-4 inline-flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
                   >
                     <MapPin className="h-4 w-4" />
-                    Open &quot;{event.location}&quot; in Google Maps ↗
+                    Open &quot;{(event as any).location}&quot; in Google Maps ↗
                   </a>
                 )}
               </div>
@@ -1934,10 +1951,10 @@ export default function EventDetailsPage() {
             {/* Event Feedback (Only if ended and user RSVP'd) */}
             {user &&
               hasRsvpd &&
-              event.end_date &&
-              new Date(event.end_date).getTime() < Date.now() && (
+              (event as any).end_date &&
+              new Date((event as any).end_date).getTime() < Date.now() && (
                 <div className="mt-10">
-                  <EventFeedbackForm eventId={event.id} user={user} />
+                  <EventFeedbackForm eventId={(event as any).id} user={user} />
                 </div>
               )}
 
@@ -2089,8 +2106,8 @@ export default function EventDetailsPage() {
               <div className="mt-4">
                 <ShareMenu
                   url={shareUrl}
-                  title={event.title}
-                  text={`Check out this event: ${event.title}`}
+                  title={(event as any).title}
+                  text={`Check out this event: ${(event as any).title}`}
                 />
               </div>
             </div>
@@ -2518,7 +2535,7 @@ export default function EventDetailsPage() {
         isOpen={isReportDialogOpen}
         onClose={() => setIsReportDialogOpen(false)}
         targetType="event"
-        targetId={event.id}
+        targetId={(event as any).id}
       />
       {lightboxSrc && (
         <div
