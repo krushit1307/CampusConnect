@@ -4,7 +4,11 @@ import type { Request, Response, NextFunction } from "express";
  * Middleware to enforce strict Content-Type validation on POST, PUT, and PATCH requests.
  * Instant rejection of non-JSON requests protects against injection and CSRF vectors.
  */
-export function requireJsonContent(req: Request, res: Response, next: NextFunction): void | Response {
+export function requireJsonContent(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void | Response {
   // Enforce X-Content-Type-Options: nosniff globally on API responses
   res.setHeader("X-Content-Type-Options", "nosniff");
 

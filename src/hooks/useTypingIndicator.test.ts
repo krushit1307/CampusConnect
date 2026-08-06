@@ -54,9 +54,7 @@ describe("useTypingIndicator", () => {
       "user-2": [{ typing: true, username: "Bob" }],
     });
 
-    const { result } = renderHook(() =>
-      useTypingIndicator("chat_typing:1_2", "user-1", "Alice"),
-    );
+    const { result } = renderHook(() => useTypingIndicator("chat_typing:1_2", "user-1", "Alice"));
 
     act(() => {
       if (mockOn.syncCallback) mockOn.syncCallback();
@@ -66,9 +64,7 @@ describe("useTypingIndicator", () => {
   });
 
   it("broadcasts typing state and debounces reset to false after 3s", async () => {
-    const { result } = renderHook(() =>
-      useTypingIndicator("chat_typing:1_2", "user-1", "Alice"),
-    );
+    const { result } = renderHook(() => useTypingIndicator("chat_typing:1_2", "user-1", "Alice"));
 
     act(() => {
       result.current.broadcastTyping();
@@ -85,9 +81,7 @@ describe("useTypingIndicator", () => {
   });
 
   it("immediately clears typing state when clearTyping is called", () => {
-    const { result } = renderHook(() =>
-      useTypingIndicator("chat_typing:1_2", "user-1", "Alice"),
-    );
+    const { result } = renderHook(() => useTypingIndicator("chat_typing:1_2", "user-1", "Alice"));
 
     act(() => {
       result.current.broadcastTyping();

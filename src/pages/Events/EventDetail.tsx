@@ -99,11 +99,11 @@ import { CaptchaWidget } from "@/components/CaptchaWidget";
 import { SeatingChart } from "@/components/events/SeatingChart";
 import { useEventSeats } from "@/hooks/useEventSeats";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import React from 'react';
-import { useParams } from 'react-router-dom';
-import { GalleryCarousel, GallerySlide } from '@/components/ui/GalleryCarousel';
-import { Button } from '@/components/ui/button';
-import { Calendar, MapPin, Users } from 'lucide-react';
+import React from "react";
+import { useParams } from "react-router-dom";
+import { GalleryCarousel, GallerySlide } from "@/components/ui/GalleryCarousel";
+import { Button } from "@/components/ui/button";
+import { Calendar, MapPin, Users } from "lucide-react";
 
 interface SimilarEventItem {
   id: string;
@@ -173,30 +173,6 @@ function SimilarEvents({
   if (loading || similarEvents.length === 0) {
     return null;
   }
-
-  /**
- * EventDetail Page
- * Displays comprehensive information about a specific campus event.
- * Now features a fluid, auto-advancing image carousel at the top.
- */
-export const EventDetail: React.FC = () => {
-  const { eventId } = useParams<{ eventId: string }>();
-
-  // Mock data - in production, this would be fetched via GraphQL or Supabase
-  const event = {
-    id: eventId,
-    title: 'Annual Spring Tech Fest 2026',
-    description: 'Join us for a day of innovation, workshops, and networking with industry leaders.',
-    date: '2026-09-15T10:00:00Z',
-    location: 'Main Campus Auditorium',
-    attendees: 250,
-    images: [
-      { id: 'img1', imageUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800', altText: 'Crowd at tech fest' },
-      { id: 'img2', imageUrl: 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=800', altText: 'Speaker on stage' },
-      { id: 'img3', imageUrl: 'https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=800', altText: 'Networking session' },
-    ] as GallerySlide[],
-  };
-
   return (
     <div className="mt-10 border-t-2 border-black pt-8">
       <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900 mb-6">
@@ -232,43 +208,6 @@ export const EventDetail: React.FC = () => {
         ))}
       </div>
     </div>
-    <div className="max-w-4xl mx-auto p-6 space-y-8">
-      {/* NEW: Fluid Auto-Advancing Image Carousel */}
-      <GalleryCarousel 
-        slides={event.images} 
-        autoplayDelayMs={5000} 
-        className="shadow-lg"
-      />
-
-      <div className="space-y-4">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          {event.title}
-        </h1>
-        
-        <div className="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-300">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            <span>{new Date(event.date).toLocaleDateString()}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4" />
-            <span>{event.location}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            <span>{event.attendees} attending</span>
-          </div>
-        </div>
-
-        <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-          {event.description}
-        </p>
-
-        <div className="flex gap-4 pt-4">
-          <Button className="flex-1">RSVP Now</Button>
-          <Button variant="outline" className="flex-1">Add to Calendar</Button>
-        </div>
-</think>
   );
 }
 
@@ -1053,7 +992,11 @@ export default function EventDetailsPage() {
   // while this page is mounted (see useCommand below).
   const handleDeleteEvent = useCallback(async () => {
     if (!event) return;
-    const { error } = await supabase.from("events").update({ deleted_at: new Date().toISOString() }).eq("id", event.id).is("deleted_at", null);
+    const { error } = await supabase
+      .from("events")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", event.id)
+      .is("deleted_at", null);
     if (error) {
       toast.error(error.message || "Failed to delete event.");
       return;
@@ -1337,7 +1280,8 @@ export default function EventDetailsPage() {
 
   const attendeeCount =
     ((event as Record<string, unknown>).attendee_count as number) ?? rsvps.length;
-  const maxAttendees = (event as Record<string, unknown>).max_attendees as number | null | undefined;
+  const maxAttendees = (event as Record<string, unknown>).max_attendees as
+    number | null | undefined;
   const isAtCapacity =
     maxAttendees !== null &&
     maxAttendees !== undefined &&

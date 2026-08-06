@@ -53,11 +53,13 @@ export default tseslint.config(
           paths: [
             {
               name: "date-fns",
-              message: "Please import date-fns functions individually from subpaths, e.g. `import format from 'date-fns/format'` instead of destructured imports.",
+              message:
+                "Please import date-fns functions individually from subpaths, e.g. `import format from 'date-fns/format'` instead of destructured imports.",
             },
             {
               name: "date-fns/locale",
-              message: "Please import specific locales individually from subpaths, e.g. `import enUS from 'date-fns/locale/en-US'` instead of root locales.",
+              message:
+                "Please import specific locales individually from subpaths, e.g. `import enUS from 'date-fns/locale/en-US'` instead of root locales.",
             },
           ],
         },

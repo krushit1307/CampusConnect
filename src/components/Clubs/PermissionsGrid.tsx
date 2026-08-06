@@ -110,10 +110,7 @@ export function PermissionsGrid({
   isSaving = false,
 }: PermissionsGridProps) {
   // Filter to only show approved members (exclude pending/rejected)
-  const approvedMembers = useMemo(
-    () => members.filter((m) => m.status === "approved"),
-    [members]
-  );
+  const approvedMembers = useMemo(() => members.filter((m) => m.status === "approved"), [members]);
 
   // Initialize form with current permission states
   const defaultValues = useMemo<FormData>(
@@ -128,7 +125,7 @@ export function PermissionsGrid({
         can_manage_permissions: member.can_manage_permissions || false,
       })),
     }),
-    [approvedMembers]
+    [approvedMembers],
   );
 
   const {
@@ -240,7 +237,9 @@ export function PermissionsGrid({
                     isCurrentUser ? "bg-blue-50" : "hover:bg-gray-50"
                   }`}
                 >
-                  <td className={`p-4 sticky left-0 transition-colors ${isCurrentUser ? 'bg-blue-50' : 'bg-white'}`}>
+                  <td
+                    className={`p-4 sticky left-0 transition-colors ${isCurrentUser ? "bg-blue-50" : "bg-white"}`}
+                  >
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8 shrink-0 rounded-full border-2 border-black">
                         <AvatarImage
@@ -258,7 +257,9 @@ export function PermissionsGrid({
                         </p>
                         <div className="flex items-center gap-2">
                           {member.handle && (
-                            <p className="truncate text-xs text-gray-500 font-mono">@{member.handle}</p>
+                            <p className="truncate text-xs text-gray-500 font-mono">
+                              @{member.handle}
+                            </p>
                           )}
                           {isCurrentUser && (
                             <span className="flex items-center gap-1 text-xs font-mono text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">
@@ -311,8 +312,8 @@ export function PermissionsGrid({
 
       <div className="bg-yellow-50 border-2 border-yellow-300 p-4 rounded">
         <p className="font-mono text-xs text-yellow-800">
-          <strong>Note:</strong> You cannot modify your own permissions to prevent accidental lockout.
-          Club presidents always have full access regardless of permission settings.
+          <strong>Note:</strong> You cannot modify your own permissions to prevent accidental
+          lockout. Club presidents always have full access regardless of permission settings.
         </p>
       </div>
     </div>
