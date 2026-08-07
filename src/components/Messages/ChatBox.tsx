@@ -15,9 +15,13 @@ import {
 import { toast } from "sonner";
 import { ShieldCheck, Send, Search, Lock, AlertTriangle, RefreshCw, Smile } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getBlockedUserIds, validateDirectMessageSend } from "@/lib/userBlockUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import EmojiPicker from "emoji-picker-react";
+import { EmptyState } from "@/components/EmptyState";
+import { LinkPreview } from "./LinkPreview";
+import { TypingBubble } from "./TypingBubble";
+import { extractFirstUrl } from "@/lib/extractUrls";
+import { getBlockedUserIds, validateDirectMessageSend } from "@/lib/userBlockUtils";
 
 interface Profile {
   id: string;
@@ -33,6 +37,7 @@ interface Message {
   encrypted_content: string;
   iv: string;
   created_at: string;
+  read_at: string | null;
   content?: string;
   decryptFailed?: boolean;
 }
@@ -59,6 +64,7 @@ export default function ChatBox() {
   } | null>(null);
   const [sharedKeys, setSharedKeys] = useState<Record<string, CryptoKey>>({});
 
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Stable per-conversation presence channel name:
@@ -117,7 +123,6 @@ export default function ChatBox() {
           const { error } = await supabase.from("user_public_keys").upsert({
             user_id: user.id,
             public_key: pubJwk,
-            updated_at: new Date().toISOString(),
           });
 
           if (error) {
@@ -326,83 +331,102 @@ export default function ChatBox() {
       markMessagesAsRead();
     }
   }, [messages, currentUser, activeRecipient]);
+
   // 6. Subscribing to real-time updates for direct messages
+  const channelRef = useRef<RealtimeChannel | null>(null);
+
   useEffect(() => {
     if (!activeRecipient || !currentUser || !userKeys) return;
 
-    const setupSubscription = async () => {
-      // Ensure we have active recipient's public key
+    let cancelled = false;
+    const MAX_RETRIES = 3;
+
+    const cleanup = async () => {
+      if (channelRef.current) {
+        await supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+
+    const setupSubscription = async (attempt = 0) => {
+      await cleanup();
+      if (cancelled) return;
+
       const { data: keyData } = await supabase
         .from("user_public_keys")
         .select("public_key")
         .eq("user_id", activeRecipient.id)
         .maybeSingle();
 
-      if (!keyData) return;
+      if (!keyData || cancelled) return;
 
       const sharedKey = await getSharedKey(activeRecipient.id, keyData.public_key);
-      if (!sharedKey) return;
+      if (!sharedKey || cancelled) return;
 
       const channel = supabase
-        .channel(`chat_messages_${activeRecipient.id}`)
+        .channel(`chat_messages_${activeRecipient.id}_${Date.now()}`)
         .on(
           "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "direct_messages",
-          },
+          { event: "INSERT", schema: "public", table: "direct_messages" },
           async (payload) => {
             const newMsg = payload.new as Message;
-
-            // Check if the message belongs to the current open chat
             const isFromActiveChat =
               (newMsg.sender_id === currentUser.id && newMsg.receiver_id === activeRecipient.id) ||
               (newMsg.sender_id === activeRecipient.id && newMsg.receiver_id === currentUser.id);
 
-            if (isFromActiveChat) {
-              try {
-                const plainText = await decryptMessage(
-                  newMsg.encrypted_content,
-                  newMsg.iv,
-                  sharedKey,
-                );
-                setMessages((prev) => {
-                  if (prev.some((m) => m.id === newMsg.id)) return prev;
-                  return [...prev, { ...newMsg, content: plainText, decryptFailed: false }];
-                });
-              } catch (err) {
-                console.warn("Real-time decryption failure:", err);
-                setMessages((prev) => {
-                  if (prev.some((m) => m.id === newMsg.id)) return prev;
-                  return [
-                    ...prev,
-                    {
-                      ...newMsg,
-                      content:
-                        "[Unable to decrypt - security key was rotated or reset on this device]",
-                      decryptFailed: true,
-                    },
-                  ];
-                });
-              }
+            if (!isFromActiveChat) return;
+
+            try {
+              const plainText = await decryptMessage(
+                newMsg.encrypted_content,
+                newMsg.iv,
+                sharedKey,
+              );
+              setMessages((prev) => {
+                if (prev.some((m) => m.id === newMsg.id)) return prev;
+                return [...prev, { ...newMsg, content: plainText, decryptFailed: false }];
+              });
+            } catch (err) {
+              console.warn("Real-time decryption failure:", err);
+              setMessages((prev) => {
+                if (prev.some((m) => m.id === newMsg.id)) return prev;
+                return [
+                  ...prev,
+                  {
+                    ...newMsg,
+                    content:
+                      "[Unable to decrypt - security key was rotated or reset on this device]",
+                    decryptFailed: true,
+                  },
+                ];
+              });
             }
           },
         )
-        .subscribe();
+        .subscribe((status, err) => {
+          if (cancelled) return;
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            console.warn(`Channel subscription failed (attempt ${attempt + 1}):`, err);
+            if (attempt < MAX_RETRIES) {
+              setTimeout(() => setupSubscription(attempt + 1), 1000 * (attempt + 1));
+            } else {
+              toast.error("Real-time chat connection failed. Please refresh.");
+            }
+          }
+        });
 
-      return channel;
+      if (!cancelled) {
+        channelRef.current = channel;
+      } else {
+        await supabase.removeChannel(channel);
+      }
     };
 
-    let subscriptionChannel: RealtimeChannel | null = null;
-    setupSubscription().then((channel) => {
-      subscriptionChannel = channel || null;
-    });
+    setupSubscription();
 
     return () => {
-      if (subscriptionChannel) {
-        supabase.removeChannel(subscriptionChannel);
-      }
+      cancelled = true;
+      cleanup();
     };
   }, [activeRecipient?.id, currentUser, userKeys]);
 
@@ -410,6 +434,7 @@ export default function ChatBox() {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputMessage.trim() || !activeRecipient || !currentUser || !userKeys) return;
+    clearTyping();
 
     try {
       // Execute validation check: Throw 403 error if receiver blocked sender or sender blocked receiver
@@ -490,7 +515,6 @@ export default function ChatBox() {
       const { error } = await supabase.from("user_public_keys").upsert({
         user_id: currentUser.id,
         public_key: pubJwk,
-        updated_at: new Date().toISOString(),
       });
 
       if (error) throw error;
@@ -573,9 +597,27 @@ export default function ChatBox() {
             {loadingProfiles ? (
               <div className="py-8 text-center font-mono text-xs">Loading students...</div>
             ) : filteredProfiles.length === 0 ? (
-              <div className="py-8 text-center font-mono text-xs text-gray-500">
-                No students found.
-              </div>
+              <EmptyState
+                illustrationType={searchQuery ? "no-results" : "no-messages"}
+                title={searchQuery ? "No students found" : "Your inbox is quiet"}
+                description={
+                  searchQuery
+                    ? "Try a different name, college, or keyword."
+                    : "Find a student to start a conversation."
+                }
+                actionButton={
+                  searchQuery ? (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-white"
+                    >
+                      Clear search
+                    </button>
+                  ) : undefined
+                }
+                className="border-0 px-3 py-8 shadow-none"
+              />
             ) : (
               <div className="space-y-1.5">
                 {filteredProfiles.map((profile) => {
@@ -638,7 +680,10 @@ export default function ChatBox() {
               </div>
 
               {/* Messages Area */}
-              <div className="flex-1 h-[420px] overflow-y-auto bg-slate-50 dark:bg-zinc-950 p-4 space-y-3">
+              <div
+                ref={messagesContainerRef}
+                className="flex-1 h-[420px] overflow-y-auto bg-slate-50 dark:bg-zinc-950 p-4 space-y-3"
+              >
                 {recipientKeyError ? (
                   <div className="flex h-full items-center justify-center p-4">
                     <div className="max-w-md border-2 border-black bg-yellow-50 p-6 text-center text-black shadow-md">
@@ -688,6 +733,13 @@ export default function ChatBox() {
                             <p className="whitespace-pre-wrap font-sans text-sm font-medium">
                               {msg.content}
                             </p>
+                            {/* Link Preview — rendered below message text if a URL is detected */}
+                            {(() => {
+                              const previewUrl = extractFirstUrl(msg.content ?? "");
+                              return previewUrl ? (
+                                <LinkPreview url={previewUrl} isMe={isMe} />
+                              ) : null;
+                            })()}
                             <div className="mt-1.5 flex items-center justify-between gap-4 font-mono text-[9px] uppercase opacity-60">
                               <span>{time}</span>
                               <span className="flex items-center gap-0.5">
@@ -728,10 +780,7 @@ export default function ChatBox() {
                                     </span>
                                   )
                                 ) : (
-                                  <>
-                                    <Lock size={8} />
-                                    E2EE
-                                  </>
+                                  <Lock size={8} />
                                 )}
                               </span>
                             </div>
@@ -750,49 +799,8 @@ export default function ChatBox() {
                   onSubmit={handleSendMessage}
                   className="border-t-2 border-black p-3 bg-white dark:bg-zinc-900 dark:border-cream flex flex-col gap-2"
                 >
-                  <input
-                    type="text"
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder="Type a secure message..."
-                    className="flex-1 border-2 border-black px-3 py-2 font-mono text-sm focus:outline-none dark:bg-zinc-800 dark:border-cream dark:text-cream"
-                  />
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="outline"
-                        className="h-10 w-10 border-2 border-black bg-yellow-300 text-black neu-border neu-press"
-                      >
-                        <Smile className="h-4 w-4" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent side="top" align="end" className="p-0 border-2 border-black">
-                      <EmojiPicker
-                        onEmojiClick={(emojiData) =>
-                          setInputMessage((prev) => prev + emojiData.emoji)
-                        }
-                      />
-                    </PopoverContent>
-                  </Popover>
                   {/* Typing indicator — visible only when someone else is typing */}
-                  <div
-                    className="min-h-[1.25rem] flex items-center gap-1.5"
-                    aria-live="polite"
-                    aria-atomic="true"
-                  >
-                    {typingUsers.length > 0 && (
-                      <p className="font-mono text-[11px] text-gray-500 dark:text-gray-400 italic animate-pulse">
-                        💬{" "}
-                        {typingUsers.length === 1
-                          ? `${typingUsers[0]} is typing…`
-                          : typingUsers.length === 2
-                            ? `${typingUsers[0]} and ${typingUsers[1]} are typing…`
-                            : "Several people are typing…"}
-                      </p>
-                    )}
-                  </div>
+                  <TypingBubble typingUsers={typingUsers} />
 
                   <div className="flex gap-2">
                     <input
@@ -806,6 +814,25 @@ export default function ChatBox() {
                       placeholder="Type a secure message..."
                       className="flex-1 border-2 border-black px-3 py-2 font-mono text-sm focus:outline-none dark:bg-zinc-800 dark:border-cream dark:text-cream"
                     />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          className="h-10 w-10 border-2 border-black bg-yellow-300 text-black neu-border neu-press"
+                        >
+                          <Smile className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent side="top" align="end" className="p-0 border-2 border-black">
+                        <EmojiPicker
+                          onEmojiClick={(emojiData) =>
+                            setInputMessage((prev) => prev + emojiData.emoji)
+                          }
+                        />
+                      </PopoverContent>
+                    </Popover>
                     <Button
                       type="submit"
                       size="icon"

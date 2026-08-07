@@ -1,3 +1,27 @@
+import { z } from "https://esm.sh/zod@3.24.2";
+import { parseJsonBody } from "../_shared/validation.ts";
+
+const processOutboxPayloadSchema = z
+  .object({
+    table: z.string().min(1),
+    action: z.string().min(1),
+    record: z
+      .object({
+        id: z.string().optional(),
+        title: z.string().optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
+const processOutboxSchema = z
+  .object({
+    outbox_id: z.string().uuid("outbox_id must be a valid UUID"),
+    payload: processOutboxPayloadSchema,
+  })
+  .strict();
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -9,17 +33,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { outbox_id, payload } = await req.json();
-
-    if (!outbox_id || !payload) {
-      return new Response(
-        JSON.stringify({ error: "Missing outbox_id or payload in request body" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
+    const parsed = await parseJsonBody(processOutboxSchema, req);
+    if (!parsed.ok) return parsed.response;
+    const { outbox_id, payload } = parsed.data;
 
     console.log(
       `[Outbox Worker] Processing outbox event ${outbox_id}:`,

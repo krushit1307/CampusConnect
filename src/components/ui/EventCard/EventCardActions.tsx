@@ -1,5 +1,5 @@
 import React from "react";
-import { Calendar, Link as LinkIcon } from "lucide-react";
+import { Calendar, Check, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { getIcsContent } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ export function EventCardActions() {
     googleCalendarUrl,
     handleRsvpToggleClick,
     handleCopyLink,
+    copied,
     confirmOpen,
     setConfirmOpen,
     ticketOpen,
@@ -72,8 +73,12 @@ export function EventCardActions() {
                 variant="outline"
                 className="neu-border neu-press bg-white hover:bg-cream h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
               >
-                <LinkIcon className="h-4 w-4 mr-2" />
-                Copy Link
+                {copied ? (
+                  <Check className="mr-2 h-4 w-4" />
+                ) : (
+                  <LinkIcon className="mr-2 h-4 w-4" />
+                )}
+                {copied ? "Copied! ✓" : "Copy Link"}
               </Button>
             </TooltipTrigger>
             <TooltipContent>

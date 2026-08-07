@@ -4,7 +4,7 @@ import { GalleryPhoto } from "../../types/gallery";
 import { Dialog, DialogContent } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { X, ChevronLeft, ChevronRight, Download, Info } from "lucide-react";
-import { format } from "date-fns";
+import { formatDateShort } from "@/lib/dateFormatter";
 import { cn } from "../../lib/utils";
 
 interface LightboxProps {
@@ -95,8 +95,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
           <div className="flex flex-col">
             <span className="text-sm font-medium">{photo.alt}</span>
             <span className="text-xs text-zinc-400">
-              Uploaded {format(new Date(photo.uploadedAt), "MMM d, yyyy")} by{" "}
-              {photo.photographer.name}
+              Uploaded {formatDateShort(photo.uploadedAt)} by {photo.photographer.name}
             </span>
           </div>
           <div className="flex gap-2">

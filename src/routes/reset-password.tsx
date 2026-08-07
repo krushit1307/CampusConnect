@@ -31,8 +31,9 @@ export default function ResetPasswordPage() {
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: { password: "", confirmPassword: "" },
   });
-
   const password = form.watch("password");
+
+  const passwordResult = getPasswordStrength(password);
 
   // The Supabase client parses the recovery token out of the magic-link URL and
   // exchanges it for a session automatically. We just need to wait for that to
@@ -141,7 +142,7 @@ export default function ResetPasswordPage() {
                             {...field}
                           />
                         </FormControl>
-                        {password && <PasswordStrengthMeter password={password} />}
+                        {password && <PasswordStrengthMeter password={password} userInputs={[]} />}
                         <FormMessage />
                       </FormItem>
                     )}
@@ -168,7 +169,7 @@ export default function ResetPasswordPage() {
                   />
                   <Button
                     type="submit"
-                    disabled={loading || getPasswordStrength(password) === "weak"}
+                    disabled={loading || passwordResult.score < 3}
                     variant="primary"
                     className="w-full"
                   >

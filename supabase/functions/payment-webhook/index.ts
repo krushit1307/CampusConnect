@@ -1,54 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+import Stripe from "https://esm.sh/stripe@14.16.0?target=deno";
 
 const stripeSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET") || Deno.env.get("WEBHOOK_SECRET") || "";
 
-/**
- * Verifies Stripe cryptographic HMAC-SHA256 signature using standard Web Crypto APIs
- */
-async function verifyStripeSignature(
-  rawBody: string,
-  signatureHeader: string,
-  secret: string,
-): Promise<boolean> {
-  try {
-    const encoder = new TextEncoder();
-
-    // Parse signature header parts (e.g. t=123,v1=abc)
-    const parts = signatureHeader.split(",");
-    const tPart = parts.find((p) => p.trim().startsWith("t="));
-    const v1Part = parts.find((p) => p.trim().startsWith("v1="));
-
-    if (!tPart || !v1Part) return false;
-
-    const timestamp = tPart.split("=")[1].trim();
-    const signatureHex = v1Part.split("=")[1].trim();
-
-    // The signature payload is the timestamp concatenated with a '.' and the raw body
-    const payload = `${timestamp}.${rawBody}`;
-    const payloadData = encoder.encode(payload);
-    const secretData = encoder.encode(secret);
-
-    // Import raw HMAC key
-    const key = await crypto.subtle.importKey(
-      "raw",
-      secretData,
-      { name: "HMAC", hash: "SHA-256" },
-      false,
-      ["verify"],
-    );
-
-    // Convert hex signature string to raw bytes
-    const sigBytes = new Uint8Array(
-      signatureHex.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16)),
-    );
-
-    // Verify HMAC-SHA256 signature match
-    return await crypto.subtle.verify("HMAC", key, sigBytes, payloadData);
-  } catch (err) {
-    console.error("[Signature Verification Error]:", err);
-    return false;
-  }
-}
+const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
+  httpClient: Stripe.createFetchHttpClient(),
+});
 
 Deno.serve(async (req) => {
   // Handle CORS preflight request
@@ -79,14 +36,19 @@ Deno.serve(async (req) => {
       return new Response("Server configuration error", { status: 500 });
     }
 
-    // 1. Cryptographically verify webhook signature
-    const isVerified = await verifyStripeSignature(rawBody, signatureHeader, stripeSecret);
-    if (!isVerified) {
-      console.warn("[Security Alert] Cryptographic signature mismatch.");
-      return new Response("Invalid signature payload", { status: 401 });
+    // 1. Cryptographically verify webhook signature using Stripe SDK
+    let stripeEvent;
+    try {
+      stripeEvent = await stripe.webhooks.constructEventAsync(
+        rawBody,
+        signatureHeader,
+        stripeSecret,
+      );
+    } catch (err: any) {
+      console.warn("[Security Alert] Cryptographic signature mismatch:", err.message);
+      return new Response("Invalid signature payload", { status: 400 });
     }
 
-    const stripeEvent = JSON.parse(rawBody);
     const eventId = stripeEvent.id;
 
     if (!eventId) {

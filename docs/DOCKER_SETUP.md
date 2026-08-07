@@ -31,4 +31,3 @@ Alternatively, you can run the project containerized using Docker. This allows y
    docker run -d -p 3000:3000 --env-file .env.local --name campusconnect campusconnect:latest
    ```
    The production-built SPA will be served via the static file server (`serve -s dist -l 3000`) on `http://localhost:3000`.
-   

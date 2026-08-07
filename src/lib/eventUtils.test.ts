@@ -15,6 +15,7 @@ import {
   addFaq,
   removeFaq,
   updateFaq,
+  EventFormValues,
 } from "./eventUtils";
 
 // ---------------------------------------------------------------------------
@@ -24,6 +25,7 @@ describe("eventFormSchema", () => {
   const valid = {
     title: "Hackathon 2026",
     description: "A 24-hour coding event.",
+    category: "Technology",
     startDate: "2026-07-11T09:00",
     endDate: "2026-07-12T09:00",
   };
@@ -88,6 +90,30 @@ describe("eventFormSchema", () => {
   it("trims whitespace-only title", () => {
     const result = eventFormSchema.safeParse({ ...valid, title: "   " });
     expect(result.success).toBe(false);
+  });
+  it("has exact Zod error messages for min length constraints", () => {
+    const result = eventFormSchema.safeParse({
+      title: "",
+      description: "",
+      startDate: "",
+      endDate: "",
+    });
+    if (!result.success) {
+      const errs = result.error.flatten().fieldErrors;
+      expect(errs.title).toContain("Title is required.");
+      expect(errs.description).toContain("Description is required.");
+      expect(errs.startDate).toContain("Start date is required.");
+      expect(errs.endDate).toContain("End date is required.");
+    }
+  });
+
+  it("checks exact title max length message", () => {
+    const result = eventFormSchema.safeParse({ ...valid, title: "a".repeat(TITLE_MAX_LENGTH + 1) });
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.title).toContain(
+        `Title must be ${TITLE_MAX_LENGTH} characters or fewer.`,
+      );
+    }
   });
 });
 
@@ -204,6 +230,33 @@ describe("parseCoordinates", () => {
     expect(result.lng).toBe(151.2093);
   });
 
+  it("identifies boundary latitude and longitude as valid", () => {
+    expect(parseCoordinates("-90, 0").isValid).toBe(true);
+    expect(parseCoordinates("90, 0").isValid).toBe(true);
+    expect(parseCoordinates("0, -180").isValid).toBe(true);
+    expect(parseCoordinates("0, 180").isValid).toBe(true);
+  });
+
+  it("identifies just outside boundary latitude as invalid", () => {
+    const result1 = parseCoordinates("-90.1, 0");
+    expect(result1.isCoordinates).toBe(true);
+    expect(result1.isValid).toBe(false);
+
+    const result2 = parseCoordinates("90.1, 0");
+    expect(result2.isCoordinates).toBe(true);
+    expect(result2.isValid).toBe(false);
+  });
+
+  it("identifies just outside boundary longitude as invalid", () => {
+    const result1 = parseCoordinates("0, -180.1");
+    expect(result1.isCoordinates).toBe(true);
+    expect(result1.isValid).toBe(false);
+
+    const result2 = parseCoordinates("0, 180.1");
+    expect(result2.isCoordinates).toBe(true);
+    expect(result2.isValid).toBe(false);
+  });
+
   it("identifies invalid latitude (out of bounds)", () => {
     const result = parseCoordinates("95.1234, 77.1025");
     expect(result.isCoordinates).toBe(true);
@@ -220,6 +273,13 @@ describe("parseCoordinates", () => {
     const result = parseCoordinates("28.7041, abc");
     expect(result.isCoordinates).toBe(true);
     expect(result.isValid).toBe(false);
+  });
+
+  it("rejects leading/trailing non-numeric characters completely (strict regex)", () => {
+    // If one part is strictly valid, it enters the block, parses as NaN for the other, and returns isCoordinates: true.
+    // So to test that the regex strictly rejects a part, both parts must be invalid!
+    expect(parseCoordinates("abc12.3, def45.6").isCoordinates).toBe(false);
+    expect(parseCoordinates("12.3abc, 45.6def").isCoordinates).toBe(false);
   });
 
   it("treats plain address strings as not coordinates (and valid)", () => {
@@ -376,7 +436,13 @@ describe("matchesDateFilter", () => {
 describe("hasDraftContent", () => {
   it("returns false for empty values", () => {
     expect(
-      hasDraftContent({ title: "", description: "", location: "", startDate: "", endDate: "" }),
+      hasDraftContent({
+        title: "",
+        description: "",
+        location: "",
+        startDate: "",
+        endDate: "",
+      } as EventFormValues),
     ).toBe(false);
   });
 
@@ -388,7 +454,7 @@ describe("hasDraftContent", () => {
         location: "",
         startDate: "",
         endDate: "",
-      }),
+      } as EventFormValues),
     ).toBe(true);
   });
 
@@ -400,7 +466,7 @@ describe("hasDraftContent", () => {
         location: "",
         startDate: "2026-07-11T10:00",
         endDate: "",
-      }),
+      } as EventFormValues),
     ).toBe(true);
   });
 });
@@ -417,7 +483,7 @@ describe("eventFormToDbPayload", () => {
         location: "Room 1",
         startDate: "2026-07-11T10:00",
         endDate: "2026-07-11T12:00",
-      },
+      } as EventFormValues,
       "u1",
       "c1",
     );
@@ -435,7 +501,7 @@ describe("eventFormToDbPayload", () => {
         location: "",
         startDate: "2026-07-11T10:00",
         endDate: "2026-07-11T12:00",
-      },
+      } as EventFormValues,
       "u1",
       null,
     );

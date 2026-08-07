@@ -9,7 +9,7 @@ import react from "@vitejs/plugin-react";
  */
 export default defineConfig({
   e2e: {
-    specPattern: "cypress/e2e/**/*.cy.{ts,tsx}",
+    specPattern: ["cypress/e2e/**/*.cy.{ts,tsx}", "cypress/e2e/**/*.spec.{ts,tsx}"],
     baseUrl: "http://localhost:3000",
     supportFile: "cypress/support/e2e.ts",
     viewportWidth: 1280,
@@ -37,7 +37,7 @@ export default defineConfig({
       },
     },
     specPattern: ["cypress/component/**/*.cy.{ts,tsx}", "src/**/*.cy.{ts,tsx}"],
-    supportFile: "cypress/support/component.ts",
+    supportFile: "cypress/support/component.tsx",
     indexHtmlFile: "cypress/support/component-index.html",
     viewportWidth: 1280,
     viewportHeight: 720,

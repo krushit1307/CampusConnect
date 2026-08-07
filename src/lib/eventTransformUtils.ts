@@ -7,7 +7,7 @@ type Profile = {
   handle?: string | null;
 };
 
-type EventRsvp = {
+export type EventRsvp = {
   id: string;
   user_id: string;
   status: string;
@@ -15,7 +15,7 @@ type EventRsvp = {
   profiles: Profile[] | Profile | null;
 };
 
-type EventWaitlist = {
+export type EventWaitlist = {
   id: string;
   user_id: string;
   created_at?: string;

@@ -30,17 +30,22 @@ describe("cropImage Utility", () => {
 
     const crop: Area = { x: 0, y: 0, width: 50, height: 50 };
 
-    // Stub global Image load
-    vi.spyOn(globalThis, "Image").mockImplementation(() => {
-      const img = {} as HTMLImageElement;
-      setTimeout(() => {
-        if (img.onload) img.onload(new Event("load"));
-      }, 0);
-      return img;
-    });
+    // Stub global Image constructor using a real function so `new Image()` works
+    class MockImage {
+      handlers: Record<string, (e: Event) => void> = {};
+      addEventListener(event: string, handler: (e: Event) => void) {
+        this.handlers[event] = handler;
+        if (event === "load") {
+          setTimeout(() => handler(new Event("load")), 0);
+        }
+      }
+      setAttribute() {}
+    }
+    vi.stubGlobal("Image", MockImage);
 
     await expect(getCroppedImg("test.jpg", crop)).rejects.toThrow("No 2d context");
 
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 });

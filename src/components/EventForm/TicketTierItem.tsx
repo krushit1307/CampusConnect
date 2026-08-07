@@ -9,7 +9,7 @@ import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { Trash2, GripVertical, DollarSign, Users, Tag } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { format } from "date-fns";
+import format from "date-fns/format";
 
 interface TicketTierItemProps {
   index: number;
@@ -18,7 +18,7 @@ interface TicketTierItemProps {
   errors: FieldErrors<EventFormData>;
   onRemove: (index: number) => void;
   isDragging?: boolean;
-  dragHandleProps?: any;
+  dragHandleProps?: Record<string, unknown>;
 }
 
 /**
@@ -34,7 +34,7 @@ export const TicketTierItem: React.FC<TicketTierItemProps> = ({
   isDragging,
   dragHandleProps,
 }) => {
-  const tierErrors = errors.tickets?.[index] as any;
+  const tierErrors = errors.tickets?.[index] as Record<string, { message?: string }>;
 
   return (
     <div

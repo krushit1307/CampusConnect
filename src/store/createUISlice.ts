@@ -1,6 +1,8 @@
 import { createSignal } from "../lib/signals";
 
-export const [themeSignal, setThemeSignal] = createSignal<"light" | "dark" | "system">("light");
+export const [themeSignal, setThemeSignal] = createSignal<
+  "light" | "dark" | "system" | "high-contrast"
+>("light");
 export const [activeTabSignal, setActiveTabSignal] = createSignal<string>("overview");
 
 export function resetUISlice(): void {
@@ -11,10 +13,10 @@ export function resetUISlice(): void {
 // ─── Slice factory for composition ───────────────────────────────────
 
 export interface UISlice {
-  theme: "light" | "dark" | "system";
+  theme: "light" | "dark" | "system" | "high-contrast";
   activeTab: string;
   isSidebarOpen: boolean;
-  setTheme: (theme: "light" | "dark" | "system") => void;
+  setTheme: (theme: "light" | "dark" | "system" | "high-contrast") => void;
   setActiveTab: (tab: string) => void;
   toggleSidebar: () => void;
   resetUISlice: () => void;
@@ -27,7 +29,7 @@ export function createUISlice(set: SetState<UISlice>): UISlice {
     theme: "light",
     activeTab: "overview",
     isSidebarOpen: true,
-    setTheme: (theme: "light" | "dark" | "system") => {
+    setTheme: (theme: "light" | "dark" | "system" | "high-contrast") => {
       setThemeSignal(theme);
       set({ theme });
       if (typeof window !== "undefined") {

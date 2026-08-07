@@ -319,7 +319,7 @@ export const AudioReactiveBackground: React.FC<AudioReactiveBackgroundProps> = (
     <div
       ref={containerRef}
       className={cn(
-        "relative w-full h-full min-h-[350px] overflow-hidden rounded-xl bg-slate-950 border border-slate-800 shadow-2xl",
+        "relative w-full h-full min-h-[200px] md:min-h-[350px] overflow-hidden rounded-xl bg-slate-950 border border-slate-800 shadow-2xl",
         className,
       )}
     >
@@ -391,7 +391,7 @@ export const AudioReactiveBackground: React.FC<AudioReactiveBackgroundProps> = (
                 <div className="grid grid-cols-3 gap-1.5">
                   <Button
                     size="sm"
-                    variant={sourceType === "demo" ? "default" : "outline"}
+                    variant={sourceType === "demo" ? "primary" : "outline"}
                     onClick={() => handleSourceChange("demo")}
                     className={cn(
                       "text-xs px-2 h-8",
@@ -405,7 +405,7 @@ export const AudioReactiveBackground: React.FC<AudioReactiveBackgroundProps> = (
 
                   <Button
                     size="sm"
-                    variant={sourceType === "microphone" ? "default" : "outline"}
+                    variant={sourceType === "microphone" ? "primary" : "outline"}
                     onClick={() => handleSourceChange("microphone")}
                     className={cn(
                       "text-xs px-2 h-8 gap-1",

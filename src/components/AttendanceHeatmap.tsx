@@ -3,7 +3,10 @@ import { ActivityCalendar, ThemeInput } from "react-activity-calendar";
 import { createClient } from "@/lib/supabase/client";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import "react-tooltip/dist/react-tooltip.css";
-import { format, subDays, startOfYear, isSameDay } from "date-fns";
+import format from "date-fns/format";
+import subDays from "date-fns/subDays";
+import startOfYear from "date-fns/startOfYear";
+import isSameDay from "date-fns/isSameDay";
 
 interface HeatmapData {
   date: string;
@@ -106,10 +109,9 @@ export function AttendanceHeatmap({ userId }: { userId: string }) {
           labels={{
             totalCount: "{{count}} contributions in the last year",
           }}
-          renderBlock={(block: any, activity: any) => (
-            // @ts-ignore
+          renderBlock={(block: React.ReactElement, activity: { date: string; count: number }) => (
             <div
-              {...block}
+              {...(block.props as React.HTMLAttributes<HTMLDivElement>)}
               data-tooltip-id="heatmap-tooltip"
               data-tooltip-content={`${activity.count} activities on ${format(new Date(activity.date), "MMM d, yyyy")}`}
             />

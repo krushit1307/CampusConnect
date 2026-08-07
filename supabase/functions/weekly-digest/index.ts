@@ -50,7 +50,8 @@ serve(async (req) => {
     const { data: newEvents, error: eventsError } = await supabase
       .from("events")
       .select("id, title, event_date, location, clubs(name)")
-      .gte("created_at", sevenDaysAgoStr);
+      .gte("created_at", sevenDaysAgoStr)
+      .is("deleted_at", null);
 
     if (eventsError) throw new Error(`Failed to fetch events: ${eventsError.message}`);
 

@@ -15,6 +15,7 @@ jobs:
       - name: Assign issue
         uses: actions/github-script@v6
         with:
+          github-token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           script: |
             const commenter = context.payload.comment.user.login;
             const assignees = context.payload.issue.assignees;

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { ProgressRing, calculateProfileCompleteness } from "./ProgressRing";
 import { OnboardingProfileCard } from "./OnboardingProfileCard";
@@ -35,7 +35,6 @@ describe("ProgressRing & Onboarding Profile Completeness (#1971)", () => {
 
     expect(screen.getByTestId("avatar-content")).toBeInTheDocument();
 
-    // Fast-forward animation timeout
     await act(async () => {
       await new Promise((r) => setTimeout(r, 60));
     });
@@ -43,17 +42,34 @@ describe("ProgressRing & Onboarding Profile Completeness (#1971)", () => {
     expect(screen.getByText("50%")).toBeInTheDocument();
   });
 
+  it("matches ProgressRing snapshot", async () => {
+    const { asFragment } = render(
+      <ProgressRing percentage={50} showBadge={true}>
+        <div>Avatar</div>
+      </ProgressRing>,
+    );
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 60));
+    });
+
+    expect(asFragment()).toMatchSnapshot();
+  });
+
   it("updates completeness percentage on interactive profile checklist click", async () => {
     render(
       <OnboardingProfileCard
-        initialData={{ hasAvatar: true, hasBio: true, hasMajor: false, hasInterests: false }}
+        initialData={{
+          hasAvatar: true,
+          hasBio: true,
+          hasMajor: false,
+          hasInterests: false,
+        }}
       />,
     );
 
-    // Initial state: 50%
     expect(screen.getByText("50%")).toBeInTheDocument();
 
-    // Click to add Major (adds 25% -> 75%)
     const majorBtn = screen.getByText(/Select Academic Major/i);
     fireEvent.click(majorBtn);
 

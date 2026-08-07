@@ -6,10 +6,10 @@
  */
 export declare function createEffect(fn: () => void | (() => void)): () => void;
 export type SignalGetter<T> = {
-    (): T;
-    value: T;
-    peek: () => T;
-    subscribe: (fn: (val: T) => void) => () => void;
+  (): T;
+  value: T;
+  peek: () => T;
+  subscribe: (fn: (val: T) => void) => () => void;
 };
 export type SignalSetter<T> = (val: T | ((prev: T) => T)) => void;
 export type Signal<T> = [SignalGetter<T>, SignalSetter<T>];
@@ -33,9 +33,17 @@ export declare function createReactiveObject<T extends object>(initialObj: T): T
  * @param prop The property on the node to mutate (default: "textContent").
  * @returns Unsubscribe function to tear down the DOM binding effect.
  */
-export declare function bindSignalToDOM(node: HTMLElement | Text | null, accessor: () => unknown, prop?: string): () => void;
+export declare function bindSignalToDOM(
+  node: HTMLElement | Text | null,
+  accessor: () => unknown,
+  prop?: string,
+): () => void;
 /**
  * React hook that binds a signal accessor directly to a ref's DOM node,
  * mutating the DOM node directly on signal updates without triggering React re-renders.
  */
-export declare function useBindSignal(ref: React.RefObject<HTMLElement | Text | null>, accessor: () => unknown, prop?: string): void;
+export declare function useBindSignal(
+  ref: React.RefObject<HTMLElement | Text | null>,
+  accessor: () => unknown,
+  prop?: string,
+): void;

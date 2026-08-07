@@ -210,9 +210,10 @@ export function useChat() {
   const markMessagesAsRead = async () => {
     const state = useChatStore.getState();
     if (!state.currentUser || !state.activeRecipient) return;
+    const currentUser = state.currentUser;
 
     const unreadIds = state.messages
-      .filter((m) => m.receiver_id === state.currentUser.id && !m.read_at)
+      .filter((m) => m.receiver_id === currentUser.id && !m.read_at)
       .map((m) => m.id);
 
     if (unreadIds.length === 0) return;
@@ -233,10 +234,9 @@ export function useChat() {
   useEffect(() => {
     const state = useChatStore.getState();
     if (!state.messages.length || !state.currentUser) return;
+    const currentUser = state.currentUser;
 
-    const hasUnread = state.messages.some(
-      (m) => m.receiver_id === state.currentUser.id && !m.read_at,
-    );
+    const hasUnread = state.messages.some((m) => m.receiver_id === currentUser.id && !m.read_at);
     if (!hasUnread) return;
 
     const container = document.getElementById("messages-container");
@@ -251,21 +251,23 @@ export function useChat() {
 
   useEffect(() => {
     if (!store.activeRecipient || !store.currentUser || !store.userKeys) return;
+    const activeRecipient = store.activeRecipient;
+    const currentUser = store.currentUser;
 
     const setupSubscription = async () => {
       const { data: keyData } = await supabase
         .from("user_public_keys")
         .select("public_key")
-        .eq("user_id", store.activeRecipient.id)
+        .eq("user_id", activeRecipient.id)
         .maybeSingle();
 
       if (!keyData) return;
 
-      const sharedKey = await getSharedKey(store.activeRecipient.id, keyData.public_key);
+      const sharedKey = await getSharedKey(activeRecipient.id, keyData.public_key);
       if (!sharedKey) return;
 
       const channel = supabase
-        .channel(`chat_messages_${store.activeRecipient.id}`)
+        .channel(`chat_messages_${activeRecipient.id}`)
         .on(
           "postgres_changes",
           {
@@ -277,10 +279,8 @@ export function useChat() {
             const newMsg = payload.new as Message;
             const state = useChatStore.getState();
             const isFromActiveChat =
-              (newMsg.sender_id === state.currentUser.id &&
-                newMsg.receiver_id === state.activeRecipient?.id) ||
-              (newMsg.sender_id === state.activeRecipient?.id &&
-                newMsg.receiver_id === state.currentUser.id);
+              (newMsg.sender_id === currentUser.id && newMsg.receiver_id === activeRecipient.id) ||
+              (newMsg.sender_id === activeRecipient.id && newMsg.receiver_id === currentUser.id);
 
             if (isFromActiveChat) {
               try {
@@ -290,6 +290,17 @@ export function useChat() {
                   sharedKey,
                 );
                 store.addMessage({ ...newMsg, content: plainText, decryptFailed: false });
+
+                // Announce new message if the user is not actively focused on the chat window
+                // and the message was sent to the current user (not from them)
+                if (
+                  newMsg.receiver_id === currentUser.id &&
+                  (!document.hasFocus() || window.location.pathname !== "/messages")
+                ) {
+                  // We dynamically import announce to avoid circular dependencies if any
+                  const { announce } = await import("@/store/ariaAnnouncer");
+                  announce(`New message from ${activeRecipient.full_name || "user"}: ${plainText}`);
+                }
               } catch (err) {
                 console.warn("Real-time decryption failure:", err);
                 store.addMessage({

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
@@ -13,22 +13,12 @@ import {
   XCircle,
   CheckCircle,
   Download,
-  BarChart2,
-  DollarSign,
-  Briefcase,
-  FolderOpen,
 } from "lucide-react";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
-import { FolderTree } from "@/components/club-documents/FolderTree";
-import { DocumentUploader } from "@/components/club-documents/DocumentUploader";
-import { useClubDocuments } from "@/hooks/useClubDocuments";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
-import { RosterExport } from "@/components/RosterExport";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { ClubMembersTable } from "@/components/Clubs/ClubMembersTable";
-import { ClubAnalyticsDashboard } from "@/components/Clubs/ClubAnalyticsDashboard";
-import { ClubBudgetDashboard } from "@/components/Clubs/ClubBudgetDashboard";
-import { ClubRecruitmentManage } from "@/components/Clubs/ClubRecruitmentManage";
+import { ClubSocialLinksEditor } from "@/components/Clubs/ClubSocialLinksEditor";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -41,30 +31,65 @@ import {
 // ⚠️ Adjust if your Supabase Storage bucket for club banners has a different name
 const BUCKET_NAME = "club-banners";
 
+interface ServerClub {
+  name: string;
+  description: string | null;
+  banner_url: string | null;
+  logo_url: string | null;
+  promo_video_url: string | null;
+  visibility: string | null;
+  github_repo_url: string | null;
+  social_links: Record<string, string> | null;
+  version: number;
+}
+
 export default function ClubManageRoute() {
   const { slug = "" } = useParams();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
-  const initialTab = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState<
-    "settings" | "members" | "events" | "analytics" | "budget" | "recruitment" | "documents"
-  >(
-    initialTab === "analytics"
-      ? "analytics"
-      : initialTab === "members"
-        ? "members"
-        : initialTab === "events"
-          ? "events"
-          : initialTab === "budget"
-            ? "budget"
-            : initialTab === "recruitment"
-              ? "recruitment"
-              : initialTab === "documents"
-                ? "documents"
-                : "settings",
-  );
+    "settings" | "members" | "permissions" | "events" | "trash"
+  >("settings");
+
+  // Fetch Trash Events
+  const {
+    data: trashEvents = [],
+    isLoading: isTrashLoading,
+    refetch: refetchTrash,
+  } = useQuery({
+    queryKey: ["club_trash_events", slug],
+    queryFn: async () => {
+      if (!user || !club) return [];
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, title, deleted_at, max_attendees")
+        .eq("club_id", club.id)
+        .not("deleted_at", "is", null)
+        .order("deleted_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: activeTab === "trash" && !!club,
+  });
+
+  const restoreEventMutation = useMutation({
+    mutationFn: async (eventId: string) => {
+      const { error } = await supabase
+        .from("events")
+        .update({ deleted_at: null })
+        .eq("id", eventId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Event restored successfully!");
+      refetchTrash();
+      refetch();
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to restore event");
+    },
+  });
 
   // Form State
   const [name, setName] = useState("");
@@ -76,9 +101,15 @@ export default function ClubManageRoute() {
   const [twitterUrl, setTwitterUrl] = useState("");
   const [instagramUrl, setInstagramUrl] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
+  const [socialLinksOrder, setSocialLinksOrder] = useState<string[]>([
+    "website",
+    "twitter",
+    "instagram",
+  ]);
   const [promoVideoUrl, setPromoVideoUrl] = useState("");
   const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
-  const [serverClub, setServerClub] = useState<any>(null);
+  const [serverClub, setServerClub] = useState<ServerClub | null>(null);
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
@@ -96,8 +127,8 @@ export default function ClubManageRoute() {
         .from("clubs")
         .select(
           `
-          id, name, slug, description, banner_url, logo_url, visibility, github_repo_url, social_links, promo_video_url, version,
-          club_members (id, role, status, user_id, joined_at, profiles (full_name, avatar_url, handle)),
+          id, name, slug, description, banner_url, logo_url, visibility, github_repo_url, social_links, social_links_order, promo_video_url, version,
+          club_members (id, role, status, user_id, joined_at, can_edit_events, can_manage_finance, can_remove_members, can_post_news, can_manage_permissions, profiles (full_name, avatar_url, handle)),
           events (id, title, event_date, max_attendees, event_rsvps(id))
         `,
         )
@@ -124,28 +155,17 @@ export default function ClubManageRoute() {
       setDescription(club.description || "");
       setBannerUrl(club.banner_url || "");
       setLogoUrl(club.logo_url || "");
-      setVisibility(club.visibility || "public");
+      setVisibility((club.visibility as "public" | "private") || "public");
       setGithubRepoUrl(club.github_repo_url || "");
       const links = (club.social_links || {}) as Record<string, string>;
       setTwitterUrl(links.twitter || "");
       setInstagramUrl(links.instagram || "");
       setWebsiteUrl(links.website || "");
+      const savedOrder = (club.social_links_order || []) as string[];
+      setSocialLinksOrder(savedOrder.length > 0 ? savedOrder : ["website", "twitter", "instagram"]);
       setPromoVideoUrl(club.promo_video_url || "");
     }
   }, [club]);
-
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  const {
-    tree,
-    isLoading: isDocsLoading,
-    createFolder,
-    renameFolder,
-    deleteFolder,
-    moveFolder,
-    uploadDocument,
-    deleteDocument,
-  } = useClubDocuments(club?.id);
-  const isAdmin = true; // route is admin-only
 
   const getDifferences = () => {
     if (!serverClub) return [];
@@ -209,7 +229,7 @@ export default function ClubManageRoute() {
 
   const updateClubMutation = useMutation<void, Error, boolean | undefined>({
     mutationFn: async (force?: boolean) => {
-      if (!user || !club) throw new Error("Club not found");
+      if (!club) throw new Error("Club not found");
 
       const githubRepo = githubRepoUrl.trim() || null;
       if (githubRepo && !githubRepo.startsWith("https://github.com/")) {
@@ -245,7 +265,7 @@ export default function ClubManageRoute() {
         .from("clubs")
         .update({
           name,
-          description,
+          description: sanitizeHtml(description),
           banner_url: bannerUrl,
           logo_url: logoUrl,
           promo_video_url: promoVideoUrl || null,
@@ -276,7 +296,7 @@ export default function ClubManageRoute() {
           .select(
             "name, description, banner_url, logo_url, promo_video_url, visibility, github_repo_url, social_links, version",
           )
-          .eq("id", club.id)
+          .eq("id", club!.id)
           .single();
         if (latest) {
           setServerClub(latest);
@@ -288,6 +308,8 @@ export default function ClubManageRoute() {
     },
   });
 
+  const [optimisticRoles, setOptimisticRoles] = useState<Record<string, string>>({});
+
   const updateMemberMutation = useMutation({
     mutationFn: async ({
       memberId,
@@ -296,14 +318,53 @@ export default function ClubManageRoute() {
       memberId: string;
       updates: Record<string, unknown>;
     }) => {
-      const { error } = await supabase.from("club_members").update(updates).eq("id", memberId);
+      if (updates.role && typeof updates.role === "string") {
+        setOptimisticRoles((prev) => ({ ...prev, [memberId]: updates.role as string }));
+      }
+      const { error } = await supabase
+        .from("club_members")
+        .update(updates as TablesUpdate<"club_members">)
+        .eq("id", memberId);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Member updated");
+      toast.success("Member role updated successfully");
       refetch();
     },
-    onError: () => toast.error("Failed to update member"),
+    onError: (_err, variables) => {
+      if (variables?.memberId) {
+        setOptimisticRoles((prev) => {
+          const next = { ...prev };
+          delete next[variables.memberId];
+          return next;
+        });
+      }
+      toast.error("Role update failed. Reverted to previous role.");
+    },
+  });
+
+  const updatePermissionsMutation = useMutation({
+    mutationFn: async (updates: PermissionUpdate[]) => {
+      // Batch update all permissions in a single transaction
+      const { error } = await supabase.rpc("batch_update_permissions", {
+        updates: updates.map((u) => ({
+          member_id: u.memberId,
+          can_edit_events: u.permissions.can_edit_events,
+          can_manage_finance: u.permissions.can_manage_finance,
+          can_remove_members: u.permissions.can_remove_members,
+          can_post_news: u.permissions.can_post_news,
+          can_manage_permissions: u.permissions.can_manage_permissions,
+        })),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Permissions updated successfully");
+      refetch();
+    },
+    onError: (err) => {
+      toast.error(`Failed to update permissions: ${err.message}`);
+    },
   });
 
   if (isLoading) {
@@ -367,6 +428,16 @@ export default function ClubManageRoute() {
                 <Users size={18} /> Members
               </button>
               <button
+                onClick={() => setActiveTab("permissions")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "permissions"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <ShieldCheck size={18} /> Permissions
+              </button>
+              <button
                 onClick={() => setActiveTab("events")}
                 className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
                   activeTab === "events"
@@ -377,44 +448,14 @@ export default function ClubManageRoute() {
                 <Calendar size={18} /> Events
               </button>
               <button
-                onClick={() => setActiveTab("analytics")}
+                onClick={() => setActiveTab("trash")}
                 className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
-                  activeTab === "analytics"
-                    ? "bg-black text-white hover:-translate-y-1"
-                    : "bg-white text-black hover:bg-gray-50"
+                  activeTab === "trash"
+                    ? "bg-red-500 text-white hover:-translate-y-1"
+                    : "bg-white text-red-500 hover:bg-red-50"
                 }`}
               >
-                <BarChart2 size={18} /> Analytics
-              </button>
-              <button
-                onClick={() => setActiveTab("budget")}
-                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
-                  activeTab === "budget"
-                    ? "bg-black text-white hover:-translate-y-1"
-                    : "bg-white text-black hover:bg-gray-50"
-                }`}
-              >
-                <DollarSign size={18} /> Budget
-              </button>
-              <button
-                onClick={() => setActiveTab("recruitment")}
-                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
-                  activeTab === "recruitment"
-                    ? "bg-black text-white hover:-translate-y-1"
-                    : "bg-white text-black hover:bg-gray-50"
-                }`}
-              >
-                <Briefcase size={18} /> Recruitment
-              </button>
-              <button
-                onClick={() => setActiveTab("documents")}
-                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
-                  activeTab === "documents"
-                    ? "bg-black text-white hover:-translate-y-1"
-                    : "bg-white text-black hover:bg-gray-50"
-                }`}
-              >
-                <FolderOpen size={18} /> Documents
+                <Trash2 size={18} /> Trash
               </button>
             </nav>
           </aside>
@@ -428,7 +469,7 @@ export default function ClubManageRoute() {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    updateClubMutation.mutate(undefined);
+                    updateClubMutation.mutate(undefined as any);
                   }}
                   className="space-y-4"
                 >
@@ -494,54 +535,28 @@ export default function ClubManageRoute() {
                       <option value="private">Private</option>
                     </select>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="font-mono text-sm font-bold uppercase mb-1 block">
-                        GitHub Repo URL
-                      </label>
-                      <input
-                        value={githubRepoUrl}
-                        onChange={(e) => setGithubRepoUrl(e.target.value)}
-                        placeholder="https://github.com/org/repo"
-                        className="neu-border w-full p-2 font-mono text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-mono text-sm font-bold uppercase mb-1 block">
-                        Website URL
-                      </label>
-                      <input
-                        value={websiteUrl}
-                        onChange={(e) => setWebsiteUrl(e.target.value)}
-                        placeholder="https://example.com"
-                        className="neu-border w-full p-2 font-mono text-sm"
-                      />
-                    </div>
+                  <div>
+                    <label className="font-mono text-sm font-bold uppercase mb-1 block">
+                      GitHub Repo URL
+                    </label>
+                    <input
+                      value={githubRepoUrl}
+                      onChange={(e) => setGithubRepoUrl(e.target.value)}
+                      placeholder="https://github.com/org/repo"
+                      className="neu-border w-full p-2 font-mono text-sm"
+                    />
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="font-mono text-sm font-bold uppercase mb-1 block">
-                        Twitter URL
-                      </label>
-                      <input
-                        value={twitterUrl}
-                        onChange={(e) => setTwitterUrl(e.target.value)}
-                        placeholder="https://twitter.com/username"
-                        className="neu-border w-full p-2 font-mono text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-mono text-sm font-bold uppercase mb-1 block">
-                        Instagram URL
-                      </label>
-                      <input
-                        value={instagramUrl}
-                        onChange={(e) => setInstagramUrl(e.target.value)}
-                        placeholder="https://instagram.com/username"
-                        className="neu-border w-full p-2 font-mono text-sm"
-                      />
-                    </div>
-                  </div>
+                  <ClubSocialLinksEditor
+                    clubId={club.id}
+                    order={socialLinksOrder}
+                    values={{ website: websiteUrl, twitter: twitterUrl, instagram: instagramUrl }}
+                    onValueChange={(platform, value) => {
+                      if (platform === "website") setWebsiteUrl(value);
+                      if (platform === "twitter") setTwitterUrl(value);
+                      if (platform === "instagram") setInstagramUrl(value);
+                    }}
+                    onOrderChange={setSocialLinksOrder}
+                  />{" "}
                   <button
                     type="submit"
                     disabled={updateClubMutation.isPending}
@@ -584,7 +599,19 @@ export default function ClubManageRoute() {
                       Manage Members
                     </h2>
                     <ClubMembersTable
-                      members={club.club_members}
+                      members={(club.club_members || []).map(
+                        (m: {
+                          id: string;
+                          role: string;
+                          status: string;
+                          user_id: string;
+                          joined_at: string | null;
+                          profiles: unknown;
+                        }) => ({
+                          ...m,
+                          role: optimisticRoles[m.id] || m.role,
+                        }),
+                      )}
                       currentUserId={user?.id}
                       isMutating={updateMemberMutation.isPending}
                       onApprove={(memberId) =>
@@ -593,16 +620,52 @@ export default function ClubManageRoute() {
                       onReject={(memberId) =>
                         updateMemberMutation.mutate({ memberId, updates: { status: "rejected" } })
                       }
-                      onToggleRole={(memberId, currentRole) =>
+                      onToggleRole={(memberId, targetRole) =>
                         updateMemberMutation.mutate({
                           memberId,
-                          updates: { role: currentRole === "admin" ? "member" : "admin" },
+                          updates: { role: targetRole },
                         })
                       }
                     />
                   </div>
                 );
               })()}
+
+            {activeTab === "permissions" && (
+              <div className="neu-border bg-white p-6 space-y-6">
+                <h2 className="font-display text-2xl font-bold border-b-2 border-black pb-2">
+                  Role Permissions
+                </h2>
+                <PermissionsGrid
+                  members={(club.club_members || []).map((m: any) => {
+                    const profile = Array.isArray(m.profiles)
+                      ? m.profiles[0]
+                      : (m.profiles as {
+                          full_name: string;
+                          handle: string;
+                          avatar_url: string | null;
+                        });
+                    return {
+                      id: m.id,
+                      user_id: m.user_id,
+                      fullName: profile?.full_name || "Unknown User",
+                      handle: profile?.handle || "",
+                      avatarUrl: profile?.avatar_url || null,
+                      role: m.role,
+                      status: m.status,
+                      can_edit_events: m.can_edit_events || false,
+                      can_manage_finance: m.can_manage_finance || false,
+                      can_remove_members: m.can_remove_members || false,
+                      can_post_news: m.can_post_news || false,
+                      can_manage_permissions: m.can_manage_permissions || false,
+                    };
+                  })}
+                  currentUserId={user?.id || ""}
+                  onSave={(updates) => updatePermissionsMutation.mutateAsync(updates)}
+                  isSaving={updatePermissionsMutation.isPending}
+                />
+              </div>
+            )}
 
             {activeTab === "events" && (
               <div className="neu-border bg-white p-6 space-y-6">
@@ -617,7 +680,7 @@ export default function ClubManageRoute() {
                       (e: {
                         id: string;
                         title: string;
-                        max_attendees: number;
+                        max_attendees: number | null;
                         event_rsvps: unknown[];
                       }) => (
                         <div
@@ -651,67 +714,51 @@ export default function ClubManageRoute() {
                 </div>
               </div>
             )}
-            {activeTab === "analytics" && <ClubAnalyticsDashboard clubId={club.id} />}
-            {activeTab === "budget" && <ClubBudgetDashboard clubId={club.id} />}
-            {activeTab === "recruitment" && <ClubRecruitmentManage clubId={club.id} />}
 
-            {activeTab === "documents" && (
+            {activeTab === "trash" && (
               <div className="neu-border bg-white p-6 space-y-6">
-                <h2 className="font-display text-2xl font-bold border-b-2 border-black pb-2">
-                  Club Documents
+                <h2 className="font-display text-2xl font-bold border-b-2 border-black pb-2 text-red-600 flex items-center gap-2">
+                  <Trash2 size={24} /> Deleted Events Trash
                 </h2>
-                {isDocsLoading ? (
-                  <div className="space-y-2">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-8 w-full bg-gray-100 animate-pulse" />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col md:flex-row gap-6">
-                    <div className="w-full md:w-72 shrink-0 border-r-2 border-black pr-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-mono text-xs font-bold uppercase">Folders</span>
-                        <button
-                          onClick={() => {
-                            const name = prompt("Folder name:");
-                            if (name?.trim()) {
-                              createFolder.mutate({
-                                name: name.trim(),
-                                parentId: selectedFolderId,
-                              });
-                            }
-                          }}
-                          className="text-xs font-mono font-bold text-blue-600 hover:underline"
-                        >
-                          + New
-                        </button>
+                <p className="font-mono text-sm text-gray-600">
+                  Events deleted within the last 30 days can be restored here. After 30 days, they
+                  are permanently deleted.
+                </p>
+                <div className="space-y-4">
+                  {isTrashLoading ? (
+                    <p className="font-mono text-sm text-gray-500">Loading trash...</p>
+                  ) : trashEvents.length === 0 ? (
+                    <p className="font-mono text-sm text-gray-500">Trash is empty.</p>
+                  ) : (
+                    trashEvents.map((e) => (
+                      <div
+                        key={e.id}
+                        className="neu-border border-red-200 p-4 flex flex-col md:flex-row md:items-center justify-between hover:bg-red-50 flex-wrap gap-4"
+                      >
+                        <div>
+                          <p className="font-bold font-display text-lg text-red-800">{e.title}</p>
+                          <p className="text-xs text-red-500 font-mono mt-1">
+                            Deleted on:{" "}
+                            {e.deleted_at ? new Date(e.deleted_at).toLocaleString() : "Unknown"}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => restoreEventMutation.mutate(e.id)}
+                            disabled={restoreEventMutation.isPending}
+                            className="neu-border neu-press bg-lime text-black px-4 py-2 font-mono text-xs font-bold uppercase hover:-translate-y-1 transition-transform disabled:opacity-50 flex items-center gap-2"
+                          >
+                            <RefreshCw
+                              size={14}
+                              className={restoreEventMutation.isPending ? "animate-spin" : ""}
+                            />
+                            Restore
+                          </button>
+                        </div>
                       </div>
-                      <FolderTree
-                        tree={tree}
-                        selectedFolderId={selectedFolderId}
-                        onSelectFolder={setSelectedFolderId}
-                        onMoveFolder={(folderId, parentId, orderIndex) =>
-                          moveFolder.mutate({ folderId, parentId, orderIndex })
-                        }
-                        onCreateSubfolder={(parentId, name) =>
-                          createFolder.mutate({ name, parentId })
-                        }
-                        onRenameFolder={(folderId, name) => renameFolder.mutate({ folderId, name })}
-                        onDeleteFolder={(folderId) => deleteFolder.mutate(folderId)}
-                        onDeleteDocument={(doc) => deleteDocument.mutate(doc)}
-                        isAdmin={isAdmin}
-                      />
-                    </div>
-                    <div className="flex-1 space-y-4">
-                      <DocumentUploader
-                        onUpload={(file) =>
-                          uploadDocument.mutate({ file, folderId: selectedFolderId })
-                        }
-                        isUploading={uploadDocument.isPending}
-                      />
-                    </div>
-                  </div>
-                )}
+                    ))
+                  )}
+                </div>
               </div>
             )}
           </main>

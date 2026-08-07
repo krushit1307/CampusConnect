@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -16,6 +16,16 @@ describe("RLS Policies Integration Tests", () => {
 
   beforeAll(() => {
     supabaseAnon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  });
+
+  beforeEach(async () => {
+    // Clean up test data before each test to guarantee a pristine state
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY;
+    const supabaseAdmin = createClient(SUPABASE_URL, serviceRoleKey);
+
+    // Clean up clubs and events added by tests
+    await supabaseAdmin.from("clubs").delete().eq("slug", "unauthorized-club-rls-test");
+    await supabaseAdmin.from("events").delete().eq("title", "Unauthorized Event");
   });
 
   afterAll(async () => {

@@ -4,10 +4,7 @@ import { Parallax3DCard } from "./Parallax3DCard";
 
 vi.mock("framer-motion", () => ({
   motion: {
-    div: ({
-      children,
-      ...props
-    }: React.HTMLAttributes<HTMLDivElement>) => (
+    div: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
       <div {...props}>{children}</div>
     ),
   },
@@ -44,7 +41,7 @@ describe("Parallax3DCard component (#1685)", () => {
     render(
       <Parallax3DCard data-testid="parallax-container">
         <div>Card Content</div>
-      </Parallax3DCard>
+      </Parallax3DCard>,
     );
 
     expect(screen.getByTestId("parallax-container")).toBeInTheDocument();
@@ -55,7 +52,7 @@ describe("Parallax3DCard component (#1685)", () => {
     render(
       <Parallax3DCard glareEnable={true}>
         <div>Card Content</div>
-      </Parallax3DCard>
+      </Parallax3DCard>,
     );
 
     expect(screen.getByTestId("parallax-glare")).toBeInTheDocument();
@@ -65,7 +62,7 @@ describe("Parallax3DCard component (#1685)", () => {
     render(
       <Parallax3DCard data-testid="parallax-card">
         <div>Interactive Content</div>
-      </Parallax3DCard>
+      </Parallax3DCard>,
     );
 
     const card = screen.getByTestId("parallax-card");
@@ -93,7 +90,7 @@ describe("Parallax3DCard component (#1685)", () => {
     render(
       <Parallax3DCard data-testid="parallax-static">
         <div>Static Mobile Content</div>
-      </Parallax3DCard>
+      </Parallax3DCard>,
     );
 
     expect(screen.getByTestId("parallax-static")).toBeInTheDocument();
