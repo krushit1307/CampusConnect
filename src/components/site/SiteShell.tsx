@@ -96,7 +96,6 @@ export function SiteShell({ children }: { children: ReactNode }) {
     },
   ];
 
-  const JoyrideComponent = Joyride as unknown as React.ComponentType<Record<string, unknown>>;
   const isEmailUnverified = !!user && !emailVerified;
 
   return (
