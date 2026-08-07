@@ -11,7 +11,7 @@ describe("Offline Mode", () => {
           uploadThroughput: -1,
         },
       }),
-      { log: false }
+      { log: false },
     );
   });
 
@@ -21,7 +21,7 @@ describe("Offline Mode", () => {
       Cypress.automation("remote:debugger:protocol", {
         command: "Network.enable",
       }),
-      { log: false }
+      { log: false },
     );
 
     // 2. Navigate to the homepage online to install/activate the service worker
@@ -54,7 +54,7 @@ describe("Offline Mode", () => {
           uploadThroughput: 0,
         },
       }),
-      { log: false }
+      { log: false },
     );
 
     // 5. Reload the page while offline

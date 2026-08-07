@@ -33,7 +33,7 @@ describe("RedisPubSub Integration", () => {
     const ioredis = await import("ioredis");
     expect(vi.mocked(ioredis.default.prototype.publish)).toHaveBeenCalledWith(
       "TEST_EVENT:topic-1",
-      JSON.stringify({ foo: "bar" })
+      JSON.stringify({ foo: "bar" }),
     );
   });
 
@@ -54,12 +54,15 @@ describe("RedisPubSub Integration", () => {
 
     // Trigger the callback
     expect(messageCallback).toBeNull(); // Wait: beforeEach ran, let's trigger next() which starts generator
-    
+
     // We start the generator execution, which triggers subscribe
     await new Promise((resolve) => setTimeout(resolve, 0));
-    
+
     expect(messageCallback).toBeDefined();
-    messageCallback!("ANNOUNCEMENT_CREATED:club-123", JSON.stringify({ id: "123", content: "hello" }));
+    messageCallback!(
+      "ANNOUNCEMENT_CREATED:club-123",
+      JSON.stringify({ id: "123", content: "hello" }),
+    );
 
     const res = await nextPromise;
     expect(res.value).toEqual({ id: "123", content: "hello" });

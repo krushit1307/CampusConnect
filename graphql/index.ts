@@ -49,7 +49,7 @@ const serverCleanup = useServer(
       return { user };
     },
   },
-  wss
+  wss,
 );
 
 // Upgrade logic
@@ -105,14 +105,16 @@ supabaseClient
           console.error("Failed to publish to Redis PubSub:", err);
         });
       }
-    }
+    },
   )
   .subscribe();
 
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
   console.log(`[GraphQL Server] Listening on http://localhost:${PORT}${yoga.graphqlEndpoint}`);
-  console.log(`[GraphQL Server] Subscriptions ready over WebSockets (ws://localhost:${PORT}${yoga.graphqlEndpoint})`);
+  console.log(
+    `[GraphQL Server] Subscriptions ready over WebSockets (ws://localhost:${PORT}${yoga.graphqlEndpoint})`,
+  );
 });
 
 // Graceful shutdown

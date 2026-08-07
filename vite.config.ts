@@ -10,7 +10,6 @@ import { partytownSnippet } from "@builder.io/partytown/integration";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-
 function partytownPlugin() {
   return {
     name: "partytown-plugin",
@@ -27,7 +26,7 @@ function partytownPlugin() {
         forward: ["dataLayer.push", "fbq"]
       };
     </script>
-    <script>${partytownSnippet()}</script>`
+    <script>${partytownSnippet()}</script>`,
       );
     },
   };

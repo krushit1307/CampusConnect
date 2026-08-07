@@ -8,7 +8,7 @@
 // ***********************************************************
 
 // Mock Supabase auth to simulate a logged-in user
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 (Cypress.Commands.add as any)("mockAuth", () => {
   window.localStorage.setItem(
     "sb-ynhpevfxvtmpfosiclxe-auth-token",
@@ -25,12 +25,10 @@
   );
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 (Cypress.Commands.add as any)("mockUnauth", () => {
   window.localStorage.removeItem("sb-ynhpevfxvtmpfosiclxe-auth-token");
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 (Cypress.Commands.add as any)("mockEvents", () => {
   cy.intercept("GET", "**/rest/v1/events*", {
     statusCode: 200,
@@ -41,9 +39,7 @@
         description: "A great hackathon event",
         event_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         start_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        end_date: new Date(
-          Date.now() + 7 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
-        ).toISOString(),
+        end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000).toISOString(),
         location: "Main Auditorium, PW IOI Pune",
         banner_url: null,
         created_by: "other-user-id",
@@ -63,9 +59,7 @@
       description: "A great hackathon event for testing RSVP flow",
       event_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       start_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      end_date: new Date(
-        Date.now() + 7 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
-      ).toISOString(),
+      end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000).toISOString(),
       location: "Main Auditorium, PW IOI Pune",
       banner_url: null,
       created_by: "other-user-id",
