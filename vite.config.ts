@@ -4,11 +4,39 @@ import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import { fileURLToPath } from "url";
-import { federation } from "@module-federation/vite";
+import { copyLibFiles } from "@builder.io/partytown/utils";
+import { partytownSnippet } from "@builder.io/partytown/integration";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+ feat/club-activity-trigger-596
+
+function partytownPlugin() {
+  return {
+    name: "partytown-plugin",
+    async buildStart() {
+      await copyLibFiles(path.resolve(__dirname, "public/~partytown"));
+    },
+    transformIndexHtml(html: string) {
+      return html.replace(
+        "<head>",
+        `<head>
+    <script>
+      window.partytown = {
+        lib: "/~partytown/",
+        forward: ["dataLayer.push", "fbq"]
+      };
+    </script>
+    <script>${partytownSnippet()}</script>`
+      );
+    },
+  };
+}
+
+const CSP_VALUE =
+  "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.google-analytics.com https://www.googletagmanager.com https://connect.facebook.net https://*.hotjar.com https://script.hotjar.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https: https://www.facebook.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.supabase.co https://s3.amazonaws.com https://images.unsplash.com https://www.google-analytics.com https://www.googletagmanager.com https://connect.facebook.net https://*.hotjar.com https://script.hotjar.com https://vars.hotjar.com; frame-src 'self' https://js.stripe.com https://vars.hotjar.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none';";
+main
 
 /**
  * Vite configuration for CampusConnect
@@ -20,16 +48,14 @@ export default defineConfig({
     port: 3000,
     host: true,
     headers: {
-      "Content-Security-Policy":
-        "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.google-analytics.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.supabase.co https://s3.amazonaws.com https://images.unsplash.com https://www.google-analytics.com; frame-src 'self' https://js.stripe.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none';",
+      "Content-Security-Policy": CSP_VALUE,
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
   },
   preview: {
     headers: {
-      "Content-Security-Policy":
-        "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.google-analytics.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.supabase.co https://s3.amazonaws.com https://images.unsplash.com https://www.google-analytics.com; frame-src 'self' https://js.stripe.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none';",
+      "Content-Security-Policy": CSP_VALUE,
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",
       "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
@@ -44,6 +70,7 @@ export default defineConfig({
     // lucideImportOptimizer(),
     viteReact(),
     tailwindcss(),
+    partytownPlugin(),
     ...(process.env.STORYBOOK === "true"
       ? []
       : [

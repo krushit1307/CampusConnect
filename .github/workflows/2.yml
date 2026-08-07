@@ -21,8 +21,6 @@ jobs:
           github-token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
-            const WAITING_PERIOD_MS = 15 * 60 * 1000; // 15 minutes inactivity delay
-
             async function processPR(prNumber, prBody, prTitle, prData) {
               console.log(`\nEvaluating PR #${prNumber}`);
               
@@ -65,7 +63,6 @@ jobs:
               const { data: comments } = await github.rest.issues.listComments({
                 owner, repo, issue_number: prNumber
               });
-              const botComments = comments.filter(c => c.user.type === 'Bot' || c.user.login.includes('github-actions'));
               
               const addLabel = async (label) => {
                 if (!currentLabels.includes(label)) {
@@ -85,7 +82,7 @@ jobs:
                 console.log("Merge conflicts detected.");
                 await removeLabel("Blue");
                 
-                const hasConflictComment = botComments.some(c => c.body.includes("it looks like this PR has some merge conflicts"));
+                const hasConflictComment = comments.some(c => c.body.includes("it looks like this PR has some merge conflicts"));
                 if (!hasConflictComment) {
                   const author = prData.user.login;
                   const commentBody = `@${author} it looks like this PR has some merge conflicts; mind resolving them so we can get it merged? 🚀`;
@@ -117,7 +114,7 @@ jobs:
                 console.log(`PR #${prNumber} is missing: ${missing.join(', ')}. Skipping auto-merge.`);
                 
                 const missingMsgBase = "This PR cannot be merged because it is missing:";
-                const hasMissingComment = botComments.some(c => c.body.includes(missingMsgBase));
+                const hasMissingComment = comments.some(c => c.body.includes(missingMsgBase));
                 
                 if (!hasMissingComment) {
                   const assigneesToTag = hasAssignees ? prData.assignees.map(a => `@${a.login}`).join(" ") : `@${prData.user.login}`;
@@ -134,20 +131,13 @@ jobs:
               console.log(`PR mergeable state is: ${mergeableState}`);
               
               if (mergeable === true) {
-                // Check 15-minute window since PR creation
-                const createdAtTime = new Date(prData.created_at).getTime();
-                const timeElapsedMs = Date.now() - createdAtTime;
-
-                if (timeElapsedMs < WAITING_PERIOD_MS) {
-                  const minutesElapsed = Math.floor(timeElapsedMs / 60000);
-                  const minutesRemaining = Math.ceil((WAITING_PERIOD_MS - timeElapsedMs) / 60000);
-                  console.log(`⏳ PR #${prNumber} was created ${minutesElapsed} minute(s) ago. Waiting for 15 minutes since creation before auto-merging (${minutesRemaining} minute(s) remaining).`);
+                if (!currentLabels.includes("Blue")) {
+                  console.log("Requirements met and no merge conflicts. Adding 'Blue' label and waiting ~5 minutes for next cron tick to merge.");
+                  await addLabel("Blue");
                   return false;
                 }
 
-                console.log("Requirements met, checks passed, and 15 minutes have passed since PR creation. Proceeding with immediate auto-merge.");
-                await addLabel("Blue");
-                
+                console.log("Requirements met and 5 minutes have passed (Blue label exists). Proceeding with auto-merge.");
                 try {
                   console.log(`Auto-merging PR #${prNumber} into main...`);
                   await github.rest.pulls.merge({

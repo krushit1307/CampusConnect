@@ -1321,6 +1321,9 @@ export default function EventDetailsPage() {
     eventDate: event.event_date,
     location: (event as any).location,
     url: shareUrl || (typeof window !== "undefined" ? window.location.href : null),
+    // Issue #1515: pass the event UUID so buildOpenGraphTags prefers the
+    // og-image Edge Function URL (generates a rich branded card on-the-fly).
+    eventId: event.id,
   });
 
   return (
