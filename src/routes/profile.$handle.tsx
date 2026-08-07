@@ -7,6 +7,7 @@ import { MapPin, Link2, Calendar, Award, Building, CalendarPlus, ArrowRight } fr
 import { NotFoundPage } from "@/components/NotFoundPage";
 import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
 import { UserProfileSkeleton } from "@/components/UserProfileSkeleton";
+import { ProgressRing } from "@/components/profile/ProgressRing";
 
 function getInitials(name: string) {
   return name
@@ -102,24 +103,33 @@ export default function Profile() {
   if (isLoading) return <UserProfileSkeleton />;
   if (isError || !profile) return <NotFoundPage />;
 
+  const profileData = {
+    hasAvatar: !!profile.avatar_url,
+    hasBio: !!profile.bio,
+    hasMajor: !!profile.college,
+    hasInterests: !!profile.skills?.length,
+  };
+
   return (
     <SiteShell>
       <section className="border-b-2 border-black bg-cream px-4 py-12 md:px-6">
         <div className="mx-auto max-w-4xl flex flex-col md:flex-row items-center md:items-start gap-8">
-          <div className="relative h-32 w-32 shrink-0">
-            <Avatar className="h-32 w-32 border-4 border-black rounded-full">
-              <AvatarImage src={profile.avatar_url || undefined} className="object-cover" />
-              <AvatarFallback className="bg-lime text-3xl font-display font-bold">
-                {getInitials(profile.full_name || "Unknown User")}
-              </AvatarFallback>
-            </Avatar>
-            <span className="absolute bottom-1 right-1 rounded-full border-2 border-white bg-white p-1">
-              <span
-                className={getPresenceBadgeClass(presenceMap[profile.id]?.status ?? "offline")}
-                aria-hidden="true"
-              />
-            </span>
-          </div>
+          <ProgressRing size={140} strokeWidth={6} className="shrink-0" profileData={profileData}>
+            <div className="relative h-full w-full">
+              <Avatar className="h-full w-full border-4 border-black rounded-full">
+                <AvatarImage src={profile.avatar_url || undefined} className="object-cover" />
+                <AvatarFallback className="bg-lime text-3xl font-display font-bold">
+                  {getInitials(profile.full_name || "Unknown User")}
+                </AvatarFallback>
+              </Avatar>
+              <span className="absolute bottom-1 right-1 rounded-full border-2 border-white bg-white p-1">
+                <span
+                  className={getPresenceBadgeClass(presenceMap[profile.id]?.status ?? "offline")}
+                  aria-hidden="true"
+                />
+              </span>
+            </div>
+          </ProgressRing>
 
           <div className="flex-1 text-center md:text-left space-y-4">
             <div>
