@@ -27,6 +27,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   profileSchema,
+  ProfileUpdateAllowlistSchema,
   AVATAR_THEMES,
   type ProfileFormValues,
   type AvatarThemeId,
@@ -144,8 +145,10 @@ function SettingsPageContent({ user }: WithAuthProps) {
       setConfirmOpen(false);
       setDeletePassword("");
       toast.success("Account deleted successfully.");
-    } catch (err: any) {
-      setDeleteError(err.message || "An unexpected error occurred during verification.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "An unexpected error occurred during verification.";
+      setDeleteError(message);
     } finally {
       setIsDeleting(false);
     }
@@ -262,20 +265,26 @@ function SettingsPageContent({ user }: WithAuthProps) {
         return;
       }
 
-      // Update profiles table (including skills text[])
       const dedupedSkills = [...new Set(skills.map((s) => s.trim()).filter(Boolean))];
+
+      // 1. Build dirty payload and strictly validate against allowlist
+      const rawPayload = {
+        avatar_theme: values.avatarTheme || null,
+        first_name: values.firstName,
+        last_name: values.lastName,
+        handle: values.handle,
+        bio: values.bio || null,
+        linkedin_url: values.linkedinUrl || null,
+        phone_number: values.phoneNumber || null,
+        skills: dedupedSkills,
+      };
+
+      const safeData = ProfileUpdateAllowlistSchema.parse(rawPayload);
+
+      // 2. Perform database update with safeData ONLY
       const { error: profileError } = await supabase
         .from("profiles")
-        .update({
-          avatar_theme: values.avatarTheme || null,
-          first_name: values.firstName,
-          last_name: values.lastName,
-          handle: values.handle,
-          bio: values.bio || null,
-          linkedin_url: values.linkedinUrl || null,
-          phone_number: values.phoneNumber || null,
-          skills: dedupedSkills,
-        })
+        .update(safeData)
         .eq("id", user.id);
 
       if (profileError) throw profileError;

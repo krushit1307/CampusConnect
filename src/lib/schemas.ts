@@ -149,3 +149,25 @@ export const resetPasswordSchema = z
   });
 
 export type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
+
+// --- Database Update Allowlist Schema (#2147) -----------------------------
+// Strictly enforces allowed mutation fields for profiles to prevent
+// mass assignment vulnerabilities (e.g. injecting 'role', 'is_admin', etc.)
+export const ProfileUpdateAllowlistSchema = z
+  .object({
+    avatar_theme: z.enum(avatarThemeIds).nullable().optional().or(z.literal("")),
+    first_name: z.string().trim().min(1, "First name is required."),
+    last_name: z.string().trim().min(1, "Last name is required."),
+    handle: z
+      .string()
+      .trim()
+      .min(2)
+      .regex(/^[a-zA-Z0-9_]+$/),
+    bio: z.string().trim().max(160).nullable().optional(),
+    linkedin_url: z.string().trim().nullable().optional(),
+    phone_number: z.string().trim().nullable().optional(),
+    skills: z.array(z.string()).optional(),
+  })
+  .strict(); // Strips or rejects any unmapped properties
+
+export type ProfileUpdateAllowlistValues = z.infer<typeof ProfileUpdateAllowlistSchema>;
