@@ -2,10 +2,11 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
 // import { LiveQA } from "@/components/events/LiveQA";
 import { useEventViewerCount } from "@/hooks/useEventViewerCount";
+import { incrementEventViews } from "@/lib/supabase/events";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { useState, useEffect, lazy, Suspense, useMemo, useCallback } from "react";
+import { useState, useEffect, lazy, Suspense, useMemo, useCallback, useRef } from "react";
 import { LazyMotion, m } from "framer-motion";
 import { Helmet } from "react-helmet-async";
 import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
@@ -68,6 +69,7 @@ import {
   Flag,
   Star,
   Calendar,
+  Eye,
 } from "lucide-react";
 import { ReportDialog } from "@/components/ReportDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -103,11 +105,7 @@ import { CaptchaWidget } from "@/components/CaptchaWidget";
 import { SeatingChart } from "@/components/events/SeatingChart";
 import { useEventSeats } from "@/hooks/useEventSeats";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import React from "react";
-import { useParams } from "react-router-dom";
 import { GalleryCarousel, GallerySlide } from "@/components/ui/GalleryCarousel";
-import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, Users } from "lucide-react";
 
 interface SimilarEventItem {
   id: string;
@@ -269,11 +267,11 @@ export default function EventDetailsPage() {
         .from("events")
         .select(
           `
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id,
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, max_attendees, requires_approval,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id, max_attendees, requires_approval,
           clubs (name, slug),
           event_rsvps (id, user_id, status, checked_in, rsvp_at, profiles (first_name, last_name, avatar_url)),
-          event_waitlist (id, user_id, created_at, profiles (first_name, last_name, avatar_url))
+          event_waitlist (id, user_id, created_at, profiles (first_name, last_name, avatar_url)),
+          event_metrics (views)
         `,
         )
         .or(`short_id.eq.${eventId},id.eq.${eventId}`)
@@ -372,6 +370,7 @@ export default function EventDetailsPage() {
                 : [],
             attendee_count: eventId === "mock-1" ? 1 : 0,
             profiles: { full_name: "Mock Organizer", email: "mock@example.com" },
+            event_metrics: { views: 0 },
           };
         }
         throw error;
@@ -434,6 +433,18 @@ export default function EventDetailsPage() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
+
+  // Increment persistent view count in event_metrics once per page load.
+  // Skipped for mock/dev events (no real DB row).
+  // useRef guard prevents double-fire in React Strict Mode (dev double-mount).
+  const viewIncrementedRef = useRef(false);
+  useEffect(() => {
+    if (!eventId || eventId.startsWith("mock-") || viewIncrementedRef.current) return;
+    viewIncrementedRef.current = true;
+    incrementEventViews(eventId).then(({ error }) => {
+      if (error) console.warn("[event view] increment failed silently:", error);
+    });
+  }, [eventId]);
 
   // Listen for Service Worker background sync messages for offline RSVP reconciliation
   useEffect(() => {
@@ -1456,6 +1467,15 @@ export default function EventDetailsPage() {
               <div className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
                 <span>{attendeeCount} RSVP&apos;d</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                <span>
+                  {(
+                    ((event as any).event_metrics as { views: number } | null)?.views ?? 0
+                  ).toLocaleString()}{" "}
+                  views
+                </span>
               </div>
             </div>
 
