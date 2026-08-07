@@ -85,8 +85,9 @@ export default function SettingsPage() {
   const [handleAvailability, setHandleAvailability] = useState<HandleAvailability>("idle");
   const [handleFeedback, setHandleFeedback] = useState<string | null>(null);
   const handleCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [borderThickness, setBorderThickness] = useState(2);
-  const [borderRadius, setBorderRadius] = useState(0);
+  const [borderThickness, setBorderThickness] = useState(4);
+  const [borderRadius, setBorderRadius] = useState(8);
+  const [isThemeDrawerOpen, setIsThemeDrawerOpen] = useState(false);
   const { fontSize, increment, decrement, reset } = useFontSize();
 
   // --- Skills tags state ---
@@ -124,8 +125,8 @@ export default function SettingsPage() {
     });
 
     // Load appearance settings from localStorage
-    const savedThickness = localStorage.getItem("border-thickness");
-    const savedRadius = localStorage.getItem("border-radius");
+    const savedThickness = localStorage.getItem("theme-border-thickness");
+    const savedRadius = localStorage.getItem("theme-border-radius");
 
     if (savedThickness) {
       const thickness = parseInt(savedThickness, 10);
@@ -388,14 +389,14 @@ export default function SettingsPage() {
     const value = parseInt(e.target.value, 10);
     setBorderThickness(value);
     document.documentElement.style.setProperty("--border-thickness", `${value}px`);
-    localStorage.setItem("border-thickness", String(value));
+    localStorage.setItem("theme-border-thickness", String(value));
   };
 
   const handleBorderRadiusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value, 10);
     setBorderRadius(value);
     document.documentElement.style.setProperty("--border-radius", `${value}px`);
-    localStorage.setItem("border-radius", String(value));
+    localStorage.setItem("theme-border-radius", String(value));
   };
 
   useEffect(() => {
@@ -750,40 +751,21 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Border Thickness */}
+              {/* Theme Customizer Trigger */}
               <div className="space-y-2">
-                <label className="eyebrow font-bold">Border Thickness: {borderThickness}px</label>
-
-                <input
-                  type="range"
-                  min="1"
-                  max="8"
-                  value={borderThickness}
-                  onChange={handleBorderThicknessChange}
-                  className="w-full cursor-pointer accent-black"
-                />
-
-                <p className="font-mono text-xs text-muted-foreground">
-                  Controls the width of borders throughout the app (1px - 8px)
+                <label className="eyebrow font-bold text-black dark:text-cream">
+                  Theme Customizer
+                </label>
+                <p className="font-mono text-xs text-muted-foreground mb-2">
+                  Adjust border thickness and radius dynamically.
                 </p>
-              </div>
-
-              {/* Border Radius */}
-              <div className="space-y-2">
-                <label className="eyebrow font-bold">Border Radius: {borderRadius}px</label>
-
-                <input
-                  type="range"
-                  min="0"
-                  max="32"
-                  value={borderRadius}
-                  onChange={handleBorderRadiusChange}
-                  className="w-full cursor-pointer accent-black"
-                />
-
-                <p className="font-mono text-xs text-muted-foreground">
-                  Controls the roundness of corners (0px - 32px)
-                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsThemeDrawerOpen(true)}
+                  className="neu-border neu-press flex items-center gap-2 bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream"
+                >
+                  ⚙ Theme Customizer
+                </button>
               </div>
             </div>
           </Panel>
@@ -845,6 +827,90 @@ export default function SettingsPage() {
           </Panel>
         </div>
       </section>
+      {/* Theme Customizer Drawer */}
+      {isThemeDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setIsThemeDrawerOpen(false)}
+            aria-hidden="true"
+          />
+          {/* Drawer Panel */}
+          <div
+            className="relative w-full max-w-sm bg-cream p-6 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] h-full overflow-y-auto border-l-4 border-black flex flex-col"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="flex items-center justify-between border-b-2 border-black pb-4 mb-6">
+              <h2 className="font-display text-2xl font-bold uppercase tracking-tight text-black">
+                Theme Customizer
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsThemeDrawerOpen(false)}
+                className="neu-border flex h-8 w-8 items-center justify-center bg-white text-black hover:bg-black hover:text-white transition-colors"
+                aria-label="Close customizer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-8 flex-1">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <label className="eyebrow font-bold text-black">Border Thickness</label>
+                  <span className="font-mono font-bold bg-white px-2 py-1 neu-border text-xs text-black">
+                    {borderThickness}px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="12"
+                  value={borderThickness}
+                  onChange={handleBorderThicknessChange}
+                  className="w-full cursor-pointer accent-black"
+                />
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <label className="eyebrow font-bold text-black">Border Radius</label>
+                  <span className="font-mono font-bold bg-white px-2 py-1 neu-border text-xs text-black">
+                    {borderRadius}px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="40"
+                  value={borderRadius}
+                  onChange={handleBorderRadiusChange}
+                  className="w-full cursor-pointer accent-black"
+                />
+              </div>
+            </div>
+
+            <div className="pt-6 border-t-2 border-black mt-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setBorderThickness(4);
+                  setBorderRadius(8);
+                  document.documentElement.style.setProperty("--border-thickness", "4px");
+                  document.documentElement.style.setProperty("--border-radius", "8px");
+                  localStorage.removeItem("theme-border-thickness");
+                  localStorage.removeItem("theme-border-radius");
+                }}
+                className="w-full neu-border neu-press bg-white text-black px-4 py-3 font-mono text-sm font-bold uppercase hover:bg-gray-100"
+              >
+                Reset to Default
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </SiteShell>
   );
 }
