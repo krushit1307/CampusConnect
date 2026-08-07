@@ -7,7 +7,7 @@ import {
 } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { useState } from "react";
-import { Calendar, Share2, X, Link as LinkIcon, Bookmark } from "lucide-react";
+import { Calendar, Share2, Link as LinkIcon, Bookmark } from "lucide-react";
 import { toast } from "sonner";
 import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { usePreloadEvent } from "@/hooks/usePreloadEvent";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
 import { ShareMenu } from "@/components/ui/ShareMenu";
 import { ReadMore } from "@/components/ui/ReadMore";
+import { EventRsvpCancelDialog } from "@/components/events/EventRsvpCancelDialog";
 
 interface Event {
   id: string;
@@ -177,6 +178,7 @@ export function EventCard({
   const countdown = event.event_date ? getCountdown(event.event_date) : "TBA";
 
   const [ticketOpen, setTicketOpen] = useState(false);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
 
   const handleCopyLink = async () => {
     try {
@@ -218,18 +220,23 @@ export function EventCard({
       ? `${window.location.origin}${window.location.pathname}#event-${event.id}`
       : "";
 
-  const handleRsvpClick = () => {
+  const handleRsvpToggle = (eventId: string, currentlyRsvpd: boolean) => {
     if (!user) {
       toast.error("Please log in to RSVP");
       return;
     }
 
-    if (hasRsvpd) {
-      setConfirmOpen(true);
+    if (currentlyRsvpd) {
+      setCancelConfirmOpen(true);
       return;
     }
 
-    onRsvpToggle(event.id, false);
+    onRsvpToggle(eventId, false);
+  };
+
+  const handleConfirmCancelRsvp = () => {
+    onRsvpToggle(event.id, true);
+    setCancelConfirmOpen(false);
   };
 
   const savedEventsList = Array.isArray(event.saved_events) ? event.saved_events : [];
@@ -242,7 +249,6 @@ export function EventCard({
     }
     onBookmarkToggle?.(event.id, isSaved);
   };
-
 
   return (
     <div className="group">
@@ -347,7 +353,7 @@ export function EventCard({
             user={user}
             hasRsvpd={hasRsvpd}
             isPending={isRsvpPending}
-            onToggle={onRsvpToggle}
+            onToggle={handleRsvpToggle}
           />
 
           <TooltipProvider>
@@ -406,18 +412,13 @@ export function EventCard({
           event={event}
           rsvpId={myRsvp?.id ?? ""}
         />
-        {confirmOpen && (
-          <div className="hidden">
-            <button
-              onClick={() => {
-                onRsvpToggle(event.id, true);
-                setConfirmOpen(false);
-              }}
-            >
-              <X size={14} />
-            </button>
-          </div>
-        )}
+        <EventRsvpCancelDialog
+          open={cancelConfirmOpen}
+          onOpenChange={setCancelConfirmOpen}
+          eventTitle={event.title}
+          isPending={isRsvpPending}
+          onConfirm={handleConfirmCancelRsvp}
+        />
       </article>
     </div>
   );

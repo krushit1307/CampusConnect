@@ -3,11 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { Parallax3DCard } from "./Parallax3DCard";
 
 vi.mock("framer-motion", () => ({
-<<<<<<< HEAD
-  m: {
-=======
   motion: {
->>>>>>> f1150bd (fix(ci): update build scripts and adjust lint configuration)
     div: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
       <div {...props}>{children}</div>
     ),

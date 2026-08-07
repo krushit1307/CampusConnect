@@ -22,7 +22,7 @@ describe("RLS Policies Integration Tests", () => {
     // Clean up test data before each test to guarantee a pristine state
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY;
     const supabaseAdmin = createClient(SUPABASE_URL, serviceRoleKey);
-    
+
     // Clean up clubs and events added by tests
     await supabaseAdmin.from("clubs").delete().eq("slug", "unauthorized-club-rls-test");
     await supabaseAdmin.from("events").delete().eq("title", "Unauthorized Event");

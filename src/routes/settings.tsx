@@ -3,7 +3,7 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { useTheme } from "@/components/theme-provider";
-import { Loader2, X, Plus } from "lucide-react";
+import { Check, Loader2, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 
@@ -16,6 +16,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   profileSchema,
+  normalizeProfileHandle,
+  PROFILE_HANDLE_PATTERN,
+  HANDLE_UNAVAILABLE_MESSAGE,
   AVATAR_THEMES,
   type ProfileFormValues,
   type AvatarThemeId,
@@ -43,6 +46,16 @@ const FONT_SIZE_MAX = 24;
 const FONT_SIZE_DEFAULT = 16;
 const FONT_SIZE_STEP = 1;
 
+type HandleAvailability = "idle" | "checking" | "available" | "taken" | "error";
+
+const HANDLE_CHECK_DEBOUNCE_MS = 500;
+
+function isHandleLocallyValid(handle: string) {
+  const normalized = normalizeProfileHandle(handle);
+
+  return normalized.length >= 2 && PROFILE_HANDLE_PATTERN.test(normalized);
+}
+
 function useFontSize() {
   const [fontSize, setFontSizeState] = useState<number>(() => {
     const stored = localStorage.getItem(FONT_SIZE_KEY);
@@ -69,6 +82,9 @@ export default function SettingsPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [handleAvailability, setHandleAvailability] = useState<HandleAvailability>("idle");
+  const [handleFeedback, setHandleFeedback] = useState<string | null>(null);
+  const handleCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [borderThickness, setBorderThickness] = useState(2);
   const [borderRadius, setBorderRadius] = useState(0);
   const { fontSize, increment, decrement, reset } = useFontSize();
@@ -144,6 +160,8 @@ export default function SettingsPage() {
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema) as any,
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: {
       avatarTheme: "",
       firstName: "",
@@ -157,7 +175,7 @@ export default function SettingsPage() {
     },
   });
   const {
-    formState: { isDirty },
+    formState: { isDirty, isValid, errors },
   } = form;
   const blocker = useBlocker(isDirty);
   useEffect(() => {
@@ -186,6 +204,10 @@ export default function SettingsPage() {
     }
   }, [blocker]);
   useEffect(() => {
+    return () => clearPendingHandleCheck();
+  }, []);
+
+  useEffect(() => {
     if (user) {
       // Auth metadata (from OAuth sign-up, etc.) may only ever have a single
       // full_name string. If the profile row hasn't been saved with split
@@ -211,11 +233,103 @@ export default function SettingsPage() {
     }
   }, [profile, user, form]);
 
+  const clearPendingHandleCheck = () => {
+    if (handleCheckTimeoutRef.current) {
+      clearTimeout(handleCheckTimeoutRef.current);
+      handleCheckTimeoutRef.current = null;
+    }
+  };
+
+  const validateHandleAvailability = async (rawHandle: string) => {
+    const handle = normalizeProfileHandle(rawHandle);
+
+    clearPendingHandleCheck();
+
+    if (!isHandleLocallyValid(handle)) {
+      setHandleAvailability("idle");
+      setHandleFeedback(null);
+      return false;
+    }
+
+    if (!user?.id) {
+      setHandleAvailability("idle");
+      setHandleFeedback(null);
+      return false;
+    }
+
+    if (profile?.handle && handle.toLowerCase() === String(profile.handle).toLowerCase()) {
+      setHandleAvailability("available");
+      setHandleFeedback("This handle is available");
+      form.clearErrors("handle");
+      return true;
+    }
+
+    setHandleAvailability("checking");
+    setHandleFeedback("Checking handle availability...");
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("handle", handle)
+      .neq("id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error(error);
+      setHandleAvailability("error");
+      setHandleFeedback("Unable to verify handle right now. Please try again.");
+      form.setError("handle", {
+        type: "validate",
+        message: "Unable to verify handle right now. Please try again.",
+      });
+      return false;
+    }
+
+    if (data?.id) {
+      setHandleAvailability("taken");
+      setHandleFeedback(HANDLE_UNAVAILABLE_MESSAGE);
+      form.setError("handle", {
+        type: "validate",
+        message: HANDLE_UNAVAILABLE_MESSAGE,
+      });
+      return false;
+    }
+
+    setHandleAvailability("available");
+    setHandleFeedback("This handle is available");
+    form.clearErrors("handle");
+    return true;
+  };
+
+  const scheduleHandleAvailabilityCheck = (handle: string) => {
+    clearPendingHandleCheck();
+
+    if (!isHandleLocallyValid(handle)) {
+      setHandleAvailability("idle");
+      setHandleFeedback(null);
+      return;
+    }
+
+    setHandleAvailability("checking");
+    setHandleFeedback("Checking handle availability...");
+
+    handleCheckTimeoutRef.current = setTimeout(() => {
+      validateHandleAvailability(handle);
+    }, HANDLE_CHECK_DEBOUNCE_MS);
+  };
+
   const onSubmit = async (values: ProfileFormValues) => {
     setIsSaving(true);
     try {
       if (!user) {
         toast.error("You must be logged in to update your profile.");
+        return;
+      }
+
+      const isHandleAvailable = await validateHandleAvailability(values.handle);
+
+      if (!isHandleAvailable) {
+        toast.error(HANDLE_UNAVAILABLE_MESSAGE);
         return;
       }
 
@@ -261,6 +375,14 @@ export default function SettingsPage() {
   const currentLastName = form.watch("lastName");
   const currentFullName = `${currentFirstName} ${currentLastName}`.trim();
   const currentAvatarTheme = form.watch("avatarTheme");
+  const currentHandle = form.watch("handle");
+  const isHandleCheckBlocking =
+    handleAvailability === "checking" ||
+    handleAvailability === "taken" ||
+    (handleAvailability === "error" &&
+      normalizeProfileHandle(currentHandle || "") !==
+        normalizeProfileHandle(profile?.handle || ""));
+  const isSubmitDisabled = isSaving || isProfileLoading || !isValid || isHandleCheckBlocking;
 
   const handleBorderThicknessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value, 10);
@@ -275,6 +397,24 @@ export default function SettingsPage() {
     document.documentElement.style.setProperty("--border-radius", `${value}px`);
     localStorage.setItem("border-radius", String(value));
   };
+
+  useEffect(() => {
+    const normalizedCurrent = normalizeProfileHandle(currentHandle || "");
+    const normalizedSaved = normalizeProfileHandle(profile?.handle || "");
+
+    if (!normalizedCurrent || normalizedCurrent === normalizedSaved) {
+      clearPendingHandleCheck();
+      setHandleAvailability(normalizedCurrent ? "available" : "idle");
+      setHandleFeedback(normalizedCurrent ? "This is your current handle" : null);
+      return;
+    }
+
+    if (!isHandleLocallyValid(normalizedCurrent)) {
+      clearPendingHandleCheck();
+      setHandleAvailability("idle");
+      setHandleFeedback(null);
+    }
+  }, [currentHandle, profile?.handle]);
 
   const pStats = profile as typeof profile & {
     lastActivityAt?: string;
@@ -394,13 +534,53 @@ export default function SettingsPage() {
                         Handle
                       </FormLabel>
                       <FormControl>
-                        <input
-                          {...field}
-                          placeholder="username"
-                          className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
-                        />
+                        <div className="relative">
+                          <input
+                            {...field}
+                            placeholder="username"
+                            aria-invalid={!!errors.handle || handleAvailability === "taken"}
+                            aria-describedby="handle-feedback handle-error"
+                            onChange={(event) => {
+                              field.onChange(event);
+                              scheduleHandleAvailabilityCheck(event.target.value);
+                            }}
+                            onBlur={(event) => {
+                              field.onBlur();
+                              validateHandleAvailability(event.target.value);
+                            }}
+                            className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 pr-8 font-mono text-sm outline-none focus:bg-lime/40"
+                          />
+                          <span className="absolute right-1 top-1/2 -translate-y-1/2">
+                            {handleAvailability === "checking" ? (
+                              <Loader2
+                                className="h-4 w-4 animate-spin text-black/60"
+                                aria-label="Checking handle"
+                              />
+                            ) : handleAvailability === "available" && !errors.handle ? (
+                              <Check
+                                className="h-4 w-4 text-green-700"
+                                aria-label="Handle available"
+                              />
+                            ) : null}
+                          </span>
+                        </div>
                       </FormControl>
-                      <FormMessage className="font-mono text-xs text-destructive" />
+                      {handleFeedback && !errors.handle ? (
+                        <p
+                          id="handle-feedback"
+                          className={`font-mono text-xs ${
+                            handleAvailability === "available"
+                              ? "text-green-700"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {handleFeedback}
+                        </p>
+                      ) : null}
+                      <FormMessage
+                        id="handle-error"
+                        className="font-mono text-xs text-destructive"
+                      />
                     </FormItem>
                   )}
                 />
@@ -532,7 +712,7 @@ export default function SettingsPage() {
                 <div className="flex justify-end pt-4">
                   <button
                     type="submit"
-                    disabled={isSaving || isProfileLoading}
+                    disabled={isSubmitDisabled}
                     className="neu-border neu-press flex items-center gap-2 bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream disabled:opacity-50"
                   >
                     {isSaving ? (

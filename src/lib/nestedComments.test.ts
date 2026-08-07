@@ -67,12 +67,60 @@ describe("Postgres Recursive CTE Nested Comments (#2099)", () => {
 
   it("strictly limits recursion to depth < 5 to prevent memory exhaustion", () => {
     const deepComments: FlatComment[] = [
-      { id: "c0", post_id: "p1", author_id: "u1", parent_id: null, content: "L0", created_at: "", depth: 0 },
-      { id: "c1", post_id: "p1", author_id: "u1", parent_id: "c0", content: "L1", created_at: "", depth: 1 },
-      { id: "c2", post_id: "p1", author_id: "u1", parent_id: "c1", content: "L2", created_at: "", depth: 2 },
-      { id: "c3", post_id: "p1", author_id: "u1", parent_id: "c2", content: "L3", created_at: "", depth: 3 },
-      { id: "c4", post_id: "p1", author_id: "u1", parent_id: "c3", content: "L4", created_at: "", depth: 4 },
-      { id: "c5", post_id: "p1", author_id: "u1", parent_id: "c4", content: "L5", created_at: "", depth: 5 },
+      {
+        id: "c0",
+        post_id: "p1",
+        author_id: "u1",
+        parent_id: null,
+        content: "L0",
+        created_at: "",
+        depth: 0,
+      },
+      {
+        id: "c1",
+        post_id: "p1",
+        author_id: "u1",
+        parent_id: "c0",
+        content: "L1",
+        created_at: "",
+        depth: 1,
+      },
+      {
+        id: "c2",
+        post_id: "p1",
+        author_id: "u1",
+        parent_id: "c1",
+        content: "L2",
+        created_at: "",
+        depth: 2,
+      },
+      {
+        id: "c3",
+        post_id: "p1",
+        author_id: "u1",
+        parent_id: "c2",
+        content: "L3",
+        created_at: "",
+        depth: 3,
+      },
+      {
+        id: "c4",
+        post_id: "p1",
+        author_id: "u1",
+        parent_id: "c3",
+        content: "L4",
+        created_at: "",
+        depth: 4,
+      },
+      {
+        id: "c5",
+        post_id: "p1",
+        author_id: "u1",
+        parent_id: "c4",
+        content: "L5",
+        created_at: "",
+        depth: 5,
+      },
     ];
 
     const tree = buildNestedCommentTree(deepComments, 5);
@@ -91,7 +139,9 @@ describe("Postgres Recursive CTE Nested Comments (#2099)", () => {
   it("contains valid WITH RECURSIVE SQL query structure with path sorting", () => {
     expect(RECURSIVE_COMMENTS_CTE_QUERY).toContain("WITH RECURSIVE comment_tree AS");
     expect(RECURSIVE_COMMENTS_CTE_QUERY).toContain("WHERE parent_id IS NULL AND post_id = $1");
-    expect(RECURSIVE_COMMENTS_CTE_QUERY).toContain("INNER JOIN comment_tree ct ON c.parent_id = ct.id");
+    expect(RECURSIVE_COMMENTS_CTE_QUERY).toContain(
+      "INNER JOIN comment_tree ct ON c.parent_id = ct.id",
+    );
     expect(RECURSIVE_COMMENTS_CTE_QUERY).toContain("WHERE ct.depth < 5");
     expect(RECURSIVE_COMMENTS_CTE_QUERY).toContain("ORDER BY path");
   });

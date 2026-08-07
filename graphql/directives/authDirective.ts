@@ -1,7 +1,7 @@
-import { mapSchema, getDirective, MapperKind, defaultFieldResolver } from '@graphql-tools/utils';
-import { GraphQLSchema, GraphQLFieldConfig, GraphQLError } from 'graphql';
+import { mapSchema, getDirective, MapperKind, defaultFieldResolver } from "@graphql-tools/utils";
+import { GraphQLSchema, GraphQLFieldConfig, GraphQLError } from "graphql";
 
-export type Role = 'USER' | 'ADMIN' | 'SUPERADMIN';
+export type Role = "USER" | "ADMIN" | "SUPERADMIN";
 
 interface AuthDirectiveArgs {
   requires: Role;
@@ -10,26 +10,32 @@ interface AuthDirectiveArgs {
 /**
  * Auth Directive Transformer
  * Wraps GraphQL resolvers to enforce role-based access control at the schema level.
- * 
+ *
  * EDGE CASE HANDLING:
- * For FIELD_DEFINITION violations, this returns `null` and logs a warning instead of 
- * throwing a hard error. This prevents a single unauthorized field from crashing the 
+ * For FIELD_DEFINITION violations, this returns `null` and logs a warning instead of
+ * throwing a hard error. This prevents a single unauthorized field from crashing the
  * entire GraphQL query response, avoiding partial data leaks and UI breakage.
  */
 export function authDirectiveTransformer(
   schema: GraphQLSchema,
-  directiveName: string = 'auth'
+  directiveName: string = "auth",
 ): GraphQLSchema {
   return mapSchema(schema, {
     // Intercept Object types (e.g., if the whole type is protected)
     [MapperKind.OBJECT_TYPE]: (typeConfig) => {
-      const authDirective = getDirective(schema, typeConfig, directiveName)?.[0] as AuthDirectiveArgs | undefined;
+      const authDirective = getDirective(schema, typeConfig, directiveName)?.[0] as
+        AuthDirectiveArgs | undefined;
       if (authDirective) {
         // Wrap all fields of this object type
         const newFields = {};
         for (const fieldName in typeConfig.fields) {
           const field = typeConfig.fields[fieldName];
-          newFields[fieldName] = wrapResolver(field, authDirective.requires, fieldName, typeConfig.name);
+          newFields[fieldName] = wrapResolver(
+            field,
+            authDirective.requires,
+            fieldName,
+            typeConfig.name,
+          );
         }
         return { ...typeConfig, fields: newFields };
       }
@@ -37,8 +43,13 @@ export function authDirectiveTransformer(
     },
 
     // Intercept individual Field Definitions
-    [MapperKind.OBJECT_FIELD]: (fieldConfig: GraphQLFieldConfig<any, any>, _fieldName, typeName) => {
-      const authDirective = getDirective(schema, fieldConfig, directiveName)?.[0] as AuthDirectiveArgs | undefined;
+    [MapperKind.OBJECT_FIELD]: (
+      fieldConfig: GraphQLFieldConfig<any, any>,
+      _fieldName,
+      typeName,
+    ) => {
+      const authDirective = getDirective(schema, fieldConfig, directiveName)?.[0] as
+        AuthDirectiveArgs | undefined;
       if (authDirective) {
         return wrapResolver(fieldConfig, authDirective.requires, _fieldName, typeName);
       }
@@ -54,7 +65,7 @@ function wrapResolver(
   fieldConfig: GraphQLFieldConfig<any, any>,
   requiredRole: Role,
   fieldName: string,
-  typeName: string
+  typeName: string,
 ): GraphQLFieldConfig<any, any> {
   const originalResolver = fieldConfig.resolve ?? defaultFieldResolver;
 
@@ -72,8 +83,10 @@ function wrapResolver(
     const roleHierarchy: Record<Role, number> = { USER: 1, ADMIN: 2, SUPERADMIN: 3 };
 
     if (roleHierarchy[userRole] < roleHierarchy[requiredRole]) {
-      console.warn(`[AUTH] Unauthorized access: User role '${userRole}' attempted to access '${typeName}.${fieldName}' requiring '${requiredRole}'`);
-      // Graceful degradation: return null instead of throwing GraphQLError 
+      console.warn(
+        `[AUTH] Unauthorized access: User role '${userRole}' attempted to access '${typeName}.${fieldName}' requiring '${requiredRole}'`,
+      );
+      // Graceful degradation: return null instead of throwing GraphQLError
       // to prevent the entire query from failing (Partial Data Leak prevention)
       return null;
     }

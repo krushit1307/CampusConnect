@@ -14,6 +14,7 @@ jobs:
       - name: Assign to author
         uses: actions/github-script@v6
         with:
+          github-token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           script: |
             const author = context.payload.issue.user.login;
 

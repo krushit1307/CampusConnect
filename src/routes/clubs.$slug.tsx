@@ -1110,7 +1110,6 @@ export default function ClubProfile() {
                         </div>
                       </div>
                     )}
-
                   </div>
                 </section>
 
@@ -1165,6 +1164,4 @@ export default function ClubProfile() {
       )}
     </>
   );
-}
-
 }

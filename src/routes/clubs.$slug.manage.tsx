@@ -48,10 +48,16 @@ export default function ClubManageRoute() {
   const navigate = useNavigate();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<"settings" | "members" | "permissions" | "events" | "trash">("settings");
+  const [activeTab, setActiveTab] = useState<
+    "settings" | "members" | "permissions" | "events" | "trash"
+  >("settings");
 
   // Fetch Trash Events
-  const { data: trashEvents = [], isLoading: isTrashLoading, refetch: refetchTrash } = useQuery({
+  const {
+    data: trashEvents = [],
+    isLoading: isTrashLoading,
+    refetch: refetchTrash,
+  } = useQuery({
     queryKey: ["club_trash_events", slug],
     queryFn: async () => {
       if (!user || !club) return [];
@@ -315,7 +321,10 @@ export default function ClubManageRoute() {
       if (updates.role && typeof updates.role === "string") {
         setOptimisticRoles((prev) => ({ ...prev, [memberId]: updates.role as string }));
       }
-      const { error } = await supabase.from("club_members").update(updates as TablesUpdate<"club_members">).eq("id", memberId);
+      const { error } = await supabase
+        .from("club_members")
+        .update(updates as TablesUpdate<"club_members">)
+        .eq("id", memberId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -631,7 +640,11 @@ export default function ClubManageRoute() {
                   members={(club.club_members || []).map((m: any) => {
                     const profile = Array.isArray(m.profiles)
                       ? m.profiles[0]
-                      : (m.profiles as { full_name: string; handle: string; avatar_url: string | null });
+                      : (m.profiles as {
+                          full_name: string;
+                          handle: string;
+                          avatar_url: string | null;
+                        });
                     return {
                       id: m.id,
                       user_id: m.user_id,
@@ -708,7 +721,8 @@ export default function ClubManageRoute() {
                   <Trash2 size={24} /> Deleted Events Trash
                 </h2>
                 <p className="font-mono text-sm text-gray-600">
-                  Events deleted within the last 30 days can be restored here. After 30 days, they are permanently deleted.
+                  Events deleted within the last 30 days can be restored here. After 30 days, they
+                  are permanently deleted.
                 </p>
                 <div className="space-y-4">
                   {isTrashLoading ? (
@@ -724,7 +738,8 @@ export default function ClubManageRoute() {
                         <div>
                           <p className="font-bold font-display text-lg text-red-800">{e.title}</p>
                           <p className="text-xs text-red-500 font-mono mt-1">
-                            Deleted on: {e.deleted_at ? new Date(e.deleted_at).toLocaleString() : "Unknown"}
+                            Deleted on:{" "}
+                            {e.deleted_at ? new Date(e.deleted_at).toLocaleString() : "Unknown"}
                           </p>
                         </div>
                         <div className="flex gap-2">
@@ -733,7 +748,10 @@ export default function ClubManageRoute() {
                             disabled={restoreEventMutation.isPending}
                             className="neu-border neu-press bg-lime text-black px-4 py-2 font-mono text-xs font-bold uppercase hover:-translate-y-1 transition-transform disabled:opacity-50 flex items-center gap-2"
                           >
-                            <RefreshCw size={14} className={restoreEventMutation.isPending ? "animate-spin" : ""} />
+                            <RefreshCw
+                              size={14}
+                              className={restoreEventMutation.isPending ? "animate-spin" : ""}
+                            />
                             Restore
                           </button>
                         </div>

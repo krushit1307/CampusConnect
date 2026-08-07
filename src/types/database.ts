@@ -27,6 +27,8 @@ export interface Profile {
   /** Fallback timestamp, kept for legacy queries but not used for primary sorting */
   created_at: string;
   updated_at: string;
+  /** Set when the profile is soft-deleted; NULL means active */
+  deleted_at: string | null;
 }
 
 /**
@@ -45,6 +47,8 @@ export interface Club {
   created_by: string;
   created_at: string;
   updated_at: string;
+  /** Set when the club is soft-deleted; NULL means active */
+  deleted_at: string | null;
 }
 
 /**
@@ -79,6 +83,8 @@ export interface Event {
   created_by: string;
   created_at: string;
   updated_at: string;
+  /** Set when the event is soft-deleted; NULL means active */
+  deleted_at: string | null;
 }
 
 /**

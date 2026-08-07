@@ -364,33 +364,47 @@ const events = queryData || [];
               </h1>
             </div>
 
-          <div className="flex flex-col items-end gap-3 w-full md:w-auto">
-            <div className="relative w-full md:w-80">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setIsAutocompleteOpen(true);
-                }}
-                onFocus={() => {
-                  if (searchQuery.trim().length > 0) setIsAutocompleteOpen(true);
-                }}
-                placeholder="Search events by name, location..."
-                className="neu-border w-full bg-white pl-9 pr-8 py-2 font-mono text-xs focus:outline-none placeholder:text-neutral-500"
-              />
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-neutral-500 pointer-events-none" />
-              {searchQuery && (
-                <button
-                  onClick={() => {
-                    setSearchQuery("");
+            <div className="flex flex-col items-end gap-3 w-full md:w-auto">
+              <div className="relative w-full md:w-80">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setIsAutocompleteOpen(true);
+                  }}
+                  onFocus={() => {
+                    if (searchQuery.trim().length > 0) setIsAutocompleteOpen(true);
+                  }}
+                  placeholder="Search events by name, location..."
+                  className="neu-border w-full bg-white pl-9 pr-8 py-2 font-mono text-xs focus:outline-none placeholder:text-neutral-500"
+                />
+                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-neutral-500 pointer-events-none" />
+                {searchQuery && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery("");
+                      setIsAutocompleteOpen(false);
+                    }}
+                    className="absolute right-2.5 top-1.5 font-mono text-sm font-bold text-neutral-500 hover:text-black cursor-pointer"
+                  >
+                    ×
+                  </button>
+                )}
+                <AutocompleteDropdown
+                  query={debouncedSearchQuery}
+                  isOpen={isAutocompleteOpen && debouncedSearchQuery.length > 0}
+                  isLoading={isAutocompleteLoading}
+                  results={autocompleteResults || []}
+                  onSelect={(result) => {
+                    setSearchQuery(result.title);
+                    setFilter("All");
                     setIsAutocompleteOpen(false);
                   }}
                   onClose={() => setIsAutocompleteOpen(false)}
                 />
               </div>
 
-              {/* Filter Tags */}
               <div className="flex flex-wrap items-center gap-2">
                 <label className="neu-border flex cursor-pointer select-none items-center gap-2 bg-white px-3 py-2 font-mono text-xs font-bold uppercase transition-colors hover:bg-white md:mr-2 text-black">
                   <input
@@ -401,7 +415,7 @@ const events = queryData || [];
                   />
                   Hide Past Events
                 </label>
-                {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t, i) => (
+                {["All", "Workshop", "Talk", "Hackathon", "Social"].map((t) => (
                   <button
                     key={t}
                     onClick={() => setFilter(t)}
@@ -432,7 +446,6 @@ const events = queryData || [];
                   >
                     List
                   </button>
-
                   <button
                     type="button"
                     onClick={() => setViewMode("calendar")}
@@ -453,7 +466,6 @@ const events = queryData || [];
                   <SelectTrigger className="neu-border w-44 bg-white font-mono text-xs text-black">
                     <SelectValue placeholder="Sort by date" />
                   </SelectTrigger>
-
                   <SelectContent>
                     <SelectItem value="asc">Oldest First</SelectItem>
                     <SelectItem value="desc">Newest First</SelectItem>
@@ -467,6 +479,11 @@ const events = queryData || [];
         </section>
         <section className="bg-cream px-4 py-12 md:px-6">
           <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {isFetching && !isLoading && (
+              <div className="col-span-full text-center font-mono text-xs text-gray-500">
+                Refreshing...
+              </div>
+            )}
             {isLoading ? (
               <div className="col-span-full font-mono text-center py-10">Loading events...</div>
             ) : (
@@ -485,6 +502,15 @@ const events = queryData || [];
                 />
               ))
             )}
+          </div>
+          <div className="mx-auto max-w-7xl mt-4 flex justify-center">
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="neu-border bg-white px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-cream"
+            >
+              Refresh
+            </button>
           </div>
         </section>
       </PullToRefresh>

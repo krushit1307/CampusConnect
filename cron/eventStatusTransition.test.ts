@@ -23,28 +23,13 @@ describe("Event Status Transition Cron Worker", () => {
     await transitionEventStatuses();
 
     // Verify first query updates UPCOMING to ONGOING
-    expect(mockQuery).toHaveBeenNthCalledWith(
-      1,
-      expect.stringContaining("UPDATE events"),
-    );
-    expect(mockQuery).toHaveBeenNthCalledWith(
-      1,
-      expect.stringContaining("status = 'ONGOING'"),
-    );
-    expect(mockQuery).toHaveBeenNthCalledWith(
-      1,
-      expect.stringContaining("status = 'UPCOMING'"),
-    );
+    expect(mockQuery).toHaveBeenNthCalledWith(1, expect.stringContaining("UPDATE events"));
+    expect(mockQuery).toHaveBeenNthCalledWith(1, expect.stringContaining("status = 'ONGOING'"));
+    expect(mockQuery).toHaveBeenNthCalledWith(1, expect.stringContaining("status = 'UPCOMING'"));
 
     // Verify second query updates to COMPLETED
-    expect(mockQuery).toHaveBeenNthCalledWith(
-      2,
-      expect.stringContaining("UPDATE events"),
-    );
-    expect(mockQuery).toHaveBeenNthCalledWith(
-      2,
-      expect.stringContaining("status = 'COMPLETED'"),
-    );
+    expect(mockQuery).toHaveBeenNthCalledWith(2, expect.stringContaining("UPDATE events"));
+    expect(mockQuery).toHaveBeenNthCalledWith(2, expect.stringContaining("status = 'COMPLETED'"));
     expect(mockQuery).toHaveBeenNthCalledWith(
       2,
       expect.stringContaining("status IN ('UPCOMING', 'ONGOING')"),

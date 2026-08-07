@@ -34,9 +34,7 @@ describe("User Profile ETag Caching API", () => {
   });
 
   it("should return 401 if auth header is missing", async () => {
-    const res = await request(app)
-      .get("/api/users/me")
-      .expect(401);
+    const res = await request(app).get("/api/users/me").expect(401);
 
     expect(res.body.error).toBe("Unauthorized");
   });

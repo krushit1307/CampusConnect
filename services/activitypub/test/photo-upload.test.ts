@@ -99,7 +99,7 @@ describe("Photo Upload Background processing API", () => {
       expect.objectContaining({
         event_id: "event-123",
         status: "PENDING",
-      })
+      }),
     );
   });
 });

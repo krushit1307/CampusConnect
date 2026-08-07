@@ -32,7 +32,10 @@ describe("LazyYouTubeEmbed Component (#2102)", () => {
 
     // Thumbnail image and fake play button present
     const thumbnail = screen.getByRole("img");
-    expect(thumbnail).toHaveAttribute("src", "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg");
+    expect(thumbnail).toHaveAttribute(
+      "src",
+      "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+    );
 
     const playButton = screen.getByTestId("fake-play-button");
     expect(playButton).toBeInTheDocument();

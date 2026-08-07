@@ -296,58 +296,58 @@ export function Navbar() {
           </button>
         </div>
 
-          {user && <NavbarNotificationDropdown />}
-          {user && (
-            <button
-              type="button"
-              aria-label="Open bookmarks"
-              onClick={() => setBookmarksPanelOpen(true)}
-              className="neu-border flex h-8 w-8 items-center justify-center bg-white text-black transition-colors hover:bg-lime dark:bg-black dark:text-cream"
-            >
-              <Bookmark size={16} />
-            </button>
-          )}
-          {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="User menu"
-                  className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-lime font-mono text-xs font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 dark:focus-visible:ring-cream"
-                >
-                  {user.email?.[0]?.toUpperCase() ?? "U"}
-                </button>
-              </DropdownMenuTrigger>
+        {user && <NavbarNotificationDropdown />}
+        {user && (
+          <button
+            type="button"
+            aria-label="Open bookmarks"
+            onClick={() => setBookmarksPanelOpen(true)}
+            className="neu-border flex h-8 w-8 items-center justify-center bg-white text-black transition-colors hover:bg-lime dark:bg-black dark:text-cream"
+          >
+            <Bookmark size={16} />
+          </button>
+        )}
+        {user ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="User menu"
+                className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-lime font-mono text-xs font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 dark:focus-visible:ring-cream"
+              >
+                {user.email?.[0]?.toUpperCase() ?? "U"}
+              </button>
+            </DropdownMenuTrigger>
 
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel className="break-all text-xs">{user.email}</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link to="/dashboard">Dashboard</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/messages">Messages</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/settings">Settings</Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600">
-                  Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Link
-              to="/auth"
-              id="nav-signin-button"
-              className="neu-border neu-press bg-black px-3 py-1.5 font-mono text-xs font-bold uppercase text-cream hover:bg-cream hover:text-black dark:bg-cream dark:text-black dark:hover:bg-black dark:hover:text-cream"
-              style={{ letterSpacing: "0.08em" }}
-            >
-              Sign in
-            </Link>
-          )}
-        </div>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="break-all text-xs">{user.email}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link to="/dashboard">Dashboard</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/messages">Messages</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/settings">Settings</Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600">
+                Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Link
+            to="/auth"
+            id="nav-signin-button"
+            className="neu-border neu-press bg-black px-3 py-1.5 font-mono text-xs font-bold uppercase text-cream hover:bg-cream hover:text-black dark:bg-cream dark:text-black dark:hover:bg-black dark:hover:text-cream"
+            style={{ letterSpacing: "0.08em" }}
+          >
+            Sign in
+          </Link>
+        )}
+      </div>
 
       <BookmarksPanel
         open={bookmarksPanelOpen}
