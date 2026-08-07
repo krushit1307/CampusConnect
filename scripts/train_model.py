@@ -57,3 +57,32 @@ with open(output_path, "w") as f:
     json.dump(config, f, indent=2)
 
 print(f"\nModel parameters exported to: {output_path}")
+
+diff --git a/scripts/train_model.py b/scripts/train_model.py
+--- a/scripts/train_model.py
+@@ -10,6 +10,7 @@
+ import numpy as np
+ from sklearn.model_selection import train_test_split
+ from sklearn.linear_model import LogisticRegression
++from sklearn.metrics import accuracy_score
+
+ def load_data():
+     # Load data implementation here
+@@ -25,6 +26,7 @@ def load_data():
+     return X_train, X_test, y_train, y_test
+
+ def train_model(X_train, y_train):
++    model = LogisticRegression()
+     model.fit(X_train, y_train)
+     return model
+
+@@ -34,3 +36,5 @@ def evaluate_model(model, X_test, y_test):
+     predictions = model.predict(X_test)
+     accuracy = np.mean(predictions == y_test)
+     return accuracy
++
++if __name__ == "__main__":
++    X_train, X_test, y_train, y_test = load_data()
++    model = train_model(X_train, y_train)
++    accuracy = evaluate_model(model, X_test, y_test)
++    print(f"Model Accuracy: {accuracy:.2f}")
