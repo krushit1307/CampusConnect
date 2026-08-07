@@ -10,7 +10,6 @@ import { partytownSnippet } from "@builder.io/partytown/integration";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
- feat/club-activity-trigger-596
 
 function partytownPlugin() {
   return {
@@ -36,7 +35,6 @@ function partytownPlugin() {
 
 const CSP_VALUE =
   "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.google-analytics.com https://www.googletagmanager.com https://connect.facebook.net https://*.hotjar.com https://script.hotjar.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https: https://www.facebook.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.supabase.co https://s3.amazonaws.com https://images.unsplash.com https://www.google-analytics.com https://www.googletagmanager.com https://connect.facebook.net https://*.hotjar.com https://script.hotjar.com https://vars.hotjar.com; frame-src 'self' https://js.stripe.com https://vars.hotjar.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none';";
-main
 
 /**
  * Vite configuration for CampusConnect
