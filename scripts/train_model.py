@@ -57,3 +57,25 @@ with open(output_path, "w") as f:
     json.dump(config, f, indent=2)
 
 print(f"\nModel parameters exported to: {output_path}")
+
+--- a/scripts/train_model.py
+@@ -10,6 +10,7 @@
+ import tensorflow as tf
+ from tensorflow.keras.models import Sequential
+ from tensorflow.keras.layers import Dense
++from tensorflow.keras.optimizers import Adam
+ 
+ def create_model():
+     model = Sequential()
+@@ -25,6 +26,7 @@ def train_model(data, labels):
+     # Compile the model
+     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+ 
++    # Set up optimizer with learning rate
++    optimizer = Adam(learning_rate=0.001)
++
+     # Train the model
+-    history = model.fit(data, labels, epochs=10, batch_size=32)
++    history = model.fit(data, labels, epochs=10, batch_size=32, callbacks=[tf.keras.callbacks.LearningRateScheduler(lambda epoch: 0.001 * 0.9 ** epoch)])
+ 
+     return model, history
