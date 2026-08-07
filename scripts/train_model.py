@@ -57,3 +57,32 @@ with open(output_path, "w") as f:
     json.dump(config, f, indent=2)
 
 print(f"\nModel parameters exported to: {output_path}")
+
+--- a/scripts/train_model.py
+@@ -10,6 +10,7 @@
+ import torch.optim as optim
+ 
+ from models import get_model
++from datasets import load_dataset
+ from utils import train_epoch, eval_model
+ 
+ def main():
+@@ -20,6 +21,8 @@ def main():
+     device = "cuda" if torch.cuda.is_available() else "cpu"
+ 
+     # Load model and move to device
+-    model = get_model()
++    dataset = load_dataset('path_to_dataset')
++    model = get_model().to(device)
+ 
+     # Define optimizer
+     optimizer = optim.Adam(model.parameters(), lr=1e-4)
+@@ -29,7 +32,7 @@ def main():
+         train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+ 
+-        train_epoch(model, train_loader, optimizer, device)
++        train_epoch(model, train_loader, optimizer, device)
+         eval_model(model, val_loader, device)
+ 
+ if __name__ == "__main__":
