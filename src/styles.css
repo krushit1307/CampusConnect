@@ -736,15 +736,52 @@
   transform: none !important;
 }
 /* ============================================================
-   Feed Reaction Spring Micro-Interaction (issue #483)
-   - Plays a bouncy spring scale on like/unlike toggle.
-   - Class is always present on the emoji <span>; replay is
-     triggered by remounting the span via a changing React key
-     (see src/routes/feed.tsx → reactionBursts state).
-   - Respects prefers-reduced-motion (handled globally above).
+   Announcement Marquee — pure CSS keyframe ticker
+   - Animation applied to each child div individually.
+   - translateX(-100%) on a child = scroll exactly one full
+     copy off-screen; the second copy replaces it seamlessly.
+   - No JS timers, no state, no rAF. GPU transform only.
+   - prefers-reduced-motion: animation off, text centered.
    ============================================================ */
 
-@keyframes reaction-spring {
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.marquee-wrapper {
+  display: flex;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.marquee-child {
+  animation: marquee 20s linear infinite;
+  /* Shrink-0 keeps the child at its natural width inside the flex row */
+  flex-shrink: 0;
+  min-width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-child {
+    animation: none;
+    /* Static centered text when motion is reduced */
+    min-width: unset;
+    flex: 1;
+    text-align: center;
+  }
+  /* Hide the second duplicate copy — only one copy needed when static */
+  .marquee-child + .marquee-child {
+    display: none;
+  }
+}
+
+/* ============================================================
+   Feed Reaction Spring Micro-Interaction (issue #483)
   0% {
     transform: scale(1);
   }

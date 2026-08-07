@@ -14,6 +14,7 @@ import { HeroMidground } from "@/components/home/HeroMidground";
 import { HeroForeground } from "@/components/home/HeroForeground";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
 import { useTranslation } from "react-i18next";
+import { Marquee } from "@/components/ui/Marquee";
 
 function AnimatedCounter({ value }: { value: string }) {
   const [displayValue, setDisplayValue] = useState("0");
@@ -290,6 +291,13 @@ export default function Landing() {
 
   return (
     <SiteShell>
+      {/* ANNOUNCEMENT MARQUEE — scrolls above the hero, homepage only */}
+      <Marquee>
+        🎓 Welcome to CampusConnect — Clubs, Events &amp; Certificates for Student Communities
+        &nbsp;✦&nbsp; RSVP to upcoming events &nbsp;✦&nbsp; Join a club &nbsp;✦&nbsp; Earn
+        verified certificates &nbsp;✦&nbsp;
+      </Marquee>
+
       {/* HERO — Multi-layered parallax with 3 SVG depth layers */}
       <section className="relative h-96 w-full overflow-hidden md:h-[500px]">
         {/* Parallax image layers: Background (0.2x), Midground (0.5x), Foreground (0.8x) */}
