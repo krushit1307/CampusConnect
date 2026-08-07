@@ -537,15 +537,36 @@ export default function EventDetailsPage() {
 
   // Increment persistent view count in event_metrics once per page load.
   // Skipped for mock/dev events (no real DB row).
-  // useRef guard prevents double-fire in React Strict Mode (dev double-mount).
-  const viewIncrementedRef = useRef(false);
+  //
+  // We store the canonical event UUID (event.id) rather than a boolean so that:
+  // - Short-id URLs resolve to their UUID before incrementing (avoids wrong PK)
+  // - Navigating between events while the component stays mounted still
+  //   increments each new event exactly once
+  const viewIncrementedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!eventId || eventId.startsWith("mock-") || viewIncrementedRef.current) return;
-    viewIncrementedRef.current = true;
-    incrementEventViews(eventId).then(({ error }) => {
-      if (error) console.warn("[event view] increment failed silently:", error);
+    // Wait until the query has resolved and we have the canonical UUID
+    const canonicalId = (event as any)?.id as string | undefined;
+    if (!canonicalId || canonicalId.startsWith("mock-")) return;
+    if (viewIncrementedRef.current === canonicalId) return;
+    viewIncrementedRef.current = canonicalId;
+
+    incrementEventViews(canonicalId).then(({ error }) => {
+      if (error) {
+        console.warn("[event view] increment failed silently:", error);
+        return;
+      }
+      // Refresh the cached query so the displayed view count is up-to-date.
+      const cached = (event as any);
+      if (cached?.event_metrics) {
+        const currentViews =
+          (cached.event_metrics as { views: number } | null)?.views ?? 0;
+        setQueryData(["event", eventId], {
+          ...cached,
+          event_metrics: { views: currentViews + 1 },
+        });
+      }
     });
-  }, [eventId]);
+  }, [(event as any)?.id, eventId]);
 
   const toggleWaitlist = useMutation({
     mutationFn: async ({ isOnWaitlist }: { isOnWaitlist: boolean }) => {

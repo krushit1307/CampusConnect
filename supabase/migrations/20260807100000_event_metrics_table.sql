@@ -41,6 +41,25 @@ CREATE INDEX IF NOT EXISTS idx_event_metrics_views
     ON public.event_metrics (views DESC);
 
 -- -----------------------------------------------------------------------------
+-- RLS: lock down event_metrics so clients can only SELECT.
+-- All writes go through increment_event_views() which is SECURITY DEFINER
+-- and therefore runs as the function owner, bypassing RLS entirely.
+-- Anonymous and authenticated users get SELECT (to render the view count)
+-- but cannot INSERT, UPDATE, or DELETE rows directly.
+-- -----------------------------------------------------------------------------
+ALTER TABLE public.event_metrics ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "event_metrics: public read" ON public.event_metrics;
+CREATE POLICY "event_metrics: public read"
+    ON public.event_metrics
+    FOR SELECT
+    USING (true);
+
+-- Explicitly revoke direct write access from client roles.
+-- Writes must go through the increment_event_views() SECURITY DEFINER function.
+REVOKE INSERT, UPDATE, DELETE ON public.event_metrics FROM authenticated, anon;
+
+-- -----------------------------------------------------------------------------
 -- Step 2: Migrate existing view counts from events.views → event_metrics
 --   Wrapped in a DO block so if events.views was already dropped (idempotent
 --   re-run) this step silently no-ops instead of erroring.
@@ -145,7 +164,7 @@ AS $$
     LEFT JOIN public.event_metrics m ON e.id = m.event_id
     WHERE  e.event_date IS NOT NULL      -- guard: excludes undated events
       AND  e.event_date >= NOW()
-      AND  e.status != 'canceled'
+      AND  e.status != 'cancelled'
     ORDER  BY popularity_score DESC
     LIMIT  p_limit
     OFFSET p_offset;
@@ -182,6 +201,7 @@ CREATE OR REPLACE FUNCTION get_club_analytics(
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
     v_is_authorized BOOLEAN;

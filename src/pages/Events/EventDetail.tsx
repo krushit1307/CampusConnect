@@ -3,7 +3,7 @@ import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
 // import { LiveQA } from "@/components/events/LiveQA";
 import { useEventViewerCount } from "@/hooks/useEventViewerCount";
 import { incrementEventViews } from "@/lib/supabase/events";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect, lazy, Suspense, useMemo, useCallback, useRef } from "react";
@@ -268,6 +268,7 @@ export default function EventDetailsPage() {
         .select(
           `
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id, max_attendees, requires_approval,
+          profiles (full_name, email),
           clubs (name, slug),
           event_rsvps (id, user_id, status, checked_in, rsvp_at, profiles (first_name, last_name, avatar_url)),
           event_waitlist (id, user_id, created_at, profiles (first_name, last_name, avatar_url)),
@@ -436,15 +437,38 @@ export default function EventDetailsPage() {
 
   // Increment persistent view count in event_metrics once per page load.
   // Skipped for mock/dev events (no real DB row).
-  // useRef guard prevents double-fire in React Strict Mode (dev double-mount).
-  const viewIncrementedRef = useRef(false);
+  //
+  // We store the canonical event UUID (event.id) rather than a boolean so that:
+  // - Short-id URLs resolve to their UUID before incrementing (avoids wrong PK)
+  // - Navigating between events while the component stays mounted still
+  //   increments each new event exactly once
+  const viewIncrementedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!eventId || eventId.startsWith("mock-") || viewIncrementedRef.current) return;
-    viewIncrementedRef.current = true;
-    incrementEventViews(eventId).then(({ error }) => {
-      if (error) console.warn("[event view] increment failed silently:", error);
+    // Wait until the query has resolved and we have the canonical UUID
+    const canonicalId = (event as any)?.id as string | undefined;
+    if (!canonicalId || canonicalId.startsWith("mock-")) return;
+    if (viewIncrementedRef.current === canonicalId) return;
+    viewIncrementedRef.current = canonicalId;
+
+    incrementEventViews(canonicalId).then(({ error }) => {
+      if (error) {
+        console.warn("[event view] increment failed silently:", error);
+        return;
+      }
+      // Refresh the cached query so the displayed view count is up-to-date.
+      // setQueryData updates the in-memory cache with the incremented value
+      // without triggering a full network re-fetch.
+      const cached = (event as any);
+      if (cached?.event_metrics) {
+        const currentViews =
+          (cached.event_metrics as { views: number } | null)?.views ?? 0;
+        setQueryData(["event", eventId], {
+          ...cached,
+          event_metrics: { views: currentViews + 1 },
+        });
+      }
     });
-  }, [eventId]);
+  }, [(event as any)?.id, eventId]);
 
   // Listen for Service Worker background sync messages for offline RSVP reconciliation
   useEffect(() => {
