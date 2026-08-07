@@ -1,4 +1,9 @@
-import { QueryClientProvider, queryClient } from "@/hooks/useReactQueryReplacement";
+import {
+  QueryClientProvider as NormalQueryClientProvider,
+  queryClient,
+  persister,
+} from "@/hooks/useReactQueryReplacement";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { AnimatePresence, LazyMotion, MotionConfig } from "framer-motion";
 import { loadDomAnimation } from "@/lib/motionFeatures";
@@ -24,7 +29,7 @@ import { NotFoundPage } from "./components/NotFoundPage";
 import { createClient } from "./lib/supabase/client";
 import { BreadcrumbProvider } from "@/components/BreadcrumbsContext";
 import AriaAnnouncer from "@/components/accessibility/AriaAnnouncer";
-
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 function RemoteLoadingScreen() {
   return (
     <div className="flex h-screen w-full items-center justify-center bg-slate-950 text-white">
@@ -277,14 +282,36 @@ export default function App() {
   }, []);
 
   if (dbStatus === "offline") {
-    return <MaintenancePage />;
+    if (typeof navigator !== "undefined" && navigator.onLine) {
+      return <MaintenancePage />;
+    }
+    // If device is offline, allow the app to render with cached data
   }
 
   return (
     <ThemeProvider>
       <AriaAnnouncer />
       <TooltipProvider>
-        <QueryClientProvider client={queryClient}>
+        <PersistQueryClientProvider
+          client={queryClient}
+          persistOptions={{
+            persister,
+            dehydrateOptions: {
+              shouldDehydrateQuery: (query) => {
+                if (query.state.status !== "success") return false;
+                const queryKeyStr = JSON.stringify(query.queryKey).toLowerCase();
+                if (
+                  queryKeyStr.includes("password") ||
+                  queryKeyStr.includes("billing") ||
+                  queryKeyStr.includes("payment")
+                ) {
+                  return false;
+                }
+                return true;
+              },
+            },
+          }}
+        >
           <ErrorBoundary>
             {/*
               App-wide LazyMotion provider. Every `m.*` component in the tree
@@ -297,6 +324,7 @@ export default function App() {
             */}
             <LazyMotion features={loadDomAnimation} strict={import.meta.env.DEV}>
               <CommandPaletteProvider>
+                <OfflineIndicator />
                 {/* Floating Dark Mode Toggle */}
                 <div className="fixed bottom-4 right-4 z-[9999]">
                   <ThemeToggle />
@@ -310,7 +338,7 @@ export default function App() {
               </CommandPaletteProvider>
             </LazyMotion>
           </ErrorBoundary>
-        </QueryClientProvider>
+        </PersistQueryClientProvider>
       </TooltipProvider>
     </ThemeProvider>
   );
