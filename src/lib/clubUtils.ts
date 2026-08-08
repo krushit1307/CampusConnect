@@ -1,13 +1,20 @@
 import { z } from "zod";
 
 export const MAX_DESCRIPTION_LENGTH = 500;
+export const MAX_CLUB_NAME_LENGTH = 100;
+export const MAX_CLUB_SLUG_LENGTH = 80;
 
 export const clubFormSchema = z.object({
-  name: z.string().trim().min(2, "Name must be at least 2 characters."),
+  name: z
+    .string()
+    .trim()
+    .min(2, "Name must be at least 2 characters.")
+    .max(MAX_CLUB_NAME_LENGTH, `Name cannot exceed ${MAX_CLUB_NAME_LENGTH} characters.`),
   slug: z
     .string()
     .trim()
     .min(2, "Slug must be at least 2 characters.")
+    .max(MAX_CLUB_SLUG_LENGTH, `Slug cannot exceed ${MAX_CLUB_SLUG_LENGTH} characters.`)
     .regex(/^[a-z0-9-]+$/, "Slug can only contain lowercase letters, numbers, and hyphens."),
   description: z
     .string()

@@ -2,6 +2,7 @@ import { Outlet, useParams } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import EventsList from "./EventsList";
 import { motion, AnimatePresence } from "framer-motion";
+import { BottomSheet } from "@/components/BottomSheet";
 
 export default function EventsLayout() {
   const { eventId } = useParams();
@@ -9,21 +10,13 @@ export default function EventsLayout() {
   return (
     <SiteShell>
       <div className="h-[calc(100vh-64px)] lg:grid lg:grid-cols-12 overflow-hidden bg-cream">
-        {/* Event List - hide on mobile if an event is selected */}
-        <aside
-          className={`lg:col-span-5 border-r-2 border-black overflow-y-auto h-full ${
-            eventId ? "hidden lg:block" : "block"
-          }`}
-        >
+        {/* Event List - always show on mobile so it stays in background */}
+        <aside className={`lg:col-span-5 border-r-2 border-black overflow-y-auto h-full block`}>
           <EventsList />
         </aside>
 
-        {/* Event Detail - show on mobile only if selected, always show on desktop */}
-        <main
-          className={`lg:col-span-7 overflow-y-auto h-full bg-white relative ${
-            eventId ? "block" : "hidden lg:block"
-          }`}
-        >
+        {/* Event Detail - Desktop */}
+        <main className={`lg:col-span-7 overflow-y-auto h-full bg-white relative hidden lg:block`}>
           <AnimatePresence mode="wait">
             <motion.div
               key={eventId || "empty"}
@@ -37,6 +30,15 @@ export default function EventsLayout() {
             </motion.div>
           </AnimatePresence>
         </main>
+
+        {/* Event Detail - Mobile Bottom Sheet Overlay */}
+        <div className="block lg:hidden">
+          {eventId && (
+            <BottomSheet>
+              <Outlet />
+            </BottomSheet>
+          )}
+        </div>
       </div>
     </SiteShell>
   );

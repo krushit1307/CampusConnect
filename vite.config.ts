@@ -26,7 +26,7 @@ function partytownPlugin() {
         forward: ["dataLayer.push", "fbq"]
       };
     </script>
-    <script>${partytownSnippet()}</script>`
+    <script>${partytownSnippet()}</script>`,
       );
     },
   };

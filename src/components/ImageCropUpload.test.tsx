@@ -1,12 +1,12 @@
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ImageCropUpload } from "./ImageCropUpload";
 
 // Mock blueimp-load-image
 vi.mock("blueimp-load-image", () => {
   return {
-    default: vi.fn((file, callback) => {
+    default: vi.fn((file, callback, options) => {
       // Simulate rendering image to canvas
       const mockCanvas = document.createElement("canvas");
       mockCanvas.width = 100;
@@ -41,7 +41,7 @@ describe("ImageCropUpload Component (#2427)", () => {
         label="profile picture"
         hint="Square images look best"
         onUploaded={handleUploaded}
-      />
+      />,
     );
 
     expect(screen.getByText("Drag & drop or click to upload")).toBeInTheDocument();
@@ -50,13 +50,7 @@ describe("ImageCropUpload Component (#2427)", () => {
 
   it("triggers file picker when clicked", () => {
     const handleUploaded = vi.fn();
-    render(
-      <ImageCropUpload
-        aspect={1}
-        bucket="avatars"
-        onUploaded={handleUploaded}
-      />
-    );
+    render(<ImageCropUpload aspect={1} bucket="avatars" onUploaded={handleUploaded} />);
 
     const dropZone = screen.getByRole("button");
     expect(dropZone).toBeInTheDocument();

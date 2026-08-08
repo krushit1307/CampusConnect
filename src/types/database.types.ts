@@ -366,7 +366,7 @@ export type Database = {
           event_date: string | null;
           start_date: string | null;
           end_date: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           location: any;
           metadata: Json | null;
           latitude: number | null;
@@ -374,7 +374,7 @@ export type Database = {
           max_attendees: number | null;
           available_spots: number | null;
           rsvp_count: number;
-          views: number;
+          // views column removed — view counts now live in the event_metrics table (issue #2274)
           popularity_score: number | null;
           is_featured: boolean;
           requires_approval: boolean;
@@ -407,7 +407,7 @@ export type Database = {
           event_date?: string | null;
           start_date?: string | null;
           end_date?: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           location?: any;
           metadata?: Json | null;
           latitude?: number | null;
@@ -415,7 +415,7 @@ export type Database = {
           max_attendees?: number | null;
           available_spots?: number | null;
           rsvp_count?: number;
-          views?: number;
+          // views column removed — view counts now live in the event_metrics table (issue #2274)
           popularity_score?: number | null;
           is_featured?: boolean;
           requires_approval?: boolean;
@@ -448,7 +448,7 @@ export type Database = {
           event_date?: string | null;
           start_date?: string | null;
           end_date?: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           location?: any;
           metadata?: Json | null;
           latitude?: number | null;
@@ -456,7 +456,7 @@ export type Database = {
           max_attendees?: number | null;
           available_spots?: number | null;
           rsvp_count?: number;
-          views?: number;
+          // views column removed — view counts now live in the event_metrics table (issue #2274)
           popularity_score?: number | null;
           is_featured?: boolean;
           requires_approval?: boolean;
@@ -489,6 +489,36 @@ export type Database = {
             columns: ["created_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      /**
+       * UNLOGGED table for high-throughput event view counting (issue #2274).
+       * One row per event; views are incremented via the increment_event_views() RPC.
+       */
+      event_metrics: {
+        Row: {
+          event_id:   string;
+          views:      number;
+          updated_at: string;
+        };
+        Insert: {
+          event_id:    string;
+          views?:      number;
+          updated_at?: string;
+        };
+        Update: {
+          event_id?:   string;
+          views?:      number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_metrics_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: true;
+            referencedRelation: "events";
             referencedColumns: ["id"];
           },
         ];
@@ -1144,7 +1174,7 @@ export type Database = {
           message: string;
           link: string | null;
           link_url: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           metadata: Record<string, any> | null;
           is_read: boolean;
           read_at: string | null;
@@ -1159,7 +1189,7 @@ export type Database = {
           message: string;
           link?: string | null;
           link_url?: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           metadata?: Record<string, any> | null;
           is_read?: boolean;
           read_at?: string | null;
@@ -1174,7 +1204,7 @@ export type Database = {
           message?: string;
           link?: string | null;
           link_url?: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           metadata?: Record<string, any> | null;
           is_read?: boolean;
           read_at?: string | null;

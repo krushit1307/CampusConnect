@@ -15,6 +15,7 @@ jobs:
       - name: Inform about claim feature
         uses: actions/github-script@v6
         with:
+          github-token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           script: |
             const commenter = context.payload.comment.user.login;
             const body = context.payload.comment.body;
