@@ -221,7 +221,7 @@ export function EventCard({
     <div className="group">
       <article
         id={`event-${event.id}`}
-        className={`neu-border p-5 relative ${colors[index % colors.length]} transition-transform duration-300 ease-out group-hover:scale-[1.02]`}
+        className={`neu-border p-5 relative ${colors[index % colors.length]} transition-all duration-300 ease-out group-hover:scale-[1.02] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-ink)]`}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col">
