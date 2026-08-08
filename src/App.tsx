@@ -177,24 +177,32 @@ const router = createBrowserRouter(
           <Route path="calendar" element={<DashboardCalendar />} />
         </Route>
 
-        {/* Events — loaded from remote micro-frontend when available */}
+        {/* Events Layout with Split-Screen desktop and Mobile Bottom Sheet */}
         <Route
           path="/events"
           element={
             <Suspense fallback={<PageFallback />}>
-              <LazyEventsIndex />
+              <EventsLayout />
             </Suspense>
           }
-        />
-
-        <Route
-          path="/events/:eventId"
-          element={
-            <Suspense fallback={<PageFallback />}>
-              <LazyEventDetails />
-            </Suspense>
-          }
-        />
+        >
+          <Route
+            index
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <EmptyState />
+              </Suspense>
+            }
+          />
+          <Route
+            path=":eventId"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <LazyEventDetails />
+              </Suspense>
+            }
+          />
+        </Route>
 
         <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
         <Route path="/events/:eventId/gantt" element={<EventGantt />} />

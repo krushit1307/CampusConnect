@@ -1,4 +1,3 @@
-import { SiteShell } from "@/components/site/SiteShell";
 import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
 // import { LiveQA } from "@/components/events/LiveQA";
 import { useEventViewerCount } from "@/hooks/useEventViewerCount";
@@ -856,7 +855,6 @@ export default function EventDetailsPage() {
       if (!variables.hasRsvpd && event?.banner_url && "caches" in window) {
         window.caches.open("supabase-images-cache").then((cache) => {
           cache.add((event as any).banner_url!).catch((err) => {
-            // eslint-disable-next-line no-console
             console.error("Failed to eagerly cache banner image", err);
           });
         });
@@ -1345,7 +1343,7 @@ export default function EventDetailsPage() {
         <meta name="twitter:description" content={og.ogDescription} />
         {og.ogImage && <meta name="twitter:image" content={og.ogImage} />}
       </Helmet>
-      <SiteShell>
+      <>
         {/* Hero Section */}
         <section className="relative w-full overflow-hidden border-b-2 border-black bg-peach/30">
           {(event as any).banner_url ? (
@@ -2525,7 +2523,7 @@ export default function EventDetailsPage() {
             </Button>
           )}
         </div>
-      </SiteShell>
+      </>
       {/* RSVP Cancel Confirmation Modal */}
       <ConfirmModal
         open={confirmOpen}
