@@ -1,17 +1,24 @@
-type AnalyticsTask = () => void;
+import { refreshAnalyticsCache } from "./analytics";
+
+export type AnalyticsTask = () => void | Promise<void>;
 
 const queue: AnalyticsTask[] = [];
 let isScheduled = false;
 
-function drainQueue(): void {
+async function drainQueue(): Promise<void> {
   while (queue.length > 0) {
     const task = queue.shift();
-    task?.();
+    if (task) {
+      try {
+        await task();
+      } catch (error) {
+        console.error("[AnalyticsQueue] Error executing task:", error);
+      }
+    }
   }
 
   isScheduled = false;
 
-  // If new tasks were queued while draining, schedule again.
   if (queue.length > 0) {
     scheduleDrain();
   }
@@ -23,17 +30,19 @@ function scheduleDrain(): void {
   isScheduled = true;
 
   if (typeof window === "undefined") {
-    drainQueue();
+    void drainQueue();
     return;
   }
 
   if ("requestIdleCallback" in window) {
-    window.requestIdleCallback(() => {
-      drainQueue();
-    });
+    (window as unknown as { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(
+      () => {
+        void drainQueue();
+      },
+    );
   } else {
     window.setTimeout(() => {
-      drainQueue();
+      void drainQueue();
     }, 0);
   }
 }
@@ -41,4 +50,10 @@ function scheduleDrain(): void {
 export function enqueueAnalytics(task: AnalyticsTask): void {
   queue.push(task);
   scheduleDrain();
+}
+
+export function enqueueCacheRefresh(): void {
+  enqueueAnalytics(async () => {
+    await refreshAnalyticsCache();
+  });
 }

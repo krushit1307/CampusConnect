@@ -83,7 +83,13 @@ export function useClubBudget(clubId: string | undefined) {
       queryClient.invalidateQueries({ queryKey: ["club-budget-summary", clubId] });
       toast.success("Transaction added");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => {
+      if (err.message.includes("Insufficient Funds")) {
+        toast.error("Insufficient funds — this expense would take the treasury below $0.00.");
+      } else {
+        toast.error(err.message);
+      }
+    },
   });
 
   const updateTransactionStatus = useMutation({

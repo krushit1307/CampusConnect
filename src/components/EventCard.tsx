@@ -6,19 +6,18 @@ import {
   getIcsContent,
 } from "@/lib/utils";
 import { Link } from "react-router-dom";
-import React, { FormEvent, useState, useMemo, useEffect, useRef } from "react";
-import { Calendar, Check, Share2, X, Link as LinkIcon, Bookmark } from "lucide-react";
+import { useState } from "react";
+import { Calendar, Share2, Link as LinkIcon, Bookmark } from "lucide-react";
 import { toast } from "sonner";
 import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EventRSVPButton } from "@/components/EventRSVPButton";
-
 import { usePreloadEvent } from "@/hooks/usePreloadEvent";
-
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
 import { ShareMenu } from "@/components/ui/ShareMenu";
 import { ReadMore } from "@/components/ui/ReadMore";
+import { EventRsvpCancelDialog } from "@/components/events/EventRsvpCancelDialog";
 
 interface Event {
   id: string;
@@ -35,6 +34,8 @@ interface Event {
   clubs: { name: string } | { name: string }[] | null;
   event_rsvps: { id: string; user_id: string }[] | null;
   saved_events: { id: string; user_id: string }[] | null;
+  rsvp_count?: number;
+  saved_count?: number;
 }
 
 interface EventCardProps {
@@ -48,15 +49,11 @@ interface EventCardProps {
   active?: boolean;
 }
 
-// Assumed lead time (in days) used when an event has no `created_at` available
 const ASSUMED_LEAD_TIME_DAYS = 30;
 
 interface EventProgress {
-  /** 0-100, how far along we are between "created" and the event date */
   percent: number;
-  /** true once the event date has passed */
   isPast: boolean;
-  /** true when we had to fall back to an assumed lead time (no created_at) */
   isEstimated: boolean;
 }
 
@@ -129,9 +126,6 @@ function EventProgressBar({
   );
 }
 
-/**
- * Helper to auto-detect and linkify http/https URLs within a text string.
- */
 function renderLocationWithLinks(locationText: string | null) {
   if (!locationText) return "TBA";
 
@@ -156,6 +150,7 @@ function renderLocationWithLinks(locationText: string | null) {
     return part;
   });
 }
+
 export function EventCard({
   event,
   index,
@@ -183,13 +178,13 @@ export function EventCard({
   const countdown = event.event_date ? getCountdown(event.event_date) : "TBA";
 
   const [ticketOpen, setTicketOpen] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
 
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
       toast.success("Link copied!");
-    } catch (error) {
+    } catch {
       toast.error("Failed to copy link.");
     }
   };
@@ -225,18 +220,23 @@ export function EventCard({
       ? `${window.location.origin}${window.location.pathname}#event-${event.id}`
       : "";
 
-  const handleRsvpClick = () => {
+  const handleRsvpToggle = (eventId: string, currentlyRsvpd: boolean) => {
     if (!user) {
       toast.error("Please log in to RSVP");
       return;
     }
 
-    if (hasRsvpd) {
-      setConfirmOpen(true);
+    if (currentlyRsvpd) {
+      setCancelConfirmOpen(true);
       return;
     }
 
-    onRsvpToggle(event.id, false);
+    onRsvpToggle(eventId, false);
+  };
+
+  const handleConfirmCancelRsvp = () => {
+    onRsvpToggle(event.id, true);
+    setCancelConfirmOpen(false);
   };
 
   const savedEventsList = Array.isArray(event.saved_events) ? event.saved_events : [];
@@ -254,6 +254,12 @@ export function EventCard({
     <div className="group">
       <article
         id={`event-${event.id}`}
+ test/add-vcardutils-tests
+        className={`neu-border p-5 relative ${colors[index % colors.length]} transition-all duration-300 ease-out group-hover:scale-[1.02] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-ink)]`}
+
+ feat/event-card-button-tooltips
+        className={`neu-border p-5 relative ${colors[index % colors.length]} transition-all duration-300 ease-out group-hover:scale-[1.02] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-ink)]`}
+
         onMouseEnter={preloadEvent.onMouseEnter}
         onMouseLeave={preloadEvent.onMouseLeave}
         className={`neu-border p-5 relative ${
@@ -261,8 +267,9 @@ export function EventCard({
             ? "bg-blue-100 border-4 border-blue-600 ring-2 ring-blue-600"
             : colors[index % colors.length]
         } transition-all duration-300 ease-out group-hover:scale-[1.02]`}
+ main
+ main
       >
-        {" "}
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col">
             <p className="font-mono text-xs font-bold uppercase tracking-wider pr-10 text-red-900">
@@ -282,13 +289,56 @@ export function EventCard({
             )}
           </div>
         </div>
-        {event.description ? (
-          <p className="mt-4 text-sm leading-6 text-gray-800">{event.description}</p>
-        ) : null}
         <div className="mt-5">
           <div>
             <p className="font-mono text-xs font-bold uppercase text-black">Date &amp; Time</p>
             <p className="mt-1 text-sm text-red-900">{formatEventDateRange(event)}</p>
+
+ feat/event-card-button-tooltips
+          <div className="flex gap-2 relative z-10">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleBookmarkClick}
+                    disabled={isBookmarkPending}
+                    className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60"
+                    aria-label={isSaved ? "Unsave event" : "Save event"}
+                  >
+                    <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isSaved ? "Unsave event" : "Save event"}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ShareMenu
+                    url={shareUrl}
+                    title={event.title}
+                    text={`Check out this event: ${event.title}`}
+                  >
+                    <button
+                      type="button"
+                      aria-label="Share event link"
+                      className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black"
+                    >
+                      <Share2 aria-hidden="true" size={14} strokeWidth={3} />
+                    </button>
+                  </ShareMenu>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Share event</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+ test/add-vcardutils-tests
+
 
             <div className="mt-3 flex gap-2 relative z-10">
               <button
@@ -314,6 +364,8 @@ export function EventCard({
                 </button>
               </ShareMenu>
             </div>
+ main
+ main
           </div>
         </div>
         <p className="mt-3 font-mono text-xs font-bold uppercase text-black">Event</p>
@@ -332,7 +384,7 @@ export function EventCard({
         <div className="mt-4">
           <EventCapacityGauge
             eventId={event.id}
-            initialCapacity={rsvps.length}
+            initialCapacity={event.rsvp_count ?? rsvps.length}
             maxAttendees={event.max_attendees || null}
             showDetails={true}
           />
@@ -348,7 +400,7 @@ export function EventCard({
           </div>
           <div>
             <dt className="font-mono text-xs font-bold uppercase text-black">Attendees</dt>
-            <dd className="mt-1 text-sm text-red-900">{rsvps.length} RSVP'd</dd>
+            <dd className="mt-1 text-sm text-red-900">{event.rsvp_count ?? rsvps.length} RSVP'd</dd>
           </div>
         </dl>
         <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -357,7 +409,7 @@ export function EventCard({
             user={user}
             hasRsvpd={hasRsvpd}
             isPending={isRsvpPending}
-            onToggle={onRsvpToggle}
+            onToggle={handleRsvpToggle}
           />
 
           <TooltipProvider>
@@ -415,6 +467,13 @@ export function EventCard({
           onOpenChange={setTicketOpen}
           event={event}
           rsvpId={myRsvp?.id ?? ""}
+        />
+        <EventRsvpCancelDialog
+          open={cancelConfirmOpen}
+          onOpenChange={setCancelConfirmOpen}
+          eventTitle={event.title}
+          isPending={isRsvpPending}
+          onConfirm={handleConfirmCancelRsvp}
         />
       </article>
     </div>

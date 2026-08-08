@@ -37,6 +37,6 @@ describe("withAuth HOC", () => {
     );
 
     const content = await screen.findByText("Protected Content for test@campus.edu");
-    expect(content).toBeInPrimary();
+    expect(content).toBeInTheDocument();
   });
 });

@@ -3,9 +3,20 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
 // @ts-ignore
+import { z } from "https://esm.sh/zod@3.24.2";
+// @ts-ignore
 import * as Y from "https://esm.sh/yjs@13.6.20";
+import { parseJsonBody } from "../_shared/validation.ts";
 
 declare const Deno: any;
+
+const crdtSyncSchema = z
+  .object({
+    eventId: z.string().min(1, "eventId is required"),
+    update: z.string().min(1, "update is required"),
+    textDescription: z.string().optional(),
+  })
+  .strict();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -74,14 +85,9 @@ serve(async (req: Request) => {
     }
 
     if (req.method === "POST") {
-      const { eventId, update, textDescription } = await req.json();
-
-      if (!eventId || !update) {
-        return new Response(JSON.stringify({ error: "Missing eventId or update parameter" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      const parsed = await parseJsonBody(crdtSyncSchema, req);
+      if (!parsed.ok) return parsed.response;
+      const { eventId, update, textDescription } = parsed.data;
 
       // 1. Fetch current document state from db
       const { data: existingRecord, error: fetchError } = await supabase

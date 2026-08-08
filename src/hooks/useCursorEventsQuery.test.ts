@@ -1,11 +1,30 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fetchGraphQL, EVENTS_CONNECTION_QUERY } from "./useCursorEventsQuery";
 
-global.fetch = vi.fn();
+const originalFetch = globalThis.fetch;
+
+// ── Mock OpenTelemetry so tests don't need a real tracer ────────────
+vi.mock("@opentelemetry/api", () => {
+  const mockSpan = {
+    setStatus: vi.fn(),
+    recordException: vi.fn(),
+    end: vi.fn(),
+  };
+  return {
+    trace: {
+      getTracer: () => ({ startSpan: () => mockSpan }),
+    },
+    SpanStatusCode: { ERROR: 2 },
+  };
+});
 
 describe("useCursorEventsQuery", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    globalThis.fetch = vi.fn();
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
   });
 
   it("fetchGraphQL posts query to /api/graphql and returns data", async () => {
@@ -28,13 +47,14 @@ describe("useCursorEventsQuery", () => {
       },
     };
 
-    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
       json: vi.fn().mockResolvedValue({ data: mockData }),
     });
 
     const result = await fetchGraphQL(EVENTS_CONNECTION_QUERY, { first: 1, after: undefined });
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(globalThis.fetch).toHaveBeenCalledWith(
       "/api/graphql",
       expect.objectContaining({
         method: "POST",
@@ -47,13 +67,46 @@ describe("useCursorEventsQuery", () => {
     expect(result).toEqual(mockData);
   });
 
-  it("fetchGraphQL throws error when graphql endpoint returns errors", async () => {
-    (global.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+  it("fetchGraphQL throws error when graphql endpoint returns errors with no data", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
       json: vi.fn().mockResolvedValue({
         errors: [{ message: "GraphQL syntax error" }],
       }),
     });
 
     await expect(fetchGraphQL(EVENTS_CONNECTION_QUERY)).rejects.toThrow("GraphQL syntax error");
+  });
+
+  it("fetchGraphQL returns partial data when both data and errors are present", async () => {
+    const partialData = {
+      events: {
+        edges: [],
+        nodes: [],
+        pageInfo: {
+          hasNextPage: false,
+          hasPreviousPage: false,
+          startCursor: null,
+          endCursor: null,
+        },
+        totalCount: 0,
+      },
+    };
+
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        data: partialData,
+        errors: [
+          {
+            message: "Organizer resolver timeout",
+            path: ["events", "edges", 0, "node", "organizer"],
+          },
+        ],
+      }),
+    });
+
+    const result = await fetchGraphQL(EVENTS_CONNECTION_QUERY, { first: 10 });
+    expect(result).toEqual(partialData);
   });
 });

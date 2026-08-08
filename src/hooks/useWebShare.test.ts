@@ -18,13 +18,15 @@ describe("useWebShare", () => {
   });
 
   it("detects when navigator.share is unavailable", () => {
-    Object.defineProperty(navigator, "share", {
-      value: undefined,
-      configurable: true,
-      writable: true,
-    });
+    // Remove "share" from navigator entirely so "share" in navigator is false
+    const { share: _removed, ...navigatorWithoutShare } = navigator as unknown as Record<
+      string,
+      unknown
+    >;
+    vi.stubGlobal("navigator", navigatorWithoutShare);
     const { result } = renderHook(() => useWebShare());
     expect(result.current.canShare).toBe(false);
+    vi.unstubAllGlobals();
   });
 
   it("returns success when navigator.share resolves", async () => {

@@ -13,6 +13,7 @@ interface ErrorFallbackProps {
   tryAgainLabel: string;
   detailsOpen: boolean;
   onTryAgain: () => void;
+  onReloadPage: () => void;
   onGoHome: () => void;
   onToggleDetails: () => void;
 }
@@ -23,6 +24,7 @@ function ErrorFallback({
   tryAgainLabel,
   detailsOpen,
   onTryAgain,
+  onReloadPage,
   onGoHome,
   onToggleDetails,
 }: ErrorFallbackProps) {
@@ -39,7 +41,11 @@ function ErrorFallback({
       <div className="absolute -left-12 top-10 h-32 w-32 rotate-12 border-4 border-black bg-destructive shadow-[6px_6px_0_0_var(--color-ink)] sm:h-44 sm:w-44" />
       <div className="absolute -right-10 bottom-12 h-28 w-28 -rotate-12 border-4 border-black bg-peach shadow-[6px_6px_0_0_var(--color-ink)] sm:h-40 sm:w-40" />
 
-      <section className="relative z-10 mx-auto flex w-full max-w-lg flex-col items-center text-center border-4 border-black bg-white p-6 shadow-[10px_10px_0_0_var(--color-ink)] sm:p-10">
+      <section
+        role="alert"
+        aria-live="assertive"
+        className="relative z-10 mx-auto flex w-full max-w-lg flex-col items-center text-center border-4 border-black bg-white p-6 shadow-[10px_10px_0_0_var(--color-ink)] sm:p-10"
+      >
         <div className="relative mb-2 flex flex-col items-center">
           <div className="neu-border relative mb-3 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase shadow-[3px_3px_0_0_var(--color-ink)]">
             Uh oh.
@@ -56,18 +62,25 @@ function ErrorFallback({
 
         <div className="mt-6 flex flex-col items-center gap-2">
           <h1 className="font-display text-2xl font-black leading-snug text-black sm:text-3xl">
-            Something broke.
+            Something went wrong.
           </h1>
           <p className="mx-auto max-w-xs font-mono text-xs leading-relaxed text-gray-700 sm:max-w-sm sm:text-sm">
-            An unexpected error occurred. You can try again, or head back to a safe page.
+            An unexpected error occurred. Reload the page, try again, or head back to a safe page.
           </p>
         </div>
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <button
             type="button"
-            onClick={onTryAgain}
+            onClick={onReloadPage}
             className="neu-border bg-lime text-black hover:bg-lime/90 font-mono font-bold uppercase tracking-wider px-4 py-2 shadow-[4px_4px_0_0_#000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_#000] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[0px_0px_0_0_#000]"
+          >
+            Reload Page
+          </button>
+          <button
+            type="button"
+            onClick={onTryAgain}
+            className="neu-border bg-white text-black hover:bg-gray-50 font-mono font-bold uppercase tracking-wider px-4 py-2 shadow-[4px_4px_0_0_var(--color-ink)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_var(--color-ink)] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[0px_0px_0_0_var(--color-ink)]"
           >
             {tryAgainLabel}
           </button>
@@ -163,6 +176,10 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     }));
   };
 
+  handleReloadPage = () => {
+    window.location.reload();
+  };
+
   handleGoHome = () => {
     window.location.href = "/";
   };
@@ -196,6 +213,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
         tryAgainLabel={retryCount >= MAX_SOFT_RETRIES ? "Reload Page" : "Try Again"}
         detailsOpen={detailsOpen}
         onTryAgain={this.handleTryAgain}
+        onReloadPage={this.handleReloadPage}
         onGoHome={this.handleGoHome}
         onToggleDetails={this.toggleDetails}
       />
@@ -248,6 +266,7 @@ export function RouteErrorBoundary() {
       tryAgainLabel="Reload Page"
       detailsOpen={detailsOpen}
       onTryAgain={() => window.location.reload()}
+      onReloadPage={() => window.location.reload()}
       onGoHome={() => {
         window.location.href = "/";
       }}

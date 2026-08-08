@@ -1,14 +1,12 @@
-import {
-  format,
-  formatDistanceToNow,
-  parseISO,
-  isLeapYear as fnsIsLeapYear,
-  differenceInCalendarDays,
-  isSameDay as fnsIsSameDay,
-  isToday as fnsIsToday,
-  isYesterday as fnsIsYesterday,
-  isTomorrow as fnsIsTomorrow,
-} from "date-fns";
+import format from "date-fns/format";
+import formatDistanceToNow from "date-fns/formatDistanceToNow";
+import parseISO from "date-fns/parseISO";
+import fnsIsLeapYear from "date-fns/isLeapYear";
+import differenceInCalendarDays from "date-fns/differenceInCalendarDays";
+import fnsIsSameDay from "date-fns/isSameDay";
+import fnsIsToday from "date-fns/isToday";
+import fnsIsYesterday from "date-fns/isYesterday";
+import fnsIsTomorrow from "date-fns/isTomorrow";
 
 export interface FormatEventDateOptions {
   pattern?: string;
@@ -33,12 +31,27 @@ export function toDate(dateInput: string | Date | number | null | undefined): Da
     const trimmed = dateInput.trim();
     if (!trimmed) return null;
 
+    let processed = trimmed;
+    // Check if it looks like a date/time string but lacks timezone offset indicators
+    // We look for ISO date-time formats, e.g. YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss
+    // and check if it doesn't end with Z or a timezone offset like +HH:MM or -HH:MM.
+    if (
+      /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?)?$/.test(trimmed) &&
+      !trimmed.endsWith("Z") &&
+      !/[+-]\d{2}:?\d{2}$/.test(trimmed)
+    ) {
+      // Append 'Z' to treat it as UTC if it contains hour/minute info
+      if (trimmed.includes(":") || trimmed.includes("T")) {
+        processed = trimmed.includes(" ") ? `${trimmed.replace(" ", "T")}Z` : `${trimmed}Z`;
+      }
+    }
+
     // First try ISO parse
-    const parsed = parseISO(trimmed);
+    const parsed = parseISO(processed);
     if (!isNaN(parsed.getTime())) return parsed;
 
     // Fallback to standard JS Date parse
-    const fallbackDate = new Date(trimmed);
+    const fallbackDate = new Date(processed);
     if (!isNaN(fallbackDate.getTime())) return fallbackDate;
   }
 

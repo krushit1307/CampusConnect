@@ -124,7 +124,7 @@ export default function AdminRestorePage() {
       toast.success("Post restored successfully!");
       refetchPosts();
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err.message || "Failed to restore post.");
     },
   });
@@ -142,7 +142,7 @@ export default function AdminRestorePage() {
       toast.success("Comment restored successfully!");
       refetchComments();
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err.message || "Failed to restore comment.");
     },
   });

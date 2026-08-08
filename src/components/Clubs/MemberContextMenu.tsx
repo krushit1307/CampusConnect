@@ -8,7 +8,7 @@ interface MemberContextMenuProps {
     id: string;
     fullName: string;
     role: string;
-    [key: string]: any;
+    handle?: string;
   };
   onToggleRole: (memberId: string, currentRole: string) => void;
   onKick: (memberId: string) => void;

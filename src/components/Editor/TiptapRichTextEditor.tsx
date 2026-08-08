@@ -94,7 +94,12 @@ export const TiptapRichTextEditor: React.FC<TiptapRichTextEditorProps> = ({
             .maybeSingle()
             .then(({ data }) => {
               if (data && editor) {
-                const clubName = Array.isArray(data.clubs) ? data.clubs[0]?.name : data.clubs?.name;
+                const clubs = (
+                  data as unknown as {
+                    clubs: { name: string }[] | { name: string } | null;
+                  }
+                ).clubs;
+                const clubName = Array.isArray(clubs) ? clubs[0]?.name : clubs?.name;
 
                 editor
                   .chain()

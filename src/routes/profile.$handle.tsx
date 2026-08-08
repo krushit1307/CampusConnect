@@ -3,10 +3,11 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MapPin, Link2, Calendar, Award, Building, CalendarPlus, ArrowRight } from "lucide-react";
+import { MapPin, Link2, Calendar, Award, Building, CalendarPlus, ArrowRight, History as HistoryIcon } from "lucide-react";
 import { NotFoundPage } from "@/components/NotFoundPage";
 import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
 import { UserProfileSkeleton } from "@/components/UserProfileSkeleton";
+import { HistoryTimeline, TimelineItem } from "@/components/profile/HistoryTimeline";
 
 function getInitials(name: string) {
   return name
@@ -43,7 +44,7 @@ export default function Profile() {
           linkedin_url
         `,
         )
-        .eq("handle", handle)
+        .eq("handle", handle!)
         .single();
       if (error) throw error;
       return data;
@@ -95,6 +96,80 @@ export default function Profile() {
         .eq("user_id", profile.id)
         .order("issued_at", { ascending: false });
       return data || [];
+    },
+    enabled: !!profile?.id,
+  });
+
+  const { data: timelineItems = [] } = useQuery({
+    queryKey: ["profileTimeline", profile?.id],
+    queryFn: async () => {
+      if (!profile) return [];
+      const [membersRes, rsvpsRes, postsRes] = await Promise.all([
+        supabase
+          .from("club_members")
+          .select("id, joined_at, clubs (name, slug)")
+          .eq("user_id", profile.id)
+          .eq("status", "approved"),
+        supabase
+          .from("event_rsvps")
+          .select("id, rsvp_at, events (id, title, event_date)")
+          .eq("user_id", profile.id),
+        supabase
+          .from("posts")
+          .select("id, content, created_at, clubs (name, slug)")
+          .eq("author_id", profile.id)
+          .is("deleted_at", null),
+      ]);
+
+      const items: TimelineItem[] = [];
+
+      (membersRes.data || []).forEach((m: any) => {
+        const club = Array.isArray(m.clubs) ? m.clubs[0] : m.clubs;
+        if (club && m.joined_at) {
+          items.push({
+            id: `club-${m.id}`,
+            type: "club_join",
+            date: m.joined_at,
+            title: `Joined ${club.name}`,
+            description: `Became an approved member of ${club.name}.`,
+            link: `/clubs/${club.slug}`,
+          });
+        }
+      });
+
+      (rsvpsRes.data || []).forEach((r: any) => {
+        const event = Array.isArray(r.events) ? r.events[0] : r.events;
+        if (event && r.rsvp_at) {
+          items.push({
+            id: `rsvp-${r.id}`,
+            type: "rsvp",
+            date: r.rsvp_at,
+            title: `RSVP'd to ${event.title}`,
+            description: `Registered to attend the event on ${
+              event.event_date
+                ? new Date(event.event_date).toLocaleDateString()
+                : "TBA"
+            }.`,
+            link: `/events/${event.id}`,
+          });
+        }
+      });
+
+      (postsRes.data || []).forEach((p: any) => {
+        const club = Array.isArray(p.clubs) ? p.clubs[0] : p.clubs;
+        if (p.created_at) {
+          items.push({
+            id: `post-${p.id}`,
+            type: "post",
+            date: p.created_at,
+            title: club ? `Posted in ${club.name}` : "Created a new post",
+            description: p.content.length > 120 ? p.content.substring(0, 120) + "..." : p.content,
+            link: club ? `/clubs/${club.slug}` : "#",
+          });
+        }
+      });
+
+      return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     },
     enabled: !!profile?.id,
   });
@@ -320,6 +395,15 @@ export default function Profile() {
                 )}
               </div>
             )}
+          </div>
+
+          {/* Activity History Section */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 border-b-2 border-black pb-2 text-xl font-bold font-display">
+              <HistoryIcon size={24} className="text-lime" />
+              <h2>Activity History</h2>
+            </div>
+            <HistoryTimeline items={timelineItems} />
           </div>
         </div>
       </section>

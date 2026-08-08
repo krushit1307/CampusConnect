@@ -161,6 +161,12 @@ export default function PendingClubsAdmin() {
               </p>
             </div>
             <Link
+              to="/admin/dlq"
+              className="neu-border text-center bg-white px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-cream"
+            >
+              Dead Letter Queue
+            </Link>
+            <Link
               to="/admin/analytics"
               className="neu-border text-center bg-white px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-cream"
             >

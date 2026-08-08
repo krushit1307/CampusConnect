@@ -1,9 +1,19 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Navigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { ShieldAlert, CheckCircle, XCircle, ChevronUp, ChevronDown, Loader2 } from "lucide-react";
+import {
+  ShieldAlert,
+  CheckCircle,
+  XCircle,
+  ChevronUp,
+  ChevronDown,
+  Loader2,
+  FileSpreadsheet,
+} from "lucide-react";
+import { BulkUserImportModal } from "@/components/admin/BulkUserImportModal";
 
 interface Profile {
   id: string;
@@ -13,34 +23,19 @@ interface Profile {
   is_banned: boolean;
 }
 
-interface GraphQLResponse {
-  profiles: Profile[];
-  totalProfiles: number;
-}
-
-interface MutationResponse {
-  suspendUsers: {
-    id: string;
-    is_banned: boolean;
-  }[];
-}
+import { fetchGraphQL, GraphQLPartialError } from "@/lib/graphql-client";
+import {
+  GetProfilesQuery,
+  GetProfilesQueryVariables,
+  SuspendUsersMutation,
+  SuspendUsersMutationVariables,
+} from "@/generated/graphql";
 
 async function graphqlRequest<T>(
   query: string,
   variables: Record<string, unknown> = {},
 ): Promise<T> {
-  const res = await fetch("/api/graphql", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-  const json = await res.json();
-  if (json.errors) {
-    throw new Error(json.errors[0].message || "GraphQL Error");
-  }
-  return json.data as T;
+  return fetchGraphQL<T, Record<string, unknown>>(query, variables);
 }
 
 export default function AdminUsersPage() {
@@ -48,13 +43,13 @@ export default function AdminUsersPage() {
   const [user, setUser] = useState<unknown>(null);
   const [role, setRole] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Grid states
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [limit] = useState(10);
-  const [page, setPage] = useState(0);
+  const [limit] = useState(10000);
   const [sortBy, setSortBy] = useState<string>("full_name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -115,26 +110,32 @@ export default function AdminUsersPage() {
           totalProfiles
         }
       `;
-      const variables = {
+      const variables: GetProfilesQueryVariables = {
         limit,
-        offset: page * limit,
+        offset: 0,
         sortBy,
         sortOrder,
       };
-
-      const data = await graphqlRequest<GraphQLResponse>(query, variables);
+      const data = await graphqlRequest<GetProfilesQuery>(query, variables);
       setProfiles(data.profiles);
       setTotal(data.totalProfiles);
     } catch (err: unknown) {
       console.error(err);
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to load users from GraphQL.";
-      toast.error(errorMessage);
+      // Partial failure: render what we got, warn the user
+      if (err instanceof GraphQLPartialError) {
+        const partial = err.data as GetProfilesQuery;
+        if (partial?.profiles) setProfiles(partial.profiles as Profile[]);
+        if (partial?.totalProfiles != null) setTotal(partial.totalProfiles);
+        toast.warning("Some user data failed to load. Showing partial results.");
+      } else {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to load users from GraphQL.";
+        toast.error(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
-  }, [authChecked, role, page, limit, sortBy, sortOrder]);
-
+  }, [authChecked, role, limit, sortBy, sortOrder]);
   useEffect(() => {
     void loadProfiles();
   }, [loadProfiles]);
@@ -175,9 +176,7 @@ export default function AdminUsersPage() {
       setSortBy(field);
       setSortOrder("asc");
     }
-    setPage(0);
   };
-
   // Bulk Suspend action
   const handleBulkSuspend = async () => {
     if (selectedIds.size === 0) return;
@@ -200,7 +199,8 @@ export default function AdminUsersPage() {
           }
         }
       `;
-      await graphqlRequest<MutationResponse>(mutation, { ids: idsToSuspend });
+      const variables: SuspendUsersMutationVariables = { ids: idsToSuspend };
+      await graphqlRequest<SuspendUsersMutation>(mutation, variables);
       toast.success(`Successfully suspended ${idsToSuspend.length} users.`);
       void loadProfiles();
     } catch (err: unknown) {
@@ -242,6 +242,13 @@ export default function AdminUsersPage() {
   const allCurrentSelected =
     currentPageIds.length > 0 && currentPageIds.every((id) => selectedIds.has(id));
 
+  const parentRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: profiles.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 35, // estimated row height in px
+    overscan: 5, // buffer rows above/below viewport
+  });
   return (
     <SiteShell>
       <div className="bg-cream min-h-screen px-4 py-12 md:px-8 font-mono text-black">
@@ -255,6 +262,13 @@ export default function AdminUsersPage() {
               <h1 className="text-4xl font-extrabold uppercase mt-1">User Directory</h1>
             </div>
             <div className="flex items-center gap-4">
+              <button
+                onClick={() => setIsImportModalOpen(true)}
+                className="neu-border px-4 py-2 text-sm font-bold uppercase transition-all flex items-center gap-2 rounded-none cursor-pointer bg-lime hover:-translate-y-0.5 active:translate-y-0 text-black border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                Bulk Import CSV
+              </button>
               <button
                 onClick={handleBulkSuspend}
                 disabled={selectedIds.size === 0}
@@ -278,8 +292,9 @@ export default function AdminUsersPage() {
                 <span className="text-sm font-bold uppercase">Loading profiles...</span>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div ref={parentRef} className="overflow-auto" style={{ height: "600px" }}>
                 <table className="w-full text-left border-collapse">
+                  {" "}
                   <thead>
                     <tr className="border-b-4 border-black font-bold uppercase text-sm">
                       <th className="py-4 px-3 w-12 text-center">
@@ -348,7 +363,9 @@ export default function AdminUsersPage() {
                       </th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody
+                    style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: "relative" }}
+                  >
                     {profiles.length === 0 ? (
                       <tr>
                         <td
@@ -359,7 +376,8 @@ export default function AdminUsersPage() {
                         </td>
                       </tr>
                     ) : (
-                      profiles.map((profile) => {
+                      rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                        const profile = profiles[virtualRow.index];
                         const isSelected = selectedIds.has(profile.id);
                         const isSuspended =
                           profile.is_banned || optimisticSuspendedIds.has(profile.id);
@@ -367,10 +385,21 @@ export default function AdminUsersPage() {
                         return (
                           <tr
                             key={profile.id}
+                            data-index={virtualRow.index}
+                            ref={rowVirtualizer.measureElement}
+                            style={{
+                              position: "absolute",
+                              top: 0,
+                              left: 0,
+                              width: "100%",
+                              display: "table",
+                              transform: `translateY(${virtualRow.start}px)`,
+                            }}
                             className={`border-b-2 border-black font-semibold text-sm hover:bg-cream/20 transition-colors ${
                               isSelected ? "bg-lime/5" : ""
                             }`}
                           >
+                            {" "}
                             <td className="py-4 px-3 text-center">
                               <input
                                 type="checkbox"
@@ -407,41 +436,18 @@ export default function AdminUsersPage() {
                 </table>
               </div>
             )}
-
-            {/* Pagination Controls */}
-            <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-t-2 border-black pt-6 text-sm font-bold">
-              <div>
-                Showing {total === 0 ? 0 : page * limit + 1} to{" "}
-                {Math.min(total, (page + 1) * limit)} of {total} users
-              </div>
-              <div className="flex gap-4">
-                <button
-                  disabled={page === 0}
-                  onClick={() => setPage((p) => p - 1)}
-                  className={`neu-border px-4 py-1.5 uppercase transition-all rounded-none cursor-pointer ${
-                    page > 0
-                      ? "bg-white hover:-translate-y-0.5 active:translate-y-0 text-black border-black"
-                      : "bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed"
-                  }`}
-                >
-                  Previous
-                </button>
-                <button
-                  disabled={(page + 1) * limit >= total}
-                  onClick={() => setPage((p) => p + 1)}
-                  className={`neu-border px-4 py-1.5 uppercase transition-all rounded-none cursor-pointer ${
-                    (page + 1) * limit < total
-                      ? "bg-white hover:-translate-y-0.5 active:translate-y-0 text-black border-black"
-                      : "bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed"
-                  }`}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+            {/* Row count summary — pagination replaced by virtual scrolling */}
+            <div className="mt-6 flex items-center border-t-2 border-black pt-6 text-sm font-bold">
+              <div>Showing all {total} users</div>
+            </div>{" "}
           </div>
         </div>
       </div>
+      <BulkUserImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccessRefresh={() => void loadProfiles()}
+      />
     </SiteShell>
   );
 }

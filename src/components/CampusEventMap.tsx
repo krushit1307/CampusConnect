@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.heat";
 import { createClient } from "@/lib/supabase/client";
 import { parseCoordinates, formatEventDateRange } from "@/lib/eventUtils";
 import { formatStandardDate } from "@/utils/dateUtils";
@@ -34,6 +35,7 @@ export interface MapEventItem {
   banner_url?: string | null;
   club_name?: string | null;
   clubs?: { name: string } | { name: string }[] | null;
+  rsvp_count?: number;
 }
 
 export interface CampusEventMapProps {
@@ -56,6 +58,38 @@ function RecenterController({ center }: { center: [number, number] }) {
   return null;
 }
 
+function HeatmapLayer({ points }: { points: [number, number, number][] }) {
+  const map = useMap();
+  const layerRef = useRef<L.Layer | null>(null);
+
+  useEffect(() => {
+    // Remove existing layer if any
+    if (layerRef.current) {
+      map.removeLayer(layerRef.current);
+      layerRef.current = null;
+    }
+
+    if (points.length > 0 && (L as any).heatLayer) {
+      layerRef.current = (L as any)
+        .heatLayer(points, {
+          radius: 25,
+          blur: 15,
+          maxZoom: 17,
+        })
+        .addTo(map);
+    }
+
+    return () => {
+      if (layerRef.current) {
+        map.removeLayer(layerRef.current);
+        layerRef.current = null;
+      }
+    };
+  }, [map, points]);
+
+  return null;
+}
+
 export function CampusEventMap({
   initialCenter = DEFAULT_MAP_CENTER,
   initialZoom = 15,
@@ -69,6 +103,9 @@ export function CampusEventMap({
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [currentCenter, setCurrentCenter] = useState<[number, number]>(initialCenter);
+  const [viewMode, setViewMode] = useState<"pins" | "heatmap">(
+    initialEvents && initialEvents.length > 500 ? "heatmap" : "pins",
+  );
 
   // Fetch upcoming events from Supabase if not provided via props
   const fetchUpcomingEvents = useCallback(async () => {
@@ -90,7 +127,8 @@ export function CampusEventMap({
           end_date,
           event_date,
           banner_url,
-          clubs ( name )
+          clubs ( name ),
+          event_rsvps ( count )
         `,
         )
         .or(`start_date.gte.${nowIso},event_date.gte.${nowIso},start_date.is.null`)
@@ -102,7 +140,7 @@ export function CampusEventMap({
       }
 
       if (data) {
-        const formatted: MapEventItem[] = data.map((item) => ({
+        const formatted: MapEventItem[] = data.map((item: any) => ({
           id: item.id,
           title: item.title,
           description: item.description,
@@ -114,8 +152,17 @@ export function CampusEventMap({
           event_date: item.event_date,
           banner_url: item.banner_url,
           club_name: Array.isArray(item.clubs) ? item.clubs[0]?.name : item.clubs?.name,
+          rsvp_count:
+            Array.isArray(item.event_rsvps) && item.event_rsvps.length > 0
+              ? item.event_rsvps[0].count || 0
+              : typeof item.event_rsvps === "object" && item.event_rsvps?.count
+                ? item.event_rsvps.count
+                : 0,
         }));
         setEvents(formatted);
+        if (formatted.length > 500 && !initialEvents) {
+          setViewMode("heatmap");
+        }
       }
     } catch (err) {
       console.error("Failed to fetch events for campus map:", err);
@@ -172,6 +219,15 @@ export function CampusEventMap({
     );
   }, [mappedEvents, searchTerm]);
 
+  const heatPoints = useMemo(() => {
+    const maxRsvps = Math.max(1, ...filteredEvents.map((e) => e.rsvp_count || 0));
+    return filteredEvents.map((event) => {
+      const weight = (event.rsvp_count || 0) / maxRsvps;
+      const finalWeight = Math.max(0.1, weight);
+      return [event.coords[0], event.coords[1], finalWeight] as [number, number, number];
+    });
+  }, [filteredEvents]);
+
   // Helper for displaying dates nicely in popup
   const getEventDateText = (event: MapEventItem): string => {
     if (event.start_date && event.end_date) {
@@ -217,6 +273,13 @@ export function CampusEventMap({
               {filteredEvents.length} {filteredEvents.length === 1 ? "Event" : "Events"} On Map
             </span>
             <button
+              onClick={() => setViewMode((v) => (v === "pins" ? "heatmap" : "pins"))}
+              title="Toggle View Mode"
+              className="flex items-center gap-1 border-2 border-black bg-white px-2.5 py-1 font-mono text-xs font-bold hover:bg-cream active:translate-y-0.5"
+            >
+              {viewMode === "pins" ? "Show Heatmap" : "Show Pins"}
+            </button>
+            <button
               onClick={handleResetView}
               title="Reset Campus View"
               className="flex items-center gap-1 border-2 border-black bg-white px-2.5 py-1 font-mono text-xs font-bold hover:bg-cream active:translate-y-0.5"
@@ -241,66 +304,68 @@ export function CampusEventMap({
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <RecenterController center={currentCenter} />
+          {viewMode === "heatmap" && <HeatmapLayer points={heatPoints} />}
 
-          {filteredEvents.map((event) => {
-            const clubName = getClubName(event);
-            const dateStr = getEventDateText(event);
+          {viewMode === "pins" &&
+            filteredEvents.map((event) => {
+              const clubName = getClubName(event);
+              const dateStr = getEventDateText(event);
 
-            return (
-              <Marker
-                key={event.id}
-                position={event.coords}
-                icon={markerIcon}
-                eventHandlers={{
-                  click: () => {
-                    setCurrentCenter(event.coords);
-                  },
-                }}
-              >
-                <Popup className="campus-map-popup min-w-[220px]">
-                  <div className="p-1 font-sans" data-testid={`event-popup-${event.id}`}>
-                    {event.banner_url && (
-                      <div className="mb-2 overflow-hidden border border-black">
-                        <img
-                          src={event.banner_url}
-                          alt={event.title}
-                          className="h-24 w-full object-cover"
-                        />
+              return (
+                <Marker
+                  key={event.id}
+                  position={event.coords}
+                  icon={markerIcon}
+                  eventHandlers={{
+                    click: () => {
+                      setCurrentCenter(event.coords);
+                    },
+                  }}
+                >
+                  <Popup className="campus-map-popup min-w-[220px]">
+                    <div className="p-1 font-sans" data-testid={`event-popup-${event.id}`}>
+                      {event.banner_url && (
+                        <div className="mb-2 overflow-hidden border border-black">
+                          <img
+                            src={event.banner_url}
+                            alt={event.title}
+                            className="h-24 w-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <h3 className="mb-1 font-display text-sm font-bold leading-tight text-black">
+                        {event.title}
+                      </h3>
+
+                      {clubName && (
+                        <p className="mb-1 font-mono text-[11px] font-semibold text-gray-700">
+                          Hosted by {clubName}
+                        </p>
+                      )}
+
+                      <div className="mb-1.5 flex items-start gap-1 font-mono text-[11px] text-gray-600">
+                        <Calendar className="mt-0.5 h-3 w-3 shrink-0" />
+                        <span>{dateStr}</span>
                       </div>
-                    )}
-                    <h3 className="mb-1 font-display text-sm font-bold leading-tight text-black">
-                      {event.title}
-                    </h3>
 
-                    {clubName && (
-                      <p className="mb-1 font-mono text-[11px] font-semibold text-gray-700">
-                        Hosted by {clubName}
-                      </p>
-                    )}
+                      {event.location && (
+                        <div className="mb-2.5 flex items-start gap-1 font-mono text-[11px] text-gray-600">
+                          <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-red-500" />
+                          <span className="truncate">{event.location}</span>
+                        </div>
+                      )}
 
-                    <div className="mb-1.5 flex items-start gap-1 font-mono text-[11px] text-gray-600">
-                      <Calendar className="mt-0.5 h-3 w-3 shrink-0" />
-                      <span>{dateStr}</span>
+                      <Link
+                        to={`/events/${event.id}`}
+                        className="neu-border neu-press inline-block w-full text-center bg-peach py-1.5 px-3 font-mono text-xs font-bold uppercase tracking-wider text-black transition-colors hover:bg-yellow-300"
+                      >
+                        View Event Page →
+                      </Link>
                     </div>
-
-                    {event.location && (
-                      <div className="mb-2.5 flex items-start gap-1 font-mono text-[11px] text-gray-600">
-                        <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-red-500" />
-                        <span className="truncate">{event.location}</span>
-                      </div>
-                    )}
-
-                    <Link
-                      to={`/events/${event.id}`}
-                      className="neu-border neu-press inline-block w-full text-center bg-peach py-1.5 px-3 font-mono text-xs font-bold uppercase tracking-wider text-black transition-colors hover:bg-yellow-300"
-                    >
-                      View Event Page →
-                    </Link>
-                  </div>
-                </Popup>
-              </Marker>
-            );
-          })}
+                  </Popup>
+                </Marker>
+              );
+            })}
         </MapContainer>
 
         {/* Loading overlay */}

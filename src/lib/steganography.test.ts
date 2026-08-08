@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   bitsToString,
   createImageDataContainer,
@@ -79,6 +79,19 @@ describe("steganography LSB module", () => {
 });
 
 describe("steganography Ed25519 / HMAC signature module", () => {
+  beforeEach(() => {
+    // Only fake the clock/timer APIs — leave Node internals alone so async
+    // Web Crypto calls (crypto.subtle.digest) keep working normally.
+    vi.useFakeTimers({
+      toFake: ["Date", "setTimeout", "clearTimeout", "setInterval", "clearInterval"],
+    });
+    vi.setSystemTime(new Date("2024-01-01T12:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("generates and verifies valid ticket signatures", async () => {
     const rsvpId = "RSVP-ABC-123";
     const timestamp = Date.now();
@@ -106,18 +119,24 @@ describe("steganography Ed25519 / HMAC signature module", () => {
     expect(result.reason).toContain("signature verification failed");
   });
 
-  it("rejects expired ticket signatures", async () => {
+  it("stays valid up to 23h59m and expires the instant it crosses the 24h boundary", async () => {
     const rsvpId = "RSVP-EXPIRED";
-    const oldTimestamp = Date.now() - 48 * 60 * 60 * 1000; // 48 hours ago
+    const maxAgeMs = 24 * 60 * 60 * 1000;
 
-    const signedPayload = await signTicketPayload(rsvpId, oldTimestamp);
-    // 24 hour max age window
-    const result = await verifyTicketPayload(signedPayload, 24 * 60 * 60 * 1000);
+    // Generate the ticket "now" (2024-01-01T12:00:00Z, from the fake clock above).
+    const signedPayload = await signTicketPayload(rsvpId);
 
-    expect(result.valid).toBe(false);
-    expect(result.reason).toContain("expired");
+    // Time-travel 23 hours and 59 minutes forward — should still be valid.
+    vi.advanceTimersByTime(23 * 60 * 60 * 1000 + 59 * 60 * 1000);
+    const stillValid = await verifyTicketPayload(signedPayload, maxAgeMs);
+    expect(stillValid.valid).toBe(true);
+
+    // Time-travel 2 more minutes forward — now past the 24-hour mark.
+    vi.advanceTimersByTime(2 * 60 * 1000);
+    const nowExpired = await verifyTicketPayload(signedPayload, maxAgeMs);
+    expect(nowExpired.valid).toBe(false);
+    expect(nowExpired.reason).toContain("expired");
   });
-
   it("computes SHA-256 hex hashes reproducibly", async () => {
     const hash1 = await sha256Hex("CampusConnect");
     const hash2 = await sha256Hex("CampusConnect");

@@ -389,33 +389,6 @@ export function CollaborativeEditor({ eventId, user, onSave }: CollaborativeEdit
     };
   }, [undoManager]);
 
-  // Setup Keyboard Shortcuts for Undo/Redo
-  useEffect(() => {
-    if (!editor || !editor.view.dom) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl + Z -> Undo
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
-        e.preventDefault();
-        undoManager.undo();
-        editor.commands.focus();
-      }
-      // Cmd/Ctrl + Shift + Z or Cmd/Ctrl + Y -> Redo
-      else if (
-        (e.metaKey || e.ctrlKey) &&
-        ((e.key.toLowerCase() === "z" && e.shiftKey) || e.key.toLowerCase() === "y")
-      ) {
-        e.preventDefault();
-        undoManager.redo();
-        editor.commands.focus();
-      }
-    };
-
-    const editorDOM = editor.view.dom;
-    editorDOM.addEventListener("keydown", handleKeyDown, { capture: true });
-    return () => editorDOM.removeEventListener("keydown", handleKeyDown, { capture: true });
-  }, [editor, undoManager]);
-
   // 4. Setup Tiptap Editor
   const editor = useEditor(
     {
@@ -448,6 +421,33 @@ export function CollaborativeEditor({ eventId, user, onSave }: CollaborativeEdit
     },
     [isLoaded, userProfile],
   );
+
+  // Setup Keyboard Shortcuts for Undo/Redo
+  useEffect(() => {
+    if (!editor || !editor.view.dom) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl + Z -> Undo
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undoManager.undo();
+        editor.commands.focus();
+      }
+      // Cmd/Ctrl + Shift + Z or Cmd/Ctrl + Y -> Redo
+      else if (
+        (e.metaKey || e.ctrlKey) &&
+        ((e.key.toLowerCase() === "z" && e.shiftKey) || e.key.toLowerCase() === "y")
+      ) {
+        e.preventDefault();
+        undoManager.redo();
+        editor.commands.focus();
+      }
+    };
+
+    const editorDOM = editor.view.dom;
+    editorDOM.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () => editorDOM.removeEventListener("keydown", handleKeyDown, { capture: true });
+  }, [editor, undoManager]);
 
   if (!isLoaded || !userProfile) {
     return (

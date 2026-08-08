@@ -10,6 +10,7 @@ interface NotificationItemProps {
     timestamp: string;
     isRead: boolean;
     link?: string;
+    metadata?: Record<string, unknown> | null;
   };
   onMarkAsRead: (id: string) => void;
   /**

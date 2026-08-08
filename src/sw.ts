@@ -4,10 +4,52 @@ import { registerRoute } from "workbox-routing";
 import { NetworkOnly, StaleWhileRevalidate } from "workbox-strategies";
 import { BackgroundSyncPlugin } from "workbox-background-sync";
 import { CacheableResponsePlugin } from "workbox-cacheable-response";
+import { ExpirationPlugin } from "workbox-expiration";
 
 declare let self: ServiceWorkerGlobalScope;
 
 precacheAndRoute(self.__WB_MANIFEST || []);
+
+// ── Workbox Background Sync Plugin for RSVP Mutations ──
+const rsvpBgSyncPlugin = new BackgroundSyncPlugin("rsvp-mutations-queue", {
+  maxRetentionTime: 24 * 60, // Retry for up to 24 hours (in minutes)
+  onSync: async (options) => {
+    try {
+      await options.queue.replayRequests();
+      console.log("[SW] RSVP Workbox Background Sync completed replaying queued requests.");
+
+      // Broadcast success message to open tabs
+      const clients = await self.clients.matchAll();
+      for (const client of clients) {
+        client.postMessage({ type: "OFFLINE_RSVP_SYNC_SUCCESS" });
+        client.postMessage({ type: "OFFLINE_EVENTS_SYNC" });
+      }
+    } catch (err) {
+      console.error("[SW] RSVP Workbox Background Sync replay failed:", err);
+      const clients = await self.clients.matchAll();
+      for (const client of clients) {
+        client.postMessage({
+          type: "OFFLINE_RSVP_SYNC_ERROR",
+          reason:
+            err instanceof Error ? err.message : "Sync failed due to conflict or full capacity",
+        });
+      }
+    }
+  },
+});
+
+// Intercept RSVP mutation endpoint (/toggle-rsvp or /event_rsvps)
+registerRoute(
+  ({ url, request }) => {
+    const isRsvpEndpoint =
+      url.pathname.includes("/toggle-rsvp") || url.pathname.includes("/event_rsvps");
+    const isMutationMethod = ["POST", "PUT", "PATCH", "DELETE"].includes(request.method);
+    return isRsvpEndpoint && isMutationMethod;
+  },
+  new NetworkOnly({
+    plugins: [rsvpBgSyncPlugin],
+  }),
+);
 
 // ── Workbox Background Sync Plugin for Supabase Mutations ──
 // Intercepts failed POST/PUT/PATCH/DELETE requests (e.g. to /rest/v1/events)
@@ -30,9 +72,13 @@ const bgSyncPlugin = new BackgroundSyncPlugin("supabase-mutations-queue", {
   },
 });
 
-// Intercept all Supabase mutation endpoints (POST, PUT, PATCH, DELETE)
+// Intercept all other Supabase mutation endpoints (POST, PUT, PATCH, DELETE)
 registerRoute(
   ({ url, request }) => {
+    const isRsvpEndpoint =
+      url.pathname.includes("/toggle-rsvp") || url.pathname.includes("/event_rsvps");
+    if (isRsvpEndpoint) return false;
+
     const isSupabaseMutation =
       url.hostname.includes("supabase.co") ||
       url.pathname.includes("/rest/v1/") ||
@@ -76,10 +122,23 @@ registerRoute(
   }),
 );
 
-// All other Supabase API calls (GET requests) — always go to network, never cache.
+// All other Supabase API calls (GET requests) — cache with StaleWhileRevalidate and expire old cache entries via LRU.
 registerRoute(
-  ({ url }) => url.hostname.includes("supabase.co") || url.pathname.includes("/rest/v1/"),
-  new NetworkOnly(),
+  ({ url, request }) =>
+    request.method === "GET" &&
+    (url.hostname.includes("supabase.co") || url.pathname.includes("/rest/v1/") || url.pathname.includes("/functions/v1/")),
+  new StaleWhileRevalidate({
+    cacheName: "supabase-api-cache",
+    plugins: [
+      new CacheableResponsePlugin({
+        statuses: [0, 200],
+      }),
+      new ExpirationPlugin({
+        maxEntries: 100,
+        maxAgeSeconds: 24 * 60 * 60, // 24 hours
+      }),
+    ],
+  }),
 );
 
 // Offline fallback for full-page navigations (e.g. a hard refresh while offline).
@@ -91,12 +150,9 @@ self.addEventListener("install", (event) => {
 
 registerRoute(
   ({ request }) => request.mode === "navigate",
-  async ({ event }) => {
+  async ({ event, request }) => {
     try {
-      return await new NetworkOnly().handle({
-        event,
-        request: (event as unknown as FetchEvent).request,
-      } as never);
+      return await new NetworkOnly().handle({ event, request });
     } catch {
       const cache = await caches.open("offline-fallback-cache");
       const cachedResponse = await cache.match(OFFLINE_URL);

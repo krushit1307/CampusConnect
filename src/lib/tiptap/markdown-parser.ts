@@ -69,8 +69,20 @@ export async function parseMarkdownToTiptap(
 
       xhr.send(formData);
     });
-  } catch (err: any) {
+
+    if (error) {
+      console.error("Edge function invocation error:", error);
+      return { success: false, error: error.message };
+    }
+
+    if (!data.success) {
+      return { success: false, error: data.error || "Unknown parsing error" };
+    }
+
+    return { success: true, data: data.data, fileName: data.fileName };
+  } catch (err) {
     console.error("Unexpected error in parseMarkdownToTiptap:", err);
-    return { success: false, error: err.message || "Network error" };
+    const errorMsg = err instanceof Error ? err.message : "Network error";
+    return { success: false, error: errorMsg };
   }
 }

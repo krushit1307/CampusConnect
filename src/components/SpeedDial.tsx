@@ -60,7 +60,7 @@ export function SpeedDial() {
       opacity: 1,
       y: 0,
       scale: 1,
-      transition: { delay: i * 0.05, type: "spring", stiffness: 300, damping: 25 },
+      transition: { delay: i * 0.05, type: "spring" as const, stiffness: 300, damping: 25 },
     }),
     exit: { opacity: 0, y: 20, scale: 0.8, transition: { duration: 0.15 } },
   };

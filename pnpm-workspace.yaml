@@ -1,4 +1,6 @@
 packages:
   - "."
 allowBuilds:
-  tesseract.js: set this to true or false
+  cypress: true
+  esbuild: true
+  tesseract.js: true

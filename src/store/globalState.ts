@@ -23,6 +23,8 @@ import { createAuthSlice, type AuthSlice } from "./createAuthSlice";
 import { createUISlice, type UISlice } from "./createUISlice";
 import { createCacheSlice, type CacheSlice } from "./createCacheSlice";
 
+export type Store = AuthSlice & UISlice & CacheSlice;
+
 // ─── Types ────────────────────────────────────────────────────────────
 export interface GlobalState {
   user: UserProfile | null;
@@ -47,15 +49,6 @@ const getInitialStoredTheme = (): "light" | "dark" | "system" | "high-contrast" 
   }
   return "light";
 };
-
-// Fine-grained signal declarations for global state variables
-export const [userSignal, setUserSignal] = createSignal<UserProfile | null>(null);
-export const [themeSignal, setThemeSignal] = createSignal<
-  "light" | "dark" | "system" | "high-contrast"
->(getInitialStoredTheme());
-export const [notificationsCountSignal, setNotificationsCountSignal] = createSignal<number>(0);
-export const [unreadMessagesCountSignal, setUnreadMessagesCountSignal] = createSignal<number>(0);
-export const [activeTabSignal, setActiveTabSignal] = createSignal<string>("overview");
 
 // Proxy-backed global state object for direct property dependency tracking
 export const globalState = createReactiveObject<GlobalState>({
@@ -98,7 +91,7 @@ export function setUser(user: UserProfile | null): void {
  * Updates the current theme in global state signals and store.
  */
 export function setTheme(theme: "light" | "dark" | "system" | "high-contrast"): void {
-  setThemeSignal(theme);
+  store.setTheme(theme);
   globalState.theme = theme;
   if (typeof window !== "undefined") {
     window.localStorage.setItem("campusconnect-theme", theme);
