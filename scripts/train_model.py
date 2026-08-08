@@ -58,7 +58,62 @@ with open(output_path, "w") as f:
 
 print(f"\nModel parameters exported to: {output_path}")
 
+diff --git a/scripts/train_model.py b/scripts/train_model.py
 --- a/scripts/train_model.py
+@@ -10,6 +10,7 @@
+ import numpy as np
+ from sklearn.model_selection import train_test_split
+ from sklearn.linear_model import LogisticRegression
++from sklearn.metrics import accuracy_score
+
+ def load_data():
+     # Load data implementation here
+@@ -25,6 +26,7 @@ def load_data():
+     return X_train, X_test, y_train, y_test
+
+ def train_model(X_train, y_train):
++    model = LogisticRegression()
+     model.fit(X_train, y_train)
+     return model
+
+@@ -34,3 +36,5 @@ def evaluate_model(model, X_test, y_test):
+     predictions = model.predict(X_test)
+     accuracy = np.mean(predictions == y_test)
+     return accuracy
++
++if __name__ == "__main__":
++    X_train, X_test, y_train, y_test = load_data()
++    model = train_model(X_train, y_train)
++    accuracy = evaluate_model(model, X_test, y_test)
++    print(f"Model Accuracy: {accuracy:.2f}")
+--- a/scripts/train_model.py
+@@ -10,6 +10,7 @@
+ import torch.optim as optim
+ 
+ from models import get_model
++from datasets import load_dataset
+ from utils import train_epoch, eval_model
+ 
+ def main():
+@@ -20,6 +21,8 @@ def main():
+     device = "cuda" if torch.cuda.is_available() else "cpu"
+ 
+     # Load model and move to device
+-    model = get_model()
++    dataset = load_dataset('path_to_dataset')
++    model = get_model().to(device)
+ 
+     # Define optimizer
+     optimizer = optim.Adam(model.parameters(), lr=1e-4)
+@@ -29,7 +32,7 @@ def main():
+         train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+ 
+-        train_epoch(model, train_loader, optimizer, device)
++        train_epoch(model, train_loader, optimizer, device)
+         eval_model(model, val_loader, device)
+ 
+ if __name__ == "__main__":
 @@ -10,6 +10,8 @@ import torch.nn as nn
  import torch.optim as optim
  

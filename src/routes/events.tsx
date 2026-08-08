@@ -13,6 +13,7 @@ import { Search } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { AutocompleteDropdown, AutocompleteResult } from "@/components/AutocompleteDropdown";
 import { useNavigate } from "react-router-dom";
+import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import {
   Select,
@@ -215,6 +216,8 @@ function EventsPage() {
         console.log(`[CampusConnect] Mock RSVP toggled for event: ${eventId}`);
         return;
       }
+      const idempotencyKey = getRsvpIdempotencyKey(eventId);
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -223,9 +226,11 @@ function EventsPage() {
         body: { eventId, hasRsvpd },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
+          "Idempotency-Key": idempotencyKey,
         },
       });
       if (error) throw error;
+      clearRsvpIdempotencyKey(eventId);
     },
     onMutate: async ({ eventId, hasRsvpd }) => {
       await queryClient.cancelQueries({ queryKey: ["events"] });

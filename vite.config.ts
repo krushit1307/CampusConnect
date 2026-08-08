@@ -111,16 +111,31 @@ export default defineConfig({
                 },
                 {
                   urlPattern: ({ url, request }) =>
-                    request.method === "GET" && url.pathname.startsWith("/api/"),
+                    request.method === "GET" &&
+                    (url.hostname.includes("supabase.co") || url.pathname.includes("/rest/v1/") || url.pathname.includes("/functions/v1/")),
                   handler: "StaleWhileRevalidate",
                   options: {
-                    cacheName: "api-get-cache",
+                    cacheName: "supabase-get-cache",
                     expiration: {
                       maxEntries: 100,
                       maxAgeSeconds: 24 * 60 * 60, // 24 Hours
                     },
                     cacheableResponse: {
                       statuses: [0, 200],
+                    },
+                  },
+                },
+                {
+                  urlPattern: ({ url, request }) =>
+                    request.method === "POST" &&
+                    (url.hostname.includes("supabase.co") || url.pathname.includes("/rest/v1/") || url.pathname.includes("/functions/v1/")),
+                  handler: "NetworkOnly",
+                  options: {
+                    backgroundSync: {
+                      name: "supabase-post-queue",
+                      options: {
+                        maxRetentionTime: 24 * 60, // 24 hours
+                      },
                     },
                   },
                 },

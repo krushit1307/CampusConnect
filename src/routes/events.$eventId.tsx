@@ -18,6 +18,7 @@ import { formatEventDateRange } from "@/lib/utils";
 import { downloadIcs, getGoogleCalendarUrl } from "@/lib/calendarUtils";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
 import { formatDateLong } from "@/lib/dateFormatter";
+import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { toast } from "sonner";
 import { ShareMenu } from "@/components/ui/ShareMenu";
 import {
@@ -69,7 +70,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
-import { LazyImage } from "@/components/ui/LazyImage";
+import { ImageWithBlur } from "@/components/ui/ImageWithBlur";
 import { parseCoordinates } from "@/lib/eventUtils";
 import {
   buildKanbanColumns,
@@ -95,6 +96,59 @@ import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
 import { ActivePoll } from "@/components/polls/ActivePoll";
 import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
 import { CaptchaWidget } from "@/components/CaptchaWidget";
+import { Blurhash } from "react-blurhash";
+import { isValidBlurhash, DEFAULT_FALLBACK_BLURHASH } from "@/lib/blurhashUtils";
+
+/**
+ * Hero banner for the event detail page.
+ * Shows a BlurHash placeholder immediately, then cross-fades to the full
+ * OptimizedImage once it loads.  OptimizedImage is kept so we retain its
+ * AVIF/WebP/responsive-srcset capabilities on the large hero image.
+ */
+function EventHeroBanner({
+  bannerUrl,
+  blurhash,
+  title,
+}: {
+  bannerUrl: string;
+  blurhash?: string | null;
+  title: string;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  const hash = isValidBlurhash(blurhash) ? (blurhash as string) : DEFAULT_FALLBACK_BLURHASH;
+
+  return (
+    <>
+      {/* BlurHash canvas — removed from DOM once real image loads */}
+      {!loaded && (
+        <div className="absolute inset-0 z-0" aria-hidden="true">
+          <Blurhash
+            hash={hash}
+            width="100%"
+            height="100%"
+            resolutionX={32}
+            resolutionY={32}
+            punch={1}
+          />
+        </div>
+      )}
+      <OptimizedImage
+        src={bannerUrl}
+        alt={`${title} event banner`}
+        className={`h-full w-full object-cover transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
+        width={1344}
+        height={700}
+        responsiveWidths={[448, 672, 896, 1344]}
+        sizes="100vw"
+        priority
+        onLoad={() => setLoaded(true)}
+        fallback={
+          <div className="h-full w-full bg-linear-to-br from-peach via-pink-200 to-lime/40" />
+        }
+      />
+    </>
+  );
+}
 
 interface SimilarEventItem {
   id: string;
@@ -102,6 +156,7 @@ interface SimilarEventItem {
   category_id?: string;
   event_date?: string;
   banner_url?: string;
+  blurhash?: string | null;
   description?: string;
 }
 
@@ -140,7 +195,7 @@ function SimilarEvents({
         // 2. Fallback to category matching if vector embeddings are not calculated yet
         const { data: fallbackData, error: fallbackError } = await supabase
           .from("events")
-          .select("id, title, category_id, event_date, banner_url, description")
+          .select("id, title, category_id, event_date, banner_url, blurhash, description")
           .eq("category_id", categoryId!)
           .neq("id", currentEventId)
           .eq("status", "published")
@@ -178,10 +233,12 @@ function SimilarEvents({
             className="neu-border group block bg-white p-4 hover:translate-x-0.5 hover:-translate-y-0.5 transition-transform"
           >
             {evt.banner_url ? (
-              <LazyImage
+              <ImageWithBlur
                 src={evt.banner_url}
+                blurhash={evt.blurhash}
                 alt={evt.title}
-                className="w-full h-32 object-cover border-2 border-black mb-3"
+                aspectRatio="video"
+                className="border-2 border-black mb-3"
               />
             ) : (
               <div className="w-full h-32 bg-peach/30 border-2 border-black mb-3 flex items-center justify-center font-mono text-xs font-bold text-black/50">
@@ -387,7 +444,7 @@ export default function EventDetailsPage() {
         .from("events")
         .select(
           `
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash,
           profiles (full_name, email),
           clubs (name, slug),
           event_rsvps (id, user_id, status, checked_in, rsvp_at, profiles (first_name, last_name, avatar_url)),
@@ -612,6 +669,8 @@ export default function EventDetailsPage() {
         return;
       }
 
+      const idempotencyKey = getRsvpIdempotencyKey(eventId);
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -620,10 +679,12 @@ export default function EventDetailsPage() {
         body: { eventId, hasRsvpd, captchaToken },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
+          "Idempotency-Key": idempotencyKey,
         },
       });
 
       if (error) throw error;
+      clearRsvpIdempotencyKey(eventId);
     },
     onMutate: async ({ hasRsvpd }) => {
       // Snapshot the previous value
@@ -1117,18 +1178,10 @@ export default function EventDetailsPage() {
       <section className="relative w-full overflow-hidden border-b-2 border-black bg-peach/30">
         {event.banner_url ? (
           <div className="absolute inset-0">
-            <OptimizedImage
-              src={event.banner_url}
-              alt={`${event.title} event banner`}
-              className="h-full w-full object-cover"
-              width={1344}
-              height={700}
-              responsiveWidths={[448, 672, 896, 1344]}
-              sizes="100vw"
-              priority
-              fallback={
-                <div className="h-full w-full bg-linear-to-br from-peach via-pink-200 to-lime/40" />
-              }
+            <EventHeroBanner
+              bannerUrl={event.banner_url}
+              blurhash={(event as { blurhash?: string | null }).blurhash}
+              title={event.title}
             />
             <div className="absolute inset-0 bg-black/50" />
           </div>

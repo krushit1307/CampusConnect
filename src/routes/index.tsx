@@ -147,64 +147,24 @@ function SectionEyebrow({ children }: { children: React.ReactNode }) {
 
 interface FAQItem {
   category: string;
-  question: string;
-  answer: string;
+  qKey: string;
+  aKey: string;
 }
 
-const FAQ_ITEMS: FAQItem[] = [
-  {
-    category: "General",
-    question: "What is CampusConnect?",
-    answer:
-      "CampusConnect is a unified, open-source platform designed to streamline student club management, event planning, and digital check-ins for student communities.",
-  },
-  {
-    category: "General",
-    question: "Is CampusConnect free to use?",
-    answer:
-      "Yes! CampusConnect is 100% open-source and free for student communities. You can host your own instance or use the managed cloud version.",
-  },
-  {
-    category: "Clubs",
-    question: "How do I create a new club?",
-    answer:
-      "Registered students can request to create a new club from the Clubs Directory. Once approved by a system administrator, you can start customizing your page.",
-  },
-  {
-    category: "Clubs",
-    question: "How do I manage my club members?",
-    answer:
-      "Club admins can approve join requests, assign roles (member, admin), and view full member profiles directly from the club settings.",
-  },
-  {
-    category: "Events",
-    question: "How do I RSVP for an event?",
-    answer:
-      "Simply explore the active events feed, select the event you're interested in, and click the 'RSVP' button.",
-  },
-  {
-    category: "Events",
-    question: "How does the check-in system work?",
-    answer:
-      "When you RSVP, a custom ticket with a QR code is generated. Club organizers can scan your QR code at the door using any mobile device to check you in instantly.",
-  },
-  {
-    category: "Security",
-    question: "Is my student data secure?",
-    answer:
-      "Absolutely. CampusConnect is built with Supabase authentication and strict Row-Level Security (RLS) database policies to protect user and admin data.",
-  },
-  {
-    category: "Security",
-    question: "Who can see my personal profile details?",
-    answer:
-      "Only authorized members of your verified student community can see your profile page. You can customize your preferences at any time in your Settings.",
-  },
+const FAQ_ITEMS = [
+  { category: "general", qKey: "home.faq.items.q1", aKey: "home.faq.items.a1" },
+  { category: "general", qKey: "home.faq.items.q2", aKey: "home.faq.items.a2" },
+  { category: "clubs",   qKey: "home.faq.items.q3", aKey: "home.faq.items.a3" },
+  { category: "clubs",   qKey: "home.faq.items.q4", aKey: "home.faq.items.a4" },
+  { category: "events",  qKey: "home.faq.items.q5", aKey: "home.faq.items.a5" },
+  { category: "events",  qKey: "home.faq.items.q6", aKey: "home.faq.items.a6" },
+  { category: "security",qKey: "home.faq.items.q7", aKey: "home.faq.items.a7" },
+  { category: "security",qKey: "home.faq.items.q8", aKey: "home.faq.items.a8" },
 ];
 
 export default function Landing() {
   const { t } = useTranslation();
-  const [activeCategory, setActiveCategory] = useState("All");
+  const [activeCategory, setActiveCategory] = useState<"all" | "general" | "clubs" | "events" | "security">("all");
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   const supabase = createClient();
@@ -285,7 +245,7 @@ export default function Landing() {
   const yHeroText = shouldDisableParallax ? 0 : heroTextYRaw;
 
   const filteredFAQs =
-    activeCategory === "All"
+    activeCategory === "all"
       ? FAQ_ITEMS
       : FAQ_ITEMS.filter((faq) => faq.category === activeCategory);
 
@@ -293,9 +253,7 @@ export default function Landing() {
     <SiteShell>
       {/* ANNOUNCEMENT MARQUEE — scrolls above the hero, homepage only */}
       <Marquee>
-        🎓 Welcome to CampusConnect — Clubs, Events &amp; Certificates for Student Communities
-        &nbsp;✦&nbsp; RSVP to upcoming events &nbsp;✦&nbsp; Join a club &nbsp;✦&nbsp; Earn
-        verified certificates &nbsp;✦&nbsp;
+        {t("home.marquee")}
       </Marquee>
 
       {/* HERO — Multi-layered parallax with 3 SVG depth layers */}
@@ -335,53 +293,52 @@ export default function Landing() {
           {variant === "B" ? (
             <>
               <p className="mb-3 font-mono text-sm font-bold uppercase tracking-widest text-[#a3e635] animate-fade-in-up animate-delay-100">
-                Unlock Your Potential
+                {t("home.hero_variant_b.eyebrow")}
               </p>
               <h1 className="mb-4 max-w-3xl font-display text-5xl font-bold leading-tight md:text-6xl animate-fade-in-up animate-delay-300">
-                Supercharge Your Campus Life
+                {t("home.hero_variant_b.title")}
               </h1>
               <p className="mx-auto max-w-2xl font-mono text-base leading-relaxed md:text-lg text-white/90 animate-fade-in-up animate-delay-500">
-                Discover top student clubs, attend workshops, and earn certificates to build your
-                future.
+                {t("home.hero_variant_b.subtitle")}
               </p>
               <div className="mt-8 flex flex-wrap justify-center gap-4 animate-fade-in-up animate-delay-700">
                 <Link
                   to="/auth"
                   className="rounded-md bg-brand-peach-light px-8 py-3 font-mono font-bold uppercase text-brand-blue-dark transition hover:bg-white active:scale-95"
                 >
-                  Join CampusConnect
+                  {t("home.hero_variant_b.cta_primary")}
                 </Link>
                 <Link
                   to="/events"
                   className="rounded-md border-2 border-white/80 px-8 py-3 font-mono font-bold uppercase text-white transition hover:bg-white/10 active:scale-95"
                 >
-                  See Upcoming Events
+                  {t("home.hero_variant_b.cta_secondary")}
                 </Link>
               </div>
             </>
           ) : (
             <>
               <p className="mb-3 font-mono text-sm font-bold uppercase tracking-widest text-[#f5c66b] animate-fade-in-up animate-delay-100">
-                Student Communities Platform
+                {t("home.hero_variant_a.eyebrow")}
               </p>
               <h1 className="mb-4 max-w-2xl font-display text-5xl font-bold leading-tight md:text-6xl animate-fade-in-up animate-delay-300">
-                CampusConnect
+                {t("home.hero_variant_a.title")}
               </h1>
               <p className="mx-auto max-w-xl font-mono text-base leading-relaxed md:text-lg text-white/90 animate-fade-in-up animate-delay-500">
-                Clubs, events, and certificates. One open-source OS for student communities.
+                {t("home.hero_variant_a.subtitle")}
               </p>
               <div className="mt-8 flex flex-wrap justify-center gap-4 animate-fade-in-up animate-delay-700">
                 <Link
                   to="/auth"
                   className="rounded-md bg-brand-peach-light px-8 py-3 font-mono font-bold uppercase text-brand-blue-dark transition hover:bg-white active:scale-95"
                 >
-                  Get Started
+                  {t("home.hero_variant_a.cta_primary")}
                 </Link>
                 <Link
                   to="/events"
                   className="rounded-md border-2 border-white/80 px-8 py-3 font-mono font-bold uppercase text-white transition hover:bg-white/10 active:scale-95"
                 >
-                  Explore Events
+                  {t("home.hero_variant_a.cta_secondary")}
                 </Link>
               </div>
             </>
@@ -395,16 +352,16 @@ export default function Landing() {
           <ScrollReveal>
             <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
               <div>
-                <SectionEyebrow>Upcoming</SectionEyebrow>
+                <SectionEyebrow>{t("home.featured_events.eyebrow")}</SectionEyebrow>
                 <h2 className="mt-2 font-display text-4xl font-bold text-brand-blue-dark md:text-5xl">
-                  Featured Events
+                  {t("home.featured_events.title")}
                 </h2>
               </div>
               <Link
                 to="/events"
                 className="neu-border inline-flex items-center justify-center bg-white px-6 py-3 font-mono text-sm font-bold uppercase transition hover:bg-brand-peach-light"
               >
-                View all events
+                {t("home.featured_events.view_all")}
               </Link>
             </div>
           </ScrollReveal>
@@ -433,10 +390,10 @@ export default function Landing() {
         <div className="mx-auto max-w-7xl">
           <div className="mb-20 text-center">
             <h2 className="mb-6 font-display text-5xl font-bold text-red-900 md:text-6xl">
-              Our Featured Features
+              {t("home.features.title")}
             </h2>
             <p className="mx-auto max-w-3xl font-mono text-lg leading-relaxed text-gray-800">
-              Everything you need to run student clubs and community events—all in one platform.
+              {t("home.features.subtitle")}
             </p>
           </div>
 
@@ -444,25 +401,25 @@ export default function Landing() {
             {[
               {
                 icon: <Icon name="club-management" className="h-16 w-16 text-brand-blue-dark" />,
-                title: "Club Management",
-                desc: "Create pages, manage rosters, and organize your club—without the spreadsheet chaos.",
+                title: t("home.features.club_management.title"),
+                desc: t("home.features.club_management.desc"),
               },
               {
                 icon: <Icon name="event-planning" className="h-16 w-16 text-brand-peach-light" />,
-                title: "Event Planning",
-                desc: "RSVPs, check-ins, feedback forms, and post-event reports in one flow.",
+                title: t("home.features.event_planning.title"),
+                desc: t("home.features.event_planning.desc"),
               },
               {
                 icon: (
                   <Icon name="digital-interaction" className="h-16 w-16 text-brand-emerald-base" />
                 ),
-                title: "Digital Interaction",
-                desc: "Interactive registration, real-time updates, and seamless member engagement.",
+                title: t("home.features.digital_interaction.title"),
+                desc: t("home.features.digital_interaction.desc"),
               },
               {
                 icon: <Icon name="star" className="h-16 w-16 text-brand-blue-base-500" />,
-                title: "Certificates & Proof",
-                desc: "Auto-generate signed certificates and portable profiles for any workshop or event.",
+                title: t("home.features.certificates.title"),
+                desc: t("home.features.certificates.desc"),
               },
             ].map((feature, idx) => (
               <ScrollReveal key={idx} delay={idx * 100}>
@@ -484,26 +441,26 @@ export default function Landing() {
       {/* ABOUT THE PLATFORM (from main, restyled) */}
       <section className="bg-blue-300 border-t-2 border-gray-200 px-4 py-20 md:px-6">
         <div className="mx-auto max-w-6xl">
-          <SectionEyebrow>About the platform</SectionEyebrow>
+          <SectionEyebrow>{t("home.about.eyebrow")}</SectionEyebrow>
           <h2 className="mb-12 max-w-2xl text-4xl font-bold text-red-900 md:text-5xl">
-            Built for the way student communities actually work.
+            {t("home.about.title")}
           </h2>
           <div className="grid gap-6 md:grid-cols-3">
             {[
               {
                 n: "01",
-                t: "Clubs first",
-                d: "Every club gets a home page, member roster, and an event calendar — no more Google Docs bureaucracy.",
+                t: t("home.about.card_01_title"),
+                d: t("home.about.card_01_desc"),
               },
               {
                 n: "02",
-                t: "Events that ship",
-                d: "RSVPs, check-ins, feedback, and post-event reports in one flow. Nothing lost to Instagram DMs.",
+                t: t("home.about.card_02_title"),
+                d: t("home.about.card_02_desc"),
               },
               {
                 n: "03",
-                t: "Proof of work",
-                d: "Auto-issued certificates and portable member profiles for hackathons, workshops, and volunteer hours.",
+                t: t("home.about.card_03_title"),
+                d: t("home.about.card_03_desc"),
               },
             ].map((c, idx) => (
               <ScrollReveal key={c.n} delay={idx * 150}>
@@ -525,10 +482,10 @@ export default function Landing() {
         <div className="mx-auto max-w-6xl">
           <div className="grid gap-8 md:grid-cols-4">
             {[
-              { stat: "500+", label: "Events Run" },
-              { stat: "120", label: "Active Clubs" },
-              { stat: "12K+", label: "Members Onboarded" },
-              { stat: "100%", label: "Open Source" },
+              { stat: "500+", label: t("home.stats.events_run") },
+              { stat: "120", label: t("home.stats.active_clubs") },
+              { stat: "12K+", label: t("home.stats.members_onboarded") },
+              { stat: "100%", label: t("home.stats.open_source") },
             ].map((item, idx) => (
               <ScrollReveal key={item.label} delay={idx * 100}>
                 <div className="text-center">
@@ -548,23 +505,22 @@ export default function Landing() {
         <div className="mx-auto max-w-6xl grid md:grid-cols-2 gap-12">
           <div>
             <ScrollReveal>
-              <SectionEyebrow>Everything You Need</SectionEyebrow>
+              <SectionEyebrow>{t("home.capabilities.eyebrow")}</SectionEyebrow>
               <h2 className="mb-4 font-display text-4xl font-bold text-brand-blue-dark md:text-5xl text-red-900">
-                Create a club. Publish an event. Ship certificates.
+                {t("home.capabilities.title")}
               </h2>
               <p className="font-mono text-gray-800 leading-relaxed mb-6">
-                CampusConnect collapses the tools clubs juggle — forms, spreadsheets, chat, posters,
-                email — into one workflow that respects your time.
+                {t("home.capabilities.subtitle")}
               </p>
               <div className="neu-border bg-rose-200 p-6">
                 <ul className="space-y-4">
                   {[
-                    "Spin up a club page in under 60 seconds",
-                    "Publish events with automatic RSVP + calendar sync",
-                    "Check members in at the door with a QR scan",
-                    "Auto-generate signed PDF certificates",
-                    "Post updates to a shared discussion feed",
-                    "Export data as CSV whenever you want",
+                    t("home.capabilities.list_1"),
+                    t("home.capabilities.list_2"),
+                    t("home.capabilities.list_3"),
+                    t("home.capabilities.list_4"),
+                    t("home.capabilities.list_5"),
+                    t("home.capabilities.list_6"),
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-3">
                       <span className="mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-black bg-brand-blue-dark text-brand-yellow-bg-alt">
@@ -584,16 +540,16 @@ export default function Landing() {
               <div className="grid gap-4">
                 {[
                   {
-                    t: "Handoff hell",
-                    d: "Every year, club leadership rotates, and half the knowledge dies in a personal Notion.",
+                    t: t("home.capabilities.pain_1_title"),
+                    d: t("home.capabilities.pain_1_desc"),
                   },
                   {
-                    t: "Data locked in DMs",
-                    d: "Attendance in a WhatsApp group, RSVPs in a form, feedback nowhere. Never joined up.",
+                    t: t("home.capabilities.pain_2_title"),
+                    d: t("home.capabilities.pain_2_desc"),
                   },
                   {
-                    t: "No proof, no trust",
-                    d: "Members do real work but leave with nothing verifiable to show recruiters.",
+                    t: t("home.capabilities.pain_3_title"),
+                    d: t("home.capabilities.pain_3_desc"),
                   },
                 ].map((c) => (
                   <article
@@ -614,42 +570,28 @@ export default function Landing() {
       <section className="border-b-2 border-gray-200 bg-amber-200 px-4 py-16 md:px-6">
         <div className="mx-auto max-w-4xl text-center">
           <p className="mb-4 font-mono text-lg uppercase tracking-widest text-amber-800 font-bold">
-            Why students love CampusConnect
+            {t("home.testimonial.eyebrow")}
           </p>
           <p className="mb-6 font-mono italic leading-relaxed text-gray-800">
-            "This platform completely transformed how we run our tech club. No more scattered
-            spreadsheets or missed updates. Everything is in one place and our members actually
-            engage now."
+            {t("home.testimonial.quote")}
           </p>
-          <p className="font-display font-bold text-brand-blue-dark">- Campus Club Leaders</p>
+          <p className="font-display font-bold text-brand-blue-dark">{t("home.testimonial.attribution")}</p>
         </div>
       </section>
 
       {/* THE LANDSCAPE (main) */}
       <section className="bg-violet-400 border-b-2 border-gray-200 px-4 py-20 md:px-6">
         <div className="mx-auto max-w-6xl">
-          <SectionEyebrow>The landscape</SectionEyebrow>
+          <SectionEyebrow>{t("home.landscape.eyebrow")}</SectionEyebrow>
           <h2 className="mb-12 max-w-2xl text-4xl font-bold text-red-900 md:text-5xl">
-            Where CampusConnect fits.
+            {t("home.landscape.title")}
           </h2>
           <div className="grid gap-6 md:grid-cols-2">
             {[
-              {
-                t: "vs. Google Forms + Sheets",
-                d: "Great for one event. Falls apart across a year, across clubs, across handoffs.",
-              },
-              {
-                t: "vs. Discord / WhatsApp",
-                d: "Perfect for chatter. Not designed to be a source of truth for membership or attendance.",
-              },
-              {
-                t: "vs. Eventbrite / Luma",
-                d: "Solid for the general public. Doesn't understand semesters, clubs, or student verification.",
-              },
-              {
-                t: "vs. Custom college portals",
-                d: "Locked to one campus, no interop, no open-source community driving improvements.",
-              },
+              { t: t("home.landscape.vs_forms_title"), d: t("home.landscape.vs_forms_desc") },
+              { t: t("home.landscape.vs_discord_title"), d: t("home.landscape.vs_discord_desc") },
+              { t: t("home.landscape.vs_eventbrite_title"), d: t("home.landscape.vs_eventbrite_desc") },
+              { t: t("home.landscape.vs_portals_title"), d: t("home.landscape.vs_portals_desc") },
             ].map((c, idx) => (
               <ScrollReveal key={c.t} delay={idx * 150}>
                 <article className="neu-border bg-rose-200 p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-brand-blue-dark)] hover:border-brand-blue-dark">
@@ -667,23 +609,23 @@ export default function Landing() {
         <div className="mx-auto grid max-w-6xl gap-12 md:grid-cols-2">
           <div>
             <ScrollReveal>
-              <SectionEyebrow>Two ways to run your club</SectionEyebrow>
+              <SectionEyebrow>{t("home.hosting.eyebrow")}</SectionEyebrow>
               <h2 className="text-4xl font-bold text-red-900 md:text-5xl mb-6">
-                Hosted or self-hosted. Same features either way.
+                {t("home.hosting.title")}
               </h2>
               <div className="grid grid-cols-2 gap-4">
                 <div className="neu-border bg-rose-200 p-5 border-l-4 border-l-[#123a57] transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-brand-blue-dark)]">
-                  <p className="eyebrow font-bold text-gray-800">Recommended</p>
-                  <h3 className="mt-2 text-2xl font-bold text-blue-950">Cloud</h3>
+                  <p className="eyebrow font-bold text-gray-800">{t("home.hosting.cloud_eyebrow")}</p>
+                  <h3 className="mt-2 text-2xl font-bold text-blue-950">{t("home.hosting.cloud_title")}</h3>
                   <p className="mt-3 font-mono text-xs leading-relaxed text-gray-800">
-                    Managed hosting, SSO with your college email, zero DevOps.
+                    {t("home.hosting.cloud_desc")}
                   </p>
                 </div>
                 <div className="neu-border bg-rose-200 p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-ink)]">
-                  <p className="eyebrow font-bold text-gray-800">Fork it</p>
-                  <h3 className="mt-2 text-2xl font-bold text-blue-950">Self-host</h3>
+                  <p className="eyebrow font-bold text-gray-800">{t("home.hosting.selfhost_eyebrow")}</p>
+                  <h3 className="mt-2 text-2xl font-bold text-blue-950">{t("home.hosting.selfhost_title")}</h3>
                   <p className="mt-3 font-mono text-xs leading-relaxed text-gray-800">
-                    Docker Compose up. Own the database, own the data.
+                    {t("home.hosting.selfhost_desc")}
                   </p>
                 </div>
               </div>
@@ -692,16 +634,16 @@ export default function Landing() {
 
           <div>
             <ScrollReveal delay={200}>
-              <SectionEyebrow>Under the hood</SectionEyebrow>
+              <SectionEyebrow>{t("home.hosting.tech_eyebrow")}</SectionEyebrow>
               <h2 className="mb-6 text-4xl font-bold text-amber-900 md:text-5xl">
-                Boring, proven tech.
+                {t("home.hosting.tech_title")}
               </h2>
               <div className="neu-border overflow-hidden bg-white transition-all duration-300 hover:shadow-[6px_6px_0_0_var(--color-brand-blue-dark)] hover:border-brand-blue-dark">
                 <table className="w-full font-mono text-sm text-left">
                   <thead>
                     <tr className="bg-brand-blue-dark text-brand-yellow-bg-alt">
-                      <th className="border-b-2 border-black p-4 font-bold">Layer</th>
-                      <th className="border-b-2 border-black p-4 font-bold">Choice</th>
+                      <th className="border-b-2 border-black p-4 font-bold">{t("home.hosting.tech_layer")}</th>
+                      <th className="border-b-2 border-black p-4 font-bold">{t("home.hosting.tech_choice")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -730,16 +672,16 @@ export default function Landing() {
       {/* FEATURE HIGHLIGHT (main) */}
       <section className="bg-green-300 border-t-2 border-gray-200 px-4 py-20 md:px-6">
         <div className="mx-auto max-w-6xl">
-          <SectionEyebrow>Integrations & tools</SectionEyebrow>
+          <SectionEyebrow>{t("home.integrations.eyebrow")}</SectionEyebrow>
           <h2 className="mb-12 max-w-2xl text-4xl font-bold text-red-900 md:text-5xl">
-            Plays nice with the tools you already use.
+            {t("home.integrations.title")}
           </h2>
           <div className="grid gap-6 md:grid-cols-4">
             {[
-              { t: "Google Calendar", d: "Sync everywhere. iCal feed." },
-              { t: "Discord + Slack", d: "Auto-post announcements." },
-              { t: "GitHub", d: "Link hackathons to profiles." },
-              { t: "Zapier", d: "Every action fires a webhook." },
+              { t: t("home.integrations.gcal_title"), d: t("home.integrations.gcal_desc") },
+              { t: t("home.integrations.discord_title"), d: t("home.integrations.discord_desc") },
+              { t: t("home.integrations.github_title"), d: t("home.integrations.github_desc") },
+              { t: t("home.integrations.zapier_title"), d: t("home.integrations.zapier_desc") },
             ].map((c, idx) => (
               <ScrollReveal key={c.t} delay={idx * 100}>
                 <article className="neu-border bg-rose-200 p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-brand-blue-dark)] hover:border-brand-blue-dark">
@@ -759,27 +701,27 @@ export default function Landing() {
       >
         <div className="mx-auto max-w-4xl">
           <div className="mb-12 text-center">
-            <SectionEyebrow>Frequently Asked Questions</SectionEyebrow>
+          <SectionEyebrow>{t("home.faq.eyebrow")}</SectionEyebrow>
             <h2 className="mt-2 text-4xl font-bold text-red-900 md:text-5xl">
-              Answers to your questions.
+              {t("home.faq.title")}
             </h2>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-2 mb-8">
-            {["All", "General", "Clubs", "Events", "Security"].map((category) => (
+            {(["all", "general", "clubs", "events", "security"] as const).map((cat) => (
               <button
-                key={category}
+                key={cat}
                 onClick={() => {
-                  setActiveCategory(category);
+                  setActiveCategory(cat);
                   setOpenIndex(null);
                 }}
                 className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase transition-all duration-200 active:scale-95 cursor-pointer ${
-                  activeCategory === category
+                  activeCategory === cat
                     ? "bg-black text-brand-yellow-bg-alt shadow-none translate-x-[2px] translate-y-[2px]"
                     : "bg-lime text-black hover:bg-gray-100 shadow-[2px_2px_0_0_var(--color-ink)]"
                 }`}
               >
-                {category}
+                {t(`home.faq.categories.${cat}`)}
               </button>
             ))}
           </div>
@@ -789,14 +731,14 @@ export default function Landing() {
               const isOpen = openIndex === idx;
               return (
                 <div
-                  key={idx}
+                  key={faq.qKey}
                   className="neu-border bg-orange-100 transition-all duration-300 overflow-hidden shadow-[4px_4px_0_0_var(--color-ink)] hover:shadow-[6px_6px_0_0_var(--color-brand-blue-dark)] hover:border-brand-blue-dark"
                 >
                   <button
                     onClick={() => setOpenIndex(isOpen ? null : idx)}
                     className="w-full flex items-center justify-between p-5 text-left font-mono font-bold text-gray-900 hover:bg-gray-50/50 cursor-pointer"
                   >
-                    <span className="text-base md:text-lg">{faq.question}</span>
+                    <span className="text-base md:text-lg">{t(faq.qKey)}</span>
                     <span className="ml-4 shrink-0 transition-transform duration-300">
                       {isOpen ? (
                         <Icon name="minus" className="w-5 h-5" />
@@ -813,7 +755,7 @@ export default function Landing() {
                     }}
                   >
                     <div className="p-5 pt-0 font-mono text-sm leading-relaxed text-gray-900 border-t border-dashed border-gray-200 mt-2">
-                      {faq.answer}
+                      {t(faq.aKey)}
                     </div>
                   </div>
                 </div>
@@ -827,15 +769,15 @@ export default function Landing() {
       <section className="bg-gradient-to-r from-brand-blue-dark to-brand-blue-alt px-4 py-20 text-center text-white md:px-6 md:py-28">
         <ScrollReveal>
           <div className="mx-auto max-w-2xl">
-            <h2 className="mb-4 font-display text-4xl font-bold">Ready to get started?</h2>
+            <h2 className="mb-4 font-display text-4xl font-bold">{t("home.cta.title")}</h2>
             <p className="mb-8 font-mono leading-relaxed text-brand-yellow-bg-alt">
-              Launch your club page in seconds and start managing events like a pro.
+              {t("home.cta.subtitle")}
             </p>
             <Link
               to="/auth"
               className="inline-block rounded-md bg-brand-peach-light px-8 py-4 font-mono font-bold uppercase text-brand-blue-dark transition hover:bg-white active:scale-95"
             >
-              Create Your Club Now
+              {t("home.cta.button")}
             </Link>
           </div>
         </ScrollReveal>
@@ -846,21 +788,21 @@ export default function Landing() {
         className="bg-white border-t-2 border-gray-200 px-4 py-20 md:px-6 scroll-mt-24"
       >
         <div className="mx-auto max-w-4xl text-center">
-          <SectionEyebrow>Contact</SectionEyebrow>
+          <SectionEyebrow>{t("home.contact.eyebrow")}</SectionEyebrow>
 
           <h2 className="mt-2 text-4xl font-bold text-red-900 md:text-5xl">
-            Get in touch with us.
+            {t("home.contact.title")}
           </h2>
 
           <p className="mt-6 font-mono text-gray-700">
-            Have questions about CampusConnect? Reach out to our team.
+            {t("home.contact.subtitle")}
           </p>
 
           <a
             href="mailto:support@campusconnect.com"
             className="mt-8 inline-block neu-border bg-lime px-6 py-3 font-mono font-bold uppercase"
           >
-            Contact Support
+            {t("home.contact.button")}
           </a>
         </div>
       </section>
