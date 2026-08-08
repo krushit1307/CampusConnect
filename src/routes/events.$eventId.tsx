@@ -1,14 +1,23 @@
 import { Link, useParams } from "react-router-dom";
-import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
+import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { useState, useEffect } from "react";
+import { incrementEventViews } from "@/lib/supabase/events";
+import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
+import { useState, useEffect, lazy, Suspense, useMemo, useRef } from "react";
+import { TableOfContents } from "@/components/events/TableOfContents";
+import { NotFound } from "@/components/NotFound";
+import LazyHydrate from "@/components/LazyHydrate";
 import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
+import { MapSkeleton } from "@/components/ui/MapSkeleton";
+
+const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ default: m.EventMap })));
 import { formatEventDateRange } from "@/lib/utils";
 import { downloadIcs, getGoogleCalendarUrl } from "@/lib/calendarUtils";
-import { formatStandardDate } from "@/utils/dateUtils";
+import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
+import { formatDateLong } from "@/lib/dateFormatter";
 import { toast } from "sonner";
 import { ShareMenu } from "@/components/ui/ShareMenu";
 import {
@@ -20,10 +29,30 @@ import {
   MapPin,
   MapPinOff,
   Users,
-  Star,
+  X,
+  CheckCircle,
+  Clock,
   Calendar,
+  Star,
+  HelpCircle,
   Flag,
+  Eye,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
+import PredictiveTurnout from "@/components/events/PredictiveTurnout";
+import LiveQA from "@/components/qa/LiveQA";
+import EventFeedbackForm from "@/components/EventFeedbackForm";
 import { ReportDialog } from "@/components/ReportDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -40,32 +69,32 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
+import { LazyImage } from "@/components/ui/LazyImage";
 import { parseCoordinates } from "@/lib/eventUtils";
-import { EventFeedbackForm } from "@/components/EventFeedbackForm";
-import { EventPhotoGallery } from "@/components/EventPhotoGallery";
-import { EventMap } from "@/components/EventMap";
-import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { HelpCircle } from "lucide-react";
+  buildKanbanColumns,
+  buildRsvpStatus,
+  buildFeedbackStatus,
+  buildWaitlistInfo,
+  buildGoogleMapsSearchUrl,
+  type EventRsvp,
+  type EventWaitlist,
+} from "@/lib/eventTransformUtils";
 import {
   Breadcrumb,
+  BreadcrumbList,
   BreadcrumbItem,
   BreadcrumbLink,
-  BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { isCaptchaConfigured, shouldRequireCaptcha } from "@/lib/captcha";
+import { EditEventDialog } from "@/components/EditEventDialog";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
+import { ActivePoll } from "@/components/polls/ActivePoll";
+import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
+import { CaptchaWidget } from "@/components/CaptchaWidget";
 
 interface SimilarEventItem {
   id: string;
@@ -96,17 +125,31 @@ function SimilarEvents({
     async function fetchSimilarEvents() {
       setLoading(true);
       try {
-        const { data, error } = await supabase
+        // 1. Try pgvector similarity recommendation RPC first
+        const { data, error } = await supabase.rpc("recommend_events", {
+          p_event_id: currentEventId,
+          p_limit: 3,
+        });
+
+        if (!error && Array.isArray(data) && data.length > 0) {
+          setSimilarEvents(data as unknown as SimilarEventItem[]);
+          setLoading(false);
+          return;
+        }
+
+        // 2. Fallback to category matching if vector embeddings are not calculated yet
+        const { data: fallbackData, error: fallbackError } = await supabase
           .from("events")
           .select("id, title, category_id, event_date, banner_url, description")
-          .eq("category_id", categoryId)
+          .eq("category_id", categoryId!)
           .neq("id", currentEventId)
+          .eq("status", "published")
           .limit(3);
 
-        if (error) {
-          console.error("Error fetching similar events:", error);
-        } else if (data) {
-          setSimilarEvents(data as SimilarEventItem[]);
+        if (fallbackError) {
+          console.error("Error fetching fallback similar events:", fallbackError);
+        } else if (fallbackData) {
+          setSimilarEvents(fallbackData as SimilarEventItem[]);
         }
       } catch (err) {
         console.error("Unexpected error fetching similar events:", err);
@@ -135,7 +178,7 @@ function SimilarEvents({
             className="neu-border group block bg-white p-4 hover:translate-x-0.5 hover:-translate-y-0.5 transition-transform"
           >
             {evt.banner_url ? (
-              <img
+              <LazyImage
                 src={evt.banner_url}
                 alt={evt.title}
                 className="w-full h-32 object-cover border-2 border-black mb-3"
@@ -150,8 +193,7 @@ function SimilarEvents({
             </h3>
             {evt.event_date && (
               <p className="font-mono text-xs text-black/60 mt-1">
-                📅 {formatStandardDate(evt.event_date)}
-                📅 {new Date(evt.event_date).toLocaleDateString()}
+                📅 {formatDateLong(evt.event_date)}
               </p>
             )}
           </Link>
@@ -159,6 +201,31 @@ function SimilarEvents({
       </div>
     </div>
   );
+}
+
+function rsvpRowsToCsv(rows: { name: string; email: string; rsvp_date: string; status: string }[]) {
+  const headers = ["User Name", "Email", "RSVP Date", "Status"];
+  const escape = (val: string) => {
+    const str = String(val ?? "");
+    return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+  };
+  const lines = [headers.join(",")];
+  for (const r of rows) {
+    lines.push([r.name, r.email, formatDateLong(r.rsvp_date), r.status].map(escape).join(","));
+  }
+  return lines.join("\n");
+}
+
+function downloadCsv(csvContent: string, filename: string) {
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 export default function EventDetailsPage() {
@@ -169,6 +236,7 @@ export default function EventDetailsPage() {
   const [copied, setCopied] = useState(false);
   const [idCopied, setIdCopied] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | undefined>(undefined);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState("");
@@ -272,30 +340,14 @@ export default function EventDetailsPage() {
           );
         }, 200);
 
-        supabase.storage
-          .from("event-gallery")
-          .upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: false,
-          })
-          .then(({ error }) => {
+        uploadImageWithSignedUrl("event-gallery", filePath, file)
+          .then(() => {
             clearInterval(progressInterval);
-            if (error) {
-              setUploadingFiles((prev) =>
-                prev.map((item) =>
-                  item.id === uploadItem.id
-                    ? { ...item, status: "error", progress: 0, errorMsg: error.message }
-                    : item,
-                ),
-              );
-              toast.error(`Failed to upload ${file.name}: ${error.message}`);
-            } else {
-              setUploadingFiles((prev) =>
-                prev.map((item) =>
-                  item.id === uploadItem.id ? { ...item, status: "success", progress: 100 } : item,
-                ),
-              );
-            }
+            setUploadingFiles((prev) =>
+              prev.map((item) =>
+                item.id === uploadItem.id ? { ...item, status: "success", progress: 100 } : item,
+              ),
+            );
           })
           .catch((err: unknown) => {
             clearInterval(progressInterval);
@@ -330,19 +382,20 @@ export default function EventDetailsPage() {
   } = useQuery({
     queryKey: ["event", eventId],
     queryFn: async () => {
+      // Try to lookup by short_id first, then fall back to UUID for backwards compatibility
       const { data, error } = await supabase
         .from("events")
         .select(
           `
-          id, title, description, category_id, event_date, start_date, end_date, location, latitude, longitude, banner_url, created_by, max_attendees, faqs,
-          clubs (name, slug),
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector,
           profiles (full_name, email),
-          event_rsvps (id, user_id, checked_in),
-          event_waitlist (id, user_id, created_at),
-          event_feedbacks (id, user_id)
+          clubs (name, slug),
+          event_rsvps (id, user_id, status, checked_in, rsvp_at, profiles (first_name, last_name, avatar_url)),
+          event_waitlist (id, user_id, created_at, profiles (first_name, last_name, avatar_url)),
+          event_metrics (views)
         `,
         )
-        .eq("id", eventId)
+        .or(`short_id.eq.${eventId},id.eq.${eventId}`)
         .single();
 
       if (error) {
@@ -395,13 +448,50 @@ export default function EventDetailsPage() {
                       : "music-society",
               },
             ],
+            requires_approval: true,
             event_rsvps:
-              eventId === "mock-1" ? [{ id: "rsvp-1", user_id: "user-1", checked_in: true }] : [],
-            event_waitlist: [] as { id: string; user_id: string; created_at: string }[],
-            event_feedbacks: [] as { id: string; user_id: string }[],
-            faqs: [] as { question: string; answer: string }[],
+              eventId === "mock-1"
+                ? [
+                    {
+                      id: "rsvp-1",
+                      user_id: "user-1",
+                      status: "approved",
+                      checked_in: false,
+                      rsvp_at: new Date().toISOString(),
+                      profiles: { first_name: "John", last_name: "Doe", avatar_url: null },
+                    },
+                    {
+                      id: "rsvp-2",
+                      user_id: "user-2",
+                      status: "waitlisted",
+                      checked_in: false,
+                      rsvp_at: new Date().toISOString(),
+                      profiles: { first_name: "Alice", last_name: "Smith", avatar_url: null },
+                    },
+                    {
+                      id: "rsvp-3",
+                      user_id: "user-3",
+                      status: "rejected",
+                      checked_in: false,
+                      rsvp_at: new Date().toISOString(),
+                      profiles: { first_name: "Bob", last_name: "Johnson", avatar_url: null },
+                    },
+                  ]
+                : [],
+            event_waitlist:
+              eventId === "mock-1"
+                ? [
+                    {
+                      id: "wait-1",
+                      user_id: "user-4",
+                      created_at: new Date().toISOString(),
+                      profiles: { first_name: "Emma", last_name: "Brown", avatar_url: null },
+                    },
+                  ]
+                : [],
             attendee_count: eventId === "mock-1" ? 1 : 0,
             profiles: { full_name: "Mock Organizer", email: "mock@example.com" },
+            event_metrics: { views: 0 },
           };
         }
         throw error;
@@ -409,6 +499,74 @@ export default function EventDetailsPage() {
       return data;
     },
   });
+
+  // Extract headings from HTML description for TOC
+  const tocItems = useMemo(() => {
+    if (!event?.description) return [];
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(event.description, "text/html");
+    const headings = doc.querySelectorAll("h2, h3");
+
+    return Array.from(headings).map((heading) => {
+      const text = heading.textContent || "";
+      // Simple slugify for ID
+      const id = text
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      return { id, text, level: heading.tagName === "H2" ? 2 : 3 };
+    });
+  }, [event?.description]);
+
+  // Inject IDs into the rendered DOM nodes so the TOC can scroll to them
+  useEffect(() => {
+    const container = document.getElementById("event-description-container");
+    if (!container) return;
+
+    const headings = container.querySelectorAll("h2, h3");
+    headings.forEach((heading) => {
+      const text = heading.textContent || "";
+      const id = text
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      heading.id = id;
+    });
+  }, [event?.description]);
+
+  // Increment persistent view count in event_metrics once per page load.
+  // Skipped for mock/dev events (no real DB row).
+  //
+  // We store the canonical event UUID (event.id) rather than a boolean so that:
+  // - Short-id URLs resolve to their UUID before incrementing (avoids wrong PK)
+  // - Navigating between events while the component stays mounted still
+  //   increments each new event exactly once
+  const viewIncrementedRef = useRef<string | null>(null);
+  useEffect(() => {
+    // Wait until the query has resolved and we have the canonical UUID
+    const canonicalId = (event as any)?.id as string | undefined;
+    if (!canonicalId || canonicalId.startsWith("mock-")) return;
+    if (viewIncrementedRef.current === canonicalId) return;
+    viewIncrementedRef.current = canonicalId;
+
+    incrementEventViews(canonicalId).then(({ error }) => {
+      if (error) {
+        console.warn("[event view] increment failed silently:", error);
+        return;
+      }
+      // Refresh the cached query so the displayed view count is up-to-date.
+      const cached = (event as any);
+      if (cached?.event_metrics) {
+        const currentViews =
+          (cached.event_metrics as { views: number } | null)?.views ?? 0;
+        setQueryData(["event", eventId], {
+          ...cached,
+          event_metrics: { views: currentViews + 1 },
+        });
+      }
+    });
+  }, [(event as any)?.id, eventId]);
 
   const toggleWaitlist = useMutation({
     mutationFn: async ({ isOnWaitlist }: { isOnWaitlist: boolean }) => {
@@ -440,7 +598,15 @@ export default function EventDetailsPage() {
   });
 
   const toggleRsvp = useMutation({
-    mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
+    mutationFn: async ({
+      eventId,
+      hasRsvpd,
+      captchaToken,
+    }: {
+      eventId: string;
+      hasRsvpd: boolean;
+      captchaToken?: string;
+    }) => {
       if (!user) throw new Error("Please log in to RSVP");
       if (eventId.startsWith("mock-")) {
         return;
@@ -451,7 +617,7 @@ export default function EventDetailsPage() {
       } = await supabase.auth.getSession();
 
       const { error } = await supabase.functions.invoke("toggle-rsvp", {
-        body: { eventId, hasRsvpd },
+        body: { eventId, hasRsvpd, captchaToken },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
         },
@@ -459,10 +625,41 @@ export default function EventDetailsPage() {
 
       if (error) throw error;
     },
-    onSuccess: () => {
-      refetch();
+    onMutate: async ({ hasRsvpd }) => {
+      // Snapshot the previous value
+      const previousEvent = event;
+
+      // Optimistically update the cache
+      if (event) {
+        const eventRsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
+        const updatedRsvps = hasRsvpd
+          ? eventRsvps.filter((r) => r.user_id !== user?.id)
+          : [...eventRsvps, { id: `temp-${Date.now()}`, user_id: user?.id || "" }];
+
+        const updatedEvent = {
+          ...event,
+          event_rsvps: updatedRsvps,
+          attendee_count: hasRsvpd
+            ? ((event as { attendee_count?: number }).attendee_count || 0) - 1
+            : ((event as { attendee_count?: number }).attendee_count || 0) + 1,
+        };
+
+        setQueryData(["event", eventId], updatedEvent);
+      }
+
+      // Return context with previous data for rollback
+      return { previousEvent };
     },
-    onError: (error: (Error & { details?: string; context?: string }) | unknown) => {
+    onError: (
+      error: unknown,
+      _variables: unknown,
+      context: { previousEvent: unknown } | undefined,
+    ) => {
+      // Rollback to previous value on error
+      if (context?.previousEvent) {
+        setQueryData(["event", eventId], context.previousEvent);
+      }
+
       const err = error as Record<string, unknown>;
       if (
         (typeof err?.message === "string" && err.message.includes("Rate limit")) ||
@@ -472,8 +669,16 @@ export default function EventDetailsPage() {
       ) {
         toast.error("Please wait a minute before toggling RSVP again.");
       } else {
-        toast.error((err?.message as string) || "Failed to update RSVP. Please try again.");
+        toast.error(
+          (err?.message as string) ||
+            (error as Error)?.message ||
+            "Failed to update RSVP. Please try again.",
+        );
       }
+    },
+    onSuccess: () => {
+      // Refetch to ensure server state matches
+      refetch();
     },
   });
 
@@ -498,6 +703,57 @@ export default function EventDetailsPage() {
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to export RSVP list.");
+    },
+  });
+
+  const checkInRsvp = useMutation({
+    mutationFn: async ({ rsvpId }: { rsvpId: string }) => {
+      if (!user) throw new Error("Please log in to check in attendees");
+      if (!event || eventId.startsWith("mock-")) {
+        return { alreadyCheckedIn: false };
+      }
+
+      const { data: existingRsvp, error: fetchError } = await supabase
+        .from("event_rsvps")
+        .select("checked_in")
+        .eq("id", rsvpId)
+        .eq("event_id", eventId)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+      if (existingRsvp?.checked_in) {
+        return { alreadyCheckedIn: true };
+      }
+
+      const { error } = await supabase
+        .from("event_rsvps")
+        .update({ checked_in: true })
+        .eq("id", rsvpId)
+        .eq("event_id", eventId);
+
+      if (error) throw error;
+
+      try {
+        await supabase.from("event_attendance_logs").insert({
+          rsvp_id: rsvpId,
+          recorded_by: user.id,
+        });
+      } catch {
+        // Attendance logging is optional if the table is unavailable in the current environment.
+      }
+
+      return { alreadyCheckedIn: false };
+    },
+    onSuccess: (result) => {
+      if (result?.alreadyCheckedIn) {
+        toast.success("This attendee is already checked in.");
+      } else {
+        toast.success("Attendee checked in successfully.");
+      }
+      refetch();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to check in attendee.");
     },
   });
 
@@ -528,6 +784,8 @@ export default function EventDetailsPage() {
     },
   });
 
+  const isOrganizer = !!(user && event?.created_by === user.id);
+
   useEffect(() => {
     if (!eventId || eventId.startsWith("mock-") || !event) return;
 
@@ -555,7 +813,146 @@ export default function EventDetailsPage() {
     };
   }, [eventId, event?.created_by, user?.id, supabase, refetch, isOrganizer]);
 
-  const isOrganizer = user && event?.created_by === user.id;
+  // Local state for optimistic updates during dragging
+  const [columns, setColumns] = useState<{
+    waitlisted: {
+      id: string;
+      userId: string;
+      name: string;
+      avatarUrl: string | null;
+      rsvpId?: string;
+    }[];
+    approved: {
+      id: string;
+      userId: string;
+      name: string;
+      avatarUrl: string | null;
+      rsvpId?: string;
+    }[];
+    rejected: {
+      id: string;
+      userId: string;
+      name: string;
+      avatarUrl: string | null;
+      rsvpId?: string;
+    }[];
+  }>({ waitlisted: [], approved: [], rejected: [] });
+
+  useEffect(() => {
+    if (!event) return;
+
+    const typedEvent = event as unknown as {
+      event_waitlist: EventWaitlist[];
+      event_rsvps: EventRsvp[];
+    };
+
+    setColumns(buildKanbanColumns(typedEvent.event_waitlist || [], typedEvent.event_rsvps || []));
+  }, [event]);
+
+  const updateRsvpStatus = useMutation({
+    mutationFn: async ({
+      userId,
+      rsvpId,
+      newStatus,
+    }: {
+      userId: string;
+      rsvpId?: string;
+      newStatus: "waitlisted" | "approved" | "rejected";
+    }) => {
+      if (eventId.startsWith("mock-")) {
+        return;
+      }
+
+      if (newStatus === "approved") {
+        if (rsvpId) {
+          const { error } = await supabase
+            .from("event_rsvps")
+            .update({ status: "approved" })
+            .eq("id", rsvpId);
+          if (error) throw error;
+        } else {
+          // Promote from event_waitlist to approved
+          const { error: insertError } = await supabase
+            .from("event_rsvps")
+            .insert({ event_id: eventId, user_id: userId, status: "approved" });
+          if (insertError) throw insertError;
+
+          const { error: deleteError } = await supabase
+            .from("event_waitlist")
+            .delete()
+            .eq("event_id", eventId)
+            .eq("user_id", userId);
+          if (deleteError) throw deleteError;
+        }
+      } else if (newStatus === "rejected") {
+        if (rsvpId) {
+          const { error } = await supabase
+            .from("event_rsvps")
+            .update({ status: "rejected" })
+            .eq("id", rsvpId);
+          if (error) throw error;
+        } else {
+          // Promote from event_waitlist to rejected
+          const { error: insertError } = await supabase
+            .from("event_rsvps")
+            .insert({ event_id: eventId, user_id: userId, status: "rejected" });
+          if (insertError) throw insertError;
+
+          const { error: deleteError } = await supabase
+            .from("event_waitlist")
+            .delete()
+            .eq("event_id", eventId)
+            .eq("user_id", userId);
+          if (deleteError) throw deleteError;
+        }
+      } else if (newStatus === "waitlisted") {
+        if (rsvpId) {
+          const { error } = await supabase
+            .from("event_rsvps")
+            .update({ status: "waitlisted" })
+            .eq("id", rsvpId);
+          if (error) throw error;
+        }
+      }
+    },
+    onSuccess: () => {
+      toast.success("RSVP status updated!");
+      refetch();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update RSVP status.");
+      refetch();
+    },
+  });
+
+  const onDragEnd = (result: DropResult) => {
+    const { source, destination } = result;
+
+    if (!destination) return;
+    if (source.droppableId === destination.droppableId && source.index === destination.index)
+      return;
+
+    const sourceColId = source.droppableId as keyof typeof columns;
+    const destColId = destination.droppableId as keyof typeof columns;
+
+    const sourceList = Array.from(columns[sourceColId]);
+    const destList = Array.from(columns[destColId]);
+
+    const [movedCard] = sourceList.splice(source.index, 1);
+    destList.splice(destination.index, 0, movedCard);
+
+    setColumns({
+      ...columns,
+      [sourceColId]: sourceList,
+      [destColId]: destList,
+    });
+
+    updateRsvpStatus.mutate({
+      userId: movedCard.userId,
+      rsvpId: movedCard.rsvpId,
+      newStatus: destColId as "waitlisted" | "approved" | "rejected",
+    });
+  };
 
   if (isLoading) {
     return <SkeletonEventDetails />;
@@ -583,29 +980,18 @@ export default function EventDetailsPage() {
     );
   }
 
-  const rsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
-  const hasRsvpd = user ? rsvps.some((r: { user_id: string }) => r.user_id === user.id) : false;
-  const isCheckedIn = user
-    ? rsvps.some(
-        (r: { user_id: string; checked_in?: boolean }) => r.user_id === user.id && r.checked_in,
-      )
-    : false;
-  const hasEnded = event.end_date ? new Date() > new Date(event.end_date) : false;
+  const rsvps = Array.isArray(event.event_rsvps)
+    ? (event.event_rsvps as unknown as EventRsvp[])
+    : [];
+  const { hasRsvpd, isCheckedIn, hasEnded } = buildRsvpStatus(rsvps, user?.id, event.end_date);
   const rawFeedbacks = (event as Record<string, unknown>).event_feedbacks;
-  const hasSubmittedFeedback =
-    user && Array.isArray(rawFeedbacks)
-      ? (rawFeedbacks as { user_id: string }[]).some((f) => f.user_id === user.id)
-      : false;
+  const { hasSubmittedFeedback } = buildFeedbackStatus(
+    Array.isArray(rawFeedbacks) ? (rawFeedbacks as { user_id: string }[]) : undefined,
+    user?.id,
+  );
 
   const rawWaitlist = (event as Record<string, unknown>).event_waitlist;
-  const waitlist = Array.isArray(rawWaitlist)
-    ? [...(rawWaitlist as { id: string; user_id: string; created_at?: string }[])].sort(
-        (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime(),
-      )
-    : [];
-  const isOnWaitlist = user ? waitlist.some((w) => w.user_id === user.id) : false;
-  const waitlistPosition =
-    user && isOnWaitlist ? waitlist.findIndex((w) => w.user_id === user.id) + 1 : 0;
+  const { waitlist, isOnWaitlist, waitlistPosition } = buildWaitlistInfo(rawWaitlist, user?.id);
 
   const club = event.clubs ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
   const coordsCheck = event.location
@@ -621,6 +1007,13 @@ export default function EventDetailsPage() {
     location: event.location || "",
   });
 
+  const captchaSiteKey =
+    import.meta.env.VITE_TURNSTILE_SITE_KEY || import.meta.env.VITE_HCAPTCHA_SITE_KEY;
+  const captchaSecretKey =
+    import.meta.env.VITE_TURNSTILE_SECRET_KEY || import.meta.env.VITE_HCAPTCHA_SECRET_KEY;
+  const captchaEnabled = isCaptchaConfigured(captchaSiteKey, captchaSecretKey);
+  const captchaProvider = import.meta.env.VITE_TURNSTILE_SITE_KEY ? "turnstile" : "hcaptcha";
+
   const handleRsvpClick = () => {
     if (!user) {
       toast.error("Please log in to RSVP");
@@ -634,7 +1027,13 @@ export default function EventDetailsPage() {
       setConfirmOpen(true);
       return;
     }
-    toggleRsvp.mutate({ eventId: event.id, hasRsvpd: false });
+
+    if (captchaEnabled && !shouldRequireCaptcha(captchaSiteKey, captchaSecretKey, captchaToken)) {
+      toast.error("Please complete the CAPTCHA challenge to RSVP.");
+      return;
+    }
+
+    toggleRsvp.mutate({ eventId: event.id, hasRsvpd: false, captchaToken });
   };
 
   const handleCopyLink = async () => {
@@ -658,7 +1057,6 @@ export default function EventDetailsPage() {
       toast.error("Failed to copy event ID.");
     }
   };
-
   const handleConfirmCancel = () => {
     toggleRsvp.mutate({ eventId: event.id, hasRsvpd: true });
     setConfirmOpen(false);
@@ -819,6 +1217,24 @@ export default function EventDetailsPage() {
               <Users className="h-5 w-5" />
               <span>{attendeeCount} RSVP&apos;d</span>
             </div>
+            <div className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              <span>
+                {(
+                  ((event as any).event_metrics as { views: number } | null)?.views ?? 0
+                ).toLocaleString()}{" "}
+                views
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-6 max-w-md">
+            <EventCapacityGauge
+              eventId={event.id}
+              initialCapacity={attendeeCount}
+              maxAttendees={maxAttendees || null}
+              showDetails={true}
+            />
           </div>
 
           <div className="mt-8 hidden items-center gap-4 md:flex">
@@ -864,14 +1280,32 @@ export default function EventDetailsPage() {
                 )}
               </div>
             ) : (
-              <Button
-                onClick={handleRsvpClick}
-                disabled={toggleRsvp.isPending}
-                variant="primary"
-                size="lg"
-              >
-                {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
-              </Button>
+              <div className="flex flex-col gap-1">
+                <Button
+                  onClick={handleRsvpClick}
+                  disabled={toggleRsvp.isPending}
+                  variant="primary"
+                  size="lg"
+                >
+                  {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
+                </Button>
+                {captchaEnabled && (
+                  <div className="flex flex-col gap-2">
+                    <span
+                      className={`font-mono text-xs font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
+                    >
+                      Verification required before RSVP
+                    </span>
+                    <CaptchaWidget
+                      siteKey={captchaSiteKey}
+                      provider={captchaProvider}
+                      onToken={(token) => setCaptchaToken(token)}
+                      onError={() => setCaptchaToken(undefined)}
+                      onExpire={() => setCaptchaToken(undefined)}
+                    />
+                  </div>
+                )}
+              </div>
             )}
             <span
               className={`font-mono text-sm font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
@@ -911,15 +1345,19 @@ export default function EventDetailsPage() {
             </TooltipProvider>
 
             {isOrganizer && (
-              <Button
-                onClick={() => exportCsv.mutate()}
-                disabled={exportCsv.isPending}
-                variant="outline"
-                className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                {exportCsv.isPending ? "Exporting..." : "Export CSV"}
-              </Button>
+              <>
+                <Button
+                  onClick={() => exportCsv.mutate()}
+                  disabled={exportCsv.isPending}
+                  variant="outline"
+                  className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  {exportCsv.isPending ? "Exporting..." : "Export CSV"}
+                </Button>
+                <CreatePollDialog eventId={eventId} user={user!} onPollCreated={() => refetch()} />
+                <EditEventDialog event={event} user={user} onSuccess={() => refetch()} />
+              </>
             )}
 
             {googleCalendarUrl && (
@@ -997,7 +1435,9 @@ export default function EventDetailsPage() {
                             key={star}
                             type="button"
                             onClick={() => setFeedbackRating(star)}
-                            className="focus:outline-none transition-transform hover:scale-110 active:scale-95"
+                            aria-label={`Rate ${star} out of 5 stars`}
+                            aria-pressed={feedbackRating === star}
+                            className="transition-transform hover:scale-110 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
                           >
                             <Star
                               className={`h-8 w-8 ${feedbackRating >= star ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
@@ -1047,20 +1487,42 @@ export default function EventDetailsPage() {
             </div>
           )}
 
+          {/* Active Poll */}
+          <div className="mt-8">
+            <ActivePoll eventId={eventId} userId={user?.id} />
+          </div>
+
+          {/* Live Q&A */}
+          <div className="mt-8">
+            <LiveQA eventId={eventId} userId={user?.id} isOrganizer={isOrganizer} />
+          </div>
           {/* Description */}
           <div className="mt-8">
             <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
               About the Event
             </h2>
-            {event.description ? (
-              <p className="mt-4 whitespace-pre-line text-base leading-7 text-black/80">
-                {event.description}
-              </p>
-            ) : (
-              <p className="mt-4 font-mono text-sm italic text-black/40">
-                No description provided for this event.
-              </p>
-            )}
+            <div className="flex flex-col gap-8 lg:flex-row">
+              <main className="flex-1 min-w-0">
+                {event.description ? (
+                  <p className="mt-4 whitespace-pre-line text-base leading-7 text-black/80">
+                    {event.description}
+                  </p>
+                ) : (
+                  <p className="mt-4 font-mono text-sm italic text-black/40">
+                    No description provided for this event.
+                  </p>
+                )}
+
+                <div
+                  id="event-description-container"
+                  className="prose prose-lg max-w-none dark:prose-invert prose-headings:scroll-mt-24"
+                  dangerouslySetInnerHTML={{ __html: event.description || "" }}
+                />
+              </main>
+              <aside className="lg:w-64 shrink-0">
+                <TableOfContents items={tocItems} />
+              </aside>
+            </div>
           </div>
 
           {/* FAQ Section */}
@@ -1109,13 +1571,20 @@ export default function EventDetailsPage() {
               coordsCheck.lat != null &&
               coordsCheck.lng != null ? (
                 <>
-                  <EventMap
-                    lat={coordsCheck.lat}
-                    lng={coordsCheck.lng}
-                    locationName={event.location}
-                  />
+                  <LazyHydrate
+                    height="300px"
+                    placeholder={<MapSkeleton className="mt-4 h-[300px] w-full" />}
+                  >
+                    <Suspense fallback={<MapSkeleton className="mt-4 h-[300px] w-full" />}>
+                      <EventMap
+                        lat={coordsCheck.lat}
+                        lng={coordsCheck.lng}
+                        locationName={event.location}
+                      />
+                    </Suspense>
+                  </LazyHydrate>
                   <a
-                    href={`https://www.google.com/maps/search/?q=${encodeURIComponent(event.location)}`}
+                    href={buildGoogleMapsSearchUrl(event.location)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-2 inline-block font-mono text-xs font-bold underline text-blue-500"
@@ -1137,7 +1606,7 @@ export default function EventDetailsPage() {
                       must be between -90 and 90, and Longitude between -180 and 180.
                     </p>
                     <a
-                      href={`https://www.google.com/maps/search/?q=${encodeURIComponent(event.location)}`}
+                      href={buildGoogleMapsSearchUrl(event.location)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 font-mono text-xs font-bold underline hover:no-underline text-black"
@@ -1148,7 +1617,7 @@ export default function EventDetailsPage() {
                 </div>
               ) : (
                 <a
-                  href={`https://www.google.com/maps/search/?q=${encodeURIComponent(event.location)}`}
+                  href={buildGoogleMapsSearchUrl(event.location)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="neu-border mt-4 inline-flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
@@ -1293,6 +1762,374 @@ export default function EventDetailsPage() {
               />
             </div>
           </div>
+
+          {/* Kanban Board for Organizer */}
+          {isOrganizer && (
+            <div className="mt-12 border-t-4 border-black pt-10">
+              <h2 className="font-display text-2xl font-black uppercase tracking-tight text-black mb-6">
+                Attendee Manager
+              </h2>
+              <div className="mb-8 rounded-2xl border-4 border-black bg-white p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-display text-xl font-black uppercase tracking-tight text-black">
+                      QR Check-in
+                    </h3>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Verify a signed ticket from the camera or an uploaded image to mark the
+                      attendee as checked in.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-5">
+                  <SteganographicQRScanner
+                    onVerificationSuccess={(payload) => {
+                      checkInRsvp.mutate({ rsvpId: payload.rsvpId });
+                    }}
+                  />
+                </div>
+              </div>
+              <DragDropContext onDragEnd={onDragEnd}>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Waitlisted Column */}
+                  <div className="flex flex-col border-4 border-black bg-amber-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <Clock size={18} className="text-amber-600" /> Waitlisted
+                      </span>
+                      <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
+                        {columns.waitlisted.length}
+                      </span>
+                    </h3>
+                    <Droppable droppableId="waitlisted">
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
+                            snapshot.isDraggingOver ? "bg-amber-100/50" : ""
+                          }`}
+                        >
+                          {columns.waitlisted.map((card, index) => (
+                            <Draggable key={card.id} draggableId={card.id} index={index}>
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
+                                    snapshot.isDragging
+                                      ? "rotate-2 scale-105 z-50 bg-amber-50/90"
+                                      : ""
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    {card.avatarUrl ? (
+                                      <img
+                                        src={card.avatarUrl}
+                                        alt={card.name}
+                                        className="h-10 w-10 border-2 border-black object-cover rounded-none"
+                                      />
+                                    ) : (
+                                      <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
+                                        {card.name.substring(0, 2)}
+                                      </div>
+                                    )}
+                                    <div className="min-w-0">
+                                      <p className="truncate font-mono text-sm font-bold text-black">
+                                        {card.name}
+                                      </p>
+                                      <p className="font-mono text-[9px] text-black/60 uppercase">
+                                        {card.rsvpId ? "Requested" : "Waitlist"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1 ml-2">
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            size="icon"
+                                            variant="outline"
+                                            className="h-7 w-7 border border-black rounded-none bg-emerald-50 hover:bg-emerald-200"
+                                            onClick={() =>
+                                              updateRsvpStatus.mutate({
+                                                userId: card.userId,
+                                                rsvpId: card.rsvpId,
+                                                newStatus: "approved",
+                                              })
+                                            }
+                                          >
+                                            <CheckCircle size={14} className="text-emerald-700" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Approve RSVP</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            size="icon"
+                                            variant="outline"
+                                            className="h-7 w-7 border border-black rounded-none bg-rose-50 hover:bg-rose-200"
+                                            onClick={() =>
+                                              updateRsvpStatus.mutate({
+                                                userId: card.userId,
+                                                rsvpId: card.rsvpId,
+                                                newStatus: "rejected",
+                                              })
+                                            }
+                                          >
+                                            <X size={14} className="text-rose-700" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Reject RSVP</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </div>
+
+                  {/* Approved Column */}
+                  <div className="flex flex-col border-4 border-black bg-emerald-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <CheckCircle size={18} className="text-emerald-600" /> Approved
+                      </span>
+                      <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
+                        {columns.approved.length}
+                      </span>
+                    </h3>
+                    <Droppable droppableId="approved">
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
+                            snapshot.isDraggingOver ? "bg-emerald-100/50" : ""
+                          }`}
+                        >
+                          {columns.approved.map((card, index) => (
+                            <Draggable key={card.id} draggableId={card.id} index={index}>
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
+                                    snapshot.isDragging
+                                      ? "rotate-2 scale-105 z-50 bg-emerald-50/90"
+                                      : ""
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    {card.avatarUrl ? (
+                                      <img
+                                        src={card.avatarUrl}
+                                        alt={card.name}
+                                        className="h-10 w-10 border-2 border-black object-cover rounded-none"
+                                      />
+                                    ) : (
+                                      <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
+                                        {card.name.substring(0, 2)}
+                                      </div>
+                                    )}
+                                    <div className="min-w-0">
+                                      <p className="truncate font-mono text-sm font-bold text-black">
+                                        {card.name}
+                                      </p>
+                                      <p className="font-mono text-[9px] text-black/60 uppercase">
+                                        Approved
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1 ml-2">
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            size="icon"
+                                            variant="outline"
+                                            className="h-7 w-7 border border-black rounded-none bg-amber-50 hover:bg-amber-200"
+                                            onClick={() =>
+                                              updateRsvpStatus.mutate({
+                                                userId: card.userId,
+                                                rsvpId: card.rsvpId,
+                                                newStatus: "waitlisted",
+                                              })
+                                            }
+                                          >
+                                            <Clock size={14} className="text-amber-700" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Move to Waitlist</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            size="icon"
+                                            variant="outline"
+                                            className="h-7 w-7 border border-black rounded-none bg-rose-50 hover:bg-rose-200"
+                                            onClick={() =>
+                                              updateRsvpStatus.mutate({
+                                                userId: card.userId,
+                                                rsvpId: card.rsvpId,
+                                                newStatus: "rejected",
+                                              })
+                                            }
+                                          >
+                                            <X size={14} className="text-rose-700" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Reject RSVP</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </div>
+
+                  {/* Rejected Column */}
+                  <div className="flex flex-col border-4 border-black bg-rose-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <X size={18} className="text-rose-600" /> Rejected
+                      </span>
+                      <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
+                        {columns.rejected.length}
+                      </span>
+                    </h3>
+                    <Droppable droppableId="rejected">
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
+                            snapshot.isDraggingOver ? "bg-rose-100/50" : ""
+                          }`}
+                        >
+                          {columns.rejected.map((card, index) => (
+                            <Draggable key={card.id} draggableId={card.id} index={index}>
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
+                                    snapshot.isDragging
+                                      ? "rotate-2 scale-105 z-50 bg-rose-50/90"
+                                      : ""
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    {card.avatarUrl ? (
+                                      <img
+                                        src={card.avatarUrl}
+                                        alt={card.name}
+                                        className="h-10 w-10 border-2 border-black object-cover rounded-none"
+                                      />
+                                    ) : (
+                                      <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
+                                        {card.name.substring(0, 2)}
+                                      </div>
+                                    )}
+                                    <div className="min-w-0">
+                                      <p className="truncate font-mono text-sm font-bold text-black">
+                                        {card.name}
+                                      </p>
+                                      <p className="font-mono text-[9px] text-black/60 uppercase">
+                                        Rejected
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1 ml-2">
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            size="icon"
+                                            variant="outline"
+                                            className="h-7 w-7 border border-black rounded-none bg-amber-50 hover:bg-amber-200"
+                                            onClick={() =>
+                                              updateRsvpStatus.mutate({
+                                                userId: card.userId,
+                                                rsvpId: card.rsvpId,
+                                                newStatus: "waitlisted",
+                                              })
+                                            }
+                                          >
+                                            <Clock size={14} className="text-amber-700" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Move to Waitlist</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            size="icon"
+                                            variant="outline"
+                                            className="h-7 w-7 border border-black rounded-none bg-emerald-50 hover:bg-emerald-200"
+                                            onClick={() =>
+                                              updateRsvpStatus.mutate({
+                                                userId: card.userId,
+                                                rsvpId: card.rsvpId,
+                                                newStatus: "approved",
+                                              })
+                                            }
+                                          >
+                                            <CheckCircle size={14} className="text-emerald-700" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Approve RSVP</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </div>
+                </div>
+              </DragDropContext>
+            </div>
+          )}
         </div>
       </section>
 
@@ -1351,11 +2188,19 @@ export default function EventDetailsPage() {
         targetType="event"
         targetId={event.id}
       />
-
       {lightboxSrc && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 cursor-zoom-out"
+          role="button"
+          tabIndex={0}
+          aria-label="Close enlarged image"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 cursor-zoom-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           onClick={() => setLightboxSrc(null)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " " || e.key === "Escape") {
+              e.preventDefault();
+              setLightboxSrc(null);
+            }
+          }}
         >
           <img
             src={lightboxSrc}

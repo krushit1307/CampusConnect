@@ -7,12 +7,27 @@ import {
   getFollowers,
   getClubEvents,
   saveInboxItem,
+  getSupabase,
 } from "./db";
 import { signatureMiddleware } from "./signature";
-import { DOMAIN } from "./index";
+import { DOMAIN } from "./config";
 import type { ClubRecord } from "./types";
 
-const router = Router();
+export interface ActivityPubRepository {
+  getClubBySlug: typeof getClubBySlug;
+  getOrCreateClubKeys: typeof getOrCreateClubKeys;
+  getFollowers: typeof getFollowers;
+  getClubEvents: typeof getClubEvents;
+  saveInboxItem: typeof saveInboxItem;
+}
+
+const defaultRepository: ActivityPubRepository = {
+  getClubBySlug,
+  getOrCreateClubKeys,
+  getFollowers,
+  getClubEvents,
+  saveInboxItem,
+};
 
 function actorUrl(slug: string): string {
   return `https://${DOMAIN}/api/activitypub/actors/${slug}`;
@@ -86,158 +101,168 @@ function buildEventNote(
   return note;
 }
 
-router.get("/actors/:slug", async (req: Request, res: Response) => {
-  const slug = getSlug(req);
-  const club = await getClubBySlug(slug);
-  if (!club) {
-    res.status(404).json({ error: "Actor not found" });
-    return;
-  }
+export function createActivityPubRouter(repository: ActivityPubRepository = defaultRepository) {
+  const router = Router();
 
-  const keys = await getOrCreateClubKeys(club.id);
-  const actor = buildActor(slug, club);
-  actor.publicKey.publicKeyPem = keys.public_key;
-
-  res.set("Content-Type", "application/activity+json");
-  res.json(actor);
-});
-
-router.get("/actors/:slug/outbox", async (req: Request, res: Response) => {
-  const slug = getSlug(req);
-  const club = await getClubBySlug(slug);
-  if (!club) {
-    res.status(404).json({ error: "Actor not found" });
-    return;
-  }
-
-  const events = await getClubEvents(club.id);
-  const orderedItems = events.map((ev) => {
-    const note = buildEventNote(ev, slug);
-    return {
-      id: `${actorUrl(slug)}/activities/${ev.id}`,
-      type: "Create",
-      actor: actorUrl(slug),
-      object: note,
-      published: ev.created_at,
-      to: ["https://www.w3.org/ns/activitystreams#Public"],
-    };
-  });
-
-  const outbox = {
-    "@context": "https://www.w3.org/ns/activitystreams",
-    id: `${actorUrl(slug)}/outbox`,
-    type: "OrderedCollection",
-    totalItems: orderedItems.length,
-    orderedItems,
-  };
-
-  res.set("Content-Type", "application/activity+json");
-  res.json(outbox);
-});
-
-router.get("/actors/:slug/followers", async (req: Request, res: Response) => {
-  const slug = getSlug(req);
-  const club = await getClubBySlug(slug);
-  if (!club) {
-    res.status(404).json({ error: "Actor not found" });
-    return;
-  }
-
-  const followers = await getFollowers(club.id);
-  const items = followers.map((f) => f.actor_id);
-
-  const collection = {
-    "@context": "https://www.w3.org/ns/activitystreams",
-    id: `${actorUrl(slug)}/followers`,
-    type: "OrderedCollection",
-    totalItems: items.length,
-    items,
-  };
-
-  res.set("Content-Type", "application/activity+json");
-  res.json(collection);
-});
-
-router.get("/actors/:slug/following", async (req: Request, res: Response) => {
-  const slug = getSlug(req);
-  const club = await getClubBySlug(slug);
-  if (!club) {
-    res.status(404).json({ error: "Actor not found" });
-    return;
-  }
-
-  const collection = {
-    "@context": "https://www.w3.org/ns/activitystreams",
-    id: `${actorUrl(slug)}/following`,
-    type: "OrderedCollection",
-    totalItems: 0,
-    items: [],
-  };
-
-  res.set("Content-Type", "application/activity+json");
-  res.json(collection);
-});
-
-router.post(
-  "/actors/:slug/inbox",
-  signatureMiddleware(false),
-  async (req: Request, res: Response) => {
+  router.get("/actors/:slug", async (req: Request, res: Response) => {
     const slug = getSlug(req);
-    const club = await getClubBySlug(slug);
+    const club = await repository.getClubBySlug(slug);
     if (!club) {
       res.status(404).json({ error: "Actor not found" });
       return;
     }
 
-    const activity = req.body as Record<string, unknown>;
-    const actorId =
-      ((req as unknown as Record<string, unknown>).verifiedActorId as string) ||
-      (activity.actor as string) ||
-      ((activity.object as Record<string, unknown>)?.attributedTo as string);
+    const keys = await repository.getOrCreateClubKeys(club.id);
+    const actor = buildActor(slug, club);
+    actor.publicKey.publicKeyPem = keys.public_key;
 
-    if (!actorId) {
-      res.status(400).json({ error: "Could not verify actor" });
+    res.set("Content-Type", "application/activity+json");
+    res.json(actor);
+  });
+
+  router.get("/actors/:slug/outbox", async (req: Request, res: Response) => {
+    const slug = getSlug(req);
+    const club = await repository.getClubBySlug(slug);
+    if (!club) {
+      res.status(404).json({ error: "Actor not found" });
       return;
     }
 
-    await saveInboxItem(club.id, actorId, (activity.type as string) || "Unknown", activity);
+    const events = await repository.getClubEvents(club.id);
+    const orderedItems = events.map((ev) => {
+      const note = buildEventNote(ev, slug);
+      return {
+        id: `${actorUrl(slug)}/activities/${ev.id}`,
+        type: "Create",
+        actor: actorUrl(slug),
+        object: note,
+        published: ev.created_at,
+        to: ["https://www.w3.org/ns/activitystreams#Public"],
+      };
+    });
 
-    if (activity.type === "Follow") {
-      await handleFollowActivity(club, slug, actorId, activity);
+    const outbox = {
+      "@context": "https://www.w3.org/ns/activitystreams",
+      id: `${actorUrl(slug)}/outbox`,
+      type: "OrderedCollection",
+      totalItems: orderedItems.length,
+      orderedItems,
+    };
+
+    res.set("Content-Type", "application/activity+json");
+    res.json(outbox);
+  });
+
+  router.get("/actors/:slug/followers", async (req: Request, res: Response) => {
+    const slug = getSlug(req);
+    const club = await repository.getClubBySlug(slug);
+    if (!club) {
+      res.status(404).json({ error: "Actor not found" });
+      return;
     }
 
-    res.status(202).json({});
-  },
-);
+    const followers = await repository.getFollowers(club.id);
+    const items = followers.map((f) => f.actor_id);
 
-router.get("/actors/:slug/inbox", async (req: Request, res: Response) => {
-  const slug = getSlug(req);
-  const club = await getClubBySlug(slug);
-  if (!club) {
-    res.status(404).json({ error: "Actor not found" });
-    return;
-  }
+    const collection = {
+      "@context": "https://www.w3.org/ns/activitystreams",
+      id: `${actorUrl(slug)}/followers`,
+      type: "OrderedCollection",
+      totalItems: items.length,
+      items,
+    };
 
-  const collection = {
-    "@context": "https://www.w3.org/ns/activitystreams",
-    id: `${actorUrl(slug)}/inbox`,
-    type: "OrderedCollection",
-    totalItems: 0,
-    orderedItems: [],
-  };
+    res.set("Content-Type", "application/activity+json");
+    res.json(collection);
+  });
 
-  res.set("Content-Type", "application/activity+json");
-  res.json(collection);
-});
+  router.get("/actors/:slug/following", async (req: Request, res: Response) => {
+    const slug = getSlug(req);
+    const club = await repository.getClubBySlug(slug);
+    if (!club) {
+      res.status(404).json({ error: "Actor not found" });
+      return;
+    }
+
+    const collection = {
+      "@context": "https://www.w3.org/ns/activitystreams",
+      id: `${actorUrl(slug)}/following`,
+      type: "OrderedCollection",
+      totalItems: 0,
+      items: [],
+    };
+
+    res.set("Content-Type", "application/activity+json");
+    res.json(collection);
+  });
+
+  router.post(
+    "/actors/:slug/inbox",
+    signatureMiddleware(false),
+    async (req: Request, res: Response) => {
+      const slug = getSlug(req);
+      const club = await repository.getClubBySlug(slug);
+      if (!club) {
+        res.status(404).json({ error: "Actor not found" });
+        return;
+      }
+
+      const activity = req.body as Record<string, unknown>;
+      const actorId =
+        ((req as unknown as Record<string, unknown>).verifiedActorId as string) ||
+        (activity.actor as string) ||
+        ((activity.object as Record<string, unknown>)?.attributedTo as string);
+
+      if (!actorId) {
+        res.status(400).json({ error: "Could not verify actor" });
+        return;
+      }
+
+      await repository.saveInboxItem(
+        club.id,
+        actorId,
+        (activity.type as string) || "Unknown",
+        activity,
+      );
+
+      if (activity.type === "Follow") {
+        await handleFollowActivity(club, slug, actorId, activity, repository);
+      }
+
+      res.status(202).json({});
+    },
+  );
+
+  router.get("/actors/:slug/inbox", async (req: Request, res: Response) => {
+    const slug = getSlug(req);
+    const club = await repository.getClubBySlug(slug);
+    if (!club) {
+      res.status(404).json({ error: "Actor not found" });
+      return;
+    }
+
+    const collection = {
+      "@context": "https://www.w3.org/ns/activitystreams",
+      id: `${actorUrl(slug)}/inbox`,
+      type: "OrderedCollection",
+      totalItems: 0,
+      orderedItems: [],
+    };
+
+    res.set("Content-Type", "application/activity+json");
+    res.json(collection);
+  });
+
+  return router;
+}
 
 async function handleFollowActivity(
   club: ClubRecord,
   slug: string,
   actorId: string,
   activity: Record<string, unknown>,
+  repository: ActivityPubRepository,
 ): Promise<void> {
-  const { supabase } = await import("./db");
-
   const actorDoc = await fetch(actorId, {
     headers: { Accept: "application/activity+json" },
   })
@@ -253,17 +278,19 @@ async function handleFollowActivity(
 
   if (!inboxUrl) return;
 
-  await supabase.from("activitypub_followers").upsert(
-    {
-      club_id: club.id,
-      actor_id: actorId,
-      inbox_url: inboxUrl,
-      shared_inbox_url: (actorDoc.sharedInbox as string) || null,
-      username: preferredUsername,
-      domain,
-    },
-    { onConflict: "club_id, actor_id" },
-  );
+  await getSupabase()
+    .from("activitypub_followers")
+    .upsert(
+      {
+        club_id: club.id,
+        actor_id: actorId,
+        inbox_url: inboxUrl,
+        shared_inbox_url: (actorDoc.sharedInbox as string) || null,
+        username: preferredUsername,
+        domain,
+      },
+      { onConflict: "club_id, actor_id" },
+    );
 
   const acceptActivity: Record<string, unknown> = {
     "@context": "https://www.w3.org/ns/activitystreams",
@@ -273,7 +300,7 @@ async function handleFollowActivity(
     object: activity,
   };
 
-  const keys = await getOrCreateClubKeys(club.id);
+  const keys = await repository.getOrCreateClubKeys(club.id);
   const targetInbox = (actorDoc.sharedInbox as string) || inboxUrl;
 
   await deliverActivity(targetInbox, acceptActivity, actorUrl(slug), keys.private_key);
@@ -323,5 +350,7 @@ async function sha256Base64(input: string): Promise<string> {
   const { createHash } = await import("crypto");
   return createHash("sha256").update(input, "utf8").digest("base64");
 }
+
+const router = createActivityPubRouter();
 
 export default router;

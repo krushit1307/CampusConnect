@@ -1,6 +1,6 @@
 import { useEventCardContext } from "./EventCardContext";
 
-const ASSUMED_LEAD_TIME_DAYS = 30;
+export const DEFAULT_LEAD_TIME_DAYS = 30;
 
 interface EventProgress {
   percent: number;
@@ -8,7 +8,12 @@ interface EventProgress {
   isEstimated: boolean;
 }
 
-function getEventProgress(createdAt: string | null | undefined, eventDate: string): EventProgress {
+function getEventProgress(
+  announceDate: string | null | undefined,
+  createdAt: string | null | undefined,
+  eventDate: string,
+  fallbackLeadTimeDays: number,
+): EventProgress {
   const now = Date.now();
   const eventTime = new Date(eventDate).getTime();
 
@@ -19,10 +24,11 @@ function getEventProgress(createdAt: string | null | undefined, eventDate: strin
   let isEstimated = false;
   let startTime: number;
 
-  if (createdAt) {
-    startTime = new Date(createdAt).getTime();
+  const windowStart = announceDate ?? createdAt;
+  if (windowStart) {
+    startTime = new Date(windowStart).getTime();
   } else {
-    startTime = eventTime - ASSUMED_LEAD_TIME_DAYS * 24 * 60 * 60 * 1000;
+    startTime = eventTime - fallbackLeadTimeDays * 24 * 60 * 60 * 1000;
     isEstimated = true;
   }
 
@@ -38,13 +44,26 @@ function getEventProgress(createdAt: string | null | undefined, eventDate: strin
 }
 
 export function EventCardProgressBar() {
-  const { event } = useEventCardContext();
-  const createdAt = event.created_at;
+  const { event, club } = useEventCardContext();
+  const announceDate = event.announce_date ?? null;
+  const createdAt = event.created_at ?? null;
   const eventDate = event.event_date;
 
   if (!eventDate) return null;
 
-  const { percent, isPast, isEstimated } = getEventProgress(createdAt, eventDate);
+  const clubLeadTimeDays =
+    typeof club?.average_lead_time_days === "number" &&
+    Number.isFinite(club.average_lead_time_days) &&
+    club.average_lead_time_days > 0
+      ? club.average_lead_time_days
+      : DEFAULT_LEAD_TIME_DAYS;
+
+  const { percent, isPast, isEstimated } = getEventProgress(
+    announceDate,
+    createdAt,
+    eventDate,
+    clubLeadTimeDays,
+  );
 
   return (
     <div className="mt-4">
@@ -68,7 +87,7 @@ export function EventCardProgressBar() {
       </div>
       {isEstimated && !isPast && (
         <p className="mt-1 font-mono text-[9px] text-gray-500">
-          Estimated — creation date unavailable
+          Estimated — using club average lead time
         </p>
       )}
     </div>

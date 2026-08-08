@@ -1,31 +1,26 @@
-import express from "express";
-import { handleWebFinger } from "./webfinger";
-import activityPubRouter from "./routes";
-import webhookRouter from "./webhook";
+import { createActivityPubApp } from "./app";
+import { DOMAIN, PORT } from "./config";
+import { logger } from "./logger";
 
-export const DOMAIN = process.env.DOMAIN || "localhost:3002";
-const PORT = parseInt(process.env.PORT || "3002", 10);
+export { DOMAIN } from "./config";
 
-const app = express();
+export const app = createActivityPubApp();
 
-app.use(
-  express.json({
-    type: ["application/json", "application/activity+json", "application/ld+json"],
-  }),
-);
+if (process.env.NODE_ENV !== "test") {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    logger.fatal("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set");
+    process.exit(1);
+  }
 
-app.get("/.well-known/webfinger", handleWebFinger);
-
-app.use("/api/activitypub", activityPubRouter);
-app.use("/api/activitypub", webhookRouter);
-
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok", service: "activitypub" });
-});
-
-app.listen(PORT, () => {
-  console.log(`[ActivityPub] Server running on port ${PORT}`);
-  console.log(`[ActivityPub] Domain: ${DOMAIN}`);
-  console.log(`[ActivityPub] WebFinger: /.well-known/webfinger`);
-  console.log(`[ActivityPub] Actors: /api/activitypub/actors/:slug`);
-});
+  app.listen(PORT, () => {
+    logger.info(
+      {
+        port: PORT,
+        domain: DOMAIN,
+        webfinger: "/.well-known/webfinger",
+        actors: "/api/activitypub/actors/:slug",
+      },
+      "ActivityPub server listening",
+    );
+  });
+}
