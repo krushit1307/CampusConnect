@@ -1,3 +1,4 @@
+/// <reference path="./commands.d.ts" />
 // ***********************************************************
 // This example support/e2e.ts is processed and
 // loaded automatically before your test files.
@@ -7,7 +8,8 @@
 // ***********************************************************
 
 // Mock Supabase auth to simulate a logged-in user
-Cypress.Commands.add("mockAuth", () => {
+
+(Cypress.Commands.add as any)("mockAuth", () => {
   window.localStorage.setItem(
     "sb-ynhpevfxvtmpfosiclxe-auth-token",
     JSON.stringify({
@@ -23,11 +25,11 @@ Cypress.Commands.add("mockAuth", () => {
   );
 });
 
-Cypress.Commands.add("mockUnauth", () => {
+(Cypress.Commands.add as any)("mockUnauth", () => {
   window.localStorage.removeItem("sb-ynhpevfxvtmpfosiclxe-auth-token");
 });
 
-Cypress.Commands.add("mockEvents", () => {
+(Cypress.Commands.add as any)("mockEvents", () => {
   cy.intercept("GET", "**/rest/v1/events*", {
     statusCode: 200,
     body: [

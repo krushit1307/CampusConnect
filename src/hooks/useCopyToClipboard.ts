@@ -45,32 +45,37 @@ export function useCopyToClipboard(timeout = 2000) {
     };
   }, []);
 
-  const copyToClipboard = useCallback(async (text: string): Promise<boolean> => {
-    let didCopy = false;
+  const copyToClipboard = useCallback(
+    async (text: string): Promise<boolean> => {
+      let didCopy = false;
 
-    if (typeof navigator !== "undefined" && typeof navigator.clipboard?.writeText === "function") {
-      try {
-        await navigator.clipboard.writeText(text);
-        didCopy = true;
-      } catch {
+      if (
+        typeof navigator !== "undefined" &&
+        typeof navigator.clipboard?.writeText === "function"
+      ) {
+        try {
+          await navigator.clipboard.writeText(text);
+          didCopy = true;
+        } catch {
+          didCopy = copyWithLegacyFallback(text);
+        }
+      } else {
         didCopy = copyWithLegacyFallback(text);
       }
-    } else {
-      didCopy = copyWithLegacyFallback(text);
-    }
 
-    if (!didCopy) {
-      return false;
-    }
+      if (!didCopy) {
+        return false;
+      }
 
-    setIsCopied(true);
-    if (resetTimeoutRef.current) {
-      clearTimeout(resetTimeoutRef.current);
-    }
-    resetTimeoutRef.current = setTimeout(() => setIsCopied(false), timeout);
-    return true;
-  }, [timeout]);
+      setIsCopied(true);
+      if (resetTimeoutRef.current) {
+        clearTimeout(resetTimeoutRef.current);
+      }
+      resetTimeoutRef.current = setTimeout(() => setIsCopied(false), timeout);
+      return true;
+    },
+    [timeout],
+  );
 
   return { copyToClipboard, isCopied };
 }
-

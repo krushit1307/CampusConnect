@@ -8,7 +8,6 @@ expect.extend(matchers);
 // Extend Vitest with jest-axe custom matcher
 expect.extend(toHaveNoViolations);
 import "@testing-library/jest-dom/vitest";
-import { vi } from "vitest";
 import React from "react";
 
 process.env.VITE_SUPABASE_URL = process.env.VITE_SUPABASE_URL || "https://placeholder.supabase.co";

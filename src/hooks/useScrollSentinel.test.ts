@@ -2,9 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useScrollSentinel } from "./useScrollSentinel";
 
-type ObserverCallback = (
-  entries: Pick<IntersectionObserverEntry, "isIntersecting">[],
-) => void;
+type ObserverCallback = (entries: Pick<IntersectionObserverEntry, "isIntersecting">[]) => void;
 
 describe("useScrollSentinel", () => {
   let observeSpy: ReturnType<typeof vi.fn>;
@@ -38,8 +36,7 @@ describe("useScrollSentinel", () => {
   });
 
   afterEach(() => {
-    globalThis.IntersectionObserver =
-      originalIntersectionObserver as typeof IntersectionObserver;
+    globalThis.IntersectionObserver = originalIntersectionObserver as typeof IntersectionObserver;
   });
 
   it("starts as false (not past the sentinel / at the top of the page)", () => {

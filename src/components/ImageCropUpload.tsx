@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
 import { getCroppedImg, type Area } from "@/utils/cropImage";
 import { compressImage } from "@/utils/imageCompressor";
-import { getExifOrientation, correctImageOrientation } from "@/utils/exifOrientation";
+import loadImage from "blueimp-load-image";
 import {
   Dialog,
   DialogContent,
@@ -99,17 +99,26 @@ export function ImageCropUpload({
   function openCropDialog(file: File) {
     if (!validateFile(file)) return;
     setSelectedFile(file);
-    const reader = new FileReader();
-    reader.addEventListener("load", async () => {
-      const rawDataUrl = reader.result as string;
-      const orientation = await getExifOrientation(file);
-      const correctedDataUrl =
-        orientation > 1 ? await correctImageOrientation(rawDataUrl, orientation) : rawDataUrl;
-      setCropImageSrc(correctedDataUrl);
-      setCrop({ x: 0, y: 0 });
-      setZoom(1);
-    });
-    reader.readAsDataURL(file);
+    loadImage(
+      file,
+      (canvasOrImg) => {
+        const canvas = canvasOrImg as HTMLCanvasElement;
+        if (canvas && typeof canvas.toDataURL === "function") {
+          const rotatedDataUrl = canvas.toDataURL("image/jpeg");
+          setCropImageSrc(rotatedDataUrl);
+        } else {
+          // Fallback if load-image returned an Image element or failed
+          const reader = new FileReader();
+          reader.addEventListener("load", () => {
+            setCropImageSrc(reader.result as string);
+          });
+          reader.readAsDataURL(file);
+        }
+        setCrop({ x: 0, y: 0 });
+        setZoom(1);
+      },
+      { orientation: true, canvas: true },
+    );
   }
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];

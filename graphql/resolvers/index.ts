@@ -21,6 +21,9 @@ export interface NotificationRecord {
   is_read: boolean;
   metadata?: Record<string, unknown> | null;
   created_at: string;
+  recent_actors?: string[] | null;
+  group_count?: number | null;
+  reference_id?: string | null;
 }
 
 /**
@@ -401,6 +404,9 @@ export const typeDefs = /* GraphQL */ `
     link: String
     isRead: Boolean!
     createdAt: String!
+    recentActors: [ID!]
+    groupCount: Int
+    referenceId: ID
   }
 
   type Query {
@@ -729,6 +735,9 @@ export const resolvers = {
         link: payload.link ?? null,
         isRead: payload.is_read,
         createdAt: payload.created_at,
+        recentActors: payload.recent_actors ?? [],
+        groupCount: payload.group_count ?? 1,
+        referenceId: payload.reference_id ?? null,
       }),
     },
   },
@@ -742,6 +751,9 @@ export const resolvers = {
     isRead: (parent: NotificationRecord) => parent.is_read,
     createdAt: (parent: NotificationRecord) => parent.created_at,
     type: (parent: NotificationRecord) => mapNotificationType(parent.type),
+    recentActors: (parent: NotificationRecord) => parent.recent_actors ?? [],
+    groupCount: (parent: NotificationRecord) => parent.group_count ?? 1,
+    referenceId: (parent: NotificationRecord) => parent.reference_id ?? null,
   },
 };
 

@@ -1,93 +1,93 @@
 // =============================================================================
 // Script: Build SVG Sprite Sheet
 // Issue: #2409 - Consolidate massive SVG assets into a single SVG Sprite Sheet
-// Description: Node script that automatically reads the /public/icons directory 
-// and compiles all individual SVGs into a single sprite.svg file using <symbol> 
+// Description: Node script that automatically reads the /public/icons directory
+// and compiles all individual SVGs into a single sprite.svg file using <symbol>
 // tags. This reduces HTTP requests from 50+ to exactly 1.
 // Run via: npx ts-node scripts/build-sprite-sheet.ts
 // =============================================================================
 
-import fs from 'fs';
-import path from 'path';
+import fs from "fs";
+import path from "path";
 
-const ICONS_DIR = path.join(__dirname, '../public/icons');
-const OUTPUT_FILE = path.join(__dirname, '../public/sprite.svg');
+const ICONS_DIR = path.join(__dirname, "../public/icons");
+const OUTPUT_FILE = path.join(__dirname, "../public/sprite.svg");
 
 /**
  * Extracts the inner content of an SVG file, removing the outer <svg> tags
  * and preserving viewBox and other attributes for the <symbol> tag.
  */
 function extractSvgContent(svgString: string): { attributes: string; inner: string } {
-    // Match the opening <svg> tag with all its attributes
-    const svgTagMatch = svgString.match(/<svg([^>]*)>/);
-    if (!svgTagMatch) {
-        throw new Error('Invalid SVG format: missing <svg> tag');
-    }
+  // Match the opening <svg> tag with all its attributes
+  const svgTagMatch = svgString.match(/<svg([^>]*)>/);
+  if (!svgTagMatch) {
+    throw new Error("Invalid SVG format: missing <svg> tag");
+  }
 
-    const attributes = svgTagMatch[1].trim();
+  const attributes = svgTagMatch[1].trim();
 
-    // Extract inner content by removing <svg> and </svg> tags
-    const inner = svgString
-        .replace(/<svg[^>]*>/, '')
-        .replace(/<\/svg>/, '')
-        .trim();
+  // Extract inner content by removing <svg> and </svg> tags
+  const inner = svgString
+    .replace(/<svg[^>]*>/, "")
+    .replace(/<\/svg>/, "")
+    .trim();
 
-    return { attributes, inner };
+  return { attributes, inner };
 }
 
 /**
  * Ensures all SVG paths use fill="currentColor" for dynamic CSS color inheritance
  */
 function ensureCurrentColor(innerContent: string): string {
-    // Replace explicit fill colors with currentColor for theme compatibility
-    // This is critical because <use> tags trap SVGs in Shadow DOM
-    return innerContent.replace(/fill="(?!currentColor)[^"]*"/g, 'fill="currentColor"');
+  // Replace explicit fill colors with currentColor for theme compatibility
+  // This is critical because <use> tags trap SVGs in Shadow DOM
+  return innerContent.replace(/fill="(?!currentColor)[^"]*"/g, 'fill="currentColor"');
 }
 
 /**
  * Main build function that compiles the sprite sheet
  */
 function buildSpriteSheet(): void {
-    console.log('🎨 Starting SVG Sprite Sheet compilation...');
+  console.log("🎨 Starting SVG Sprite Sheet compilation...");
 
-    if (!fs.existsSync(ICONS_DIR)) {
-        console.warn(`⚠️ Icons directory not found at ${ICONS_DIR}. Creating empty sprite.`);
-        fs.mkdirSync(ICONS_DIR, { recursive: true });
-    }
+  if (!fs.existsSync(ICONS_DIR)) {
+    console.warn(`⚠️ Icons directory not found at ${ICONS_DIR}. Creating empty sprite.`);
+    fs.mkdirSync(ICONS_DIR, { recursive: true });
+  }
 
-    const files = fs.readdirSync(ICONS_DIR).filter(file => file.endsWith('.svg'));
-    console.log(`📁 Found ${files.length} SVG icons to process.`);
+  const files = fs.readdirSync(ICONS_DIR).filter((file) => file.endsWith(".svg"));
+  console.log(`📁 Found ${files.length} SVG icons to process.`);
 
-    let symbols = '';
+  let symbols = "";
 
-    files.forEach(file => {
-        const filePath = path.join(ICONS_DIR, file);
-        const svgContent = fs.readFileSync(filePath, 'utf-8');
+  files.forEach((file) => {
+    const filePath = path.join(ICONS_DIR, file);
+    const svgContent = fs.readFileSync(filePath, "utf-8");
 
-        try {
-            const { attributes, inner } = extractSvgContent(svgContent);
-            const processedInner = ensureCurrentColor(inner);
+    try {
+      const { attributes, inner } = extractSvgContent(svgContent);
+      const processedInner = ensureCurrentColor(inner);
 
-            // Extract viewBox from attributes for the symbol tag
-            const viewBoxMatch = attributes.match(/viewBox="([^"]*)"/);
-            const viewBox = viewBoxMatch ? viewBoxMatch[1] : '0 0 24 24';
+      // Extract viewBox from attributes for the symbol tag
+      const viewBoxMatch = attributes.match(/viewBox="([^"]*)"/);
+      const viewBox = viewBoxMatch ? viewBoxMatch[1] : "0 0 24 24";
 
-            // Generate symbol ID from filename (e.g., heart.svg -> icon-heart)
-            const symbolId = `icon-${path.basename(file, '.svg')}`;
+      // Generate symbol ID from filename (e.g., heart.svg -> icon-heart)
+      const symbolId = `icon-${path.basename(file, ".svg")}`;
 
-            symbols += `
+      symbols += `
     <symbol id="${symbolId}" viewBox="${viewBox}" ${attributes}>
       ${processedInner}
     </symbol>`;
 
-            console.log(`  ✅ Processed: ${file} -> #${symbolId}`);
-        } catch (error: any) {
-            console.error(`  ❌ Error processing ${file}:`, error.message);
-        }
-    });
+      console.log(`  ✅ Processed: ${file} -> #${symbolId}`);
+    } catch (error: any) {
+      console.error(`  ❌ Error processing ${file}:`, error.message);
+    }
+  });
 
-    // Compile the final sprite.svg file
-    const spriteContent = `<?xml version="1.0" encoding="UTF-8"?>
+  // Compile the final sprite.svg file
+  const spriteContent = `<?xml version="1.0" encoding="UTF-8"?>
 <!-- 
   =============================================================================
   SVG Sprite Sheet - Auto-generated by scripts/build-sprite-sheet.ts
@@ -101,9 +101,9 @@ function buildSpriteSheet(): void {
   </defs>
 </svg>`;
 
-    fs.writeFileSync(OUTPUT_FILE, spriteContent, 'utf-8');
-    console.log(`\n✨ Sprite sheet successfully generated at ${OUTPUT_FILE}`);
-    console.log(`   Total symbols: ${files.length}`);
+  fs.writeFileSync(OUTPUT_FILE, spriteContent, "utf-8");
+  console.log(`\n✨ Sprite sheet successfully generated at ${OUTPUT_FILE}`);
+  console.log(`   Total symbols: ${files.length}`);
 }
 
 // Execute the build

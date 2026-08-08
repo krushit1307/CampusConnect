@@ -6,7 +6,12 @@ import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
-import { eventFormSchema, TITLE_MAX_LENGTH, type EventFormValues } from "@/lib/eventUtils";
+import {
+  eventFormSchema,
+  TITLE_MAX_LENGTH,
+  DEFAULT_EVENT_TAG_OPTIONS,
+  type EventFormValues,
+} from "@/lib/eventUtils";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import {
   EventDocument,
@@ -43,7 +48,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { TagMultiSelect } from "@/components/ui/TagMultiSelect";
+import { MultiSelect } from "@/components/MultiSelect";
 import { DateTimePicker } from "@/components/DateTimePicker";
 
 const EVENT_CONCURRENT_EDIT_CONFLICT = "EVENT_CONCURRENT_EDIT_CONFLICT";
@@ -78,7 +83,6 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
     staleTime: 1000 * 60 * 30,
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const form = useForm<any>({
     resolver: zodResolver(eventFormSchema),
     defaultValues: {
@@ -344,10 +348,15 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                       Event Tags
                     </FormLabel>
                     <FormControl>
-                      <TagMultiSelect
-                        value={field.value || []}
-                        onChange={field.onChange}
+                      <MultiSelect
+                        value={(field.value || []).map((tag: string) => ({
+                          value: tag,
+                          label: tag,
+                        }))}
+                        onChange={(tags) => field.onChange(tags.map((t) => t.value))}
+                        options={DEFAULT_EVENT_TAG_OPTIONS}
                         placeholder="Select or type event tags (e.g. #Tech, #Career)..."
+                        allowCustom={true}
                       />
                     </FormControl>
                     <FormMessage />

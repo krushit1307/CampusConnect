@@ -1,10 +1,4 @@
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[];
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
   public: {
@@ -372,7 +366,7 @@ export type Database = {
           event_date: string | null;
           start_date: string | null;
           end_date: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           location: any;
           metadata: Json | null;
           latitude: number | null;
@@ -380,11 +374,20 @@ export type Database = {
           max_attendees: number | null;
           available_spots: number | null;
           rsvp_count: number;
-          views: number;
+          // views column removed — view counts now live in the event_metrics table (issue #2274)
           popularity_score: number | null;
           is_featured: boolean;
           requires_approval: boolean;
-          status: "upcoming" | "ongoing" | "completed" | "cancelled" | "published" | "active" | "draft" | "expired" | "archived";
+          status:
+            | "upcoming"
+            | "ongoing"
+            | "completed"
+            | "cancelled"
+            | "published"
+            | "active"
+            | "draft"
+            | "expired"
+            | "archived";
           tags: string[] | null;
           faqs: Json | null;
           blurhash: string | null;
@@ -404,7 +407,7 @@ export type Database = {
           event_date?: string | null;
           start_date?: string | null;
           end_date?: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           location?: any;
           metadata?: Json | null;
           latitude?: number | null;
@@ -412,11 +415,20 @@ export type Database = {
           max_attendees?: number | null;
           available_spots?: number | null;
           rsvp_count?: number;
-          views?: number;
+          // views column removed — view counts now live in the event_metrics table (issue #2274)
           popularity_score?: number | null;
           is_featured?: boolean;
           requires_approval?: boolean;
-          status?: "upcoming" | "ongoing" | "completed" | "cancelled" | "published" | "active" | "draft" | "expired" | "archived";
+          status?:
+            | "upcoming"
+            | "ongoing"
+            | "completed"
+            | "cancelled"
+            | "published"
+            | "active"
+            | "draft"
+            | "expired"
+            | "archived";
           tags?: string[] | null;
           faqs?: Json | null;
           blurhash?: string | null;
@@ -436,7 +448,7 @@ export type Database = {
           event_date?: string | null;
           start_date?: string | null;
           end_date?: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           location?: any;
           metadata?: Json | null;
           latitude?: number | null;
@@ -444,11 +456,20 @@ export type Database = {
           max_attendees?: number | null;
           available_spots?: number | null;
           rsvp_count?: number;
-          views?: number;
+          // views column removed — view counts now live in the event_metrics table (issue #2274)
           popularity_score?: number | null;
           is_featured?: boolean;
           requires_approval?: boolean;
-          status?: "upcoming" | "ongoing" | "completed" | "cancelled" | "published" | "active" | "draft" | "expired" | "archived";
+          status?:
+            | "upcoming"
+            | "ongoing"
+            | "completed"
+            | "cancelled"
+            | "published"
+            | "active"
+            | "draft"
+            | "expired"
+            | "archived";
           tags?: string[] | null;
           faqs?: Json | null;
           blurhash?: string | null;
@@ -468,6 +489,36 @@ export type Database = {
             columns: ["created_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      /**
+       * UNLOGGED table for high-throughput event view counting (issue #2274).
+       * One row per event; views are incremented via the increment_event_views() RPC.
+       */
+      event_metrics: {
+        Row: {
+          event_id:   string;
+          views:      number;
+          updated_at: string;
+        };
+        Insert: {
+          event_id:    string;
+          views?:      number;
+          updated_at?: string;
+        };
+        Update: {
+          event_id?:   string;
+          views?:      number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_metrics_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: true;
+            referencedRelation: "events";
             referencedColumns: ["id"];
           },
         ];
@@ -501,7 +552,8 @@ export type Database = {
           id: string;
           event_id: string;
           user_id: string;
-          status: "going" | "maybe" | "cancelled" | "waitlist" | "approved" | "rejected" | "waitlisted";
+          status:
+            "going" | "maybe" | "cancelled" | "waitlist" | "approved" | "rejected" | "waitlisted";
           checked_in: boolean;
           rsvp_at: string | null;
           created_at: string;
@@ -511,7 +563,8 @@ export type Database = {
           id?: string;
           event_id: string;
           user_id: string;
-          status?: "going" | "maybe" | "cancelled" | "waitlist" | "approved" | "rejected" | "waitlisted";
+          status?:
+            "going" | "maybe" | "cancelled" | "waitlist" | "approved" | "rejected" | "waitlisted";
           checked_in?: boolean;
           rsvp_at?: string | null;
           created_at?: string;
@@ -521,7 +574,8 @@ export type Database = {
           id?: string;
           event_id?: string;
           user_id?: string;
-          status?: "going" | "maybe" | "cancelled" | "waitlist" | "approved" | "rejected" | "waitlisted";
+          status?:
+            "going" | "maybe" | "cancelled" | "waitlist" | "approved" | "rejected" | "waitlisted";
           checked_in?: boolean;
           rsvp_at?: string | null;
           created_at?: string;
@@ -1120,7 +1174,7 @@ export type Database = {
           message: string;
           link: string | null;
           link_url: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           metadata: Record<string, any> | null;
           is_read: boolean;
           read_at: string | null;
@@ -1135,7 +1189,7 @@ export type Database = {
           message: string;
           link?: string | null;
           link_url?: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           metadata?: Record<string, any> | null;
           is_read?: boolean;
           read_at?: string | null;
@@ -1150,7 +1204,7 @@ export type Database = {
           message?: string;
           link?: string | null;
           link_url?: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           metadata?: Record<string, any> | null;
           is_read?: boolean;
           read_at?: string | null;
@@ -1757,8 +1811,18 @@ export type Database = {
     Enums: {
       user_role: "student" | "admin" | "faculty" | "owner" | "system_admin";
       club_visibility: "public" | "private" | "unlisted";
-      event_status: "upcoming" | "ongoing" | "completed" | "cancelled" | "published" | "active" | "draft" | "expired" | "archived";
-      rsvp_status: "going" | "maybe" | "cancelled" | "waitlist" | "approved" | "rejected" | "waitlisted";
+      event_status:
+        | "upcoming"
+        | "ongoing"
+        | "completed"
+        | "cancelled"
+        | "published"
+        | "active"
+        | "draft"
+        | "expired"
+        | "archived";
+      rsvp_status:
+        "going" | "maybe" | "cancelled" | "waitlist" | "approved" | "rejected" | "waitlisted";
       task_status: "todo" | "in_progress" | "done";
     };
     CompositeTypes: {
@@ -1771,12 +1835,11 @@ export type Database = {
 
 export type Tables<
   PublicTableNameOrOptions extends
-    | keyof (Database["public"]["Tables"] & Database["public"]["Views"])
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    keyof (Database["public"]["Tables"] & Database["public"]["Views"]) | { schema: keyof Database },
+  TableName extends (PublicTableNameOrOptions extends { schema: keyof Database }
     ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
         Database[PublicTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = PublicTableNameOrOptions extends { schema: keyof Database }
   ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
       Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
@@ -1795,12 +1858,10 @@ export type Tables<
     : never;
 
 export type TablesInsert<
-  PublicTableNameOrOptions extends
-    | keyof Database["public"]["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+  PublicTableNameOrOptions extends keyof Database["public"]["Tables"] | { schema: keyof Database },
+  TableName extends (PublicTableNameOrOptions extends { schema: keyof Database }
     ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = PublicTableNameOrOptions extends { schema: keyof Database }
   ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I;
@@ -1816,12 +1877,10 @@ export type TablesInsert<
     : never;
 
 export type TablesUpdate<
-  PublicTableNameOrOptions extends
-    | keyof Database["public"]["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+  PublicTableNameOrOptions extends keyof Database["public"]["Tables"] | { schema: keyof Database },
+  TableName extends (PublicTableNameOrOptions extends { schema: keyof Database }
     ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = PublicTableNameOrOptions extends { schema: keyof Database }
   ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U;
@@ -1837,12 +1896,10 @@ export type TablesUpdate<
     : never;
 
 export type Enums<
-  PublicEnumNameOrOptions extends
-    | keyof Database["public"]["Enums"]
-    | { schema: keyof Database },
-  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
+  PublicEnumNameOrOptions extends keyof Database["public"]["Enums"] | { schema: keyof Database },
+  EnumName extends (PublicEnumNameOrOptions extends { schema: keyof Database }
     ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = PublicEnumNameOrOptions extends { schema: keyof Database }
   ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : PublicEnumNameOrOptions extends keyof Database["public"]["Enums"]

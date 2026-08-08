@@ -31,13 +31,13 @@ for (const file of filesToProcess) {
   // We want to add .is("deleted_at", null) to `.from("events")` queries
   // A safe way is to find patterns like `.from("events")\s*\n?\s*\.select` and append `.is("deleted_at", null)` after the select finishes? No.
   // We can just append it right after `.from("events")`? No, Supabase requires `.select()` before `.is()`.
-  
-  // Since RLS already filters deleted events for authenticated users, we ONLY really need it for queries that might bypass RLS 
+
+  // Since RLS already filters deleted events for authenticated users, we ONLY really need it for queries that might bypass RLS
   // or explicit UI queries. The prompt says "Modify all frontend API queries and backend RPCs".
-  
+
   // A simple hack: replace `.from("events").select(` with `.from("events").select(`
   // Wait, no. What if we replace `.from("events")` with `.from("active_events_view")`? No, we don't have that view.
-  
-  // Let's replace `.eq("id", eventId)` with `.eq("id", eventId).is("deleted_at", null)` where applicable? 
+
+  // Let's replace `.eq("id", eventId)` with `.eq("id", eventId).is("deleted_at", null)` where applicable?
   // Or just don't use a script and use multi_replace for the most important ones.
 }

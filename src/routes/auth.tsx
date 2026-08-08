@@ -34,20 +34,6 @@ import { Turnstile } from "@marsidev/react-turnstile";
 import { AuthSocialProviderGrid } from "@/components/auth/AuthSocialProviderGrid";
 import { PasskeyAuthModal } from "@/components/auth/PasskeyAuthModal";
 import { MfaVerificationModal } from "@/components/auth/MfaVerificationModal";
-import {
-  signInSchema,
-  type SignInFormValues,
-  signUpSchema,
-  type SignUpFormValues,
-} from "@/lib/schemas";
-import {
-  Form,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-} from "@/components/ui/form";
 
 export default function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -494,11 +480,7 @@ export default function AuthPage() {
                   <Button
                     type="submit"
 
-                    disabled={
-  loading ||
-  !captchaToken ||
-  passwordResult.score < 3
-}
+                    disabled={loading || !captchaToken || passwordResult.score < 3}
 
                     variant="primary"
                     className="w-full bg-black text-cream hover:bg-black/90 cursor-pointer shadow-[3px_3px_0_0_var(--color-ink)]"

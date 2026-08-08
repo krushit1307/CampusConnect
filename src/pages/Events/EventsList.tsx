@@ -19,6 +19,7 @@ import startOfMonth from "date-fns/startOfMonth";
 import endOfMonth from "date-fns/endOfMonth";
 import addMonths from "date-fns/addMonths";
 import { matchesDateFilter } from "@/lib/eventUtils";
+import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { getMultiIcsContent } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -573,6 +574,8 @@ export default function EventsList() {
         return;
       }
 
+      const idempotencyKey = getRsvpIdempotencyKey(eventId);
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -585,12 +588,14 @@ export default function EventsList() {
         },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
+          "Idempotency-Key": idempotencyKey,
         },
       });
 
       if (error) {
         throw error;
       }
+      clearRsvpIdempotencyKey(eventId);
     },
     onSuccess: async (_data, variables) => {
       toast.success(
@@ -1115,7 +1120,6 @@ export default function EventsList() {
               <section className="bg-cream px-4 py-12 md:px-6">
                 {viewMode === "list" ? (
                   <>
- feat/redis-trending-scores-2005
                     {(isTrendingLoading || (trendingEvents && trendingEvents.length > 0)) &&
                       filter === "All" &&
                       !searchQuery && (
@@ -1156,108 +1160,107 @@ export default function EventsList() {
                       )}
 
                     <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
-
-                    <AnimatePresence mode="sync">
- main
-                      {isLoading ? (
-                        <motion.div
-                          key="events-loading-skeletons"
-                          layout
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.25, ease: "easeInOut" }}
-                          className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
-                        >
-                          {Array.from({ length: 6 }).map((_, i) => (
-                            <EventCardSkeleton key={`events-skeleton-${i}`} index={i} />
-                          ))}
-                        </motion.div>
-                      ) : sortedEvents.length === 0 && filter !== "All" ? (
-                        <motion.div
-                          key="events-empty-filter"
-                          layout
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.25, ease: "easeInOut" }}
-                          className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
-                        >
-                          <div className="col-span-full mx-auto w-full max-w-md animate-in fade-in-0 zoom-in-95 duration-300">
-                            <EmptyState
-                              illustrationType="no-events"
-                              title={`No ${filter} events found`}
-                              description="Try a different category, or clear the filter to see everything."
-                              action={{
-                                label: "Clear filter",
-                                onClick: () => {
-                                  setFilter("All");
-                                  setDateFilterType("all");
-                                  setSpecificDate(undefined);
-                                },
-                              }}
-                            />
-                          </div>
-                        </motion.div>
-                      ) : sortedEvents.length === 0 ? (
-                        <motion.div
-                          key="events-empty-results"
-                          layout
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.25, ease: "easeInOut" }}
-                          className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
-                        >
-                          <div className="col-span-full mx-auto max-w-md text-center neu-border bg-white p-8">
-                            <EmptyState
-                              illustrationType="no-results"
-                              title="No events found"
-                              description={`No events matched “${searchQuery}”. Try clearing your filters or searching for another term.`}
-                              action={{
-                                label: "Reset filters",
-                                onClick: () => {
-                                  setFilter("All");
-                                  setSearchInput("");
-                                  setSearchQuery("");
-                                  setDateFilterType("all");
-                                  setSpecificDate(undefined);
-                                },
-                              }}
-                            />
-                          </div>
-                        </motion.div>
-                      ) : (
-                        <motion.div
-                          key="events-loaded-grid"
-                          layout
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.25, ease: "easeInOut" }}
-                          className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
-                        >
-                          {sortedEvents.map((e, index) => (
-                            <motion.div key={e.id} layout>
-                              <EventCard
-                                event={e}
-                                index={index}
-                                user={user}
-                                active={e.id === eventId}
-                                onRsvpToggle={(eventId, hasRsvpd) =>
-                                  handleRsvpToggle(eventId, hasRsvpd)
-                                }
-                                isRsvpPending={toggleRsvp.isPending}
-                                onBookmarkToggle={(eventId, isSaved) =>
-                                  handleBookmarkToggle(eventId, isSaved)
-                                }
-                                isBookmarkPending={toggleBookmark.isPending}
+                      <AnimatePresence mode="sync">
+                        {isLoading ? (
+                          <motion.div
+                            key="events-loading-skeletons"
+                            layout
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.25, ease: "easeInOut" }}
+                            className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
+                          >
+                            {Array.from({ length: 6 }).map((_, i) => (
+                              <EventCardSkeleton key={`events-skeleton-${i}`} index={i} />
+                            ))}
+                          </motion.div>
+                        ) : sortedEvents.length === 0 && filter !== "All" ? (
+                          <motion.div
+                            key="events-empty-filter"
+                            layout
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.25, ease: "easeInOut" }}
+                            className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
+                          >
+                            <div className="col-span-full mx-auto w-full max-w-md animate-in fade-in-0 zoom-in-95 duration-300">
+                              <EmptyState
+                                illustrationType="no-events"
+                                title={`No ${filter} events found`}
+                                description="Try a different category, or clear the filter to see everything."
+                                action={{
+                                  label: "Clear filter",
+                                  onClick: () => {
+                                    setFilter("All");
+                                    setDateFilterType("all");
+                                    setSpecificDate(undefined);
+                                  },
+                                }}
                               />
-                            </motion.div>
-                          ))}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                            </div>
+                          </motion.div>
+                        ) : sortedEvents.length === 0 ? (
+                          <motion.div
+                            key="events-empty-results"
+                            layout
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.25, ease: "easeInOut" }}
+                            className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
+                          >
+                            <div className="col-span-full mx-auto max-w-md text-center neu-border bg-white p-8">
+                              <EmptyState
+                                illustrationType="no-results"
+                                title="No events found"
+                                description={`No events matched “${searchQuery}”. Try clearing your filters or searching for another term.`}
+                                action={{
+                                  label: "Reset filters",
+                                  onClick: () => {
+                                    setFilter("All");
+                                    setSearchInput("");
+                                    setSearchQuery("");
+                                    setDateFilterType("all");
+                                    setSpecificDate(undefined);
+                                  },
+                                }}
+                              />
+                            </div>
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="events-loaded-grid"
+                            layout
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.25, ease: "easeInOut" }}
+                            className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
+                          >
+                            {sortedEvents.map((e, index) => (
+                              <motion.div key={e.id} layout>
+                                <EventCard
+                                  event={e}
+                                  index={index}
+                                  user={user}
+                                  active={e.id === eventId}
+                                  onRsvpToggle={(eventId, hasRsvpd) =>
+                                    handleRsvpToggle(eventId, hasRsvpd)
+                                  }
+                                  isRsvpPending={toggleRsvp.isPending}
+                                  onBookmarkToggle={(eventId, isSaved) =>
+                                    handleBookmarkToggle(eventId, isSaved)
+                                  }
+                                  isBookmarkPending={toggleBookmark.isPending}
+                                />
+                              </motion.div>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
 
                     {isLoadingMore && (
                       <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3 mt-8">

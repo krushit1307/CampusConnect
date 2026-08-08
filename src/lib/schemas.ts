@@ -46,6 +46,15 @@ const avatarThemeIds = AVATAR_THEMES.map((theme) => theme.id) as [
   ...AvatarThemeId[],
 ];
 
+export const PROFILE_HANDLE_MIN_LENGTH = 2;
+export const PROFILE_HANDLE_MAX_LENGTH = 30;
+export const PROFILE_HANDLE_PATTERN = /^[a-zA-Z0-9_]+$/;
+export const HANDLE_UNAVAILABLE_MESSAGE = "This handle is already taken";
+
+export function normalizeProfileHandle(handle: string) {
+  return handle.trim();
+}
+
 export const profileSchema = z.object({
   avatarTheme: z.enum(avatarThemeIds).optional().or(z.literal("")),
   firstName: z.string().trim().min(1, "First name is required."),
@@ -53,9 +62,17 @@ export const profileSchema = z.object({
   role: UserRoleEnum.default("student"),
   handle: z
     .string()
-    .trim()
-    .min(2, "Handle must be at least 2 characters long.")
-    .regex(/^[a-zA-Z0-9_]+$/, "Handle can only contain letters, numbers, and underscores."),
+    .transform(normalizeProfileHandle)
+    .pipe(
+      z
+        .string()
+        .min(PROFILE_HANDLE_MIN_LENGTH, "Handle must be at least 2 characters long.")
+        .max(PROFILE_HANDLE_MAX_LENGTH, "Handle must be 30 characters or fewer.")
+        .regex(
+          PROFILE_HANDLE_PATTERN,
+          "Handle can only contain letters, numbers, and underscores.",
+        ),
+    ),
   collegeEmail: z.string().trim().email("Please enter a valid email address."),
   bio: z
     .string()
@@ -108,7 +125,10 @@ export const signInSchema = z.object({
     .min(1, "Email is required.")
     .max(255, "Email cannot exceed 255 characters.")
     .email("Please enter a valid email address."),
-  password: z.string().min(1, "Password is required.").max(128, "Password cannot exceed 128 characters."),
+  password: z
+    .string()
+    .min(1, "Password is required.")
+    .max(128, "Password cannot exceed 128 characters."),
 });
 export type SignInFormValues = z.infer<typeof signInSchema>;
 
@@ -127,19 +147,35 @@ export const signUpSchema = z
     firstName: z.string().trim().min(1, "First name is required."),
     lastName: z.string().trim().min(1, "Last name is required."),
     role: UserRoleEnum.default("student"),
-email: z
+    email: z
       .string()
       .trim()
       .min(1, "Email is required.")
       .max(255, "Email cannot exceed 255 characters.")
       .email("Please enter a valid email address."),
-    password: passwordRules,    confirmPassword: z.string().min(1, "Please confirm your password."),
+    password: passwordRules,
+    confirmPassword: z.string().min(1, "Please confirm your password."),
     newsletterOptIn: z.boolean().default(false),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match.",
     path: ["confirmPassword"],
-  });
+  })
+  .refine(
+    (data) => {
+      if (!data.password) return true;
+      const { getPasswordStrength } = require("@/components/ui/password-strength");
+      const result = getPasswordStrength(
+        data.password,
+        [data.firstName, data.lastName, data.email].filter(Boolean),
+      );
+      return result.score >= 2;
+    },
+    {
+      message: "Password is too weak. Please choose a stronger password.",
+      path: ["password"],
+    },
+  );
 
 export type SignUpFormValues = z.infer<typeof signUpSchema>;
 
@@ -168,3 +204,25 @@ export const resetPasswordSchema = z
   });
 
 export type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
+
+// --- Database Update Allowlist Schema (#2147) -----------------------------
+// Strictly enforces allowed mutation fields for profiles to prevent
+// mass assignment vulnerabilities (e.g. injecting 'role', 'is_admin', etc.)
+export const ProfileUpdateAllowlistSchema = z
+  .object({
+    avatar_theme: z.enum(avatarThemeIds).nullable().optional().or(z.literal("")),
+    first_name: z.string().trim().min(1, "First name is required."),
+    last_name: z.string().trim().min(1, "Last name is required."),
+    handle: z
+      .string()
+      .trim()
+      .min(2)
+      .regex(/^[a-zA-Z0-9_]+$/),
+    bio: z.string().trim().max(160).nullable().optional(),
+    linkedin_url: z.string().trim().nullable().optional(),
+    phone_number: z.string().trim().nullable().optional(),
+    skills: z.array(z.string()).optional(),
+  })
+  .strict(); // Strips or rejects any unmapped properties
+
+export type ProfileUpdateAllowlistValues = z.infer<typeof ProfileUpdateAllowlistSchema>;

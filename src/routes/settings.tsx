@@ -3,7 +3,7 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { useTheme } from "@/components/theme-provider";
-import { Loader2, X, Plus } from "lucide-react";
+import { Check, Loader2, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 
@@ -16,6 +16,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   profileSchema,
+  ProfileUpdateAllowlistSchema,
+  normalizeProfileHandle,
+  PROFILE_HANDLE_PATTERN,
+  HANDLE_UNAVAILABLE_MESSAGE,
   AVATAR_THEMES,
   type ProfileFormValues,
   type AvatarThemeId,
@@ -43,6 +47,16 @@ const FONT_SIZE_MAX = 24;
 const FONT_SIZE_DEFAULT = 16;
 const FONT_SIZE_STEP = 1;
 
+type HandleAvailability = "idle" | "checking" | "available" | "taken" | "error";
+
+const HANDLE_CHECK_DEBOUNCE_MS = 500;
+
+function isHandleLocallyValid(handle: string) {
+  const normalized = normalizeProfileHandle(handle);
+
+  return normalized.length >= 2 && PROFILE_HANDLE_PATTERN.test(normalized);
+}
+
 function useFontSize() {
   const [fontSize, setFontSizeState] = useState<number>(() => {
     const stored = localStorage.getItem(FONT_SIZE_KEY);
@@ -69,8 +83,12 @@ export default function SettingsPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [borderThickness, setBorderThickness] = useState(2);
-  const [borderRadius, setBorderRadius] = useState(0);
+  const [handleAvailability, setHandleAvailability] = useState<HandleAvailability>("idle");
+  const [handleFeedback, setHandleFeedback] = useState<string | null>(null);
+  const handleCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [borderThickness, setBorderThickness] = useState(4);
+  const [borderRadius, setBorderRadius] = useState(8);
+  const [isThemeDrawerOpen, setIsThemeDrawerOpen] = useState(false);
   const { fontSize, increment, decrement, reset } = useFontSize();
 
   // --- Skills tags state ---
@@ -107,9 +125,22 @@ export default function SettingsPage() {
       }
     });
 
+      // Credentials verified successfully. Continue with existing deletion flow.
+      setConfirmOpen(false);
+      setDeletePassword("");
+      toast.success("Account deleted successfully.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "An unexpected error occurred during verification.";
+      setDeleteError(message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+  useEffect(() => {
     // Load appearance settings from localStorage
-    const savedThickness = localStorage.getItem("border-thickness");
-    const savedRadius = localStorage.getItem("border-radius");
+    const savedThickness = localStorage.getItem("theme-border-thickness");
+    const savedRadius = localStorage.getItem("theme-border-radius");
 
     if (savedThickness) {
       const thickness = parseInt(savedThickness, 10);
@@ -144,6 +175,8 @@ export default function SettingsPage() {
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema) as any,
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: {
       avatarTheme: "",
       firstName: "",
@@ -157,7 +190,7 @@ export default function SettingsPage() {
     },
   });
   const {
-    formState: { isDirty },
+    formState: { isDirty, isValid, errors },
   } = form;
   const blocker = useBlocker(isDirty);
   useEffect(() => {
@@ -186,6 +219,10 @@ export default function SettingsPage() {
     }
   }, [blocker]);
   useEffect(() => {
+    return () => clearPendingHandleCheck();
+  }, []);
+
+  useEffect(() => {
     if (user) {
       // Auth metadata (from OAuth sign-up, etc.) may only ever have a single
       // full_name string. If the profile row hasn't been saved with split
@@ -211,6 +248,91 @@ export default function SettingsPage() {
     }
   }, [profile, user, form]);
 
+  const clearPendingHandleCheck = () => {
+    if (handleCheckTimeoutRef.current) {
+      clearTimeout(handleCheckTimeoutRef.current);
+      handleCheckTimeoutRef.current = null;
+    }
+  };
+
+  const validateHandleAvailability = async (rawHandle: string) => {
+    const handle = normalizeProfileHandle(rawHandle);
+
+    clearPendingHandleCheck();
+
+    if (!isHandleLocallyValid(handle)) {
+      setHandleAvailability("idle");
+      setHandleFeedback(null);
+      return false;
+    }
+
+    if (!user?.id) {
+      setHandleAvailability("idle");
+      setHandleFeedback(null);
+      return false;
+    }
+
+    if (profile?.handle && handle.toLowerCase() === String(profile.handle).toLowerCase()) {
+      setHandleAvailability("available");
+      setHandleFeedback("This handle is available");
+      form.clearErrors("handle");
+      return true;
+    }
+
+    setHandleAvailability("checking");
+    setHandleFeedback("Checking handle availability...");
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("handle", handle)
+      .neq("id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error(error);
+      setHandleAvailability("error");
+      setHandleFeedback("Unable to verify handle right now. Please try again.");
+      form.setError("handle", {
+        type: "validate",
+        message: "Unable to verify handle right now. Please try again.",
+      });
+      return false;
+    }
+
+    if (data?.id) {
+      setHandleAvailability("taken");
+      setHandleFeedback(HANDLE_UNAVAILABLE_MESSAGE);
+      form.setError("handle", {
+        type: "validate",
+        message: HANDLE_UNAVAILABLE_MESSAGE,
+      });
+      return false;
+    }
+
+    setHandleAvailability("available");
+    setHandleFeedback("This handle is available");
+    form.clearErrors("handle");
+    return true;
+  };
+
+  const scheduleHandleAvailabilityCheck = (handle: string) => {
+    clearPendingHandleCheck();
+
+    if (!isHandleLocallyValid(handle)) {
+      setHandleAvailability("idle");
+      setHandleFeedback(null);
+      return;
+    }
+
+    setHandleAvailability("checking");
+    setHandleFeedback("Checking handle availability...");
+
+    handleCheckTimeoutRef.current = setTimeout(() => {
+      validateHandleAvailability(handle);
+    }, HANDLE_CHECK_DEBOUNCE_MS);
+  };
+
   const onSubmit = async (values: ProfileFormValues) => {
     setIsSaving(true);
     try {
@@ -219,20 +341,34 @@ export default function SettingsPage() {
         return;
       }
 
+      const isHandleAvailable = await validateHandleAvailability(values.handle);
+
+      if (!isHandleAvailable) {
+        toast.error(HANDLE_UNAVAILABLE_MESSAGE);
+        return;
+      }
+
       // Update profiles table (including skills text[])
       const dedupedSkills = [...new Set(skills.map((s) => s.trim()).filter(Boolean))];
+
+      // 1. Build dirty payload and strictly validate against allowlist
+      const rawPayload = {
+        avatar_theme: values.avatarTheme || null,
+        first_name: values.firstName,
+        last_name: values.lastName,
+        handle: values.handle,
+        bio: values.bio || null,
+        linkedin_url: values.linkedinUrl || null,
+        phone_number: values.phoneNumber || null,
+        skills: dedupedSkills,
+      };
+
+      const safeData = ProfileUpdateAllowlistSchema.parse(rawPayload);
+
+      // 2. Perform database update with safeData ONLY
       const { error: profileError } = await supabase
         .from("profiles")
-        .update({
-          avatar_theme: values.avatarTheme || null,
-          first_name: values.firstName,
-          last_name: values.lastName,
-          handle: values.handle,
-          bio: values.bio || null,
-          linkedin_url: values.linkedinUrl || null,
-          phone_number: values.phoneNumber || null,
-          skills: dedupedSkills,
-        })
+        .update(safeData)
         .eq("id", user.id);
 
       if (profileError) throw profileError;
@@ -261,20 +397,46 @@ export default function SettingsPage() {
   const currentLastName = form.watch("lastName");
   const currentFullName = `${currentFirstName} ${currentLastName}`.trim();
   const currentAvatarTheme = form.watch("avatarTheme");
+  const currentHandle = form.watch("handle");
+  const isHandleCheckBlocking =
+    handleAvailability === "checking" ||
+    handleAvailability === "taken" ||
+    (handleAvailability === "error" &&
+      normalizeProfileHandle(currentHandle || "") !==
+        normalizeProfileHandle(profile?.handle || ""));
+  const isSubmitDisabled = isSaving || isProfileLoading || !isValid || isHandleCheckBlocking;
 
   const handleBorderThicknessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value, 10);
     setBorderThickness(value);
     document.documentElement.style.setProperty("--border-thickness", `${value}px`);
-    localStorage.setItem("border-thickness", String(value));
+    localStorage.setItem("theme-border-thickness", String(value));
   };
 
   const handleBorderRadiusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value, 10);
     setBorderRadius(value);
     document.documentElement.style.setProperty("--border-radius", `${value}px`);
-    localStorage.setItem("border-radius", String(value));
+    localStorage.setItem("theme-border-radius", String(value));
   };
+
+  useEffect(() => {
+    const normalizedCurrent = normalizeProfileHandle(currentHandle || "");
+    const normalizedSaved = normalizeProfileHandle(profile?.handle || "");
+
+    if (!normalizedCurrent || normalizedCurrent === normalizedSaved) {
+      clearPendingHandleCheck();
+      setHandleAvailability(normalizedCurrent ? "available" : "idle");
+      setHandleFeedback(normalizedCurrent ? "This is your current handle" : null);
+      return;
+    }
+
+    if (!isHandleLocallyValid(normalizedCurrent)) {
+      clearPendingHandleCheck();
+      setHandleAvailability("idle");
+      setHandleFeedback(null);
+    }
+  }, [currentHandle, profile?.handle]);
 
   const pStats = profile as typeof profile & {
     lastActivityAt?: string;
@@ -394,13 +556,53 @@ export default function SettingsPage() {
                         Handle
                       </FormLabel>
                       <FormControl>
-                        <input
-                          {...field}
-                          placeholder="username"
-                          className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
-                        />
+                        <div className="relative">
+                          <input
+                            {...field}
+                            placeholder="username"
+                            aria-invalid={!!errors.handle || handleAvailability === "taken"}
+                            aria-describedby="handle-feedback handle-error"
+                            onChange={(event) => {
+                              field.onChange(event);
+                              scheduleHandleAvailabilityCheck(event.target.value);
+                            }}
+                            onBlur={(event) => {
+                              field.onBlur();
+                              validateHandleAvailability(event.target.value);
+                            }}
+                            className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 pr-8 font-mono text-sm outline-none focus:bg-lime/40"
+                          />
+                          <span className="absolute right-1 top-1/2 -translate-y-1/2">
+                            {handleAvailability === "checking" ? (
+                              <Loader2
+                                className="h-4 w-4 animate-spin text-black/60"
+                                aria-label="Checking handle"
+                              />
+                            ) : handleAvailability === "available" && !errors.handle ? (
+                              <Check
+                                className="h-4 w-4 text-green-700"
+                                aria-label="Handle available"
+                              />
+                            ) : null}
+                          </span>
+                        </div>
                       </FormControl>
-                      <FormMessage className="font-mono text-xs text-destructive" />
+                      {handleFeedback && !errors.handle ? (
+                        <p
+                          id="handle-feedback"
+                          className={`font-mono text-xs ${
+                            handleAvailability === "available"
+                              ? "text-green-700"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {handleFeedback}
+                        </p>
+                      ) : null}
+                      <FormMessage
+                        id="handle-error"
+                        className="font-mono text-xs text-destructive"
+                      />
                     </FormItem>
                   )}
                 />
@@ -532,7 +734,7 @@ export default function SettingsPage() {
                 <div className="flex justify-end pt-4">
                   <button
                     type="submit"
-                    disabled={isSaving || isProfileLoading}
+                    disabled={isSubmitDisabled}
                     className="neu-border neu-press flex items-center gap-2 bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream disabled:opacity-50"
                   >
                     {isSaving ? (
@@ -570,40 +772,21 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Border Thickness */}
+              {/* Theme Customizer Trigger */}
               <div className="space-y-2">
-                <label className="eyebrow font-bold">Border Thickness: {borderThickness}px</label>
-
-                <input
-                  type="range"
-                  min="1"
-                  max="8"
-                  value={borderThickness}
-                  onChange={handleBorderThicknessChange}
-                  className="w-full cursor-pointer accent-black"
-                />
-
-                <p className="font-mono text-xs text-muted-foreground">
-                  Controls the width of borders throughout the app (1px - 8px)
+                <label className="eyebrow font-bold text-black dark:text-cream">
+                  Theme Customizer
+                </label>
+                <p className="font-mono text-xs text-muted-foreground mb-2">
+                  Adjust border thickness and radius dynamically.
                 </p>
-              </div>
-
-              {/* Border Radius */}
-              <div className="space-y-2">
-                <label className="eyebrow font-bold">Border Radius: {borderRadius}px</label>
-
-                <input
-                  type="range"
-                  min="0"
-                  max="32"
-                  value={borderRadius}
-                  onChange={handleBorderRadiusChange}
-                  className="w-full cursor-pointer accent-black"
-                />
-
-                <p className="font-mono text-xs text-muted-foreground">
-                  Controls the roundness of corners (0px - 32px)
-                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsThemeDrawerOpen(true)}
+                  className="neu-border neu-press flex items-center gap-2 bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream"
+                >
+                  ⚙ Theme Customizer
+                </button>
               </div>
             </div>
           </Panel>
@@ -665,6 +848,90 @@ export default function SettingsPage() {
           </Panel>
         </div>
       </section>
+      {/* Theme Customizer Drawer */}
+      {isThemeDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setIsThemeDrawerOpen(false)}
+            aria-hidden="true"
+          />
+          {/* Drawer Panel */}
+          <div
+            className="relative w-full max-w-sm bg-cream p-6 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] h-full overflow-y-auto border-l-4 border-black flex flex-col"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="flex items-center justify-between border-b-2 border-black pb-4 mb-6">
+              <h2 className="font-display text-2xl font-bold uppercase tracking-tight text-black">
+                Theme Customizer
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsThemeDrawerOpen(false)}
+                className="neu-border flex h-8 w-8 items-center justify-center bg-white text-black hover:bg-black hover:text-white transition-colors"
+                aria-label="Close customizer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-8 flex-1">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <label className="eyebrow font-bold text-black">Border Thickness</label>
+                  <span className="font-mono font-bold bg-white px-2 py-1 neu-border text-xs text-black">
+                    {borderThickness}px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="12"
+                  value={borderThickness}
+                  onChange={handleBorderThicknessChange}
+                  className="w-full cursor-pointer accent-black"
+                />
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <label className="eyebrow font-bold text-black">Border Radius</label>
+                  <span className="font-mono font-bold bg-white px-2 py-1 neu-border text-xs text-black">
+                    {borderRadius}px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="40"
+                  value={borderRadius}
+                  onChange={handleBorderRadiusChange}
+                  className="w-full cursor-pointer accent-black"
+                />
+              </div>
+            </div>
+
+            <div className="pt-6 border-t-2 border-black mt-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setBorderThickness(4);
+                  setBorderRadius(8);
+                  document.documentElement.style.setProperty("--border-thickness", "4px");
+                  document.documentElement.style.setProperty("--border-radius", "8px");
+                  localStorage.removeItem("theme-border-thickness");
+                  localStorage.removeItem("theme-border-radius");
+                }}
+                className="w-full neu-border neu-press bg-white text-black px-4 py-3 font-mono text-sm font-bold uppercase hover:bg-gray-100"
+              >
+                Reset to Default
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </SiteShell>
   );
 }

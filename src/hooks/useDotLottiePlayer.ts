@@ -49,7 +49,7 @@ export const useDotLottiePlayer = ({
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [currentSpeed, setCurrentSpeed] = useState<number>(speed);
   const [error, setError] = useState<Error | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const playerRef = useRef<any>(null);
 
   const play = useCallback(() => {
@@ -106,11 +106,7 @@ export const useDotLottiePlayer = ({
   }, [src, autoplay]);
 
   const PlayerComponent = useCallback(
-<<<<<<< HEAD
     (props: Record<string, unknown>) =>
-=======
-    (props: any) =>
->>>>>>> f1150bd (fix(ci): update build scripts and adjust lint configuration)
       React.createElement(DotLottiePlayer, {
         ref: playerRef,
         src,

@@ -23,9 +23,9 @@ export interface NestedCommentNode extends FlatComment {
  */
 export function buildNestedCommentTree(comments: FlatComment[], maxDepth = 5): NestedCommentNode[] {
   const map = new Map<string, NestedCommentNode>();
-  
+
   // Filter out any entries exceeding max recursion depth (< 5)
-  const validComments = comments.filter((c) => (c.depth === undefined || c.depth < maxDepth));
+  const validComments = comments.filter((c) => c.depth === undefined || c.depth < maxDepth);
 
   // Initialize node entries with empty children array
   validComments.forEach((comment) => {

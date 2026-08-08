@@ -47,12 +47,22 @@ export function getQueryDepth(
   for (const selection of selectionSet.selections) {
     if (selection.kind === Kind.FIELD) {
       if (selection.selectionSet) {
-        const depth = getQueryDepth(selection.selectionSet, currentDepth + 1, fragments, visitedFragments);
+        const depth = getQueryDepth(
+          selection.selectionSet,
+          currentDepth + 1,
+          fragments,
+          visitedFragments,
+        );
         if (depth > maxDepth) maxDepth = depth;
       }
     } else if (selection.kind === Kind.INLINE_FRAGMENT) {
       if (selection.selectionSet) {
-        const depth = getQueryDepth(selection.selectionSet, currentDepth, fragments, visitedFragments);
+        const depth = getQueryDepth(
+          selection.selectionSet,
+          currentDepth,
+          fragments,
+          visitedFragments,
+        );
         if (depth > maxDepth) maxDepth = depth;
       }
     } else if (selection.kind === Kind.FRAGMENT_SPREAD) {
@@ -210,8 +220,7 @@ export function createGraphQLSecurityPlugin(options: SecurityPluginOptions = {})
           JSON.stringify({
             errors: [
               {
-                message:
-                  `Rate limit exceeded. Maximum of ${maxRequests} requests per ${windowMs / 1000} seconds. Please try again later.`,
+                message: `Rate limit exceeded. Maximum of ${maxRequests} requests per ${windowMs / 1000} seconds. Please try again later.`,
                 extensions: { code: "RATE_LIMIT_EXCEEDED" },
               },
             ],
@@ -276,7 +285,10 @@ export function createGraphQLSecurityPlugin(options: SecurityPluginOptions = {})
           {
             extensions: {
               code: "RATE_LIMIT_EXCEEDED",
-              http: { status: 429, headers: { "Retry-After": String(Math.ceil(retryAfterMs / 1000)) } },
+              http: {
+                status: 429,
+                headers: { "Retry-After": String(Math.ceil(retryAfterMs / 1000)) },
+              },
             },
           },
         );

@@ -51,7 +51,7 @@ export const yoga = createYoga({
 
       if (authUser) {
         user = { id: authUser.id, role: "USER" };
-        
+
         // Fetch role from profiles
         const { data: profile } = await supabase
           .from("profiles")
@@ -99,7 +99,7 @@ async function gracefulShutdown(signal: string) {
 
   // eslint-disable-next-line no-console
   console.log(`[server] Received ${signal}, closing Postgres pool...`);
-  
+
   try {
     await closePool();
     // eslint-disable-next-line no-console
