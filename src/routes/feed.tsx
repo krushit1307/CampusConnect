@@ -79,6 +79,7 @@ import { useDraft } from "@/hooks/useDraft";
 import { MentionRenderer } from "@/components/MentionRenderer";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { LazyImage } from "@/components/ui/LazyImage";
+import { ImageWithBlur } from "@/components/ui/ImageWithBlur";
 import { ShareMenu } from "@/components/ui/ShareMenu";
 import {
   AlertDialog,
@@ -138,7 +139,8 @@ interface Post {
   clubs: Club[] | Club | null;
   comments: Comment[] | null;
   post_reactions: PostReaction[] | null;
-  image_url?: string;
+  image_url?: string | null;
+  blurhash?: string | null;
 }
 
 const POSTS_PER_PAGE = 20;
@@ -297,7 +299,7 @@ export default function Feed() {
         })
         .select(
           `
-        id, content, created_at, club_id, is_pinned,
+        id, content, created_at, club_id, is_pinned, image_url, blurhash,
         profiles (id, full_name, handle),
         clubs (id, name, club_members (user_id, role_id, club_roles (title, permissions_level))),
         comments (id),
@@ -342,7 +344,7 @@ export default function Feed() {
         .from("trending_posts")
         .select(
           `
-          id, content, created_at, club_id, is_pinned,
+          id, content, created_at, club_id, is_pinned, image_url, blurhash,
           profiles (id, full_name, handle),
           clubs (id, name, club_members (user_id, role_id, club_roles (title, permissions_level))),
           comments (id),
@@ -444,7 +446,7 @@ export default function Feed() {
             .from("posts")
             .select(
               `
-              id, content, created_at, club_id, is_pinned,
+              id, content, created_at, club_id, is_pinned, image_url, blurhash,
               profiles (id, full_name, handle),
               clubs (id, name, club_members (user_id, role_id, club_roles (title, permissions_level))),
               comments (id, content, created_at, deleted_at, parent_id, parent_comment_id, profiles (id, full_name, handle)),
@@ -1432,11 +1434,14 @@ export default function Feed() {
 
                             {post.image_url && (
                               <div className="mt-3">
-                                <LazyImage
+                                <ImageWithBlur
                                   src={post.image_url}
+                                  blurhash={post.blurhash}
                                   alt="Post attachment"
+                                  aspectRatio="auto"
                                   onClick={() => setLightboxSrc(post.image_url ?? null)}
-                                  className="max-h-96 cursor-zoom-in rounded-none neu-border object-cover"
+                                  className="max-h-96 cursor-zoom-in rounded-none neu-border"
+                                  imgClassName="object-cover"
                                 />
                               </div>
                             )}
@@ -1806,11 +1811,14 @@ const MemoizedFeedPost = React.memo(
 
         {post.image_url && (
           <div className="mt-3">
-            <LazyImage
+            <ImageWithBlur
               src={post.image_url}
+              blurhash={post.blurhash}
               alt="Post attachment"
+              aspectRatio="auto"
               onClick={() => setLightboxSrc(post.image_url ?? null)}
-              className="max-h-96 cursor-zoom-in rounded-none neu-border object-cover"
+              className="max-h-96 cursor-zoom-in rounded-none neu-border"
+              imgClassName="object-cover"
             />
           </div>
         )}

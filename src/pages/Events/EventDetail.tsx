@@ -85,7 +85,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
-import { LazyImage } from "@/components/ui/LazyImage";
+import { ImageWithBlur } from "@/components/ui/ImageWithBlur";
 import { parseCoordinates } from "@/lib/eventUtils";
 import {
   buildKanbanColumns,
@@ -103,11 +103,63 @@ import { CaptchaWidget } from "@/components/CaptchaWidget";
 import { SeatingChart } from "@/components/events/SeatingChart";
 import { useEventSeats } from "@/hooks/useEventSeats";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import React from "react";
 import { useParams } from "react-router-dom";
 import { GalleryCarousel, GallerySlide } from "@/components/ui/GalleryCarousel";
 import { Button } from "@/components/ui/button";
 import { Calendar, MapPin, Users } from "lucide-react";
+import { Blurhash } from "react-blurhash";
+import { isValidBlurhash, DEFAULT_FALLBACK_BLURHASH } from "@/lib/blurhashUtils";
+
+/**
+ * Hero banner for the event detail page.
+ * Shows a BlurHash placeholder immediately, then cross-fades to the full
+ * OptimizedImage once it loads.  OptimizedImage is kept so we retain its
+ * AVIF/WebP/responsive-srcset capabilities on the large hero image.
+ */
+function EventHeroBanner({
+  bannerUrl,
+  blurhash,
+  title,
+}: {
+  bannerUrl: string;
+  blurhash?: string | null;
+  title: string;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  const hash = isValidBlurhash(blurhash) ? (blurhash as string) : DEFAULT_FALLBACK_BLURHASH;
+
+  return (
+    <>
+      {/* BlurHash canvas — removed from DOM once real image loads */}
+      {!loaded && (
+        <div className="absolute inset-0 z-0" aria-hidden="true">
+          <Blurhash
+            hash={hash}
+            width="100%"
+            height="100%"
+            resolutionX={32}
+            resolutionY={32}
+            punch={1}
+          />
+        </div>
+      )}
+      <OptimizedImage
+        src={bannerUrl}
+        alt={`${title} event banner`}
+        className={`h-full w-full object-cover transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
+        width={1344}
+        height={700}
+        responsiveWidths={[448, 672, 896, 1344]}
+        sizes="100vw"
+        priority
+        onLoad={() => setLoaded(true)}
+        fallback={
+          <div className="h-full w-full bg-linear-to-br from-peach via-pink-200 to-lime/40" />
+        }
+      />
+    </>
+  );
+}
 
 interface SimilarEventItem {
   id: string;
@@ -115,6 +167,7 @@ interface SimilarEventItem {
   category_id?: string;
   event_date?: string;
   banner_url?: string;
+  blurhash?: string | null;
   description?: string;
 }
 
@@ -153,7 +206,7 @@ function SimilarEvents({
         // 2. Fallback to category matching if vector embeddings are not calculated yet
         const { data: fallbackData, error: fallbackError } = await supabase
           .from("events")
-          .select("id, title, category_id, event_date, banner_url, description")
+          .select("id, title, category_id, event_date, banner_url, blurhash, description")
           .eq("category_id", categoryId)
           .neq("id", currentEventId)
           .eq("status", "published")
@@ -190,10 +243,12 @@ function SimilarEvents({
             className="neu-border group block bg-white p-4 hover:translate-x-0.5 hover:-translate-y-0.5 transition-transform"
           >
             {evt.banner_url ? (
-              <LazyImage
+              <ImageWithBlur
                 src={evt.banner_url}
+                blurhash={evt.blurhash}
                 alt={evt.title}
-                className="w-full h-32 object-cover border-2 border-black mb-3"
+                aspectRatio="video"
+                className="border-2 border-black mb-3"
               />
             ) : (
               <div className="w-full h-32 bg-peach/30 border-2 border-black mb-3 flex items-center justify-center font-mono text-xs font-bold text-black/50">
@@ -269,8 +324,7 @@ export default function EventDetailsPage() {
         .from("events")
         .select(
           `
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id,
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, max_attendees, requires_approval,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id, max_attendees, requires_approval, blurhash,
           clubs (name, slug),
           event_rsvps (id, user_id, status, checked_in, rsvp_at, profiles (first_name, last_name, avatar_url)),
           event_waitlist (id, user_id, created_at, profiles (first_name, last_name, avatar_url))
@@ -856,7 +910,6 @@ export default function EventDetailsPage() {
       if (!variables.hasRsvpd && event?.banner_url && "caches" in window) {
         window.caches.open("supabase-images-cache").then((cache) => {
           cache.add((event as any).banner_url!).catch((err) => {
-            // eslint-disable-next-line no-console
             console.error("Failed to eagerly cache banner image", err);
           });
         });
@@ -1350,18 +1403,10 @@ export default function EventDetailsPage() {
         <section className="relative w-full overflow-hidden border-b-2 border-black bg-peach/30">
           {(event as any).banner_url ? (
             <m.div layoutId={`event-image-${(event as any).id}`} className="absolute inset-0">
-              <OptimizedImage
-                src={(event as any).banner_url}
-                alt={`${(event as any).title} event banner`}
-                className="h-full w-full object-cover"
-                width={1344}
-                height={700}
-                responsiveWidths={[448, 672, 896, 1344]}
-                sizes="100vw"
-                priority
-                fallback={
-                  <div className="h-full w-full bg-linear-to-br from-peach via-pink-200 to-lime/40" />
-                }
+              <EventHeroBanner
+                bannerUrl={(event as any).banner_url}
+                blurhash={(event as any).blurhash}
+                title={(event as any).title}
               />
               <div className="absolute inset-0 bg-black/50" />
             </m.div>

@@ -366,7 +366,7 @@ export type Database = {
           event_date: string | null;
           start_date: string | null;
           end_date: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           location: any;
           metadata: Json | null;
           latitude: number | null;
@@ -407,7 +407,7 @@ export type Database = {
           event_date?: string | null;
           start_date?: string | null;
           end_date?: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           location?: any;
           metadata?: Json | null;
           latitude?: number | null;
@@ -448,7 +448,7 @@ export type Database = {
           event_date?: string | null;
           start_date?: string | null;
           end_date?: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           location?: any;
           metadata?: Json | null;
           latitude?: number | null;
@@ -681,6 +681,7 @@ export type Database = {
           title: string | null;
           content: string;
           image_url: string | null;
+          blurhash: string | null;
           is_pinned: boolean;
           is_deleted: boolean;
           deleted_at: string | null;
@@ -695,6 +696,7 @@ export type Database = {
           title?: string | null;
           content: string;
           image_url?: string | null;
+          blurhash?: string | null;
           is_pinned?: boolean;
           is_deleted?: boolean;
           deleted_at?: string | null;
@@ -709,6 +711,7 @@ export type Database = {
           title?: string | null;
           content?: string;
           image_url?: string | null;
+          blurhash?: string | null;
           is_pinned?: boolean;
           is_deleted?: boolean;
           deleted_at?: string | null;
@@ -1144,7 +1147,7 @@ export type Database = {
           message: string;
           link: string | null;
           link_url: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           metadata: Record<string, any> | null;
           is_read: boolean;
           read_at: string | null;
@@ -1159,7 +1162,7 @@ export type Database = {
           message: string;
           link?: string | null;
           link_url?: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           metadata?: Record<string, any> | null;
           is_read?: boolean;
           read_at?: string | null;
@@ -1174,7 +1177,7 @@ export type Database = {
           message?: string;
           link?: string | null;
           link_url?: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           metadata?: Record<string, any> | null;
           is_read?: boolean;
           read_at?: string | null;
@@ -1665,6 +1668,7 @@ export type Database = {
           title: string | null;
           content: string;
           image_url: string | null;
+          blurhash: string | null;
           is_pinned: boolean;
           is_deleted: boolean;
           like_count: number;
