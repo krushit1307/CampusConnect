@@ -116,6 +116,7 @@ const NotFound = lazy(() => import("./routes/NotFound"));
 const ChallengeArena = lazy(() => import("./routes/challenge"));
 const EventDashboard = lazy(() => import("./routes/events.$eventId.dashboard"));
 const EventGantt = lazy(() => import("./routes/events.$eventId.gantt"));
+const EventAvailability = lazy(() => import("./routes/events.$eventId.availability"));
 const LostFound = lazy(() => import("./routes/lost-found"));
 const Leaderboard = lazy(() =>
   import("./components/Leaderboard").then((m) => ({ default: m.Leaderboard })),
@@ -182,11 +183,7 @@ const router = createBrowserRouter(
           <Route path="calendar" element={<DashboardCalendar />} />
         </Route>
 
- feat/mobile-bottom-sheet
-        {/* Events Layout with Split-Screen desktop and Mobile Bottom Sheet */}
-
         {/* Events — Split Screen Layout */}
-main
         <Route
           path="/events"
           element={
@@ -195,18 +192,7 @@ main
             </Suspense>
           }
         >
- feat/mobile-bottom-sheet
-          <Route
-            index
-            element={
-              <Suspense fallback={<PageFallback />}>
-                <EmptyState />
-              </Suspense>
-            }
-          />
-
           <Route index element={<EmptyState />} />
- main
           <Route
             path=":eventId"
             element={
@@ -219,6 +205,7 @@ main
 
         <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
         <Route path="/events/:eventId/gantt" element={<EventGantt />} />
+        <Route path="/events/:eventId/availability" element={<EventAvailability />} />
         {/* Events Map View with clustering */}
         <Route path="events/map" element={<EventsMapPage />} />
         <Route path="challenge" element={<ChallengeArena />} />
