@@ -3,13 +3,16 @@ import { isWebAuthnSupported, getWebAuthnErrorMessage, getRpId, getOrigin } from
 
 describe("WebAuthn Utility Tests", () => {
   beforeEach(() => {
-    const originalWindow = (typeof window !== "undefined" ? window : {}) as any;
-    const originalNavigator = (typeof navigator !== "undefined" ? navigator : {}) as any;
+    const originalWindow = (typeof window !== "undefined" ? window : {}) as Record<string, unknown>;
+    const originalNavigator = (typeof navigator !== "undefined" ? navigator : {}) as Record<
+      string,
+      unknown
+    >;
 
     vi.stubGlobal("window", {
       ...originalWindow,
       location: {
-        ...originalWindow.location,
+        ...((originalWindow.location as Record<string, unknown>) || {}),
         hostname: "localhost",
         origin: "http://localhost:3000",
       },
@@ -17,7 +20,10 @@ describe("WebAuthn Utility Tests", () => {
     });
     vi.stubGlobal("navigator", {
       ...originalNavigator,
-      credentials: {},
+      credentials: {
+        create: vi.fn(),
+        get: vi.fn(),
+      },
     });
   });
 
