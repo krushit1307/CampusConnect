@@ -25,7 +25,10 @@ export const DEFAULT_EVENT_TAGS = [
   "Academic",
 ];
 
-export const DEFAULT_EVENT_TAG_OPTIONS = DEFAULT_EVENT_TAGS.map(tag => ({ value: tag, label: tag }));
+export const DEFAULT_EVENT_TAG_OPTIONS = DEFAULT_EVENT_TAGS.map((tag) => ({
+  value: tag,
+  label: tag,
+}));
 
 export const TITLE_MAX_LENGTH = 100;
 

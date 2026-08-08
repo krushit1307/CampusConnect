@@ -2,10 +2,11 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
 // import { LiveQA } from "@/components/events/LiveQA";
 import { useEventViewerCount } from "@/hooks/useEventViewerCount";
-import { Link, useParams } from "react-router-dom";
+import { incrementEventViews } from "@/lib/supabase/events";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { useState, useEffect, lazy, Suspense, useMemo, useCallback } from "react";
+import { useState, useEffect, lazy, Suspense, useMemo, useCallback, useRef } from "react";
 import { LazyMotion, m } from "framer-motion";
 import { Helmet } from "react-helmet-async";
 import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
@@ -68,6 +69,7 @@ import {
   Flag,
   Star,
   Calendar,
+  Eye,
 } from "lucide-react";
 import { ReportDialog } from "@/components/ReportDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -103,11 +105,7 @@ import { CaptchaWidget } from "@/components/CaptchaWidget";
 import { SeatingChart } from "@/components/events/SeatingChart";
 import { useEventSeats } from "@/hooks/useEventSeats";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import React from "react";
-import { useParams } from "react-router-dom";
 import { GalleryCarousel, GallerySlide } from "@/components/ui/GalleryCarousel";
-import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, Users } from "lucide-react";
 
 interface SimilarEventItem {
   id: string;
@@ -269,11 +267,12 @@ export default function EventDetailsPage() {
         .from("events")
         .select(
           `
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id,
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, max_attendees, requires_approval,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id, max_attendees, requires_approval,
+          profiles (full_name, email),
           clubs (name, slug),
           event_rsvps (id, user_id, status, checked_in, rsvp_at, profiles (first_name, last_name, avatar_url)),
-          event_waitlist (id, user_id, created_at, profiles (first_name, last_name, avatar_url))
+          event_waitlist (id, user_id, created_at, profiles (first_name, last_name, avatar_url)),
+          event_metrics (views)
         `,
         )
         .or(`short_id.eq.${eventId},id.eq.${eventId}`)
@@ -372,6 +371,7 @@ export default function EventDetailsPage() {
                 : [],
             attendee_count: eventId === "mock-1" ? 1 : 0,
             profiles: { full_name: "Mock Organizer", email: "mock@example.com" },
+            event_metrics: { views: 0 },
           };
         }
         throw error;
@@ -434,6 +434,41 @@ export default function EventDetailsPage() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
   }, [supabase]);
+
+  // Increment persistent view count in event_metrics once per page load.
+  // Skipped for mock/dev events (no real DB row).
+  //
+  // We store the canonical event UUID (event.id) rather than a boolean so that:
+  // - Short-id URLs resolve to their UUID before incrementing (avoids wrong PK)
+  // - Navigating between events while the component stays mounted still
+  //   increments each new event exactly once
+  const viewIncrementedRef = useRef<string | null>(null);
+  useEffect(() => {
+    // Wait until the query has resolved and we have the canonical UUID
+    const canonicalId = (event as any)?.id as string | undefined;
+    if (!canonicalId || canonicalId.startsWith("mock-")) return;
+    if (viewIncrementedRef.current === canonicalId) return;
+    viewIncrementedRef.current = canonicalId;
+
+    incrementEventViews(canonicalId).then(({ error }) => {
+      if (error) {
+        console.warn("[event view] increment failed silently:", error);
+        return;
+      }
+      // Refresh the cached query so the displayed view count is up-to-date.
+      // setQueryData updates the in-memory cache with the incremented value
+      // without triggering a full network re-fetch.
+      const cached = (event as any);
+      if (cached?.event_metrics) {
+        const currentViews =
+          (cached.event_metrics as { views: number } | null)?.views ?? 0;
+        setQueryData(["event", eventId], {
+          ...cached,
+          event_metrics: { views: currentViews + 1 },
+        });
+      }
+    });
+  }, [(event as any)?.id, eventId]);
 
   // Listen for Service Worker background sync messages for offline RSVP reconciliation
   useEffect(() => {
@@ -856,7 +891,6 @@ export default function EventDetailsPage() {
       if (!variables.hasRsvpd && event?.banner_url && "caches" in window) {
         window.caches.open("supabase-images-cache").then((cache) => {
           cache.add((event as any).banner_url!).catch((err) => {
-            // eslint-disable-next-line no-console
             console.error("Failed to eagerly cache banner image", err);
           });
         });
@@ -1456,6 +1490,15 @@ export default function EventDetailsPage() {
               <div className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
                 <span>{attendeeCount} RSVP&apos;d</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                <span>
+                  {(
+                    ((event as any).event_metrics as { views: number } | null)?.views ?? 0
+                  ).toLocaleString()}{" "}
+                  views
+                </span>
               </div>
             </div>
 
