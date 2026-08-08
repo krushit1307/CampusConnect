@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { motion, AnimatePresence, PanInfo } from "motion/react";
+import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
