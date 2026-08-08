@@ -84,6 +84,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
+import { ProgressiveImage } from "@/components/ProgressiveImage";
 import { LazyImage } from "@/components/ui/LazyImage";
 import { parseCoordinates } from "@/lib/eventUtils";
 import {
@@ -1324,6 +1325,24 @@ export default function EventDetailsPage() {
     eventId: event.id,
   });
 
+  const thumbnailUrl = useMemo(() => {
+    const url = (event as any).banner_url;
+    if (!url) return undefined;
+    try {
+      const urlObj = new URL(url);
+      const parts = urlObj.pathname.split("/");
+      const publicIdx = parts.indexOf("public");
+      if (publicIdx !== -1 && parts.length > publicIdx + 1) {
+        parts[publicIdx + 1] = "thumbnails";
+        urlObj.pathname = parts.join("/");
+        return urlObj.toString().replace(/\.[^.]+$/, ".webp");
+      }
+    } catch (e) {
+      console.warn("Invalid banner URL for thumbnail:", e);
+    }
+    return url.replace(/\.[^.]+$/, ".webp");
+  }, [(event as any).banner_url]);
+
   return (
     <LazyMotion features={loadDomMax} strict={import.meta.env.DEV}>
       <Helmet>
@@ -1348,18 +1367,11 @@ export default function EventDetailsPage() {
         <section className="relative w-full overflow-hidden border-b-2 border-black bg-peach/30">
           {(event as any).banner_url ? (
             <m.div layoutId={`event-image-${(event as any).id}`} className="absolute inset-0">
-              <OptimizedImage
+              <ProgressiveImage
                 src={(event as any).banner_url}
+                placeholder={thumbnailUrl}
                 alt={`${(event as any).title} event banner`}
                 className="h-full w-full object-cover"
-                width={1344}
-                height={700}
-                responsiveWidths={[448, 672, 896, 1344]}
-                sizes="100vw"
-                priority
-                fallback={
-                  <div className="h-full w-full bg-linear-to-br from-peach via-pink-200 to-lime/40" />
-                }
               />
               <div className="absolute inset-0 bg-black/50" />
             </m.div>
