@@ -2,11 +2,14 @@ import { BugReportModal } from "@/components/Modals/BugReportModal";
 import { ExternalLink, Github, MessageCircle } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const NAV_LINKS = [
   { label: "Events", to: "/events" },
   { label: "Clubs", to: "/clubs" },
   { label: "Feed", to: "/feed" },
+  { label: "Directory", to: "/directory" },
   { label: "Certificates", to: "/certificates" },
   { label: "Dashboard", to: "/dashboard" },
 ];
@@ -36,6 +39,24 @@ const SOCIAL_LINKS = [
 
 export function Footer() {
   const [bugReportOpen, setBugReportOpen] = useState(false);
+  const { i18n } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const changeLanguage = (lang: string) => {
+    i18n.changeLanguage(lang);
+
+    const parts = location.pathname.split("/");
+
+    // replace existing language segment
+    if (parts[1] === "en" || parts[1] === "es") {
+      parts[1] = lang;
+    } else {
+      parts.splice(1, 0, lang);
+    }
+
+    navigate(parts.join("/") || `/${lang}`);
+  };
 
   return (
     <footer className="border-t-4 border-black bg-lime shadow-[0_-4px_0_0_var(--color-ink)]">
@@ -118,6 +139,17 @@ export function Footer() {
             </p>
           </div>
         </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="font-bold">Language:</span>
+
+        <button onClick={() => changeLanguage("en")} className="underline">
+          English
+        </button>
+
+        <button onClick={() => changeLanguage("es")} className="underline">
+          Español
+        </button>
       </div>
     </footer>
   );

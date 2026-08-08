@@ -1,0 +1,16 @@
+{
+  "navbar": {
+    "events": "Eventos",
+    "clubs": "Clubes",
+    "feed": "Noticias",
+    "directory": "Directorio",
+    "challenge": "Desafío",
+    "certificates": "Certificados",
+    "dashboard": "Panel",
+    "messages": "Mensajes",
+    "signin": "Iniciar sesión",
+    "features": "Características",
+    "faq": "Preguntas",
+    "contact": "Contacto"
+  }
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
@@ -6,6 +6,9 @@ import { createClient } from "@/lib/supabase/client";
 import ReactECharts from "echarts-for-react";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
+import { ChartSkeleton } from "@/components/ui/ChartSkeleton";
+
+const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));
 
 export default function EventDashboard() {
   const { eventId } = useParams();
@@ -20,7 +23,7 @@ export default function EventDashboard() {
   } = useQuery({
     queryKey: ["event_analytics", eventId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_event_analytics", { p_event_id: eventId });
+      const { data, error } = await supabase.rpc("get_event_analytics", { p_event_id: eventId! });
       if (error) {
         throw new Error(error.message);
       }
@@ -35,7 +38,7 @@ export default function EventDashboard() {
       const { data, error } = await supabase
         .from("events")
         .select("title")
-        .eq("id", eventId)
+        .eq("id", eventId!)
         .single();
       if (error) throw error;
       return data;
@@ -70,9 +73,11 @@ export default function EventDashboard() {
   }
 
   // Parse RPC response
-  const rsvpsByDate = analyticsData.rsvps_by_date || [];
-  const attendeesByMajor = analyticsData.attendees_by_major || [];
-  const attendeesByYear = analyticsData.attendees_by_year || [];
+
+  const data = (analyticsData as Record<string, any>) || {};
+  const rsvpsByDate = data.rsvps_by_date || [];
+  const attendeesByMajor = data.attendees_by_major || [];
+  const attendeesByYear = data.attendees_by_year || [];
 
   // ECharts Configurations
   const areaChartOption = {
@@ -197,6 +202,13 @@ export default function EventDashboard() {
                 style={{ height: "400px", width: "100%" }}
                 opts={{ renderer: "svg" }}
               />
+              <Suspense fallback={<ChartSkeleton height="400px" />}>
+                <EChartsWrapper
+                  option={areaChartOption}
+                  style={{ height: "400px", width: "100%" }}
+                  opts={{ renderer: "svg" }}
+                />
+              </Suspense>
             </div>
 
             {/* Pie Chart Card */}
@@ -228,6 +240,13 @@ export default function EventDashboard() {
                 style={{ height: "350px", width: "100%" }}
                 opts={{ renderer: "svg" }}
               />
+              <Suspense fallback={<ChartSkeleton height="350px" />}>
+                <EChartsWrapper
+                  option={pieChartOption}
+                  style={{ height: "350px", width: "100%" }}
+                  opts={{ renderer: "svg" }}
+                />
+              </Suspense>
             </div>
           </div>
         </div>

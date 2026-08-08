@@ -3,6 +3,7 @@ import { useInView } from "react-intersection-observer";
 import { supabase } from "@/lib/supabase/client";
 import { Flag } from "lucide-react";
 import { ReportDialog } from "@/components/ReportDialog";
+import { RelayConnection, encodeRelayCursor, decodeRelayCursor } from "@/lib/relayPagination";
 
 const PAGE_SIZE = 10;
 
@@ -17,7 +18,7 @@ interface Post {
 
 export const PostList = () => {
   const [posts, setPosts] = useState<Post[]>([]);
-  const [page, setPage] = useState(0);
+  const [endCursor, setEndCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [reportPostId, setReportPostId] = useState<string | null>(null);
@@ -28,28 +29,50 @@ export const PostList = () => {
   });
 
   const fetchPosts = useCallback(
-    async (pageNumber: number) => {
+    async (afterCursor: string | null) => {
       if (isLoading) return;
       setIsLoading(true);
 
-      const start = pageNumber * PAGE_SIZE;
-      const end = start + PAGE_SIZE - 1;
+      // Try get_posts_relay RPC first
+      const { data: relayData, error: relayError } = await supabase.rpc("get_posts_relay", {
+        p_after: afterCursor,
+        p_first: PAGE_SIZE,
+      });
 
-      // Fetch range of posts using Supabase pagination
-      const { data, error } = await supabase
-        .from("posts")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .range(start, end);
+      if (!relayError && relayData && typeof relayData === "object" && "edges" in relayData) {
+        const connection = relayData as unknown as RelayConnection<Post>;
+        const newPosts = connection.edges.map((edge) => edge.node);
+        setPosts((prevPosts) => (afterCursor === null ? newPosts : [...prevPosts, ...newPosts]));
+        setHasMore(connection.pageInfo.hasNextPage);
+        setEndCursor(connection.pageInfo.endCursor);
+        setIsLoading(false);
+        return;
+      }
+
+      // Fallback using get_posts_cursor
+      const decoded = afterCursor ? decodeRelayCursor(afterCursor) : null;
+      const { data, error } = await supabase.rpc("get_posts_cursor", {
+        last_created_at: decoded?.createdAt || null,
+        last_id: decoded?.id || null,
+        fetch_limit: PAGE_SIZE,
+      });
 
       if (error) {
         console.error("Error fetching posts:", error);
       } else if (data) {
-        setPosts((prevPosts) => (pageNumber === 0 ? data : [...prevPosts, ...data]));
+        const fetchedPosts = data as unknown as Post[];
+        setPosts((prevPosts) =>
+          afterCursor === null ? fetchedPosts : [...prevPosts, ...fetchedPosts],
+        );
 
-        // If less than PAGE_SIZE returned, we reached the end of the feed
-        if (data.length < PAGE_SIZE) {
-          setHasMore(false);
+        setHasMore(fetchedPosts.length === PAGE_SIZE);
+        if (fetchedPosts.length > 0) {
+          const lastPost = fetchedPosts[fetchedPosts.length - 1];
+          const newCursor = encodeRelayCursor(
+            String(lastPost.created_at || ""),
+            String(lastPost.id),
+          );
+          setEndCursor(newCursor);
         }
       }
 
@@ -60,22 +83,15 @@ export const PostList = () => {
 
   // Initial load on component mount
   useEffect(() => {
-    fetchPosts(0);
+    fetchPosts(null);
   }, []);
 
   // Trigger fetch when scrolling down to the sentinel
   useEffect(() => {
-    if (inView && hasMore && !isLoading && page > 0) {
-      fetchPosts(page);
+    if (inView && hasMore && !isLoading && endCursor) {
+      fetchPosts(endCursor);
     }
-  }, [inView, hasMore, isLoading, page, fetchPosts]);
-
-  // Advance page counter when sentinel comes into view
-  useEffect(() => {
-    if (inView && hasMore && !isLoading) {
-      setPage((prevPage) => prevPage + 1);
-    }
-  }, [inView, hasMore, isLoading]);
+  }, [inView, hasMore, isLoading, endCursor, fetchPosts]);
 
   return (
     <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full p-4">

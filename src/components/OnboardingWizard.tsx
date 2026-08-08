@@ -36,7 +36,6 @@ export function OnboardingWizard({ userId, onComplete }: OnboardingWizardProps) 
           full_name: name,
           major: major,
           bio: bio,
-          updated_at: new Date().toISOString(),
         })
         .eq("id", userId);
 

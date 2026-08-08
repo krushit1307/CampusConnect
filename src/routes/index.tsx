@@ -2,6 +2,19 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { Sparkle } from "@/components/site/Sparkle";
+import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
+import { Icon } from "@/components/ui/icon";
+import { Users, Calendar, GraduationCap } from "lucide-react";
+import { useExperimentStore } from "@/store/useExperimentStore";
+import { useQuery } from "@/hooks/useReactQueryReplacement";
+import { createClient } from "@/lib/supabase/client";
+import { FeaturedEvents } from "@/components/home/FeaturedEvents";
+import { HeroBackground } from "@/components/home/HeroBackground";
+import { HeroMidground } from "@/components/home/HeroMidground";
+import { HeroForeground } from "@/components/home/HeroForeground";
+import { EventCardSkeleton } from "@/components/EventCardSkeleton";
+import { useTranslation } from "react-i18next";
+import { Marquee } from "@/components/ui/Marquee";
 
 function AnimatedCounter({ value }: { value: string }) {
   const [displayValue, setDisplayValue] = useState("0");
@@ -190,8 +203,86 @@ const FAQ_ITEMS: FAQItem[] = [
 ];
 
 export default function Landing() {
+  const { t } = useTranslation();
   const [activeCategory, setActiveCategory] = useState("All");
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  const supabase = createClient();
+  const { data: featuredEvents, isLoading: isLoadingEvents } = useQuery({
+    queryKey: ["featured-events"],
+    queryFn: async () => {
+      // The magazine grid (issue #1852) ranks cards by popularity_score so
+      // we ask the DB to do that ordering for us. is_featured is surfaced as
+      // a tie-breaker; see sortFeaturedEvents() in <FeaturedEvents />.
+      const { data, error } = await supabase
+        .from("events")
+        .select(
+          `
+          id,
+          title,
+          description,
+          event_date,
+          banner_url,
+          popularity_score,
+          is_featured,
+          clubs(name)
+        `,
+        )
+        .neq("status", "archived")
+        .gte("event_date", new Date().toISOString())
+        .order("popularity_score", { ascending: false, nullsFirst: false })
+        .order("event_date", { ascending: true })
+        .limit(5);
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const variant = useExperimentStore((state) => state.variant);
+  const initializeVariant = useExperimentStore((state) => state.initializeVariant);
+
+  useEffect(() => {
+    initializeVariant();
+  }, [initializeVariant]);
+
+  const { scrollYProgress } = useScroll();
+  const prefersReducedMotion = useReducedMotion();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.matchMedia("(max-width: 768px)").matches);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  const shouldDisableParallax = prefersReducedMotion || isMobile;
+
+  // Map scrollYProgress to Y translations for multi-layer parallax
+  // Background: 0.2x speed, Midground: 0.5x, Foreground: 0.8x
+  const bgLayerYRaw = useTransform(scrollYProgress, [0, 1], [0, 40]);
+  const midLayerYRaw = useTransform(scrollYProgress, [0, 1], [0, 100]);
+  const fgLayerYRaw = useTransform(scrollYProgress, [0, 1], [0, 160]);
+
+  const floatY1Raw = useTransform(scrollYProgress, [0, 1], [0, -250]);
+  const floatY2Raw = useTransform(scrollYProgress, [0, 1], [0, 120]);
+  const floatY3Raw = useTransform(scrollYProgress, [0, 1], [0, -180]);
+
+  const heroTextYRaw = useTransform(scrollYProgress, [0, 1], [0, -60]);
+
+  // Fallbacks for disabled parallax (0 translations)
+  const yBgLayer = shouldDisableParallax ? 0 : bgLayerYRaw;
+  const yMidLayer = shouldDisableParallax ? 0 : midLayerYRaw;
+  const yFgLayer = shouldDisableParallax ? 0 : fgLayerYRaw;
+
+  const yFloat1 = shouldDisableParallax ? 0 : floatY1Raw;
+  const yFloat2 = shouldDisableParallax ? 0 : floatY2Raw;
+  const yFloat3 = shouldDisableParallax ? 0 : floatY3Raw;
+
+  const yHeroText = shouldDisableParallax ? 0 : heroTextYRaw;
 
   const filteredFAQs =
     activeCategory === "All"
@@ -200,50 +291,145 @@ export default function Landing() {
 
   return (
     <SiteShell>
-      {/* HERO — PR 207 Image-backed with overlay */}
-      <section className="relative h-96 w-full overflow-hidden animate-hero-bg md:h-[500px]">
-        {/* Dynamic Animated Blobs */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          {/* Blob 1 (Accent Color) */}
-          <div className="absolute -top-[10%] -left-[10%] w-[300px] h-[300px] rounded-full bg-brand-peach-light/22 blur-[80px] animate-blob-1 mix-blend-screen md:w-[450px] md:h-[450px]" />
-          {/* Blob 2 (Primary Darker Tone) */}
-          <div className="absolute bottom-[10%] right-[5%] w-[350px] h-[350px] rounded-full bg-brand-blue-base/55 blur-[90px] animate-blob-2 mix-blend-screen md:w-[500px] md:h-[500px]" />
-          {/* Blob 3 (Accent Color Variant) */}
-          <div className="absolute top-[30%] left-[30%] w-[250px] h-[250px] rounded-full bg-brand-peach-light/18 blur-[70px] animate-blob-3 mix-blend-screen md:w-[350px] md:h-[350px]" />
-        </div>
+      {/* ANNOUNCEMENT MARQUEE — scrolls above the hero, homepage only */}
+      <Marquee>
+        🎓 Welcome to CampusConnect — Clubs, Events &amp; Certificates for Student Communities
+        &nbsp;✦&nbsp; RSVP to upcoming events &nbsp;✦&nbsp; Join a club &nbsp;✦&nbsp; Earn
+        verified certificates &nbsp;✦&nbsp;
+      </Marquee>
+
+      {/* HERO — Multi-layered parallax with 3 SVG depth layers */}
+      <section className="relative h-96 w-full overflow-hidden md:h-[500px]">
+        {/* Parallax image layers: Background (0.2x), Midground (0.5x), Foreground (0.8x) */}
+        <HeroBackground y={yBgLayer} />
+        <HeroMidground y={yMidLayer} />
+        <HeroForeground y={yFgLayer} />
+
+        {/* Floating community icons (visible only on desktop for parallax depth) */}
+        <motion.div
+          style={{ y: yFloat1 }}
+          className="absolute left-[8%] top-[30%] z-10 hidden md:flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/20 text-[#f5c66b] shadow-lg opacity-75 pointer-events-none"
+        >
+          <Users size={32} />
+        </motion.div>
+        <motion.div
+          style={{ y: yFloat2 }}
+          className="absolute right-[8%] top-[20%] z-10 hidden md:flex items-center justify-center w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/20 text-[#10B981] shadow-lg opacity-75 pointer-events-none"
+        >
+          <Calendar size={28} />
+        </motion.div>
+        <motion.div
+          style={{ y: yFloat3 }}
+          className="absolute left-[15%] bottom-[10%] z-10 hidden md:flex items-center justify-center w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/20 text-[#f5c66b] shadow-lg opacity-60 pointer-events-none"
+        >
+          <GraduationCap size={24} />
+        </motion.div>
 
         {/* Ambient Overlay for text contrast */}
-        <div className="absolute inset-0 bg-gradient-to-br from-brand-blue-dark/70 via-brand-blue-dark/55 to-brand-blue-muted/45 z-0 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-brand-blue-dark/70 via-brand-blue-dark/55 to-brand-blue-muted/45 z-[3] pointer-events-none" />
 
-        <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center text-white z-10">
-          <p className="mb-3 font-mono text-sm font-bold uppercase tracking-widest text-brand-peach-light animate-fade-in-up animate-delay-100">
-            Student Communities Platform
-          </p>
-          <h1 className="mb-4 max-w-2xl font-display text-5xl font-bold leading-tight md:text-6xl animate-fade-in-up animate-delay-300">
-            CampusConnect
-          </h1>
-          <p className="mx-auto max-w-xl font-mono text-base leading-relaxed md:text-lg text-white/90 animate-fade-in-up animate-delay-500">
-            Clubs, events, and certificates. One open-source OS for student communities.
-          </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-4 animate-fade-in-up animate-delay-700">
-            <Link
-              to="/auth"
-              className="rounded-md bg-brand-peach-light px-8 py-3 font-mono font-bold uppercase text-brand-blue-dark transition hover:bg-white active:scale-95"
-            >
-              Get Started
-            </Link>
-            <Link
-              to="/events"
-              className="rounded-md border-2 border-white/80 px-8 py-3 font-mono font-bold uppercase text-white transition hover:bg-white/10 active:scale-95"
-            >
-              Explore Events
-            </Link>
-          </div>
+        <motion.div
+          style={{ y: yHeroText }}
+          className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center text-white z-10"
+        >
+          {variant === "B" ? (
+            <>
+              <p className="mb-3 font-mono text-sm font-bold uppercase tracking-widest text-[#a3e635] animate-fade-in-up animate-delay-100">
+                Unlock Your Potential
+              </p>
+              <h1 className="mb-4 max-w-3xl font-display text-5xl font-bold leading-tight md:text-6xl animate-fade-in-up animate-delay-300">
+                Supercharge Your Campus Life
+              </h1>
+              <p className="mx-auto max-w-2xl font-mono text-base leading-relaxed md:text-lg text-white/90 animate-fade-in-up animate-delay-500">
+                Discover top student clubs, attend workshops, and earn certificates to build your
+                future.
+              </p>
+              <div className="mt-8 flex flex-wrap justify-center gap-4 animate-fade-in-up animate-delay-700">
+                <Link
+                  to="/auth"
+                  className="rounded-md bg-brand-peach-light px-8 py-3 font-mono font-bold uppercase text-brand-blue-dark transition hover:bg-white active:scale-95"
+                >
+                  Join CampusConnect
+                </Link>
+                <Link
+                  to="/events"
+                  className="rounded-md border-2 border-white/80 px-8 py-3 font-mono font-bold uppercase text-white transition hover:bg-white/10 active:scale-95"
+                >
+                  See Upcoming Events
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="mb-3 font-mono text-sm font-bold uppercase tracking-widest text-[#f5c66b] animate-fade-in-up animate-delay-100">
+                Student Communities Platform
+              </p>
+              <h1 className="mb-4 max-w-2xl font-display text-5xl font-bold leading-tight md:text-6xl animate-fade-in-up animate-delay-300">
+                CampusConnect
+              </h1>
+              <p className="mx-auto max-w-xl font-mono text-base leading-relaxed md:text-lg text-white/90 animate-fade-in-up animate-delay-500">
+                Clubs, events, and certificates. One open-source OS for student communities.
+              </p>
+              <div className="mt-8 flex flex-wrap justify-center gap-4 animate-fade-in-up animate-delay-700">
+                <Link
+                  to="/auth"
+                  className="rounded-md bg-brand-peach-light px-8 py-3 font-mono font-bold uppercase text-brand-blue-dark transition hover:bg-white active:scale-95"
+                >
+                  Get Started
+                </Link>
+                <Link
+                  to="/events"
+                  className="rounded-md border-2 border-white/80 px-8 py-3 font-mono font-bold uppercase text-white transition hover:bg-white/10 active:scale-95"
+                >
+                  Explore Events
+                </Link>
+              </div>
+            </>
+          )}
+        </motion.div>
+      </section>
+
+      {/* FEATURED EVENTS — Magazine layout */}
+      <section className="bg-cream px-4 py-20 md:px-6 md:py-28 border-t-2 border-black">
+        <div className="mx-auto max-w-7xl">
+          <ScrollReveal>
+            <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+              <div>
+                <SectionEyebrow>Upcoming</SectionEyebrow>
+                <h2 className="mt-2 font-display text-4xl font-bold text-brand-blue-dark md:text-5xl">
+                  Featured Events
+                </h2>
+              </div>
+              <Link
+                to="/events"
+                className="neu-border inline-flex items-center justify-center bg-white px-6 py-3 font-mono text-sm font-bold uppercase transition hover:bg-brand-peach-light"
+              >
+                View all events
+              </Link>
+            </div>
+          </ScrollReveal>
+
+          <ScrollReveal delay={150}>
+            {isLoadingEvents ? (
+              <div className="flex overflow-hidden gap-4" aria-hidden="true">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="flex-[0_0_85%] md:flex-[0_0_45%] shrink-0">
+                    <EventCardSkeleton index={i} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <FeaturedEvents events={featuredEvents || []} />
+            )}
+          </ScrollReveal>
         </div>
       </section>
 
       {/* FEATURED FEATURES — 4-card grid (PR 207) */}
-      <section className="bg-lime px-4 py-20 md:px-6 md:py-32 border-3 border-black">
+      <section
+        id="features"
+        className="bg-lime px-4 py-20 md:px-6 md:py-32 border-3 border-black scroll-mt-24"
+      >
         <div className="mx-auto max-w-7xl">
           <div className="mb-20 text-center">
             <h2 className="mb-6 font-display text-5xl font-bold text-red-900 md:text-6xl">
@@ -257,65 +443,24 @@ export default function Landing() {
           <div className="grid gap-12 md:grid-cols-4">
             {[
               {
-                icon: (
-                  <svg viewBox="0 0 100 100" className="h-16 w-16 stroke-brand-blue-dark fill-none">
-                    <circle cx="30" cy="25" r="8" />
-                    <path
-                      d="M20 38h20a2 2 0 012 2v12a2 2 0 01-2 2H20a2 2 0 01-2-2V40a2 2 0 012-2z"
-                      strokeWidth="2"
-                    />
-                    <circle cx="70" cy="25" r="8" />
-                    <path
-                      d="M60 38h20a2 2 0 012 2v12a2 2 0 01-2 2H60a2 2 0 01-2-2V40a2 2 0 012-2z"
-                      strokeWidth="2"
-                    />
-                    <circle cx="50" cy="60" r="8" />
-                    <path
-                      d="M40 73h20a2 2 0 012 2v8a2 2 0 01-2 2H40a2 2 0 01-2-2v-8a2 2 0 012-2z"
-                      strokeWidth="2"
-                    />
-                  </svg>
-                ),
+                icon: <Icon name="club-management" className="h-16 w-16 text-brand-blue-dark" />,
                 title: "Club Management",
                 desc: "Create pages, manage rosters, and organize your club—without the spreadsheet chaos.",
               },
               {
-                icon: (
-                  <svg
-                    viewBox="0 0 100 100"
-                    className="h-16 w-16 stroke-brand-peach-light fill-none"
-                  >
-                    <rect x="15" y="20" width="70" height="60" rx="4" strokeWidth="3" />
-                    <line x1="15" y1="35" x2="85" y2="35" strokeWidth="3" />
-                    <line x1="30" y1="45" x2="30" y2="75" strokeWidth="2" />
-                    <line x1="50" y1="45" x2="50" y2="75" strokeWidth="2" />
-                    <line x1="70" y1="45" x2="70" y2="75" strokeWidth="2" />
-                  </svg>
-                ),
+                icon: <Icon name="event-planning" className="h-16 w-16 text-brand-peach-light" />,
                 title: "Event Planning",
                 desc: "RSVPs, check-ins, feedback forms, and post-event reports in one flow.",
               },
               {
                 icon: (
-                  <svg
-                    viewBox="0 0 100 100"
-                    className="h-16 w-16 stroke-brand-emerald-base fill-none"
-                  >
-                    <rect x="10" y="15" width="80" height="60" rx="4" strokeWidth="3" />
-                    <circle cx="50" cy="45" r="12" strokeWidth="2" />
-                    <path d="M45 35 L55 55 M55 35 L45 55" strokeWidth="2" />
-                    <line x1="10" y1="80" x2="90" y2="80" strokeWidth="3" />
-                  </svg>
+                  <Icon name="digital-interaction" className="h-16 w-16 text-brand-emerald-base" />
                 ),
                 title: "Digital Interaction",
                 desc: "Interactive registration, real-time updates, and seamless member engagement.",
               },
               {
-                icon: (
-                  <svg viewBox="0 0 100 100" className="h-16 w-16 fill-brand-blue-base-500">
-                    <path d="M50 10 L65 40 L95 45 L70 65 L80 95 L50 75 L20 95 L30 65 L5 45 L35 40 Z" />
-                  </svg>
-                ),
+                icon: <Icon name="star" className="h-16 w-16 text-brand-blue-base-500" />,
                 title: "Certificates & Proof",
                 desc: "Auto-generate signed certificates and portable profiles for any workshop or event.",
               },
@@ -423,16 +568,7 @@ export default function Landing() {
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-3">
                       <span className="mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-black bg-brand-blue-dark text-brand-yellow-bg-alt">
-                        <svg
-                          viewBox="0 0 24 24"
-                          width="12"
-                          height="12"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        >
-                          <path d="M4 12l6 6L20 6" />
-                        </svg>
+                        <Icon name="check" size={12} />
                       </span>
                       <span className="font-mono text-sm font-semibold text-indigo-900">
                         {item}
@@ -617,7 +753,10 @@ export default function Landing() {
       </section>
 
       {/* FAQ SECTION */}
-      <section className="bg-teal-100 border-t-2 border-gray-200 px-4 py-20 md:px-6">
+      <section
+        id="faq"
+        className="bg-teal-100 border-t-2 border-gray-200 px-4 py-20 md:px-6 scroll-mt-24"
+      >
         <div className="mx-auto max-w-4xl">
           <div className="mb-12 text-center">
             <SectionEyebrow>Frequently Asked Questions</SectionEyebrow>
@@ -660,31 +799,9 @@ export default function Landing() {
                     <span className="text-base md:text-lg">{faq.question}</span>
                     <span className="ml-4 shrink-0 transition-transform duration-300">
                       {isOpen ? (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          strokeWidth={2.5}
-                          stroke="currentColor"
-                          className="w-5 h-5"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
-                        </svg>
+                        <Icon name="minus" className="w-5 h-5" />
                       ) : (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          strokeWidth={2.5}
-                          stroke="currentColor"
-                          className="w-5 h-5"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M12 4.5v15m7.5-7.5h-15"
-                          />
-                        </svg>
+                        <Icon name="plus" className="w-5 h-5" />
                       )}
                     </span>
                   </button>
@@ -722,6 +839,30 @@ export default function Landing() {
             </Link>
           </div>
         </ScrollReveal>
+      </section>
+      {/* CONTACT SECTION */}
+      <section
+        id="contact"
+        className="bg-white border-t-2 border-gray-200 px-4 py-20 md:px-6 scroll-mt-24"
+      >
+        <div className="mx-auto max-w-4xl text-center">
+          <SectionEyebrow>Contact</SectionEyebrow>
+
+          <h2 className="mt-2 text-4xl font-bold text-red-900 md:text-5xl">
+            Get in touch with us.
+          </h2>
+
+          <p className="mt-6 font-mono text-gray-700">
+            Have questions about CampusConnect? Reach out to our team.
+          </p>
+
+          <a
+            href="mailto:support@campusconnect.com"
+            className="mt-8 inline-block neu-border bg-lime px-6 py-3 font-mono font-bold uppercase"
+          >
+            Contact Support
+          </a>
+        </div>
       </section>
     </SiteShell>
   );

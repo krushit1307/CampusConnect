@@ -4,8 +4,8 @@ BEGIN;
 -- Enable pgTAP extension if not already enabled
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
--- Plan the tests (we have 6 tests)
-SELECT plan(6);
+-- Plan the tests (we have 10 tests)
+SELECT plan(10);
 
 -- 1. Setup mock data
 -- Create test users in auth.users (this triggers public.profiles creation)
@@ -83,6 +83,60 @@ SELECT is(
   (SELECT member_count FROM public.clubs WHERE id = '90000000-0000-0000-0000-000000000004'),
   0,
   'Deleting approved member decrements member_count to 0'
+);
+
+-- Test 7: The member-count trigger function exists
+SELECT ok(
+  EXISTS (
+    SELECT 1
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname = 'handle_club_member_change'
+  ),
+  'handle_club_member_change function should exist'
+);
+
+-- Test 8: The member-count trigger is bound to club_members
+SELECT ok(
+  EXISTS (
+    SELECT 1
+    FROM pg_trigger t
+    JOIN pg_class c ON c.oid = t.tgrelid
+    WHERE t.tgname = 'update_club_member_count'
+      AND c.relname = 'club_members'
+  ),
+  'update_club_member_count trigger should exist on club_members'
+);
+
+-- Test 9: Moving an approved member to another club decrements the old
+-- club and increments the new one.
+-- (member_count of club 004 is currently 0; 005 is pending.)
+-- user 002 is used here because user 001 already holds a pending
+-- membership in club 004 (member 005) and club_members enforces
+-- UNIQUE(club_id, user_id).
+INSERT INTO public.club_members (id, club_id, user_id, role_id, status)
+VALUES ('90000000-0000-0000-0000-000000000008', '90000000-0000-0000-0000-000000000004', '90000000-0000-0000-0000-000000000002', '90000000-0000-0000-0000-000000000101', 'approved');
+
+-- Create a second club to move the member into.
+INSERT INTO public.clubs (id, name, slug, description, created_by)
+VALUES ('90000000-0000-0000-0000-000000000009', 'Test Club B', 'test-club-b', 'Second club for transfer test', '90000000-0000-0000-0000-000000000003');
+
+-- Move member 008 from club 004 to club 009.
+UPDATE public.club_members
+SET club_id = '90000000-0000-0000-0000-000000000009'
+WHERE id = '90000000-0000-0000-0000-000000000008';
+
+SELECT is(
+  (SELECT member_count FROM public.clubs WHERE id = '90000000-0000-0000-0000-000000000004'),
+  0,
+  'Transferring approved member decrements old club member_count to 0'
+);
+
+SELECT is(
+  (SELECT member_count FROM public.clubs WHERE id = '90000000-0000-0000-0000-000000000009'),
+  1,
+  'Transferring approved member increments new club member_count to 1'
 );
 
 -- Finish the tests

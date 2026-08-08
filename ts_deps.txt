@@ -1,0 +1,6 @@
+graphql/server.ts(1,42): error TS2307: Cannot find module 'graphql-yoga' or its corresponding type declarations.
+src/components/Feed/PostList.tsx(2,27): error TS2307: Cannot find module 'react-intersection-observer' or its corresponding type declarations.
+src/components/site/SiteShell.tsx(5,25): error TS2307: Cannot find module 'react-joyride' or its corresponding type declarations.
+src/lib/zkp.ts(1,50): error TS2307: Cannot find module 'snarkjs' or its corresponding type declarations.
+src/lib/zkp.ts(31,34): error TS2307: Cannot find module 'snarkjs' or its corresponding type declarations.
+src/main.tsx(13,28): error TS2307: Cannot find module 'virtual:pwa-register' or its corresponding type declarations.
