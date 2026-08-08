@@ -29,9 +29,7 @@ export const ImageWithBlur: React.FC<ImageWithBlurProps> = ({
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
 
-  const hashToUse = isValidBlurhash(blurhash)
-    ? (blurhash as string)
-    : DEFAULT_FALLBACK_BLURHASH;
+  const hashToUse = isValidBlurhash(blurhash) ? (blurhash as string) : DEFAULT_FALLBACK_BLURHASH;
 
   // Determine aspect ratio class
   const getAspectRatioClass = () => {

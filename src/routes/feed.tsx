@@ -379,11 +379,45 @@ export default function Feed() {
 
   const parentRef = useRef<HTMLDivElement>(null);
   const rowVirtualizer = useWindowVirtualizer({
-    count: filteredPosts.length,
-    estimateSize: () => 210,
-    overscan: 3,
+    count: filteredPosts.length + (isFetchingNextPage ? 2 : 0),
+    estimateSize: useCallback(
+      (index: number) => {
+        const post = filteredPosts[index];
+        if (!post) return 210;
+        let height = 210;
+        if (post.image_url) height += 200;
+        if (post.content && post.content.length > 200) height += 100;
+        return height;
+      },
+      [filteredPosts],
+    ),
+    overscan: 5,
     scrollMargin: parentRef.current?.offsetTop ?? 0,
   });
+
+  // Re-measure virtualizer on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      rowVirtualizer.measure();
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [rowVirtualizer]);
+
+  // Infinite scroll trigger based on virtual items
+  const virtualItems = rowVirtualizer.getVirtualItems();
+  useEffect(() => {
+    if (virtualItems.length === 0) return;
+    const lastItem = virtualItems[virtualItems.length - 1];
+    if (
+      lastItem.index >= filteredPosts.length - 3 &&
+      hasNextPage &&
+      !isFetchingNextPage &&
+      !isLoading
+    ) {
+      fetchNextPage();
+    }
+  }, [virtualItems, filteredPosts.length, hasNextPage, isFetchingNextPage, isLoading, fetchNextPage]);
 
   // Scroll position restoration (#1432)
   useEffect(() => {
@@ -1259,6 +1293,10 @@ export default function Feed() {
                   ) : (
                     <div
                       ref={parentRef}
+                      role="feed"
+                      aria-label="Activity Feed"
+                      aria-busy={isLoading || isFetchingNextPage}
+                      aria-rowcount={filteredPosts.length}
                       style={{
                         height: `${rowVirtualizer.getTotalSize()}px`,
                         width: "100%",
@@ -1266,6 +1304,26 @@ export default function Feed() {
                       }}
                     >
                       {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                        if (virtualRow.index >= filteredPosts.length) {
+                          return (
+                            <div
+                              key={`skeleton-${virtualRow.index}`}
+                              ref={rowVirtualizer.measureElement}
+                              data-index={virtualRow.index}
+                              style={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                width: "100%",
+                                transform: `translateY(${virtualRow.start - rowVirtualizer.options.scrollMargin}px)`,
+                              }}
+                              className="pb-6"
+                            >
+                              <FeedPostSkeleton index={virtualRow.index} />
+                            </div>
+                          );
+                        }
+
                         const post = filteredPosts[virtualRow.index];
                         if (!post) return null;
                         const author = Array.isArray(post.profiles)
@@ -1309,6 +1367,8 @@ export default function Feed() {
                             key={post.id}
                             data-index={virtualRow.index}
                             ref={rowVirtualizer.measureElement}
+                            role="article"
+                            aria-rowindex={virtualRow.index + 1}
                             style={{
                               position: "absolute",
                               top: 0,

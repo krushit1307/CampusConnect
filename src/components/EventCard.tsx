@@ -286,32 +286,51 @@ export function EventCard({
             <p className="font-mono text-xs font-bold uppercase text-black">Date &amp; Time</p>
             <p className="mt-1 text-sm text-red-900">{formatEventDateRange(event)}</p>
 
-            <div className="mt-3 flex gap-2 relative z-10">
-              <button
-                type="button"
-                onClick={handleBookmarkClick}
-                disabled={isBookmarkPending}
-                className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60"
-                aria-label={isSaved ? "Unsave event" : "Save event"}
-              >
-                <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
-              </button>
-              <ShareMenu
-                url={shareUrl}
-                title={event.title}
-                text={`Check out this event: ${event.title}`}
-              >
-                <button
-                  type="button"
-                  aria-label="Share event link"
-                  className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black"
-                >
-                  <Share2 aria-hidden="true" size={14} strokeWidth={3} />
-                </button>
-              </ShareMenu>
-            </div>
+          <div className="flex gap-2 relative z-10">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleBookmarkClick}
+                    disabled={isBookmarkPending}
+                    className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60"
+                    aria-label={isSaved ? "Unsave event" : "Save event"}
+                  >
+                    <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isSaved ? "Unsave event" : "Save event"}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ShareMenu
+                    url={shareUrl}
+                    title={event.title}
+                    text={`Check out this event: ${event.title}`}
+                  >
+                    <button
+                      type="button"
+                      aria-label="Share event link"
+                      className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black"
+                    >
+                      <Share2 aria-hidden="true" size={14} strokeWidth={3} />
+                    </button>
+                  </ShareMenu>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Share event</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
+      </div>
         <p className="mt-3 font-mono text-xs font-bold uppercase text-black">Event</p>
         <Link to={`/events/${event.id}`} className="group">
           <h2 className="mt-1 text-2xl font-black group-hover:underline text-violet-900">

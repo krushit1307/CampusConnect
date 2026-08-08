@@ -51,17 +51,11 @@ export const handlers = [
     const body = (await request.json()) as { email?: string; password?: string };
 
     if (!body.email || !body.password) {
-      return HttpResponse.json(
-        { error: "Email and password are required" },
-        { status: 400 },
-      );
+      return HttpResponse.json({ error: "Email and password are required" }, { status: 400 });
     }
 
     if (body.password === "invalid-password") {
-      return HttpResponse.json(
-        { error: "Invalid email or password" },
-        { status: 401 },
-      );
+      return HttpResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }
 
     return HttpResponse.json({
@@ -91,9 +85,7 @@ export const handlers = [
 
     let results = [...mockEvents];
     if (search) {
-      results = results.filter((e) =>
-        e.title.toLowerCase().includes(search.toLowerCase()),
-      );
+      results = results.filter((e) => e.title.toLowerCase().includes(search.toLowerCase()));
     }
 
     return HttpResponse.json({ events: results });

@@ -156,7 +156,17 @@ serve(async (req) => {
       console.log(`[SECURITY] Login successful for ${normalizedEmail}. Failure counter reset.`);
     }
 
-    // Return the session data to the client
+    const isProduction = Deno.env.get("ENVIRONMENT") === "production" || Deno.env.get("DENO_ENV") === "production";
+    const cookieFlags = [
+      `sb-access-token=${data.session?.access_token}; Path=/`,
+      "HttpOnly",
+      "SameSite=Strict",
+      isProduction ? "Secure" : "",
+    ]
+      .filter(Boolean)
+      .join("; ");
+
+    // Return session data with security headers
     return new Response(
       JSON.stringify({
         user: data.user,
@@ -164,7 +174,11 @@ serve(async (req) => {
       }),
       {
         status: 200,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Set-Cookie": cookieFlags,
+        },
       },
     );
   } catch (err) {

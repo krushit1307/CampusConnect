@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { WifiOff } from "lucide-react";
+import { toast } from "sonner";
 
 export function OfflineIndicator() {
   const [isOnline, setIsOnline] = useState(
@@ -7,8 +8,20 @@ export function OfflineIndicator() {
   );
 
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
+    const handleOnline = () => {
+      setIsOnline(true);
+      toast.success("Back online! Syncing data...", {
+        duration: 4000,
+      });
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      toast.warning("You are offline. Viewing cached data.", {
+        description: "Your RSVPs and actions will sync when you reconnect.",
+        duration: 5000,
+      });
+    };
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);

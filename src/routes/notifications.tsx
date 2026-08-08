@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
-import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@/hooks/useReactQueryReplacement";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+  useQuery,
+} from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import {
   Bell,
@@ -44,22 +49,10 @@ const NOTIFICATION_SUBSCRIPTION = /* GraphQL */ `
   }
 `;
 
-/** Shape of a Notification from the GraphQL subscription payload. */
-interface GQLNotification {
-  id: string;
-  userId: string;
-  type: string;
-  title: string;
-  message: string;
-  link: string | null;
-  isRead: boolean;
-  createdAt: string;
-  metadata?: Record<string, unknown> | null;
-  recentActors?: string[] | null;
-  groupCount?: number | null;
-  referenceId?: string | null;
-}
-
+import {
+  NotificationReceivedSubscription,
+  NotificationReceivedSubscriptionVariables,
+} from "@/generated/graphql";
 export function getNotificationLink(
   type: string,
   metadata: Record<string, unknown> | null | undefined,
@@ -120,13 +113,14 @@ export default function NotificationsRoute() {
   const subscriptionOperation = currentUserId
     ? {
         query: NOTIFICATION_SUBSCRIPTION,
-        variables: { userId: currentUserId },
+        variables: { userId: currentUserId } as NotificationReceivedSubscriptionVariables,
       }
     : null;
 
-  const { data: subscriptionPayload, connected: subscriptionConnected } = useGraphQLSubscription<{
-    notificationReceived: GQLNotification;
-  }>(subscriptionOperation, { skip: !currentUserId });
+  const { data: subscriptionPayload, connected: subscriptionConnected } =
+    useGraphQLSubscription<NotificationReceivedSubscription>(subscriptionOperation, {
+      skip: !currentUserId,
+    });
 
   // When a new notification arrives via subscription, prepend it to the
   // TanStack Query cache and show a toast so the user is immediately aware.
@@ -268,11 +262,7 @@ export default function NotificationsRoute() {
   const rawNotifications = data?.pages.flatMap((page) => page.notifications) || [];
 
   const actorIds = Array.from(
-    new Set(
-      rawNotifications
-        .flatMap((n: any) => n.recent_actors || [])
-        .filter(Boolean),
-    ),
+    new Set(rawNotifications.flatMap((n: any) => n.recent_actors || []).filter(Boolean)),
   );
 
   const { data: profilesMap } = useQuery({

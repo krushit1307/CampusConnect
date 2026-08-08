@@ -69,9 +69,7 @@ function HeatmapLayer({ points }: { points: [number, number, number][] }) {
       layerRef.current = null;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (points.length > 0 && (L as any).heatLayer) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       layerRef.current = (L as any)
         .heatLayer(points, {
           radius: 25,
@@ -142,7 +140,6 @@ export function CampusEventMap({
       }
 
       if (data) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const formatted: MapEventItem[] = data.map((item: any) => ({
           id: item.id,
           title: item.title,

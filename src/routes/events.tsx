@@ -13,6 +13,7 @@ import { Search } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { AutocompleteDropdown, AutocompleteResult } from "@/components/AutocompleteDropdown";
 import { useNavigate } from "react-router-dom";
+import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import {
   Select,
@@ -58,7 +59,7 @@ function EventsPage() {
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAutocompleteOpen, setIsAutocompleteOpen] = useState(false);
-const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [nearMeActive, setNearMeActive] = useState(false);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [radiusMiles, setRadiusMiles] = useState(5);
@@ -156,7 +157,7 @@ const debouncedSearchQuery = useDebounce(searchQuery, 300);
     },
   });
 
-const events = queryData || [];
+  const events = queryData || [];
 
   const { data: nearbyEvents, isFetching: isFetchingNearby } = useQuery({
     queryKey: ["events-nearby", userCoords, radiusMiles],
@@ -215,6 +216,8 @@ const events = queryData || [];
         console.log(`[CampusConnect] Mock RSVP toggled for event: ${eventId}`);
         return;
       }
+      const idempotencyKey = getRsvpIdempotencyKey(eventId);
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -223,9 +226,11 @@ const events = queryData || [];
         body: { eventId, hasRsvpd },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
+          "Idempotency-Key": idempotencyKey,
         },
       });
       if (error) throw error;
+      clearRsvpIdempotencyKey(eventId);
     },
     onMutate: async ({ eventId, hasRsvpd }) => {
       await queryClient.cancelQueries({ queryKey: ["events"] });

@@ -8,6 +8,7 @@ import { EventCard } from "@/components/EventCard";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
 import { useMutation, useQuery } from "@/hooks/useReactQueryReplacement";
 import { normalizeSavedEvents } from "@/lib/bookmarks";
+import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { createClient } from "@/lib/supabase/client";
 import EmptyBookmarks from "@/components/EmptyBookmarks";
 interface BookmarkedEvent {
@@ -136,6 +137,8 @@ export default function DashboardBookmarks() {
     mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
       if (!user) throw new Error("You must be signed in to update an RSVP.");
 
+      const idempotencyKey = getRsvpIdempotencyKey(eventId);
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -144,10 +147,12 @@ export default function DashboardBookmarks() {
         body: { eventId, hasRsvpd },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
+          "Idempotency-Key": idempotencyKey,
         },
       });
 
       if (error) throw error;
+      clearRsvpIdempotencyKey(eventId);
       return data;
     },
     onSuccess: () => {
