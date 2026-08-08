@@ -254,6 +254,9 @@ export function EventCard({
     <div className="group">
       <article
         id={`event-${event.id}`}
+ feat/event-card-button-tooltips
+        className={`neu-border p-5 relative ${colors[index % colors.length]} transition-all duration-300 ease-out group-hover:scale-[1.02] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-ink)]`}
+
         onMouseEnter={preloadEvent.onMouseEnter}
         onMouseLeave={preloadEvent.onMouseLeave}
         className={`neu-border p-5 relative ${
@@ -261,6 +264,7 @@ export function EventCard({
             ? "bg-blue-100 border-4 border-blue-600 ring-2 ring-blue-600"
             : colors[index % colors.length]
         } transition-all duration-300 ease-out group-hover:scale-[1.02]`}
+ main
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col">
@@ -286,6 +290,50 @@ export function EventCard({
             <p className="font-mono text-xs font-bold uppercase text-black">Date &amp; Time</p>
             <p className="mt-1 text-sm text-red-900">{formatEventDateRange(event)}</p>
 
+ feat/event-card-button-tooltips
+          <div className="flex gap-2 relative z-10">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleBookmarkClick}
+                    disabled={isBookmarkPending}
+                    className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60"
+                    aria-label={isSaved ? "Unsave event" : "Save event"}
+                  >
+                    <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isSaved ? "Unsave event" : "Save event"}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ShareMenu
+                    url={shareUrl}
+                    title={event.title}
+                    text={`Check out this event: ${event.title}`}
+                  >
+                    <button
+                      type="button"
+                      aria-label="Share event link"
+                      className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black"
+                    >
+                      <Share2 aria-hidden="true" size={14} strokeWidth={3} />
+                    </button>
+                  </ShareMenu>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Share event</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
             <div className="mt-3 flex gap-2 relative z-10">
               <button
                 type="button"
@@ -310,6 +358,7 @@ export function EventCard({
                 </button>
               </ShareMenu>
             </div>
+ main
           </div>
         </div>
         <p className="mt-3 font-mono text-xs font-bold uppercase text-black">Event</p>

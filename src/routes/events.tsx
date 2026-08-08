@@ -58,7 +58,7 @@ function EventsPage() {
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAutocompleteOpen, setIsAutocompleteOpen] = useState(false);
-const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [nearMeActive, setNearMeActive] = useState(false);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [radiusMiles, setRadiusMiles] = useState(5);
@@ -156,7 +156,7 @@ const debouncedSearchQuery = useDebounce(searchQuery, 300);
     },
   });
 
-const events = queryData || [];
+  const events = queryData || [];
 
   const { data: nearbyEvents, isFetching: isFetchingNearby } = useQuery({
     queryKey: ["events-nearby", userCoords, radiusMiles],

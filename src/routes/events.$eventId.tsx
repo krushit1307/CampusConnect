@@ -1,8 +1,9 @@
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
+import { incrementEventViews } from "@/lib/supabase/events";
 import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
-import { useState, useEffect, lazy, Suspense, useMemo } from "react";
+import { useState, useEffect, lazy, Suspense, useMemo, useRef } from "react";
 import { TableOfContents } from "@/components/events/TableOfContents";
 import { NotFound } from "@/components/NotFound";
 import LazyHydrate from "@/components/LazyHydrate";
@@ -35,6 +36,7 @@ import {
   Star,
   HelpCircle,
   Flag,
+  Eye,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -389,7 +391,8 @@ export default function EventDetailsPage() {
           profiles (full_name, email),
           clubs (name, slug),
           event_rsvps (id, user_id, status, checked_in, rsvp_at, profiles (first_name, last_name, avatar_url)),
-          event_waitlist (id, user_id, created_at, profiles (first_name, last_name, avatar_url))
+          event_waitlist (id, user_id, created_at, profiles (first_name, last_name, avatar_url)),
+          event_metrics (views)
         `,
         )
         .or(`short_id.eq.${eventId},id.eq.${eventId}`)
@@ -488,6 +491,7 @@ export default function EventDetailsPage() {
                 : [],
             attendee_count: eventId === "mock-1" ? 1 : 0,
             profiles: { full_name: "Mock Organizer", email: "mock@example.com" },
+            event_metrics: { views: 0 },
           };
         }
         throw error;
@@ -530,6 +534,39 @@ export default function EventDetailsPage() {
       heading.id = id;
     });
   }, [event?.description]);
+
+  // Increment persistent view count in event_metrics once per page load.
+  // Skipped for mock/dev events (no real DB row).
+  //
+  // We store the canonical event UUID (event.id) rather than a boolean so that:
+  // - Short-id URLs resolve to their UUID before incrementing (avoids wrong PK)
+  // - Navigating between events while the component stays mounted still
+  //   increments each new event exactly once
+  const viewIncrementedRef = useRef<string | null>(null);
+  useEffect(() => {
+    // Wait until the query has resolved and we have the canonical UUID
+    const canonicalId = (event as any)?.id as string | undefined;
+    if (!canonicalId || canonicalId.startsWith("mock-")) return;
+    if (viewIncrementedRef.current === canonicalId) return;
+    viewIncrementedRef.current = canonicalId;
+
+    incrementEventViews(canonicalId).then(({ error }) => {
+      if (error) {
+        console.warn("[event view] increment failed silently:", error);
+        return;
+      }
+      // Refresh the cached query so the displayed view count is up-to-date.
+      const cached = (event as any);
+      if (cached?.event_metrics) {
+        const currentViews =
+          (cached.event_metrics as { views: number } | null)?.views ?? 0;
+        setQueryData(["event", eventId], {
+          ...cached,
+          event_metrics: { views: currentViews + 1 },
+        });
+      }
+    });
+  }, [(event as any)?.id, eventId]);
 
   const toggleWaitlist = useMutation({
     mutationFn: async ({ isOnWaitlist }: { isOnWaitlist: boolean }) => {
@@ -1179,6 +1216,15 @@ export default function EventDetailsPage() {
             <div className="flex items-center gap-2">
               <Users className="h-5 w-5" />
               <span>{attendeeCount} RSVP&apos;d</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              <span>
+                {(
+                  ((event as any).event_metrics as { views: number } | null)?.views ?? 0
+                ).toLocaleString()}{" "}
+                views
+              </span>
             </div>
           </div>
 
