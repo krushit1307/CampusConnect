@@ -59,9 +59,12 @@ export interface EventItem {
   rsvp_count?: number;
   saved_count?: number;
   max_attendees?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 import EventsCalendar from "@/components/events/EventsCalendar";
+import EventMap from "@/components/events/EventMap";
 import { useParams } from "react-router-dom";
 
 // Helper: Check if two event date ranges overlap
@@ -87,7 +90,7 @@ export default function EventsList() {
   const emailVerified = useEmailVerification();
   const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [filter, setFilter] = useState<string>("All");
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [viewMode, setViewMode] = useState<"list" | "calendar" | "map">("list");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [sortLoaded, setSortLoaded] = useState(false);
   const [hidePastEvents, setHidePastEvents] = useState(false);
@@ -205,7 +208,7 @@ export default function EventsList() {
           .from("events")
           .select(
             `
-            id, title, description, event_date, start_date, end_date, location, banner_url, created_at, announce_date, max_attendees,
+            id, title, description, event_date, start_date, end_date, location, banner_url, created_at, announce_date, max_attendees, latitude, longitude,
             clubs (name, average_lead_time_days),
             event_rsvps(count),
             saved_events(count)
@@ -342,7 +345,7 @@ export default function EventsList() {
           .from("events")
           .select(
             `
-            id, title, description, event_date, start_date, end_date, location, banner_url, created_at, max_attendees,
+            id, title, description, event_date, start_date, end_date, location, banner_url, created_at, max_attendees, latitude, longitude,
             clubs (name),
             event_rsvps(count),
             saved_events(count)
@@ -1082,13 +1085,21 @@ export default function EventsList() {
                         >
                           Calendar
                         </button>
-                        <Link
-                          to="/events/map"
-                          className="flex items-center gap-1 px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors bg-white text-black hover:bg-cream cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                        <button
+                          type="button"
+                          onClick={() => setViewMode("map")}
+                          aria-pressed={viewMode === "map"}
+                          className={`flex items-center gap-1 px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black ${
+                            viewMode === "map"
+                              ? "bg-black text-cream"
+                              : "bg-white text-black hover:bg-cream"
+                          }`}
                         >
-                          <MapPin className="h-3.5 w-3.5 text-red-500" />
+                          <MapPin
+                            className={`h-3.5 w-3.5 ${viewMode === "map" ? "text-red-400" : "text-red-500"}`}
+                          />
                           Map
-                        </Link>
+                        </button>
                       </div>
 
                       <button
@@ -1117,8 +1128,12 @@ export default function EventsList() {
                   </div>
                 </div>
               </section>
-              <section className="bg-cream px-4 py-12 md:px-6">
-                {viewMode === "list" ? (
+              <section
+                className={`bg-cream px-4 py-12 md:px-6 ${viewMode === "map" ? "h-[80vh] min-h-[600px] flex flex-col" : ""}`}
+              >
+                {viewMode === "map" ? (
+                  <EventMap events={filteredEvents} />
+                ) : viewMode === "list" ? (
                   <>
                     {(isTrendingLoading || (trendingEvents && trendingEvents.length > 0)) &&
                       filter === "All" &&
