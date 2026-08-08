@@ -86,3 +86,44 @@ diff --git a/scripts/train_model.py b/scripts/train_model.py
 +    model = train_model(X_train, y_train)
 +    accuracy = evaluate_model(model, X_test, y_test)
 +    print(f"Model Accuracy: {accuracy:.2f}")
+--- a/scripts/train_model.py
+@@ -10,6 +10,8 @@ import torch.nn as nn
+ import torch.optim as optim
+ 
+ def train_model(model, train_data, test_data, epochs=5):
++    """Train the model on the provided training data and evaluate on test data."""
++
+     criterion = nn.CrossEntropyLoss()
+     optimizer = optim.SGD(model.parameters(), lr=0.01)
+ 
+@@ -25,6 +27,8 @@ def train_model(model, train_data, test_data, epochs=5):
+         running_loss = 0.0
+         for inputs, labels in train_loader:
+             optimizer.zero_grad()
++            # Forward pass: Compute predicted outputs by passing inputs to the model
+             outputs = model(inputs)
++            # Compute loss
+             loss = criterion(outputs, labels)
++            # Backward and optimize
+             loss.backward()
+             optimizer.step()
+ 
+@@ -40,6 +44,8 @@ def train_model(model, train_data, test_data, epochs=5):
+                 running_loss += loss.item() * inputs.size(0)
+         epoch_loss = running_loss / len(train_dataset)
+         print(f'Epoch {epoch+1}/{epochs}, Loss: {epoch_loss:.4f}')
+ 
++    # Evaluate the model on the test data
+     test_loss = 0.0
+     correct = 0
+     total = 0
+@@ -53,6 +59,8 @@ def train_model(model, train_data, test_data, epochs=5):
+             with torch.no_grad():
+                 outputs = model(inputs)
+             _, predicted = torch.max(outputs.data, 1)
++            # Update the count of correct predictions and total predictions
+             total += labels.size(0)
+             correct += (predicted == labels).sum().item()
+ 
+@@ -62,3 +70,4 @@ def train_model(model, train_data, test_data, epochs=5):
+     print(f'Test Accuracy: {100 * correct / total:.2f}%')
