@@ -160,7 +160,22 @@ export const signUpSchema = z
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match.",
     path: ["confirmPassword"],
-  });
+  })
+  .refine(
+    (data) => {
+      if (!data.password) return true;
+      const { getPasswordStrength } = require("@/components/ui/password-strength");
+      const result = getPasswordStrength(
+        data.password,
+        [data.firstName, data.lastName, data.email].filter(Boolean),
+      );
+      return result.score >= 2;
+    },
+    {
+      message: "Password is too weak. Please choose a stronger password.",
+      path: ["password"],
+    },
+  );
 
 export type SignUpFormValues = z.infer<typeof signUpSchema>;
 

@@ -420,9 +420,23 @@ serve(async (req: Request) => {
       console.error("[login-proxy] Failed to record login history:", insertHistoryError);
     }
 
+    const isProduction = Deno.env.get("ENVIRONMENT") === "production" || Deno.env.get("DENO_ENV") === "production";
+    const cookieFlags = [
+      `sb-access-token=${signInData.session?.access_token}; Path=/`,
+      "HttpOnly",
+      "SameSite=Strict",
+      isProduction ? "Secure" : "",
+    ]
+      .filter(Boolean)
+      .join("; ");
+
     return new Response(JSON.stringify({ session: signInData.session, user: signInData.user }), {
       status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json",
+        "Set-Cookie": cookieFlags,
+      },
     });
   } catch (err) {
     console.error("[login-proxy] Unexpected error:", err);
