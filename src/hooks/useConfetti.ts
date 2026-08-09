@@ -1,197 +1,48 @@
-import { useCallback, useEffect, useState } from "react";
-import {
-  BRAND_CONFETTI_COLORS,
-  checkPrefersReducedMotion,
-  ConfettiOptions,
-  fireConfetti,
-} from "../lib/confettiEngine";
+import { useEffect, useCallback } from "react";
+import confetti from "canvas-confetti";
 
-export interface UseConfettiReturn {
-  /**
-   * Fires realistic dual-cannon bursts from screen edges (Left at 0ms, Right at 200ms)
-   */
-  fireCannon: (options?: Partial<ConfettiOptions>) => void;
-
-  /**
-   * Fires a massive celebratory center burst
-   */
-  fireCelebration: (options?: Partial<ConfettiOptions>) => void;
-
-  /**
-   * Fires sequential multi-burst fireworks (3 bursts)
-   */
-  fireFireworks: (options?: Partial<ConfettiOptions>) => void;
-
-  /**
-   * Fires star-shaped confetti burst
-   */
-  fireStars: (options?: Partial<ConfettiOptions>) => void;
-
-  /**
-   * Fires custom confetti with explicit parameters
-   */
-  fireCustom: (options: ConfettiOptions) => void;
-
-  /**
-   * True if system setting prefers reduced motion
-   */
-  isReducedMotion: boolean;
-
-  /**
-   * Toggles local override for reduced motion accessibility mode testing
-   */
-  reducedMotionOverride: boolean;
-  setReducedMotionOverride: (value: boolean) => void;
-}
-
-export function useConfetti(): UseConfettiReturn {
-  const [isReducedMotion, setIsReducedMotion] = useState<boolean>(false);
-  const [reducedMotionOverride, setReducedMotionOverride] = useState<boolean>(false);
-
-  useEffect(() => {
-    setIsReducedMotion(checkPrefersReducedMotion());
-
-    if (typeof window !== "undefined" && window.matchMedia) {
-      const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-      const handleChange = (e: MediaQueryListEvent) => {
-        setIsReducedMotion(e.matches);
-      };
-
-      if (mediaQuery.addEventListener) {
-        mediaQuery.addEventListener("change", handleChange);
-      }
-
-      return () => {
-        if (mediaQuery.removeEventListener) {
-          mediaQuery.removeEventListener("change", handleChange);
-        }
-      };
-    }
+export const useConfetti = () => {
+  // CRUCIAL: Check OS settings for reduced motion to prevent vestibular issues
+  const prefersReducedMotion = useCallback(() => {
+    // Failsafe in case window is undefined (e.g., during SSR)
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }, []);
 
-  const shouldSuppress = isReducedMotion || reducedMotionOverride;
+  // Standard burst for generic success states
+  const triggerStandardBurst = useCallback(() => {
+    if (prefersReducedMotion()) return;
 
-  /**
-   * Dual Cannon Realistic Look:
-   * Burst #1: Left edge of screen (origin x: 0.1, y: 0.7, angle: 60°)
-   * Burst #2: Right edge of screen (origin x: 0.9, y: 0.7, angle: 120°, 200ms delay)
-   */
-  const fireCannon = useCallback(
-    (customOptions?: Partial<ConfettiOptions>) => {
-      if (shouldSuppress) return;
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 },
+      zIndex: 9999, // High z-index to overlay modals
+      disableForReducedMotion: true, // Built-in fallback
+    });
+  }, [prefersReducedMotion]);
 
-      const baseOptions: ConfettiOptions = {
-        colors: BRAND_CONFETTI_COLORS,
-        disableForReducedMotion: true,
-        ...customOptions,
-      };
+  // Specialized school colors burst
+  const triggerSchoolColorsBurst = useCallback(() => {
+    if (prefersReducedMotion()) return;
 
-      // Left Cannon Burst (Angle 60°, angled towards top-right)
-      fireConfetti({
-        ...baseOptions,
-        particleCount: customOptions?.particleCount || 80,
-        angle: 60,
-        spread: 55,
-        startVelocity: 55,
-        origin: { x: 0.1, y: 0.7 },
-      });
+    confetti({
+      particleCount: 150,
+      spread: 90,
+      origin: { y: 0.6 },
+      // Using VJTI Blue and Gold - adjust the exact hex codes if the UI needs a different shade
+      colors: ["#003366", "#FFBB00"],
+      zIndex: 9999,
+      disableForReducedMotion: true,
+    });
+  }, [prefersReducedMotion]);
 
-      // Right Cannon Burst (Angle 120°, angled towards top-left, 200ms delay)
-      setTimeout(() => {
-        if (shouldSuppress) return;
-        fireConfetti({
-          ...baseOptions,
-          particleCount: customOptions?.particleCount || 80,
-          angle: 120,
-          spread: 55,
-          startVelocity: 55,
-          origin: { x: 0.9, y: 0.7 },
-        });
-      }, 200);
-    },
-    [shouldSuppress],
-  );
+  // EDGE CASE: Prevent memory leaks by destroying the canvas when the component unmounts
+  useEffect(() => {
+    return () => {
+      confetti.reset();
+    };
+  }, []);
 
-  const fireCelebration = useCallback(
-    (customOptions?: Partial<ConfettiOptions>) => {
-      if (shouldSuppress) return;
-
-      fireConfetti({
-        particleCount: 150,
-        spread: 100,
-        startVelocity: 45,
-        origin: { x: 0.5, y: 0.6 },
-        colors: BRAND_CONFETTI_COLORS,
-        shapes: ["square", "circle", "star", "ribbon"],
-        ...customOptions,
-      });
-    },
-    [shouldSuppress],
-  );
-
-  const fireFireworks = useCallback(
-    (customOptions?: Partial<ConfettiOptions>) => {
-      if (shouldSuppress) return;
-
-      const count = 3;
-      for (let i = 0; i < count; i++) {
-        setTimeout(() => {
-          if (shouldSuppress) return;
-          fireConfetti({
-            particleCount: 70,
-            angle: 90,
-            spread: 360,
-            startVelocity: 35,
-            decay: 0.92,
-            gravity: 0.8,
-            origin: {
-              x: 0.2 + i * 0.3,
-              y: 0.3 + (i % 2) * 0.2,
-            },
-            colors: BRAND_CONFETTI_COLORS,
-            shapes: ["circle", "star"],
-            ...customOptions,
-          });
-        }, i * 300);
-      }
-    },
-    [shouldSuppress],
-  );
-
-  const fireStars = useCallback(
-    (customOptions?: Partial<ConfettiOptions>) => {
-      if (shouldSuppress) return;
-
-      fireConfetti({
-        particleCount: 90,
-        spread: 80,
-        startVelocity: 50,
-        origin: { x: 0.5, y: 0.5 },
-        colors: ["#ffbe26", "#ff5e7e", "#a25afd", "#26ccff"],
-        shapes: ["star"],
-        scalar: 1.2,
-        ...customOptions,
-      });
-    },
-    [shouldSuppress],
-  );
-
-  const fireCustom = useCallback(
-    (options: ConfettiOptions) => {
-      if (shouldSuppress) return;
-      fireConfetti(options);
-    },
-    [shouldSuppress],
-  );
-
-  return {
-    fireCannon,
-    fireCelebration,
-    fireFireworks,
-    fireStars,
-    fireCustom,
-    isReducedMotion,
-    reducedMotionOverride,
-    setReducedMotionOverride,
-  };
-}
+  return { triggerStandardBurst, triggerSchoolColorsBurst };
+};
