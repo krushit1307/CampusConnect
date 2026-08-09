@@ -41,6 +41,8 @@ import {
   X,
 } from "lucide-react";
 import { FilterBar, type FilterRule, type FilterOperator } from "./FilterBar";
+import { ContextMenu, ContextMenuTrigger, ContextMenuContent } from "@/components/ui/context-menu";
+import { useHasTextSelection } from "@/hooks/useHasTextSelection";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -58,6 +60,13 @@ export interface AdminDataGridProps<TData> {
   pinnedColumns?: string[];
   onRowClick?: (row: TData) => void;
   exportFilename?: string;
+  /**
+   * Renders the contents of a per-row right-click context menu (quick
+   * actions like Edit / Delete / Copy ID). Return `ContextMenuItem`
+   * elements from "@/components/ui/context-menu". When omitted, rows fall
+   * back to the browser's native context menu.
+   */
+  renderRowContextMenu?: (row: TData) => React.ReactNode;
 }
 
 // ---------------------------------------------------------------------------
@@ -136,9 +145,7 @@ function SortableHeaderCell<TData>({
         }}
         tabIndex={header.column.getCanSort() ? 0 : undefined}
         role={header.column.getCanSort() ? "button" : undefined}
-        aria-sort={
-          sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : undefined
-        }
+        aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : undefined}
       >
         {/* Drag handle */}
         {!isPinned && (
@@ -259,9 +266,13 @@ export function AdminDataGrid<TData>({
   pinnedColumns = ["select", "actions"],
   onRowClick,
   exportFilename = "export",
+  renderRowContextMenu,
 }: AdminDataGridProps<TData>) {
   const dndId = useId();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // Text selection in progress → defer to the browser's native context menu
+  // (e.g. so "Copy" on a highlighted cell value still works).
+  const hasTextSelection = useHasTextSelection();
 
   // --- Persisted state keys ---
   const sizingKey = `admin_grid_sizing_${tableId}`;
@@ -290,9 +301,7 @@ export function AdminDataGrid<TData>({
     } catch {
       // fallback
     }
-    return columns.map(
-      (col) => col.id ?? (col as { accessorKey?: string }).accessorKey ?? "",
-    );
+    return columns.map((col) => col.id ?? (col as { accessorKey?: string }).accessorKey ?? "");
   });
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
     try {
@@ -355,28 +364,25 @@ export function AdminDataGrid<TData>({
     startSize: number;
   } | null>(null);
 
-  const handleResizeStart = useCallback(
-    (columnId: string, startX: number, startSize: number) => {
-      resizingRef.current = { columnId, startX, startSize };
+  const handleResizeStart = useCallback((columnId: string, startX: number, startSize: number) => {
+    resizingRef.current = { columnId, startX, startSize };
 
-      const handleMouseMove = (e: MouseEvent) => {
-        if (!resizingRef.current) return;
-        const delta = e.clientX - resizingRef.current.startX;
-        const newSize = Math.max(60, resizingRef.current.startSize + delta);
-        setColumnSizing((prev) => ({ ...prev, [resizingRef.current!.columnId]: newSize }));
-      };
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const delta = e.clientX - resizingRef.current.startX;
+      const newSize = Math.max(60, resizingRef.current.startSize + delta);
+      setColumnSizing((prev) => ({ ...prev, [resizingRef.current!.columnId]: newSize }));
+    };
 
-      const handleMouseUp = () => {
-        resizingRef.current = null;
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
-      };
+    const handleMouseUp = () => {
+      resizingRef.current = null;
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
 
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-    },
-    [],
-  );
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  }, []);
 
   // --- TanStack Table ---
   const table = useReactTable({
@@ -421,16 +427,12 @@ export function AdminDataGrid<TData>({
   });
   const virtualRows = rowVirtualizer.getVirtualItems();
   const totalSize = rowVirtualizer.getTotalSize();
-  const paddingTop = virtualRows.length > 0 ? virtualRows[0]?.start ?? 0 : 0;
+  const paddingTop = virtualRows.length > 0 ? (virtualRows[0]?.start ?? 0) : 0;
   const paddingBottom =
-    virtualRows.length > 0
-      ? totalSize - (virtualRows[virtualRows.length - 1]?.end ?? 0)
-      : 0;
+    virtualRows.length > 0 ? totalSize - (virtualRows[virtualRows.length - 1]?.end ?? 0) : 0;
 
   // --- DnD column reorder ---
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-  );
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -445,7 +447,9 @@ export function AdminDataGrid<TData>({
 
   const sortableColumnIds = columnOrder.filter((id) => !pinnedColumns.includes(id));
   const headerGroups = table.getHeaderGroups();
-  const visibleCols = table.getAllLeafColumns().filter((c) => c.id !== "select" && c.id !== "actions");
+  const visibleCols = table
+    .getAllLeafColumns()
+    .filter((c) => c.id !== "select" && c.id !== "actions");
 
   return (
     <div className="space-y-3 font-mono text-sm" data-testid={`admin-data-grid-${tableId}`}>
@@ -611,7 +615,7 @@ export function AdminDataGrid<TData>({
                   )}
                   {virtualRows.map((virtualRow) => {
                     const row = rows[virtualRow.index];
-                    return (
+                    const rowElement = (
                       <tr
                         key={row.id}
                         data-index={virtualRow.index}
@@ -624,13 +628,35 @@ export function AdminDataGrid<TData>({
                         {row.getVisibleCells().map((cell) => (
                           <td
                             key={cell.id}
-                            style={{ width: cell.column.getSize(), maxWidth: cell.column.getSize() }}
+                            style={{
+                              width: cell.column.getSize(),
+                              maxWidth: cell.column.getSize(),
+                            }}
                             className="px-3 py-2.5 truncate"
                           >
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </td>
                         ))}
                       </tr>
+                    );
+
+                    if (!renderRowContextMenu) return rowElement;
+
+                    return (
+                      <ContextMenu key={row.id}>
+                        {/*
+                          `disabled` is the load-bearing bit here: when the user
+                          is mid-selection (e.g. highlighting a cell's text to
+                          copy it), we back off entirely so the browser's native
+                          Copy/Paste menu appears instead of ours.
+                        */}
+                        <ContextMenuTrigger asChild disabled={hasTextSelection}>
+                          {rowElement}
+                        </ContextMenuTrigger>
+                        <ContextMenuContent className="min-w-[10rem] rounded-none border-2 border-black bg-white p-1 font-mono text-xs font-bold uppercase text-black shadow-[4px_4px_0_0_#000]">
+                          {renderRowContextMenu(row.original)}
+                        </ContextMenuContent>
+                      </ContextMenu>
                     );
                   })}
                   {paddingBottom > 0 && (

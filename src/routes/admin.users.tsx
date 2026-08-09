@@ -8,10 +8,26 @@ import {
   CheckCircle,
   XCircle,
   FileSpreadsheet,
+  Pencil,
+  Trash2,
+  Copy,
+  Loader2,
 } from "lucide-react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { AdminDataGrid } from "@/components/ui/AdminDataGrid";
 import { BulkUserImportModal } from "@/components/admin/BulkUserImportModal";
+import { ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 interface Profile {
   id: string;
@@ -52,6 +68,14 @@ export default function AdminUsersPage() {
 
   // Optimistic UI state
   const [optimisticSuspendedIds, setOptimisticSuspendedIds] = useState<Set<string>>(new Set());
+
+  // Row context-menu (right-click) quick actions
+  const { copyToClipboard } = useCopyToClipboard();
+  const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
+  const [editRole, setEditRole] = useState("member");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [deletingProfile, setDeletingProfile] = useState<Profile | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Authenticate user
   useEffect(() => {
@@ -153,9 +177,7 @@ export default function AdminUsersPage() {
           <input
             type="checkbox"
             aria-label="Select all"
-            checked={
-              profiles.length > 0 && profiles.every((p) => selectedIds.has(p.id))
-            }
+            checked={profiles.length > 0 && profiles.every((p) => selectedIds.has(p.id))}
             onChange={() => {
               const allSelected = profiles.every((p) => selectedIds.has(p.id));
               setSelectedIds(() => {
@@ -269,6 +291,63 @@ export default function AdminUsersPage() {
     }
   };
 
+  // Copy ID quick action
+  const handleCopyId = useCallback(
+    async (profile: Profile) => {
+      const didCopy = await copyToClipboard(profile.id);
+      if (didCopy) {
+        toast.success("User ID copied to clipboard.");
+      } else {
+        toast.error("Could not copy user ID.");
+      }
+    },
+    [copyToClipboard],
+  );
+
+  // Edit quick action
+  const openEditDialog = useCallback((profile: Profile) => {
+    setEditingProfile(profile);
+    setEditRole(profile.role ?? "member");
+  }, []);
+
+  const handleSaveEdit = async () => {
+    if (!editingProfile) return;
+    setIsSavingEdit(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ role: editRole })
+        .eq("id", editingProfile.id);
+      if (error) throw error;
+      toast.success(`Updated ${editingProfile.full_name ?? "user"}'s role to ${editRole}.`);
+      setEditingProfile(null);
+      void loadProfiles();
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to update user.";
+      toast.error(errorMessage);
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  // Delete quick action
+  const handleConfirmDelete = async () => {
+    if (!deletingProfile) return;
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase.from("profiles").delete().eq("id", deletingProfile.id);
+      if (error) throw error;
+      toast.success(`Deleted ${deletingProfile.full_name ?? "user"}.`);
+      setDeletingProfile(null);
+      void loadProfiles();
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to delete user.";
+      toast.error(errorMessage);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (authChecked && !user) {
     return <Navigate to="/auth" replace />;
   }
@@ -290,7 +369,6 @@ export default function AdminUsersPage() {
       </SiteShell>
     );
   }
-
 
   return (
     <SiteShell>
@@ -337,6 +415,32 @@ export default function AdminUsersPage() {
               ariaLabel="User directory data grid"
               pinnedColumns={["select", "actions"]}
               exportFilename="campus-users-export"
+              renderRowContextMenu={(profile) => (
+                <>
+                  <ContextMenuItem
+                    className="cursor-pointer gap-2 rounded-none focus:bg-lime focus:text-black"
+                    onSelect={() => openEditDialog(profile)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit Role
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    className="cursor-pointer gap-2 rounded-none focus:bg-lime focus:text-black"
+                    onSelect={() => void handleCopyId(profile)}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy ID
+                  </ContextMenuItem>
+                  <ContextMenuSeparator className="bg-black/10" />
+                  <ContextMenuItem
+                    className="cursor-pointer gap-2 rounded-none text-red-600 focus:bg-red-100 focus:text-red-700"
+                    onSelect={() => setDeletingProfile(profile)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </ContextMenuItem>
+                </>
+              )}
             />
             <div className="mt-6 flex items-center border-t-2 border-black pt-6 text-sm font-bold">
               <div>Total: {total} users</div>
@@ -349,6 +453,104 @@ export default function AdminUsersPage() {
         onClose={() => setIsImportModalOpen(false)}
         onSuccessRefresh={() => void loadProfiles()}
       />
+
+      {/* Edit Role dialog (context menu "Edit" action) */}
+      <AlertDialog
+        open={editingProfile !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingProfile(null);
+        }}
+      >
+        <AlertDialogContent className="max-w-md rounded-none border-2 border-black bg-white p-6 font-mono shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold uppercase">
+              Edit User Role
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-gray-700">
+              Change the role for{" "}
+              <span className="font-bold">
+                {editingProfile?.full_name ?? editingProfile?.handle ?? "this user"}
+              </span>
+              .
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="mt-4">
+            <label htmlFor="edit-role-select" className="text-xs font-bold uppercase text-gray-600">
+              Role
+            </label>
+            <select
+              id="edit-role-select"
+              value={editRole}
+              onChange={(e) => setEditRole(e.target.value)}
+              className="mt-1 w-full border-2 border-black bg-white px-3 py-2 text-sm font-bold uppercase"
+            >
+              <option value="member">Member</option>
+              <option value="club_admin">Club Admin</option>
+              <option value="system_admin">System Admin</option>
+            </select>
+          </div>
+          <AlertDialogFooter className="mt-6 flex gap-3 sm:justify-end">
+            <AlertDialogCancel
+              disabled={isSavingEdit}
+              className="rounded-none border-2 border-black bg-white font-bold uppercase shadow-[2px_2px_0_0_#000]"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isSavingEdit}
+              onClick={(e) => {
+                e.preventDefault();
+                void handleSaveEdit();
+              }}
+              className="rounded-none border-2 border-black bg-lime font-bold uppercase text-black shadow-[2px_2px_0_0_#000] hover:bg-lime"
+            >
+              {isSavingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete confirmation dialog (context menu "Delete" action) */}
+      <AlertDialog
+        open={deletingProfile !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingProfile(null);
+        }}
+      >
+        <AlertDialogContent className="max-w-md rounded-none border-2 border-black bg-white p-6 font-mono shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-xl font-bold uppercase text-red-600">
+              <Trash2 className="h-5 w-5" />
+              Delete User
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-gray-700">
+              This will permanently delete{" "}
+              <span className="font-bold">
+                {deletingProfile?.full_name ?? deletingProfile?.handle ?? "this user"}
+              </span>
+              . This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-6 flex gap-3 sm:justify-end">
+            <AlertDialogCancel
+              disabled={isDeleting}
+              className="rounded-none border-2 border-black bg-white font-bold uppercase shadow-[2px_2px_0_0_#000]"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              onClick={(e) => {
+                e.preventDefault();
+                void handleConfirmDelete();
+              }}
+              className="rounded-none border-2 border-black bg-red-600 font-bold uppercase text-white shadow-[2px_2px_0_0_#000] hover:bg-red-700"
+            >
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SiteShell>
   );
 }
