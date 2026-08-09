@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://esm.sh/zod@3.24.2";
 import { Redis } from "https://esm.sh/@upstash/redis@1.30.0";
 import { verifyAuth } from "../shared/auth-middleware.ts";
-import { limitRate } from "../shared/rate_limiter.ts";
+import { rsvpIpLimiter, rsvpUserLimiter } from "../_shared/rateLimiter.ts";
 import { parseJsonBody } from "../_shared/validation.ts";
 import { verifyCsrf } from "../_shared/csrf.ts";
 
@@ -64,10 +64,33 @@ serve(async (req: Request) => {
   let idempotencyRedisKey: string | null = null;
 
   try {
-    // Rate Limiting Logic using Redis Upstash (60 requests per minute)
-    const rateLimitResponse = await limitRate(req, "toggle-rsvp", { limit: 60, windowMs: 60000 });
-    if (rateLimitResponse) {
-      return rateLimitResponse;
+    // 1. Pre-auth IP Limiter
+    const xForwardedFor = req.headers.get("x-forwarded-for");
+    const ip = xForwardedFor ? xForwardedFor.split(",")[0].trim() : "127.0.0.1";
+
+    let ipLimitRes;
+    try {
+      ipLimitRes = await rsvpIpLimiter.limit(ip);
+    } catch (err) {
+      console.error("[RateLimiter] IP limit check failed:", err);
+      ipLimitRes = { success: true, reset: 0 }; // fail open
+    }
+
+    if (!ipLimitRes.success) {
+      const retryAfter = Math.max(1, Math.ceil(((ipLimitRes as any).reset - Date.now()) / 1000));
+      return new Response(
+        JSON.stringify({
+          error: "Too many requests. Please try again later.",
+        }),
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+            "Retry-After": retryAfter.toString(),
+          },
+        },
+      );
     }
 
     const supabase = createClient(
@@ -83,6 +106,32 @@ serve(async (req: Request) => {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // 2. Post-auth User Limiter
+    let userLimitRes;
+    try {
+      userLimitRes = await rsvpUserLimiter.limit(user.id);
+    } catch (err) {
+      console.error("[RateLimiter] User limit check failed:", err);
+      userLimitRes = { success: true, reset: 0 }; // fail open
+    }
+
+    if (!userLimitRes.success) {
+      const retryAfter = Math.max(1, Math.ceil(((userLimitRes as any).reset - Date.now()) / 1000));
+      return new Response(
+        JSON.stringify({
+          error: "Too many requests. Please try again later.",
+        }),
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+            "Retry-After": retryAfter.toString(),
+          },
+        },
+      );
     }
 
     const parsed = await parseJsonBody(toggleRsvpSchema, req);

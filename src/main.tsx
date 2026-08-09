@@ -11,6 +11,8 @@ import "./i18n";
 import ReactDOM from "react-dom/client";
 import { HelmetProvider } from "react-helmet-async";
 import App from "./App";
+import { BrowserRouter } from "react-router-dom";
+import { CrossTabSyncProvider } from "./components/CrossTabSyncProvider";
 import "./styles.css";
 import { initOfflineCache } from "./lib/cache/offlineCache";
 import { initOfflineSync } from "./lib/offlineSync";
@@ -33,7 +35,10 @@ if ("serviceWorker" in navigator) {
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <HelmetProvider>
-      <App />
+      <BrowserRouter>
+        <CrossTabSyncProvider />
+        <App />
+      </BrowserRouter>
     </HelmetProvider>
   </React.StrictMode>,
 );

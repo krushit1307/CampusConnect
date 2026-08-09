@@ -79,6 +79,7 @@ import { useDraft } from "@/hooks/useDraft";
 import { MentionRenderer } from "@/components/MentionRenderer";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { LazyImage } from "@/components/ui/LazyImage";
+import { ImageWithBlur } from "@/components/ui/ImageWithBlur";
 import { ShareMenu } from "@/components/ui/ShareMenu";
 import {
   AlertDialog,
@@ -138,7 +139,8 @@ interface Post {
   clubs: Club[] | Club | null;
   comments: Comment[] | null;
   post_reactions: PostReaction[] | null;
-  image_url?: string;
+  image_url?: string | null;
+  blurhash?: string | null;
 }
 
 const POSTS_PER_PAGE = 20;
@@ -297,7 +299,7 @@ export default function Feed() {
         })
         .select(
           `
-        id, content, created_at, club_id, is_pinned,
+        id, content, created_at, club_id, is_pinned, image_url, blurhash,
         profiles (id, full_name, handle),
         clubs (id, name, club_members (user_id, role_id, club_roles (title, permissions_level))),
         comments (id),
@@ -342,7 +344,7 @@ export default function Feed() {
         .from("trending_posts")
         .select(
           `
-          id, content, created_at, club_id, is_pinned,
+          id, content, created_at, club_id, is_pinned, image_url, blurhash,
           profiles (id, full_name, handle),
           clubs (id, name, club_members (user_id, role_id, club_roles (title, permissions_level))),
           comments (id),
@@ -377,11 +379,45 @@ export default function Feed() {
 
   const parentRef = useRef<HTMLDivElement>(null);
   const rowVirtualizer = useWindowVirtualizer({
-    count: filteredPosts.length,
-    estimateSize: () => 210,
-    overscan: 3,
+    count: filteredPosts.length + (isFetchingNextPage ? 2 : 0),
+    estimateSize: useCallback(
+      (index: number) => {
+        const post = filteredPosts[index];
+        if (!post) return 210;
+        let height = 210;
+        if (post.image_url) height += 200;
+        if (post.content && post.content.length > 200) height += 100;
+        return height;
+      },
+      [filteredPosts],
+    ),
+    overscan: 5,
     scrollMargin: parentRef.current?.offsetTop ?? 0,
   });
+
+  // Re-measure virtualizer on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      rowVirtualizer.measure();
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [rowVirtualizer]);
+
+  // Infinite scroll trigger based on virtual items
+  const virtualItems = rowVirtualizer.getVirtualItems();
+  useEffect(() => {
+    if (virtualItems.length === 0) return;
+    const lastItem = virtualItems[virtualItems.length - 1];
+    if (
+      lastItem.index >= filteredPosts.length - 3 &&
+      hasNextPage &&
+      !isFetchingNextPage &&
+      !isLoading
+    ) {
+      fetchNextPage();
+    }
+  }, [virtualItems, filteredPosts.length, hasNextPage, isFetchingNextPage, isLoading, fetchNextPage]);
 
   // Scroll position restoration (#1432)
   useEffect(() => {
@@ -444,7 +480,7 @@ export default function Feed() {
             .from("posts")
             .select(
               `
-              id, content, created_at, club_id, is_pinned,
+              id, content, created_at, club_id, is_pinned, image_url, blurhash,
               profiles (id, full_name, handle),
               clubs (id, name, club_members (user_id, role_id, club_roles (title, permissions_level))),
               comments (id, content, created_at, deleted_at, parent_id, parent_comment_id, profiles (id, full_name, handle)),
@@ -1257,6 +1293,10 @@ export default function Feed() {
                   ) : (
                     <div
                       ref={parentRef}
+                      role="feed"
+                      aria-label="Activity Feed"
+                      aria-busy={isLoading || isFetchingNextPage}
+                      aria-rowcount={filteredPosts.length}
                       style={{
                         height: `${rowVirtualizer.getTotalSize()}px`,
                         width: "100%",
@@ -1264,6 +1304,26 @@ export default function Feed() {
                       }}
                     >
                       {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                        if (virtualRow.index >= filteredPosts.length) {
+                          return (
+                            <div
+                              key={`skeleton-${virtualRow.index}`}
+                              ref={rowVirtualizer.measureElement}
+                              data-index={virtualRow.index}
+                              style={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                width: "100%",
+                                transform: `translateY(${virtualRow.start - rowVirtualizer.options.scrollMargin}px)`,
+                              }}
+                              className="pb-6"
+                            >
+                              <FeedPostSkeleton index={virtualRow.index} />
+                            </div>
+                          );
+                        }
+
                         const post = filteredPosts[virtualRow.index];
                         if (!post) return null;
                         const author = Array.isArray(post.profiles)
@@ -1307,6 +1367,8 @@ export default function Feed() {
                             key={post.id}
                             data-index={virtualRow.index}
                             ref={rowVirtualizer.measureElement}
+                            role="article"
+                            aria-rowindex={virtualRow.index + 1}
                             style={{
                               position: "absolute",
                               top: 0,
@@ -1432,11 +1494,14 @@ export default function Feed() {
 
                             {post.image_url && (
                               <div className="mt-3">
-                                <LazyImage
+                                <ImageWithBlur
                                   src={post.image_url}
+                                  blurhash={post.blurhash}
                                   alt="Post attachment"
+                                  aspectRatio="auto"
                                   onClick={() => setLightboxSrc(post.image_url ?? null)}
-                                  className="max-h-96 cursor-zoom-in rounded-none neu-border object-cover"
+                                  className="max-h-96 cursor-zoom-in rounded-none neu-border"
+                                  imgClassName="object-cover"
                                 />
                               </div>
                             )}
@@ -1806,11 +1871,14 @@ const MemoizedFeedPost = React.memo(
 
         {post.image_url && (
           <div className="mt-3">
-            <LazyImage
+            <ImageWithBlur
               src={post.image_url}
+              blurhash={post.blurhash}
               alt="Post attachment"
+              aspectRatio="auto"
               onClick={() => setLightboxSrc(post.image_url ?? null)}
-              className="max-h-96 cursor-zoom-in rounded-none neu-border object-cover"
+              className="max-h-96 cursor-zoom-in rounded-none neu-border"
+              imgClassName="object-cover"
             />
           </div>
         )}

@@ -711,6 +711,7 @@ export type Database = {
           title: string | null;
           content: string;
           image_url: string | null;
+          blurhash: string | null;
           is_pinned: boolean;
           is_deleted: boolean;
           deleted_at: string | null;
@@ -725,6 +726,7 @@ export type Database = {
           title?: string | null;
           content: string;
           image_url?: string | null;
+          blurhash?: string | null;
           is_pinned?: boolean;
           is_deleted?: boolean;
           deleted_at?: string | null;
@@ -739,6 +741,7 @@ export type Database = {
           title?: string | null;
           content?: string;
           image_url?: string | null;
+          blurhash?: string | null;
           is_pinned?: boolean;
           is_deleted?: boolean;
           deleted_at?: string | null;
@@ -1695,6 +1698,7 @@ export type Database = {
           title: string | null;
           content: string;
           image_url: string | null;
+          blurhash: string | null;
           is_pinned: boolean;
           is_deleted: boolean;
           like_count: number;
