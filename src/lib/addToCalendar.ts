@@ -120,34 +120,13 @@ export function getIcsContent(event: CalendarEvent): string | null {
     return lines.join("\r\n");
 }
 
-/**
- * Trigger a browser download of the .ics file for the given event.
- * Creates a Blob and uses an invisible <a> tag with the `download`
- * attribute. Works in all modern browsers.
- *
- * The filename is slugified from the event title, falling back to
- * the event id if the title is empty.
- */
 export function downloadIcsFile(event: CalendarEvent): void {
-    const icsContent = getIcsContent(event);
-    if (!icsContent) {
-        console.error("[addToCalendar] Failed to generate .ics content");
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    if (!supabaseUrl) {
+        console.error("[addToCalendar] VITE_SUPABASE_URL is not defined");
         return;
     }
-
-    const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${slugify(event.title || event.id)}.ics`;
-    link.style.display = "none";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    // Release the object URL after the click has been processed.
-    // setTimeout ensures the browser has started the download.
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    window.location.assign(`${supabaseUrl}/functions/v1/calendar-event?event_id=${event.id}`);
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
