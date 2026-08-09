@@ -25,10 +25,14 @@ export const PostList = () => {
     threshold: 0.5,
   });
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useInfiniteQuery({
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useInfiniteQuery<
+    RelayConnection<Post>,
+    Error,
+    string | undefined
+  >({
     queryKey: ["postList"],
     queryFn: async ({ pageParam }) => {
-      const afterCursor = pageParam as string | undefined;
+      const afterCursor = pageParam;
       // Try get_posts_relay RPC first
       const { data: relayData, error: relayError } = await supabase.rpc("get_posts_relay", {
         p_after: afterCursor ?? null,
@@ -82,11 +86,11 @@ export const PostList = () => {
     }
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const posts = data?.pages.flatMap((page) => page.edges.map((edge) => edge.node)) ?? [];
+  const posts = data?.pages.flatMap((page: RelayConnection<Post>) => page.edges.map((edge) => edge.node)) ?? [];
 
   return (
     <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full p-4">
-      {posts.map((post) => (
+      {posts.map((post: Post) => (
         <div
           key={post.id}
           className="p-4 border rounded-lg shadow-sm bg-card text-card-foreground flex flex-col justify-between"
