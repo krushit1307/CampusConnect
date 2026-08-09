@@ -16,6 +16,7 @@ import { SessionExpiryModal } from "@/components/SessionExpiryModal";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import { CommandPalette } from "@/components/ui/command-palette";
 import { showAnnouncementToast } from "@/lib/announcements/sse";
+import { SkipToContent } from "@/components/SkipToContent";
 
 // Persistent banner shown while the browser has no network connection.
 function OfflineBanner() {
@@ -169,6 +170,7 @@ export default function Layout() {
   return (
     <TooltipProvider delayDuration={200}>
       <WebRTCProvider>
+        <SkipToContent />
         <OfflineBanner />
         <TopProgressBar />
         <SessionExpiryModal />
@@ -176,7 +178,10 @@ export default function Layout() {
         <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
         <PWAInstallPrompt />
 
-        <Outlet />
+        <main id="main-content" className="flex-1 w-full h-full min-h-screen">
+          <Outlet />
+        </main>
+
         <Toaster />
         <ScrollToTop />
         <RadialFAB />

@@ -130,10 +130,10 @@
   --font-size-base: 16px;
   --radius: 0px;
   --cream: #f3f1e4;
-  --lime: #acc412;
-  --sky: #08b3ca;
-  --lavender: #d9cdeb;
-  --peach: #e37c2d;
+  --lime: #6f8000;
+  --sky: #007b8f;
+  --lavender: #8367a7;
+  --peach: #c55913;
   --ink: #000000;
   --background: #f3f1e4;
   --foreground: #000000;
@@ -149,7 +149,7 @@
   --muted-foreground: #333333;
   --accent: #dff25c;
   --accent-foreground: #000000;
-  --destructive: #e53935;
+  --destructive: #d32f2f;
   --destructive-foreground: #ffffff;
   --border: #000000;
   --input: #000000;
