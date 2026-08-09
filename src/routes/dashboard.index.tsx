@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useQuery } from "@/hooks/useReactQueryReplacement";
+import { useQuery, useMutation, queryClient } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useRef, useState } from "react";
 import { User } from "@supabase/supabase-js";
@@ -17,6 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import TrendingCarousel from "@/components/Clubs/TrendingCarousel";
+import RecommendedCarousel from "@/components/Dashboard/RecommendedCarousel";
 import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
 import LazyHydrate from "@/components/LazyHydrate";
@@ -293,6 +294,19 @@ export default function DashboardOverview() {
     enabled: !!user?.id,
   });
 
+  const { data: recommendedEvents = [], isLoading: isRecommendedLoading, refetch: refetchRecommended } = useQuery({
+    queryKey: ["recommendedEvents", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("recommend_events_for_user", {
+        p_user_id: user!.id,
+        p_limit: 10,
+      });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
   const { data: savedEvents = [], isLoading: isSavedLoading } = useQuery({
     queryKey: ["savedEvents", user?.id],
     queryFn: async () => {
@@ -515,6 +529,16 @@ export default function DashboardOverview() {
       )}
 
       <AnalyticsLoadProgress isLoading={isAnalyticsLoading} />
+
+      <div className="lg:col-span-3">
+        <RecommendedCarousel
+          userId={user?.id || ""}
+          hasInterestVector={!!profile?.interest_vector}
+          events={recommendedEvents}
+          isLoading={isRecommendedLoading}
+          refetch={refetchRecommended}
+        />
+      </div>
 
       <div className="lg:col-span-3">
         {isTrendingLoading ? (

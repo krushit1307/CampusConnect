@@ -117,7 +117,7 @@ export function ImageCropUpload({
         setCrop({ x: 0, y: 0 });
         setZoom(1);
       },
-      { orientation: true, canvas: true }
+      { orientation: true, canvas: true },
     );
   }
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {

@@ -1,10 +1,15 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from "axios";
 import { fingerprintService } from "./fingerprint";
+import { triggerSessionRecovery, enqueueFailedRequest } from "./sessionRecovery";
+
+export interface CustomInternalAxiosRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+}
 
 /**
  * Secure API Client
- * Extends Axios to automatically inject the X-Device-Fingerprint header
- * into all critical requests (Login, Signup, Ticket Purchase).
+ * Extends Axios to automatically inject X-Device-Fingerprint headers and handle
+ * 401 Session Recovery via in-place LoginRecoveryModal.
  */
 class SecureApiClient {
   private client: AxiosInstance;
@@ -47,10 +52,43 @@ class SecureApiClient {
 
     this.client.interceptors.response.use(
       (response) => response,
-      (error) => {
+      async (error) => {
+        const originalRequest = error.config as CustomInternalAxiosRequestConfig;
+
         if (error.response?.status === 429) {
           console.warn("Rate limit exceeded. Device may be shadow-banned.");
         }
+
+        // Intercept 401 Unauthorized for In-Place Session Recovery
+        // Exclude login endpoint itself to prevent loops when credentials fail
+        const isLoginRequest = originalRequest?.url?.includes("/auth/login");
+
+        if (
+          error.response?.status === 401 &&
+          originalRequest &&
+          !originalRequest._retry &&
+          !isLoginRequest
+        ) {
+          originalRequest._retry = true;
+
+          // Open recovery modal ONCE (handles parallel 401 requests via lock state)
+          triggerSessionRecovery();
+
+          try {
+            // Pause promise execution until user re-authenticates in LoginRecoveryModal
+            const newToken = await enqueueFailedRequest();
+
+            if (originalRequest.headers) {
+              originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
+            }
+
+            // Automatically re-fire the exact same intercepted Axios request with fresh JWT
+            return this.client(originalRequest);
+          } catch (recoveryError) {
+            return Promise.reject(recoveryError);
+          }
+        }
+
         return Promise.reject(error);
       },
     );

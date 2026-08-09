@@ -16,24 +16,11 @@ function partytownPlugin() {
     async buildStart() {
       await copyLibFiles(path.resolve(__dirname, "public/~partytown"));
     },
-    transformIndexHtml(html: string) {
-      return html.replace(
-        "<head>",
-        `<head>
-    <script>
-      window.partytown = {
-        lib: "/~partytown/",
-        forward: ["dataLayer.push", "fbq"]
-      };
-    </script>
-    <script>${partytownSnippet()}</script>`
-      );
-    },
   };
 }
 
 const CSP_VALUE =
-  "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.google-analytics.com https://www.googletagmanager.com https://connect.facebook.net https://*.hotjar.com https://script.hotjar.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https: https://www.facebook.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.supabase.co https://s3.amazonaws.com https://images.unsplash.com https://www.google-analytics.com https://www.googletagmanager.com https://connect.facebook.net https://*.hotjar.com https://script.hotjar.com https://vars.hotjar.com; frame-src 'self' https://js.stripe.com https://vars.hotjar.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none';";
+  "default-src 'self'; script-src 'self' https://js.stripe.com https://www.google-analytics.com https://www.googletagmanager.com https://connect.facebook.net https://*.hotjar.com https://script.hotjar.com https://static.hotjar.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https: https://images.unsplash.com https://s3.amazonaws.com https://www.facebook.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.supabase.co https://s3.amazonaws.com https://images.unsplash.com https://www.google-analytics.com https://www.googletagmanager.com https://connect.facebook.net https://*.hotjar.com https://script.hotjar.com https://vars.hotjar.com wss://*.hotjar.com; frame-src 'self' https://js.stripe.com https://vars.hotjar.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none';";
 
 /**
  * Vite configuration for CampusConnect
@@ -111,16 +98,31 @@ export default defineConfig({
                 },
                 {
                   urlPattern: ({ url, request }) =>
-                    request.method === "GET" && url.pathname.startsWith("/api/"),
+                    request.method === "GET" &&
+                    (url.hostname.includes("supabase.co") || url.pathname.includes("/rest/v1/") || url.pathname.includes("/functions/v1/")),
                   handler: "StaleWhileRevalidate",
                   options: {
-                    cacheName: "api-get-cache",
+                    cacheName: "supabase-get-cache",
                     expiration: {
                       maxEntries: 100,
                       maxAgeSeconds: 24 * 60 * 60, // 24 Hours
                     },
                     cacheableResponse: {
                       statuses: [0, 200],
+                    },
+                  },
+                },
+                {
+                  urlPattern: ({ url, request }) =>
+                    request.method === "POST" &&
+                    (url.hostname.includes("supabase.co") || url.pathname.includes("/rest/v1/") || url.pathname.includes("/functions/v1/")),
+                  handler: "NetworkOnly",
+                  options: {
+                    backgroundSync: {
+                      name: "supabase-post-queue",
+                      options: {
+                        maxRetentionTime: 24 * 60, // 24 hours
+                      },
                     },
                   },
                 },

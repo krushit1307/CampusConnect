@@ -101,6 +101,9 @@ export async function incrementEventViews(
 /**
  * Fetches a single event by its ID, including its current popularity score.
  *
+ * View counts are now read from the event_metrics table (issue #2274).
+ * The events.views column has been removed; event_metrics is joined instead.
+ *
  * @param eventId - The UUID of the event to fetch.
  * @returns A promise resolving to the event data with popularity metrics or null.
  */
@@ -108,7 +111,8 @@ export async function getEventByIdWithPopularity(
   eventId: string,
 ): Promise<{ data: EventWithPopularity | null; error: PostgrestError | Error | unknown }> {
   try {
-    // We join with the rsvp count and calculate popularity on the fly for a single event
+    // Join event_metrics to retrieve the view count stored in the UNLOGGED table.
+    // event_metrics row may not exist for brand-new events — COALESCE handles that below.
     const { data, error } = await supabase
       .from("events")
       .select(
@@ -118,8 +122,8 @@ export async function getEventByIdWithPopularity(
         description,
         event_date,
         banner_url,
-        views,
-        event_rsvps (count)
+        event_rsvps (count),
+        event_metrics (views)
       `,
       )
       .eq("id", eventId)
@@ -130,9 +134,11 @@ export async function getEventByIdWithPopularity(
       return { data: null, error };
     }
 
-    // Transform the data to match our EventWithPopularity type
-    const rsvpCount = data?.event_rsvps?.[0]?.count || 0;
-    const viewsCount = data?.views || 0;
+    // Transform the data to match our EventWithPopularity type.
+    // event_metrics is a 1-to-1 FK relation; PostgREST returns it as an object or null.
+    const rsvpCount = (data?.event_rsvps as unknown as { count: number }[] | null)?.[0]?.count ?? 0;
+    const metricsRow = data?.event_metrics as { views: number } | null | undefined;
+    const viewsCount = metricsRow?.views ?? 0;
 
     const { data: scoreData, error: scoreError } = await supabase.rpc(
       "get_event_popularity_score",
