@@ -76,7 +76,7 @@ export const PostList = () => {
       } as RelayConnection<Post>;
     },
     getNextPageParam: (lastPage: RelayConnection<Post>) =>
-      lastPage.pageInfo.hasNextPage ? lastPage.pageInfo.endCursor : undefined,
+      lastPage.pageInfo.hasNextPage ? (lastPage.pageInfo.endCursor ?? undefined) : undefined,
   });
 
   // Trigger fetch when scrolling down to the sentinel
