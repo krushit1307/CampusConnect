@@ -9,6 +9,10 @@ import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
 import { UserProfileSkeleton } from "@/components/UserProfileSkeleton";
 import { HistoryTimeline, TimelineItem } from "@/components/profile/HistoryTimeline";
 
+import { useState, useEffect } from "react";
+import { SharedClubsSection } from "@/components/profile/SharedClubsSection";
+import { getSharedClubs } from "@/lib/sharedClubs";
+
 function getInitials(name: string) {
   return name
     .split(" ")
@@ -22,6 +26,13 @@ function getInitials(name: string) {
 export default function Profile() {
   const { handle } = useParams();
   const supabase = createClient();
+  const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUser(user);
+    });
+  }, [supabase]);
 
   const {
     data: profile,
@@ -49,6 +60,19 @@ export default function Profile() {
       if (error) throw error;
       return data;
     },
+  });
+
+  const isViewingOtherProfile = Boolean(
+    currentUser?.id && profile?.id && currentUser.id !== profile.id,
+  );
+
+  const { data: sharedClubs = [], isLoading: isLoadingSharedClubs } = useQuery({
+    queryKey: ["sharedClubs", currentUser?.id, profile?.id],
+    queryFn: async () => {
+      if (!currentUser?.id || !profile?.id) return [];
+      return getSharedClubs(supabase, currentUser.id, profile.id);
+    },
+    enabled: isViewingOtherProfile,
   });
 
   const { data: userClubs = [] } = useQuery({
@@ -283,6 +307,15 @@ export default function Profile() {
               </div>
             )}
           </div>
+
+          {/* Shared Clubs / Mutual Connections Section */}
+          {isViewingOtherProfile && (
+            <SharedClubsSection
+              clubs={sharedClubs}
+              isLoading={isLoadingSharedClubs}
+              targetUserName={profile.full_name || profile.handle}
+            />
+          )}
 
           {/* Upcoming Events Section */}
           <div className="space-y-6">
