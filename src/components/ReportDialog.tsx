@@ -1,6 +1,6 @@
-import React, { useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { createClient } from "@/lib/supabase/client";
+import React, { useState } from "react";
 import { toast } from "sonner";
 
 interface ReportDialogProps {
@@ -57,22 +57,26 @@ export const ReportDialog: React.FC<ReportDialogProps> = ({
       setDetails("");
       setReason("Spam");
       onClose();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to submit report:", err);
-      toast.error("Failed to submit report. Please try again.");
+
+      const error = err as { code?: string };
+
+      if (error.code === "P0001") {
+        toast.error("You have submitted too many reports recently. Please try again later.");
+      } else {
+        toast.error("Failed to submit report. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Report Content"
-      description="Help us keep CampusConnect safe by reporting inappropriate content."
-      className="neu-border max-w-md rounded-none bg-white p-6"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title="Report Content">
+      <p className="text-xs text-gray-500 font-mono">
+        Help us keep CampusConnect safe by reporting inappropriate content.
+      </p>
       <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-black">
         <div>
           <label className="font-mono text-xs font-bold uppercase block mb-1">

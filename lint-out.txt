@@ -1,0 +1,124 @@
+﻿
+C:\Users\lenovo\CampusConnect\cypress\support\component.ts
+  37:27  error  Parsing error: '>' expected
+
+C:\Users\lenovo\CampusConnect\scripts\test-auth-directive.ts
+  19:95  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  20:97  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  21:53  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  59:9   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\lenovo\CampusConnect\scripts\test-auth.ts
+   2:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  12:71  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  14:80  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  15:82  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  16:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  32:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  40:7   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\lenovo\CampusConnect\src\components\ClubRecommendations.tsx
+  118:6  error  Parsing error: '>' expected
+
+C:\Users\lenovo\CampusConnect\src\components\EventCard.tsx
+  1:0  error  Parsing error: Merge conflict marker encountered
+
+C:\Users\lenovo\CampusConnect\src\components\EventForm\TicketTierItem.tsx
+  21:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  37:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\lenovo\CampusConnect\src\components\EventScheduler\EventScheduler.cy.tsx
+   71:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  108:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\lenovo\CampusConnect\src\components\FloatingChat.tsx
+  38:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  54:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\lenovo\CampusConnect\src\components\PullToRefresh.test.tsx
+  44:16  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  46:18  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+C:\Users\lenovo\CampusConnect\src\components\SplitPane.tsx
+  144:6  error  Parsing error: '>' expected
+
+C:\Users\lenovo\CampusConnect\src\components\auth\AuthSecurityContext.tsx
+  108:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\lenovo\CampusConnect\src\components\docs\ClubConstitutionViewer.tsx
+  10:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\lenovo\CampusConnect\src\components\docs\DocumentScrollSpy.tsx
+  25:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\lenovo\CampusConnect\src\components\modal\ModalContext.tsx
+  64:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  80:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\lenovo\CampusConnect\src\components\modal\ModalRoot.tsx
+  86:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\lenovo\CampusConnect\src\components\profile\ProgressRing.tsx
+  34:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\lenovo\CampusConnect\src\components\site\Navbar.tsx
+  211:12  error  Parsing error: JSX expressions must have one parent element
+
+C:\Users\lenovo\CampusConnect\src\components\site\NotificationItem.tsx
+  13:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\lenovo\CampusConnect\src\components\ui\Combobox.tsx
+  20:18  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\lenovo\CampusConnect\src\components\ui\EventCard\EventCardContext.tsx
+  152:7  error  Parsing error: ',' expected
+
+C:\Users\lenovo\CampusConnect\src\components\ui\VirtualCombobox.tsx
+  188:18  error  Parsing error: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+
+C:\Users\lenovo\CampusConnect\src\graphql\auth.test.ts
+   39:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   46:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   64:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   74:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   79:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   81:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  102:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  104:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\lenovo\CampusConnect\src\hooks\useIdempotentPayment.ts
+  65:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\lenovo\CampusConnect\src\routes\admin.audit-logs.tsx
+   9:10  warning  Fast refresh only works when a file only exports components. Move your component(s) to a separate file  react-refresh/only-export-components
+  33:16  warning  Fast refresh can't handle anonymous components. Add a name to your export                               react-refresh/only-export-components
+
+C:\Users\lenovo\CampusConnect\src\routes\clubs.$slug.manage.tsx
+   66:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  534:66  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\lenovo\CampusConnect\src\routes\clubs.index.tsx
+  181:37  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\lenovo\CampusConnect\src\routes\dashboard.tsx
+  9:0  error  Parsing error: Merge conflict marker encountered
+
+C:\Users\lenovo\CampusConnect\src\routes\events.tsx
+  90:3  error  Parsing error: Declaration or statement expected
+
+C:\Users\lenovo\CampusConnect\src\routes\notifications.tsx
+  52:29  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  55:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  57:13  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+
+C:\Users\lenovo\CampusConnect\src\routes\settings.tsx
+  729:12  error  Parsing error: Identifier expected
+
+C:\Users\lenovo\CampusConnect\tests\searchRpc.test.ts
+  6:15  error  Parsing error: '{' expected
+
+C:\Users\lenovo\CampusConnect\vite.config.ts
+  213:1  error  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+Γ£û 57 problems (45 errors, 12 warnings)
+

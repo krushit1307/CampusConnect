@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import { parseVideoUrl, getEmbedUrl } from "@/utils/videoEmbed";
+import { LiteYouTubeEmbed } from "./LiteYouTubeEmbed";
 
 interface VideoEmbedProps {
   url: string;
@@ -27,6 +28,10 @@ export function VideoEmbed({ url }: VideoEmbedProps) {
   }, []);
 
   if (!parsed) return null;
+
+  if (parsed.type === "youtube") {
+    return <LiteYouTubeEmbed videoId={parsed.id} className="mt-3 mb-3" />;
+  }
 
   const embedUrl = getEmbedUrl(parsed);
 

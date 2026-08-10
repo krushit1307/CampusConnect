@@ -1,0 +1,10 @@
+{
+  "latestErrorEvent": {
+    "code": "TYPE-001",
+    "message": "Failed to generate type declaration. Execute the below cmd to reproduce and fix the error. #TYPE-001\nargs: {\"cmd\":\"\\\"C:\\\\\\\\Program Files\\\\\\\\nodejs\\\\\\\\node.exe\\\" C:\\\\Users\\\\sants\\\\OneDrive\\\\Desktop\\\\CampusConnect\\\\node_modules\\\\typescript\\\\bin\\\\tsc --project C:\\\\Users\\\\sants\\\\OneDrive\\\\Desktop\\\\CampusConnect\\\\node_modules\\\\.federation\\\\tsconfig.a338e6fe13636569398b14fe68c83f0d.json\"}\nView the docs to see how to solve: https://module-federation.io/guide/troubleshooting/type#type-001",
+    "args": {
+      "cmd": "\"C:\\\\Program Files\\\\nodejs\\\\node.exe\" C:\\Users\\sants\\OneDrive\\Desktop\\CampusConnect\\node_modules\\typescript\\bin\\tsc --project C:\\Users\\sants\\OneDrive\\Desktop\\CampusConnect\\node_modules\\.federation\\tsconfig.a338e6fe13636569398b14fe68c83f0d.json"
+    },
+    "timestamp": 1784873285812
+  }
+}

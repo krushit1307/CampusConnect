@@ -3,6 +3,11 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { User } from "@supabase/supabase-js";
 import { CalendarDays, ChevronDown, X } from "lucide-react";
+import startOfWeek from "date-fns/startOfWeek";
+import endOfWeek from "date-fns/endOfWeek";
+import isWithinInterval from "date-fns/isWithinInterval";
+import { CampusTimeline, type TimelineEvent } from "@/components/events/CampusTimeline";
+import { AdminCalendar } from "@/components/admin/AdminCalendar";
 import { CalendarSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -100,7 +105,7 @@ export default function DashboardCalendar() {
           )
         `,
         )
-        .eq("user_id", user?.id);
+        .eq("user_id", user!.id);
 
       if (error) throw error;
       return (data as unknown as RsvpQueryRow[]) || [];
@@ -121,6 +126,17 @@ export default function DashboardCalendar() {
     selectedCategories.length === 0
       ? events
       : events.filter((e) => e.category_id && selectedCategories.includes(e.category_id));
+
+  const weekEvents: TimelineEvent[] = filteredEvents
+    .filter((e) => e.start_date || e.event_date)
+    .map((e) => {
+      const start = new Date(e.start_date ?? e.event_date!);
+      const end = e.end_date ? new Date(e.end_date) : new Date(start.getTime() + 60 * 60 * 1000);
+      return { id: e.id, title: e.title, location: e.location, start, end };
+    })
+    .filter((e) =>
+      isWithinInterval(e.start, { start: startOfWeek(new Date()), end: endOfWeek(new Date()) }),
+    );
 
   function toggleCategory(id: string) {
     setSelectedCategories((prev) =>
@@ -207,10 +223,32 @@ export default function DashboardCalendar() {
             <span className="h-3 w-3 rounded bg-primary" />
             <span>RSVP'd events</span>
           </div>
-
-          <Suspense fallback={<CalendarSkeleton />}>
-            <EventsCalendar events={filteredEvents} />
-          </Suspense>
+          <div className="neu-border mb-4 bg-white p-4 dark:bg-[#1a1a1a]">
+            <h3 className="mb-3 font-mono text-sm font-bold uppercase">This week's timeline</h3>
+            <CampusTimeline events={weekEvents} />
+          </div>
+          <div className="mt-6">
+            <AdminCalendar
+              events={filteredEvents.map((e) => ({
+                id: e.id,
+                title: e.title,
+                description: e.description,
+                start_date: e.start_date || e.event_date || new Date().toISOString(),
+                end_date: e.end_date,
+                location: e.location,
+                category:
+                  typeof e.event_categories === "object" &&
+                  e.event_categories &&
+                  "name" in e.event_categories
+                    ? e.event_categories.name
+                    : undefined,
+                club_name:
+                  typeof e.clubs === "object" && e.clubs && "name" in e.clubs
+                    ? e.clubs.name
+                    : undefined,
+              }))}
+            />
+          </div>
         </>
       )}
     </div>

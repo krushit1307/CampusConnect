@@ -9,6 +9,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useWebShare } from "@/hooks/useWebShare";
 
 interface ShareMenuProps {
   url: string;
@@ -19,44 +20,39 @@ interface ShareMenuProps {
 
 export function ShareMenu({ url, title, text, children }: ShareMenuProps) {
   const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const webShare = useWebShare();
+  const [localCopied, setLocalCopied] = useState(false);
 
   const encodedUrl = encodeURIComponent(url);
   const shareText = text || `Check out: ${title}`;
   const encodedShareText = encodeURIComponent(shareText);
 
   const handleShareClick = async (e: React.MouseEvent) => {
-    // If Web Share API is available, use it
-    if (
-      navigator.share &&
-      navigator.canShare &&
-      navigator.canShare({ url, title, text: shareText })
-    ) {
+    if (webShare.canShare) {
       e.preventDefault();
-      try {
-        await navigator.share({
-          title,
-          text: shareText,
-          url,
-        });
-        toast.success("Shared successfully!");
-      } catch (err) {
-        if ((err as Error).name !== "AbortError") {
+      const result = await webShare.share({ title, text: shareText, url });
+      switch (result.kind) {
+        case "success":
+          toast.success("Shared successfully!");
+          break;
+        case "error":
           toast.error("Error sharing.");
-        }
+          setOpen(true);
+          break;
+        case "unavailable":
+          setOpen(true);
+          break;
       }
-    } else {
-      // Allow Dialog trigger to open the modal
     }
   };
 
   const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
+    const ok = await webShare.copyToClipboard(url);
+    if (ok) {
+      setLocalCopied(true);
       toast.success("Link copied!");
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
+      setTimeout(() => setLocalCopied(false), 2000);
+    } else {
       toast.error("Failed to copy link.");
     }
   };
@@ -87,8 +83,12 @@ export function ShareMenu({ url, title, text, children }: ShareMenuProps) {
             className="neu-border neu-press w-full justify-start gap-3 bg-white px-4 py-6 font-mono text-sm font-bold uppercase transition-colors hover:bg-cream"
             onClick={handleCopyLink}
           >
-            {copied ? <Check className="h-5 w-5 text-green-600" /> : <Copy className="h-5 w-5" />}
-            {copied ? "Link Copied!" : "Copy Link"}
+            {localCopied ? (
+              <Check className="h-5 w-5 text-green-600" />
+            ) : (
+              <Copy className="h-5 w-5" />
+            )}
+            {localCopied ? "Link Copied!" : "Copy Link"}
           </Button>
 
           <Button
