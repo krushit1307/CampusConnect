@@ -3,13 +3,11 @@ import { Redis } from "https://esm.sh/@upstash/redis@1.30.0";
 const redisUrl = Deno.env.get("UPSTASH_REDIS_REST_URL");
 const redisToken = Deno.env.get("UPSTASH_REDIS_REST_TOKEN");
 
-const redis = redisUrl && redisToken
-  ? new Redis({ url: redisUrl, token: redisToken })
-  : null;
+const redis = redisUrl && redisToken ? new Redis({ url: redisUrl, token: redisToken }) : null;
 
 export interface RateLimitConfig {
-  limit?: number;      // Maximum requests allowed in the window (default: 5)
-  windowMs?: number;   // Window size in milliseconds (default: 60000 / 1 minute)
+  limit?: number; // Maximum requests allowed in the window (default: 5)
+  windowMs?: number; // Window size in milliseconds (default: 60000 / 1 minute)
 }
 
 /**
@@ -23,10 +21,12 @@ export interface RateLimitConfig {
 export async function limitRate(
   req: Request,
   functionName: string,
-  config: RateLimitConfig = {}
+  config: RateLimitConfig = {},
 ): Promise<Response | null> {
   if (!redis) {
-    console.warn(`[RateLimiter] Upstash Redis is not configured. Skipping rate limiting for: ${functionName}`);
+    console.warn(
+      `[RateLimiter] Upstash Redis is not configured. Skipping rate limiting for: ${functionName}`,
+    );
     return null;
   }
 
@@ -76,13 +76,16 @@ export async function limitRate(
             ...Object.fromEntries(headers.entries()),
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     }
 
     return null;
   } catch (err) {
-    console.error(`[RateLimiter] Error performing rate limit check for ${functionName} (IP: ${ip}):`, err);
+    console.error(
+      `[RateLimiter] Error performing rate limit check for ${functionName} (IP: ${ip}):`,
+      err,
+    );
     // Fail open: log the error, but allow the request to proceed to not disrupt legitimate traffic
     return null;
   }

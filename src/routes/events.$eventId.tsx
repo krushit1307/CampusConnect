@@ -1,6 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
 import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { SiteShell } from "@/components/site/SiteShell";
@@ -74,6 +74,7 @@ export default function EventDetailsPage() {
         .select(
           `
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by,
+          is_high_risk, status,
           clubs (name, slug),
           event_rsvps (id, user_id),
           attendee_count
@@ -135,6 +136,30 @@ export default function EventDetailsPage() {
       }
       return data;
     },
+  });
+
+  interface EventSignature {
+    id: string;
+    event_id: string;
+    signer_role: string;
+    signer_name: string;
+    signer_email: string;
+    signature_token: string;
+    signed_at: string | null;
+    ip_address: string | null;
+  }
+
+  const { data: signatures = [], refetch: refetchSignatures } = useQuery({
+    queryKey: ["event_signatures", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_signatures")
+        .select("*")
+        .eq("event_id", eventId);
+      if (error) throw error;
+      return (data || []) as EventSignature[];
+    },
+    enabled: !!eventId,
   });
 
   const toggleRsvp = useMutation({
@@ -513,6 +538,52 @@ export default function EventDetailsPage() {
                   </a>
                 </>
               )}
+            </div>
+          )}
+
+          {event.is_high_risk && (
+            <div className="mt-8 border-2 border-black bg-yellow-50 p-6 font-mono text-sm">
+              <h2 className="text-xl font-bold uppercase tracking-tight text-black mb-3">
+                Co-Signer Approvals
+              </h2>
+              <p className="text-xs text-gray-700 mb-4">
+                This is a high-risk event. It will be published once all required stakeholders sign
+                off.
+              </p>
+              <div className="space-y-3">
+                {signatures.map((sig) => (
+                  <div
+                    key={sig.id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-black/20 pb-2"
+                  >
+                    <div>
+                      <span className="font-bold text-black">{sig.signer_role}</span>:{" "}
+                      {sig.signer_name} ({sig.signer_email})
+                    </div>
+                    <div className="mt-1 sm:mt-0 flex items-center gap-3">
+                      {sig.signed_at ? (
+                        <span className="bg-green-100 text-green-800 border border-green-800 px-2 py-0.5 font-bold uppercase text-xs">
+                          Signed ✓
+                        </span>
+                      ) : (
+                        <>
+                          <span className="bg-red-100 text-red-800 border border-red-800 px-2 py-0.5 font-bold uppercase text-xs">
+                            Pending
+                          </span>
+                          <a
+                            href={`${getSupabaseUrl()}/functions/v1/co-signer-approval?token=${sig.signature_token}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-white hover:bg-cream border border-black px-2 py-0.5 text-xs font-bold uppercase underline"
+                          >
+                            Approval Link ↗
+                          </a>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
