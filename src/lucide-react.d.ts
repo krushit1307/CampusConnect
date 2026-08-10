@@ -25,6 +25,15 @@ declare module "lucide-react" {
   export const Clock: Icon;
   export const Navigation: Icon;
   export const QrCode: Icon;
+  export const ArrowLeft: Icon;
+  export const Check: Icon;
+  export const Copy: Icon;
+  export const Download: Icon;
+  export const Link: Icon;
+  export const MapPinOff: Icon;
+  export const Star: Icon;
+  export const Flag: Icon;
+  export const HelpCircle: Icon;
 
   // Generic fallback for any other icon
   const src: Record<string, Icon>;

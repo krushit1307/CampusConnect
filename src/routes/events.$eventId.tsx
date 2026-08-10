@@ -67,7 +67,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import DynamicQRCode from "@/components/Events/DynamicQRCode";
+import DynamicQRCode from "@/components/events/DynamicQRCode";
 
 interface SimilarEventItem {
   id: string;
