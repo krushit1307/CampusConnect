@@ -90,6 +90,9 @@ type Step = 0 | 1 | 2 | 3;
 // Define an extended interface locally to handle the extra location field safely
 interface LocalEventFormValues extends EventFormValues {
   location?: string;
+  alcoholPresent?: boolean;
+  maxAttendees?: number;
+  offCampusSpeaker?: boolean;
   requiresApproval?: boolean;
 }
 
@@ -104,6 +107,9 @@ const defaultValues: LocalEventFormValues = {
   geofenceRadiusMeters: 100,
   startDate: "",
   endDate: "",
+  alcoholPresent: false,
+  maxAttendees: undefined,
+  offCampusSpeaker: false,
   requiresApproval: false,
   isPrivate: false,
   tags: [],
@@ -287,6 +293,26 @@ export function CreateEventDialog({
         return { isOffline: true };
       }
 
+      const startDateIso = new Date(values.startDate).toISOString();
+      const endDateIso = new Date(values.endDate).toISOString();
+
+      const { error } = await supabase.from("events").insert({
+        title: values.title.trim(),
+        description: values.description.trim(),
+        location: values.location?.trim() || null,
+        start_date: startDateIso,
+        end_date: endDateIso,
+        event_date: startDateIso,
+        created_by: user.id,
+        club_id: myClub.id,
+        alcohol_present: !!values.alcoholPresent,
+        max_attendees: values.maxAttendees ? Number(values.maxAttendees) : null,
+        off_campus_speaker: !!values.offCampusSpeaker,
+        status: "draft", // default status
+      });
+
+      if (error) {
+        throw new Error(error.message);
       try {
         const { error } = await supabase.from("events").insert(payload);
         if (error) {
@@ -959,6 +985,64 @@ export function CreateEventDialog({
               </>
             )}
 
+            <div className="border-t-2 border-dashed border-black pt-4 mt-4 space-y-4">
+              <p className="font-mono text-xs font-bold uppercase text-black">
+                Risk & Attendance Details
+              </p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-black p-3 bg-white">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-sm font-bold">Alcohol Present</FormLabel>
+                  </div>
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      className="h-5 w-5 border-2 border-black"
+                      checked={form.watch("alcoholPresent") || false}
+                      onChange={(e) => form.setValue("alcoholPresent", e.target.checked)}
+                    />
+                  </FormControl>
+                </FormItem>
+
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-black p-3 bg-white">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-sm font-bold">Off-Campus Speaker</FormLabel>
+                  </div>
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      className="h-5 w-5 border-2 border-black"
+                      checked={form.watch("offCampusSpeaker") || false}
+                      onChange={(e) => form.setValue("offCampusSpeaker", e.target.checked)}
+                    />
+                  </FormControl>
+                </FormItem>
+              </div>
+
+              <FormItem>
+                <FormLabel>Expected Attendance / Capacity</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="e.g. 150"
+                    className="border-2 border-black bg-white"
+                    value={form.watch("maxAttendees") || ""}
+                    onChange={(e) =>
+                      form.setValue(
+                        "maxAttendees",
+                        e.target.value ? Number(e.target.value) : undefined,
+                      )
+                    }
+                  />
+                </FormControl>
+              </FormItem>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="submit" disabled={createEvent.isPending} className="w-full sm:w-auto">
+                {createEvent.isPending ? "Creating..." : "Create event"}
+              </Button>
             <DialogFooter className="pt-2 flex gap-2">
               {step > 0 && (
                 <Button type="button" variant="outline" onClick={handleBack}>

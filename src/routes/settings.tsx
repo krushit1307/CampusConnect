@@ -2,6 +2,7 @@ import { useNavigate, useBlocker } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { Camera, Loader2, X, Plus, CreditCard } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { Check, Loader2, X, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -172,6 +173,99 @@ export default function SettingsPage() {
     },
     enabled: !!user?.id,
   });
+
+  interface UserBadge {
+    id: string;
+    user_id: string;
+    badge_name: string;
+    awarded_at: string;
+  }
+
+  const { data: badges = [] } = useQuery({
+    queryKey: ["user_badges", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_badges")
+        .select("*")
+        .eq("user_id", user?.id);
+      if (error) throw error;
+      return (data || []) as UserBadge[];
+    },
+    enabled: !!user?.id,
+  });
+  const [isWalletDownloading, setIsWalletDownloading] = useState(false);
+
+  const handleAddToAppleWallet = async () => {
+    if (!user) return;
+    setIsWalletDownloading(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${getSupabaseUrl()}/functions/v1/generate-wallet-pass?type=apple&passType=id`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to generate Apple Wallet pass");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "id-card.pkpass";
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("Wallet pass downloaded successfully!");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Failed to download Wallet pass");
+    } finally {
+      setIsWalletDownloading(false);
+    }
+  };
+
+  const handleAddToGoogleWallet = async () => {
+    if (!user) return;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${getSupabaseUrl()}/functions/v1/generate-wallet-pass?type=google&passType=id`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to generate Google Wallet pass");
+      }
+
+      const data = await response.json();
+      if (data.url) {
+        window.open(data.url, "_blank");
+        toast.success("Google Wallet link opened!");
+      } else {
+        throw new Error("No URL returned");
+      }
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Failed to generate Google Wallet pass");
+    }
+  };
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema) as any,
@@ -504,6 +598,50 @@ export default function SettingsPage() {
               selected={currentAvatarTheme}
               onSelect={(id) => form.setValue("avatarTheme", id, { shouldDirty: true })}
             />
+
+            <div className="mb-6 border-2 border-black bg-lime/10 p-4 font-mono text-sm">
+              <p className="font-bold text-black uppercase mb-2">Unlocked Badges</p>
+              {badges.length === 0 ? (
+                <p className="text-xs text-gray-500 font-bold uppercase">
+                  No badges unlocked yet. Keep exploring the campus!
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {badges.map((b) => (
+                    <span
+                      key={b.id}
+                      title={b.badge_name}
+                      className="bg-black text-lime neu-border px-3 py-1 font-mono text-xs font-bold uppercase tracking-wider animate-bounce"
+                    >
+                      🏅 {b.badge_name}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <p className="font-bold text-black uppercase mb-2">Digital ID Wallet Passes</p>
+              <p className="text-xs text-gray-700 mb-4">
+                Add your CampusConnect Digital ID Card to your mobile device wallet.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleAddToAppleWallet}
+                  disabled={isWalletDownloading}
+                  className="neu-border flex items-center gap-2 bg-white px-4 py-2 font-bold uppercase transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                >
+                  <CreditCard className="h-4 w-4" />
+                  {isWalletDownloading ? "Adding..." : "Add to Apple Wallet"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddToGoogleWallet}
+                  className="neu-border flex items-center gap-2 bg-white px-4 py-2 font-bold uppercase transition-all hover:scale-105 active:scale-95"
+                >
+                  <CreditCard className="h-4 w-4" />
+                  Add to Google Wallet
+                </button>
+              </div>
+            </div>
 
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">

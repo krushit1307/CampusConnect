@@ -20,6 +20,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Menu, X } from "lucide-react";
+
+const links = [
+  { to: "/events", label: "Events" },
+  { to: "/clubs", label: "Clubs" },
+  { to: "/feed", label: "Feed" },
+  { to: "/gallery", label: "Gallery" },
+  { to: "/certificates", label: "Certificates" },
+  { to: "/dashboard", label: "Dashboard" },
+] as const;
 
 export function Navbar() {
   const { user, isInitializing } = useAuthHydration();

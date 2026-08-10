@@ -27,6 +27,25 @@ import MaintenancePage from "./components/MaintenancePage";
 import { CommandPaletteProvider } from "@/components/CommandPaletteProvider";
 import { NotFoundPage } from "./components/NotFoundPage";
 import { createClient } from "./lib/supabase/client";
+// Pages
+import Index from "./routes/index";
+import Auth from "./routes/auth";
+import Certificates from "./routes/certificates";
+import ClubsIndex from "./routes/clubs.index";
+import ClubDetails from "./routes/clubs.$slug";
+import ClubsLayout from "./routes/clubs";
+import Dashboard from "./routes/dashboard";
+import DashboardOverview from "./routes/dashboard.index";
+import DashboardRsvps from "./routes/dashboard.rsvps";
+import DashboardBookmarks from "./routes/dashboard.bookmarks";
+import EventsIndex from "./routes/events";
+import EventDetails from "./routes/events.$eventId";
+import Feed from "./routes/feed";
+import ForgotPassword from "./routes/forgot-password";
+import ResetPassword from "./routes/reset-password";
+import Settings from "./routes/settings";
+import PendingClubsAdmin from "./routes/admin.clubs.pending";
+import GalleryPage from "./routes/gallery";
 import { BreadcrumbProvider } from "@/components/BreadcrumbsContext";
 import AriaAnnouncer from "@/components/accessibility/AriaAnnouncer";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
@@ -235,6 +254,13 @@ const router = createBrowserRouter(
         {/* Catch-all route for 404 errors */}
         <Route path="*" element={<NotFound />} />
       </Route>
+
+      <Route path="/feed" element={<Feed />} />
+      <Route path="/gallery" element={<GalleryPage />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/settings" element={<Settings />} />
+      <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
     </Route>,
   ),
 );

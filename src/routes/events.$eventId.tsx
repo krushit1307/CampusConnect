@@ -1,4 +1,7 @@
 import { Link, useParams } from "react-router-dom";
+import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
+import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { incrementEventViews } from "@/lib/supabase/events";
@@ -30,6 +33,7 @@ import {
   MapPin,
   MapPinOff,
   Users,
+  CreditCard,
   X,
   CheckCircle,
   Clock,
@@ -458,6 +462,8 @@ export default function EventDetailsPage() {
         .from("events")
         .select(
           `
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by,
+          is_high_risk, status,
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash, latitude, longitude, geofencing_enabled, geofence_radius_meters,
           profiles (full_name, email),
           clubs (name, slug),
@@ -573,6 +579,28 @@ export default function EventDetailsPage() {
     },
   });
 
+  interface EventSignature {
+    id: string;
+    event_id: string;
+    signer_role: string;
+    signer_name: string;
+    signer_email: string;
+    signature_token: string;
+    signed_at: string | null;
+    ip_address: string | null;
+  }
+
+  const { data: signatures = [], refetch: refetchSignatures } = useQuery({
+    queryKey: ["event_signatures", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_signatures")
+        .select("*")
+        .eq("event_id", eventId);
+      if (error) throw error;
+      return (data || []) as EventSignature[];
+    },
+    enabled: !!eventId,
   // Extract headings from HTML description for TOC
   const tocItems = useMemo(() => {
     if (!event?.description) return [];
@@ -1096,6 +1124,82 @@ export default function EventDetailsPage() {
   const captchaEnabled = isCaptchaConfigured(captchaSiteKey, captchaSecretKey);
   const captchaProvider = import.meta.env.VITE_TURNSTILE_SITE_KEY ? "turnstile" : "hcaptcha";
 
+  const [isWalletDownloading, setIsWalletDownloading] = useState(false);
+
+  const handleAddToAppleWallet = async () => {
+    if (!user || !event) return;
+    setIsWalletDownloading(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${getSupabaseUrl()}/functions/v1/generate-wallet-pass?type=apple&passType=event&eventId=${event.id}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to generate Apple Wallet pass");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ticket-${event.id}.pkpass`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("Wallet ticket downloaded successfully!");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Failed to download Wallet ticket");
+    } finally {
+      setIsWalletDownloading(false);
+    }
+  };
+
+  const handleAddToGoogleWallet = async () => {
+    if (!user || !event) return;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${getSupabaseUrl()}/functions/v1/generate-wallet-pass?type=google&passType=event&eventId=${event.id}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to generate Google Wallet ticket");
+      }
+
+      const data = await response.json();
+      if (data.url) {
+        window.open(data.url, "_blank");
+        toast.success("Google Wallet link opened!");
+      } else {
+        throw new Error("No URL returned");
+      }
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to generate Google Wallet ticket",
+      );
+    }
+  };
+
   const handleRsvpClick = () => {
     if (!user) {
       toast.error("Please log in to RSVP");
@@ -1542,6 +1646,26 @@ export default function EventDetailsPage() {
                 </DialogContent>
               </Dialog>
             )}
+
+            {hasRsvpd && (
+              <>
+                <button
+                  onClick={handleAddToAppleWallet}
+                  disabled={isWalletDownloading}
+                  className="neu-border flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50"
+                >
+                  <CreditCard aria-hidden="true" size={14} strokeWidth={3} />
+                  {isWalletDownloading ? "Adding..." : "Add to Apple Wallet"}
+                </button>
+                <button
+                  onClick={handleAddToGoogleWallet}
+                  className="neu-border flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                >
+                  <CreditCard aria-hidden="true" size={14} strokeWidth={3} />
+                  Add to Google Wallet
+                </button>
+              </>
+            )}
           </div>
 
           {/* Predictive Turnout (Visible to Organizer / Admins) */}
@@ -1793,6 +1917,45 @@ export default function EventDetailsPage() {
               )}
             </div>
 
+          {event.is_high_risk && (
+            <div className="mt-8 border-2 border-black bg-yellow-50 p-6 font-mono text-sm">
+              <h2 className="text-xl font-bold uppercase tracking-tight text-black mb-3">
+                Co-Signer Approvals
+              </h2>
+              <p className="text-xs text-gray-700 mb-4">
+                This is a high-risk event. It will be published once all required stakeholders sign
+                off.
+              </p>
+              <div className="space-y-3">
+                {signatures.map((sig) => (
+                  <div
+                    key={sig.id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-black/20 pb-2"
+                  >
+                    <div>
+                      <span className="font-bold text-black">{sig.signer_role}</span>:{" "}
+                      {sig.signer_name} ({sig.signer_email})
+                    </div>
+                    <div className="mt-1 sm:mt-0 flex items-center gap-3">
+                      {sig.signed_at ? (
+                        <span className="bg-green-100 text-green-800 border border-green-800 px-2 py-0.5 font-bold uppercase text-xs">
+                          Signed ✓
+                        </span>
+                      ) : (
+                        <>
+                          <span className="bg-red-100 text-red-800 border border-red-800 px-2 py-0.5 font-bold uppercase text-xs">
+                            Pending
+                          </span>
+                          <a
+                            href={`${getSupabaseUrl()}/functions/v1/co-signer-approval?token=${sig.signature_token}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-white hover:bg-cream border border-black px-2 py-0.5 text-xs font-bold uppercase underline"
+                          >
+                            Approval Link ↗
+                          </a>
+                        </>
+                      )}
             {/* Optimistic UI & Progress for Uploading Files */}
             {uploadingFiles.length > 0 && (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 mb-6">
@@ -1868,6 +2031,10 @@ export default function EventDetailsPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Social Share Buttons */}
             )}
           </div>
 
