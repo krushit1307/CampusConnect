@@ -21,6 +21,9 @@ import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { ClubMembersTable } from "@/components/Clubs/ClubMembersTable";
 import { ClubSocialLinksEditor } from "@/components/Clubs/ClubSocialLinksEditor";
+import { ClubColorPicker } from "@/components/Clubs/ClubColorPicker";
+import { isValidHexColor } from "@/lib/clubTheming";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
 import ClubAnalyticsDashboard from "@/components/clubs/ClubAnalyticsDashboard";
 import {
   AlertDialog,
@@ -43,6 +46,8 @@ interface ServerClub {
   visibility: string | null;
   github_repo_url: string | null;
   social_links: Record<string, string> | null;
+  primary_color: string | null;
+  secondary_color: string | null;
   version: number;
 }
 
@@ -110,6 +115,8 @@ export default function ClubManageRoute() {
     "instagram",
   ]);
   const [promoVideoUrl, setPromoVideoUrl] = useState("");
+  const [primaryColor, setPrimaryColor] = useState("");
+  const [secondaryColor, setSecondaryColor] = useState("");
   const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
   const [serverClub, setServerClub] = useState<ServerClub | null>(null);
 
@@ -167,6 +174,8 @@ export default function ClubManageRoute() {
       const savedOrder = (club.social_links_order || []) as string[];
       setSocialLinksOrder(savedOrder.length > 0 ? savedOrder : ["website", "twitter", "instagram"]);
       setPromoVideoUrl(club.promo_video_url || "");
+      setPrimaryColor(club.primary_color || "");
+      setSecondaryColor(club.secondary_color || "");
     }
   }, [club]);
 
@@ -195,6 +204,20 @@ export default function ClubManageRoute() {
         field: "Promo Video URL",
         draft: promoVideoUrl,
         server: serverClub.promo_video_url || "",
+      });
+    }
+    if (primaryColor !== (serverClub.primary_color || "")) {
+      diffs.push({
+        field: "Primary Color",
+        draft: primaryColor,
+        server: serverClub.primary_color || "",
+      });
+    }
+    if (secondaryColor !== (serverClub.secondary_color || "")) {
+      diffs.push({
+        field: "Secondary Color",
+        draft: secondaryColor,
+        server: serverClub.secondary_color || "",
       });
     }
     if (visibility !== (serverClub.visibility || "public")) {
@@ -253,6 +276,15 @@ export default function ClubManageRoute() {
         }
       }
 
+      const trimmedPrimaryColor = primaryColor.trim();
+      const trimmedSecondaryColor = secondaryColor.trim();
+      if (trimmedPrimaryColor && !isValidHexColor(trimmedPrimaryColor)) {
+        throw new Error("Primary color must be a hex value like #RRGGBB");
+      }
+      if (trimmedSecondaryColor && !isValidHexColor(trimmedSecondaryColor)) {
+        throw new Error("Secondary color must be a hex value like #RRGGBB");
+      }
+
       let targetVersion = club.version || 1;
       if (force) {
         const { data: latest, error: fetchErr } = await supabase
@@ -272,6 +304,8 @@ export default function ClubManageRoute() {
           banner_url: bannerUrl,
           logo_url: logoUrl,
           promo_video_url: promoVideoUrl || null,
+          primary_color: trimmedPrimaryColor || null,
+          secondary_color: trimmedSecondaryColor || null,
           visibility,
           github_repo_url: githubRepo,
           social_links: socialLinks,
@@ -297,7 +331,7 @@ export default function ClubManageRoute() {
         const { data: latest } = await supabase
           .from("clubs")
           .select(
-            "name, description, banner_url, logo_url, promo_video_url, visibility, github_repo_url, social_links, version",
+            "name, description, banner_url, logo_url, promo_video_url, visibility, github_repo_url, social_links, primary_color, secondary_color, version",
           )
           .eq("id", club!.id)
           .single();
@@ -534,6 +568,28 @@ export default function ClubManageRoute() {
                       initialVideoUrl={promoVideoUrl}
                       onUploadComplete={(url) => setPromoVideoUrl(url || "")}
                     />
+                  </div>
+                  <div className="border-t-2 border-black pt-4">
+                    <label className="font-mono text-sm font-bold uppercase mb-1 block">
+                      Club Brand Colors
+                    </label>
+                    <p className="mb-3 text-xs font-mono text-gray-600">
+                      Used across your club's public page — header, logo, and buttons. Leave both
+                      empty to use the CampusConnect defaults. Must be hex values like #RRGGBB or
+                      #RGB.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <ClubColorPicker
+                        label="Primary Color"
+                        value={primaryColor}
+                        onChange={setPrimaryColor}
+                      />
+                      <ClubColorPicker
+                        label="Secondary Color"
+                        value={secondaryColor}
+                        onChange={setSecondaryColor}
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="font-mono text-sm font-bold uppercase mb-1 block">
@@ -775,9 +831,7 @@ export default function ClubManageRoute() {
               </div>
             )}
 
-            {activeTab === "analytics" && (
-              <ClubAnalyticsDashboard clubId={club.id} />
-            )}
+            {activeTab === "analytics" && <ClubAnalyticsDashboard clubId={club.id} />}
           </main>
         </div>
       </div>
