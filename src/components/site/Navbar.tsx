@@ -18,6 +18,7 @@ const links = [
   { to: "/events", label: "Events" },
   { to: "/clubs", label: "Clubs" },
   { to: "/feed", label: "Feed" },
+  { to: "/gallery", label: "Gallery" },
   { to: "/certificates", label: "Certificates" },
   { to: "/dashboard", label: "Dashboard" },
 ] as const;
