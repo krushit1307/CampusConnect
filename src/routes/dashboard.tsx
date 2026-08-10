@@ -1,33 +1,21 @@
-import { NavLink, useNavigate, Outlet } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState } from "react";
-import { User } from "@supabase/supabase-js";
+import { useState } from "react";
 import { ProfileHeaderSkeleton } from "@/components/ProfileHeaderSkeleton";
+import { withAuth, WithAuthProps } from "@/hoc/withAuth";
 
-export default function Dashboard() {
+function DashboardContent({ user }: WithAuthProps) {
   const [supabase] = useState(() => createClient());
-  const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) {
-        navigate("/auth", { replace: true });
-      } else {
-        setUser(user);
-      }
-    });
-  }, [navigate, supabase]);
-
-  const { data: profile, isLoading } = useQuery({
+  const { data: profile, isLoading: isProfileLoading } = useQuery({
     queryKey: ["profile", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", user?.id)
+        .eq("id", user!.id)
         .single();
       if (error) throw error;
       return data;
@@ -35,42 +23,40 @@ export default function Dashboard() {
     enabled: !!user?.id,
   });
 
-  if (!user)
-    return (
-      <SiteShell>
-        <section className="border-b-2 border-black bg-lime px-4 py-10 md:px-6">
-          <div className="mx-auto max-w-7xl">
-            <ProfileHeaderSkeleton />
-          </div>
-        </section>
-      </SiteShell>
-    );
-
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   return (
     <SiteShell>
-      <section className="border-b-2 border-black bg-lime px-4 py-10 md:px-6">
+      <section className="border-b-4 border-black bg-lime px-4 py-12 md:px-6">
         <div className="mx-auto max-w-7xl">
-          {isLoading ? (
+          {isProfileLoading ? (
             <ProfileHeaderSkeleton />
           ) : (
-            <>
-              <p className="eyebrow font-bold break-all">Signed in as {user.email}</p>
-              <h1 className="mt-2 text-3xl font-bold sm:text-4xl md:text-5xl">
-                {greeting}, {profile?.first_name || "there"}.
-              </h1>
-            </>
+            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex h-16 w-16 items-center justify-center border-2 border-black bg-white font-display text-2xl font-black text-black shadow-[4px_4px_0_0_#000]">
+                  {getInitials(profile?.full_name || user?.email)}
+                </div>
+                <div>
+                  <h1 className="font-display text-3xl font-black uppercase text-black">
+                    {greeting},{" "}
+                    {profile?.full_name || profile?.first_name || user?.email?.split("@")[0]}!
+                  </h1>
+                  <p className="font-mono text-sm text-black/70">
+                    Welcome to your CampusConnect portal.
+                  </p>
+                </div>
+              </div>
+            </div>
           )}
 
-          {/* Sub-navigation Tabs */}
-          <div className="mt-8 flex flex-wrap gap-3">
+          <div className="mt-8 flex flex-wrap gap-3 font-mono text-xs">
             <NavLink
               to="/dashboard"
               end
               className={({ isActive }) =>
-                `neu-border px-5 py-2 font-mono text-sm font-bold uppercase transition-all ${
+                `neu-border px-4 py-2 font-bold uppercase tracking-wider transition-all shadow-[2px_2px_0_0_#000] ${
                   isActive
                     ? "bg-black text-cream dark:bg-cream dark:text-black"
                     : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
@@ -82,7 +68,7 @@ export default function Dashboard() {
             <NavLink
               to="/dashboard/rsvps"
               className={({ isActive }) =>
-                `neu-border px-5 py-2 font-mono text-sm font-bold uppercase transition-all ${
+                `neu-border px-4 py-2 font-bold uppercase tracking-wider transition-all shadow-[2px_2px_0_0_#000] ${
                   isActive
                     ? "bg-black text-cream dark:bg-cream dark:text-black"
                     : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
@@ -94,14 +80,26 @@ export default function Dashboard() {
             <NavLink
               to="/dashboard/bookmarks"
               className={({ isActive }) =>
-                `neu-border px-5 py-2 font-mono text-sm font-bold uppercase transition-all ${
+                `neu-border px-4 py-2 font-bold uppercase tracking-wider transition-all shadow-[2px_2px_0_0_#000] ${
                   isActive
                     ? "bg-black text-cream dark:bg-cream dark:text-black"
                     : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
                 }`
               }
             >
-              My Bookmarks
+              Saved Events
+            </NavLink>
+            <NavLink
+              to="/dashboard/calendar"
+              className={({ isActive }) =>
+                `neu-border px-4 py-2 font-bold uppercase tracking-wider transition-all shadow-[2px_2px_0_0_#000] ${
+                  isActive
+                    ? "bg-black text-cream dark:bg-cream dark:text-black"
+                    : "bg-white text-black hover:bg-cream/50 dark:bg-black dark:text-cream dark:hover:bg-white/10"
+                }`
+              }
+            >
+              My Calendar
             </NavLink>
           </div>
         </div>
@@ -114,3 +112,5 @@ export default function Dashboard() {
     </SiteShell>
   );
 }
+
+export default withAuth(DashboardContent);
