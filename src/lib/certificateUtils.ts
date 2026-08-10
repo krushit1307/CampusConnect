@@ -2,8 +2,6 @@
  * Certificate Download & Document Stream Utilities
  */
 
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
-
 export interface DownloadCertOptions {
   certificateUrl?: string;
   eventTitle?: string;
@@ -33,16 +31,19 @@ export async function generateFallbackCertificatePdf(options: {
   issuedAt?: string | null;
   certId: string;
 }): Promise<Blob> {
+  const { PDFDocument, rgb, StandardFonts } = await import("pdf-lib");
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([600, 400]);
 
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const fontNormal = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
+  type PDFFontType = typeof fontBold;
+
   const drawCenteredScaledText = (
     text: string,
     y: number,
-    font: PDFFont,
+    font: PDFFontType,
     defaultSize: number,
     color = rgb(0, 0, 0),
   ) => {
@@ -84,7 +85,7 @@ export async function generateFallbackCertificatePdf(options: {
   });
 
   const pdfBytes = await pdfDoc.save();
-  return new Blob([pdfBytes], { type: "application/pdf" });
+  return new Blob([pdfBytes as unknown as BlobPart], { type: "application/pdf" });
 }
 
 /**

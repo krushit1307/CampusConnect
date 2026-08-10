@@ -37,3 +37,16 @@ scripts/create-backend-issues.ts
 scripts/remove-assignees.ts
 .env
 .env.*
+coverage/
+
+# Playwright
+playwright-report/
+test-results/
+
+# Stryker Mutation Reports
+reports/
+# Local Supabase Auth signing-key ring. It contains private JWK material.
+supabase/signing_keys.json
+
+*storybook.log
+storybook-static

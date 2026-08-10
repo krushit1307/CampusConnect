@@ -1,3 +1,6 @@
+// For more info, see https://github.com/storybookjs/eslint-plugin-storybook#configuration-flat-config-format
+import storybook from "eslint-plugin-storybook";
+
 import js from "@eslint/js";
 import eslintPluginPrettier from "eslint-plugin-prettier/recommended";
 import globals from "globals";
@@ -16,6 +19,7 @@ export default tseslint.config(
   {
     ignores: [
       "dist",
+      "dist-events",
       ".output",
       ".vinxi",
       "supabase/functions",
@@ -38,7 +42,39 @@ export default tseslint.config(
     rules: {
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-explicit-any": "off",
       "local-rules/no-cross-page-imports": "error",
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "date-fns",
+              message:
+                "Please import date-fns functions individually from subpaths, e.g. `import format from 'date-fns/format'` instead of destructured imports.",
+            },
+            {
+              name: "date-fns/locale",
+              message:
+                "Please import specific locales individually from subpaths, e.g. `import enUS from 'date-fns/locale/en-US'` instead of root locales.",
+            },
+          ],
+        },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "ImportNamespaceSpecifier[parent.source.value='lucide-react']",
+          message:
+            'Import icons individually, e.g. `import { ChevronDown } from "lucide-react"`. A wildcard import (`import * as Icons from "lucide-react"`) pulls the entire icon library into the bundle and defeats tree-shaking.',
+        },
+      ],
+    },
+  },
+  {
+    files: ["graphql/**/*.{ts,tsx}", "services/**/*.{ts,tsx}"],
+    rules: {
+      "no-console": ["error", { allow: ["warn", "error"] }],
     },
   },
   {
@@ -47,5 +83,17 @@ export default tseslint.config(
       "react-refresh/only-export-components": "off",
     },
   },
+  {
+    files: [
+      "scripts/**/*.{ts,js,mjs,cjs}",
+      "**/*.test.{ts,tsx}",
+      "**/*.cy.{ts,tsx}",
+      "cypress/**/*.{ts,tsx}",
+    ],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
   eslintPluginPrettier,
+  storybook.configs["flat/recommended"],
 );

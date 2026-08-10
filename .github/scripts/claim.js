@@ -18,6 +18,7 @@ import {
 } from "./metadata.js";
 import { canAutoClaimIssue, canUnclaim, resolveActorRole } from "./permissions.js";
 import { isCommand, isIgnoredBotUser, normalizeCommentBody } from "./utils.js";
+import { isNaturalLanguageClaim } from "./regex.js";
 
 export async function processClaim({ github, context, core }) {
   if (!isExpectedRepository(context)) return;
@@ -26,7 +27,8 @@ export async function processClaim({ github, context, core }) {
 
   const comment = context.payload.comment;
   const actor = comment?.user?.login;
-  if (!isCommand(comment?.body, COMMANDS.claim)) return;
+  const body = comment?.body;
+  if (!isCommand(body, COMMANDS.claim) && !isNaturalLanguageClaim(body)) return;
   if (isIgnoredBotUser(comment?.user)) return;
 
   const issueNumber = context.payload.issue.number;

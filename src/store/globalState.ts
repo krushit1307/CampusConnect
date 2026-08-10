@@ -1,40 +1,54 @@
-import { createSignal, createReactiveObject } from "../lib/signals";
+// ─── Re-export signals and slice helpers ─────────────────────────────
+export type { UserProfile } from "./createAuthSlice";
+export { userSignal, setUserSignal, resetAuthSlice } from "./createAuthSlice";
+export {
+  themeSignal,
+  setThemeSignal,
+  activeTabSignal,
+  setActiveTabSignal,
+  resetUISlice,
+} from "./createUISlice";
+export {
+  notificationsCountSignal,
+  setNotificationsCountSignal,
+  unreadMessagesCountSignal,
+  setUnreadMessagesCountSignal,
+  resetCacheSlice,
+} from "./createCacheSlice";
 
-export interface UserProfile {
-  id: string;
-  name: string;
-  email: string;
-  avatarUrl?: string;
-  role?: string;
-}
+// ─── Internal imports ─────────────────────────────────────────────────
+import { createReactiveObject } from "../lib/signals";
+import type { UserProfile } from "./createAuthSlice";
+import { createAuthSlice, type AuthSlice } from "./createAuthSlice";
+import { createUISlice, type UISlice } from "./createUISlice";
+import { createCacheSlice, type CacheSlice } from "./createCacheSlice";
 
+export type Store = AuthSlice & UISlice & CacheSlice;
+
+// ─── Types ────────────────────────────────────────────────────────────
 export interface GlobalState {
   user: UserProfile | null;
-  theme: "light" | "dark" | "system";
+  theme: "light" | "dark" | "system" | "high-contrast";
   notificationsCount: number;
   unreadMessagesCount: number;
   activeTab: string;
   isSidebarOpen: boolean;
 }
 
-const getInitialStoredTheme = (): "light" | "dark" | "system" => {
-  if (typeof window !== "undefined") {
+const getInitialStoredTheme = (): "light" | "dark" | "system" | "high-contrast" => {
+  if (typeof window !== "undefined" && typeof window.localStorage?.getItem === "function") {
     const stored = window.localStorage.getItem("campusconnect-theme");
-    if (stored === "light" || stored === "dark" || stored === "system") {
+    if (
+      stored === "light" ||
+      stored === "dark" ||
+      stored === "system" ||
+      stored === "high-contrast"
+    ) {
       return stored;
     }
   }
   return "light";
 };
-
-// Fine-grained signal declarations for global state variables
-export const [userSignal, setUserSignal] = createSignal<UserProfile | null>(null);
-export const [themeSignal, setThemeSignal] = createSignal<"light" | "dark" | "system">(
-  getInitialStoredTheme(),
-);
-export const [notificationsCountSignal, setNotificationsCountSignal] = createSignal<number>(0);
-export const [unreadMessagesCountSignal, setUnreadMessagesCountSignal] = createSignal<number>(0);
-export const [activeTabSignal, setActiveTabSignal] = createSignal<string>("overview");
 
 // Proxy-backed global state object for direct property dependency tracking
 export const globalState = createReactiveObject<GlobalState>({
@@ -46,57 +60,59 @@ export const globalState = createReactiveObject<GlobalState>({
   isSidebarOpen: true,
 });
 
-/**
- * Updates the current authenticated user in global state signals and store.
- */
+// ─── Bounded store (slices pattern) ──────────────────────────────────
+function createStore(): Store {
+  let state: Store = {} as Store;
+
+  const set = (partial: Partial<Store> | ((prev: Store) => Partial<Store>)): void => {
+    const patch = typeof partial === "function" ? partial(state) : partial;
+    state = { ...state, ...patch };
+    Object.assign(globalState, patch);
+  };
+
+  const authSlice = createAuthSlice(set as Parameters<typeof createAuthSlice>[0]);
+  const uiSlice = createUISlice(set as Parameters<typeof createUISlice>[0]);
+  const cacheSlice = createCacheSlice(set as Parameters<typeof createCacheSlice>[0]);
+
+  state = { ...authSlice, ...uiSlice, ...cacheSlice };
+  state.theme = getInitialStoredTheme();
+
+  return state;
+}
+
+export const store = createStore();
+
+// ─── Public action API ────────────────────────────────────────────────
 export function setUser(user: UserProfile | null): void {
-  setUserSignal(user);
-  globalState.user = user;
+  store.setUser(user);
 }
 
 /**
  * Updates the current theme in global state signals and store.
  */
-export function setTheme(theme: "light" | "dark" | "system"): void {
-  setThemeSignal(theme);
+export function setTheme(theme: "light" | "dark" | "system" | "high-contrast"): void {
+  store.setTheme(theme);
   globalState.theme = theme;
   if (typeof window !== "undefined") {
     window.localStorage.setItem("campusconnect-theme", theme);
   }
 }
 
-/**
- * Updates the notifications count in global state signals and store.
- */
 export function setNotificationsCount(count: number): void {
-  setNotificationsCountSignal(count);
-  globalState.notificationsCount = count;
+  store.setNotificationsCount(count);
 }
 
-/**
- * Updates the unread messages count in global state signals and store.
- */
 export function setUnreadMessagesCount(count: number): void {
-  setUnreadMessagesCountSignal(count);
-  globalState.unreadMessagesCount = count;
+  store.setUnreadMessagesCount(count);
 }
 
-/**
- * Updates the active tab in global state signals and store.
- */
 export function setActiveTab(tab: string): void {
-  setActiveTabSignal(tab);
-  globalState.activeTab = tab;
+  store.setActiveTab(tab);
 }
 
-/**
- * Resets the entire global state to default initial values.
- */
 export function resetGlobalState(): void {
-  setUser(null);
-  setTheme("light");
-  setNotificationsCount(0);
-  setUnreadMessagesCount(0);
-  setActiveTab("overview");
+  store.resetAuthSlice();
+  store.resetUISlice();
+  store.resetCacheSlice();
   globalState.isSidebarOpen = true;
 }
