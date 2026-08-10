@@ -1,5 +1,5 @@
 import { diffWordsWithSpace } from "diff";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 interface DiffViewerProps {
   oldText: string;
