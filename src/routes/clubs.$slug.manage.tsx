@@ -8,6 +8,7 @@ import { User } from "@supabase/supabase-js";
 import { Settings, Users, Calendar, ShieldCheck, XCircle, CheckCircle } from "lucide-react";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
+import DiffViewer from "@/components/Editor/DiffViewer";
 
 // ⚠️ Adjust if your Supabase Storage bucket for club banners has a different name
 const BUCKET_NAME = "club-banners";
@@ -19,7 +20,15 @@ export default function ClubManageRoute() {
   const navigate = useNavigate();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<"settings" | "members" | "events">("settings");
+  const [activeTab, setActiveTab] = useState<"settings" | "members" | "events" | "constitution">(
+    "settings",
+  );
+
+  // Mock constitution versions for demo
+  const oldConstitution =
+    "# Club Bylaws\n\n1. Be respectful to everyone.\n2. Meetings are on Tuesdays.";
+  const newConstitution =
+    "# Club Bylaws\n\n1. Be respectful to all members.\n2. Meetings are on Wednesdays at 5 PM.\n3. Have fun!";
 
   // Form State
   const [name, setName] = useState("");
@@ -308,6 +317,16 @@ export default function ClubManageRoute() {
               >
                 <Calendar size={18} /> Events
               </button>
+              <button
+                onClick={() => setActiveTab("constitution")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "constitution"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <Settings size={18} /> Constitution
+              </button>
             </nav>
           </aside>
 
@@ -593,6 +612,18 @@ export default function ClubManageRoute() {
                     )
                   )}
                 </div>
+              </div>
+            )}
+
+            {activeTab === "constitution" && (
+              <div className="neu-border bg-white p-6 space-y-6">
+                <h2 className="font-display text-2xl font-bold border-b-2 border-black pb-2">
+                  Review Constitution Updates
+                </h2>
+                <p className="font-mono text-sm text-gray-600 mb-4">
+                  Visual diff of proposed changes to the club bylaws:
+                </p>
+                <DiffViewer oldText={oldConstitution} newText={newConstitution} />
               </div>
             )}
           </main>
