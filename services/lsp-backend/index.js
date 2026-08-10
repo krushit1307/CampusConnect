@@ -5,24 +5,31 @@ const port = process.env.PORT || 3003;
 const wss = new WebSocketServer({ port });
 console.log(`[LSP Proxy] WebSocket Server listening on port ${port}`);
 
-wss.on("connection", (ws) => {
-  console.log("[LSP Proxy] Client connected. Spawning pyright-langserver...");
+// Shared LSP Process State
+let sharedProcess = null;
+let serverCapabilities = null;
+const clients = new Map();
+let clientIdCounter = 1;
 
-  // Spawn pyright language server in stdio mode
-  const child = spawn("pyright-langserver", ["--stdio"]);
+function frameLspMessage(payloadObj) {
+  const payloadStr = JSON.stringify(payloadObj);
+  return `Content-Length: ${Buffer.byteLength(payloadStr, "utf-8")}\r\n\r\n${payloadStr}`;
+}
+
+function spawnSharedProcess() {
+  console.log("[LSP Proxy] Spawning shared pyright-langserver process...");
+  sharedProcess = spawn("pyright-langserver", ["--stdio"]);
 
   let buffer = Buffer.alloc(0);
 
-  child.stdout.on("data", (chunk) => {
+  sharedProcess.stdout.on("data", (chunk) => {
     buffer = Buffer.concat([buffer, chunk]);
 
     while (true) {
       const bufferStr = buffer.toString("utf-8");
-
-      // Extract the content length from the LSP header
       const contentLengthMatch = bufferStr.match(/^Content-Length: (\d+)\r\n/i);
+
       if (!contentLengthMatch) {
-        // Clear buffer if it doesn't align with LSP protocol
         if (
           bufferStr.length > 0 &&
           !bufferStr.startsWith("Content-Length:") &&
@@ -34,68 +41,159 @@ wss.on("connection", (ws) => {
         break;
       }
 
-      // Check if we reached the double CRLF indicating end of headers
       const headerEndIndex = bufferStr.indexOf("\r\n\r\n");
       if (headerEndIndex === -1) {
         break;
       }
 
       const contentLength = parseInt(contentLengthMatch[1], 10);
-      const headerLength = headerEndIndex + 4; // Includes \r\n\r\n
+      const headerLength = headerEndIndex + 4;
 
       if (buffer.length < headerLength + contentLength) {
-        break; // Wait for the rest of the message content
+        break;
       }
 
-      // Extract raw message payload
       const contentBuf = buffer.slice(headerLength, headerLength + contentLength);
       buffer = buffer.slice(headerLength + contentLength);
 
       try {
-        const payload = contentBuf.toString("utf-8");
-        if (ws.readyState === ws.OPEN) {
-          ws.send(payload);
-        }
+        const payloadStr = contentBuf.toString("utf-8");
+        const message = JSON.parse(payloadStr);
+
+        handleServerMessage(message, payloadStr);
       } catch (err) {
-        console.error("[LSP Proxy] Error converting content buffer to string:", err);
+        console.error("[LSP Proxy] Error parsing server message:", err);
       }
     }
   });
 
-  child.stderr.on("data", (data) => {
+  sharedProcess.stderr.on("data", (data) => {
     console.warn("[LSP Server Stderr]:", data.toString("utf-8"));
   });
 
-  child.on("close", (code) => {
-    console.log(`[LSP Proxy] Pyright child process exited with code ${code}`);
-    if (ws.readyState === ws.OPEN) {
-      ws.close();
+  sharedProcess.on("close", (code) => {
+    console.log(`[LSP Proxy] Shared process exited with code ${code}`);
+    sharedProcess = null;
+    serverCapabilities = null;
+    // Close all clients
+    for (const ws of clients.values()) {
+      if (ws.readyState === ws.OPEN) ws.close();
     }
+    clients.clear();
   });
+}
 
-  ws.on("message", (message) => {
+function handleServerMessage(message, originalPayloadStr) {
+  // If it's a response to a request
+  if (message.id !== undefined && typeof message.id === "string" && message.id.includes(":")) {
+    const colonIdx = message.id.indexOf(":");
+    const clientIdStr = message.id.substring(0, colonIdx);
+    const originalId = message.id.substring(colonIdx + 1);
+
+    // Parse originalId back to number if it was one
+    message.id = isNaN(Number(originalId)) ? originalId : Number(originalId);
+
+    // If this was the first initialize response, cache the capabilities
+    if (message.result && message.result.capabilities && !serverCapabilities) {
+      console.log("[LSP Proxy] Cached server capabilities.");
+      serverCapabilities = message.result.capabilities;
+    }
+
+    const clientId = parseInt(clientIdStr, 10);
+    const ws = clients.get(clientId);
+    if (ws && ws.readyState === ws.OPEN) {
+      ws.send(JSON.stringify(message));
+    }
+  } else {
+    // It's a notification from the server (e.g., diagnostics) or unmapped request
+    // Broadcast to all clients. Clients will ignore URIs they don't care about.
+    const payloadStr = JSON.stringify(message);
+    for (const ws of clients.values()) {
+      if (ws.readyState === ws.OPEN) {
+        ws.send(payloadStr);
+      }
+    }
+  }
+}
+
+wss.on("connection", (ws) => {
+  const clientId = clientIdCounter++;
+  clients.set(clientId, ws);
+  console.log(`[LSP Proxy] Client ${clientId} connected. Total clients: ${clients.size}`);
+
+  if (!sharedProcess) {
+    spawnSharedProcess();
+  }
+
+  ws.on("message", (data) => {
     try {
-      // Parse message payload to verify JSON and frame it with LSP headers
-      const payloadStr = message.toString("utf-8");
-      JSON.parse(payloadStr); // Verification check
+      const message = JSON.parse(data.toString("utf-8"));
 
-      const framed = `Content-Length: ${Buffer.byteLength(payloadStr, "utf-8")}\r\n\r\n${payloadStr}`;
+      if (message.method === "initialize") {
+        if (serverCapabilities) {
+          // Already initialized, synthesize response
+          console.log(`[LSP Proxy] Synthesizing initialize response for client ${clientId}`);
+          const syntheticResponse = {
+            jsonrpc: "2.0",
+            id: message.id,
+            result: {
+              capabilities: serverCapabilities,
+              serverInfo: { name: "pyright-multiplexed" },
+            },
+          };
+          ws.send(JSON.stringify(syntheticResponse));
 
-      if (child.stdin.writable) {
-        child.stdin.write(framed);
+          // Dynamically add workspace folder if provided
+          if (
+            message.params &&
+            message.params.workspaceFolders &&
+            message.params.workspaceFolders.length > 0
+          ) {
+            const addWorkspaceNotification = {
+              jsonrpc: "2.0",
+              method: "workspace/didChangeWorkspaceFolders",
+              params: {
+                event: {
+                  added: message.params.workspaceFolders,
+                  removed: [],
+                },
+              },
+            };
+            if (sharedProcess && sharedProcess.stdin.writable) {
+              sharedProcess.stdin.write(frameLspMessage(addWorkspaceNotification));
+            }
+          }
+          return;
+        }
+      }
+
+      // Rewrite request IDs to route them back correctly
+      if (message.id !== undefined) {
+        message.id = `${clientId}:${message.id}`;
+      }
+
+      if (sharedProcess && sharedProcess.stdin.writable) {
+        sharedProcess.stdin.write(frameLspMessage(message));
       }
     } catch (err) {
-      console.error("[LSP Proxy] Invalid JSON payload from client:", err);
+      console.error(`[LSP Proxy] Client ${clientId} sent invalid JSON:`, err);
     }
   });
 
   ws.on("close", () => {
-    console.log("[LSP Proxy] Client disconnected. Killing Pyright process...");
-    child.kill();
+    console.log(`[LSP Proxy] Client ${clientId} disconnected.`);
+    clients.delete(clientId);
+
+    // Optional: if no clients left, we could kill the shared process to save resources
+    if (clients.size === 0 && sharedProcess) {
+      console.log("[LSP Proxy] No clients connected. Shutting down shared process...");
+      sharedProcess.kill();
+      sharedProcess = null;
+      serverCapabilities = null;
+    }
   });
 
   ws.on("error", (err) => {
-    console.error("[LSP Proxy] Client WebSocket error:", err);
-    child.kill();
+    console.error(`[LSP Proxy] Client ${clientId} error:`, err);
   });
 });

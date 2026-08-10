@@ -7,8 +7,8 @@ interface PullToRefreshProps {
   children: React.ReactNode;
 }
 
-const ACTIVATION_THRESHOLD = 80;
-const MAX_PULL_DISTANCE = 140;
+const ACTIVATION_THRESHOLD = 100;
+const MAX_PULL_DISTANCE = 160;
 const PULL_RESISTANCE = 0.4;
 
 export function PullToRefresh({ onRefresh, isRefreshing, children }: PullToRefreshProps) {
@@ -97,9 +97,17 @@ export function PullToRefresh({ onRefresh, isRefreshing, children }: PullToRefre
 
       const currentPull = pullDistanceRef.current;
       if (currentPull >= ACTIVATION_THRESHOLD && !isRefreshingRef.current) {
-        const result = onRefreshRef.current();
-        if (result instanceof Promise) {
-          result.catch((err) => console.error("Error during pull-to-refresh:", err));
+        try {
+          const result = onRefreshRef.current();
+          if (result instanceof Promise) {
+            result.catch((err) => {
+              console.error("Error during pull-to-refresh:", err);
+              updatePullDistance(0);
+            });
+          }
+        } catch (err) {
+          console.error("Error during pull-to-refresh:", err);
+          updatePullDistance(0);
         }
       } else {
         updatePullDistance(0);
@@ -143,7 +151,7 @@ export function PullToRefresh({ onRefresh, isRefreshing, children }: PullToRefre
         style={{
           top: 0,
           height: `${currentHeight}px`,
-          transition: isDragging ? "none" : "height 0.3s cubic-bezier(0.25, 1, 0.5, 1)",
+          transition: isDragging ? "none" : "transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)",
         }}
       >
         <div className="flex h-14 items-center gap-2">

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" stroke="currentColor">
+  <circle cx="30" cy="25" r="8"/>
+  <path d="M20 38h20a2 2 0 012 2v12a2 2 0 01-2 2H20a2 2 0 01-2-2V40a2 2 0 012-2z"/>
+  <circle cx="70" cy="25" r="8"/>
+  <path d="M60 38h20a2 2 0 012 2v12a2 2 0 01-2 2H60a2 2 0 01-2-2V40a2 2 0 012-2z"/>
+  <circle cx="50" cy="60" r="8"/>
+  <path d="M40 73h20a2 2 0 012 2v8a2 2 0 01-2 2H40a2 2 0 01-2-2v-8a2 2 0 012-2z"/>
+</svg>

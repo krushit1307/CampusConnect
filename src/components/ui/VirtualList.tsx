@@ -1,6 +1,6 @@
 import React, { useState, useRef, UIEvent } from "react";
 
-interface VirtualListProps<T> {
+export interface VirtualListProps<T> {
   items: T[];
   height: number; // Viewport height in px
   itemHeight: number | ((index: number) => number); // Fixed or dynamic height handler

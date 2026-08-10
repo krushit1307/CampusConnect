@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { useInView } from "react-intersection-observer";
 import { supabase } from "@/lib/supabase/client";
 import { Flag } from "lucide-react";
 import { ReportDialog } from "@/components/ReportDialog";
+import { RelayConnection, encodeRelayCursor, decodeRelayCursor } from "@/lib/relayPagination";
+import { useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 
 const PAGE_SIZE = 10;
 
@@ -16,10 +18,6 @@ interface Post {
 }
 
 export const PostList = () => {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
   const [reportPostId, setReportPostId] = useState<string | null>(null);
 
   // IntersectionObserver hook setup
@@ -27,59 +25,72 @@ export const PostList = () => {
     threshold: 0.5,
   });
 
-  const fetchPosts = useCallback(
-    async (pageNumber: number) => {
-      if (isLoading) return;
-      setIsLoading(true);
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useInfiniteQuery<
+    RelayConnection<Post>,
+    Error,
+    string | undefined
+  >({
+    queryKey: ["postList"],
+    queryFn: async ({ pageParam }) => {
+      const afterCursor = pageParam;
+      // Try get_posts_relay RPC first
+      const { data: relayData, error: relayError } = await supabase.rpc("get_posts_relay", {
+        p_after: afterCursor ?? null,
+        p_first: PAGE_SIZE,
+      });
 
-      const start = pageNumber * PAGE_SIZE;
-      const end = start + PAGE_SIZE - 1;
-
-      // Fetch range of posts using Supabase pagination
-      const { data, error } = await supabase
-        .from("posts")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .range(start, end);
-
-      if (error) {
-        console.error("Error fetching posts:", error);
-      } else if (data) {
-        setPosts((prevPosts) => (pageNumber === 0 ? data : [...prevPosts, ...data]));
-
-        // If less than PAGE_SIZE returned, we reached the end of the feed
-        if (data.length < PAGE_SIZE) {
-          setHasMore(false);
-        }
+      if (!relayError && relayData && typeof relayData === "object" && "edges" in relayData) {
+        return relayData as unknown as RelayConnection<Post>;
       }
 
-      setIsLoading(false);
-    },
-    [isLoading],
-  );
+      // Fallback using get_posts_cursor
+      const decoded = afterCursor ? decodeRelayCursor(afterCursor) : null;
+      const { data: cursorData, error: cursorError } = await supabase.rpc("get_posts_cursor", {
+        last_created_at: decoded?.createdAt || null,
+        last_id: decoded?.id || null,
+        fetch_limit: PAGE_SIZE,
+      });
 
-  // Initial load on component mount
-  useEffect(() => {
-    fetchPosts(0);
-  }, []);
+      if (cursorError) {
+        throw cursorError;
+      }
+
+      const fetchedPosts = (cursorData ?? []) as unknown as Post[];
+      const edges = fetchedPosts.map((post) => ({
+        cursor: encodeRelayCursor(String(post.created_at || ""), String(post.id)),
+        node: post,
+      }));
+
+      const hasNext = fetchedPosts.length === PAGE_SIZE;
+      const startCursor = edges.length > 0 ? edges[0].cursor : null;
+      const endCursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
+
+      return {
+        edges,
+        pageInfo: {
+          hasNextPage: hasNext,
+          hasPreviousPage: !!afterCursor,
+          startCursor,
+          endCursor,
+        },
+      } as RelayConnection<Post>;
+    },
+    getNextPageParam: (lastPage: RelayConnection<Post>) =>
+      lastPage.pageInfo.hasNextPage ? (lastPage.pageInfo.endCursor ?? undefined) : undefined,
+  });
 
   // Trigger fetch when scrolling down to the sentinel
   useEffect(() => {
-    if (inView && hasMore && !isLoading && page > 0) {
-      fetchPosts(page);
+    if (inView && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
     }
-  }, [inView, hasMore, isLoading, page, fetchPosts]);
+  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  // Advance page counter when sentinel comes into view
-  useEffect(() => {
-    if (inView && hasMore && !isLoading) {
-      setPage((prevPage) => prevPage + 1);
-    }
-  }, [inView, hasMore, isLoading]);
+  const posts = data?.pages.flatMap((page: RelayConnection<Post>) => page.edges.map((edge) => edge.node)) ?? [];
 
   return (
     <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full p-4">
-      {posts.map((post) => (
+      {posts.map((post: Post) => (
         <div
           key={post.id}
           className="p-4 border rounded-lg shadow-sm bg-card text-card-foreground flex flex-col justify-between"
@@ -103,10 +114,11 @@ export const PostList = () => {
 
       {/* Sentinel element observed by IntersectionObserver */}
       <div ref={sentinelRef} className="h-12 flex items-center justify-center p-4">
-        {isLoading && <p className="text-sm text-muted-foreground">Loading more posts...</p>}
-        {!hasMore && posts.length > 0 && (
+        {isLoading || isFetchingNextPage ? (
+          <p className="text-sm text-muted-foreground">Loading more posts...</p>
+        ) : !hasNextPage && posts.length > 0 ? (
           <p className="text-sm text-muted-foreground">You've reached the end of the feed!</p>
-        )}
+        ) : null}
       </div>
 
       <ReportDialog

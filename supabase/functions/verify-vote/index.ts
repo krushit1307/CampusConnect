@@ -5,9 +5,21 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
 // @ts-ignore
 import * as snarkjs from "https://esm.sh/snarkjs@0.7.6";
 // @ts-ignore
+import { z } from "https://esm.sh/zod@3.24.2";
+// @ts-ignore
 import vKey from "./verification_key.json" with { type: "json" };
+import { parseJsonBody } from "../_shared/validation.ts";
 
 declare const Deno: any;
+
+const verifyVoteSchema = z
+  .object({
+    proof: z.unknown(),
+    publicSignals: z.array(z.unknown()).min(1, "publicSignals must be a non-empty array"),
+    electionId: z.string().min(1, "electionId is required"),
+    voteChoice: z.string().min(1, "voteChoice is required"),
+  })
+  .strict();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,20 +39,22 @@ export const handler = async (req: Request) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { proof, publicSignals, electionId, voteChoice } = await req.json();
-
-    if (!proof || !publicSignals || !electionId || !voteChoice) {
-      return new Response(JSON.stringify({ error: "Missing required parameters" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const parsed = await parseJsonBody(verifyVoteSchema, req);
+    if (!parsed.ok) return parsed.response;
+    const { proof, publicSignals, electionId, voteChoice } = parsed.data;
 
     // 1. Verify the ZKP
     // The public signals typically contain:
     // [0]: nullifier hash (to prevent double voting)
     // [1]: election ID (to ensure proof is for this election)
-    const isValid = await snarkjs.groth16.verify(vKey, publicSignals, proof);
+    type SnarkJSGroth16 = {
+      groth16: {
+        verify: (vKey: unknown, publicSignals: unknown, proof: unknown) => Promise<boolean>;
+      };
+    };
+
+    const snark = snarkjs as unknown as SnarkJSGroth16;
+    const isValid = await snark.groth16.verify(vKey, publicSignals, proof);
     if (!isValid) {
       return new Response(JSON.stringify({ error: "Invalid ZKP proof" }), {
         status: 401,
