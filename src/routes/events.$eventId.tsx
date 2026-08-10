@@ -35,6 +35,7 @@ import {
   Star,
   HelpCircle,
   Flag,
+  ShieldAlert,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -234,11 +235,47 @@ export default function EventDetailsPage() {
   const [copied, setCopied] = useState(false);
   const [idCopied, setIdCopied] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [rsvpDialogOpen, setRsvpDialogOpen] = useState(false);
+  const [needAccommodations, setNeedAccommodations] = useState(false);
+  const [accommodationsText, setAccommodationsText] = useState("");
+  const [validationError, setValidationError] = useState("");
   const [captchaToken, setCaptchaToken] = useState<string | undefined>(undefined);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [decryptedText, setDecryptedText] = useState<string | null>(null);
+  const [isDecrypting, setIsDecrypting] = useState(false);
+  const [decryptError, setDecryptError] = useState<string | null>(null);
+  const [isDecryptedModalOpen, setIsDecryptedModalOpen] = useState(false);
+
+  const handleViewAccommodation = async (rsvpId: string) => {
+    setIsDecrypting(true);
+    setDecryptError(null);
+    setDecryptedText(null);
+    setIsDecryptedModalOpen(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("decrypt-accommodation", {
+        body: { rsvpId },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Failed to decrypt accommodation request.");
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      setDecryptedText(data?.decrypted || "No accommodations requested or empty.");
+    } catch (err: any) {
+      console.error("Failed to decrypt accommodation:", err);
+      setDecryptError(err.message || "An unexpected error occurred during decryption.");
+    } finally {
+      setIsDecrypting(false);
+    }
+  };
 
   // Safe window URL handling for SSR / hydration safety
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
@@ -385,10 +422,10 @@ export default function EventDetailsPage() {
         .from("events")
         .select(
           `
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, accommodation_deadline,
           profiles (full_name, email),
           clubs (name, slug),
-          event_rsvps (id, user_id, status, checked_in, rsvp_at, profiles (first_name, last_name, avatar_url)),
+          event_rsvps (id, user_id, status, checked_in, rsvp_at, accommodations_requested, profiles (first_name, last_name, avatar_url)),
           event_waitlist (id, user_id, created_at, profiles (first_name, last_name, avatar_url))
         `,
         )
@@ -488,6 +525,7 @@ export default function EventDetailsPage() {
                 : [],
             attendee_count: eventId === "mock-1" ? 1 : 0,
             profiles: { full_name: "Mock Organizer", email: "mock@example.com" },
+            accommodation_deadline: null,
           };
         }
         throw error;
@@ -565,10 +603,12 @@ export default function EventDetailsPage() {
       eventId,
       hasRsvpd,
       captchaToken,
+      accommodationsRequested,
     }: {
       eventId: string;
       hasRsvpd: boolean;
       captchaToken?: string;
+      accommodationsRequested?: string | null;
     }) => {
       if (!user) throw new Error("Please log in to RSVP");
       if (eventId.startsWith("mock-")) {
@@ -580,7 +620,7 @@ export default function EventDetailsPage() {
       } = await supabase.auth.getSession();
 
       const { error } = await supabase.functions.invoke("toggle-rsvp", {
-        body: { eventId, hasRsvpd, captchaToken },
+        body: { eventId, hasRsvpd, captchaToken, accommodationsRequested },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
         },
@@ -642,6 +682,10 @@ export default function EventDetailsPage() {
     onSuccess: () => {
       // Refetch to ensure server state matches
       refetch();
+      setRsvpDialogOpen(false);
+      setNeedAccommodations(false);
+      setAccommodationsText("");
+      setValidationError("");
     },
   });
 
@@ -977,6 +1021,11 @@ export default function EventDetailsPage() {
   const captchaEnabled = isCaptchaConfigured(captchaSiteKey, captchaSecretKey);
   const captchaProvider = import.meta.env.VITE_TURNSTILE_SITE_KEY ? "turnstile" : "hcaptcha";
 
+  const isAfterDeadline = useMemo(() => {
+    if (!event?.accommodation_deadline) return false;
+    return new Date().getTime() > new Date(event.accommodation_deadline).getTime();
+  }, [event?.accommodation_deadline]);
+
   const handleRsvpClick = () => {
     if (!user) {
       toast.error("Please log in to RSVP");
@@ -996,7 +1045,11 @@ export default function EventDetailsPage() {
       return;
     }
 
-    toggleRsvp.mutate({ eventId: event.id, hasRsvpd: false, captchaToken });
+    // Open accommodations dialog instead of immediate submit
+    setNeedAccommodations(false);
+    setAccommodationsText("");
+    setValidationError("");
+    setRsvpDialogOpen(true);
   };
 
   const handleCopyLink = async () => {
@@ -1796,6 +1849,20 @@ export default function EventDetailsPage() {
                                       <p className="font-mono text-[9px] text-black/60 uppercase">
                                         {card.rsvpId ? "Requested" : "Waitlist"}
                                       </p>
+                                      {card.hasAccommodation && card.rsvpId && (
+                                        <div className="mt-1 flex flex-col gap-0.5">
+                                          <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
+                                            🔴 Accessibility accommodation requested
+                                          </span>
+                                          <button
+                                            type="button"
+                                            className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
+                                            onClick={() => handleViewAccommodation(card.rsvpId!)}
+                                          >
+                                            [Decrypt / View]
+                                          </button>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                   <div className="flex gap-1 ml-2">
@@ -1908,6 +1975,20 @@ export default function EventDetailsPage() {
                                       <p className="font-mono text-[9px] text-black/60 uppercase">
                                         Approved
                                       </p>
+                                      {card.hasAccommodation && card.rsvpId && (
+                                        <div className="mt-1 flex flex-col gap-0.5">
+                                          <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
+                                            🔴 Accessibility accommodation requested
+                                          </span>
+                                          <button
+                                            type="button"
+                                            className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
+                                            onClick={() => handleViewAccommodation(card.rsvpId!)}
+                                          >
+                                            [Decrypt / View]
+                                          </button>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                   <div className="flex gap-1 ml-2">
@@ -2020,6 +2101,20 @@ export default function EventDetailsPage() {
                                       <p className="font-mono text-[9px] text-black/60 uppercase">
                                         Rejected
                                       </p>
+                                      {card.hasAccommodation && card.rsvpId && (
+                                        <div className="mt-1 flex flex-col gap-0.5">
+                                          <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
+                                            🔴 Accessibility accommodation requested
+                                          </span>
+                                          <button
+                                            type="button"
+                                            className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
+                                            onClick={() => handleViewAccommodation(card.rsvpId!)}
+                                          >
+                                            [Decrypt / View]
+                                          </button>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                   <div className="flex gap-1 ml-2">
@@ -2136,12 +2231,204 @@ export default function EventDetailsPage() {
         onConfirm={handleConfirmCancel}
         onCancel={() => setConfirmOpen(false)}
       />
+
+      {/* RSVP Accessibility Accommodations Modal */}
+      <Dialog
+        open={rsvpDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            // Reset states when closed
+            setNeedAccommodations(false);
+            setAccommodationsText("");
+            setValidationError("");
+          }
+          setRsvpDialogOpen(open);
+        }}
+      >
+        <DialogContent variant="brutalist" className="max-w-md font-mono">
+          <DialogHeader className="border-b-2 border-black pb-4">
+            <DialogTitle className="text-xl font-bold uppercase tracking-tight">
+              RSVP Options
+            </DialogTitle>
+            <DialogDescription className="text-xs text-black/60 font-mono">
+              Configure your attendance preferences for {event.title}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="flex items-center gap-3">
+              <input
+                id="req-accommodations-checkbox"
+                type="checkbox"
+                checked={needAccommodations}
+                disabled={toggleRsvp.isPending}
+                onChange={(e) => {
+                  setNeedAccommodations(e.target.checked);
+                  if (!e.target.checked) {
+                    setAccommodationsText("");
+                    setValidationError("");
+                  }
+                }}
+                className="h-4 w-4 rounded-none border-2 border-black accent-black cursor-pointer"
+              />
+              <Label
+                htmlFor="req-accommodations-checkbox"
+                className="font-mono text-sm font-bold uppercase tracking-wide cursor-pointer select-none"
+              >
+                I require accessibility accommodations
+              </Label>
+            </div>
+
+            {needAccommodations && (
+              <div className="space-y-2 animate-in fade-in duration-200">
+                <Label
+                  htmlFor="accommodations-text"
+                  className="font-mono text-xs font-black uppercase text-black/60"
+                >
+                  Describe requested accommodations <span className="text-red-700">*</span>
+                </Label>
+                <Textarea
+                  id="accommodations-text"
+                  placeholder="Please describe the accommodation(s) you need to participate in this event (e.g., sign language interpretation, wheelchair access, closed captioning, etc.)."
+                  value={accommodationsText}
+                  disabled={toggleRsvp.isPending}
+                  onChange={(e) => {
+                    setAccommodationsText(e.target.value);
+                    if (validationError) setValidationError("");
+                  }}
+                  className="neu-border min-h-[100px] border-2 border-black bg-white p-3 font-mono text-xs focus:ring-lime placeholder:text-neutral-500"
+                  maxLength={1000}
+                />
+                <div className="flex items-center justify-between text-[10px] font-bold text-black/50">
+                  <span className={validationError ? "text-red-600 animate-pulse" : ""}>
+                    {validationError || "Description is required"}
+                  </span>
+                  <span>{accommodationsText.length} / 1000 characters</span>
+                </div>
+
+                <div className="bg-blue-50 border-2 border-blue-900 p-3 text-left">
+                  <p className="font-mono text-[11px] leading-relaxed text-blue-900">
+                    🔒 <span className="font-bold">Privacy Notice:</span> This information is kept
+                    private and will only be decrypted for authorized reviewers (the Club President
+                    and event organizers) for event planning. It will not be exposed to the public.
+                  </p>
+                </div>
+
+                {isAfterDeadline && (
+                  <div className="bg-amber-50 border-2 border-amber-600 p-3 text-left flex items-start gap-2">
+                    <span className="text-lg">⚠️</span>
+                    <p className="font-mono text-[11px] leading-relaxed text-amber-955">
+                      This accommodation request is being submitted after the accommodation
+                      deadline. The university may not be able to guarantee that the requested
+                      accommodation can be arranged.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="border-t-2 border-black pt-4 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setNeedAccommodations(false);
+                setAccommodationsText("");
+                setValidationError("");
+                setRsvpDialogOpen(false);
+              }}
+              disabled={toggleRsvp.isPending}
+              className="neu-border font-mono text-xs font-bold uppercase"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                if (needAccommodations) {
+                  if (!accommodationsText.trim()) {
+                    setValidationError("Accommodation description is required when requested.");
+                    return;
+                  }
+                  if (accommodationsText.length > 1000) {
+                    setValidationError("Limit exceeded. Maximum 1000 characters.");
+                    return;
+                  }
+                }
+
+                toggleRsvp.mutate({
+                  eventId: event.id,
+                  hasRsvpd: false,
+                  captchaToken,
+                  accommodationsRequested: needAccommodations ? accommodationsText : null,
+                });
+              }}
+              disabled={toggleRsvp.isPending}
+              className="neu-border font-mono text-xs font-bold uppercase"
+            >
+              {toggleRsvp.isPending ? "Submitting..." : "Confirm RSVP"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <ReportDialog
         isOpen={isReportDialogOpen}
         onClose={() => setIsReportDialogOpen(false)}
         targetType="event"
         targetId={event.id}
       />
+
+      {/* Decrypted Accommodations Dialog */}
+      <Dialog open={isDecryptedModalOpen} onOpenChange={setIsDecryptedModalOpen}>
+        <DialogContent className="max-w-md border-4 border-black bg-white p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none">
+          <DialogHeader>
+            <DialogTitle className="font-mono text-xl font-black uppercase text-black">
+              Decrypted Accommodation Request
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-4 font-mono text-sm leading-6">
+            {isDecrypting ? (
+              <div className="flex flex-col items-center justify-center py-6 gap-3">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-lime border-t-black" />
+                <p className="text-xs font-bold uppercase text-black/60">
+                  Decrypting request securely...
+                </p>
+              </div>
+            ) : decryptError ? (
+              <div className="border-2 border-red-650 bg-red-50 p-4 text-red-700">
+                <p className="font-bold uppercase text-xs">Access Denied / Error</p>
+                <p className="mt-1 text-xs">{decryptError}</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="border-2 border-black bg-lime/10 p-4">
+                  <p className="font-bold uppercase text-xs text-black/60">
+                    Accommodation Description:
+                  </p>
+                  <p className="mt-2 whitespace-pre-wrap text-black font-semibold bg-white p-3 border border-black">
+                    {decryptedText}
+                  </p>
+                </div>
+                <div className="border border-black bg-neutral-50 p-3 text-[10px] text-neutral-600">
+                  <p className="font-bold uppercase">🔒 SECURITY AUDIT COMPLIANT</p>
+                  <p className="mt-1">
+                    Your access to this sensitive information has been logged to the permanent audit
+                    trail. Do not duplicate or export this private data.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="mt-6 flex justify-end">
+            <Button
+              className="neu-press border-2 border-black bg-lime px-4 py-2 font-mono text-xs font-bold uppercase rounded-none text-black hover:bg-lime/90"
+              onClick={() => setIsDecryptedModalOpen(false)}
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       {lightboxSrc && (
         <div
           role="button"

@@ -11,6 +11,7 @@ const toggleRsvpSchema = z
     eventId: z.string().uuid("eventId must be a valid UUID"),
     hasRsvpd: z.boolean().optional(),
     captchaToken: z.string().optional(),
+    accommodationsRequested: z.string().max(1000).optional().nullable(),
   })
   .strict();
 
@@ -18,6 +19,30 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries = 3,
+  delayMs = 1000,
+): Promise<Response> {
+  let attempt = 0;
+  while (attempt < maxRetries) {
+    try {
+      const response = await fetch(url, options);
+      if (response.ok) return response;
+      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+        return response;
+      }
+    } catch (err) {
+      if (attempt === maxRetries - 1) throw err;
+    }
+    attempt++;
+    const backoff = delayMs * Math.pow(2, attempt);
+    await new Promise((r) => setTimeout(r, backoff));
+  }
+  throw new Error("Failed after maximum retries");
+}
 
 /**
  * Handles RSVP toggling with rate limiting.
@@ -75,7 +100,7 @@ serve(async (req: Request) => {
 
     const parsed = await parseJsonBody(toggleRsvpSchema, req);
     if (!parsed.ok) return parsed.response;
-    const { eventId, hasRsvpd, captchaToken } = parsed.data;
+    const { eventId, hasRsvpd, captchaToken, accommodationsRequested } = parsed.data;
 
     const siteKey = Deno.env.get("TURNSTILE_SITE_KEY") || Deno.env.get("HCAPTCHA_SITE_KEY");
     const secretKey = Deno.env.get("TURNSTILE_SECRET_KEY") || Deno.env.get("HCAPTCHA_SECRET_KEY");
@@ -153,6 +178,125 @@ serve(async (req: Request) => {
         }
 
         if (data === "SUCCESS") {
+          if (accommodationsRequested) {
+            const { error: updateErr } = await supabase
+              .from("event_rsvps")
+              .update({ accommodations_requested: accommodationsRequested })
+              .match({ event_id: eventId, user_id: user.id });
+
+            if (updateErr) {
+              console.error("Failed to save accommodations:", updateErr.message);
+              // Clean up RSVP to prevent orphan RSVPs on partial failure
+              await supabase
+                .from("event_rsvps")
+                .delete()
+                .match({ event_id: eventId, user_id: user.id });
+
+              return new Response(
+                JSON.stringify({
+                  error:
+                    "Failed to securely save accessibility accommodation request. Please try again.",
+                }),
+                {
+                  headers: { ...corsHeaders, "Content-Type": "application/json" },
+                  status: 500,
+                },
+              );
+            }
+
+            try {
+              const { data: eventDetails } = await supabase
+                .from("events")
+                .select(
+                  `
+                  title,
+                  clubs (
+                    name,
+                    created_by
+                  )
+                `,
+                )
+                .eq("id", eventId)
+                .single();
+
+              let hostEmail: string | null = null;
+              let clubName = "your club";
+              let eventTitle = "the event";
+
+              if (eventDetails) {
+                eventTitle = eventDetails.title || "the event";
+                const typedClubs = eventDetails.clubs as unknown as {
+                  name: string;
+                  created_by: string;
+                } | null;
+                if (typedClubs) {
+                  clubName = typedClubs.name || "your club";
+                  const createdBy = typedClubs.created_by;
+                  if (createdBy) {
+                    const { data: presidentProfile } = await supabase
+                      .from("profiles")
+                      .select("email")
+                      .eq("id", createdBy)
+                      .single();
+                    if (presidentProfile) {
+                      hostEmail = presidentProfile.email;
+                    }
+                  }
+                }
+              }
+
+              const accessibilityOfficeEmail =
+                Deno.env.get("ACCESSIBILITY_OFFICE_EMAIL") ||
+                "accessibility-office@campusconnect.edu";
+              const emailList: string[] = [];
+              if (hostEmail) {
+                emailList.push(hostEmail);
+              }
+              if (accessibilityOfficeEmail) {
+                emailList.push(accessibilityOfficeEmail);
+              }
+
+              if (emailList.length > 0) {
+                const resendApiKey = Deno.env.get("RESEND_API_KEY");
+                const emailBody = {
+                  from: "CampusConnect <notifications@campusconnect.app>",
+                  to: emailList,
+                  subject: `Accommodation Requested for ${eventTitle}. Please review.`,
+                  html: `
+                    <h2>Accessibility Accommodation Request Submitted</h2>
+                    <p>An attendee has requested accessibility accommodations for the upcoming event <strong>${eventTitle}</strong> hosted by <strong>${clubName}</strong>.</p>
+                    <p>Please log into the CampusConnect Organizer Dashboard to review this request securely.</p>
+                    <p><em>Security Notice: To protect attendee privacy, no medical or sensitive details are included in this email.</em></p>
+                  `,
+                };
+
+                if (!resendApiKey || Deno.env.get("MOCK_EMAIL") === "true") {
+                  console.log(
+                    "Mocking notification email dispatch. Would have sent to:",
+                    emailList,
+                    emailBody,
+                  );
+                } else {
+                  const res = await fetchWithRetry("https://api.resend.com/emails", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${resendApiKey}`,
+                    },
+                    body: JSON.stringify(emailBody),
+                  });
+                  if (!res.ok) {
+                    const errBody = await res.text();
+                    console.error("Resend notification email delivery failed:", errBody);
+                  }
+                }
+              }
+            } catch (err: unknown) {
+              const msg = err instanceof Error ? err.message : "Unknown error";
+              console.error("Accommodations email notification processing failure:", msg);
+            }
+          }
+
           return new Response(JSON.stringify({ success: true, status: "approved" }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
             status: 200,
