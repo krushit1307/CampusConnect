@@ -23,6 +23,7 @@ import {
   Star,
   Calendar,
   Flag,
+  QrCode,
 } from "lucide-react";
 import { ReportDialog } from "@/components/ReportDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -66,6 +67,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { DynamicQRCode } from "@/components/events/DynamicQRCode";
 
 interface SimilarEventItem {
   id: string;
