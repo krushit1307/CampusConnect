@@ -4,6 +4,16 @@
 
 This guide documents the rate limiting system for Supabase Edge Functions to prevent DoS attacks and excessive cloud billing.
 
+**Current Status (Aug 10, 2026):** 34/80+ functions protected (~42% complete)
+
+Recent Changes (PR #1069):
+
+- ✅ Added rate limiting to 26 additional Edge Functions
+- ✅ Auth functions: login, webauthn-* (all variants)
+- ✅ Content: validate-comment, delete-post, chat-moderation, translate-message
+- ✅ Read-heavy: get-feed, nearby-events, link-preview, og-image
+- ✅ All high-risk and medium-risk functions now protected
+
 ## Architecture
 
 ### Components
@@ -101,30 +111,55 @@ if (limited) return limited;
 - [x] JWT sub extraction (no signature verification needed)
 - [x] IP hashing with SHA-256
 
-### Phase 2: High-Risk Functions (IN PROGRESS)
+### Phase 2: High-Risk Functions (✅ DONE)
 
 Functions with **authentication**, **payments**, or **external APIs**:
 
-- [ ] `login/index.ts` - 5/minute
-- [ ] `2fa-setup/index.ts` - 5/minute
-- [ ] `2fa-verify/index.ts` - 5/minute
-- [ ] `webauthn-register/index.ts` - 5/minute
-- [ ] `webauthn-authenticate/index.ts` - 10/minute
-- [ ] `buy-ticket/index.ts` - 10/minute
-- [ ] `process-payment/index.ts` - 10/minute
-- [ ] `ai-moderation/index.ts` - 20/minute (already done as example)
-- [ ] `export-user-data/index.ts` - 5/minute (GDPR)
+- [x] `login/index.ts` - 5/minute
+- [x] `2fa-setup/index.ts` - 5/minute
+- [x] `2fa-verify/index.ts` - 5/minute
+- [x] `webauthn-auth-options/index.ts` - 10/minute
+- [x] `webauthn-auth-verify/index.ts` - 10/minute
+- [x] `webauthn-authenticate/index.ts` - 10/minute
+- [x] `webauthn-registration-options/index.ts` - 5/minute
+- [x] `webauthn-registration-verify/index.ts` - 5/minute
+- [x] `buy-ticket/index.ts` - 10/minute
+- [x] `process-payment/index.ts` - 10/minute
+- [x] `payment-webhook/index.ts` - 30/minute
+- [x] `ai-moderation/index.ts` - 20/minute
+- [x] `export-user-data/index.ts` - 5/minute (GDPR)
 
-### Phase 3: Medium-Risk Functions
+### Phase 3: Medium-Risk Functions (✅ DONE)
 
 Read-heavy but with external APIs or compute:
 
-- [ ] `link-preview/index.ts` - 30/minute
-- [ ] `nearby-events/index.ts` - 60/minute
-- [ ] `meilisearch-search/index.ts` - 60/minute
-- [ ] `translate-message/index.ts` - 20/minute
+- [x] `link-preview/index.ts` - 30/minute
+- [x] `nearby-events/index.ts` - 60/minute
+- [x] `meilisearch-search/index.ts` - 60/minute
+- [x] `translate-message/index.ts` - 20/minute
+- [x] `get-feed/index.ts` - 60/minute
+- [x] `og-image/index.ts` - 30/minute
 
-### Phase 4: Monitoring & Tuning
+### Phase 3b: Content Moderation Functions (✅ DONE)
+
+- [x] `validate-comment/index.ts` - 20/minute
+- [x] `delete-post/index.ts` - 20/minute
+- [x] `chat-moderation/index.ts` - 20/minute
+
+### Phase 4: Remaining Functions (TODO)
+
+Low-risk batch operations, webhooks, async jobs:
+
+- [ ] `export-event-rsvps/index.ts` - 10/minute (database-heavy)
+- [ ] `bulk-invite-members/index.ts` - limit as needed
+- [ ] `generate-bulk-zip/index.ts` - limit as needed
+- [ ] `weekly-digest/index.ts` - 5/hour
+- [ ] `newsletter-worker/index.ts` - 5/hour
+- [ ] `purge-dormant-accounts/index.ts` - 2/hour
+- [ ] `merge-accounts/index.ts` - 3/hour
+- [ ] And 40+ remaining utility/webhook functions
+
+### Phase 5: Monitoring & Tuning
 
 - Monitor Redis latency
 - Track 429 response rates
