@@ -541,6 +541,39 @@ function SettingsPageContent({ user }: WithAuthProps) {
 
           <Panel title="Appearance">
             <div className="space-y-6">
+              {/* Silent Mode Toggle */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <label className="eyebrow font-bold text-black dark:text-cream">
+                      Silent Mode (Accessibility)
+                    </label>
+                    <p className="font-mono text-xs text-muted-foreground">
+                      Disable all decorative animations, transitions, and sounds.
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 accent-black"
+                    checked={document.documentElement.getAttribute("data-silent-mode") === "true"}
+                    onChange={async (e) => {
+                      const enabled = e.target.checked;
+                      if (enabled) {
+                        document.documentElement.setAttribute("data-silent-mode", "true");
+                      } else {
+                        document.documentElement.removeAttribute("data-silent-mode");
+                      }
+                      // Force a re-render of this checkbox
+                      setSkillInput(skillInput + " "); setSkillInput(skillInput); 
+                      // Update in supabase
+                      if (user?.id) {
+                        await supabase.from("user_preferences").upsert({ user_id: user.id, silent_mode: enabled }, { onConflict: "user_id" });
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
               {/* Theme Toggle */}
               <div className="space-y-2">
                 <label className="eyebrow font-bold text-black dark:text-cream">Theme Mode</label>

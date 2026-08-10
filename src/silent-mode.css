@@ -1,0 +1,15 @@
+/* Global Silent Mode (Reduced Motion & Audio) */
+[data-silent-mode="true"] *,
+[data-silent-mode="true"] *::before,
+[data-silent-mode="true"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Hide specific decorative elements that are purely visual noise */
+[data-silent-mode="true"] .decorative-animation,
+[data-silent-mode="true"] .confetti {
+  display: none !important;
+}
