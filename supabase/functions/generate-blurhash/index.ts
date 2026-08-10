@@ -78,20 +78,40 @@ Deno.serve(async (req) => {
       BLURHASH_COMPONENTS_Y,
     );
 
-    // Find the event row whose banner_url references this uploaded file and
-    // attach the generated blurhash. banner_url is expected to contain the
-    // storage object path (or a URL ending in it).
-    const { error: updateError } = await supabase
-      .from("events")
-      .update({ blurhash: hash })
-      .ilike("banner_url", `%${name}%`);
+    // Persist the blurhash to the correct table based on the source bucket.
+    if (bucket_id === "post-attachments") {
+      // Find the post whose image_url references this uploaded file and store
+      // the generated blurhash.  image_url is expected to contain the storage
+      // object path (or a public URL ending in it).
+      const { error: updateError } = await supabase
+        .from("posts")
+        .update({ blurhash: hash })
+        .ilike("image_url", `%${name}%`);
 
-    if (updateError) {
-      console.error("Failed to save blurhash to event:", updateError);
-      return new Response(JSON.stringify({ error: updateError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      if (updateError) {
+        console.error("Failed to save blurhash to post:", updateError);
+        return new Response(JSON.stringify({ error: updateError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    } else {
+      // Default: event-banners bucket — update the matching event row.
+      // Find the event row whose banner_url references this uploaded file and
+      // attach the generated blurhash. banner_url is expected to contain the
+      // storage object path (or a URL ending in it).
+      const { error: updateError } = await supabase
+        .from("events")
+        .update({ blurhash: hash })
+        .ilike("banner_url", `%${name}%`);
+
+      if (updateError) {
+        console.error("Failed to save blurhash to event:", updateError);
+        return new Response(JSON.stringify({ error: updateError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     return new Response(JSON.stringify({ blurhash: hash }), {

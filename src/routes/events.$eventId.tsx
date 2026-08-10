@@ -1,8 +1,12 @@
 import { Link, useParams } from "react-router-dom";
+import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
+import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
+import { incrementEventViews } from "@/lib/supabase/events";
 import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
-import { useState, useEffect, lazy, Suspense, useMemo } from "react";
+import { useState, useEffect, lazy, Suspense, useMemo, useRef } from "react";
 import { TableOfContents } from "@/components/events/TableOfContents";
 import { NotFound } from "@/components/NotFound";
 import LazyHydrate from "@/components/LazyHydrate";
@@ -14,9 +18,10 @@ import { MapSkeleton } from "@/components/ui/MapSkeleton";
 
 const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ default: m.EventMap })));
 import { formatEventDateRange } from "@/lib/utils";
-import { downloadIcs, getGoogleCalendarUrl } from "@/lib/calendarUtils";
+import { AddToCalendarDropdown } from "@/components/events/AddToCalendarDropdown";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
 import { formatDateLong } from "@/lib/dateFormatter";
+import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { toast } from "sonner";
 import { ShareMenu } from "@/components/ui/ShareMenu";
 import {
@@ -28,6 +33,7 @@ import {
   MapPin,
   MapPinOff,
   Users,
+  CreditCard,
   X,
   CheckCircle,
   Clock,
@@ -36,6 +42,8 @@ import {
   HelpCircle,
   Flag,
   ShieldAlert,
+  QrCode,
+  Eye,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -52,7 +60,10 @@ import {
 import PredictiveTurnout from "@/components/events/PredictiveTurnout";
 import LiveQA from "@/components/qa/LiveQA";
 import EventFeedbackForm from "@/components/EventFeedbackForm";
+import { CarpoolSection } from "@/components/events/carpool/CarpoolSection";
+import { EventLiveChat } from "@/components/events/EventLiveChat";
 import { ReportDialog } from "@/components/ReportDialog";
+import { GeofencedCheckInButton } from "@/components/GeofencedCheckInButton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
@@ -68,8 +79,12 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
-import { LazyImage } from "@/components/ui/LazyImage";
+import { ImageWithBlur } from "@/components/ui/ImageWithBlur";
 import { parseCoordinates } from "@/lib/eventUtils";
+import EventFeedbackForm from "@/components/EventFeedbackForm";
+import { EventPhotoGallery } from "@/components/EventPhotoGallery";
+import { EventMap } from "@/components/EventMap";
+import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
 import {
   buildKanbanColumns,
   buildRsvpStatus,
@@ -87,6 +102,13 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import DynamicQRCode from "@/components/events/DynamicQRCode";
 import { isCaptchaConfigured, shouldRequireCaptcha } from "@/lib/captcha";
 import { EditEventDialog } from "@/components/EditEventDialog";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
@@ -94,6 +116,59 @@ import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
 import { ActivePoll } from "@/components/polls/ActivePoll";
 import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
 import { CaptchaWidget } from "@/components/CaptchaWidget";
+import { Blurhash } from "react-blurhash";
+import { isValidBlurhash, DEFAULT_FALLBACK_BLURHASH } from "@/lib/blurhashUtils";
+
+/**
+ * Hero banner for the event detail page.
+ * Shows a BlurHash placeholder immediately, then cross-fades to the full
+ * OptimizedImage once it loads.  OptimizedImage is kept so we retain its
+ * AVIF/WebP/responsive-srcset capabilities on the large hero image.
+ */
+function EventHeroBanner({
+  bannerUrl,
+  blurhash,
+  title,
+}: {
+  bannerUrl: string;
+  blurhash?: string | null;
+  title: string;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  const hash = isValidBlurhash(blurhash) ? (blurhash as string) : DEFAULT_FALLBACK_BLURHASH;
+
+  return (
+    <>
+      {/* BlurHash canvas — removed from DOM once real image loads */}
+      {!loaded && (
+        <div className="absolute inset-0 z-0" aria-hidden="true">
+          <Blurhash
+            hash={hash}
+            width="100%"
+            height="100%"
+            resolutionX={32}
+            resolutionY={32}
+            punch={1}
+          />
+        </div>
+      )}
+      <OptimizedImage
+        src={bannerUrl}
+        alt={`${title} event banner`}
+        className={`h-full w-full object-cover transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
+        width={1344}
+        height={700}
+        responsiveWidths={[448, 672, 896, 1344]}
+        sizes="100vw"
+        priority
+        onLoad={() => setLoaded(true)}
+        fallback={
+          <div className="h-full w-full bg-linear-to-br from-peach via-pink-200 to-lime/40" />
+        }
+      />
+    </>
+  );
+}
 
 interface SimilarEventItem {
   id: string;
@@ -101,6 +176,7 @@ interface SimilarEventItem {
   category_id?: string;
   event_date?: string;
   banner_url?: string;
+  blurhash?: string | null;
   description?: string;
 }
 
@@ -139,7 +215,7 @@ function SimilarEvents({
         // 2. Fallback to category matching if vector embeddings are not calculated yet
         const { data: fallbackData, error: fallbackError } = await supabase
           .from("events")
-          .select("id, title, category_id, event_date, banner_url, description")
+          .select("id, title, category_id, event_date, banner_url, blurhash, description")
           .eq("category_id", categoryId!)
           .neq("id", currentEventId)
           .eq("status", "published")
@@ -177,10 +253,12 @@ function SimilarEvents({
             className="neu-border group block bg-white p-4 hover:translate-x-0.5 hover:-translate-y-0.5 transition-transform"
           >
             {evt.banner_url ? (
-              <LazyImage
+              <ImageWithBlur
                 src={evt.banner_url}
+                blurhash={evt.blurhash}
                 alt={evt.title}
-                className="w-full h-32 object-cover border-2 border-black mb-3"
+                aspectRatio="video"
+                className="border-2 border-black mb-3"
               />
             ) : (
               <div className="w-full h-32 bg-peach/30 border-2 border-black mb-3 flex items-center justify-center font-mono text-xs font-bold text-black/50">
@@ -422,11 +500,12 @@ export default function EventDetailsPage() {
         .from("events")
         .select(
           `
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, accommodation_deadline,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, is_high_risk, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash, latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline,
           profiles (full_name, email),
           clubs (name, slug),
           event_rsvps (id, user_id, status, checked_in, rsvp_at, accommodations_requested, profiles (first_name, last_name, avatar_url)),
-          event_waitlist (id, user_id, created_at, profiles (first_name, last_name, avatar_url))
+          event_waitlist (id, user_id, created_at, profiles (first_name, last_name, avatar_url)),
+          event_metrics (views)
         `,
         )
         .or(`short_id.eq.${eventId},id.eq.${eventId}`)
@@ -466,6 +545,8 @@ export default function EventDetailsPage() {
             max_attendees: eventId === "mock-1" ? 1 : null,
             latitude: eventId === "mock-1" ? 30.3564 : eventId === "mock-2" ? 28.5355 : 19.076,
             longitude: eventId === "mock-1" ? 76.3647 : eventId === "mock-2" ? 77.209 : 72.8777,
+            geofencing_enabled: eventId === "mock-1",
+            geofence_radius_meters: 100,
             clubs: [
               {
                 name:
@@ -526,12 +607,37 @@ export default function EventDetailsPage() {
             attendee_count: eventId === "mock-1" ? 1 : 0,
             profiles: { full_name: "Mock Organizer", email: "mock@example.com" },
             accommodation_deadline: null,
+            event_metrics: { views: 0 },
           };
         }
         throw error;
       }
       return data;
     },
+  });
+
+  interface EventSignature {
+    id: string;
+    event_id: string;
+    signer_role: string;
+    signer_name: string;
+    signer_email: string;
+    signature_token: string;
+    signed_at: string | null;
+    ip_address: string | null;
+  }
+
+  const { data: signatures = [], refetch: refetchSignatures } = useQuery({
+    queryKey: ["event_signatures", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_signatures")
+        .select("*")
+        .eq("event_id", eventId);
+      if (error) throw error;
+      return (data || []) as EventSignature[];
+    },
+    enabled: !!eventId,
   });
 
   // Extract headings from HTML description for TOC
@@ -568,6 +674,38 @@ export default function EventDetailsPage() {
       heading.id = id;
     });
   }, [event?.description]);
+
+  // Increment persistent view count in event_metrics once per page load.
+  // Skipped for mock/dev events (no real DB row).
+  //
+  // We store the canonical event UUID (event.id) rather than a boolean so that:
+  // - Short-id URLs resolve to their UUID before incrementing (avoids wrong PK)
+  // - Navigating between events while the component stays mounted still
+  //   increments each new event exactly once
+  const viewIncrementedRef = useRef<string | null>(null);
+  useEffect(() => {
+    // Wait until the query has resolved and we have the canonical UUID
+    const canonicalId = (event as any)?.id as string | undefined;
+    if (!canonicalId || canonicalId.startsWith("mock-")) return;
+    if (viewIncrementedRef.current === canonicalId) return;
+    viewIncrementedRef.current = canonicalId;
+
+    incrementEventViews(canonicalId).then(({ error }) => {
+      if (error) {
+        console.warn("[event view] increment failed silently:", error);
+        return;
+      }
+      // Refresh the cached query so the displayed view count is up-to-date.
+      const cached = event as any;
+      if (cached?.event_metrics) {
+        const currentViews = (cached.event_metrics as { views: number } | null)?.views ?? 0;
+        setQueryData(["event", eventId], {
+          ...cached,
+          event_metrics: { views: currentViews + 1 },
+        });
+      }
+    });
+  }, [(event as any)?.id, eventId]);
 
   const toggleWaitlist = useMutation({
     mutationFn: async ({ isOnWaitlist }: { isOnWaitlist: boolean }) => {
@@ -615,6 +753,8 @@ export default function EventDetailsPage() {
         return;
       }
 
+      const idempotencyKey = getRsvpIdempotencyKey(eventId);
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -623,10 +763,12 @@ export default function EventDetailsPage() {
         body: { eventId, hasRsvpd, captchaToken, accommodationsRequested },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
+          "Idempotency-Key": idempotencyKey,
         },
       });
 
       if (error) throw error;
+      clearRsvpIdempotencyKey(eventId);
     },
     onMutate: async ({ hasRsvpd }) => {
       // Snapshot the previous value
@@ -636,7 +778,7 @@ export default function EventDetailsPage() {
       if (event) {
         const eventRsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
         const updatedRsvps = hasRsvpd
-          ? eventRsvps.filter((r) => r.user_id !== user?.id)
+          ? eventRsvps.filter((r: any) => r.user_id !== user?.id)
           : [...eventRsvps, { id: `temp-${Date.now()}`, user_id: user?.id || "" }];
 
         const updatedEvent = {
@@ -703,10 +845,20 @@ export default function EventDetailsPage() {
       });
 
       if (error) throw error;
-      return data;
+
+      // Ensure we have a Blob
+      return data instanceof Blob ? data : new Blob([data], { type: "text/csv" });
     },
-    onSuccess: () => {
-      toast.success("We will email you shortly");
+    onSuccess: (blob) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `event_${event!.id}_rsvps.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+      toast.success("RSVP list downloaded successfully!");
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to export RSVP list.");
@@ -744,6 +896,9 @@ export default function EventDetailsPage() {
         await supabase.from("event_attendance_logs").insert({
           rsvp_id: rsvpId,
           recorded_by: user.id,
+          // Distinguishes this manual/QR-adjacent organizer action from an
+          // attendee's own GPS-verified self check-in (see check_in_via_geofence).
+          verification_method: "organizer_override",
         });
       } catch {
         // Attendance logging is optional if the table is unavailable in the current environment.
@@ -791,6 +946,7 @@ export default function EventDetailsPage() {
     },
   });
 
+  const isOrganizer = user && event?.created_by === user.id;
   const isOrganizer = !!(user && event?.created_by === user.id);
 
   useEffect(() => {
@@ -991,6 +1147,7 @@ export default function EventDetailsPage() {
     ? (event.event_rsvps as unknown as EventRsvp[])
     : [];
   const { hasRsvpd, isCheckedIn, hasEnded } = buildRsvpStatus(rsvps, user?.id, event.end_date);
+  const myRsvpId = user ? rsvps.find((r) => r.user_id === user.id)?.id : undefined;
   const rawFeedbacks = (event as Record<string, unknown>).event_feedbacks;
   const { hasSubmittedFeedback } = buildFeedbackStatus(
     Array.isArray(rawFeedbacks) ? (rawFeedbacks as { user_id: string }[]) : undefined,
@@ -1005,15 +1162,6 @@ export default function EventDetailsPage() {
     ? parseCoordinates(event.location)
     : { isCoordinates: false, isValid: true };
 
-  const googleCalendarUrl = getGoogleCalendarUrl({
-    title: event.title,
-    description: event.description || "",
-    event_date: event.event_date || "",
-    start_date: event.start_date,
-    end_date: event.end_date,
-    location: event.location || "",
-  });
-
   const captchaSiteKey =
     import.meta.env.VITE_TURNSTILE_SITE_KEY || import.meta.env.VITE_HCAPTCHA_SITE_KEY;
   const captchaSecretKey =
@@ -1025,6 +1173,82 @@ export default function EventDetailsPage() {
     if (!event?.accommodation_deadline) return false;
     return new Date().getTime() > new Date(event.accommodation_deadline).getTime();
   }, [event?.accommodation_deadline]);
+
+  const [isWalletDownloading, setIsWalletDownloading] = useState(false);
+
+  const handleAddToAppleWallet = async () => {
+    if (!user || !event) return;
+    setIsWalletDownloading(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${getSupabaseUrl()}/functions/v1/generate-wallet-pass?type=apple&passType=event&eventId=${event.id}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to generate Apple Wallet pass");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ticket-${event.id}.pkpass`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("Wallet ticket downloaded successfully!");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Failed to download Wallet ticket");
+    } finally {
+      setIsWalletDownloading(false);
+    }
+  };
+
+  const handleAddToGoogleWallet = async () => {
+    if (!user || !event) return;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${getSupabaseUrl()}/functions/v1/generate-wallet-pass?type=google&passType=event&eventId=${event.id}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to generate Google Wallet ticket");
+      }
+
+      const data = await response.json();
+      if (data.url) {
+        window.open(data.url, "_blank");
+        toast.success("Google Wallet link opened!");
+      } else {
+        throw new Error("No URL returned");
+      }
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to generate Google Wallet ticket",
+      );
+    }
+  };
 
   const handleRsvpClick = () => {
     if (!user) {
@@ -1133,18 +1357,10 @@ export default function EventDetailsPage() {
       <section className="relative w-full overflow-hidden border-b-2 border-black bg-peach/30">
         {event.banner_url ? (
           <div className="absolute inset-0">
-            <OptimizedImage
-              src={event.banner_url}
-              alt={`${event.title} event banner`}
-              className="h-full w-full object-cover"
-              width={1344}
-              height={700}
-              responsiveWidths={[448, 672, 896, 1344]}
-              sizes="100vw"
-              priority
-              fallback={
-                <div className="h-full w-full bg-linear-to-br from-peach via-pink-200 to-lime/40" />
-              }
+            <EventHeroBanner
+              bannerUrl={event.banner_url}
+              blurhash={(event as { blurhash?: string | null }).blurhash}
+              title={event.title}
             />
             <div className="absolute inset-0 bg-black/50" />
           </div>
@@ -1233,6 +1449,15 @@ export default function EventDetailsPage() {
               <Users className="h-5 w-5" />
               <span>{attendeeCount} RSVP&apos;d</span>
             </div>
+            <div className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              <span>
+                {(
+                  ((event as any).event_metrics as { views: number } | null)?.views ?? 0
+                ).toLocaleString()}{" "}
+                views
+              </span>
+            </div>
           </div>
 
           <div className="mt-6 max-w-md">
@@ -1243,6 +1468,16 @@ export default function EventDetailsPage() {
               showDetails={true}
             />
           </div>
+
+          {hasRsvpd && myRsvpId && !isCheckedIn && !hasEnded && (
+            <div className="mt-6 max-w-md">
+              <GeofencedCheckInButton
+                rsvpId={myRsvpId}
+                geofencingEnabled={Boolean((event as any).geofencing_enabled)}
+                onCheckedIn={() => refetch()}
+              />
+            </div>
+          )}
 
           <div className="mt-8 hidden items-center gap-4 md:flex">
             {hasRsvpd ? (
@@ -1364,42 +1599,28 @@ export default function EventDetailsPage() {
                 </Button>
                 <CreatePollDialog eventId={eventId} user={user!} onPollCreated={() => refetch()} />
                 <EditEventDialog event={event} user={user} onSuccess={() => refetch()} />
+                <Link
+                  to={`/events/${eventId}/builder`}
+                  className="neu-border neu-press flex h-12 items-center justify-center bg-sky px-5 font-mono text-sm font-bold uppercase tracking-wider text-black transition-all duration-300 hover:scale-105 active:scale-95"
+                >
+                  Layout Builder
+                </Link>
               </>
             )}
 
-            {googleCalendarUrl && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="neu-border h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
-                  >
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Add to Calendar
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="neu-border font-mono text-sm">
-                  <DropdownMenuItem asChild>
-                    <a
-                      href={googleCalendarUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <Calendar className="h-4 w-4" />
-                      Google Calendar
-                    </a>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => downloadIcs(event)}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download .ics
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+            <AddToCalendarDropdown
+              event={{
+                id: eventId,
+                title: event.title,
+                description: event.description || "",
+                event_date: event.event_date || "",
+                start_date: event.start_date,
+                end_date: event.end_date,
+                location: event.location || "",
+                eventUrl: typeof window !== "undefined" ? window.location.href : undefined,
+              }}
+              variant="outline"
+            />
 
             {user && !isOrganizer && (
               <Button
@@ -1479,6 +1700,26 @@ export default function EventDetailsPage() {
                 </DialogContent>
               </Dialog>
             )}
+
+            {hasRsvpd && (
+              <>
+                <button
+                  onClick={handleAddToAppleWallet}
+                  disabled={isWalletDownloading}
+                  className="neu-border flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50"
+                >
+                  <CreditCard aria-hidden="true" size={14} strokeWidth={3} />
+                  {isWalletDownloading ? "Adding..." : "Add to Apple Wallet"}
+                </button>
+                <button
+                  onClick={handleAddToGoogleWallet}
+                  className="neu-border flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                >
+                  <CreditCard aria-hidden="true" size={14} strokeWidth={3} />
+                  Add to Google Wallet
+                </button>
+              </>
+            )}
           </div>
 
           {/* Predictive Turnout (Visible to Organizer / Admins) */}
@@ -1502,6 +1743,16 @@ export default function EventDetailsPage() {
           {/* Live Q&A */}
           <div className="mt-8">
             <LiveQA eventId={eventId} userId={user?.id} isOrganizer={isOrganizer} />
+          </div>
+
+          {/* Transportation / Carpool (Issue #2748) */}
+          <div className="mt-8">
+            <CarpoolSection eventId={eventId} user={user} />
+          </div>
+
+          {/* Live Chat (Issue #2741) */}
+          <div className="mt-8">
+            <EventLiveChat eventId={eventId} user={user} />
           </div>
           {/* Description */}
           <div className="mt-8">
@@ -1531,6 +1782,56 @@ export default function EventDetailsPage() {
               </aside>
             </div>
           </div>
+
+          {/* Read-only map layout for attendees */}
+          {event.map_layout && Array.isArray(event.map_layout) && event.map_layout.length > 0 && (
+            <div className="mt-10 border-t-2 border-black pt-8">
+              <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900 mb-4">
+                Floor Plan / Venue Layout
+              </h2>
+              <div
+                className="relative border-4 border-black bg-white shadow-[4px_4px_0_0_#000] overflow-hidden mx-auto max-w-full"
+                style={{
+                  width: "100%",
+                  height: "400px",
+                  backgroundImage: "radial-gradient(#000 6%, transparent 7%)",
+                  backgroundSize: "20px 20px",
+                }}
+              >
+                <div
+                  className="absolute inset-0 overflow-auto p-4"
+                  style={{ minWidth: "800px", minHeight: "600px" }}
+                >
+                  {event.map_layout.map((element: any) => {
+                    const colors = {
+                      table: "bg-amber-100",
+                      stage: "bg-indigo-100",
+                      boundary: "bg-red-50",
+                      booth: "bg-emerald-100",
+                    };
+                    return (
+                      <div
+                        key={element.id}
+                        style={{
+                          position: "absolute",
+                          left: `${element.x}px`,
+                          top: `${element.y}px`,
+                          width: `${element.width}px`,
+                          height: `${element.height}px`,
+                          transform: `rotate(${element.rotation || 0}deg)`,
+                          zIndex: element.zIndex || 10,
+                        }}
+                        className={`border-2 border-black flex flex-col items-center justify-center p-1 text-center shadow-[1px_1px_0_0_#000] text-[9px] font-mono uppercase font-bold leading-none ${colors[element.type as "table"] || "bg-white"}`}
+                      >
+                        <span>{element.label}</span>
+                        <span className="opacity-75 text-[7px] mt-0.5">{element.type}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* FAQ Section */}
           {Array.isArray((event as Record<string, unknown>).faqs) &&
@@ -1678,6 +1979,51 @@ export default function EventDetailsPage() {
               )}
             </div>
 
+            {event.is_high_risk && (
+              <div className="mt-8 border-2 border-black bg-yellow-50 p-6 font-mono text-sm">
+                <h2 className="text-xl font-bold uppercase tracking-tight text-black mb-3">
+                  Co-Signer Approvals
+                </h2>
+                <p className="text-xs text-gray-700 mb-4">
+                  This is a high-risk event. It will be published once all required stakeholders
+                  sign off.
+                </p>
+                <div className="space-y-3">
+                  {signatures.map((sig) => (
+                    <div
+                      key={sig.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-black/20 pb-2"
+                    >
+                      <div>
+                        <span className="font-bold text-black">{sig.signer_role}</span>:{" "}
+                        {sig.signer_name} ({sig.signer_email})
+                      </div>
+                      <div className="mt-1 sm:mt-0 flex items-center gap-3">
+                        {sig.signed_at ? (
+                          <span className="bg-green-100 text-green-800 border border-green-800 px-2 py-0.5 font-bold uppercase text-xs">
+                            Signed ✓
+                          </span>
+                        ) : (
+                          <>
+                            <span className="bg-red-100 text-red-800 border border-red-800 px-2 py-0.5 font-bold uppercase text-xs">
+                              Pending
+                            </span>
+                            <a
+                              href={`${getSupabaseUrl()}/functions/v1/co-signer-approval?token=${sig.signature_token}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="bg-white hover:bg-cream border border-black px-2 py-0.5 text-xs font-bold uppercase underline"
+                            >
+                              Approval Link ↗
+                            </a>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {/* Optimistic UI & Progress for Uploading Files */}
             {uploadingFiles.length > 0 && (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 mb-6">
@@ -1734,7 +2080,7 @@ export default function EventDetailsPage() {
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-                {galleryPhotos.map((url, idx) => (
+                {galleryPhotos.map((url: string, idx: number) => (
                   <div
                     key={url}
                     className="neu-border bg-white p-2 hover:scale-[1.02] transition-transform duration-300 group cursor-zoom-in"

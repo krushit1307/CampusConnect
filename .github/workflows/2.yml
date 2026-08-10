@@ -80,7 +80,6 @@ jobs:
               
               if (mergeable === false || mergeableState === "dirty") {
                 console.log("Merge conflicts detected.");
-                await removeLabel("Blue");
                 
                 const hasConflictComment = comments.some(c => c.body.includes("it looks like this PR has some merge conflicts"));
                 if (!hasConflictComment) {
@@ -131,13 +130,7 @@ jobs:
               console.log(`PR mergeable state is: ${mergeableState}`);
               
               if (mergeable === true) {
-                if (!currentLabels.includes("Blue")) {
-                  console.log("Requirements met and no merge conflicts. Adding 'Blue' label and waiting ~5 minutes for next cron tick to merge.");
-                  await addLabel("Blue");
-                  return false;
-                }
-
-                console.log("Requirements met and 5 minutes have passed (Blue label exists). Proceeding with auto-merge.");
+                console.log("Requirements met and no merge conflicts. Proceeding with immediate auto-merge.");
                 try {
                   console.log(`Auto-merging PR #${prNumber} into main...`);
                   await github.rest.pulls.merge({
@@ -150,7 +143,6 @@ jobs:
                 }
               } else {
                 console.log(`PR is not ready to merge yet (mergeable is ${mergeable}). Waiting for checks/approvals.`);
-                await removeLabel("Blue");
               }
               return false;
             }

@@ -4,6 +4,7 @@ import { z } from "https://esm.sh/zod@3.24.2";
 import { verifyAuth } from "../shared/auth-middleware.ts";
 import { encode as base64urlEncode } from "https://deno.land/std@0.168.0/encoding/base64url.ts";
 import { parseJsonBody } from "../_shared/validation.ts";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 const registrationOptionsSchema = z
   .object({
@@ -31,6 +32,10 @@ serve(async (req: Request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+
+  // Rate limit: 5 requests/minute (authentication registration)
+  const limited = await rateLimiter(req, "webauthn-registration-options", 5, 60);
+  if (limited) return limited;
 
   try {
     const supabase = createClient(

@@ -35,6 +35,21 @@ const buttonVariants = cva(
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
+  /**
+   * The visual style variant of the button.
+   * Primary is used for main actions, while secondary and outline are used for alternative actions.
+   */
+  variant?: VariantProps<typeof buttonVariants>["variant"];
+
+  /**
+   * The size of the button.
+   */
+  size?: VariantProps<typeof buttonVariants>["size"];
+
+  /**
+   * If true, the button will render as its child element instead of a standard `<button>` tag.
+   * Useful when you need to style a Next.js or React Router Link as a button.
+   */
   asChild?: boolean;
 }
 

@@ -5,6 +5,7 @@ import {
   verifyRegistrationResponse,
 } from "npm:@simplewebauthn/server@^11.0.0";
 import { verifyAuth } from "../shared/auth-middleware.ts";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,6 +28,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  const limited = await rateLimiter(req, "webauthn-register", 5, 60);
+  if (limited) return limited;
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";

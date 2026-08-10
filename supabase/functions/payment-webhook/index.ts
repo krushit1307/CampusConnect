@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import Stripe from "https://esm.sh/stripe@14.16.0?target=deno";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 const stripeSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET") || Deno.env.get("WEBHOOK_SECRET") || "";
 
@@ -18,6 +19,9 @@ Deno.serve(async (req) => {
       },
     });
   }
+
+  const limited = await rateLimiter(req, "payment-webhook", 30, 60);
+  if (limited) return limited;
 
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });

@@ -70,10 +70,15 @@ import { FlyerUploader } from "@/components/FlyerUploader";
 import type { ParsedFlyer } from "@/lib/parser";
 import { MultiSelect } from "@/components/MultiSelect";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
+import {
+  GeofenceMapPicker,
+  MIN_GEOFENCE_RADIUS_METERS,
+  DEFAULT_GEOFENCE_RADIUS_METERS,
+} from "@/components/GeofenceMapPicker";
 
 const STEPS = [
   { label: "Details", fields: ["title", "description"] as const },
-  { label: "Logistics", fields: ["location", "startDate", "endDate"] as const },
+  { label: "Logistics", fields: ["location", "latitude", "startDate", "endDate"] as const },
   { label: "Media", fields: [] as const },
   { label: "Review", fields: [] as const },
 ] as const;
@@ -85,6 +90,9 @@ type Step = 0 | 1 | 2 | 3;
 // Define an extended interface locally to handle the extra location field safely
 interface LocalEventFormValues extends EventFormValues {
   location?: string;
+  alcoholPresent?: boolean;
+  maxAttendees?: number;
+  offCampusSpeaker?: boolean;
   requiresApproval?: boolean;
 }
 
@@ -93,8 +101,15 @@ const defaultValues: LocalEventFormValues = {
   description: "",
   category: "",
   location: "",
+  latitude: null,
+  longitude: null,
+  geofencingEnabled: false,
+  geofenceRadiusMeters: 100,
   startDate: "",
   endDate: "",
+  alcoholPresent: false,
+  maxAttendees: undefined,
+  offCampusSpeaker: false,
   requiresApproval: false,
   isPrivate: false,
   tags: [],
@@ -151,7 +166,6 @@ export function CreateEventDialog({
       });
   }, [user]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const form = useForm<any>({
     resolver: zodResolver(eventFormSchema),
     defaultValues,
@@ -227,6 +241,10 @@ export function CreateEventDialog({
   // Watch values via form.watch to keep TypeScript quiet about schema property limits
   const watchedLocation = form.watch("location");
   const watchedDescription = form.watch("description");
+  const watchedGeofencingEnabled = form.watch("geofencingEnabled");
+  const watchedLatitude = form.watch("latitude");
+  const watchedLongitude = form.watch("longitude");
+  const watchedGeofenceRadius = form.watch("geofenceRadiusMeters");
 
   const currentDescription = watchedDescription || "";
 
@@ -275,6 +293,26 @@ export function CreateEventDialog({
         return { isOffline: true };
       }
 
+      const startDateIso = new Date(values.startDate).toISOString();
+      const endDateIso = new Date(values.endDate).toISOString();
+
+      const { error } = await supabase.from("events").insert({
+        title: values.title.trim(),
+        description: values.description.trim(),
+        location: values.location?.trim() || null,
+        start_date: startDateIso,
+        end_date: endDateIso,
+        event_date: startDateIso,
+        created_by: user.id,
+        club_id: myClub.id,
+        alcohol_present: !!values.alcoholPresent,
+        max_attendees: values.maxAttendees ? Number(values.maxAttendees) : null,
+        off_campus_speaker: !!values.offCampusSpeaker,
+        status: "draft", // default status
+      });
+
+      if (error) {
+        throw new Error(error.message);
       try {
         const { error } = await supabase.from("events").insert(payload);
         if (error) {
@@ -518,7 +556,10 @@ export function CreateEventDialog({
                       </FormLabel>
                       <FormControl>
                         <MultiSelect
-                          value={(field.value || []).map((tag: string) => ({ value: tag, label: tag }))}
+                          value={(field.value || []).map((tag: string) => ({
+                            value: tag,
+                            label: tag,
+                          }))}
                           onChange={(tags) => field.onChange(tags.map((t) => t.value))}
                           options={DEFAULT_EVENT_TAG_OPTIONS}
                           placeholder="Select or type event tags (e.g. #Tech, #Career)..."
@@ -598,6 +639,77 @@ export function CreateEventDialog({
                       <MapPin size={12} />
                       Open in Google Maps ↗
                     </a>
+                  </div>
+                )}
+
+                <FormField
+                  control={control}
+                  name="geofencingEnabled"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-white p-4 shadow-sm">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="font-bold cursor-pointer">
+                          Require Geofenced Check-in
+                        </FormLabel>
+                        <p className="text-xs text-black/50">
+                          Attendees must be physically near the venue (verified via GPS) to check
+                          themselves in. Turn this off for indoor venues with poor GPS reception —
+                          you can still check attendees in manually at the door.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                {watchedGeofencingEnabled && (
+                  <div className="space-y-3 rounded-md border-2 border-black bg-white p-4">
+                    <GeofenceMapPicker
+                      latitude={watchedLatitude}
+                      longitude={watchedLongitude}
+                      radiusMeters={watchedGeofenceRadius || DEFAULT_GEOFENCE_RADIUS_METERS}
+                      onChange={({ latitude, longitude }) => {
+                        form.setValue("latitude", latitude, { shouldValidate: true });
+                        form.setValue("longitude", longitude, { shouldValidate: true });
+                      }}
+                    />
+                    {(form.formState.errors as Record<string, { message?: string }>)?.latitude && (
+                      <p className="text-red-500 text-xs" aria-live="polite">
+                        {
+                          (form.formState.errors as Record<string, { message?: string }>).latitude
+                            ?.message
+                        }
+                      </p>
+                    )}
+
+                    <FormField
+                      control={control}
+                      name="geofenceRadiusMeters"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Check-in Radius: {field.value || 100} meters</FormLabel>
+                          <FormControl>
+                            <input
+                              type="range"
+                              min={MIN_GEOFENCE_RADIUS_METERS}
+                              max={1000}
+                              step={10}
+                              value={field.value || DEFAULT_GEOFENCE_RADIUS_METERS}
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                              className="w-full accent-teal-500"
+                            />
+                          </FormControl>
+                          <p className="mt-1 text-xs text-black/50">
+                            How close (in meters) attendees must be to the pin to check in. 50–100m
+                            works well for a single building; use a larger radius for outdoor venues
+                            like a quad or stadium.
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
                 )}
 
@@ -825,6 +937,14 @@ export function CreateEventDialog({
                     <p className="text-xs text-black/40">Location</p>
                     <p>{form.getValues("location") || "—"}</p>
                   </div>
+                  <div>
+                    <p className="text-xs text-black/40">Geofenced Check-in</p>
+                    <p className="font-bold">
+                      {watchedGeofencingEnabled
+                        ? `On — ${form.getValues("geofenceRadiusMeters") || 100}m radius`
+                        : "Off — manual/QR check-in only"}
+                    </p>
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <p className="text-xs text-black/40">Start</p>
@@ -865,6 +985,64 @@ export function CreateEventDialog({
               </>
             )}
 
+            <div className="border-t-2 border-dashed border-black pt-4 mt-4 space-y-4">
+              <p className="font-mono text-xs font-bold uppercase text-black">
+                Risk & Attendance Details
+              </p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-black p-3 bg-white">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-sm font-bold">Alcohol Present</FormLabel>
+                  </div>
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      className="h-5 w-5 border-2 border-black"
+                      checked={form.watch("alcoholPresent") || false}
+                      onChange={(e) => form.setValue("alcoholPresent", e.target.checked)}
+                    />
+                  </FormControl>
+                </FormItem>
+
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-black p-3 bg-white">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-sm font-bold">Off-Campus Speaker</FormLabel>
+                  </div>
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      className="h-5 w-5 border-2 border-black"
+                      checked={form.watch("offCampusSpeaker") || false}
+                      onChange={(e) => form.setValue("offCampusSpeaker", e.target.checked)}
+                    />
+                  </FormControl>
+                </FormItem>
+              </div>
+
+              <FormItem>
+                <FormLabel>Expected Attendance / Capacity</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="e.g. 150"
+                    className="border-2 border-black bg-white"
+                    value={form.watch("maxAttendees") || ""}
+                    onChange={(e) =>
+                      form.setValue(
+                        "maxAttendees",
+                        e.target.value ? Number(e.target.value) : undefined,
+                      )
+                    }
+                  />
+                </FormControl>
+              </FormItem>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="submit" disabled={createEvent.isPending} className="w-full sm:w-auto">
+                {createEvent.isPending ? "Creating..." : "Create event"}
+              </Button>
             <DialogFooter className="pt-2 flex gap-2">
               {step > 0 && (
                 <Button type="button" variant="outline" onClick={handleBack}>

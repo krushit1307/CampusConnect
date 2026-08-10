@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
+import { Combobox } from "@/components/ui/Combobox";
+import { MAJOR_OPTIONS } from "@/constants/majors";
 
 interface OnboardingWizardProps {
   userId: string;
@@ -106,13 +108,12 @@ export function OnboardingWizard({ userId, onComplete }: OnboardingWizardProps) 
                 <label className="block font-mono text-xs font-bold uppercase text-black mb-2">
                   What is your Major / College?
                 </label>
-                <input
-                  type="text"
-                  required
+                <Combobox
+                  options={MAJOR_OPTIONS}
                   value={major}
-                  onChange={(e) => setMajor(e.target.value)}
-                  placeholder="e.g. Computer Science & Engineering"
-                  className="neu-border w-full p-3 font-mono text-sm focus:outline-none"
+                  onValueChange={setMajor}
+                  placeholder="Select your major..."
+                  emptyStateMessage="No matching majors found."
                 />
               </div>
             )}

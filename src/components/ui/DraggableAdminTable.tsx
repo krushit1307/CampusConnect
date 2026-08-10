@@ -192,6 +192,28 @@ export function DraggableAdminTable<TData>({
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
+          accessibility={{
+            announcements: {
+              onDragStart({ active }) {
+                return `Column ${active.id} selected.`;
+              },
+              onDragOver({ active, over }) {
+                if (over) {
+                  return `Column ${active.id} moved over column ${over.id}.`;
+                }
+                return `Column ${active.id} is no longer over a droppable area.`;
+              },
+              onDragEnd({ active, over }) {
+                if (over) {
+                  return `Column ${active.id} was dropped over column ${over.id}.`;
+                }
+                return `Column ${active.id} was dropped.`;
+              },
+              onDragCancel({ active }) {
+                return `Dragging was cancelled. Column ${active.id} was dropped.`;
+              },
+            },
+          }}
         >
           <table className="w-full font-mono text-sm" aria-label={ariaLabel}>
             <thead>

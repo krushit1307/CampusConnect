@@ -1,12 +1,7 @@
 import { vi, expect } from "vitest";
 import * as matchers from "@testing-library/jest-dom/matchers";
-import { toHaveNoViolations } from "jest-axe";
-
 // Extend Vitest expect with jest-dom matchers
 expect.extend(matchers);
-
-// Extend Vitest with jest-axe custom matcher
-expect.extend(toHaveNoViolations);
 import "@testing-library/jest-dom/vitest";
 import React from "react";
 
@@ -60,6 +55,14 @@ if (typeof globalThis.ResizeObserver === "undefined") {
     unobserve() {}
     disconnect() {}
   } as unknown as typeof globalThis.ResizeObserver;
+}
+
+// Polyfill scrollIntoView for cmdk and Radix UI tests in JSDOM
+if (typeof window !== "undefined") {
+  window.HTMLElement.prototype.scrollIntoView = vi.fn();
+  if (window.Element && !window.Element.prototype.scrollIntoView) {
+    window.Element.prototype.scrollIntoView = vi.fn();
+  }
 }
 
 // Mock lucide-react using importOriginal so that ALL icons are available

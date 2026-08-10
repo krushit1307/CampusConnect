@@ -2,6 +2,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { ClubMentionNode } from "./extensions/ClubMentionExtension";
 import { EventCardNode } from "./extensions/EventCardExtension";
+import { UserMentionExtension } from "./extensions/UserMentionExtension";
 import React, { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -67,10 +68,10 @@ export const TiptapRichTextEditor: React.FC<TiptapRichTextEditorProps> = ({
   const [loadingEvents, setLoadingEvents] = useState(false);
 
   const editor = useEditor({
-    extensions: [StarterKit, ClubMentionNode, EventCardNode],
+    extensions: [StarterKit, ClubMentionNode, EventCardNode, UserMentionExtension],
     content,
     editable: !readOnly,
-    onUpdate: ({ editor }) => {
+    onUpdate: ({ editor }: any) => {
       onChange(editor.getHTML());
     },
     editorProps: {
@@ -78,7 +79,7 @@ export const TiptapRichTextEditor: React.FC<TiptapRichTextEditorProps> = ({
         class:
           "prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[160px] p-3 text-foreground",
       },
-      handlePaste: (_view, event) => {
+      handlePaste: (_view: any, event: any) => {
         const text = event.clipboardData?.getData("text/plain");
         if (!text) return false;
 

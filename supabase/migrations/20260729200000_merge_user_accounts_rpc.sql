@@ -71,10 +71,21 @@ BEGIN
     UPDATE public.reports SET reporter_id = primary_id WHERE reporter_id = secondary_id
     ON CONFLICT (reporter_id, target_type, target_id) DO NOTHING;
 
-    -- Delete the secondary profile
-    -- Because most tables have ON DELETE CASCADE, any remaining conflicting 
-    -- secondary rows (e.g. duplicate RSVPs) will be safely deleted here.
-    DELETE FROM public.profiles WHERE id = secondary_id;
+    -- Clean up leftover conflicting rows that ON CONFLICT DO NOTHING left behind.
+    -- (This simulates the ON DELETE CASCADE that the hard-delete previously provided).
+    DELETE FROM public.club_members WHERE user_id = secondary_id;
+    DELETE FROM public.event_rsvps WHERE user_id = secondary_id;
+    DELETE FROM public.saved_events WHERE user_id = secondary_id;
+    DELETE FROM public.post_reactions WHERE user_id = secondary_id;
+    DELETE FROM public.profile_achievements WHERE profile_id = secondary_id;
+    DELETE FROM public.event_waitlist WHERE user_id = secondary_id;
+    DELETE FROM public.event_feedbacks WHERE user_id = secondary_id;
+    DELETE FROM public.daily_active_users WHERE user_id = secondary_id;
+    DELETE FROM public.post_likes WHERE user_id = secondary_id;
+    DELETE FROM public.reports WHERE reporter_id = secondary_id;
+
+    -- Soft-delete the secondary profile
+    UPDATE public.profiles SET deleted_at = NOW() WHERE id = secondary_id;
 
 END;
 $$;
