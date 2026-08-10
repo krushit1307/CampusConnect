@@ -16,6 +16,7 @@ import { ShieldCheck, Send, Search, Lock, AlertTriangle, RefreshCw, Smile } from
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import EmojiPicker from "emoji-picker-react";
+import RichLinkCard from "./RichLinkCard";
 
 interface Profile {
   id: string;
@@ -615,9 +616,14 @@ export default function ChatBox() {
                                 : "bg-white text-black dark:bg-zinc-800 dark:text-cream dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,0.15)]"
                             }`}
                           >
-                            <p className="whitespace-pre-wrap font-sans text-sm font-medium">
-                              {msg.content}
-                            </p>
+                            <div className="whitespace-pre-wrap font-sans text-sm font-medium">
+                              {msg.content?.split(/(https?:\/\/[^\s]+)/g).map((part, i) => {
+                                if (part.match(/https?:\/\/[^\s]+/)) {
+                                  return <RichLinkCard key={i} url={part} />;
+                                }
+                                return <span key={i}>{part}</span>;
+                              })}
+                            </div>
                             <div className="mt-1.5 flex items-center justify-between gap-4 font-mono text-[9px] uppercase opacity-60">
                               <span>{time}</span>
                               <span className="flex items-center gap-0.5">
@@ -659,8 +665,10 @@ export default function ChatBox() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent side="top" align="end" className="p-0 border-2 border-black">
-                      <EmojiPicker 
-                        onEmojiClick={(emojiData) => setInputMessage(prev => prev + emojiData.emoji)}
+                      <EmojiPicker
+                        onEmojiClick={(emojiData) =>
+                          setInputMessage((prev) => prev + emojiData.emoji)
+                        }
                       />
                     </PopoverContent>
                   </Popover>
