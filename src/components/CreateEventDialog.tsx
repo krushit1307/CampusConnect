@@ -70,10 +70,15 @@ import { FlyerUploader } from "@/components/FlyerUploader";
 import type { ParsedFlyer } from "@/lib/parser";
 import { MultiSelect } from "@/components/MultiSelect";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
+import {
+  GeofenceMapPicker,
+  MIN_GEOFENCE_RADIUS_METERS,
+  DEFAULT_GEOFENCE_RADIUS_METERS,
+} from "@/components/GeofenceMapPicker";
 
 const STEPS = [
   { label: "Details", fields: ["title", "description"] as const },
-  { label: "Logistics", fields: ["location", "startDate", "endDate"] as const },
+  { label: "Logistics", fields: ["location", "latitude", "startDate", "endDate"] as const },
   { label: "Media", fields: [] as const },
   { label: "Review", fields: [] as const },
 ] as const;
@@ -93,6 +98,10 @@ const defaultValues: LocalEventFormValues = {
   description: "",
   category: "",
   location: "",
+  latitude: null,
+  longitude: null,
+  geofencingEnabled: false,
+  geofenceRadiusMeters: 100,
   startDate: "",
   endDate: "",
   requiresApproval: false,
@@ -226,6 +235,10 @@ export function CreateEventDialog({
   // Watch values via form.watch to keep TypeScript quiet about schema property limits
   const watchedLocation = form.watch("location");
   const watchedDescription = form.watch("description");
+  const watchedGeofencingEnabled = form.watch("geofencingEnabled");
+  const watchedLatitude = form.watch("latitude");
+  const watchedLongitude = form.watch("longitude");
+  const watchedGeofenceRadius = form.watch("geofenceRadiusMeters");
 
   const currentDescription = watchedDescription || "";
 
@@ -603,6 +616,77 @@ export function CreateEventDialog({
                   </div>
                 )}
 
+                <FormField
+                  control={control}
+                  name="geofencingEnabled"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-white p-4 shadow-sm">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="font-bold cursor-pointer">
+                          Require Geofenced Check-in
+                        </FormLabel>
+                        <p className="text-xs text-black/50">
+                          Attendees must be physically near the venue (verified via GPS) to check
+                          themselves in. Turn this off for indoor venues with poor GPS reception —
+                          you can still check attendees in manually at the door.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                {watchedGeofencingEnabled && (
+                  <div className="space-y-3 rounded-md border-2 border-black bg-white p-4">
+                    <GeofenceMapPicker
+                      latitude={watchedLatitude}
+                      longitude={watchedLongitude}
+                      radiusMeters={watchedGeofenceRadius || DEFAULT_GEOFENCE_RADIUS_METERS}
+                      onChange={({ latitude, longitude }) => {
+                        form.setValue("latitude", latitude, { shouldValidate: true });
+                        form.setValue("longitude", longitude, { shouldValidate: true });
+                      }}
+                    />
+                    {(form.formState.errors as Record<string, { message?: string }>)?.latitude && (
+                      <p className="text-red-500 text-xs" aria-live="polite">
+                        {
+                          (form.formState.errors as Record<string, { message?: string }>).latitude
+                            ?.message
+                        }
+                      </p>
+                    )}
+
+                    <FormField
+                      control={control}
+                      name="geofenceRadiusMeters"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Check-in Radius: {field.value || 100} meters</FormLabel>
+                          <FormControl>
+                            <input
+                              type="range"
+                              min={MIN_GEOFENCE_RADIUS_METERS}
+                              max={1000}
+                              step={10}
+                              value={field.value || DEFAULT_GEOFENCE_RADIUS_METERS}
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                              className="w-full accent-teal-500"
+                            />
+                          </FormControl>
+                          <p className="mt-1 text-xs text-black/50">
+                            How close (in meters) attendees must be to the pin to check in. 50–100m
+                            works well for a single building; use a larger radius for outdoor venues
+                            like a quad or stadium.
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+
                 <div className="flex flex-col gap-1">
                   <label className="eyebrow font-bold text-sm">
                     Event Date Range <span className="text-destructive">*</span>
@@ -826,6 +910,14 @@ export function CreateEventDialog({
                   <div>
                     <p className="text-xs text-black/40">Location</p>
                     <p>{form.getValues("location") || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-black/40">Geofenced Check-in</p>
+                    <p className="font-bold">
+                      {watchedGeofencingEnabled
+                        ? `On — ${form.getValues("geofenceRadiusMeters") || 100}m radius`
+                        : "Off — manual/QR check-in only"}
+                    </p>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>

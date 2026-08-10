@@ -371,6 +371,8 @@ export type Database = {
           metadata: Json | null;
           latitude: number | null;
           longitude: number | null;
+          geofencing_enabled: boolean;
+          geofence_radius_meters: number;
           max_attendees: number | null;
           available_spots: number | null;
           rsvp_count: number;
@@ -412,6 +414,8 @@ export type Database = {
           metadata?: Json | null;
           latitude?: number | null;
           longitude?: number | null;
+          geofencing_enabled?: boolean;
+          geofence_radius_meters?: number;
           max_attendees?: number | null;
           available_spots?: number | null;
           rsvp_count?: number;
@@ -453,6 +457,8 @@ export type Database = {
           metadata?: Json | null;
           latitude?: number | null;
           longitude?: number | null;
+          geofencing_enabled?: boolean;
+          geofence_radius_meters?: number;
           max_attendees?: number | null;
           available_spots?: number | null;
           rsvp_count?: number;
@@ -604,6 +610,9 @@ export type Database = {
           rsvp_id: string;
           scanned_by: string;
           recorded_by: string | null;
+          verification_method: "manual" | "qr_scan" | "geofence" | "organizer_override";
+          distance_meters: number | null;
+          location_accuracy_meters: number | null;
           created_at: string;
         };
         Insert: {
@@ -611,6 +620,9 @@ export type Database = {
           rsvp_id: string;
           scanned_by?: string;
           recorded_by?: string | null;
+          verification_method?: "manual" | "qr_scan" | "geofence" | "organizer_override";
+          distance_meters?: number | null;
+          location_accuracy_meters?: number | null;
           created_at?: string;
         };
         Update: {
@@ -618,6 +630,9 @@ export type Database = {
           rsvp_id?: string;
           scanned_by?: string;
           recorded_by?: string | null;
+          verification_method?: "manual" | "qr_scan" | "geofence" | "organizer_override";
+          distance_meters?: number | null;
+          location_accuracy_meters?: number | null;
           created_at?: string;
         };
         Relationships: [];
@@ -1874,6 +1889,15 @@ export type Database = {
       };
     };
     Functions: {
+      check_in_via_geofence: {
+        Args: {
+          p_rsvp_id: string;
+          p_latitude: number;
+          p_longitude: number;
+          p_accuracy_meters?: number | null;
+        };
+        Returns: Json;
+      };
       get_event_analytics: {
         Args: {
           p_event_id: string;
@@ -2109,3 +2133,4 @@ export type Enums<
   : PublicEnumNameOrOptions extends keyof Database["public"]["Enums"]
     ? Database["public"]["Enums"][PublicEnumNameOrOptions]
     : never;
+    
