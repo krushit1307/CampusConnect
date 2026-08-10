@@ -37,6 +37,7 @@ import {
   Star,
   HelpCircle,
   Flag,
+  QrCode,
   Eye,
 } from "lucide-react";
 import {
@@ -73,6 +74,10 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { ImageWithBlur } from "@/components/ui/ImageWithBlur";
 import { parseCoordinates } from "@/lib/eventUtils";
+import EventFeedbackForm from "@/components/EventFeedbackForm";
+import { EventPhotoGallery } from "@/components/EventPhotoGallery";
+import { EventMap } from "@/components/EventMap";
+import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
 import {
   buildKanbanColumns,
   buildRsvpStatus,
@@ -90,6 +95,13 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import DynamicQRCode from "@/components/events/DynamicQRCode";
 import { isCaptchaConfigured, shouldRequireCaptcha } from "@/lib/captcha";
 import { EditEventDialog } from "@/components/EditEventDialog";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
@@ -855,6 +867,7 @@ export default function EventDetailsPage() {
     },
   });
 
+  const isOrganizer = user && event?.created_by === user.id;
   const isOrganizer = !!(user && event?.created_by === user.id);
 
   useEffect(() => {
