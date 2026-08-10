@@ -144,7 +144,7 @@ export const ViewportTooltip: React.FC<ViewportTooltipProps> = ({
           role="tooltip"
           style={{ top: `${coords.top}px`, left: `${coords.left}px` }}
           className={cn(
-            "fixed z-50 rounded-md border-2 border-black bg-black px-3 py-1.5 font-mono text-xs text-cream shadow-md dark:border-cream dark:bg-cream dark:text-black animate-in fade-in-0 zoom-in-95 pointer-events-none",
+            "fixed z-[80] rounded-md border-2 border-black bg-black px-3 py-1.5 font-mono text-xs text-cream shadow-md dark:border-cream dark:bg-cream dark:text-black animate-in fade-in-0 zoom-in-95 pointer-events-none",
             className,
           )}
         >
