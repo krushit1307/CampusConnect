@@ -20,33 +20,16 @@ import MaintenancePage from "./components/MaintenancePage";
 import { NotFoundPage } from "./components/NotFoundPage";
 import { createClient } from "./lib/supabase/client";
 // Pages are mostly lazy-loaded below
-import MessagesRoute from "./routes/messages";
-import ThemeToggle from "./components/ThemeToggle"; // <-- Added Import
+import { ThemeToggle } from "./components/ThemeToggle";
+import { Loader2 } from "lucide-react";
 
-// Pages
-import Index from "./routes/index";
-import Auth from "./routes/auth";
-import Certificates from "./routes/certificates";
-import ClubsIndex from "./routes/clubs.index";
-import ClubDetails from "./routes/clubs.$slug";
-import ClubManageRoute from "./routes/clubs.$slug.manage";
-import ClubsLayout from "./routes/clubs";
-import Dashboard from "./routes/dashboard";
-import DashboardOverview from "./routes/dashboard.index";
-import DashboardRsvps from "./routes/dashboard.rsvps";
-import DashboardBookmarks from "./routes/dashboard.bookmarks";
-import DashboardCalendar from "./routes/dashboard.calendar";
-import Feed from "./routes/feed";
-import EventsMapPage from "./routes/events.map";
-import ForgotPassword from "./routes/forgot-password";
-import ResetPassword from "./routes/reset-password";
-import Settings from "./routes/settings";
-import VerifyEmail from "./routes/verify-email";
-import PendingClubsAdmin from "./routes/admin.clubs.pending";
-import AdminReportsPage from "./routes/admin.reports";
-import AdminUsersPage from "./routes/admin.users";
-import { NotFoundPage } from "./components/NotFoundPage";
-import { createClient } from "./lib/supabase/client";
+function RemoteLoadingScreen() {
+  return (
+    <div className="flex h-[50vh] w-full items-center justify-center p-8">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
+}
 
 const HEALTH_CHECK_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_HEALTH_URL) ||
@@ -110,6 +93,7 @@ const VerifyEmail = lazy(() => import("./routes/verify-email"));
 const MessagesRoute = lazy(() => import("./routes/messages"));
 const PendingClubsAdmin = lazy(() => import("./routes/admin.clubs.pending"));
 const AdminReportsPage = lazy(() => import("./routes/admin.reports"));
+const AdminUsersPage = lazy(() => import("./routes/admin.users"));
 const ChallengeArena = lazy(() => import("./routes/challenge"));
 const EventDashboard = lazy(() => import("./routes/events.$eventId.dashboard"));
 const Leaderboard = lazy(() =>
@@ -183,8 +167,6 @@ const router = createBrowserRouter(
             </Suspense>
           }
         />
-        <Route path="/events" element={<LazyEventsIndex />} />
-        <Route path="/events/:eventId" element={<LazyEventDetails />} />
         <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
         {/* Events Map View with clustering */}
         <Route path="/events/map" element={<EventsMapPage />} />
@@ -272,7 +254,7 @@ export default function App() {
         <div className="fixed bottom-4 right-4 z-[9999]">
           <ThemeToggle />
         </div>
-        
+
         <RouterProvider router={router} />
       </ErrorBoundary>
     </QueryClientProvider>
