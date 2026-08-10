@@ -82,8 +82,6 @@ async function checkDatabaseHealth(): Promise<HealthStatus> {
     }
 
     return { ok: true };
-  } catch (err: any) {
-    return { ok: false, error: err.message };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return { ok: false, error: message };
@@ -117,6 +115,7 @@ const EventDashboard = lazy(() => import("./routes/events.$eventId.dashboard"));
 const Leaderboard = lazy(() =>
   import("./components/Leaderboard").then((m) => ({ default: m.Leaderboard })),
 );
+const AdminDashboard = lazy(() => import("./routes/admin.dashboard"));
 
 const LazyEventsIndex = lazy(() => import("./routes/events"));
 const LazyEventDetails = lazy(() => import("./routes/events.$eventId"));
@@ -198,6 +197,7 @@ const router = createBrowserRouter(
         <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/messages" element={<MessagesRoute />} />
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
         <Route path="/admin/reports" element={<AdminReportsPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
