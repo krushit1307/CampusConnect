@@ -5,6 +5,10 @@
 export function getFriendlyAuthError(error: unknown): string {
   if (!error) return "An unknown authentication error occurred.";
 
+  if (error && typeof error === "object" && (error as { status?: number }).status === 429) {
+    return "Account locked, try again in 15 minutes";
+  }
+
   let message = "";
   if (error instanceof Error) {
     message = error.message;
@@ -29,6 +33,24 @@ export function getFriendlyAuthError(error: unknown): string {
   }
   if (msgLower.includes("password should be at least")) {
     return "Your password must be at least 6 characters long.";
+  }
+  if (msgLower.includes("password is too weak") || msgLower.includes("weak password")) {
+    return "Please choose a stronger password.";
+  }
+
+  if (msgLower.includes("same password") || msgLower.includes("new password should be different")) {
+    return "Your new password must be different from your current password.";
+  }
+
+  if (
+    msgLower.includes("token has expired") ||
+    (msgLower.includes("expired") && msgLower.includes("token"))
+  ) {
+    return "This reset link has expired. Please request a new password reset email.";
+  }
+
+  if (msgLower.includes("invalid token") || msgLower.includes("invalid recovery")) {
+    return "This password reset link is invalid. Please request a new one.";
   }
   if (msgLower.includes("invalid email") || msgLower.includes("email address is invalid")) {
     return "Please enter a valid email address.";

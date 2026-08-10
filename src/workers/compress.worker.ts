@@ -1,4 +1,3 @@
-// @ts-expect-error - Local WASM pkg is generated at build time
 import init, { compress_image } from "../../wasm/image-compressor/pkg/image_compressor";
 
 self.onmessage = async (event: MessageEvent) => {
@@ -15,8 +14,8 @@ self.onmessage = async (event: MessageEvent) => {
     const arrayBuffer = await file.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
 
-    // Call Rust Wasm function
-    const compressedBytes = compress_image(bytes, width, height, quality);
+    // Call Rust Wasm / JS fallback compression function
+    const compressedBytes = await compress_image(bytes, width, height, quality);
 
     // Send back the compressed array
     self.postMessage({ success: true, data: compressedBytes });

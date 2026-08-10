@@ -7,6 +7,15 @@ import {
   parseCoordinates,
   TITLE_MAX_LENGTH,
   matchesDateFilter,
+  hasDraftContent,
+  eventFormToDbPayload,
+  parseFlyerDate,
+  applyDateRangeSelection,
+  updateTimeInDate,
+  addFaq,
+  removeFaq,
+  updateFaq,
+  EventFormValues,
 } from "./eventUtils";
 
 // ---------------------------------------------------------------------------
@@ -16,6 +25,7 @@ describe("eventFormSchema", () => {
   const valid = {
     title: "Hackathon 2026",
     description: "A 24-hour coding event.",
+    category: "Technology",
     startDate: "2026-07-11T09:00",
     endDate: "2026-07-12T09:00",
   };
@@ -80,6 +90,30 @@ describe("eventFormSchema", () => {
   it("trims whitespace-only title", () => {
     const result = eventFormSchema.safeParse({ ...valid, title: "   " });
     expect(result.success).toBe(false);
+  });
+  it("has exact Zod error messages for min length constraints", () => {
+    const result = eventFormSchema.safeParse({
+      title: "",
+      description: "",
+      startDate: "",
+      endDate: "",
+    });
+    if (!result.success) {
+      const errs = result.error.flatten().fieldErrors;
+      expect(errs.title).toContain("Title is required.");
+      expect(errs.description).toContain("Description is required.");
+      expect(errs.startDate).toContain("Start date is required.");
+      expect(errs.endDate).toContain("End date is required.");
+    }
+  });
+
+  it("checks exact title max length message", () => {
+    const result = eventFormSchema.safeParse({ ...valid, title: "a".repeat(TITLE_MAX_LENGTH + 1) });
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.title).toContain(
+        `Title must be ${TITLE_MAX_LENGTH} characters or fewer.`,
+      );
+    }
   });
 });
 
@@ -196,6 +230,33 @@ describe("parseCoordinates", () => {
     expect(result.lng).toBe(151.2093);
   });
 
+  it("identifies boundary latitude and longitude as valid", () => {
+    expect(parseCoordinates("-90, 0").isValid).toBe(true);
+    expect(parseCoordinates("90, 0").isValid).toBe(true);
+    expect(parseCoordinates("0, -180").isValid).toBe(true);
+    expect(parseCoordinates("0, 180").isValid).toBe(true);
+  });
+
+  it("identifies just outside boundary latitude as invalid", () => {
+    const result1 = parseCoordinates("-90.1, 0");
+    expect(result1.isCoordinates).toBe(true);
+    expect(result1.isValid).toBe(false);
+
+    const result2 = parseCoordinates("90.1, 0");
+    expect(result2.isCoordinates).toBe(true);
+    expect(result2.isValid).toBe(false);
+  });
+
+  it("identifies just outside boundary longitude as invalid", () => {
+    const result1 = parseCoordinates("0, -180.1");
+    expect(result1.isCoordinates).toBe(true);
+    expect(result1.isValid).toBe(false);
+
+    const result2 = parseCoordinates("0, 180.1");
+    expect(result2.isCoordinates).toBe(true);
+    expect(result2.isValid).toBe(false);
+  });
+
   it("identifies invalid latitude (out of bounds)", () => {
     const result = parseCoordinates("95.1234, 77.1025");
     expect(result.isCoordinates).toBe(true);
@@ -212,6 +273,13 @@ describe("parseCoordinates", () => {
     const result = parseCoordinates("28.7041, abc");
     expect(result.isCoordinates).toBe(true);
     expect(result.isValid).toBe(false);
+  });
+
+  it("rejects leading/trailing non-numeric characters completely (strict regex)", () => {
+    // If one part is strictly valid, it enters the block, parses as NaN for the other, and returns isCoordinates: true.
+    // So to test that the regex strictly rejects a part, both parts must be invalid!
+    expect(parseCoordinates("abc12.3, def45.6").isCoordinates).toBe(false);
+    expect(parseCoordinates("12.3abc, 45.6def").isCoordinates).toBe(false);
   });
 
   it("treats plain address strings as not coordinates (and valid)", () => {
@@ -359,5 +427,176 @@ describe("matchesDateFilter", () => {
         endOfMonthNow,
       ),
     ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// hasDraftContent
+// ---------------------------------------------------------------------------
+describe("hasDraftContent", () => {
+  it("returns false for empty values", () => {
+    expect(
+      hasDraftContent({
+        title: "",
+        description: "",
+        location: "",
+        startDate: "",
+        endDate: "",
+      } as EventFormValues),
+    ).toBe(false);
+  });
+
+  it("returns true when title is filled", () => {
+    expect(
+      hasDraftContent({
+        title: "My Event",
+        description: "",
+        location: "",
+        startDate: "",
+        endDate: "",
+      } as EventFormValues),
+    ).toBe(true);
+  });
+
+  it("returns true when startDate is filled", () => {
+    expect(
+      hasDraftContent({
+        title: "",
+        description: "",
+        location: "",
+        startDate: "2026-07-11T10:00",
+        endDate: "",
+      } as EventFormValues),
+    ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// eventFormToDbPayload
+// ---------------------------------------------------------------------------
+describe("eventFormToDbPayload", () => {
+  it("converts form values to DB payload shape", () => {
+    const payload = eventFormToDbPayload(
+      {
+        title: " Test ",
+        description: "Desc ",
+        location: "Room 1",
+        startDate: "2026-07-11T10:00",
+        endDate: "2026-07-11T12:00",
+      } as EventFormValues,
+      "u1",
+      "c1",
+    );
+    expect(payload.title).toBe("Test");
+    expect(payload.created_by).toBe("u1");
+    expect(payload.club_id).toBe("c1");
+    expect(payload.requires_approval).toBe(false);
+  });
+
+  it("handles null clubId", () => {
+    const payload = eventFormToDbPayload(
+      {
+        title: "T",
+        description: "D",
+        location: "",
+        startDate: "2026-07-11T10:00",
+        endDate: "2026-07-11T12:00",
+      } as EventFormValues,
+      "u1",
+      null,
+    );
+    expect(payload.club_id).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseFlyerDate
+// ---------------------------------------------------------------------------
+describe("parseFlyerDate", () => {
+  it("parses a valid date string", () => {
+    const result = parseFlyerDate("2026-07-11");
+    expect(result).not.toBeNull();
+    expect(result!.startDate).toContain("T12:00");
+    expect(result!.endDate).toContain("T14:00");
+  });
+
+  it("returns null for invalid dates", () => {
+    expect(parseFlyerDate("not-a-date")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyDateRangeSelection
+// ---------------------------------------------------------------------------
+describe("applyDateRangeSelection", () => {
+  it("clears dates when range is undefined", () => {
+    const result = applyDateRangeSelection(undefined, "2026-07-11T10:00", "2026-07-12T12:00");
+    expect(result.startDate).toBe("");
+    expect(result.endDate).toBe("");
+  });
+
+  it("preserves existing start time", () => {
+    const result = applyDateRangeSelection(
+      { from: new Date(2026, 6, 15), to: new Date(2026, 6, 16) },
+      "2026-07-11T10:00",
+      "2026-07-12T12:00",
+    );
+    expect(result.startDate).toContain("T10:00");
+    expect(result.endDate).toContain("T12:00");
+  });
+
+  it("uses default times when no existing time", () => {
+    const result = applyDateRangeSelection(
+      { from: new Date(2026, 6, 15), to: new Date(2026, 6, 16) },
+      "",
+      "",
+    );
+    expect(result.startDate).toContain("T00:00");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// updateTimeInDate
+// ---------------------------------------------------------------------------
+describe("updateTimeInDate", () => {
+  it("replaces the time portion of a date string", () => {
+    expect(updateTimeInDate("2026-07-11T10:00", "14:30")).toBe("2026-07-11T14:30");
+  });
+
+  it("returns empty string unchanged", () => {
+    expect(updateTimeInDate("", "14:30")).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FAQ Helpers
+// ---------------------------------------------------------------------------
+describe("addFaq", () => {
+  it("appends a new empty FAQ entry", () => {
+    const result = addFaq([{ question: "Q1", answer: "A1" }]);
+    expect(result).toHaveLength(2);
+    expect(result[1]).toEqual({ question: "", answer: "" });
+  });
+});
+
+describe("removeFaq", () => {
+  it("removes the FAQ at the given index", () => {
+    const result = removeFaq(
+      [
+        { question: "Q1", answer: "A1" },
+        { question: "Q2", answer: "A2" },
+      ],
+      0,
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].question).toBe("Q2");
+  });
+});
+
+describe("updateFaq", () => {
+  it("updates a specific field of a FAQ entry", () => {
+    const result = updateFaq([{ question: "Q1", answer: "A1" }], 0, "question", "Updated Q");
+    expect(result[0].question).toBe("Updated Q");
+    expect(result[0].answer).toBe("A1");
   });
 });
