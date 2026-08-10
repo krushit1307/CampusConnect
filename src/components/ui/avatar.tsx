@@ -1,20 +1,38 @@
 "use client";
 
-import * as React from "react";
 import * as AvatarPrimitive from "@radix-ui/react-avatar";
+import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
 const Avatar = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>
->(({ className, ...props }, ref) => (
-  <AvatarPrimitive.Root
-    ref={ref}
-    className={cn("relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full", className)}
-    {...props}
-  />
-));
+  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root> & {
+    isOnline?: boolean;
+  }
+>(({ className, isOnline, ...props }, ref) => {
+  const avatarContent = (
+    <AvatarPrimitive.Root
+      ref={ref}
+      className={cn("relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full", className)}
+      {...props}
+    />
+  );
+
+  if (isOnline) {
+    return (
+      <div className="relative inline-block shrink-0">
+        {avatarContent}
+        <span
+          className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-neutral-900 shadow-[0_0_0_1px_rgba(0,0,0,0.15)]"
+          data-testid="presence-indicator"
+        />
+      </div>
+    );
+  }
+
+  return avatarContent;
+});
 Avatar.displayName = AvatarPrimitive.Root.displayName;
 
 const AvatarImage = React.forwardRef<
@@ -44,4 +62,4 @@ const AvatarFallback = React.forwardRef<
 ));
 AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName;
 
-export { Avatar, AvatarImage, AvatarFallback };
+export { Avatar, AvatarFallback, AvatarImage };

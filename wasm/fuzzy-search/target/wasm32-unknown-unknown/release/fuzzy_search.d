@@ -1,0 +1,1 @@
+C:\Users\Rathod\ milan\.gemini\antigravity-ide\scratch\CampusConnect\wasm\fuzzy-search\target\wasm32-unknown-unknown\release\fuzzy_search.wasm: C:\Users\Rathod\ milan\.gemini\antigravity-ide\scratch\CampusConnect\wasm\fuzzy-search\src\lib.rs
