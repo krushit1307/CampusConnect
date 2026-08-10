@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 type EffectFn = {
   (): void;
@@ -8,9 +8,6 @@ type EffectFn = {
 let activeEffect: EffectFn | null = null;
 const targetMap = new WeakMap<object, Map<string | symbol, Set<EffectFn>>>();
 
-/**
- * Tracks a dependency for the active effect on the given target and key.
- */
 function track(target: object, key: string | symbol): void {
   if (!activeEffect) return;
 
@@ -32,9 +29,6 @@ function track(target: object, key: string | symbol): void {
   }
 }
 
-/**
- * Triggers all active effects subscribed to changes on the given target and key.
- */
 function trigger(target: object, key: string | symbol): void {
   const depsMap = targetMap.get(target);
   if (!depsMap) return;
@@ -50,9 +44,6 @@ function trigger(target: object, key: string | symbol): void {
   });
 }
 
-/**
- * Removes an effect from all dependency sets it currently subscribes to.
- */
 function cleanupDeps(effect: EffectFn): void {
   for (const dep of effect.depsSets) {
     dep.delete(effect);
@@ -60,12 +51,6 @@ function cleanupDeps(effect: EffectFn): void {
   effect.depsSets.clear();
 }
 
-/**
- * Creates a reactive effect that automatically runs when tracked signal dependencies change.
- *
- * @param fn The callback function to run reactively.
- * @returns A cleanup function to unsubscribe and stop the effect.
- */
 export function createEffect(fn: () => void | (() => void)): () => void {
   let cleanup: void | (() => void);
 
@@ -109,12 +94,6 @@ export type SignalSetter<T> = (val: T | ((prev: T) => T)) => void;
 
 export type Signal<T> = [SignalGetter<T>, SignalSetter<T>];
 
-/**
- * Creates a fine-grained reactive signal tracked via JavaScript Proxies.
- *
- * @param initialValue The starting value of the signal.
- * @returns A [getter, setter] tuple. Accessing getter() or getter.value tracks dependency.
- */
 export function createSignal<T>(initialValue: T): Signal<T> {
   const state = { value: initialValue };
 
@@ -179,9 +158,6 @@ export function createSignal<T>(initialValue: T): Signal<T> {
   return [get, set];
 }
 
-/**
- * Creates a reactive proxy object that tracks property reads/writes fine-grainedly.
- */
 export function createReactiveObject<T extends object>(initialObj: T): T {
   const proxyMap = new WeakMap<object, object>();
 
@@ -217,15 +193,6 @@ export function createReactiveObject<T extends object>(initialObj: T): T {
   return createProxy(initialObj);
 }
 
-/**
- * Directly binds a signal accessor to a DOM Node (HTMLElement or Text node),
- * bypassing React's render cycle completely when the signal value updates.
- *
- * @param node The DOM node (HTMLElement or Text node) to update.
- * @param accessor Function returning the current signal value.
- * @param prop The property on the node to mutate (default: "textContent").
- * @returns Unsubscribe function to tear down the DOM binding effect.
- */
 export function bindSignalToDOM(
   node: HTMLElement | Text | null,
   accessor: () => unknown,
@@ -247,10 +214,6 @@ export function bindSignalToDOM(
   });
 }
 
-/**
- * React hook that binds a signal accessor directly to a ref's DOM node,
- * mutating the DOM node directly on signal updates without triggering React re-renders.
- */
 export function useBindSignal(
   ref: React.RefObject<HTMLElement | Text | null>,
   accessor: () => unknown,

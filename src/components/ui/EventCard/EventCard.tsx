@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { EventCardProps, EventCardProvider } from "./EventCardContext";
 import { EventCardContentContainer } from "./EventCardContentContainer";
 import { EventCardHeader } from "./EventCardHeader";
@@ -6,7 +7,7 @@ import { EventCardActions } from "./EventCardActions";
 import { EventCardProgressBar } from "./EventCardProgressBar";
 import { EventCardDetails } from "./EventCardDetails";
 
-export function EventCard(props: EventCardProps) {
+const EventCardComponent = memo(function EventCard(props: EventCardProps) {
   const { children, ...providerProps } = props;
 
   return (
@@ -24,10 +25,12 @@ export function EventCard(props: EventCardProps) {
       </EventCardContentContainer>
     </EventCardProvider>
   );
-}
+});
 
-EventCard.Header = EventCardHeader;
-EventCard.Body = EventCardBody;
-EventCard.Actions = EventCardActions;
-EventCard.ProgressBar = EventCardProgressBar;
-EventCard.Details = EventCardDetails;
+export const EventCard = Object.assign(EventCardComponent, {
+  Header: EventCardHeader,
+  Body: EventCardBody,
+  Actions: EventCardActions,
+  ProgressBar: EventCardProgressBar,
+  Details: EventCardDetails,
+});

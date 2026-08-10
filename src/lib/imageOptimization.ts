@@ -3,6 +3,7 @@ export interface ImageTransformOptions {
   height?: number;
   quality?: number;
   resize?: "cover" | "contain" | "fill";
+  format?: "avif" | "webp" | "origin";
 }
 
 const SUPABASE_PUBLIC_OBJECT_SEGMENT = "/storage/v1/object/public/";
@@ -57,6 +58,7 @@ export function getOptimizedImageUrl(source: string, options: ImageTransformOpti
   if (options.height) parsed.searchParams.set("height", String(options.height));
   if (options.quality) parsed.searchParams.set("quality", String(options.quality));
   if (options.resize) parsed.searchParams.set("resize", options.resize);
+  if (options.format) parsed.searchParams.set("format", options.format);
 
   return parsed.toString();
 }

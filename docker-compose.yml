@@ -24,11 +24,11 @@ services:
       - LISTEN_CHANNEL=live_feed_channel
     env_file:
       - .env.local
-  activitypub:
+activitypub:
     build:
       context: ./services/activitypub
-    ports:
-      - "3002:3002"
+    expose:
+      - "3002"
     environment:
       - PORT=3002
       - DOMAIN=localhost:3002
@@ -36,3 +36,12 @@ services:
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
     env_file:
       - .env.local
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      - activitypub
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
