@@ -139,6 +139,26 @@ export default function SettingsPage() {
     enabled: !!user?.id,
   });
 
+  interface UserBadge {
+    id: string;
+    user_id: string;
+    badge_name: string;
+    awarded_at: string;
+  }
+
+  const { data: badges = [] } = useQuery({
+    queryKey: ["user_badges", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_badges")
+        .select("*")
+        .eq("user_id", user?.id);
+      if (error) throw error;
+      return (data || []) as UserBadge[];
+    },
+    enabled: !!user?.id,
+  });
+
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -261,6 +281,27 @@ export default function SettingsPage() {
               selected={currentAvatarTheme}
               onSelect={(id) => form.setValue("avatarTheme", id, { shouldDirty: true })}
             />
+
+            <div className="mb-6 border-2 border-black bg-lime/10 p-4 font-mono text-sm">
+              <p className="font-bold text-black uppercase mb-2">Unlocked Badges</p>
+              {badges.length === 0 ? (
+                <p className="text-xs text-gray-500 font-bold uppercase">
+                  No badges unlocked yet. Keep exploring the campus!
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {badges.map((b) => (
+                    <span
+                      key={b.id}
+                      title={b.badge_name}
+                      className="bg-black text-lime neu-border px-3 py-1 font-mono text-xs font-bold uppercase tracking-wider animate-bounce"
+                    >
+                      🏅 {b.badge_name}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
