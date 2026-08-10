@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -122,6 +123,9 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const limited = await rateLimiter(req, "weekly-digest", 5, 3600);
+  if (limited) return limited;
+
   try {
     // 1. Verify Authorization (Require Service Role Key for Cron/Admin invocation)
     const authHeader = req.headers.get("Authorization");
@@ -166,7 +170,9 @@ serve(async (req) => {
 
     if (!upcomingEvents || upcomingEvents.length === 0) {
       return new Response(
-        JSON.stringify({ message: "No upcoming events in the next 7 days. Skipping newsletter digest." }),
+        JSON.stringify({
+          message: "No upcoming events in the next 7 days. Skipping newsletter digest.",
+        }),
         {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -180,10 +186,13 @@ serve(async (req) => {
     if (subError) throw new Error(`Failed to fetch newsletter subscribers: ${subError.message}`);
 
     if (!subscribers || subscribers.length === 0) {
-      return new Response(JSON.stringify({ message: "No subscribers opted into newsletter digest." }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ message: "No subscribers opted into newsletter digest." }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     const emailList = (subscribers as SubscriberEmail[])
@@ -213,7 +222,9 @@ serve(async (req) => {
 
     if (!resendApiKey) {
       if (Deno.env.get("MOCK_EMAIL") === "true" || Deno.env.get("DENO_ENV") === "test") {
-        console.log(`[weekly-digest] Mock Mode: Simulated dispatch to ${emailList.length} newsletter subscribers.`);
+        console.log(
+          `[weekly-digest] Mock Mode: Simulated dispatch to ${emailList.length} newsletter subscribers.`,
+        );
         return new Response(
           JSON.stringify({
             message: "Mock newsletter digest sent successfully.",

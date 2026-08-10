@@ -10,6 +10,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.110.0";
 import { corsHeaders } from "../_shared/validation.ts";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 const DEFAULT_RADIUS_METERS = 500;
 const MAX_RADIUS_METERS = 50_000;
@@ -41,6 +42,10 @@ export async function handler(req: Request): Promise<Response> {
   if (req.method !== "GET") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
+
+  // Rate limit: 60 requests/minute (read-only, safe)
+  const limited = await rateLimiter(req, "nearby-events", 60, 60);
+  if (limited) return limited;
 
   const url = new URL(req.url);
   const lat = parseCoordinate(url.searchParams.get("lat"), MIN_LAT, MAX_LAT);

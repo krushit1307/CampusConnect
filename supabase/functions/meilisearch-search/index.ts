@@ -18,6 +18,8 @@
 //     "processingTimeMs": 3
 //   }
 
+import { rateLimiter } from "../shared/rateLimiter.ts";
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -41,31 +43,34 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  const limited = await rateLimiter(req, "meilisearch-search", 60, 60);
+  if (limited) return limited;
+
   const meiliHost = Deno.env.get("MEILI_HOST");
   const meiliApiKey = Deno.env.get("MEILI_SEARCH_KEY") ?? Deno.env.get("MEILI_API_KEY");
 
   if (!meiliHost || !meiliApiKey) {
-    return new Response(
-      JSON.stringify({ error: "Meilisearch not configured" }),
-      { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Meilisearch not configured" }), {
+      status: 500,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
   }
 
   let body: SearchRequest;
   try {
     body = await req.json();
   } catch {
-    return new Response(
-      JSON.stringify({ error: "Invalid JSON body" }),
-      { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+      status: 400,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
   }
 
   const query = body.query?.trim();
   if (!query) {
     return new Response(
       JSON.stringify({ events: [], clubs: [], profiles: [], totalHits: 0, processingTimeMs: 0 }),
-      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
     );
   }
 
@@ -84,7 +89,7 @@ Deno.serve(async (req: Request) => {
     const response = await fetch(`${meiliHost}/multi-search`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${meiliApiKey}`,
+        Authorization: `Bearer ${meiliApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(multiSearchBody),
@@ -93,10 +98,10 @@ Deno.serve(async (req: Request) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("[meilisearch-search] Meili error:", response.status, errorText);
-      return new Response(
-        JSON.stringify({ error: "Search failed", detail: errorText }),
-        { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Search failed", detail: errorText }), {
+        status: 502,
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
     }
 
     const data = await response.json();
@@ -114,17 +119,17 @@ Deno.serve(async (req: Request) => {
         profiles,
         totalHits: events.length + clubs.length + profiles.length,
         processingTimeMs: Math.max(
-          ...(results.map((r: { processingTimeMs: number }) => r.processingTimeMs ?? 0)),
-          0
+          ...results.map((r: { processingTimeMs: number }) => r.processingTimeMs ?? 0),
+          0,
         ),
       }),
-      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
     );
   } catch (err) {
     console.error("[meilisearch-search] Network error:", err);
-    return new Response(
-      JSON.stringify({ error: "Network error", detail: String(err) }),
-      { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Network error", detail: String(err) }), {
+      status: 502,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
   }
 });

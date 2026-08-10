@@ -8,6 +8,7 @@ import {
   encode as base64urlEncode,
 } from "https://deno.land/std@0.168.0/encoding/base64url.ts";
 import { parseJsonBody } from "../_shared/validation.ts";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 const webauthnRegistrationSchema = z
   .object({
@@ -38,6 +39,10 @@ serve(async (req: Request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+
+  // Rate limit: 5 requests/minute (authentication registration)
+  const limited = await rateLimiter(req, "webauthn-registration-verify", 5, 60);
+  if (limited) return limited;
 
   try {
     const supabase = createClient(

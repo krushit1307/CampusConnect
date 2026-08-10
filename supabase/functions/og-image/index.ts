@@ -23,6 +23,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
 import satori from "https://esm.sh/satori@0.10.14";
 import { initWasm, Resvg } from "https://esm.sh/@resvg/resvg-wasm@2.6.2";
 import { corsHeaders } from "../_shared/validation.ts";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 // ---------------------------------------------------------------------------
 // WASM initialisation — load resvg once per isolate lifecycle
@@ -33,8 +34,7 @@ let wasmInitialised = false;
 async function ensureWasm() {
   if (wasmInitialised) return;
   // Fetch precompiled WASM binary from the same esm.sh CDN that hosts the JS
-  const wasmUrl =
-    "https://esm.sh/@resvg/resvg-wasm@2.6.2/index_bg.wasm";
+  const wasmUrl = "https://esm.sh/@resvg/resvg-wasm@2.6.2/index_bg.wasm";
   const wasmBuffer = await fetch(wasmUrl).then((r) => r.arrayBuffer());
   await initWasm(wasmBuffer);
   wasmInitialised = true;
@@ -347,11 +347,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
     });
   }
 
+  // Rate limit: 30 requests/minute (image generation, compute-heavy)
+  const limited = await rateLimiter(req, "og-image", 30, 60);
+  if (limited) return limited;
+
   // --- Parse & validate event_id ---
   const url = new URL(req.url);
   const eventId = url.searchParams.get("event_id");
 
-  if (!eventId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId)) {
+  if (
+    !eventId ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId)
+  ) {
     return new Response(
       JSON.stringify({ error: "Missing or invalid event_id. Must be a valid UUID." }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
