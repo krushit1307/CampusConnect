@@ -8,15 +8,16 @@ const redis = redisUrl && redisToken ? new Redis({ url: redisUrl, token: redisTo
 export interface RateLimitConfig {
   limit?: number; // Maximum requests allowed in the window (default: 5)
   windowMs?: number; // Window size in milliseconds (default: 60000 / 1 minute)
+  identifier?: string; // Optional custom identifier to use instead of IP
 }
 
 /**
- * Checks the rate limit for the incoming request based on the client's IP.
+ * Checks the rate limit for the incoming request based on the client's IP or a custom identifier.
  * Returns a 429 Response if the limit is exceeded, or null if the request is allowed.
  *
  * @param req The incoming Request object
  * @param functionName The name of the Edge Function (to segment Redis keys)
- * @param config Optional rate limit configuration (limit, windowMs)
+ * @param config Optional rate limit configuration (limit, windowMs, identifier)
  */
 export async function limitRate(
   req: Request,
@@ -37,7 +38,8 @@ export async function limitRate(
   const xForwardedFor = req.headers.get("x-forwarded-for");
   const ip = xForwardedFor ? xForwardedFor.split(",")[0].trim() : "127.0.0.1";
 
-  const key = `rate_limit:${functionName}:${ip}`;
+  const identifier = config.identifier ?? ip;
+  const key = `rate_limit:${functionName}:${identifier}`;
   const now = Date.now();
   const clearBefore = now - windowMs;
   const memberId = `${now}:${Math.random().toString(36).substring(2, 9)}`;
@@ -90,3 +92,7 @@ export async function limitRate(
     return null;
   }
 }
+// @ts-ignore
+export { limitRate } from "./middleware.ts";
+// @ts-ignore
+export type { RateLimitConfig } from "./middleware.ts";

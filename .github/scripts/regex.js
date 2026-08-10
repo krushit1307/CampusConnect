@@ -7,7 +7,9 @@ export const claimIntentRegexes = [
   /\bcan\s+i\s+take\s+this\s+issue\b/i,
   /\bhappy\s+to\s+work\s+on\s+this\b/i,
   /\bi\s+want\s+to\s+work\s+on\s+this\b/i,
+  /\bi\s+want\s+to\s+do\s+this\b/i,
   /\bi\s+want\s+this\s+issue\b/i,
+  /\bassignme\b/i,
 ];
 
 export const activitySignalRegexes = [
