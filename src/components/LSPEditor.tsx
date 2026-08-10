@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useRef, useState } from "react";
 import { useLSPClient } from "@/hooks/useLSPClient";
 import { Loader2, Radio, AlertCircle, CheckCircle, HelpCircle } from "lucide-react";

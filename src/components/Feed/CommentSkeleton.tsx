@@ -38,9 +38,7 @@ export function CommentSkeleton({ depth = 0, showChildren = false }: CommentSkel
         {/* Comment body — 1-3 lines depending on depth to look natural */}
         <div className="mt-2 space-y-1.5">
           <Skeleton className="h-3 w-full rounded-none bg-black/10 delay-150" />
-          {depth === 0 && (
-            <Skeleton className="h-3 w-4/5 rounded-none bg-black/10 delay-300" />
-          )}
+          {depth === 0 && <Skeleton className="h-3 w-4/5 rounded-none bg-black/10 delay-300" />}
         </div>
 
         {/* Reply action link */}

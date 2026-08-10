@@ -1,22 +1,31 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { OrganicSkeleton, TextSkeleton } from "@/components/ui/OrganicSkeleton";
 
-export function ClubCardSkeleton() {
+const DESCRIPTION_LINES: Record<"sm" | "md" | "lg", number> = {
+  sm: 1,
+  md: 2,
+  lg: 4,
+};
+
+export function ClubCardSkeleton({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
+  const lines = DESCRIPTION_LINES[size];
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-md border border-gray-100 dark:border-gray-700 flex flex-col justify-between space-y-4">
-      {/* Thumbnail Skeleton */}
-      <Skeleton className="w-full h-36 rounded-lg" />
-
-      {/* Title & Description Skeletons */}
-      <div className="space-y-2">
-        <Skeleton className="h-5 w-3/4" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-5/6" />
+    <div className="neu-border flex h-full flex-col justify-between bg-white p-6 shadow-[4px_4px_0_0_rgba(0,0,0,1)]">
+      <div>
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <OrganicSkeleton width="70px" height="h-5" className="border-2 border-black" />
+        </div>
+        <OrganicSkeleton width="75%" height="h-6" className="mb-4" seed={`club-title-${size}`} />
+        <div className="mb-6">
+          <TextSkeleton lines={lines} lineHeight="h-3" seed={`club-desc-${size}`} />
+        </div>
       </div>
-
-      {/* Footer Skeleton */}
-      <div className="pt-2 flex items-center justify-between">
-        <Skeleton className="h-8 w-24" />
-        <Skeleton className="h-6 w-6 rounded-full" />
+      <div>
+        <div className="my-3 border-t-2 border-black" />
+        <div className="flex items-center justify-between">
+          <OrganicSkeleton width="90px" height="h-4" seed={`club-meta-1-${size}`} />
+          <OrganicSkeleton width="75px" height="h-4" seed={`club-meta-2-${size}`} />
+        </div>
       </div>
     </div>
   );

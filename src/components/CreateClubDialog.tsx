@@ -1,12 +1,13 @@
-import { useEffect, useState, useRef, type ChangeEvent } from "react";
+import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useMutation } from "@/hooks/useReactQueryReplacement";
-import { Plus, Camera, Loader2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
 import {
   clubFormSchema,
   MAX_DESCRIPTION_LENGTH,
@@ -14,11 +15,9 @@ import {
   type ClubFormInput,
 } from "@/lib/clubUtils";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
-import { Progress } from "@/components/ui/progress";
-import Cropper from "react-easy-crop";
-import { getCroppedImg, type Area } from "@/utils/cropImage";
 import {
   Dialog,
   DialogContent,
@@ -36,50 +35,17 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
+import { ImageCropUpload } from "@/components/ImageCropUpload";
+import { CascadingCategorySelect } from "@/components/Clubs/CascadingCategorySelect";
+import { useConfetti } from "@/hooks/useConfetti";
 
 const defaultValues: ClubFormInput = {
   name: "",
   slug: "",
   description: "",
   visibility: "public",
+  category_id: null,
 };
-
-function uploadFileWithProgress(
-  supabaseUrl: string,
-  accessToken: string,
-  bucket: string,
-  path: string,
-  file: File,
-  onProgress: (percent: number) => void,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${supabaseUrl}/storage/v1/object/${bucket}/${path}`);
-    xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
-    xhr.setRequestHeader("x-upsert", "true");
-    xhr.setRequestHeader("Content-Type", file.type);
-
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        onProgress(Math.round((event.loaded / event.total) * 100));
-      }
-    };
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
-      } else {
-        reject(new Error(`Upload failed with status ${xhr.status}`));
-      }
-    };
-
-    xhr.onerror = () => {
-      reject(new Error("Upload failed due to a network error"));
-    };
-
-    xhr.send(file);
-  });
-}
 
 const generateSlug = (text: string) => {
   return text
@@ -90,27 +56,22 @@ const generateSlug = (text: string) => {
     .replace(/-+/g, "-"); // remove duplicate hyphens
 };
 
+interface LocalClubFormValues extends ClubFormInput {
+  logo_url?: string;
+}
+
 export function CreateClubDialog({ user }: { user: User | null }) {
+  const { fireCannon } = useConfetti();
   const [open, setOpen] = useState(false);
   const supabase = createClient();
 
-  const form = useForm<ClubFormInput>({
+  const form = useForm<LocalClubFormValues>({
     resolver: zodResolver(clubFormSchema),
     defaultValues,
     mode: "onBlur",
   });
 
   const nameValue = form.watch("name");
-
-  // Crop states
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
-  const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const isSlugDirty = form.getFieldState("slug").isDirty;
@@ -119,100 +80,8 @@ export function CreateClubDialog({ user }: { user: User | null }) {
     }
   }, [nameValue, form]);
 
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error("Only JPG, PNG and WEBP images are allowed.");
-      return;
-    }
-
-    const maxSize = 2 * 1024 * 1024;
-    if (file.size > maxSize) {
-      toast.error("Image must be under 2 MB.");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.addEventListener("load", () => {
-      setCropImageSrc(reader.result as string);
-      setSelectedFile(file);
-      setCrop({ x: 0, y: 0 });
-      setZoom(1);
-    });
-    reader.readAsDataURL(file);
-  }
-
-  async function handleCropConfirm() {
-    if (!cropImageSrc || !croppedAreaPixels || !selectedFile) return;
-
-    setUploadingLogo(true);
-    setCropImageSrc(null);
-
-    try {
-      const croppedBlob = await getCroppedImg(cropImageSrc, croppedAreaPixels);
-      const croppedFile = new File([croppedBlob], selectedFile.name, {
-        type: selectedFile.type,
-      });
-
-      const logoUrl = await uploadClubLogo(croppedFile);
-      if (logoUrl) {
-        form.setValue("logo_url", logoUrl, { shouldValidate: true, shouldDirty: true });
-        toast.success("Logo cropped and ready.");
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to crop and upload logo.");
-    } finally {
-      setUploadingLogo(false);
-      setLogoUploadProgress(null);
-      setSelectedFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
-  }
-
-  async function uploadClubLogo(file: File): Promise<string | undefined> {
-    if (!user) {
-      toast.error("Please sign in first.");
-      return;
-    }
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
-      toast.error("Session expired. Please sign in again.");
-      return;
-    }
-
-    const supabaseUrl = getSupabaseUrl();
-    const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-    const filePath = `${user.id}/${crypto.randomUUID()}.${extension}`;
-
-    await uploadFileWithProgress(
-      supabaseUrl,
-      session.access_token,
-      "avatars",
-      filePath,
-      file,
-      setLogoUploadProgress,
-    );
-    setLogoUploadProgress(null);
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("avatars").getPublicUrl(filePath);
-
-    return publicUrl;
-  }
-
   const createClub = useMutation({
-    mutationFn: async (values: ClubFormValues) => {
+    mutationFn: async (values: LocalClubFormValues) => {
       if (!user) {
         throw new Error("You must be logged in to create a club.");
       }
@@ -236,8 +105,9 @@ export function CreateClubDialog({ user }: { user: User | null }) {
         .insert({
           name: values.name.trim(),
           slug: values.slug.trim(),
-          description: values.description.trim(),
+          description: sanitizeHtml(values.description.trim()),
           logo_url: values.logo_url || null,
+          category_id: values.category_id || null,
           created_by: user.id,
           status: "pending",
         })
@@ -250,18 +120,31 @@ export function CreateClubDialog({ user }: { user: User | null }) {
 
       // Automatically add creator as admin member
       if (newClub) {
-        const { error: memberError } = await supabase.from("club_members").insert({
-          club_id: newClub.id,
-          user_id: user.id,
-          role: "admin",
-          status: "approved",
-        });
-        if (memberError) {
-          console.error("[CreateClubDialog] Failed to add creator as member:", memberError);
+        // First, get the admin role for this club
+        const { data: adminRole, error: roleError } = await supabase
+          .from("club_roles")
+          .select("id")
+          .eq("club_id", newClub.id)
+          .eq("title", "Admin")
+          .single();
+
+        if (roleError || !adminRole) {
+          console.error("[CreateClubDialog] Failed to get admin role:", roleError);
+        } else {
+          const { error: memberError } = await supabase.from("club_members").insert({
+            club_id: newClub.id,
+            user_id: user.id,
+            role_id: adminRole.id,
+            status: "approved",
+          });
+          if (memberError) {
+            console.error("[CreateClubDialog] Failed to add creator as member:", memberError);
+          }
         }
       }
     },
     onSuccess: () => {
+      fireCannon();
       toast.success("Club submitted for administrator review.");
       window.dispatchEvent(new Event("refetchClubs"));
       form.reset(defaultValues);
@@ -273,9 +156,9 @@ export function CreateClubDialog({ user }: { user: User | null }) {
     },
   });
 
-  const onSubmit = (values: ClubFormInput) => {
+  const onSubmit = (values: LocalClubFormValues) => {
     const parsed = clubFormSchema.parse(values);
-    createClub.mutate(parsed);
+    createClub.mutate({ ...parsed, logo_url: values.logo_url });
   };
 
   return (
@@ -285,17 +168,13 @@ export function CreateClubDialog({ user }: { user: User | null }) {
         setOpen(nextOpen);
         if (!nextOpen) {
           form.reset(defaultValues);
-          setSelectedFile(null);
-          setCropImageSrc(null);
-          setUploadingLogo(false);
-          setLogoUploadProgress(null);
         }
       }}
     >
       <DialogTrigger asChild>
         <button
           type="button"
-          className="neu-border neu-press flex items-center gap-2 bg-sky px-5 py-3 font-mono text-sm font-bold uppercase text-black"
+          className="neu-border neu-press flex items-center gap-2 bg-sky px-4 py-2 font-mono text-sm font-bold uppercase text-black"
         >
           <Plus className="h-4 w-4" />
           Create a Club
@@ -329,7 +208,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
                             .watch("name")
                             .split(" ")
                             .filter(Boolean)
-                            .map((p) => p[0])
+                            .map((p: string) => p[0])
                             .join("")
                             .slice(0, 2)
                             .toUpperCase()
@@ -337,39 +216,23 @@ export function CreateClubDialog({ user }: { user: User | null }) {
                     </span>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingLogo}
-                  aria-label="Upload club logo"
-                  title="Upload club logo"
-                  className="neu-border neu-press absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-black text-cream hover:bg-cream hover:text-black"
-                >
-                  {uploadingLogo ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <Camera className="h-3.5 w-3.5" />
-                  )}
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
               </div>
-              <div className="text-center sm:text-left flex-1">
-                <p className="eyebrow font-bold text-black">Club Logo</p>
-                <p className="font-mono text-[11px] text-black/70">
-                  JPG, PNG or WEBP. Max 2 MB. Fixed 1:1 crop.
-                </p>
-                {logoUploadProgress !== null && (
-                  <div className="mt-2 w-full space-y-1">
-                    <Progress value={logoUploadProgress} className="h-2 bg-black/10" />
-                    <p className="font-mono text-[10px] text-black">{logoUploadProgress}%</p>
-                  </div>
-                )}
+              <div className="flex-1">
+                <p className="eyebrow font-bold text-black mb-1">Club Logo</p>
+                <ImageCropUpload
+                  aspect={1}
+                  bucket="avatars"
+                  value={form.watch("logo_url") ?? undefined}
+                  onUploaded={(url) =>
+                    form.setValue("logo_url", url, {
+                      shouldValidate: true,
+                      shouldDirty: true,
+                    })
+                  }
+                  accept="image/jpeg,image/png,image/webp"
+                  maxSizeBytes={2 * 1024 * 1024}
+                  hint="JPG, PNG or WEBP · Max 2 MB · Fixed 1:1 crop"
+                />
               </div>
             </div>
 
@@ -444,6 +307,30 @@ export function CreateClubDialog({ user }: { user: User | null }) {
               }}
             />
 
+            <FormField
+              control={form.control}
+              name="category_id"
+              render={({ field }) => (
+                <FormItem className="text-black">
+                  <FormLabel required className="text-red-900">
+                    Club Category
+                  </FormLabel>
+                  <FormControl>
+                    <CascadingCategorySelect
+                      value={field.value ?? null}
+                      onChange={(categoryId) =>
+                        form.setValue("category_id", categoryId, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        })
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <DialogFooter className="pt-2">
               <Button type="submit" disabled={createClub.isPending} className="w-full sm:w-auto">
                 {createClub.isPending ? "Submitting..." : "Submit Club"}
@@ -452,72 +339,6 @@ export function CreateClubDialog({ user }: { user: User | null }) {
           </form>
         </Form>
       </DialogContent>
-
-      <Dialog
-        open={!!cropImageSrc}
-        onOpenChange={(open) => {
-          if (!open) {
-            setCropImageSrc(null);
-            setSelectedFile(null);
-          }
-        }}
-      >
-        <DialogContent className="neu-border neu-shadow bg-cream sm:max-w-md text-black max-h-[90vh] flex flex-col p-6">
-          <DialogHeader>
-            <DialogTitle className="text-black">Crop Club Logo</DialogTitle>
-          </DialogHeader>
-          <div className="relative h-64 w-full bg-black/10 mt-2 overflow-hidden">
-            {cropImageSrc && (
-              <Cropper
-                image={cropImageSrc}
-                crop={crop}
-                zoom={zoom}
-                aspect={1}
-                onCropChange={setCrop}
-                onZoomChange={setZoom}
-                onCropComplete={(
-                  _,
-                  croppedPixels: { width: number; height: number; x: number; y: number },
-                ) => setCroppedAreaPixels(croppedPixels)}
-              />
-            )}
-          </div>
-          <div className="space-y-2 mt-4">
-            <div className="flex items-center justify-between text-xs font-mono font-bold">
-              <span>Zoom</span>
-              <span>{Math.round(zoom * 100)}%</span>
-            </div>
-            <input
-              type="range"
-              min={1}
-              max={3}
-              step={0.1}
-              value={zoom}
-              onChange={(e) => setZoom(parseFloat(e.target.value))}
-              className="w-full cursor-pointer accent-black"
-            />
-          </div>
-          <DialogFooter className="mt-6 gap-2 sm:gap-0">
-            <button
-              type="button"
-              onClick={() => {
-                setCropImageSrc(null);
-                setSelectedFile(null);
-              }}
-              className="neu-border bg-white text-black font-mono text-xs font-bold uppercase py-2 px-4 hover:bg-cream"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleCropConfirm}
-              className="neu-border bg-black text-cream font-mono text-xs font-bold uppercase py-2 px-4 hover:bg-lime hover:text-black"
-            >
-              Crop & Save
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Dialog>
   );
 }

@@ -1,0 +1,11 @@
+
+ RUN  v4.1.10 c:/Users/lenovo/CampusConnect
+
+ ✓ src/store/useNotificationStore.test.ts (3 tests) 9ms
+ ✓ src/store/globalState.test.ts (4 tests) 12ms
+
+ Test Files  2 passed (2)
+      Tests  7 passed (7)
+   Start at  20:44:14
+   Duration  3.95s (transform 180ms, setup 750ms, import 178ms, tests 22ms, environment 5.54s)
+

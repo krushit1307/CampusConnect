@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 
-export type EmptyStateIllustration = "no-events" | "no-members" | "no-results" | "no-clubs";
+export type EmptyStateIllustration =
+  "no-events" | "no-members" | "no-results" | "no-clubs" | "no-messages" | "no-notifications";
 
 interface EmptyStateAction {
   label: string;
@@ -8,12 +9,14 @@ interface EmptyStateAction {
   onClick?: () => void;
 }
 
-interface EmptyStateProps {
+export interface EmptyStateProps {
   title: string;
   description?: string;
+  illustrationType?: EmptyStateIllustration;
   illustration?: EmptyStateIllustration;
   icon?: ReactNode;
   action?: EmptyStateAction;
+  actionButton?: ReactNode;
   className?: string;
 }
 
@@ -32,60 +35,189 @@ interface EmptyStateProps {
 export function EmptyState({
   title,
   description,
+  illustrationType,
   illustration = "no-results",
   icon,
   action,
+  actionButton,
   className = "",
 }: EmptyStateProps) {
+  const selectedIllustration = illustrationType ?? illustration;
+
   return (
     <div
-      className={`neu-border bg-white flex flex-col items-center justify-center text-center px-6 py-12 gap-4 ${className}`}
+      className={`neu-border flex flex-col items-center justify-center gap-4 bg-white px-6 py-12 text-center ${className}`}
+      role="status"
+      aria-live="polite"
     >
-      <div className="w-40 h-40 sm:w-48 sm:h-48">
-        {icon ?? <EmptyStateIllustrationSvg variant={illustration} />}
+      <div className="h-40 w-40 sm:h-48 sm:w-48">
+        {icon ?? <EmptyStateIllustrationSvg variant={selectedIllustration} />}
       </div>
 
       <h3 className="font-display text-xl font-bold uppercase text-black">{title}</h3>
 
       {description && <p className="font-mono text-sm text-gray-600 max-w-sm">{description}</p>}
 
-      {action && (
-        <div className="mt-2">
-          {action.href ? (
-            <a
-              href={action.href}
-              className="neu-border neu-press inline-block bg-black px-6 py-3 font-mono text-sm font-bold uppercase text-white transition-transform hover:-translate-y-1"
-            >
-              {action.label}
-            </a>
-          ) : (
-            <button
-              type="button"
-              onClick={action.onClick}
-              className="neu-border neu-press bg-black px-6 py-3 font-mono text-sm font-bold uppercase text-white transition-transform hover:-translate-y-1"
-            >
-              {action.label}
-            </button>
-          )}
-        </div>
-      )}
+      {actionButton ??
+        (action && (
+          <div className="mt-2">
+            {action.href ? (
+              <a
+                href={action.href}
+                className="neu-border neu-press inline-block bg-black px-6 py-3 font-mono text-sm font-bold uppercase text-white transition-transform hover:-translate-y-1"
+              >
+                {action.label}
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={action.onClick}
+                className="neu-border neu-press bg-black px-6 py-3 font-mono text-sm font-bold uppercase text-white transition-transform hover:-translate-y-1"
+              >
+                {action.label}
+              </button>
+            )}
+          </div>
+        ))}
     </div>
   );
 }
 
 function EmptyStateIllustrationSvg({ variant }: { variant: EmptyStateIllustration }) {
+  let illustration: ReactNode;
+
   switch (variant) {
     case "no-events":
-      return <BinocularsIllustration />;
+      illustration = <BinocularsIllustration />;
+      break;
     case "no-members":
-      return <TumbleweedIllustration />;
+      illustration = <TumbleweedIllustration />;
+      break;
     case "no-clubs":
-      return <TumbleweedIllustration />;
+      illustration = <TumbleweedIllustration />;
+      break;
+    case "no-messages":
+      illustration = <MailboxIllustration />;
+      break;
+    case "no-notifications":
+      illustration = <NotificationsIllustration />;
+      break;
     case "no-results":
     default:
-      return <BinocularsIllustration />;
+      illustration = <BinocularsIllustration />;
   }
+
+  return (
+    <div data-testid={`empty-state-illustration-${variant}`} className="h-full w-full">
+      {illustration}
+    </div>
+  );
 }
+
+function MailboxIllustration() {
+  return (
+    <svg
+      viewBox="0 0 200 200"
+      xmlns="http://www.w3.org/2000/svg"
+      className="h-full w-full"
+      aria-hidden="true"
+    >
+      <ellipse cx="100" cy="174" rx="60" ry="8" fill="#000" opacity="0.06" />
+      <path d="M54 148V89c0-18 15-32 33-32h23c20 0 36 16 36 36v55H54Z" fill="#FFD93D" />
+      <path
+        d="M54 148V89c0-18 15-32 33-32h23c20 0 36 16 36 36v55H54Z"
+        fill="none"
+        stroke="#111"
+        strokeWidth="4"
+      />
+      <path
+        d="M54 100h92l-31 29H85L54 100Z"
+        fill="#fff"
+        stroke="#111"
+        strokeWidth="4"
+        strokeLinejoin="round"
+      />
+      <path d="M100 57V37" stroke="#111" strokeWidth="4" strokeLinecap="round" />
+      <circle className="empty-state-float" cx="100" cy="28" r="7" fill="#FF6B35" />
+      <circle
+        className="empty-state-float-slow"
+        cx="46"
+        cy="66"
+        r="4"
+        fill="#0ea5e9"
+        opacity="0.7"
+      />
+      <circle className="empty-state-float" cx="158" cy="72" r="3" fill="#FF6B35" opacity="0.7" />
+      <style>{emptyStateAnimations}</style>
+    </svg>
+  );
+}
+
+function NotificationsIllustration() {
+  return (
+    <svg
+      viewBox="0 0 200 200"
+      xmlns="http://www.w3.org/2000/svg"
+      className="h-full w-full"
+      aria-hidden="true"
+    >
+      <ellipse cx="100" cy="176" rx="55" ry="8" fill="#000" opacity="0.06" />
+      <path
+        d="M65 135h70l-10-15v-28c0-20-11-34-25-34s-25 14-25 34v28l-10 15Z"
+        fill="#8BE9FD"
+        stroke="#111"
+        strokeWidth="4"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M85 145c3 10 9 15 15 15s12-5 15-15H85Z"
+        fill="#FF6B35"
+        stroke="#111"
+        strokeWidth="4"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M84 52c5-10 12-15 16-15s11 5 16 15"
+        fill="none"
+        stroke="#111"
+        strokeWidth="4"
+        strokeLinecap="round"
+      />
+      <path
+        className="empty-state-float"
+        d="M151 62l6 6 9-11"
+        fill="none"
+        stroke="#FF6B35"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle
+        className="empty-state-float-slow"
+        cx="48"
+        cy="104"
+        r="5"
+        fill="#FFD93D"
+        stroke="#111"
+        strokeWidth="2"
+      />
+      <style>{emptyStateAnimations}</style>
+    </svg>
+  );
+}
+
+const emptyStateAnimations = `
+  @keyframes emptyStateFloat {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-4px) rotate(1.5deg); }
+  }
+  @keyframes emptyStateFloatSlow {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-8px); }
+  }
+  .empty-state-float { animation: emptyStateFloat 3s ease-in-out infinite; }
+  .empty-state-float-slow { animation: emptyStateFloatSlow 4s ease-in-out infinite; }
+`;
 
 /** Person looking through binoculars — for empty event/feed lists. */
 function BinocularsIllustration() {
