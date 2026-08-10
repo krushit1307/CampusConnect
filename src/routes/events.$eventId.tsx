@@ -56,6 +56,7 @@ import LiveQA from "@/components/qa/LiveQA";
 import EventFeedbackForm from "@/components/EventFeedbackForm";
 import { CarpoolSection } from "@/components/events/carpool/CarpoolSection";
 import { ReportDialog } from "@/components/ReportDialog";
+import { GeofencedCheckInButton } from "@/components/GeofencedCheckInButton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
@@ -445,7 +446,7 @@ export default function EventDetailsPage() {
         .from("events")
         .select(
           `
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash, latitude, longitude, geofencing_enabled, geofence_radius_meters,
           profiles (full_name, email),
           clubs (name, slug),
           event_rsvps (id, user_id, status, checked_in, rsvp_at, profiles (first_name, last_name, avatar_url)),
@@ -490,6 +491,8 @@ export default function EventDetailsPage() {
             max_attendees: eventId === "mock-1" ? 1 : null,
             latitude: eventId === "mock-1" ? 30.3564 : eventId === "mock-2" ? 28.5355 : 19.076,
             longitude: eventId === "mock-1" ? 76.3647 : eventId === "mock-2" ? 77.209 : 72.8777,
+            geofencing_enabled: eventId === "mock-1",
+            geofence_radius_meters: 100,
             clubs: [
               {
                 name:
@@ -808,6 +811,9 @@ export default function EventDetailsPage() {
         await supabase.from("event_attendance_logs").insert({
           rsvp_id: rsvpId,
           recorded_by: user.id,
+          // Distinguishes this manual/QR-adjacent organizer action from an
+          // attendee's own GPS-verified self check-in (see check_in_via_geofence).
+          verification_method: "organizer_override",
         });
       } catch {
         // Attendance logging is optional if the table is unavailable in the current environment.
@@ -1055,6 +1061,7 @@ export default function EventDetailsPage() {
     ? (event.event_rsvps as unknown as EventRsvp[])
     : [];
   const { hasRsvpd, isCheckedIn, hasEnded } = buildRsvpStatus(rsvps, user?.id, event.end_date);
+  const myRsvpId = user ? rsvps.find((r) => r.user_id === user.id)?.id : undefined;
   const rawFeedbacks = (event as Record<string, unknown>).event_feedbacks;
   const { hasSubmittedFeedback } = buildFeedbackStatus(
     Array.isArray(rawFeedbacks) ? (rawFeedbacks as { user_id: string }[]) : undefined,
@@ -1290,6 +1297,16 @@ export default function EventDetailsPage() {
               showDetails={true}
             />
           </div>
+
+          {hasRsvpd && myRsvpId && !isCheckedIn && !hasEnded && (
+            <div className="mt-6 max-w-md">
+              <GeofencedCheckInButton
+                rsvpId={myRsvpId}
+                geofencingEnabled={Boolean((event as any).geofencing_enabled)}
+                onCheckedIn={() => refetch()}
+              />
+            </div>
+          )}
 
           <div className="mt-8 hidden items-center gap-4 md:flex">
             {hasRsvpd ? (
