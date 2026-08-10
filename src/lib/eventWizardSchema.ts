@@ -29,26 +29,27 @@ export type BasicsStepData = z.infer<typeof basicsStepSchema>;
  * Step 2: Date & Location
  * Start/end dates and physical/virtual location.
  */
-export const dateLocationStepSchema = z
-  .object({
-    startDate: z.string().min(1, "Start date is required"),
-    endDate: z.string().min(1, "End date is required"),
-    location: z
-      .string()
-      .min(3, "Location is required")
-      .max(200, "Location is too long"),
-    isVirtual: z.boolean().default(false),
-    meetingUrl: z
-      .string()
-      .url("Please enter a valid meeting URL")
-      .optional()
-      .or(z.literal("")),
-    capacity: z
-      .number()
-      .int("Capacity must be a whole number")
-      .min(1, "Capacity must be at least 1")
-      .max(100000, "Capacity exceeds venue limits"),
-  })
+export const dateLocationStepBaseSchema = z.object({
+  startDate: z.string().min(1, "Start date is required"),
+  endDate: z.string().min(1, "End date is required"),
+  location: z
+    .string()
+    .min(3, "Location is required")
+    .max(200, "Location is too long"),
+  isVirtual: z.boolean().default(false),
+  meetingUrl: z
+    .string()
+    .url("Please enter a valid meeting URL")
+    .optional()
+    .or(z.literal("")),
+  capacity: z
+    .number()
+    .int("Capacity must be a whole number")
+    .min(1, "Capacity must be at least 1")
+    .max(100000, "Capacity exceeds venue limits"),
+});
+
+export const dateLocationStepSchema = dateLocationStepBaseSchema
   .refine((data) => {
     const start = new Date(data.startDate);
     const end = new Date(data.endDate);
@@ -93,14 +94,15 @@ export const ticketTierSchema = z.object({
 });
 export type TicketTier = z.infer<typeof ticketTierSchema>;
 
-export const ticketingStepSchema = z
-  .object({
-    isPaid: z.boolean().default(false),
-    tickets: z
-      .array(ticketTierSchema)
-      .max(20, "Maximum 20 ticket tiers allowed")
-      .default([]),
-  })
+export const ticketingStepBaseSchema = z.object({
+  isPaid: z.boolean().default(false),
+  tickets: z
+    .array(ticketTierSchema)
+    .max(20, "Maximum 20 ticket tiers allowed")
+    .default([]),
+});
+
+export const ticketingStepSchema = ticketingStepBaseSchema
   .refine((data) => {
     // Paid events must have at least one ticket tier.
     if (data.isPaid && data.tickets.length === 0) return false;
@@ -167,15 +169,15 @@ export const eventWizardMasterSchema = z
     category: basicsStepSchema.shape.category,
     tags: basicsStepSchema.shape.tags,
     // Date & Location
-    startDate: dateLocationStepSchema.shape.startDate,
-    endDate: dateLocationStepSchema.shape.endDate,
-    location: dateLocationStepSchema.shape.location,
-    isVirtual: dateLocationStepSchema.shape.isVirtual,
-    meetingUrl: dateLocationStepSchema.shape.meetingUrl,
-    capacity: dateLocationStepSchema.shape.capacity,
+    startDate: dateLocationStepBaseSchema.shape.startDate,
+    endDate: dateLocationStepBaseSchema.shape.endDate,
+    location: dateLocationStepBaseSchema.shape.location,
+    isVirtual: dateLocationStepBaseSchema.shape.isVirtual,
+    meetingUrl: dateLocationStepBaseSchema.shape.meetingUrl,
+    capacity: dateLocationStepBaseSchema.shape.capacity,
     // Ticketing
-    isPaid: ticketingStepSchema.shape.isPaid,
-    tickets: ticketingStepSchema.shape.tickets,
+    isPaid: ticketingStepBaseSchema.shape.isPaid,
+    tickets: ticketingStepBaseSchema.shape.tickets,
     // Customizations
     coverImageUrl: customizationsStepSchema.shape.coverImageUrl,
     bannerColor: customizationsStepSchema.shape.bannerColor,

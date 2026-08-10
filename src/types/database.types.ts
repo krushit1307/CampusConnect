@@ -30,6 +30,8 @@ export type Database = {
           created_by: string | null;
           status: string | null;
           promo_video_url: string | null;
+          primary_color: string | null;
+          secondary_color: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -59,6 +61,8 @@ export type Database = {
           created_by?: string | null;
           status?: string | null;
           promo_video_url?: string | null;
+          primary_color?: string | null;
+          secondary_color?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -88,6 +92,8 @@ export type Database = {
           created_by?: string | null;
           status?: string | null;
           promo_video_url?: string | null;
+          primary_color?: string | null;
+          secondary_color?: string | null;
           created_at?: string;
           updated_at?: string;
         };
