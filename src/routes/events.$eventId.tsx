@@ -42,7 +42,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { parseCoordinates } from "@/lib/eventUtils";
-import { EventFeedbackForm } from "@/components/EventFeedbackForm";
+import EventFeedbackForm from "@/components/EventFeedbackForm";
 import { EventPhotoGallery } from "@/components/EventPhotoGallery";
 import { EventMap } from "@/components/EventMap";
 import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
@@ -67,7 +67,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { DynamicQRCode } from "@/components/events/DynamicQRCode";
+import DynamicQRCode from "@/components/Events/DynamicQRCode";
 
 interface SimilarEventItem {
   id: string;
@@ -530,6 +530,8 @@ export default function EventDetailsPage() {
     },
   });
 
+  const isOrganizer = user && event?.created_by === user.id;
+
   useEffect(() => {
     if (!eventId || eventId.startsWith("mock-") || !event) return;
 
@@ -556,8 +558,6 @@ export default function EventDetailsPage() {
       supabase.removeChannel(channel);
     };
   }, [eventId, event?.created_by, user?.id, supabase, refetch, isOrganizer]);
-
-  const isOrganizer = user && event?.created_by === user.id;
 
   if (isLoading) {
     return <SkeletonEventDetails />;
