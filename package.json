@@ -17,7 +17,7 @@
     "commitlint": "commitlint --edit",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
-    "test": "vitest run --config vitest.config.ts",
+    "test": "node scripts/run-vitest-batches.mjs",
     "test:watch": "vitest --config vitest.config.ts",
     "test:integration": "vitest run --config vitest.config.integration.ts",
     "test:e2e": "playwright test",
