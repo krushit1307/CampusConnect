@@ -1,24 +1,22 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
 import { rateLimiter } from "../shared/rateLimiter.ts";
+import {
+  DEFAULT_TOP_N,
+  scoreAndSelectTopEvents,
+  type DigestContext,
+  type DigestEvent,
+  type DigestUser,
+  type ScoredEvent,
+} from "./scoring.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type SubscriberEmail = {
-  email: string;
-  full_name: string;
-};
-
-type EventItem = {
-  id: string;
-  title: string;
-  event_date: string;
-  location?: string | null;
-  clubs?: { name: string } | { name: string }[] | null;
-};
+// RSVP statuses that do NOT count as "already attending" (kept from recommendations).
+const RSVP_SKIP_STATUS = "rejected";
 
 // HTML Escaper to prevent XSS in email client
 function escapeHtml(unsafe: string): string {
@@ -46,22 +44,31 @@ function formatDigestDate(isoString: string): string {
   }
 }
 
-// Dynamically compile HTML Email Template for Upcoming Events
-function compileDigestHtml(events: EventItem[], appUrl: string): string {
+// Dynamically compile a personalized HTML Email Template for the user's top picks
+function compileDigestHtml(
+  user: DigestUser,
+  events: ScoredEvent[],
+  appUrl: string,
+  unsubscribeUrl: string,
+): string {
   const safeAppUrl = escapeHtml(appUrl);
+  const safeUnsubscribeUrl = escapeHtml(unsubscribeUrl);
+  const safeName = escapeHtml(user.full_name || "there");
 
   const eventItemsHtml = events
     .map((event) => {
-      const clubName = event.clubs
-        ? Array.isArray(event.clubs)
-          ? event.clubs[0]?.name
-          : event.clubs.name
-        : "Campus Club";
+      const clubName = event.club_name || "Campus Club";
       const formattedDate = formatDigestDate(event.event_date);
       const safeTitle = escapeHtml(event.title);
-      const safeClub = escapeHtml(clubName || "Campus Club");
+      const safeClub = escapeHtml(clubName);
       const safeLocation = escapeHtml(event.location || "TBA");
       const eventUrl = `${safeAppUrl}/events/${escapeHtml(event.id)}`;
+      const reasonsHtml = event.reasons.length > 0
+        ? `
+          <div style="font-size: 11px; font-weight: 700; font-family: monospace; text-transform: uppercase; color: #166534; margin-bottom: 10px;">
+            &#127919; ${escapeHtml(event.reasons.join(" &bull; "))}
+          </div>`
+        : "";
 
       return `
         <div style="margin-bottom: 20px; padding: 16px; border: 2px solid #000000; background-color: #f7f7f5;">
@@ -72,8 +79,9 @@ function compileDigestHtml(events: EventItem[], appUrl: string): string {
             ${safeTitle}
           </div>
           <div style="font-size: 13px; font-family: monospace; color: #374151; margin-bottom: 12px;">
-            📍 Location: ${safeLocation}
+            &#128205; Location: ${safeLocation}
           </div>
+          ${reasonsHtml}
           <a href="${eventUrl}" target="_blank" style="display: inline-block; background-color: #a3e635; color: #000000; font-weight: 800; font-family: monospace; text-transform: uppercase; text-decoration: none; padding: 8px 16px; border: 2px solid #000000; font-size: 12px;">
             View Event Details &rarr;
           </a>
@@ -88,18 +96,18 @@ function compileDigestHtml(events: EventItem[], appUrl: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CampusConnect Weekly Digest - Upcoming Events</title>
+  <title>CampusConnect Weekly Digest - Events Picked For You</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f7f7f5; color: #000000; margin: 0; padding: 0;">
   <div style="max-width: 580px; margin: 32px auto; background-color: #ffffff; border: 3px solid #000000; box-shadow: 6px 6px 0px #000000; padding: 28px;">
     <div style="font-size: 24px; font-weight: 900; letter-spacing: -0.5px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 3px solid #000000;">
       CAMPUS<span style="background-color: #000000; color: #ffffff; padding: 2px 8px;">CONNECT</span>
       <div style="font-size: 12px; font-family: monospace; font-weight: 700; color: #4b5563; margin-top: 4px; text-transform: uppercase;">
-        📅 Upcoming Events Digest (Next 7 Days)
+        &#128293; Weekly Digest &mdash; Picked Just For You
       </div>
     </div>
     <div style="font-size: 15px; line-height: 1.6; margin-bottom: 24px;">
-      <p>Hey there! Here are the exciting events happening across campus over the next 7 days:</p>
+      <p>Hey ${safeName}! Here are ${events.length} upcoming event${events.length === 1 ? "" : "s"} we think you&rsquo;ll love over the next 7 days:</p>
       ${eventItemsHtml}
     </div>
     <div style="text-align: center; margin: 28px 0 16px 0;">
@@ -108,13 +116,60 @@ function compileDigestHtml(events: EventItem[], appUrl: string): string {
       </a>
     </div>
     <div style="margin-top: 32px; font-size: 11px; font-family: monospace; color: #6b7280; border-top: 2px solid #e5e7eb; padding-top: 16px;">
-      <p>You received this email because you opted into the weekly CampusConnect newsletter digest.</p>
-      <p>To update your email notification preferences, visit <a href="${safeAppUrl}/settings" style="color: #2563eb;">your account settings</a>.</p>
+      <p>You received this email because you opted into the weekly CampusConnect digest.</p>
+      <p>To update your preferences, visit <a href="${safeAppUrl}/settings" style="color: #2563eb;">your account settings</a>, or
+        <a href="${safeUnsubscribeUrl}" style="color: #2563eb;">unsubscribe from weekly digest emails</a>.</p>
     </div>
   </div>
 </body>
 </html>
 `.trim();
+}
+
+// Dispatch a single personalized digest email via Resend (or mock mode)
+async function dispatchDigestEmail(opts: {
+  user: DigestUser;
+  html: string;
+  subject: string;
+  unsubscribeUrl: string;
+  resendApiKey: string | undefined;
+  mockMode: boolean;
+}): Promise<{ ok: boolean; error?: string }> {
+  const { user, html, subject, unsubscribeUrl, resendApiKey, mockMode } = opts;
+
+  if (mockMode) {
+    console.log(`[weekly-digest] Mock Mode: digest for ${user.email} (${user.full_name})`);
+    return { ok: true };
+  }
+
+  if (!resendApiKey) {
+    throw new Error("Missing RESEND_API_KEY environment variable.");
+  }
+
+  const idempotencyKey = `weekly-digest-${new Date().toISOString().substring(0, 10)}-${user.user_id}`;
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${resendApiKey}`,
+      "Idempotency-Key": idempotencyKey,
+      // 1-click unsubscribe compliance (RFC 8058)
+      "List-Unsubscribe": `<${unsubscribeUrl}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    },
+    body: JSON.stringify({
+      from: "CampusConnect Digest <notifications@campusconnect.app>",
+      to: [user.email],
+      subject,
+      html,
+    }),
+  });
+
+  const resData = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    return { ok: false, error: `Resend API Error (${res.status}): ${JSON.stringify(resData)}` };
+  }
+  return { ok: true };
 }
 
 serve(async (req) => {
@@ -150,150 +205,226 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 2. Query events happening in the NEXT 7 days (Acceptance Criteria 1)
+    // 2. Query events happening in the NEXT 7 days
     const now = new Date();
-    const next7Days = new Date();
-    next7Days.setDate(now.getDate() + 7);
-
+    const next7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     const nowStr = now.toISOString();
     const next7DaysStr = next7Days.toISOString();
 
-    const { data: upcomingEvents, error: eventsError } = await supabase
+    const { data: rawEvents, error: eventsError } = await supabase
       .from("events")
-      .select("id, title, event_date, location, clubs(name)")
+      .select("id, title, event_date, location, club_id, clubs(name), event_tags(tag_path)")
       .gte("event_date", nowStr)
       .lte("event_date", next7DaysStr)
       .is("deleted_at", null)
+      .eq("status", "scheduled")
       .order("event_date", { ascending: true });
 
     if (eventsError) throw new Error(`Failed to fetch upcoming events: ${eventsError.message}`);
 
-    if (!upcomingEvents || upcomingEvents.length === 0) {
+    const digestEvents: DigestEvent[] = (rawEvents ?? []).map((e) => {
+      const club = Array.isArray(e.clubs) ? e.clubs[0] : e.clubs;
+      return {
+        id: e.id,
+        title: e.title,
+        event_date: e.event_date,
+        location: e.location ?? null,
+        club_id: e.club_id ?? null,
+        club_name: club?.name ?? null,
+        tag_paths: Array.isArray(e.event_tags) ? e.event_tags.map((t) => t.tag_path) : [],
+      };
+    });
+
+    if (digestEvents.length === 0) {
       return new Response(
-        JSON.stringify({
-          message: "No upcoming events in the next 7 days. Skipping newsletter digest.",
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        JSON.stringify({ message: "No upcoming events in the next 7 days. Skipping newsletter digest." }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // 3. Fetch Subscribers opted into newsletter_opt_in (Acceptance Criteria 3)
+    // 3. Fetch subscribers (strictly excludes marketing opt-outs via the RPC)
     const { data: subscribers, error: subError } = await supabase.rpc("get_digest_subscribers");
-
     if (subError) throw new Error(`Failed to fetch newsletter subscribers: ${subError.message}`);
 
-    if (!subscribers || subscribers.length === 0) {
-      return new Response(
-        JSON.stringify({ message: "No subscribers opted into newsletter digest." }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
+    const users = (subscribers ?? []).filter(
+      (u: DigestUser) => Boolean(u.user_id && u.email && u.email.includes("@")),
+    ) as DigestUser[];
 
-    const emailList = (subscribers as SubscriberEmail[])
-      .map((sub) => sub.email)
-      .filter((email): email is string => Boolean(email && email.includes("@")));
-
-    if (emailList.length === 0) {
-      return new Response(JSON.stringify({ message: "Subscriber list empty after validation." }), {
+    if (users.length === 0) {
+      return new Response(JSON.stringify({ message: "No subscribers opted into newsletter digest." }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // 4. Dynamically compile HTML Email Template (Acceptance Criteria 2)
-    const htmlContent = compileDigestHtml(upcomingEvents as EventItem[], appUrl);
+    // 4. Load personalization data in a few batched queries (avoid N+1 per user)
+    const eventIds = digestEvents.map((e) => e.id);
+    const clubIds = Array.from(
+      new Set(digestEvents.map((e) => e.club_id).filter((c): c is string => Boolean(c))),
+    );
 
-    // 5. Dispatch Emails (Resend or Mock Mode)
+    // 4a. RSVPs within the window (any status except 'rejected' = already attending)
+    const rsvpsByUser = new Map<string, Set<string>>();
+    for (let i = 0; i < eventIds.length; i += 100) {
+      const chunk = eventIds.slice(i, i + 100);
+      const { data, error } = await supabase
+        .from("event_rsvps")
+        .select("event_id, user_id, status")
+        .in("event_id", chunk);
+      if (error) throw new Error(`Failed to fetch RSVPs: ${error.message}`);
+      for (const r of data ?? []) {
+        if (r.status === RSVP_SKIP_STATUS) continue;
+        if (!rsvpsByUser.has(r.user_id)) rsvpsByUser.set(r.user_id, new Set());
+        rsvpsByUser.get(r.user_id)!.add(r.event_id);
+      }
+    }
+
+    // 4b. Approved club memberships ("clubs they follow")
+    const clubsByUser = new Map<string, Set<string>>();
+    for (let i = 0; i < clubIds.length; i += 100) {
+      const chunk = clubIds.slice(i, i + 100);
+      const { data, error } = await supabase
+        .from("club_members")
+        .select("club_id, user_id")
+        .eq("status", "approved")
+        .in("club_id", chunk);
+      if (error) throw new Error(`Failed to fetch club memberships: ${error.message}`);
+      for (const m of data ?? []) {
+        if (!clubsByUser.has(m.user_id)) clubsByUser.set(m.user_id, new Set());
+        clubsByUser.get(m.user_id)!.add(m.club_id);
+      }
+    }
+
+    // 4c. Events the user previously attended (via attendance logs -> rsvps)
+    const attendedEventsByUser = new Map<string, Set<string>>();
+    const { data: attendanceLogs, error: logsError } = await supabase
+      .from("event_attendance_logs")
+      .select("rsvp_id");
+    if (logsError) throw new Error(`Failed to fetch attendance logs: ${logsError.message}`);
+
+    const logRsvpIds = (attendanceLogs ?? []).map((l) => l.rsvp_id);
+    for (let i = 0; i < logRsvpIds.length; i += 100) {
+      const chunk = logRsvpIds.slice(i, i + 100);
+      const { data, error } = await supabase
+        .from("event_rsvps")
+        .select("id, event_id, user_id")
+        .in("id", chunk);
+      if (error) throw new Error(`Failed to fetch attendance RSVPs: ${error.message}`);
+      for (const r of data ?? []) {
+        if (!attendedEventsByUser.has(r.user_id)) attendedEventsByUser.set(r.user_id, new Set());
+        attendedEventsByUser.get(r.user_id)!.add(r.event_id);
+      }
+    }
+
+    // 4d. Tags attached to the events they attended
+    const attendedEventIds = Array.from(
+      new Set(Array.from(attendedEventsByUser.values()).flatMap((s) => Array.from(s))),
+    );
+    const tagsByEvent = new Map<string, string[]>();
+    for (let i = 0; i < attendedEventIds.length; i += 100) {
+      const chunk = attendedEventIds.slice(i, i + 100);
+      const { data, error } = await supabase
+        .from("event_tags")
+        .select("event_id, tag_path")
+        .in("event_id", chunk);
+      if (error) throw new Error(`Failed to fetch attended event tags: ${error.message}`);
+      for (const t of data ?? []) {
+        if (!tagsByEvent.has(t.event_id)) tagsByEvent.set(t.event_id, []);
+        tagsByEvent.get(t.event_id)!.push(t.tag_path);
+      }
+    }
+
+    // 5. Personalize + dispatch per user
+    const mockMode = Deno.env.get("MOCK_EMAIL") === "true" || Deno.env.get("DENO_ENV") === "test";
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
-    const emailBody = {
-      from: "CampusConnect Digest <notifications@campusconnect.app>",
-      to: ["notifications@campusconnect.app"], // Dummy header to address
-      bcc: emailList,
-      subject: `CampusConnect Digest: ${upcomingEvents.length} Upcoming Events This Week!`,
-      html: htmlContent,
-    };
+    const sent: Array<{ user_id: string; email: string; event_ids: string[] }> = [];
+    const skipped: Array<{ user_id: string; email: string; reason: string }> = [];
+    const failed: Array<{ user_id: string; email: string; error: string }> = [];
 
-    if (!resendApiKey) {
-      if (Deno.env.get("MOCK_EMAIL") === "true" || Deno.env.get("DENO_ENV") === "test") {
-        console.log(
-          `[weekly-digest] Mock Mode: Simulated dispatch to ${emailList.length} newsletter subscribers.`,
-        );
-        return new Response(
-          JSON.stringify({
-            message: "Mock newsletter digest sent successfully.",
-            events_count: upcomingEvents.length,
-            subscribers_count: emailList.length,
-          }),
-          {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
-        );
+    for (const user of users) {
+      const ctx: DigestContext = {
+        events: digestEvents,
+        followedClubIds: clubsByUser.get(user.user_id) ?? new Set(),
+        attendedTagPaths: new Set(
+          Array.from(attendedEventsByUser.get(user.user_id) ?? new Set())
+            .flatMap((eventId) => tagsByEvent.get(eventId) ?? []),
+        ),
+        rsvpedEventIds: rsvpsByUser.get(user.user_id) ?? new Set(),
+      };
+
+      const picks = scoreAndSelectTopEvents(ctx, DEFAULT_TOP_N);
+      if (picks.length === 0) {
+        skipped.push({ user_id: user.user_id, email: user.email, reason: "no_recommendations" });
+        continue;
       }
-      throw new Error("Missing RESEND_API_KEY environment variable.");
+
+      // Ensure a per-user unsubscribe token exists (1-click unsubscribe)
+      let unsubscribeToken = user.unsubscribe_token;
+      if (!unsubscribeToken) {
+        unsubscribeToken = crypto.randomUUID();
+        const { error: tokenError } = await supabase
+          .from("user_preferences")
+          .upsert({ user_id: user.user_id, unsubscribe_token: unsubscribeToken }, { onConflict: "user_id" });
+        if (tokenError) {
+          failed.push({
+            user_id: user.user_id,
+            email: user.email,
+            error: `unsubscribe token upsert failed: ${tokenError.message}`,
+          });
+          continue;
+        }
+      }
+
+      const unsubscribeUrl =
+        `${supabaseUrl}/functions/v1/digest-unsubscribe?email=${encodeURIComponent(user.email)}&token=${encodeURIComponent(unsubscribeToken)}`;
+      const html = compileDigestHtml(user, picks, appUrl, unsubscribeUrl);
+      const subject = `CampusConnect Weekly Digest: ${picks.length} event${picks.length === 1 ? "" : "s"} picked for you`;
+
+      try {
+        const result = await dispatchDigestEmail({
+          user,
+          html,
+          subject,
+          unsubscribeUrl,
+          resendApiKey,
+          mockMode,
+        });
+        if (!result.ok) {
+          failed.push({ user_id: user.user_id, email: user.email, error: result.error ?? "send failed" });
+        } else {
+          sent.push({ user_id: user.user_id, email: user.email, event_ids: picks.map((p) => p.id) });
+        }
+      } catch (err) {
+        failed.push({
+          user_id: user.user_id,
+          email: user.email,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
 
-    // Batch send in chunks of 50
-    const chunkSize = 50;
-    const results = [];
-    const failedChunks = [];
-
-    for (let i = 0; i < emailList.length; i += chunkSize) {
-      const chunk = emailList.slice(i, i + chunkSize);
-      const idempotencyKey = `digest-${nowStr.substring(0, 10)}-chunk-${Math.floor(i / chunkSize)}`;
-      const chunkBody = { ...emailBody, bcc: chunk };
-
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${resendApiKey}`,
-          "Idempotency-Key": idempotencyKey,
-        },
-        body: JSON.stringify(chunkBody),
-      });
-
-      const resData = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        console.error(`Resend API Error for chunk ${i}:`, resData);
-        failedChunks.push({ chunkIndex: i, error: resData });
-      } else {
-        results.push(resData);
-      }
-    }
-
-    if (failedChunks.length > 0) {
+    if (failed.length > 0) {
       return new Response(
         JSON.stringify({
-          error: "Failed to dispatch one or more digest chunks",
-          failedChunks,
-          chunks_sent: results.length,
+          error: "One or more digest emails failed",
+          sent_count: sent.length,
+          skipped_count: skipped.length,
+          failed_count: failed.length,
+          failed: failed.slice(0, 20),
         }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     return new Response(
       JSON.stringify({
-        message: "Newsletter digest dispatched successfully",
-        events_count: upcomingEvents.length,
-        chunks_sent: results.length,
-        total_subscribers: emailList.length,
+        message: "Personalized weekly digest dispatched successfully",
+        sent_count: sent.length,
+        skipped_count: skipped.length,
+        total_subscribers: users.length,
       }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error: unknown) {
     console.error("weekly-digest function error:", error);

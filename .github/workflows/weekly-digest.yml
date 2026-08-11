@@ -1,0 +1,17 @@
+name: Weekly Event Digest
+
+on:
+  schedule:
+    - cron: "0 10 * * 0"
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Invoke weekly-digest Edge Function
+        run: |
+          curl \
+            -X POST \
+            "${{ secrets.SUPABASE_FUNCTION_URL }}/weekly-digest" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
