@@ -640,6 +640,27 @@ export default function EventDetailsPage() {
     enabled: !!eventId,
   });
 
+  const { waitlist, isOnWaitlist, waitlistPosition } = useMemo(() => {
+    return buildWaitlistInfo((event as any)?.event_waitlist, user?.id);
+  }, [event, user]);
+
+  const { data: waitlistScore } = useQuery({
+    queryKey: ["waitlist_score", eventId, user?.id],
+    queryFn: async () => {
+      if (!user?.id || eventId.startsWith("mock-")) return null;
+      const { data, error } = await supabase.rpc("get_waitlist_score", {
+        p_event_id: eventId,
+        p_user_id: user.id,
+      });
+      if (error) {
+        console.error("Error fetching waitlist score:", error);
+        return null;
+      }
+      return data?.[0] || null;
+    },
+    enabled: !!user?.id && !!eventId && isOnWaitlist,
+  });
+
   // Extract headings from HTML description for TOC
   const tocItems = useMemo(() => {
     if (!event?.description) return [];
@@ -1154,8 +1175,8 @@ export default function EventDetailsPage() {
     user?.id,
   );
 
+  // We calculate waitlist info earlier in useMemo now
   const rawWaitlist = (event as Record<string, unknown>).event_waitlist;
-  const { waitlist, isOnWaitlist, waitlistPosition } = buildWaitlistInfo(rawWaitlist, user?.id);
 
   const club = event.clubs ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
   const coordsCheck = event.location
@@ -1513,12 +1534,88 @@ export default function EventDetailsPage() {
                       ? "On Waitlist ✓"
                       : "Join Waitlist"}
                 </Button>
-                {isOnWaitlist && waitlistPosition > 0 && (
-                  <span
-                    className={`font-mono text-xs font-bold ${event.banner_url ? "text-white" : "text-black"}`}
-                  >
-                    You are #{waitlistPosition} on the waitlist
-                  </span>
+                {isOnWaitlist && (
+                  <div className="mt-4 flex flex-col items-center gap-2 rounded bg-amber-50 p-4 border-2 border-amber-300">
+                    <p className="font-mono text-sm font-bold text-amber-900">
+                      Priority Score: {waitlistScore?.total_score || "..."}
+                    </p>
+                    <p className="text-center text-xs text-amber-800/80 max-w-xs leading-relaxed">
+                      Your position is determined by:
+                      <br />
+                      • Time on waitlist
+                      <br />
+                      • Club membership
+                      <br />
+                      • Attendance streak
+                      <br />• Graduation status
+                    </p>
+
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-2 text-xs border-amber-400 text-amber-900 hover:bg-amber-100 font-bold tracking-tight"
+                        >
+                          View Score Breakdown
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-md border-4 border-black shadow-[8px_8px_0_0_#000]">
+                        <DialogHeader>
+                          <DialogTitle className="font-display uppercase text-2xl tracking-tight text-black">
+                            Priority Score Breakdown
+                          </DialogTitle>
+                          <DialogDescription className="font-mono text-gray-600">
+                            How your waitlist priority is calculated.
+                          </DialogDescription>
+                        </DialogHeader>
+                        {waitlistScore ? (
+                          <div className="flex flex-col gap-3 font-mono text-sm my-4 text-black">
+                            <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
+                              <span>Time on waitlist ({waitlistScore.waitlist_hours}h)</span>
+                              <span className="font-bold text-blue-600">
+                                +{waitlistScore.time_score}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
+                              <span>Active club member</span>
+                              <span className="font-bold text-lime-600">
+                                +{waitlistScore.membership_score}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
+                              <span>Attendance streak</span>
+                              <span className="font-bold text-orange-600">
+                                +{waitlistScore.streak_score}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center border-b-2 border-black pb-2">
+                              <span>Graduating senior</span>
+                              <span className="font-bold text-purple-600">
+                                +{waitlistScore.senior_score}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center pt-2 text-lg font-black uppercase">
+                              <span>Total Score</span>
+                              <span>{waitlistScore.total_score}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-4 text-center font-mono text-gray-500">
+                            Loading score...
+                          </div>
+                        )}
+                        <DialogFooter className="sm:justify-start">
+                          <Button
+                            variant="outline"
+                            className="w-full font-bold uppercase border-2 border-black shadow-[4px_4px_0_0_#000]"
+                          >
+                            Close
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 )}
               </div>
             ) : (
