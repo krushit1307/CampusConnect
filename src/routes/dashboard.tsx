@@ -73,8 +73,8 @@ function DashboardContent({ user }: WithAuthProps) {
           origin: { y: 0.6 },
         });
       }
-    } catch (e) {
-      console.error("Confetti trigger failed:", e);
+    } catch (err) {
+      console.error("Confetti trigger failed:", err);
     }
   };
 
@@ -142,23 +142,23 @@ function DashboardContent({ user }: WithAuthProps) {
                   </div>
                 )}
               </div>
-            </>
-            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex h-16 w-16 items-center justify-center border-2 border-black bg-white font-display text-2xl font-black text-black shadow-[4px_4px_0_0_#000]">
-                  {getInitials(profile?.full_name || user?.email)}
-                </div>
-                <div>
-                  <h1 className="font-display text-3xl font-black uppercase text-black">
-                    {greeting},{" "}
-                    {profile?.full_name || profile?.first_name || user?.email?.split("@")[0]}!
-                  </h1>
-                  <p className="font-mono text-sm text-black/70">
-                    Welcome to your CampusConnect portal.
-                  </p>
+              <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-16 w-16 items-center justify-center border-2 border-black bg-white font-display text-2xl font-black text-black shadow-[4px_4px_0_0_#000]">
+                    {getInitials(profile?.full_name || user?.email)}
+                  </div>
+                  <div>
+                    <h1 className="font-display text-3xl font-black uppercase text-black">
+                      {greeting},{" "}
+                      {profile?.full_name || profile?.first_name || user?.email?.split("@")[0]}!
+                    </h1>
+                    <p className="font-mono text-sm text-black/70">
+                      Welcome to your CampusConnect portal.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            </>
           )}
 
           <div className="mt-8 flex flex-wrap gap-3 font-mono text-xs">

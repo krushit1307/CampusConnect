@@ -78,6 +78,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { SeatingCanvas } from "@/components/events/SeatingCanvas";
+import { SponsorManager } from "@/components/events/SponsorManager";
+import { SteganographicQRScanner } from "@/components/events/SteganographicQRScanner";
+import { EventGuestList } from "@/components/events/EventGuestList";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { ImageWithBlur } from "@/components/ui/ImageWithBlur";
 import { parseCoordinates } from "@/lib/eventUtils";
@@ -503,8 +509,6 @@ export default function EventDetailsPage() {
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by, is_high_risk, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash, latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline,
           profiles (full_name, email),
           clubs (name, slug),
-          event_rsvps (id, user_id, status, checked_in, rsvp_at, accommodations_requested, profiles (first_name, last_name, avatar_url)),
-          event_waitlist (id, user_id, created_at, profiles (first_name, last_name, avatar_url)),
           event_metrics (views)
         `,
         )
@@ -564,46 +568,6 @@ export default function EventDetailsPage() {
               },
             ],
             requires_approval: true,
-            event_rsvps:
-              eventId === "mock-1"
-                ? [
-                    {
-                      id: "rsvp-1",
-                      user_id: "user-1",
-                      status: "approved",
-                      checked_in: false,
-                      rsvp_at: new Date().toISOString(),
-                      profiles: { first_name: "John", last_name: "Doe", avatar_url: null },
-                    },
-                    {
-                      id: "rsvp-2",
-                      user_id: "user-2",
-                      status: "waitlisted",
-                      checked_in: false,
-                      rsvp_at: new Date().toISOString(),
-                      profiles: { first_name: "Alice", last_name: "Smith", avatar_url: null },
-                    },
-                    {
-                      id: "rsvp-3",
-                      user_id: "user-3",
-                      status: "rejected",
-                      checked_in: false,
-                      rsvp_at: new Date().toISOString(),
-                      profiles: { first_name: "Bob", last_name: "Johnson", avatar_url: null },
-                    },
-                  ]
-                : [],
-            event_waitlist:
-              eventId === "mock-1"
-                ? [
-                    {
-                      id: "wait-1",
-                      user_id: "user-4",
-                      created_at: new Date().toISOString(),
-                      profiles: { first_name: "Emma", last_name: "Brown", avatar_url: null },
-                    },
-                  ]
-                : [],
             attendee_count: eventId === "mock-1" ? 1 : 0,
             profiles: { full_name: "Mock Organizer", email: "mock@example.com" },
             accommodation_deadline: null,
@@ -640,9 +604,68 @@ export default function EventDetailsPage() {
     enabled: !!eventId,
   });
 
+  const { data: myRsvp, refetch: refetchMyRsvp } = useQuery({
+    queryKey: ["my_rsvp", eventId, user?.id],
+    queryFn: async () => {
+      if (!user?.id || eventId.startsWith("mock-")) return null;
+      const { data, error } = await supabase
+        .from("event_rsvps")
+        .select("*")
+        .eq("event_id", eventId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id && !!eventId,
+  });
+
+  const { data: adminRsvps, refetch: refetchAdminRsvps } = useQuery({
+    queryKey: ["admin_rsvps", eventId],
+    queryFn: async () => {
+      if (eventId.startsWith("mock-") || !isOrganizer) return [];
+      const { data, error } = await supabase
+        .from("event_rsvps")
+        .select(
+          "id, user_id, status, checked_in, rsvp_at, accommodations_requested, profiles (first_name, last_name, avatar_url)",
+        )
+        .eq("event_id", eventId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!eventId && !!isOrganizer,
+  });
+
+  const { data: adminWaitlist, refetch: refetchAdminWaitlist } = useQuery({
+    queryKey: ["admin_waitlist", eventId],
+    queryFn: async () => {
+      if (eventId.startsWith("mock-") || !isOrganizer) return [];
+      const { data, error } = await supabase
+        .from("event_waitlist")
+        .select("id, user_id, created_at, profiles (first_name, last_name, avatar_url)")
+        .eq("event_id", eventId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!eventId && !!isOrganizer,
+  });
+
+  const { data: publicGuests, refetch: refetchPublicGuests } = useQuery({
+    queryKey: ["public_event_guests", eventId],
+    queryFn: async () => {
+      if (eventId.startsWith("mock-")) return [];
+      const { data, error } = await supabase.rpc("get_public_event_guests", {
+        p_event_id: eventId,
+      });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!eventId,
+  });
+
   const { waitlist, isOnWaitlist, waitlistPosition } = useMemo(() => {
-    return buildWaitlistInfo((event as any)?.event_waitlist, user?.id);
-  }, [event, user]);
+    return buildWaitlistInfo(adminWaitlist || [], user?.id);
+  }, [adminWaitlist, user]);
 
   const { data: waitlistScore } = useQuery({
     queryKey: ["waitlist_score", eventId, user?.id],
@@ -1023,15 +1046,8 @@ export default function EventDetailsPage() {
   }>({ waitlisted: [], approved: [], rejected: [] });
 
   useEffect(() => {
-    if (!event) return;
-
-    const typedEvent = event as unknown as {
-      event_waitlist: EventWaitlist[];
-      event_rsvps: EventRsvp[];
-    };
-
-    setColumns(buildKanbanColumns(typedEvent.event_waitlist || [], typedEvent.event_rsvps || []));
-  }, [event]);
+    setColumns(buildKanbanColumns((adminWaitlist as any) || [], (adminRsvps as any) || []));
+  }, [adminWaitlist, adminRsvps]);
 
   const updateRsvpStatus = useMutation({
     mutationFn: async ({
@@ -1101,11 +1117,15 @@ export default function EventDetailsPage() {
     },
     onSuccess: () => {
       toast.success("RSVP status updated!");
-      refetch();
+      refetchMyRsvp();
+      refetchAdminRsvps();
+      refetchPublicGuests();
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to update RSVP status.");
-      refetch();
+      refetchMyRsvp();
+      refetchAdminRsvps();
+      refetchPublicGuests();
     },
   });
 
@@ -1164,19 +1184,18 @@ export default function EventDetailsPage() {
     );
   }
 
-  const rsvps = Array.isArray(event.event_rsvps)
-    ? (event.event_rsvps as unknown as EventRsvp[])
-    : [];
-  const { hasRsvpd, isCheckedIn, hasEnded } = buildRsvpStatus(rsvps, user?.id, event.end_date);
-  const myRsvpId = user ? rsvps.find((r) => r.user_id === user.id)?.id : undefined;
+  const rsvps = adminRsvps || [];
+  const hasRsvpd = !!myRsvp && (myRsvp.status === "attending" || myRsvp.status === "waitlisted");
+  const isCheckedIn = !!myRsvp && myRsvp.checked_in;
+  const hasEnded = new Date().getTime() > new Date(event.end_date).getTime();
+  const myRsvpId = myRsvp?.id;
   const rawFeedbacks = (event as Record<string, unknown>).event_feedbacks;
   const { hasSubmittedFeedback } = buildFeedbackStatus(
     Array.isArray(rawFeedbacks) ? (rawFeedbacks as { user_id: string }[]) : undefined,
     user?.id,
   );
 
-  // We calculate waitlist info earlier in useMemo now
-  const rawWaitlist = (event as Record<string, unknown>).event_waitlist;
+  const rawWaitlist = adminWaitlist || [];
 
   const club = event.clubs ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
   const coordsCheck = event.location
@@ -1324,7 +1343,7 @@ export default function EventDetailsPage() {
   };
 
   const attendeeCount =
-    ((event as Record<string, unknown>).attendee_count as number) ?? rsvps.length;
+    ((event as Record<string, unknown>).attendee_count as number) ?? (publicGuests?.length || 0);
   const maxAttendees = (event as Record<string, unknown>).max_attendees as
     number | null | undefined;
   const isAtCapacity =
@@ -1851,6 +1870,10 @@ export default function EventDetailsPage() {
           <div className="mt-8">
             <EventLiveChat eventId={eventId} user={user} />
           </div>
+
+          {/* Public Guest List */}
+          <EventGuestList eventId={eventId} />
+
           {/* Description */}
           <div className="mt-8">
             <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">

@@ -13,8 +13,7 @@ export type JoinResult =
  * Outcome of a cancel-RSVP call.
  */
 export type CancelResult =
-  | { success: true; wasAttending: boolean; message: string }
-  | { success: false; error: string };
+  { success: true; wasAttending: boolean; message: string } | { success: false; error: string };
 
 /**
  * The RSVP state for an event, returned by `get_event_rsvp_state`.
@@ -39,11 +38,13 @@ export interface EventRsvpState {
  */
 export async function joinEventOrWaitlist(
   eventId: string,
-  userId: string
+  userId: string,
+  isAnonymous: boolean = false,
 ): Promise<JoinResult> {
   const { data, error } = await supabase.rpc("join_event_or_waitlist", {
     p_event_id: eventId,
     p_user_id: userId,
+    p_is_anonymous: isAnonymous,
   });
 
   if (error) {
@@ -74,10 +75,7 @@ export async function joinEventOrWaitlist(
  * `cancelled` (preserving the audit trail) and triggers automatic
  * promotion of the next waitlisted user.
  */
-export async function cancelEventRsvp(
-  eventId: string,
-  userId: string
-): Promise<CancelResult> {
+export async function cancelEventRsvp(eventId: string, userId: string): Promise<CancelResult> {
   const { data, error } = await supabase.rpc("cancel_event_rsvp", {
     p_event_id: eventId,
     p_user_id: userId,
@@ -107,7 +105,7 @@ export async function cancelEventRsvp(
  */
 export async function getEventRsvpState(
   eventId: string,
-  userId?: string
+  userId?: string,
 ): Promise<EventRsvpState | null> {
   const { data, error } = await supabase.rpc("get_event_rsvp_state", {
     p_event_id: eventId,
