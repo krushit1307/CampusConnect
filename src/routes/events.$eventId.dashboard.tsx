@@ -73,7 +73,7 @@ export default function EventDashboard() {
   }
 
   // Parse RPC response
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const data = (analyticsData as Record<string, any>) || {};
   const rsvpsByDate = data.rsvps_by_date || [];
   const attendeesByMajor = data.attendees_by_major || [];

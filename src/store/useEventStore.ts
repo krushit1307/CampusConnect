@@ -36,9 +36,7 @@ export const useEventStore = create<EventState>((set, get) => ({
     set({ status: "loading", error: null });
     try {
       const { search } = get().filters;
-      const url = search
-        ? `/api/events?search=${encodeURIComponent(search)}`
-        : "/api/events";
+      const url = search ? `/api/events?search=${encodeURIComponent(search)}` : "/api/events";
 
       const res = await fetch(url);
       const data = await res.json();

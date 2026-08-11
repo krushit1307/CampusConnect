@@ -5,6 +5,7 @@
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 // Comprehensive list of severe profanity (abbreviated for safety, expand as needed)
 // Using word boundaries \b to prevent matching substrings like "assassin" or "classic"
@@ -32,6 +33,10 @@ interface ValidateRequest {
 }
 
 serve(async (req) => {
+  // Rate limit: 20 requests/minute (content moderation)
+  const limited = await rateLimiter(req, "validate-comment", 20, 60);
+  if (limited) return limited;
+
   try {
     // 1. Parse and validate request body
     const { content, userId, postId }: ValidateRequest = await req.json();

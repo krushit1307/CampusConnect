@@ -85,6 +85,7 @@ export interface Event {
   updated_at: string;
   /** Set when the event is soft-deleted; NULL means active */
   deleted_at: string | null;
+  accommodation_deadline: string | null;
 }
 
 /**
@@ -99,6 +100,7 @@ export interface EventRsvp {
   user_id: string;
   checked_in: boolean;
   created_at: string;
+  accommodations_requested: string | null;
 }
 
 /**

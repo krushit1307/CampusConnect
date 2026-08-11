@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { localizedPath } from "@/lib/i18n";
-import { Bookmark } from "lucide-react";
+import { useScrollDirection } from "@/hooks/useScrollDirection";
 
 import { ThemeToggle } from "../ThemeToggle";
 import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
@@ -20,6 +20,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Menu, X } from "lucide-react";
+
+const links = [
+  { to: "/events", label: "Events" },
+  { to: "/clubs", label: "Clubs" },
+  { to: "/feed", label: "Feed" },
+  { to: "/gallery", label: "Gallery" },
+  { to: "/certificates", label: "Certificates" },
+  { to: "/dashboard", label: "Dashboard" },
+] as const;
 
 export function Navbar() {
   const { user, isInitializing } = useAuthHydration();
@@ -37,6 +47,11 @@ export function Navbar() {
     await supabase.auth.signOut();
     navigate("/auth");
   };
+
+  // Hide navbar on scroll down, show instantly on scroll up (mobile only)
+  const { direction, scrollY } = useScrollDirection();
+  // Hide only when scrolled past 50px and actively scrolling down
+  const isNavbarHidden = direction === "down" && scrollY >= 50;
 
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
@@ -156,7 +171,12 @@ export function Navbar() {
   }, [location.pathname]);
 
   return (
-    <header className="sticky top-0 z-40 border-b-2 border-black bg-white text-black dark:border-cream dark:bg-black dark:text-cream">
+    <header
+      className={`sticky top-0 z-40 border-b-2 border-black bg-white text-black dark:border-cream dark:bg-black dark:text-cream
+        transition-transform duration-200 ease-out
+        ${isNavbarHidden ? "-translate-y-full md:translate-y-0" : "translate-y-0"}`}
+      aria-hidden={isNavbarHidden}
+    >
       <div className="mx-auto flex min-w-0 max-w-7xl items-center justify-between gap-2 px-2 py-3 sm:px-4 md:px-6">
         {/* Logo */}
         <Link
