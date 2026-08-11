@@ -25,7 +25,6 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import MaintenancePage from "./components/MaintenancePage";
 import { CommandPaletteProvider } from "@/components/CommandPaletteProvider";
-import { NotFoundPage } from "./components/NotFoundPage";
 import { createClient } from "./lib/supabase/client";
 // Pages
 import Index from "./routes/index";
@@ -206,10 +205,7 @@ const router = createBrowserRouter(
             <Route path="bookmarks" element={<DashboardBookmarks />} />
             <Route path="calendar" element={<DashboardCalendar />} />
           </Route>
-          feat/mobile-bottom-sheet
           {/* Events Layout with Split-Screen desktop and Mobile Bottom Sheet */}
-          {/* Events — Split Screen Layout */}
-          main
           <Route
             path="/events"
             element={
@@ -218,7 +214,6 @@ const router = createBrowserRouter(
               </Suspense>
             }
           >
-            feat/mobile-bottom-sheet
             <Route
               index
               element={
@@ -227,8 +222,6 @@ const router = createBrowserRouter(
                 </Suspense>
               }
             />
-            <Route index element={<EmptyState />} />
-            main
             <Route
               path=":eventId"
               element={
@@ -260,17 +253,11 @@ const router = createBrowserRouter(
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/restore" element={<AdminRestorePage />} />
           <Route path="/admin/dlq" element={<AdminDlqPage />} />
-          <Route path="*" element={<NotFoundPage />} />
           {/* Catch-all route for 404 errors */}
           <Route path="*" element={<NotFound />} />
         </Route>
 
-        <Route path="/feed" element={<Feed />} />
         <Route path="/gallery" element={<GalleryPage />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
       </Route>
     </Route>,
   ),
