@@ -60,17 +60,17 @@ Deno.serve(async (req: Request) => {
   try {
     payload = await req.json();
   } catch (err) {
-    return new Response(
-      JSON.stringify({ error: "Invalid JSON body", detail: String(err) }),
-      { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Invalid JSON body", detail: String(err) }), {
+      status: 400,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
   }
 
   if (payload.event !== "waitlist_promoted" || !payload.promoted_user_id) {
-    return new Response(
-      JSON.stringify({ error: "Invalid webhook payload" }),
-      { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Invalid webhook payload" }), {
+      status: 400,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
   }
 
   // ── Fetch the promoted user's email if not provided ─────────
@@ -81,10 +81,10 @@ Deno.serve(async (req: Request) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     if (!supabaseUrl || !serviceRoleKey) {
       console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-      return new Response(
-        JSON.stringify({ error: "Server configuration error" }),
-        { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Server configuration error" }), {
+        status: 500,
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
     }
     const supabase = createClient(supabaseUrl, serviceRoleKey);
     const { data: profile, error } = await supabase
@@ -94,10 +94,10 @@ Deno.serve(async (req: Request) => {
       .single();
     if (error || !profile) {
       console.error("Failed to fetch promoted user profile:", error);
-      return new Response(
-        JSON.stringify({ error: "Promoted user not found" }),
-        { status: 404, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Promoted user not found" }), {
+        status: 404,
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
     }
     email = profile.email;
     name = `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim();
@@ -105,10 +105,10 @@ Deno.serve(async (req: Request) => {
 
   if (!email) {
     console.error("No email address for promoted user:", payload.promoted_user_id);
-    return new Response(
-      JSON.stringify({ error: "Promoted user has no email address" }),
-      { status: 422, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Promoted user has no email address" }), {
+      status: 422,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
   }
 
   // ── Build the 1-click cancellation link ──────────────────────
@@ -181,7 +181,7 @@ This is an automated email from CampusConnect. If you did not join a waitlist, y
     const resendRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${resendApiKey}`,
+        Authorization: `Bearer ${resendApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -195,26 +195,27 @@ This is an automated email from CampusConnect. If you did not join a waitlist, y
     if (!resendRes.ok) {
       const errText = await resendRes.text();
       console.error("Resend email send failed:", resendRes.status, errText);
-      return new Response(
-        JSON.stringify({ error: "Email send failed", detail: errText }),
-        { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Email send failed", detail: errText }), {
+        status: 502,
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
     }
     const resendData = await resendRes.json();
-    return new Response(
-      JSON.stringify({ success: true, message_id: resendData.id }),
-      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ success: true, message_id: resendData.id }), {
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
   }
 
   // Fallback: log the email to stdout (local dev / no Resend key).
-  console.log("[waitlist-promotion-email] No RESEND_API_KEY set; logging email instead of sending:");
+  console.log(
+    "[waitlist-promotion-email] No RESEND_API_KEY set; logging email instead of sending:",
+  );
   console.log("  To:", email);
   console.log("  Subject:", subject);
   console.log("  Cancel URL:", cancelUrl.toString());
 
   return new Response(
     JSON.stringify({ success: true, sent: false, reason: "RESEND_API_KEY not set" }),
-    { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+    { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
   );
 });

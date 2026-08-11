@@ -5,7 +5,8 @@ import { trace, SpanStatusCode } from "@opentelemetry/api";
 import React from "react";
 import { NotFoundPage } from "./NotFoundPage";
 
-const SENSITIVE_PATTERN = /(password|token|secret|key|auth|credential|bearer|session)([\s"':=]+)([^\s,;}]+)/gi;
+const SENSITIVE_PATTERN =
+  /(password|token|secret|key|auth|credential|bearer|session)([\s"':=]+)([^\s,;}]+)/gi;
 
 function sanitizeErrorMsg(msg: string): string {
   if (typeof msg !== "string") return String(msg);

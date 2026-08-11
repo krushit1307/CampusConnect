@@ -64,10 +64,7 @@ export const DEFAULT_TOP_N = 3;
  * - Events with no signal still participate (tie-broken by earliest date) so
  *   users without history still get a useful digest, and never a blank one.
  */
-export function scoreAndSelectTopEvents(
-  ctx: DigestContext,
-  topN = DEFAULT_TOP_N,
-): ScoredEvent[] {
+export function scoreAndSelectTopEvents(ctx: DigestContext, topN = DEFAULT_TOP_N): ScoredEvent[] {
   const scored: ScoredEvent[] = [];
 
   for (const event of ctx.events) {
@@ -81,9 +78,7 @@ export function scoreAndSelectTopEvents(
       reasons.push(`hosted by a club you follow (+${CLUB_BOOST})`);
     }
 
-    const matchingTags = event.tag_paths.filter((tag) =>
-      ctx.attendedTagPaths.has(tag)
-    );
+    const matchingTags = event.tag_paths.filter((tag) => ctx.attendedTagPaths.has(tag));
     if (matchingTags.length > 0) {
       const tagScore = matchingTags.length * TAG_BOOST;
       score += tagScore;

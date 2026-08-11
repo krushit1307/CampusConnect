@@ -113,7 +113,8 @@ export function CampusEventMap({
     setError(null);
     try {
       // 1. Invoke the Edge Function to get live event heatmap points
-      const { data: heatmapData, error: heatmapError } = await supabase.functions.invoke("live-event-heatmap");
+      const { data: heatmapData, error: heatmapError } =
+        await supabase.functions.invoke("live-event-heatmap");
       if (heatmapError) throw heatmapError;
 
       if (heatmapData && heatmapData.features) {
@@ -124,7 +125,8 @@ export function CampusEventMap({
       const nowIso = new Date().toISOString();
       const { data: eventsData, error: fetchError } = await supabase
         .from("events")
-        .select(`
+        .select(
+          `
           id,
           title,
           description,
@@ -137,7 +139,8 @@ export function CampusEventMap({
           banner_url,
           clubs ( name ),
           event_rsvps ( count )
-        `)
+        `,
+        )
         .or(`start_date.gte.${nowIso},event_date.gte.${nowIso},start_date.is.null`)
         .order("created_at", { ascending: false })
         .limit(100);
@@ -233,7 +236,14 @@ export function CampusEventMap({
         const end = new Date(f.properties.end_date);
         return start <= targetTime && end >= targetTime;
       })
-      .map((f) => [f.geometry.coordinates[1], f.geometry.coordinates[0], f.properties.intensity] as [number, number, number]);
+      .map(
+        (f) =>
+          [f.geometry.coordinates[1], f.geometry.coordinates[0], f.properties.intensity] as [
+            number,
+            number,
+            number,
+          ],
+      );
   }, [geoJsonFeatures, selectedHour]);
 
   // Helper for displaying dates nicely in popup

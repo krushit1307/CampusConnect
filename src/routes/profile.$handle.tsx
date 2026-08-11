@@ -3,10 +3,21 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MapPin, Link2, Calendar, Award, Building, CalendarPlus, ArrowRight, History as HistoryIcon } from "lucide-react";
+import {
+  MapPin,
+  Link2,
+  Calendar,
+  Award,
+  Building,
+  CalendarPlus,
+  ArrowRight,
+  History as HistoryIcon,
+} from "lucide-react";
 import { NotFoundPage } from "@/components/NotFoundPage";
 import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
 import { UserProfileSkeleton } from "@/components/UserProfileSkeleton";
+import { HistoryTimeline, TimelineItem } from "@/components/profile/HistoryTimeline";
+import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
 import { ProgressRing } from "@/components/profile/ProgressRing";
 
 import { useState, useEffect } from "react";
@@ -170,9 +181,7 @@ export default function Profile() {
             date: r.rsvp_at,
             title: `RSVP'd to ${event.title}`,
             description: `Registered to attend the event on ${
-              event.event_date
-                ? new Date(event.event_date).toLocaleDateString()
-                : "TBA"
+              event.event_date ? new Date(event.event_date).toLocaleDateString() : "TBA"
             }.`,
             link: `/events/${event.id}`,
           });
@@ -437,6 +446,11 @@ export default function Profile() {
                 )}
               </div>
             )}
+          </div>
+
+          {/* Attendance Heatmap Section */}
+          <div className="space-y-6">
+            <AttendanceHeatmap userId={profile.id} />
           </div>
 
           {/* Activity History Section */}

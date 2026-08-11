@@ -1,6 +1,9 @@
 import React, { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { BottomSheet as UIBottomSheet, BottomSheetProps as UIBottomSheetProps } from "@/components/ui/bottom-sheet";
+import {
+  BottomSheet as UIBottomSheet,
+  BottomSheetProps as UIBottomSheetProps,
+} from "@/components/ui/bottom-sheet";
 
 export interface BottomSheetProps extends Omit<UIBottomSheetProps, "children"> {
   children: ReactNode;

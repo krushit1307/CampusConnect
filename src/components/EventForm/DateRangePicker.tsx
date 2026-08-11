@@ -45,16 +45,12 @@ export const DateRangePicker: React.FC = () => {
             <Calendar
               mode="single"
               selected={startDate}
-              onSelect={(date) =>
-                date && setValue("startDate", date, { shouldValidate: true })
-              }
+              onSelect={(date) => date && setValue("startDate", date, { shouldValidate: true })}
               initialFocus
             />
           </PopoverContent>
         </Popover>
-        {errors.startDate && (
-          <p className="text-xs text-destructive">{errors.startDate.message}</p>
-        )}
+        {errors.startDate && <p className="text-xs text-destructive">{errors.startDate.message}</p>}
       </div>
 
       <div className="space-y-2">
@@ -77,16 +73,12 @@ export const DateRangePicker: React.FC = () => {
             <Calendar
               mode="single"
               selected={endDate}
-              onSelect={(date) =>
-                date && setValue("endDate", date, { shouldValidate: true })
-              }
+              onSelect={(date) => date && setValue("endDate", date, { shouldValidate: true })}
               initialFocus
             />
           </PopoverContent>
         </Popover>
-        {errors.endDate && (
-          <p className="text-xs text-destructive">{errors.endDate.message}</p>
-        )}
+        {errors.endDate && <p className="text-xs text-destructive">{errors.endDate.message}</p>}
       </div>
     </div>
   );

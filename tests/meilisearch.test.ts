@@ -54,10 +54,10 @@ describe("meilisearch — unifiedSearch", () => {
         method: "POST",
         headers: expect.objectContaining({
           "Content-Type": "application/json",
-          "Authorization": "Bearer test-anon-key",
+          Authorization: "Bearer test-anon-key",
         }),
         body: JSON.stringify({ query: "tech", limitPerIndex: 5 }),
-      })
+      }),
     );
 
     expect(result.events).toHaveLength(1);
@@ -89,7 +89,13 @@ describe("meilisearch — unifiedSearch", () => {
         const timer = setTimeout(() => {
           resolve({
             ok: true,
-            json: async () => ({ events: [], clubs: [], profiles: [], totalHits: 0, processingTimeMs: 0 }),
+            json: async () => ({
+              events: [],
+              clubs: [],
+              profiles: [],
+              totalHits: 0,
+              processingTimeMs: 0,
+            }),
           });
         }, 5000);
         // Allow abort to cancel.
@@ -133,7 +139,7 @@ describe("meilisearch — SQL contract (migration guards)", () => {
     const path = await import("node:path");
     const sql = fs.readFileSync(
       path.resolve(__dirname, "../supabase/migrations/20260816000002_meilisearch_dlq.sql"),
-      "utf-8"
+      "utf-8",
     );
     expect(sql).toContain("CREATE TABLE IF NOT EXISTS public.meilisearch_dlq");
     expect(sql).toContain("retry_count");
@@ -146,7 +152,7 @@ describe("meilisearch — SQL contract (migration guards)", () => {
     const path = await import("node:path");
     const sql = fs.readFileSync(
       path.resolve(__dirname, "../supabase/migrations/20260816000002_meilisearch_dlq.sql"),
-      "utf-8"
+      "utf-8",
     );
     expect(sql).toContain("on_events_meilisearch_sync");
     expect(sql).toContain("on_clubs_meilisearch_sync");
@@ -159,7 +165,7 @@ describe("meilisearch — SQL contract (migration guards)", () => {
     const path = await import("node:path");
     const sql = fs.readFileSync(
       path.resolve(__dirname, "../supabase/migrations/20260816000002_meilisearch_dlq.sql"),
-      "utf-8"
+      "utf-8",
     );
     expect(sql).toContain("extensions.net.http_post");
     expect(sql).toContain("pg_net");

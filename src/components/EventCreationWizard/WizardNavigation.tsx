@@ -42,10 +42,7 @@ export function WizardNavigation({ onSubmit }: WizardNavigationProps) {
         variant="ghost"
         onClick={back}
         disabled={isFirstStep || isSubmitting}
-        className={cn(
-          "gap-1",
-          isFirstStep && "invisible"
-        )}
+        className={cn("gap-1", isFirstStep && "invisible")}
       >
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         Back
@@ -71,12 +68,7 @@ export function WizardNavigation({ onSubmit }: WizardNavigationProps) {
           )}
         </Button>
       ) : (
-        <Button
-          type="button"
-          onClick={next}
-          disabled={isSubmitting}
-          className="gap-1"
-        >
+        <Button type="button" onClick={next} disabled={isSubmitting} className="gap-1">
           Next
           <ChevronRight className="h-4 w-4" aria-hidden="true" />
         </Button>

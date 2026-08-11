@@ -59,10 +59,7 @@ interface TransformResult {
  * Each entity type has its own transformer that flattens nested
  * fields and selects the searchable attributes.
  */
-function transformRecord(
-  table: string,
-  record: Record<string, unknown>
-): MeiliDocument | null {
+function transformRecord(table: string, record: Record<string, unknown>): MeiliDocument | null {
   switch (table) {
     case "events":
       return {
@@ -122,7 +119,7 @@ function transformRecord(
 async function pushToMeili(
   indexName: string,
   documents: MeiliDocument[],
-  primaryKey: string = "id"
+  primaryKey: string = "id",
 ): Promise<void> {
   const host = Deno.env.get("MEILI_HOST");
   const apiKey = Deno.env.get("MEILI_API_KEY");
@@ -136,7 +133,7 @@ async function pushToMeili(
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${apiKey}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(documents),
@@ -145,7 +142,7 @@ async function pushToMeili(
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(
-      `Meilisearch push failed for index ${indexName}: ${response.status} ${errorText}`
+      `Meilisearch push failed for index ${indexName}: ${response.status} ${errorText}`,
     );
   }
 }
@@ -153,10 +150,7 @@ async function pushToMeili(
 /**
  * Delete documents from a Meilisearch index by primary key.
  */
-async function deleteFromMeili(
-  indexName: string,
-  documentIds: string[]
-): Promise<void> {
+async function deleteFromMeili(indexName: string, documentIds: string[]): Promise<void> {
   const host = Deno.env.get("MEILI_HOST");
   const apiKey = Deno.env.get("MEILI_API_KEY");
 
@@ -168,7 +162,7 @@ async function deleteFromMeili(
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${apiKey}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(documentIds),
@@ -177,7 +171,7 @@ async function deleteFromMeili(
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(
-      `Meilisearch delete failed for index ${indexName}: ${response.status} ${errorText}`
+      `Meilisearch delete failed for index ${indexName}: ${response.status} ${errorText}`,
     );
   }
 }
@@ -189,23 +183,18 @@ async function deleteFromMeili(
 async function writeToDlq(
   supabase: ReturnType<typeof createClient>,
   payload: WebhookPayload,
-  error: string
+  error: string,
 ): Promise<void> {
-  const { error: insertError } = await supabase
-    .from("meilisearch_dlq")
-    .insert({
-      table_name: payload.table,
-      record_id:
-        payload.record?.id ??
-        payload.old_record?.id ??
-        "unknown",
-      operation: payload.type,
-      payload: payload as unknown as Record<string, unknown>,
-      error_message: error,
-      retry_count: 0,
-      created_at: new Date().toISOString(),
-      next_retry_at: new Date(Date.now() + 60_000).toISOString(),
-    });
+  const { error: insertError } = await supabase.from("meilisearch_dlq").insert({
+    table_name: payload.table,
+    record_id: payload.record?.id ?? payload.old_record?.id ?? "unknown",
+    operation: payload.type,
+    payload: payload as unknown as Record<string, unknown>,
+    error_message: error,
+    retry_count: 0,
+    created_at: new Date().toISOString(),
+    next_retry_at: new Date(Date.now() + 60_000).toISOString(),
+  });
 
   if (insertError) {
     console.error("[meilisearch-sync] Failed to write to DLQ:", insertError);
@@ -228,17 +217,17 @@ Deno.serve(async (req: Request) => {
   try {
     payload = await req.json();
   } catch (err) {
-    return new Response(
-      JSON.stringify({ error: "Invalid JSON body", detail: String(err) }),
-      { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Invalid JSON body", detail: String(err) }), {
+      status: 400,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
   }
 
   // Validate payload.
   if (!payload.type || !payload.table) {
     return new Response(
       JSON.stringify({ error: "Invalid webhook payload: missing type or table" }),
-      { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
     );
   }
 
@@ -246,8 +235,12 @@ Deno.serve(async (req: Request) => {
   const supportedTables = ["events", "clubs", "profiles"];
   if (!supportedTables.includes(payload.table)) {
     return new Response(
-      JSON.stringify({ success: true, skipped: true, reason: `Table ${payload.table} not supported` }),
-      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      JSON.stringify({
+        success: true,
+        skipped: true,
+        reason: `Table ${payload.table} not supported`,
+      }),
+      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
     );
   }
 
@@ -262,16 +255,16 @@ Deno.serve(async (req: Request) => {
     } else {
       // INSERT or UPDATE
       if (!payload.record) {
-        return new Response(
-          JSON.stringify({ error: "Missing record for INSERT/UPDATE" }),
-          { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "Missing record for INSERT/UPDATE" }), {
+          status: 400,
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        });
       }
       const document = transformRecord(payload.table, payload.record);
       if (!document) {
         return new Response(
           JSON.stringify({ success: true, skipped: true, reason: "No transformer for table" }),
-          { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+          { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
         );
       }
       await pushToMeili(indexName, [document]);
@@ -285,7 +278,7 @@ Deno.serve(async (req: Request) => {
         operation: payload.type,
         index: indexName,
       }),
-      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
     );
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
@@ -305,7 +298,7 @@ Deno.serve(async (req: Request) => {
         error: errorMessage,
         dlq: true,
       }),
-      { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
     );
   }
 });

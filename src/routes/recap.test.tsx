@@ -37,7 +37,7 @@ describe("RecapPage Stories Component", () => {
     render(
       <MemoryRouter>
         <RecapPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
     expect(screen.getByText(/aggregating your year/i)).toBeInTheDocument();
   });
@@ -46,7 +46,7 @@ describe("RecapPage Stories Component", () => {
     render(
       <MemoryRouter>
         <RecapPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     // Slide 0: Title Slide
