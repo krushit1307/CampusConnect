@@ -46,6 +46,7 @@ import ResetPassword from "./routes/reset-password";
 import Settings from "./routes/settings";
 import PendingClubsAdmin from "./routes/admin.clubs.pending";
 import GalleryPage from "./routes/gallery";
+import { RouteSkeleton } from "./components/RouteSkeleton";
 import { BreadcrumbProvider } from "@/components/BreadcrumbsContext";
 import AriaAnnouncer from "@/components/accessibility/AriaAnnouncer";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
@@ -57,6 +58,10 @@ function RemoteLoadingScreen() {
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
     </div>
   );
+}
+
+function PageFallback() {
+  return <RouteSkeleton />;
 }
 
 const HEALTH_CHECK_URL =
