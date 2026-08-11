@@ -16,7 +16,9 @@ import {
   Trash2,
   RefreshCw,
   BarChart3,
+  AlertTriangle,
 } from "lucide-react";
+import { HoldToConfirmButton } from "@/components/ui/HoldToConfirmButton";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 import DiffViewer from "@/components/Editor/DiffViewer";
@@ -172,7 +174,6 @@ export default function ClubManageRoute() {
     },
   });
 
-
   // Form State
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -231,7 +232,6 @@ export default function ClubManageRoute() {
     enabled: !!user,
   });
 
->>>>>>> 2aad4a1 (issue #3011 solved)
   useEffect(() => {
     if (club) {
       setName(club.name);
@@ -727,6 +727,37 @@ export default function ClubManageRoute() {
                     {updateClubMutation.isPending ? "Saving..." : "Save Settings"}
                   </button>
                 </form>
+
+                <div className="neu-border border-red-500 bg-red-50/30 p-6 space-y-4 mt-8">
+                  <h3 className="font-display text-xl font-bold text-red-600 flex items-center gap-2">
+                    <AlertTriangle size={20} className="text-red-600" /> Danger Zone
+                  </h3>
+                  <p className="font-mono text-sm text-gray-700">
+                    Deleting this club is a permanent action. Click and hold the button below for 3
+                    seconds (or press Enter/Space for confirmation dialog) to execute deletion.
+                  </p>
+                  <div>
+                    <HoldToConfirmButton
+                      onConfirm={async () => {
+                        try {
+                          const { error } = await supabase.from("clubs").delete().eq("id", club.id);
+                          if (error) throw error;
+                          toast.success("Club deleted successfully");
+                          navigate("/clubs");
+                        } catch (err: any) {
+                          toast.error(err?.message || "Failed to delete club");
+                        }
+                      }}
+                      holdDuration={3000}
+                      confirmTitle="Delete Club permanently?"
+                      confirmDescription={`Are you sure you want to permanently delete "${club.name}"? This action cannot be undone.`}
+                      confirmText="Delete Club"
+                      variant="destructive"
+                    >
+                      Hold for 3s to Delete Club
+                    </HoldToConfirmButton>
+                  </div>
+                </div>
               </div>
             )}
 
