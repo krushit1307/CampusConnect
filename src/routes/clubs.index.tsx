@@ -10,7 +10,7 @@ import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
 import { FilterSidebar, TAGS_SEARCH_PARAM } from "@/components/Clubs/FilterSidebar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, X, Users, Plus } from "lucide-react";
+import { Search, X, Users, Plus, Sparkles } from "lucide-react";
 import { ClubCardSkeleton } from "@/components/ui/ClubCardSkeleton";
 
 // Fixed (not Math.random) pattern so the skeleton layout never shifts
@@ -162,6 +162,14 @@ export default function ClubsIndex() {
 
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
             <HoverLink
+              to="/clubs/fit"
+              className="neu-border neu-press flex items-center justify-center gap-2 bg-emerald-400 px-4 py-2 font-mono text-sm font-bold uppercase text-black"
+            >
+              <Sparkles className="h-4 w-4" />
+              Find Your Fit
+            </HoverLink>
+
+            <HoverLink
               to="/clubs/new"
               className="neu-border neu-press flex items-center justify-center gap-2 bg-sky px-4 py-2 font-mono text-sm font-bold uppercase text-black"
             >
@@ -228,8 +236,14 @@ export default function ClubsIndex() {
           <div className="p-4">
             <EmptyState
               illustrationType="no-results"
-              title={searchQuery ? `No clubs match "${searchQuery}"` : "No clubs found"}
-              description="Try adjusting your search query or choosing a different category filter."
+              title={
+                searchQuery
+                  ? `No clubs match "${searchQuery}"`
+                  : activeTags.length > 0
+                    ? "No clubs match the selected tags"
+                    : "No clubs found"
+              }
+              description="Try adjusting your search query or choosing different tag filters."
             />
           </div>
         ) : (
@@ -242,101 +256,53 @@ export default function ClubsIndex() {
                   : 0;
 
               return (
-                <div
-                  key={c.id}
-                  className="animate-fade-in-up flex flex-col"
-                  onMouseEnter={() => handlePrefetch(c.slug)}
-                >
-                  <HoverLink
+                <div key={c.id} className="animate-fade-in-up flex flex-col">
+                  <SmartLink
                     to={`/clubs/${c.slug}`}
+                    prefetch={() => handlePrefetch(c.slug)}
                     className="neu-border group flex flex-col bg-white p-6 shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_rgba(0,0,0,1)] h-full justify-between"
                   >
-                    {cat}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* Content */}
-            {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {SKELETON_SIZES.map((size, i) => (
-                  <ClubCardSkeleton key={i} size={size} />
-                ))}
-              </div>
-            ) : filteredClubs.length === 0 ? (
-              <div className="p-4">
-                <EmptyState
-                  illustrationType="no-results"
-                  title={
-                    searchQuery
-                      ? `No clubs match "${searchQuery}"`
-                      : activeTags.length > 0
-                        ? "No clubs match the selected tags"
-                        : "No clubs found"
-                  }
-                  description="Try adjusting your search query or choosing different tag filters."
-                />
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredClubs.map((c, index) => {
-                  const membersCount = Array.isArray(c.club_stats)
-                    ? (c.club_stats[0]?.total_members ?? 0)
-                    : c.club_stats
-                      ? (c.club_stats as { total_members: number }).total_members
-                      : 0;
-
-                  return (
-                    <div key={c.id} className="animate-fade-in-up flex flex-col">
-                      <SmartLink
-                        to={`/clubs/${c.slug}`}
-                        prefetch={() => handlePrefetch(c.slug)}
-                        className="neu-border group flex flex-col bg-white p-6 shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_rgba(0,0,0,1)] h-full justify-between"
-                      >
-                        <div>
-                          <div className="flex items-center justify-between gap-2 mb-4">
-                            <div
-                              className={`club-logo-badge border-2 border-black ${
-                                colors[index % colors.length]
-                              } px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase`}
-                            >
-                              {c.category || "Club"}
-                            </div>
-                          </div>
-
-                          <h2 className="text-xl font-bold font-display text-black mb-2 line-clamp-1">
-                            {c.name}
-                          </h2>
-
-                          <p className="font-mono text-xs text-gray-600 line-clamp-3 mb-6">
-                            {c.description || "No description provided."}
-                          </p>
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-4">
+                        <div
+                          className={`club-logo-badge border-2 border-black ${
+                            colors[index % colors.length]
+                          } px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase`}
+                        >
+                          {c.category || "Club"}
                         </div>
+                      </div>
 
-                        <div>
-                          <div className="my-3 border-t-2 border-black" />
-                          <div className="flex items-center justify-between font-mono text-xs text-gray-800">
-                            <span className="flex items-center gap-1">
-                              <Users size={14} /> {membersCount} Members
-                            </span>
+                      <h2 className="text-xl font-bold font-display text-black mb-2 line-clamp-1">
+                        {c.name}
+                      </h2>
 
-                            <span className="font-bold uppercase flex items-center gap-1 group-hover:text-blue-600 transition-colors">
-                              View Profile{" "}
-                              <span className="transition-transform duration-300 group-hover:translate-x-1">
-                                →
-                              </span>
-                            </span>
-                          </div>
-                        </div>
-                      </SmartLink>
+                      <p className="font-mono text-xs text-gray-600 line-clamp-3 mb-6">
+                        {c.description || "No description provided."}
+                      </p>
                     </div>
-                  );
-                })}{" "}
-              </div>
-            )}
+
+                    <div>
+                      <div className="my-3 border-t-2 border-black" />
+                      <div className="flex items-center justify-between font-mono text-xs text-gray-800">
+                        <span className="flex items-center gap-1">
+                          <Users size={14} /> {membersCount} Members
+                        </span>
+
+                        <span className="font-bold uppercase flex items-center gap-1 group-hover:text-blue-600 transition-colors">
+                          View Profile{" "}
+                          <span className="transition-transform duration-300 group-hover:translate-x-1">
+                            →
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                  </SmartLink>
+                </div>
+              );
+            })}
           </div>
-        </div>
+        )}
       </div>
     </SiteShell>
   );
