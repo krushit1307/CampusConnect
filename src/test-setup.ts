@@ -1,14 +1,19 @@
 import { vi, expect } from "vitest";
 import * as matchers from "@testing-library/jest-dom/matchers";
-import { toHaveNoViolations } from "jest-axe";
-
 // Extend Vitest expect with jest-dom matchers
 expect.extend(matchers);
 
-// Extend Vitest with jest-axe custom matcher
-expect.extend(toHaveNoViolations);
+// Safely extend Vitest with jest-axe custom matcher if available
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { toHaveNoViolations } = require("jest-axe");
+  if (toHaveNoViolations) {
+    expect.extend(toHaveNoViolations);
+  }
+} catch {
+  // jest-axe not present in dev environment
+}
 import "@testing-library/jest-dom/vitest";
-import { vi } from "vitest";
 import React from "react";
 
 process.env.VITE_SUPABASE_URL = process.env.VITE_SUPABASE_URL || "https://placeholder.supabase.co";

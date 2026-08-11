@@ -315,24 +315,36 @@ export type Database = {
           id: string;
           user_id: string;
           event_id: string;
+          attendee_name: string | null;
+          event_title: string | null;
+          event_date: string | null;
           certificate_url: string;
           issued_at: string | null;
+          email_sent_at: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
           event_id: string;
+          attendee_name?: string | null;
+          event_title?: string | null;
+          event_date?: string | null;
           certificate_url: string;
           issued_at?: string | null;
+          email_sent_at?: string | null;
           created_at?: string;
         };
         Update: {
           id?: string;
           user_id?: string;
           event_id?: string;
+          attendee_name?: string | null;
+          event_title?: string | null;
+          event_date?: string | null;
           certificate_url?: string;
           issued_at?: string | null;
+          email_sent_at?: string | null;
           created_at?: string;
         };
         Relationships: [
@@ -393,6 +405,7 @@ export type Database = {
           blurhash: string | null;
           created_at: string;
           updated_at: string;
+          generates_certificate: boolean;
         };
         Insert: {
           id?: string;
@@ -434,6 +447,7 @@ export type Database = {
           blurhash?: string | null;
           created_at?: string;
           updated_at?: string;
+          generates_certificate?: boolean;
         };
         Update: {
           id?: string;
@@ -475,6 +489,7 @@ export type Database = {
           blurhash?: string | null;
           created_at?: string;
           updated_at?: string;
+          generates_certificate?: boolean;
         };
         Relationships: [
           {
