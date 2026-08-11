@@ -125,19 +125,8 @@ export default function SettingsPage() {
         setUser(user);
       }
     });
+  }, [navigate, supabase]);
 
-      // Credentials verified successfully. Continue with existing deletion flow.
-      setConfirmOpen(false);
-      setDeletePassword("");
-      toast.success("Account deleted successfully.");
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "An unexpected error occurred during verification.";
-      setDeleteError(message);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
   useEffect(() => {
     // Load appearance settings from localStorage
     const savedThickness = localStorage.getItem("theme-border-thickness");
@@ -193,6 +182,45 @@ export default function SettingsPage() {
     },
     enabled: !!user?.id,
   });
+
+  const { data: latestExportJob, refetch: refetchExportJob } = useQuery({
+    queryKey: ["latest_export_job", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("data_export_jobs")
+        .select("*")
+        .eq("user_id", user?.id)
+        .order("requested_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const [isExporting, setIsExporting] = useState(false);
+  const handleRequestDataTakeout = async () => {
+    if (!user) return;
+    setIsExporting(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      // Only require the function name if we configure standard supabase client or we use fetch.
+      // We will use fetch since the existing code uses it.
+      // Note: we can also use supabase.functions.invoke.
+      const { error } = await supabase.functions.invoke("request-data-takeout");
+      if (error) throw error;
+      toast.success("Your data export is being prepared! You will receive an email shortly.");
+      refetchExportJob();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to request data takeout");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const [isWalletDownloading, setIsWalletDownloading] = useState(false);
 
   const handleAddToAppleWallet = async () => {
@@ -962,6 +990,62 @@ export default function SettingsPage() {
             <Toggle label="Email me about upcoming RSVPs" defaultChecked />
             <Toggle label="Weekly digest of club activity" defaultChecked />
             <Toggle label="New certificates" />
+          </Panel>
+
+          <Panel title="Privacy / Account">
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-bold text-black uppercase mb-1">Download My Data</h3>
+                <p className="font-mono text-xs text-muted-foreground">
+                  Request a copy of all your personal data (RSVPs, posts, comments, etc.). This
+                  process runs in the background. You will receive an email with a secure download
+                  link when it's ready.
+                </p>
+              </div>
+
+              {latestExportJob?.status === "processing" || latestExportJob?.status === "pending" ? (
+                <div className="flex items-center gap-2 p-3 bg-lime/20 border-2 border-black">
+                  <Loader2 className="h-4 w-4 animate-spin text-black" />
+                  <span className="font-mono text-sm font-bold uppercase">
+                    Your export is being prepared...
+                  </span>
+                </div>
+              ) : latestExportJob?.status === "completed" &&
+                new Date(latestExportJob.expires_at) > new Date() ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 p-3 bg-green-100 border-2 border-black">
+                    <Check className="h-4 w-4 text-green-700" />
+                    <span className="font-mono text-sm font-bold uppercase text-green-800">
+                      Export Ready
+                    </span>
+                  </div>
+                  <p className="font-mono text-xs text-black">
+                    Please check your email for the download link, or request a new one.
+                  </p>
+                  <button
+                    onClick={handleRequestDataTakeout}
+                    disabled={isExporting}
+                    className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream disabled:opacity-50"
+                  >
+                    {isExporting ? "Requesting..." : "Request New Export"}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleRequestDataTakeout}
+                  disabled={isExporting}
+                  className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream disabled:opacity-50"
+                >
+                  {isExporting ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Requesting...
+                    </span>
+                  ) : (
+                    "Download My Data"
+                  )}
+                </button>
+              )}
+            </div>
           </Panel>
 
           <Panel title="Danger zone" tone="bg-red-50">

@@ -49,6 +49,8 @@ export interface Club {
   updated_at: string;
   /** Set when the club is soft-deleted; NULL means active */
   deleted_at: string | null;
+  /** Current renewal status of the club */
+  status: "active" | "pending_renewal" | "in_review" | "suspended";
 }
 
 /**
@@ -85,6 +87,8 @@ export interface Event {
   updated_at: string;
   /** Set when the event is soft-deleted; NULL means active */
   deleted_at: string | null;
+  /** Flag indicating whether event generates attendance certificates */
+  generates_certificate?: boolean;
   accommodation_deadline: string | null;
 }
 
@@ -145,9 +149,17 @@ export interface Certificate {
   event_id: string;
   /** UUIDv7 foreign key to profiles.id */
   user_id: string;
+  /** Snapshotted attendee name at issuance time */
+  attendee_name?: string | null;
+  /** Snapshotted event title at issuance time */
+  event_title?: string | null;
+  /** Snapshotted event date at issuance time */
+  event_date?: string | null;
   /** URL to the generated PDF in Supabase Storage */
   certificate_url: string;
   issued_at: string;
+  /** Timestamp when delivery email was sent */
+  email_sent_at?: string | null;
 }
 
 /**
@@ -156,6 +168,7 @@ export interface Certificate {
 export type UserRole = Profile["role"];
 export type ClubMemberRole = ClubMember["role"];
 export type ClubMemberStatus = ClubMember["status"];
+export type ClubStatus = Club["status"];
 
 /**
  * Helper type for extracting the table names from the database schema.

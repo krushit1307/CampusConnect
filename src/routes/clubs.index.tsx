@@ -10,7 +10,7 @@ import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
 import { FilterSidebar, TAGS_SEARCH_PARAM } from "@/components/Clubs/FilterSidebar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, X, Users, Plus } from "lucide-react";
+import { Search, X, Users, Plus, Sparkles } from "lucide-react";
 import { ClubCardSkeleton } from "@/components/ui/ClubCardSkeleton";
 
 // Fixed (not Math.random) pattern so the skeleton layout never shifts
@@ -131,6 +131,14 @@ export default function ClubsIndex() {
           </div>
 
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+            <HoverLink
+              to="/clubs/fit"
+              className="neu-border neu-press flex items-center justify-center gap-2 bg-emerald-400 px-4 py-2 font-mono text-sm font-bold uppercase text-black"
+            >
+              <Sparkles className="h-4 w-4" />
+              Find Your Fit
+            </HoverLink>
+
             <HoverLink
               to="/clubs/new"
               className="neu-border neu-press flex items-center justify-center gap-2 bg-sky px-4 py-2 font-mono text-sm font-bold uppercase text-black"
