@@ -49,6 +49,8 @@ export interface Club {
   updated_at: string;
   /** Set when the club is soft-deleted; NULL means active */
   deleted_at: string | null;
+  /** Current renewal status of the club */
+  status: "active" | "pending_renewal" | "in_review" | "suspended";
 }
 
 /**
@@ -87,6 +89,7 @@ export interface Event {
   deleted_at: string | null;
   /** Flag indicating whether event generates attendance certificates */
   generates_certificate?: boolean;
+  accommodation_deadline: string | null;
 }
 
 /**
@@ -101,6 +104,7 @@ export interface EventRsvp {
   user_id: string;
   checked_in: boolean;
   created_at: string;
+  accommodations_requested: string | null;
 }
 
 /**
@@ -164,6 +168,7 @@ export interface Certificate {
 export type UserRole = Profile["role"];
 export type ClubMemberRole = ClubMember["role"];
 export type ClubMemberStatus = ClubMember["status"];
+export type ClubStatus = Club["status"];
 
 /**
  * Helper type for extracting the table names from the database schema.

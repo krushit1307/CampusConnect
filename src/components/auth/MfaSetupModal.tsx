@@ -18,6 +18,7 @@ import {
   AlertCircle,
   RefreshCw,
   Loader2,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -37,6 +38,7 @@ export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, o
   const [phoneNumber, setPhoneNumber] = useState("");
   const [copiedKey, setCopiedKey] = useState(false);
   const [copiedCodes, setCopiedCodes] = useState(false);
+  const [savedRecoveryCodes, setSavedRecoveryCodes] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -79,8 +81,8 @@ export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, o
         setQrCodeUri(data.totp.uri || "");
         setQrCodeSvgData(data.totp.qr_code || "");
 
-        // Generate backup recovery codes
-        const generatedCodes = Array.from({ length: 6 }, () =>
+        // Generate backup recovery codes (10 required, per #2739)
+        const generatedCodes = Array.from({ length: 10 }, () =>
           Array.from({ length: 3 }, () =>
             Math.random().toString(36).substring(2, 6).toUpperCase(),
           ).join("-"),
@@ -110,8 +112,32 @@ export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, o
     if (recoveryCodes.length === 0) return;
     navigator.clipboard.writeText(recoveryCodes.join("\n"));
     setCopiedCodes(true);
+    setSavedRecoveryCodes(true);
     toast.success("Recovery codes copied to clipboard");
     setTimeout(() => setCopiedCodes(false), 2000);
+  };
+
+  const handleDownloadRecovery = () => {
+    if (recoveryCodes.length === 0) return;
+    const content = [
+      "CampusConnect Backup Recovery Codes",
+      "------------------------------------",
+      "Keep these 10 codes in a safe place. Each code can be used only once",
+      "to sign in if you lose access to your authenticator app.",
+      "",
+      ...recoveryCodes.map((c, i) => `${String(i + 1).padStart(2, "0")}. ${c}`),
+    ].join("\n");
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "campusconnect-recovery-codes.txt";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    setSavedRecoveryCodes(true);
+    toast.success("Recovery codes downloaded. Store them somewhere safe.");
   };
 
   const handleVerify = async () => {
@@ -178,6 +204,7 @@ export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, o
     setQrCodeUri("");
     setQrCodeSvgData("");
     setRecoveryCodes([]);
+    setSavedRecoveryCodes(false);
   };
 
   return (
@@ -405,11 +432,12 @@ export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, o
             <div className="space-y-4">
               <div className="p-3 border-2 border-black bg-amber-100">
                 <h4 className="font-bold text-xs uppercase text-amber-900 flex items-center gap-1">
-                  <Key className="h-4 w-4" /> Save Recovery Codes
+                  <Key className="h-4 w-4" /> Save Your 10 Recovery Codes
                 </h4>
                 <p className="font-mono text-xs text-amber-900 mt-1">
-                  Store these emergency recovery codes in a safe place. If you lose access to your
-                  authenticator, you can use these to regain entry.
+                  Download these emergency recovery codes and store them in a safe place. If you
+                  lose access to your authenticator, these are the only way to regain entry. Each
+                  code can be used only once.
                 </p>
               </div>
 
@@ -427,6 +455,16 @@ export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, o
               <Button
                 type="button"
                 variant="outline"
+                onClick={handleDownloadRecovery}
+                className="w-full border-2 border-black font-mono text-xs uppercase shadow-[3px_3px_0_0_var(--color-ink)]"
+              >
+                <Download className="h-3.5 w-3.5 mr-1" />
+                Download Recovery Codes
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
                 onClick={handleCopyRecovery}
                 className="w-full border-2 border-black font-mono text-xs uppercase"
               >
@@ -438,12 +476,19 @@ export const MfaSetupModal: React.FC<MfaSetupModalProps> = ({ isOpen, onClose, o
                 {copiedCodes ? "Codes Copied" : "Copy All Recovery Codes"}
               </Button>
 
+              {!savedRecoveryCodes && (
+                <p className="text-center font-mono text-[11px] text-amber-800">
+                  You must download or copy your recovery codes before finishing setup.
+                </p>
+              )}
+
               <Button
                 type="button"
+                disabled={!savedRecoveryCodes}
                 onClick={handleFinish}
-                className="w-full border-2 border-black bg-black text-cream hover:bg-black/90 font-mono text-xs uppercase shadow-[3px_3px_0_0_var(--color-ink)]"
+                className="w-full border-2 border-black bg-black text-cream hover:bg-black/90 font-mono text-xs uppercase shadow-[3px_3px_0_0_var(--color-ink)] disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Complete Setup
+                {savedRecoveryCodes ? "Complete Setup" : "Complete Setup (codes not saved)"}
               </Button>
             </div>
           )}

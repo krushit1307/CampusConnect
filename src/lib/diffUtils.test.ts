@@ -56,7 +56,9 @@ describe("diffUtils", () => {
       const newText = "Line 1\nLine 2 updated\nLine 3\nLine 4";
 
       const result = computeLineDiff(oldText, newText);
-      expect(result.changes.some((c) => c.type === "added" && c.value.includes("Line 4"))).toBe(true);
+      expect(result.changes.some((c) => c.type === "added" && c.value.includes("Line 4"))).toBe(
+        true,
+      );
       expect(result.changes.some((c) => c.type === "removed" && c.value === "Line 2")).toBe(true);
     });
   });

@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { Redis } from "npm:@upstash/redis";
 import { z } from "https://esm.sh/zod@3.24.2";
 import { corsHeaders, parseJsonBody } from "../_shared/validation.ts";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 // ---------------------------------------------------------------------------
 // SSRF protection
@@ -251,6 +252,10 @@ export async function handler(req: Request): Promise<Response> {
     });
   }
 
+  // Rate limit: 30 requests/minute (external API calls)
+  const limited = await rateLimiter(req, "link-preview", 30, 60);
+  if (limited) return limited;
+
   let parsedUrl: URL;
   try {
     parsedUrl = new URL(rawUrl);
@@ -292,8 +297,7 @@ export async function handler(req: Request): Promise<Response> {
         Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.5",
       },
-      controller.signal,
-    );
+    });
 
     // Reject non-HTML responses before streaming their body (e.g. a 10 GB PDF).
     const mediaType = (response.headers.get("content-type") ?? "")

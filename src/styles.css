@@ -130,10 +130,10 @@
   --font-size-base: 16px;
   --radius: 0px;
   --cream: #f3f1e4;
-  --lime: #acc412;
-  --sky: #08b3ca;
-  --lavender: #d9cdeb;
-  --peach: #e37c2d;
+  --lime: #6f8000;
+  --sky: #007b8f;
+  --lavender: #8367a7;
+  --peach: #c55913;
   --ink: #000000;
   --background: #f3f1e4;
   --foreground: #000000;
@@ -149,7 +149,7 @@
   --muted-foreground: #333333;
   --accent: #dff25c;
   --accent-foreground: #000000;
-  --destructive: #e53935;
+  --destructive: #d32f2f;
   --destructive-foreground: #ffffff;
   --border: #000000;
   --input: #000000;
@@ -167,8 +167,8 @@
   --sidebar-accent-foreground: #000000;
   --sidebar-border: #000000;
   --sidebar-ring: #000000;
-  --border-thickness: 2px;
-  --border-radius: 0px;
+  --border-thickness: 4px;
+  --border-radius: 8px;
 }
 
 .dark {
@@ -339,13 +339,15 @@
 
   .college-card {
     background: rgba(255, 255, 255, 0.92);
-    border: 2px solid #123a57;
+    border: var(--border-thickness) solid #123a57;
+    border-radius: var(--border-radius);
     box-shadow: 6px 6px 0 0 #123a57;
     backdrop-filter: blur(6px);
   }
 
   .college-pill {
-    border: 2px solid #123a57;
+    border: var(--border-thickness) solid #123a57;
+    border-radius: var(--border-radius);
     background: rgba(255, 255, 255, 0.92);
     box-shadow: 4px 4px 0 0 #123a57;
   }
@@ -366,7 +368,8 @@
 }
 
 @utility neu-border {
-  border: 2px solid #000000;
+  border: var(--border-thickness) solid #000000;
+  border-radius: var(--border-radius);
 }
 
 @utility neu-shadow {
@@ -630,8 +633,8 @@
 }
 
 .rbc-month-view {
-  border: 2px solid #000000 !important;
-  border-radius: 0px !important;
+  border: var(--border-thickness) solid #000000 !important;
+  border-radius: var(--border-radius) !important;
 }
 
 .rbc-day-bg {
@@ -670,8 +673,8 @@
 }
 
 .rbc-event {
-  border: 2px solid #000000 !important;
-  border-radius: 0px !important;
+  border: var(--border-thickness) solid #000000 !important;
+  border-radius: var(--border-radius) !important;
   background-color: var(--peach) !important;
   color: #000000 !important;
   font-family: var(--font-mono) !important;
@@ -700,8 +703,8 @@
 }
 
 .rbc-toolbar button {
-  border: 2px solid #000000 !important;
-  border-radius: 0px !important;
+  border: var(--border-thickness) solid #000000 !important;
+  border-radius: var(--border-radius) !important;
   background-color: #ffffff !important;
   color: #000000 !important;
   font-family: var(--font-mono) !important;
@@ -733,15 +736,52 @@
   transform: none !important;
 }
 /* ============================================================
-   Feed Reaction Spring Micro-Interaction (issue #483)
-   - Plays a bouncy spring scale on like/unlike toggle.
-   - Class is always present on the emoji <span>; replay is
-     triggered by remounting the span via a changing React key
-     (see src/routes/feed.tsx → reactionBursts state).
-   - Respects prefers-reduced-motion (handled globally above).
+   Announcement Marquee — pure CSS keyframe ticker
+   - Animation applied to each child div individually.
+   - translateX(-100%) on a child = scroll exactly one full
+     copy off-screen; the second copy replaces it seamlessly.
+   - No JS timers, no state, no rAF. GPU transform only.
+   - prefers-reduced-motion: animation off, text centered.
    ============================================================ */
 
-@keyframes reaction-spring {
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.marquee-wrapper {
+  display: flex;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.marquee-child {
+  animation: marquee 20s linear infinite;
+  /* Shrink-0 keeps the child at its natural width inside the flex row */
+  flex-shrink: 0;
+  min-width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-child {
+    animation: none;
+    /* Static centered text when motion is reduced */
+    min-width: unset;
+    flex: 1;
+    text-align: center;
+  }
+  /* Hide the second duplicate copy — only one copy needed when static */
+  .marquee-child + .marquee-child {
+    display: none;
+  }
+}
+
+/* ============================================================
+   Feed Reaction Spring Micro-Interaction (issue #483)
   0% {
     transform: scale(1);
   }

@@ -136,6 +136,43 @@ serve(async (req) => {
       throw uploadError;
     }
 
+    // --- Progressive Image Tiny Thumbnail ---
+    try {
+      const tinyImage = await decode(buffer);
+      if ("resize" in tinyImage && typeof tinyImage.resize === "function") {
+        tinyImage.resize(20, Image.RESIZE_AUTO);
+        // ImageScript's encodeWEBP isn't natively supported in all older versions,
+        // but if it is we use it, otherwise fallback to JPEG.
+        let tinyBytes: Uint8Array;
+        let mime = "image/webp";
+        let ext = ".webp";
+        if (typeof tinyImage.encodeWEBP === "function") {
+          tinyBytes = await tinyImage.encodeWEBP(20);
+        } else {
+          tinyBytes = await tinyImage.encodeJPEG(20);
+          mime = "image/jpeg";
+          ext = ".jpg";
+        }
+
+        const tinyBlob = new Blob([tinyBytes], { type: mime });
+        const tinyPath = objectPath.replace(/(\.[^.]+)$/, ext);
+
+        const { error: tinyUploadError } = await supabase.storage
+          .from("thumbnails")
+          .upload(tinyPath, tinyBlob, {
+            contentType: mime,
+            upsert: true,
+          });
+
+        if (tinyUploadError) {
+          console.error("Tiny thumb upload error:", tinyUploadError);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to generate tiny thumbnail:", e);
+    }
+    // ----------------------------------------
+
     return new Response(
       JSON.stringify({
         success: true,

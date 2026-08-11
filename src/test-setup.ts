@@ -68,6 +68,14 @@ if (typeof globalThis.ResizeObserver === "undefined") {
   } as unknown as typeof globalThis.ResizeObserver;
 }
 
+// Polyfill scrollIntoView for cmdk and Radix UI tests in JSDOM
+if (typeof window !== "undefined") {
+  window.HTMLElement.prototype.scrollIntoView = vi.fn();
+  if (window.Element && !window.Element.prototype.scrollIntoView) {
+    window.Element.prototype.scrollIntoView = vi.fn();
+  }
+}
+
 // Mock lucide-react using importOriginal so that ALL icons are available
 // in tests without enumerating them one by one.
 vi.mock("lucide-react", async (importOriginal) => {

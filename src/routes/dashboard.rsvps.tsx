@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { EventCard } from "@/components/EventCard";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
+import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { toast } from "sonner";
 
 export default function DashboardRsvps() {
@@ -81,6 +82,8 @@ export default function DashboardRsvps() {
   const toggleRsvp = useMutation({
     mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
       if (!user) throw new Error("Must be logged in");
+      const idempotencyKey = getRsvpIdempotencyKey(eventId);
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -89,9 +92,11 @@ export default function DashboardRsvps() {
         body: { eventId, hasRsvpd },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
+          "Idempotency-Key": idempotencyKey,
         },
       });
       if (error) throw error;
+      clearRsvpIdempotencyKey(eventId);
       return data;
     },
     onSuccess: () => {

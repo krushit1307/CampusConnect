@@ -120,13 +120,14 @@ export default function NotificationsRoute() {
   const subscriptionOperation = currentUserId
     ? {
         query: NOTIFICATION_SUBSCRIPTION,
-        variables: { userId: currentUserId },
+        variables: { userId: currentUserId } as NotificationReceivedSubscriptionVariables,
       }
     : null;
 
-  const { data: subscriptionPayload, connected: subscriptionConnected } = useGraphQLSubscription<{
-    notificationReceived: GQLNotification;
-  }>(subscriptionOperation, { skip: !currentUserId });
+  const { data: subscriptionPayload, connected: subscriptionConnected } =
+    useGraphQLSubscription<NotificationReceivedSubscription>(subscriptionOperation, {
+      skip: !currentUserId,
+    });
 
   // When a new notification arrives via subscription, prepend it to the
   // TanStack Query cache and show a toast so the user is immediately aware.
@@ -268,11 +269,7 @@ export default function NotificationsRoute() {
   const rawNotifications = data?.pages.flatMap((page) => page.notifications) || [];
 
   const actorIds = Array.from(
-    new Set(
-      rawNotifications
-        .flatMap((n: any) => n.recent_actors || [])
-        .filter(Boolean),
-    ),
+    new Set(rawNotifications.flatMap((n: any) => n.recent_actors || []).filter(Boolean)),
   );
 
   const { data: profilesMap } = useQuery({

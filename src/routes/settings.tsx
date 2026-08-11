@@ -2,6 +2,7 @@ import { useNavigate, useBlocker } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { Camera, Loader2, X, Plus, CreditCard } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { Check, Loader2, X, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -16,6 +17,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   profileSchema,
+  ProfileUpdateAllowlistSchema,
   normalizeProfileHandle,
   PROFILE_HANDLE_PATTERN,
   HANDLE_UNAVAILABLE_MESSAGE,
@@ -85,8 +87,9 @@ export default function SettingsPage() {
   const [handleAvailability, setHandleAvailability] = useState<HandleAvailability>("idle");
   const [handleFeedback, setHandleFeedback] = useState<string | null>(null);
   const handleCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [borderThickness, setBorderThickness] = useState(2);
-  const [borderRadius, setBorderRadius] = useState(0);
+  const [borderThickness, setBorderThickness] = useState(4);
+  const [borderRadius, setBorderRadius] = useState(8);
+  const [isThemeDrawerOpen, setIsThemeDrawerOpen] = useState(false);
   const { fontSize, increment, decrement, reset } = useFontSize();
 
   // --- Skills tags state ---
@@ -123,9 +126,22 @@ export default function SettingsPage() {
       }
     });
 
+      // Credentials verified successfully. Continue with existing deletion flow.
+      setConfirmOpen(false);
+      setDeletePassword("");
+      toast.success("Account deleted successfully.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "An unexpected error occurred during verification.";
+      setDeleteError(message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+  useEffect(() => {
     // Load appearance settings from localStorage
-    const savedThickness = localStorage.getItem("border-thickness");
-    const savedRadius = localStorage.getItem("border-radius");
+    const savedThickness = localStorage.getItem("theme-border-thickness");
+    const savedRadius = localStorage.getItem("theme-border-radius");
 
     if (savedThickness) {
       const thickness = parseInt(savedThickness, 10);
@@ -157,6 +173,99 @@ export default function SettingsPage() {
     },
     enabled: !!user?.id,
   });
+
+  interface UserBadge {
+    id: string;
+    user_id: string;
+    badge_name: string;
+    awarded_at: string;
+  }
+
+  const { data: badges = [] } = useQuery({
+    queryKey: ["user_badges", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_badges")
+        .select("*")
+        .eq("user_id", user?.id);
+      if (error) throw error;
+      return (data || []) as UserBadge[];
+    },
+    enabled: !!user?.id,
+  });
+  const [isWalletDownloading, setIsWalletDownloading] = useState(false);
+
+  const handleAddToAppleWallet = async () => {
+    if (!user) return;
+    setIsWalletDownloading(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${getSupabaseUrl()}/functions/v1/generate-wallet-pass?type=apple&passType=id`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to generate Apple Wallet pass");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "id-card.pkpass";
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("Wallet pass downloaded successfully!");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Failed to download Wallet pass");
+    } finally {
+      setIsWalletDownloading(false);
+    }
+  };
+
+  const handleAddToGoogleWallet = async () => {
+    if (!user) return;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${getSupabaseUrl()}/functions/v1/generate-wallet-pass?type=google&passType=id`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to generate Google Wallet pass");
+      }
+
+      const data = await response.json();
+      if (data.url) {
+        window.open(data.url, "_blank");
+        toast.success("Google Wallet link opened!");
+      } else {
+        throw new Error("No URL returned");
+      }
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Failed to generate Google Wallet pass");
+    }
+  };
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema) as any,
@@ -335,18 +444,25 @@ export default function SettingsPage() {
 
       // Update profiles table (including skills text[])
       const dedupedSkills = [...new Set(skills.map((s) => s.trim()).filter(Boolean))];
+
+      // 1. Build dirty payload and strictly validate against allowlist
+      const rawPayload = {
+        avatar_theme: values.avatarTheme || null,
+        first_name: values.firstName,
+        last_name: values.lastName,
+        handle: values.handle,
+        bio: values.bio || null,
+        linkedin_url: values.linkedinUrl || null,
+        phone_number: values.phoneNumber || null,
+        skills: dedupedSkills,
+      };
+
+      const safeData = ProfileUpdateAllowlistSchema.parse(rawPayload);
+
+      // 2. Perform database update with safeData ONLY
       const { error: profileError } = await supabase
         .from("profiles")
-        .update({
-          avatar_theme: values.avatarTheme || null,
-          first_name: values.firstName,
-          last_name: values.lastName,
-          handle: values.handle,
-          bio: values.bio || null,
-          linkedin_url: values.linkedinUrl || null,
-          phone_number: values.phoneNumber || null,
-          skills: dedupedSkills,
-        })
+        .update(safeData)
         .eq("id", user.id);
 
       if (profileError) throw profileError;
@@ -388,14 +504,14 @@ export default function SettingsPage() {
     const value = parseInt(e.target.value, 10);
     setBorderThickness(value);
     document.documentElement.style.setProperty("--border-thickness", `${value}px`);
-    localStorage.setItem("border-thickness", String(value));
+    localStorage.setItem("theme-border-thickness", String(value));
   };
 
   const handleBorderRadiusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value, 10);
     setBorderRadius(value);
     document.documentElement.style.setProperty("--border-radius", `${value}px`);
-    localStorage.setItem("border-radius", String(value));
+    localStorage.setItem("theme-border-radius", String(value));
   };
 
   useEffect(() => {
@@ -482,6 +598,50 @@ export default function SettingsPage() {
               selected={currentAvatarTheme}
               onSelect={(id) => form.setValue("avatarTheme", id, { shouldDirty: true })}
             />
+
+            <div className="mb-6 border-2 border-black bg-lime/10 p-4 font-mono text-sm">
+              <p className="font-bold text-black uppercase mb-2">Unlocked Badges</p>
+              {badges.length === 0 ? (
+                <p className="text-xs text-gray-500 font-bold uppercase">
+                  No badges unlocked yet. Keep exploring the campus!
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {badges.map((b) => (
+                    <span
+                      key={b.id}
+                      title={b.badge_name}
+                      className="bg-black text-lime neu-border px-3 py-1 font-mono text-xs font-bold uppercase tracking-wider animate-bounce"
+                    >
+                      🏅 {b.badge_name}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <p className="font-bold text-black uppercase mb-2">Digital ID Wallet Passes</p>
+              <p className="text-xs text-gray-700 mb-4">
+                Add your CampusConnect Digital ID Card to your mobile device wallet.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleAddToAppleWallet}
+                  disabled={isWalletDownloading}
+                  className="neu-border flex items-center gap-2 bg-white px-4 py-2 font-bold uppercase transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                >
+                  <CreditCard className="h-4 w-4" />
+                  {isWalletDownloading ? "Adding..." : "Add to Apple Wallet"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddToGoogleWallet}
+                  className="neu-border flex items-center gap-2 bg-white px-4 py-2 font-bold uppercase transition-all hover:scale-105 active:scale-95"
+                >
+                  <CreditCard className="h-4 w-4" />
+                  Add to Google Wallet
+                </button>
+              </div>
+            </div>
 
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">
@@ -750,40 +910,21 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Border Thickness */}
+              {/* Theme Customizer Trigger */}
               <div className="space-y-2">
-                <label className="eyebrow font-bold">Border Thickness: {borderThickness}px</label>
-
-                <input
-                  type="range"
-                  min="1"
-                  max="8"
-                  value={borderThickness}
-                  onChange={handleBorderThicknessChange}
-                  className="w-full cursor-pointer accent-black"
-                />
-
-                <p className="font-mono text-xs text-muted-foreground">
-                  Controls the width of borders throughout the app (1px - 8px)
+                <label className="eyebrow font-bold text-black dark:text-cream">
+                  Theme Customizer
+                </label>
+                <p className="font-mono text-xs text-muted-foreground mb-2">
+                  Adjust border thickness and radius dynamically.
                 </p>
-              </div>
-
-              {/* Border Radius */}
-              <div className="space-y-2">
-                <label className="eyebrow font-bold">Border Radius: {borderRadius}px</label>
-
-                <input
-                  type="range"
-                  min="0"
-                  max="32"
-                  value={borderRadius}
-                  onChange={handleBorderRadiusChange}
-                  className="w-full cursor-pointer accent-black"
-                />
-
-                <p className="font-mono text-xs text-muted-foreground">
-                  Controls the roundness of corners (0px - 32px)
-                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsThemeDrawerOpen(true)}
+                  className="neu-border neu-press flex items-center gap-2 bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream"
+                >
+                  ⚙ Theme Customizer
+                </button>
               </div>
             </div>
           </Panel>
@@ -845,6 +986,90 @@ export default function SettingsPage() {
           </Panel>
         </div>
       </section>
+      {/* Theme Customizer Drawer */}
+      {isThemeDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setIsThemeDrawerOpen(false)}
+            aria-hidden="true"
+          />
+          {/* Drawer Panel */}
+          <div
+            className="relative w-full max-w-sm bg-cream p-6 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] h-full overflow-y-auto border-l-4 border-black flex flex-col"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="flex items-center justify-between border-b-2 border-black pb-4 mb-6">
+              <h2 className="font-display text-2xl font-bold uppercase tracking-tight text-black">
+                Theme Customizer
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsThemeDrawerOpen(false)}
+                className="neu-border flex h-8 w-8 items-center justify-center bg-white text-black hover:bg-black hover:text-white transition-colors"
+                aria-label="Close customizer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-8 flex-1">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <label className="eyebrow font-bold text-black">Border Thickness</label>
+                  <span className="font-mono font-bold bg-white px-2 py-1 neu-border text-xs text-black">
+                    {borderThickness}px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="12"
+                  value={borderThickness}
+                  onChange={handleBorderThicknessChange}
+                  className="w-full cursor-pointer accent-black"
+                />
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <label className="eyebrow font-bold text-black">Border Radius</label>
+                  <span className="font-mono font-bold bg-white px-2 py-1 neu-border text-xs text-black">
+                    {borderRadius}px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="40"
+                  value={borderRadius}
+                  onChange={handleBorderRadiusChange}
+                  className="w-full cursor-pointer accent-black"
+                />
+              </div>
+            </div>
+
+            <div className="pt-6 border-t-2 border-black mt-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setBorderThickness(4);
+                  setBorderRadius(8);
+                  document.documentElement.style.setProperty("--border-thickness", "4px");
+                  document.documentElement.style.setProperty("--border-radius", "8px");
+                  localStorage.removeItem("theme-border-thickness");
+                  localStorage.removeItem("theme-border-radius");
+                }}
+                className="w-full neu-border neu-press bg-white text-black px-4 py-3 font-mono text-sm font-bold uppercase hover:bg-gray-100"
+              >
+                Reset to Default
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </SiteShell>
   );
 }

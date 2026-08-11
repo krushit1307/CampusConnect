@@ -25,7 +25,10 @@ export const DEFAULT_EVENT_TAGS = [
   "Academic",
 ];
 
-export const DEFAULT_EVENT_TAG_OPTIONS = DEFAULT_EVENT_TAGS.map(tag => ({ value: tag, label: tag }));
+export const DEFAULT_EVENT_TAG_OPTIONS = DEFAULT_EVENT_TAGS.map((tag) => ({
+  value: tag,
+  label: tag,
+}));
 
 export const TITLE_MAX_LENGTH = 100;
 
@@ -39,6 +42,16 @@ export const eventFormSchema = z
     description: z.string().trim().min(1, "Description is required."),
     category: z.string().trim().min(1, "Category is required."),
     location: z.string().trim().optional(),
+    latitude: z.number().min(-90).max(90).optional().nullable(),
+    longitude: z.number().min(-180).max(180).optional().nullable(),
+    geofencingEnabled: z.boolean().optional().default(false),
+    geofenceRadiusMeters: z.coerce
+      .number()
+      .int()
+      .min(10, "Radius must be at least 10 meters.")
+      .max(5000, "Radius must be 5000 meters or less.")
+      .optional()
+      .default(100),
     startDate: z.string().min(1, "Start date is required."),
     endDate: z.string().min(1, "End date is required."),
     banner: z.union([z.literal(""), z.string().url("Must be a valid URL")]).optional(),
@@ -63,6 +76,10 @@ export const eventFormSchema = z
   .refine((data) => new Date(data.endDate) > new Date(data.startDate), {
     message: "End date must be after the start date.",
     path: ["endDate"],
+  })
+  .refine((data) => !data.geofencingEnabled || (data.latitude != null && data.longitude != null), {
+    message: "Drop a pin on the map to set the check-in geofence location.",
+    path: ["latitude"],
   });
 
 export type EventFormValues = z.infer<typeof eventFormSchema>;
@@ -164,6 +181,10 @@ export function eventFormToDbPayload(
     description: values.description.trim(),
     category_id: values.category || null,
     location: values.location?.trim() || null,
+    latitude: values.latitude ?? null,
+    longitude: values.longitude ?? null,
+    geofencing_enabled: values.geofencingEnabled || false,
+    geofence_radius_meters: values.geofenceRadiusMeters || 100,
     start_date: startDateIso,
     end_date: endDateIso,
     event_date: startDateIso,

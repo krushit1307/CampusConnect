@@ -30,6 +30,8 @@ export type Database = {
           created_by: string | null;
           status: string | null;
           promo_video_url: string | null;
+          primary_color: string | null;
+          secondary_color: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -59,6 +61,8 @@ export type Database = {
           created_by?: string | null;
           status?: string | null;
           promo_video_url?: string | null;
+          primary_color?: string | null;
+          secondary_color?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -88,6 +92,8 @@ export type Database = {
           created_by?: string | null;
           status?: string | null;
           promo_video_url?: string | null;
+          primary_color?: string | null;
+          secondary_color?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -378,15 +384,17 @@ export type Database = {
           event_date: string | null;
           start_date: string | null;
           end_date: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           location: any;
           metadata: Json | null;
           latitude: number | null;
           longitude: number | null;
+          geofencing_enabled: boolean;
+          geofence_radius_meters: number;
           max_attendees: number | null;
           available_spots: number | null;
           rsvp_count: number;
-          views: number;
+          // views column removed — view counts now live in the event_metrics table (issue #2274)
           popularity_score: number | null;
           is_featured: boolean;
           requires_approval: boolean;
@@ -406,6 +414,7 @@ export type Database = {
           created_at: string;
           updated_at: string;
           generates_certificate: boolean;
+          accommodation_deadline: string | null;
         };
         Insert: {
           id?: string;
@@ -420,15 +429,17 @@ export type Database = {
           event_date?: string | null;
           start_date?: string | null;
           end_date?: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           location?: any;
           metadata?: Json | null;
           latitude?: number | null;
           longitude?: number | null;
+          geofencing_enabled?: boolean;
+          geofence_radius_meters?: number;
           max_attendees?: number | null;
           available_spots?: number | null;
           rsvp_count?: number;
-          views?: number;
+          // views column removed — view counts now live in the event_metrics table (issue #2274)
           popularity_score?: number | null;
           is_featured?: boolean;
           requires_approval?: boolean;
@@ -448,6 +459,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           generates_certificate?: boolean;
+          accommodation_deadline?: string | null;
         };
         Update: {
           id?: string;
@@ -462,15 +474,17 @@ export type Database = {
           event_date?: string | null;
           start_date?: string | null;
           end_date?: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           location?: any;
           metadata?: Json | null;
           latitude?: number | null;
           longitude?: number | null;
+          geofencing_enabled?: boolean;
+          geofence_radius_meters?: number;
           max_attendees?: number | null;
           available_spots?: number | null;
           rsvp_count?: number;
-          views?: number;
+          // views column removed — view counts now live in the event_metrics table (issue #2274)
           popularity_score?: number | null;
           is_featured?: boolean;
           requires_approval?: boolean;
@@ -490,6 +504,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           generates_certificate?: boolean;
+          accommodation_deadline?: string | null;
         };
         Relationships: [
           {
@@ -504,6 +519,36 @@ export type Database = {
             columns: ["created_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      /**
+       * UNLOGGED table for high-throughput event view counting (issue #2274).
+       * One row per event; views are incremented via the increment_event_views() RPC.
+       */
+      event_metrics: {
+        Row: {
+          event_id: string;
+          views: number;
+          updated_at: string;
+        };
+        Insert: {
+          event_id: string;
+          views?: number;
+          updated_at?: string;
+        };
+        Update: {
+          event_id?: string;
+          views?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_metrics_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: true;
+            referencedRelation: "events";
             referencedColumns: ["id"];
           },
         ];
@@ -543,6 +588,7 @@ export type Database = {
           rsvp_at: string | null;
           created_at: string;
           updated_at: string;
+          accommodations_requested: string | null;
         };
         Insert: {
           id?: string;
@@ -554,6 +600,7 @@ export type Database = {
           rsvp_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          accommodations_requested?: string | null;
         };
         Update: {
           id?: string;
@@ -565,6 +612,7 @@ export type Database = {
           rsvp_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          accommodations_requested?: string | null;
         };
         Relationships: [
           {
@@ -583,12 +631,53 @@ export type Database = {
           },
         ];
       };
+      accommodation_audit_logs: {
+        Row: {
+          id: string;
+          viewer_id: string | null;
+          rsvp_id: string;
+          event_id: string | null;
+          club_id: string | null;
+          action: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          viewer_id?: string | null;
+          rsvp_id: string;
+          event_id?: string | null;
+          club_id?: string | null;
+          action?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          viewer_id?: string | null;
+          rsvp_id?: string;
+          event_id?: string | null;
+          club_id?: string | null;
+          action?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "accommodation_audit_logs_viewer_id_fkey";
+            columns: ["viewer_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       event_attendance_logs: {
         Row: {
           id: string;
           rsvp_id: string;
           scanned_by: string;
           recorded_by: string | null;
+          verification_method: "manual" | "qr_scan" | "geofence" | "organizer_override";
+          distance_meters: number | null;
+          location_accuracy_meters: number | null;
           created_at: string;
         };
         Insert: {
@@ -596,6 +685,9 @@ export type Database = {
           rsvp_id: string;
           scanned_by?: string;
           recorded_by?: string | null;
+          verification_method?: "manual" | "qr_scan" | "geofence" | "organizer_override";
+          distance_meters?: number | null;
+          location_accuracy_meters?: number | null;
           created_at?: string;
         };
         Update: {
@@ -603,9 +695,51 @@ export type Database = {
           rsvp_id?: string;
           scanned_by?: string;
           recorded_by?: string | null;
+          verification_method?: "manual" | "qr_scan" | "geofence" | "organizer_override";
+          distance_meters?: number | null;
+          location_accuracy_meters?: number | null;
           created_at?: string;
         };
         Relationships: [];
+      };
+      event_chat_messages: {
+        Row: {
+          id: string;
+          event_id: string;
+          user_id: string;
+          content: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          user_id: string;
+          content: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          user_id?: string;
+          content?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_chat_messages_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "event_chat_messages_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       event_waitlist: {
         Row: {
@@ -696,6 +830,7 @@ export type Database = {
           title: string | null;
           content: string;
           image_url: string | null;
+          blurhash: string | null;
           is_pinned: boolean;
           is_deleted: boolean;
           deleted_at: string | null;
@@ -710,6 +845,7 @@ export type Database = {
           title?: string | null;
           content: string;
           image_url?: string | null;
+          blurhash?: string | null;
           is_pinned?: boolean;
           is_deleted?: boolean;
           deleted_at?: string | null;
@@ -724,6 +860,7 @@ export type Database = {
           title?: string | null;
           content?: string;
           image_url?: string | null;
+          blurhash?: string | null;
           is_pinned?: boolean;
           is_deleted?: boolean;
           deleted_at?: string | null;
@@ -1159,7 +1296,7 @@ export type Database = {
           message: string;
           link: string | null;
           link_url: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           metadata: Record<string, any> | null;
           is_read: boolean;
           read_at: string | null;
@@ -1174,7 +1311,7 @@ export type Database = {
           message: string;
           link?: string | null;
           link_url?: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           metadata?: Record<string, any> | null;
           is_read?: boolean;
           read_at?: string | null;
@@ -1189,7 +1326,7 @@ export type Database = {
           message?: string;
           link?: string | null;
           link_url?: string | null;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           metadata?: Record<string, any> | null;
           is_read?: boolean;
           read_at?: string | null;
@@ -1658,6 +1795,171 @@ export type Database = {
         };
         Relationships: [];
       };
+      carpools: {
+        Row: {
+          id: string;
+          event_id: string;
+          driver_id: string;
+          capacity: number;
+          departure_time: string;
+          meeting_point: string;
+          notes: string | null;
+          status: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          driver_id: string;
+          capacity: number;
+          departure_time: string;
+          meeting_point: string;
+          notes?: string | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          driver_id?: string;
+          capacity?: number;
+          departure_time?: string;
+          meeting_point?: string;
+          notes?: string | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "carpools_driver_id_fkey";
+            columns: ["driver_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "carpools_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      carpool_passengers: {
+        Row: {
+          id: string;
+          carpool_id: string;
+          passenger_id: string;
+          seat_claimed_at: string;
+        };
+        Insert: {
+          id?: string;
+          carpool_id: string;
+          passenger_id: string;
+          seat_claimed_at?: string;
+        };
+        Update: {
+          id?: string;
+          carpool_id?: string;
+          passenger_id?: string;
+          seat_claimed_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "carpool_passengers_carpool_id_fkey";
+            columns: ["carpool_id"];
+            isOneToOne: false;
+            referencedRelation: "carpools";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "carpool_passengers_passenger_id_fkey";
+            columns: ["passenger_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      carpool_chats: {
+        Row: {
+          id: string;
+          carpool_id: string;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          carpool_id: string;
+          created_by: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          carpool_id?: string;
+          created_by?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "carpool_chats_carpool_id_fkey";
+            columns: ["carpool_id"];
+            isOneToOne: false;
+            referencedRelation: "carpools";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "carpool_chats_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      carpool_chat_messages: {
+        Row: {
+          id: string;
+          carpool_chat_id: string;
+          sender_id: string;
+          content: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          carpool_chat_id: string;
+          sender_id: string;
+          content: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          carpool_chat_id?: string;
+          sender_id?: string;
+          content?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "carpool_chat_messages_carpool_chat_id_fkey";
+            columns: ["carpool_chat_id"];
+            isOneToOne: false;
+            referencedRelation: "carpool_chats";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "carpool_chat_messages_sender_id_fkey";
+            columns: ["sender_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       club_analytics_view: {
@@ -1680,6 +1982,7 @@ export type Database = {
           title: string | null;
           content: string;
           image_url: string | null;
+          blurhash: string | null;
           is_pinned: boolean;
           is_deleted: boolean;
           like_count: number;
@@ -1690,6 +1993,15 @@ export type Database = {
       };
     };
     Functions: {
+      check_in_via_geofence: {
+        Args: {
+          p_rsvp_id: string;
+          p_latitude: number;
+          p_longitude: number;
+          p_accuracy_meters?: number | null;
+        };
+        Returns: Json;
+      };
       get_event_analytics: {
         Args: {
           p_event_id: string;
@@ -1783,6 +2095,41 @@ export type Database = {
         Args: {
           p_club_id: string;
           p_action: string;
+        };
+        Returns: Json;
+      };
+      is_carpool_member: {
+        Args: {
+          p_carpool_id: string;
+          p_user_id: string;
+        };
+        Returns: boolean;
+      };
+      offer_carpool: {
+        Args: {
+          p_event_id: string;
+          p_capacity: number;
+          p_departure_time: string;
+          p_meeting_point: string;
+          p_notes?: string;
+        };
+        Returns: Json;
+      };
+      claim_carpool_seat: {
+        Args: {
+          p_carpool_id: string;
+        };
+        Returns: Json;
+      };
+      leave_carpool: {
+        Args: {
+          p_carpool_id: string;
+        };
+        Returns: Json;
+      };
+      cancel_carpool: {
+        Args: {
+          p_carpool_id: string;
         };
         Returns: Json;
       };
@@ -1890,3 +2237,4 @@ export type Enums<
   : PublicEnumNameOrOptions extends keyof Database["public"]["Enums"]
     ? Database["public"]["Enums"][PublicEnumNameOrOptions]
     : never;
+    

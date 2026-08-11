@@ -9,7 +9,7 @@ import react from "@vitejs/plugin-react";
  */
 export default defineConfig({
   e2e: {
-    specPattern: "cypress/e2e/**/*.cy.{ts,tsx}",
+    specPattern: ["cypress/e2e/**/*.cy.{ts,tsx}", "cypress/e2e/**/*.spec.{ts,tsx}"],
     baseUrl: "http://localhost:3000",
     supportFile: "cypress/support/e2e.ts",
     viewportWidth: 1280,

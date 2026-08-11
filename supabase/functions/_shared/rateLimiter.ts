@@ -23,3 +23,17 @@ export const outboundCommunicationLimiter = new Ratelimit({
   analytics: true,
   prefix: "outbound-comm-limit",
 });
+
+export const rsvpIpLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(60, "1 m"),
+  analytics: true,
+  prefix: "rsvp-ip-limit",
+});
+
+export const rsvpUserLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, "10 s"),
+  analytics: true,
+  prefix: "rsvp-user-limit",
+});

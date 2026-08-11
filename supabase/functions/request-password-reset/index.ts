@@ -13,6 +13,15 @@ serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Rate Limiting: 5 requests per minute per IP
+  const rateLimitResponse = await limitRate(req, "request-password-reset", {
+    limit: 5,
+    windowMs: 60000,
+  });
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
   try {
     const { email, redirectTo } = await req.json();
 

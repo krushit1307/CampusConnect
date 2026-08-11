@@ -33,21 +33,7 @@ import { useWebAuthn } from "@/hooks/useWebAuthn";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { AuthSocialProviderGrid } from "@/components/auth/AuthSocialProviderGrid";
 import { PasskeyAuthModal } from "@/components/auth/PasskeyAuthModal";
-import { MfaVerificationModal } from "@/components/auth/MfaVerificationModal";
-import {
-  signInSchema,
-  type SignInFormValues,
-  signUpSchema,
-  type SignUpFormValues,
-} from "@/lib/schemas";
-import {
-  Form,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-} from "@/components/ui/form";
+import { requiresMfaChallenge } from "@/lib/mfa";
 
 export default function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -55,8 +41,6 @@ export default function AuthPage() {
   const [captchaToken, setCaptchaToken] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPasskeyModalOpen, setIsPasskeyModalOpen] = useState(false);
-  const [isMfaVerifyOpen, setIsMfaVerifyOpen] = useState(false);
-  const [mfaFactorId, setMfaFactorId] = useState("");
   const navigate = useNavigate();
   const supabase = createClient();
   const { registerPasskey } = useWebAuthn();
@@ -122,20 +106,13 @@ export default function AuthPage() {
 
       if (setSessionError) throw setSessionError;
 
-      // Check if MFA TOTP is enabled/enforced for the user
-      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      const { data: factorsData } = await supabase.auth.mfa.listFactors();
-      const verifiedTotpFactor = factorsData?.totp?.find((f) => f.status === "verified");
-
-      if (
-        (aalData && aalData.nextLevel === "aal2" && aalData.currentLevel === "aal1") ||
-        verifiedTotpFactor
-      ) {
-        if (verifiedTotpFactor) {
-          setMfaFactorId(verifiedTotpFactor.id);
-          setIsMfaVerifyOpen(true);
-          return;
-        }
+      // Club executives / system admins with a verified TOTP factor must
+      // complete the MFA challenge before entering the app (#2739).
+      if (await requiresMfaChallenge(supabase)) {
+        navigate(`/mfa-challenge?redirectTo=${encodeURIComponent("/dashboard")}`, {
+          replace: true,
+        });
+        return;
       }
 
       navigate("/dashboard", { replace: true });
@@ -494,11 +471,7 @@ export default function AuthPage() {
                   <Button
                     type="submit"
 
-                    disabled={
-  loading ||
-  !captchaToken ||
-  passwordResult.score < 3
-}
+                    disabled={loading || !captchaToken || passwordResult.score < 3}
 
                     variant="primary"
                     className="w-full bg-black text-cream hover:bg-black/90 cursor-pointer shadow-[3px_3px_0_0_var(--color-ink)]"
@@ -552,19 +525,6 @@ export default function AuthPage() {
             </p>
           </div>
         </div>
-
-        <MfaVerificationModal
-          isOpen={isMfaVerifyOpen}
-          factorId={mfaFactorId}
-          onSuccess={() => {
-            setIsMfaVerifyOpen(false);
-            navigate("/dashboard", { replace: true });
-          }}
-          onCancel={() => {
-            setIsMfaVerifyOpen(false);
-            void supabase.auth.signOut();
-          }}
-        />
       </div>
     </div>
   );
