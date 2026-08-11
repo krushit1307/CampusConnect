@@ -7,6 +7,7 @@ interface PaymentPayload {
   eventId: string;
   quantity: number;
   amount: number;
+  includeCharityDonation?: boolean;
   // Add other relevant payment fields
 }
 

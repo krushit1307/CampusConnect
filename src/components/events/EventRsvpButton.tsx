@@ -8,6 +8,17 @@ import {
   getEventRsvpState,
   type EventRsvpState,
 } from "../../lib/waitlist";
+import { useIdempotentPayment } from "../../hooks/useIdempotentPayment";
+import { Checkbox } from "../ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "../ui/dialog";
+import { Label } from "../ui/label";
 
 interface EventRsvpButtonProps {
   eventId: string;
@@ -45,6 +56,15 @@ export function EventRsvpButton({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Mocking a ticket price since database schema lacks it currently
+  const ticketPrice = 14.5;
+  const isPaidEvent = true;
+
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [roundUp, setRoundUp] = useState(false);
+
+  const { processPayment, isProcessing } = useIdempotentPayment();
+
   // Fetch the RSVP state on mount if no initial state was provided.
   useEffect(() => {
     if (initialState) {
@@ -78,6 +98,28 @@ export function EventRsvpButton({
     const fresh = await getEventRsvpState(eventId, userId);
     setState(fresh);
     onRsvpChanged?.();
+  };
+
+  const handleCheckout = async () => {
+    if (!userId) {
+      setError("Please log in to RSVP.");
+      return;
+    }
+
+    try {
+      await processPayment({
+        eventId,
+        quantity: 1,
+        amount: ticketPrice * 100, // Cents
+        includeCharityDonation: roundUp,
+      });
+      setIsCheckoutModalOpen(false);
+      // Mock update to UI since we don't have the full webhook pipeline available locally
+      setState((prev) => (prev ? { ...prev, user_status: "attending" } : prev));
+      onRsvpChanged?.();
+    } catch (err: any) {
+      // Error handled by hook
+    }
   };
 
   const handleCancel = async () => {
@@ -149,9 +191,7 @@ export function EventRsvpButton({
             <Clock className="h-4 w-4" aria-hidden="true" />
             On Waitlist
             {state.user_waitlist_position && (
-              <span className="font-mono text-xs">
-                (#{state.user_waitlist_position})
-              </span>
+              <span className="font-mono text-xs">(#{state.user_waitlist_position})</span>
             )}
           </Button>
           <Button
@@ -185,7 +225,11 @@ export function EventRsvpButton({
           <span>
             <strong>Event Full</strong>
             {state.waitlist_count > 0 && (
-              <> — {state.waitlist_count} {state.waitlist_count === 1 ? "person" : "people"} on Waitlist</>
+              <>
+                {" "}
+                — {state.waitlist_count} {state.waitlist_count === 1 ? "person" : "people"} on
+                Waitlist
+              </>
             )}
           </span>
         </div>
@@ -200,17 +244,72 @@ export function EventRsvpButton({
 
   // ── Not RSVPed, spots available → RSVP NOW ──────────────────────
   return (
-    <div className="flex flex-col gap-2">
-      <Button onClick={handleJoin} disabled={loading} size="lg" className="gap-2">
-        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
-        RSVP NOW
-      </Button>
-      {state.max_attendees && (
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          {state.attending_count} / {state.max_attendees} spots filled
-        </p>
-      )}
-      {error && <p className="text-sm text-red-600">{error}</p>}
-    </div>
+    <>
+      <div className="flex flex-col gap-2">
+        {isPaidEvent ? (
+          <Button
+            onClick={() => setIsCheckoutModalOpen(true)}
+            disabled={loading}
+            size="lg"
+            className="gap-2"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
+            Buy Ticket
+          </Button>
+        ) : (
+          <Button onClick={handleJoin} disabled={loading} size="lg" className="gap-2">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
+            RSVP NOW
+          </Button>
+        )}
+        {state.max_attendees && (
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {state.attending_count} / {state.max_attendees} spots filled
+          </p>
+        )}
+        {error && <p className="text-sm text-red-600">{error}</p>}
+      </div>
+
+      <Dialog open={isCheckoutModalOpen} onOpenChange={setIsCheckoutModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Complete Your Purchase</DialogTitle>
+            <DialogDescription>
+              Ticket for this event costs ${ticketPrice.toFixed(2)}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex items-center space-x-2 my-4 p-4 border rounded-md bg-slate-50 dark:bg-slate-900">
+            <Checkbox
+              id="round-up"
+              checked={roundUp}
+              onCheckedChange={(checked) => setRoundUp(checked as boolean)}
+            />
+            <div className="grid gap-1.5 leading-none">
+              <Label htmlFor="round-up" className="font-semibold cursor-pointer">
+                Round up to ${Math.ceil(ticketPrice).toFixed(2)} to support the Campus Food Bank?
+              </Label>
+              <p className="text-sm text-slate-500">
+                Donate the ${(Math.ceil(ticketPrice) - ticketPrice).toFixed(2)} difference to our
+                student food bank.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCheckoutModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCheckout} disabled={isProcessing}>
+              {isProcessing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                `Pay $${(roundUp ? Math.ceil(ticketPrice) : ticketPrice).toFixed(2)}`
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
