@@ -255,8 +255,8 @@ describe("signUpSchema", () => {
     firstName: "Ada",
     lastName: "Lovelace",
     email: "ada@college.edu",
-    password: "Password1",
-    confirmPassword: "Password1",
+    password: "CorrectHorseBatteryStaple42!",
+    confirmPassword: "CorrectHorseBatteryStaple42!",
   };
 
   it("accepts a fully valid payload", () => {
