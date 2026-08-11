@@ -15,8 +15,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// RSVP statuses that do NOT count as "already attending" (kept from recommendations).
-const RSVP_SKIP_STATUS = "rejected";
+// RSVP statuses that count as "already attending" (excluded from recommendations).
+// Whitelist instead of blacklist: only these statuses remove an event, so future
+// status values (e.g. cancelled) never silently drop events from the digest.
+const ATTENDING_RSVP_STATUSES = new Set(["approved", "waitlisted"]);
 
 // HTML Escaper to prevent XSS in email client
 function escapeHtml(unsafe: string): string {
@@ -66,7 +68,7 @@ function compileDigestHtml(
       const reasonsHtml = event.reasons.length > 0
         ? `
           <div style="font-size: 11px; font-weight: 700; font-family: monospace; text-transform: uppercase; color: #166534; margin-bottom: 10px;">
-            &#127919; ${escapeHtml(event.reasons.join(" &bull; "))}
+            &#127919; ${event.reasons.map((r) => escapeHtml(r)).join(" &bull; ")}
           </div>`
         : "";
 
@@ -138,7 +140,8 @@ async function dispatchDigestEmail(opts: {
   const { user, html, subject, unsubscribeUrl, resendApiKey, mockMode } = opts;
 
   if (mockMode) {
-    console.log(`[weekly-digest] Mock Mode: digest for ${user.email} (${user.full_name})`);
+    // user_id only - avoids PII in logs; user_id identifies the recipient for debugging.
+    console.log(`[weekly-digest] Mock Mode: digest for user ${user.user_id}`);
     return { ok: true };
   }
 
@@ -147,29 +150,53 @@ async function dispatchDigestEmail(opts: {
   }
 
   const idempotencyKey = `weekly-digest-${new Date().toISOString().substring(0, 10)}-${user.user_id}`;
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
+
+  // 1-click unsubscribe compliance (RFC 8058). These MUST be delivered as email
+  // headers, so they go inside the Resend payload's `headers` field - Resend
+  // ignores HTTP request headers for this purpose.
+  const payload = {
+    from: "CampusConnect Digest <notifications@campusconnect.app>",
+    to: [user.email],
+    subject,
+    html,
     headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${resendApiKey}`,
-      "Idempotency-Key": idempotencyKey,
-      // 1-click unsubscribe compliance (RFC 8058)
       "List-Unsubscribe": `<${unsubscribeUrl}>`,
       "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
     },
-    body: JSON.stringify({
-      from: "CampusConnect Digest <notifications@campusconnect.app>",
-      to: [user.email],
-      subject,
-      html,
-    }),
-  });
+  };
 
-  const resData = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    return { ok: false, error: `Resend API Error (${res.status}): ${JSON.stringify(resData)}` };
+  // Retry rate-limit responses (429) with short backoff; the daily per-user
+  // Idempotency-Key makes retries safe against duplicate sends. Other failures
+  // surface immediately so the cron (which retries the invocation) can retry.
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resendApiKey}`,
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify(payload),
+      // A stalled request must not block every later recipient.
+      signal: AbortSignal.timeout(15_000),
+    });
+
+    if (res.status === 429 && attempt < maxAttempts) {
+      const retryAfter = Number(res.headers.get("Retry-After") ?? "0");
+      const delayMs = retryAfter > 0 ? Math.min(retryAfter * 1000, 10_000) : attempt * 1000;
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      continue;
+    }
+
+    const resData = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { ok: false, error: `Resend API Error (${res.status}): ${JSON.stringify(resData)}` };
+    }
+    return { ok: true };
   }
-  return { ok: true };
+
+  return { ok: false, error: "Exhausted retries for Resend dispatch" };
 }
 
 serve(async (req) => {
@@ -273,7 +300,7 @@ serve(async (req) => {
         .in("event_id", chunk);
       if (error) throw new Error(`Failed to fetch RSVPs: ${error.message}`);
       for (const r of data ?? []) {
-        if (r.status === RSVP_SKIP_STATUS) continue;
+        if (!ATTENDING_RSVP_STATUSES.has(r.status)) continue;
         if (!rsvpsByUser.has(r.user_id)) rsvpsByUser.set(r.user_id, new Set());
         rsvpsByUser.get(r.user_id)!.add(r.event_id);
       }
@@ -295,24 +322,39 @@ serve(async (req) => {
       }
     }
 
-    // 4c. Events the user previously attended (via attendance logs -> rsvps)
+    // 4c. Events the user previously attended (attendance logs -> rsvps).
+    // Scoped to the subscriber set only: a full event_attendance_logs scan would
+    // cover every user, hit PostgREST's max-rows cap as history grows, and waste
+    // the follow-up rsvp lookups on rows we discard anyway.
     const attendedEventsByUser = new Map<string, Set<string>>();
-    const { data: attendanceLogs, error: logsError } = await supabase
-      .from("event_attendance_logs")
-      .select("rsvp_id");
-    if (logsError) throw new Error(`Failed to fetch attendance logs: ${logsError.message}`);
+    const subscriberIds = users.map((u) => u.user_id);
+    const subscriberRsvpInfo = new Map<string, { event_id: string; user_id: string }>();
 
-    const logRsvpIds = (attendanceLogs ?? []).map((l) => l.rsvp_id);
-    for (let i = 0; i < logRsvpIds.length; i += 100) {
-      const chunk = logRsvpIds.slice(i, i + 100);
+    for (let i = 0; i < subscriberIds.length; i += 100) {
+      const chunk = subscriberIds.slice(i, i + 100);
       const { data, error } = await supabase
         .from("event_rsvps")
         .select("id, event_id, user_id")
-        .in("id", chunk);
-      if (error) throw new Error(`Failed to fetch attendance RSVPs: ${error.message}`);
+        .in("user_id", chunk);
+      if (error) throw new Error(`Failed to fetch subscriber RSVPs: ${error.message}`);
       for (const r of data ?? []) {
-        if (!attendedEventsByUser.has(r.user_id)) attendedEventsByUser.set(r.user_id, new Set());
-        attendedEventsByUser.get(r.user_id)!.add(r.event_id);
+        subscriberRsvpInfo.set(r.id, { event_id: r.event_id, user_id: r.user_id });
+      }
+    }
+
+    const subscriberRsvpIds = Array.from(subscriberRsvpInfo.keys());
+    for (let i = 0; i < subscriberRsvpIds.length; i += 100) {
+      const chunk = subscriberRsvpIds.slice(i, i + 100);
+      const { data, error } = await supabase
+        .from("event_attendance_logs")
+        .select("rsvp_id")
+        .in("rsvp_id", chunk);
+      if (error) throw new Error(`Failed to fetch attendance logs: ${error.message}`);
+      for (const l of data ?? []) {
+        const info = subscriberRsvpInfo.get(l.rsvp_id);
+        if (!info) continue;
+        if (!attendedEventsByUser.has(info.user_id)) attendedEventsByUser.set(info.user_id, new Set());
+        attendedEventsByUser.get(info.user_id)!.add(info.event_id);
       }
     }
 
@@ -338,9 +380,11 @@ serve(async (req) => {
     const mockMode = Deno.env.get("MOCK_EMAIL") === "true" || Deno.env.get("DENO_ENV") === "test";
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
-    const sent: Array<{ user_id: string; email: string; event_ids: string[] }> = [];
-    const skipped: Array<{ user_id: string; email: string; reason: string }> = [];
-    const failed: Array<{ user_id: string; email: string; error: string }> = [];
+    // user_id identifies every subscriber for debugging; email is deliberately
+    // NOT kept in accumulators so responses and logs never carry PII.
+    const sent: Array<{ user_id: string; event_ids: string[] }> = [];
+    const skipped: Array<{ user_id: string; reason: string }> = [];
+    const failed: Array<{ user_id: string; error: string }> = [];
 
     for (const user of users) {
       const ctx: DigestContext = {
@@ -355,7 +399,7 @@ serve(async (req) => {
 
       const picks = scoreAndSelectTopEvents(ctx, DEFAULT_TOP_N);
       if (picks.length === 0) {
-        skipped.push({ user_id: user.user_id, email: user.email, reason: "no_recommendations" });
+        skipped.push({ user_id: user.user_id, reason: "no_recommendations" });
         continue;
       }
 
@@ -369,7 +413,6 @@ serve(async (req) => {
         if (tokenError) {
           failed.push({
             user_id: user.user_id,
-            email: user.email,
             error: `unsubscribe token upsert failed: ${tokenError.message}`,
           });
           continue;
@@ -391,14 +434,13 @@ serve(async (req) => {
           mockMode,
         });
         if (!result.ok) {
-          failed.push({ user_id: user.user_id, email: user.email, error: result.error ?? "send failed" });
+          failed.push({ user_id: user.user_id, error: result.error ?? "send failed" });
         } else {
-          sent.push({ user_id: user.user_id, email: user.email, event_ids: picks.map((p) => p.id) });
+          sent.push({ user_id: user.user_id, event_ids: picks.map((p) => p.id) });
         }
       } catch (err) {
         failed.push({
           user_id: user.user_id,
-          email: user.email,
           error: err instanceof Error ? err.message : String(err),
         });
       }

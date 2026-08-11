@@ -22,6 +22,13 @@ COMMENT ON COLUMN public.user_preferences.unsubscribe_token IS
   'Opaque per-user token used to authenticate the 1-click unsubscribe link. Issued by the weekly-digest function.';
 
 -- 2. get_digest_subscribers() -----------------------------------------------
+-- NOTE: prior migrations define get_digest_subscribers() as
+-- RETURNS TABLE (email TEXT, full_name TEXT). PostgreSQL refuses to change the
+-- return type of an existing function via CREATE OR REPLACE (ERROR 42P13), so
+-- the old signature must be dropped before redefining it with the extra
+-- columns. Grants are re-applied below.
+DROP FUNCTION IF EXISTS public.get_digest_subscribers();
+
 CREATE OR REPLACE FUNCTION public.get_digest_subscribers()
 RETURNS TABLE (user_id UUID, email TEXT, full_name TEXT, unsubscribe_token TEXT)
 SECURITY DEFINER
