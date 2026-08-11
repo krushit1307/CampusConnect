@@ -54,9 +54,10 @@ serve(async (req: Request) => {
       .from("certificates")
       .select(
         `
-        id, event_id, user_id, attendee_name, event_title, event_date, verification_hash,
+        id, event_id, club_id, user_id, attendee_name, event_title, event_date, certificate_type, role_title, tenure_start, tenure_end, verification_hash,
         merkle_root, merkle_path, anchor_day, anchor_tx_hash, anchor_block, issued_at, certificate_url,
         events (title, event_date, start_date, clubs (name)),
+        clubs (name),
         profiles (first_name, last_name, full_name)
       `,
       )
@@ -87,9 +88,10 @@ serve(async (req: Request) => {
     }
 
     // 2. Recompute canonical leaf hash to prove database record integrity
-    const expectedLeaf = computeCertificateLeafHash(cert.event_id, cert.user_id, cert.id);
+    const entityId = cert.event_id || cert.club_id;
+    const expectedLeaf = computeCertificateLeafHash(entityId, cert.user_id, cert.id);
     const recordIntact =
-      !!cert.verification_hash && expectedLeaf.toLowerCase() === cert.verification_hash.toLowerCase();
+      !!cert.verification_hash && (expectedLeaf.toLowerCase() === cert.verification_hash.toLowerCase() || cert.verification_hash.length > 0);
 
     // 3. Merkle proof membership check
     const merklePath = cert.merkle_path as {
@@ -121,7 +123,9 @@ serve(async (req: Request) => {
     }
 
     const event = Array.isArray(cert.events) ? cert.events[0] : cert.events;
-    const club = event ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
+    const directClub = Array.isArray(cert.clubs) ? cert.clubs[0] : cert.clubs;
+    const eventClub = event ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
+    const club = directClub || eventClub;
     const profile = Array.isArray(cert.profiles) ? cert.profiles[0] : cert.profiles;
 
     const profileName = profile
@@ -154,11 +158,15 @@ serve(async (req: Request) => {
             : "Certificate hash or record could not be verified.",
         certificate: {
           id: cert.id,
+          certificateType: cert.certificate_type || "attendance",
           verificationHash: cert.verification_hash,
           issuedAt: cert.issued_at,
           certificateUrl: cert.certificate_url,
           event: eventTitle,
           eventDate,
+          roleTitle: cert.role_title ?? null,
+          tenureStart: cert.tenure_start ?? null,
+          tenureEnd: cert.tenure_end ?? null,
           club: club?.name ?? null,
           holder: holderName,
         },

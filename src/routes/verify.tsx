@@ -11,11 +11,15 @@ interface VerificationResult {
   error?: string;
   certificate?: {
     id: string;
+    certificateType?: "attendance" | "leadership";
     verificationHash: string | null;
     issuedAt: string | null;
     certificateUrl: string | null;
     event: string | null;
     eventDate: string | null;
+    roleTitle?: string | null;
+    tenureStart?: string | null;
+    tenureEnd?: string | null;
     club: string | null;
     holder: string | null;
   };
@@ -88,24 +92,26 @@ function ResultCard({ result }: { result: VerificationResult }) {
     );
   }
 
+  const isLeadership = certificate?.certificateType === "leadership" || Boolean(certificate?.roleTitle);
+
   return (
     <div className="neu-border bg-white p-6 md:p-8 animate-fade-in-up">
       {/* Header Badge */}
-      <div className="neu-border bg-lime p-5 flex items-start gap-4 mb-6">
+      <div className={`neu-border p-5 flex items-start gap-4 mb-6 ${isLeadership ? "bg-amber-300" : "bg-lime"}`}>
         <div className="neu-border bg-white p-2.5 shrink-0">
-          <ShieldCheck className="h-7 w-7 text-black" />
+          {isLeadership ? <Award className="h-7 w-7 text-black" /> : <ShieldCheck className="h-7 w-7 text-black" />}
         </div>
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="eyebrow font-bold text-xs uppercase bg-black text-lime px-2 py-0.5 neu-border">
-              Official Record
+            <span className="eyebrow font-bold text-xs uppercase bg-black text-white px-2 py-0.5 neu-border">
+              {isLeadership ? "Leadership Record" : "Attendance Record"}
             </span>
             <span className="font-mono text-xs font-bold text-green-900 inline-flex items-center gap-1">
               <CheckCircle2 className="h-3.5 w-3.5" /> Valid & Verified
             </span>
           </div>
           <p className="font-display text-2xl font-bold text-black leading-tight">
-            Authentic Certificate of Attendance
+            {isLeadership ? "Authentic Certificate of Leadership" : "Authentic Certificate of Attendance"}
           </p>
           <p className="font-mono text-xs text-gray-800 mt-1">
             {result.message || "This certificate has been issued and verified on CampusConnect."}
@@ -118,29 +124,60 @@ function ResultCard({ result }: { result: VerificationResult }) {
         <div className="grid gap-6 md:grid-cols-2">
           <div className="neu-border bg-cream p-5 space-y-3 font-mono text-xs">
             <h3 className="font-display text-sm font-bold border-b-2 border-black pb-2 uppercase tracking-wide">
-              Attendee Information
+              {isLeadership ? "Leader Details" : "Attendee Information"}
             </h3>
             <div className="flex justify-between border-b border-black/10 pb-1.5">
-              <span className="font-bold text-gray-600">Attendee Name</span>
+              <span className="font-bold text-gray-600">Student Name</span>
               <span className="font-bold text-black text-right">{certificate.holder || "Student"}</span>
             </div>
-            <div className="flex justify-between border-b border-black/10 pb-1.5">
-              <span className="font-bold text-gray-600">Event Title</span>
-              <span className="font-bold text-black text-right max-w-[200px] truncate">{certificate.event || "—"}</span>
-            </div>
-            <div className="flex justify-between border-b border-black/10 pb-1.5">
-              <span className="font-bold text-gray-600">Event Date</span>
-              <span className="font-bold text-black">
-                {certificate.eventDate
-                  ? formatStandardDate(certificate.eventDate, "MMMM d, yyyy")
-                  : "—"}
-              </span>
-            </div>
-            {certificate.club && (
-              <div className="flex justify-between pb-1">
-                <span className="font-bold text-gray-600">Organizing Club</span>
-                <span className="font-bold text-black">{certificate.club}</span>
-              </div>
+            {isLeadership ? (
+              <>
+                <div className="flex justify-between border-b border-black/10 pb-1.5">
+                  <span className="font-bold text-gray-600">Leadership Role</span>
+                  <span className="font-bold text-amber-900 text-right">{certificate.roleTitle || "Officer"}</span>
+                </div>
+                <div className="flex justify-between border-b border-black/10 pb-1.5">
+                  <span className="font-bold text-gray-600">Club Name</span>
+                  <span className="font-bold text-black text-right">{certificate.club || "—"}</span>
+                </div>
+                <div className="flex justify-between border-b border-black/10 pb-1.5">
+                  <span className="font-bold text-gray-600">Start Date</span>
+                  <span className="font-bold text-black">
+                    {certificate.tenureStart
+                      ? formatStandardDate(certificate.tenureStart, "MMMM d, yyyy")
+                      : "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between pb-1">
+                  <span className="font-bold text-gray-600">End Date</span>
+                  <span className="font-bold text-black">
+                    {certificate.tenureEnd
+                      ? formatStandardDate(certificate.tenureEnd, "MMMM d, yyyy")
+                      : "Present"}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex justify-between border-b border-black/10 pb-1.5">
+                  <span className="font-bold text-gray-600">Event Title</span>
+                  <span className="font-bold text-black text-right max-w-[200px] truncate">{certificate.event || "—"}</span>
+                </div>
+                <div className="flex justify-between border-b border-black/10 pb-1.5">
+                  <span className="font-bold text-gray-600">Event Date</span>
+                  <span className="font-bold text-black">
+                    {certificate.eventDate
+                      ? formatStandardDate(certificate.eventDate, "MMMM d, yyyy")
+                      : "—"}
+                  </span>
+                </div>
+                {certificate.club && (
+                  <div className="flex justify-between pb-1">
+                    <span className="font-bold text-gray-600">Organizing Club</span>
+                    <span className="font-bold text-black">{certificate.club}</span>
+                  </div>
+                )}
+              </>
             )}
           </div>
 

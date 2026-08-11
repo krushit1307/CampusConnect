@@ -172,6 +172,66 @@ export default function ClubManageRoute() {
     },
   });
 
+
+  // Form State
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [bannerUrl, setBannerUrl] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [visibility, setVisibility] = useState<"public" | "private">("public");
+  const [githubRepoUrl, setGithubRepoUrl] = useState("");
+  const [twitterUrl, setTwitterUrl] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [socialLinksOrder, setSocialLinksOrder] = useState<string[]>([
+    "website",
+    "twitter",
+    "instagram",
+  ]);
+  const [promoVideoUrl, setPromoVideoUrl] = useState("");
+  const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
+  const [serverClub, setServerClub] = useState<ServerClub | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+  }, [supabase]);
+
+  const {
+    data: club,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["club_manage", slug],
+    queryFn: async () => {
+      if (!user) throw new Error("Not logged in");
+
+      const { data, error } = await supabase
+        .from("clubs")
+        .select(
+          `
+          id, name, slug, description, banner_url, logo_url, visibility, github_repo_url, social_links, social_links_order, promo_video_url, version,
+          club_members (id, club_id, role, status, user_id, joined_at, created_at, removed_at, termination_reason, can_edit_events, can_manage_finance, can_remove_members, can_post_news, can_manage_permissions, profiles (full_name, avatar_url, handle)),
+          events (id, title, event_date, max_attendees, event_rsvps(id))
+        `,
+        )
+        .eq("slug", slug)
+        .single();
+
+      if (error) throw error;
+
+      const currentMember = data.club_members.find(
+        (m: { user_id: string; role: string }) => m.user_id === user.id,
+      );
+      if (!currentMember || currentMember.role !== "admin") {
+        throw new Error("Unauthorized");
+      }
+
+      return data;
+    },
+    enabled: !!user,
+  });
+
+>>>>>>> 2aad4a1 (issue #3011 solved)
   useEffect(() => {
     if (club) {
       setName(club.name);
@@ -707,10 +767,15 @@ export default function ClubManageRoute() {
                           role: string;
                           status: string;
                           user_id: string;
-                          joined_at: string | null;
+                          club_id?: string;
+                          joined_at?: string | null;
+                          created_at?: string;
+                          removed_at?: string | null;
+                          termination_reason?: string | null;
                           profiles: unknown;
                         }) => ({
                           ...m,
+                          club_id: m.club_id || club.id,
                           role: optimisticRoles[m.id] || m.role,
                         }),
                       )}
