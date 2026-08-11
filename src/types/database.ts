@@ -49,6 +49,8 @@ export interface Club {
   updated_at: string;
   /** Set when the club is soft-deleted; NULL means active */
   deleted_at: string | null;
+  /** Current renewal status of the club */
+  status: "active" | "pending_renewal" | "in_review" | "suspended";
 }
 
 /**
@@ -156,6 +158,7 @@ export interface Certificate {
 export type UserRole = Profile["role"];
 export type ClubMemberRole = ClubMember["role"];
 export type ClubMemberStatus = ClubMember["status"];
+export type ClubStatus = Club["status"];
 
 /**
  * Helper type for extracting the table names from the database schema.
