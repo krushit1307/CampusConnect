@@ -294,7 +294,11 @@ export default function DashboardOverview() {
     enabled: !!user?.id,
   });
 
-  const { data: recommendedEvents = [], isLoading: isRecommendedLoading, refetch: refetchRecommended } = useQuery({
+  const {
+    data: recommendedEvents = [],
+    isLoading: isRecommendedLoading,
+    refetch: refetchRecommended,
+  } = useQuery({
     queryKey: ["recommendedEvents", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("recommend_events_for_user", {

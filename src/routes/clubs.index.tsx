@@ -68,35 +68,38 @@ export default function ClubsIndex() {
       .filter(Boolean);
   }, [searchParams]);
 
-  const {
-    data,
-    isLoading,
-    isFetchingNextPage,
-    hasNextPage,
-    fetchNextPage
-  } = useInfiniteQuery<{ clubs: Club[], count: number }>({
+  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useInfiniteQuery<{
+    clubs: Club[];
+    count: number;
+  }>({
     queryKey: ["clubs-paginated", searchQuery, activeCategory, activeTags.join(",")],
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
-      const { data, count, error } = await (supabase.rpc as any)('get_filtered_clubs', { 
-           p_search: searchQuery.trim() || null, 
-           p_category: activeCategory !== "All" ? activeCategory : null, 
-           p_tags: activeTags.length > 0 ? activeTags : null 
-        }, { count: 'exact' })
-        .select(`
+      const { data, count, error } = await (supabase.rpc as any)(
+        "get_filtered_clubs",
+        {
+          p_search: searchQuery.trim() || null,
+          p_category: activeCategory !== "All" ? activeCategory : null,
+          p_tags: activeTags.length > 0 ? activeTags : null,
+        },
+        { count: "exact" },
+      )
+        .select(
+          `
           id, name, slug, description, banner_url, logo_url, category,
           club_stats(total_members),
           club_tags(tag_id, club_tag_labels(name))
-        `)
+        `,
+        )
         .range((pageParam as number) * PAGE_SIZE, ((pageParam as number) + 1) * PAGE_SIZE - 1);
-        
+
       if (error) throw error;
       return { clubs: (data || []) as unknown as Club[], count: count ?? 0 };
     },
     getNextPageParam: (lastPage, allPages) => {
       const fetchedItems = allPages.reduce((total, page) => total + page.clubs.length, 0);
       return fetchedItems < lastPage.count ? allPages.length : undefined;
-    }
+    },
   });
 
   const clubs = useMemo(() => data?.pages.flatMap((page: any) => page.clubs) || [], [data]);
@@ -104,7 +107,10 @@ export default function ClubsIndex() {
   const { data: tagLabels = [] } = useQuery<string[]>({
     queryKey: ["club-tag-labels"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).from("club_tag_labels").select("name").order("name");
+      const { data, error } = await (supabase as any)
+        .from("club_tag_labels")
+        .select("name")
+        .order("name");
       if (error) throw error;
       return (data || []).map((row: any) => row.name);
     },
@@ -227,7 +233,11 @@ export default function ClubsIndex() {
                     : 0;
 
                 return (
-                  <div key={c.id} className="animate-fade-in-up flex flex-col" onMouseEnter={() => handlePrefetch(c.slug)}>
+                  <div
+                    key={c.id}
+                    className="animate-fade-in-up flex flex-col"
+                    onMouseEnter={() => handlePrefetch(c.slug)}
+                  >
                     <HoverLink
                       to={`/clubs/${c.slug}`}
                       className="neu-border group flex flex-col bg-white p-6 shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all duration-300 ease-in-out hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[8px_8px_0_0_rgba(0,0,0,1)] h-full justify-between"
@@ -272,7 +282,7 @@ export default function ClubsIndex() {
                 );
               })}
             </div>
-            
+
             {hasNextPage && (
               <div className="flex justify-center mt-12 mb-8">
                 <Button

@@ -28,9 +28,7 @@ export const LocationInput: React.FC = () => {
           {...register("location")}
         />
       </div>
-      {errors.location && (
-        <p className="text-xs text-destructive">{errors.location.message}</p>
-      )}
+      {errors.location && <p className="text-xs text-destructive">{errors.location.message}</p>}
     </div>
   );
 };

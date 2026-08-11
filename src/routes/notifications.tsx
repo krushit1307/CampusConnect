@@ -1,12 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQueryClient,
-  useQuery,
-} from "@/hooks/useReactQueryReplacement";
+import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import {
   Bell,
@@ -49,10 +44,22 @@ const NOTIFICATION_SUBSCRIPTION = /* GraphQL */ `
   }
 `;
 
-import {
-  NotificationReceivedSubscription,
-  NotificationReceivedSubscriptionVariables,
-} from "@/generated/graphql";
+/** Shape of a Notification from the GraphQL subscription payload. */
+interface GQLNotification {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  link: string | null;
+  isRead: boolean;
+  createdAt: string;
+  metadata?: Record<string, unknown> | null;
+  recentActors?: string[] | null;
+  groupCount?: number | null;
+  referenceId?: string | null;
+}
+
 export function getNotificationLink(
   type: string,
   metadata: Record<string, unknown> | null | undefined,

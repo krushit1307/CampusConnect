@@ -1,6 +1,10 @@
 // tests/eventWizard.test.ts
 import { describe, it, expect, beforeEach } from "vitest";
-import { useEventWizardStore, validateStep, validateMaster } from "../src/store/useEventWizardStore";
+import {
+  useEventWizardStore,
+  validateStep,
+  validateMaster,
+} from "../src/store/useEventWizardStore";
 import {
   basicsStepSchema,
   dateLocationStepSchema,
@@ -130,7 +134,14 @@ describe("Event Wizard — Master Schema", () => {
       capacity: 200,
       isPaid: true,
       tickets: [
-        { name: "Early Bird", price: 5, capacity: 50, isEarlyBird: true, earlyBirdEndDate: "2026-08-01T23:59", isActive: true },
+        {
+          name: "Early Bird",
+          price: 5,
+          capacity: 50,
+          isEarlyBird: true,
+          earlyBirdEndDate: "2026-08-01T23:59",
+          isActive: true,
+        },
         { name: "General", price: 10, capacity: 150, isEarlyBird: false, isActive: true },
       ],
       coverImageUrl: "",

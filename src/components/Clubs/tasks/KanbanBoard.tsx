@@ -134,7 +134,9 @@ export function KanbanBoard({ clubId }: KanbanBoardProps) {
 
     // Optimistically update React state
     setTasks((prev) =>
-      prev.map((t) => (t.id === activeId ? { ...t, status: overContainer, order_index: newOrder } : t)),
+      prev.map((t) =>
+        t.id === activeId ? { ...t, status: overContainer, order_index: newOrder } : t,
+      ),
     );
 
     // Dispatch PATCH request to backend endpoint /api/tasks/:id
@@ -202,9 +204,7 @@ export function KanbanBoard({ clubId }: KanbanBoardProps) {
           ))}
         </div>
 
-        <DragOverlay>
-          {activeTask ? <SortableTaskCard task={activeTask} /> : null}
-        </DragOverlay>
+        <DragOverlay>{activeTask ? <SortableTaskCard task={activeTask} /> : null}</DragOverlay>
       </DndContext>
     </div>
   );

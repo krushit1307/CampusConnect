@@ -28,10 +28,9 @@ describe("useSkeletonDelay Hook (#1736)", () => {
   });
 
   it("resets to false immediately when isLoading becomes false before delay", () => {
-    const { result, rerender } = renderHook(
-      ({ loading }) => useSkeletonDelay(loading, 200),
-      { initialProps: { loading: true } },
-    );
+    const { result, rerender } = renderHook(({ loading }) => useSkeletonDelay(loading, 200), {
+      initialProps: { loading: true },
+    });
 
     act(() => {
       vi.advanceTimersByTime(100);

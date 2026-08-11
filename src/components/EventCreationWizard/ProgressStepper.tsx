@@ -24,11 +24,7 @@ export function ProgressStepper() {
   const goToStep = useEventWizardStore((s) => s.goToStep);
 
   return (
-    <nav
-      className="w-full"
-      aria-label="Event creation progress"
-      role="navigation"
-    >
+    <nav className="w-full" aria-label="Event creation progress" role="navigation">
       <ol className="flex items-center justify-between w-full">
         {WIZARD_STEPS.map((step, index) => {
           const isComplete = index < currentStep;
@@ -36,10 +32,7 @@ export function ProgressStepper() {
           const isClickable = index <= currentStep;
 
           return (
-            <li
-              key={step.id}
-              className="flex-1 flex items-center last:flex-none"
-            >
+            <li key={step.id} className="flex-1 flex items-center last:flex-none">
               <button
                 type="button"
                 disabled={!isClickable}
@@ -56,7 +49,7 @@ export function ProgressStepper() {
                     ? "text-indigo-600 dark:text-indigo-400"
                     : isComplete
                       ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-slate-400 dark:text-slate-500"
+                      : "text-slate-400 dark:text-slate-500",
                 )}
               >
                 <span
@@ -66,14 +59,10 @@ export function ProgressStepper() {
                       ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400 dark:bg-indigo-400 dark:text-slate-900"
                       : isComplete
                         ? "border-emerald-600 bg-emerald-600 text-white dark:border-emerald-400 dark:bg-emerald-400 dark:text-slate-900"
-                        : "border-slate-300 bg-white text-slate-400 dark:border-slate-600 dark:bg-slate-800"
+                        : "border-slate-300 bg-white text-slate-400 dark:border-slate-600 dark:bg-slate-800",
                   )}
                 >
-                  {isComplete ? (
-                    <Check className="h-4 w-4" aria-hidden="true" />
-                  ) : (
-                    index + 1
-                  )}
+                  {isComplete ? <Check className="h-4 w-4" aria-hidden="true" /> : index + 1}
                 </span>
                 <span className="hidden sm:inline">{step.label}</span>
               </button>
@@ -85,7 +74,7 @@ export function ProgressStepper() {
                     "mx-2 h-0.5 flex-1 rounded-full transition-colors",
                     index < currentStep
                       ? "bg-emerald-600 dark:bg-emerald-400"
-                      : "bg-slate-200 dark:bg-slate-700"
+                      : "bg-slate-200 dark:bg-slate-700",
                   )}
                   aria-hidden="true"
                 />

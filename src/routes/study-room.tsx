@@ -378,7 +378,8 @@ export default function StudyRoom() {
         <div className="neu-border bg-red-100 p-8 max-w-md shadow-[4px_4px_0_0_#000]">
           <h2 className="text-2xl font-black text-black mb-4">🚪 Room is Full</h2>
           <p className="font-mono text-sm text-gray-700 mb-6">
-            Study Room {roomId} has reached its limit of 5 participants. IMPT: WebRTC mesh topologies cannot support larger rooms without latency degradation.
+            Study Room {roomId} has reached its limit of 5 participants. IMPT: WebRTC mesh
+            topologies cannot support larger rooms without latency degradation.
           </p>
           <button
             onClick={() => navigate("/dashboard")}
@@ -488,11 +489,7 @@ export default function StudyRoom() {
           }`}
           title={isScreenSharing ? "Stop Sharing Screen" : "Share Screen"}
         >
-          {isScreenSharing ? (
-            <MonitorOff className="h-5 w-5" />
-          ) : (
-            <MonitorUp className="h-5 w-5" />
-          )}
+          {isScreenSharing ? <MonitorOff className="h-5 w-5" /> : <MonitorUp className="h-5 w-5" />}
         </button>
 
         <button

@@ -2,6 +2,17 @@ import { vi, expect } from "vitest";
 import * as matchers from "@testing-library/jest-dom/matchers";
 // Extend Vitest expect with jest-dom matchers
 expect.extend(matchers);
+
+// Safely extend Vitest with jest-axe custom matcher if available
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { toHaveNoViolations } = require("jest-axe");
+  if (toHaveNoViolations) {
+    expect.extend(toHaveNoViolations);
+  }
+} catch {
+  // jest-axe not present in dev environment
+}
 import "@testing-library/jest-dom/vitest";
 import React from "react";
 

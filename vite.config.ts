@@ -99,7 +99,9 @@ export default defineConfig({
                 {
                   urlPattern: ({ url, request }) =>
                     request.method === "GET" &&
-                    (url.hostname.includes("supabase.co") || url.pathname.includes("/rest/v1/") || url.pathname.includes("/functions/v1/")),
+                    (url.hostname.includes("supabase.co") ||
+                      url.pathname.includes("/rest/v1/") ||
+                      url.pathname.includes("/functions/v1/")),
                   handler: "StaleWhileRevalidate",
                   options: {
                     cacheName: "supabase-get-cache",
@@ -115,7 +117,9 @@ export default defineConfig({
                 {
                   urlPattern: ({ url, request }) =>
                     request.method === "POST" &&
-                    (url.hostname.includes("supabase.co") || url.pathname.includes("/rest/v1/") || url.pathname.includes("/functions/v1/")),
+                    (url.hostname.includes("supabase.co") ||
+                      url.pathname.includes("/rest/v1/") ||
+                      url.pathname.includes("/functions/v1/")),
                   handler: "NetworkOnly",
                   options: {
                     backgroundSync: {

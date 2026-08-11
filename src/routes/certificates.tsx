@@ -28,6 +28,11 @@ interface Certificate {
   verify_url?: string | null;
   verification_hash?: string | null;
   issued_at: string | null;
+  certificate_type?: "attendance" | "leadership";
+  role_title?: string | null;
+  tenure_start?: string | null;
+  tenure_end?: string | null;
+  event_title?: string | null;
   events: CertificateEvent | CertificateEvent[] | null;
 }
 
@@ -57,7 +62,7 @@ export default function Certificates() {
         .from("certificates")
         .select(
           `
-          id, certificate_url, verify_url, verification_hash, issued_at,
+          id, certificate_url, verify_url, verification_hash, issued_at, certificate_type, role_title, tenure_start, tenure_end, event_title,
           events (title, clubs (name))
         `,
         )
@@ -458,7 +463,12 @@ export default function Certificates() {
                           )}
                         </div>
                         <a
-                          href={selectedCert.verify_url || `/verify?cert=${selectedCert.id}`}
+                          href={
+                            selectedCert.verify_url ||
+                            (selectedCert.certificate_type === "leadership"
+                              ? `/verify-leadership?hash=${selectedCert.verification_hash || selectedCert.id}`
+                              : `/verify?cert=${selectedCert.id}`)
+                          }
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-1.5 bg-black text-cream px-2 py-0.5 border border-black font-bold uppercase text-[9px] hover:bg-lime hover:text-black transition-colors"

@@ -24,22 +24,22 @@ const CORS_HEADERS = {
 };
 
 interface TagRequest {
-    imageBase64: string;
-    mimeType: string; // e.g. "image/webp" | "image/jpeg"
+  imageBase64: string;
+  mimeType: string; // e.g. "image/webp" | "image/jpeg"
 }
 
 interface VisionApiResponse {
-    choices: Array<{
-        message: {
-            content: string;
-        };
-    }>;
+  choices: Array<{
+    message: {
+      content: string;
+    };
+  }>;
 }
 
 interface TagResult {
-    tags: string[];
-    hasPii: boolean;
-    piiReason?: string;
+  tags: string[];
+  hasPii: boolean;
+  piiReason?: string;
 }
 
 const PII_PROMPT = `You are an image-tagging assistant for a university Lost & Found system.
@@ -73,162 +73,155 @@ Rules for PII detection:
 Return ONLY the JSON object. Do not wrap it in markdown fences.`;
 
 Deno.serve(async (req: Request): Promise<Response> => {
-    if (req.method === "OPTIONS") {
-        return new Response("ok", { headers: CORS_HEADERS });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: CORS_HEADERS });
+  }
+
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+  }
+
+  const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!openaiApiKey) {
+    console.error("[lost-found-auto-tag] OPENAI_API_KEY not set");
+    return new Response(JSON.stringify({ error: "Server misconfiguration: missing API key" }), {
+      status: 500,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+  }
+
+  let body: TagRequest;
+  try {
+    body = await req.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+      status: 400,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+  }
+
+  if (!body.imageBase64 || !body.mimeType) {
+    return new Response(JSON.stringify({ error: "Missing imageBase64 or mimeType" }), {
+      status: 400,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+  }
+
+  // ── Enforce a size cap to protect the API budget ─────────────
+  // The frontend pre-compresses to ~512x512 WebP, but a malicious
+  // caller could send a huge base64 string. Reject anything over
+  // 2 MB (base64 inflates by ~33%, so this is ~1.5 MB of binary).
+  if (body.imageBase64.length > 2_000_000) {
+    return new Response(
+      JSON.stringify({ error: "Image too large. Maximum 2MB after compression." }),
+      { status: 413, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+    );
+  }
+
+  // ── Call OpenAI GPT-4o Vision ────────────────────────────────
+  const dataUrl = `data:${body.mimeType};base64,${body.imageBase64}`;
+
+  try {
+    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${openaiApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: PII_PROMPT },
+              {
+                type: "image_url",
+                image_url: { url: dataUrl, detail: "low" },
+              },
+            ],
+          },
+        ],
+        max_tokens: 300,
+        temperature: 0.2,
+      }),
+    });
+
+    if (!openaiResponse.ok) {
+      const errText = await openaiResponse.text();
+      console.error("[lost-found-auto-tag] OpenAI error:", openaiResponse.status, errText);
+      return new Response(
+        JSON.stringify({
+          error: "Image recognition failed",
+          detail: `OpenAI returned ${openaiResponse.status}`,
+        }),
+        {
+          status: 502,
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        },
+      );
     }
 
-    if (req.method !== "POST") {
-        return new Response(
-            JSON.stringify({ error: "Method not allowed" }),
-            { status: 405, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-        );
+    const visionData: VisionApiResponse = await openaiResponse.json();
+    const content = visionData.choices?.[0]?.message?.content;
+    if (!content) {
+      return new Response(JSON.stringify({ error: "Vision API returned empty response" }), {
+        status: 502,
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
     }
 
-    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!openaiApiKey) {
-        console.error("[lost-found-auto-tag] OPENAI_API_KEY not set");
-        return new Response(
-            JSON.stringify({ error: "Server misconfiguration: missing API key" }),
-            { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-        );
-    }
+    // ── Parse the JSON content (strip markdown fences if present) ──
+    const cleaned = content
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
 
-    let body: TagRequest;
+    let parsed: TagResult;
     try {
-        body = await req.json();
+      parsed = JSON.parse(cleaned);
     } catch {
-        return new Response(
-            JSON.stringify({ error: "Invalid JSON body" }),
-            { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-        );
+      console.error("[lost-found-auto-tag] Failed to parse vision response:", cleaned);
+      return new Response(
+        JSON.stringify({
+          error: "Vision API returned malformed JSON",
+          raw: cleaned.slice(0, 500),
+        }),
+        { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+      );
     }
 
-    if (!body.imageBase64 || !body.mimeType) {
-        return new Response(
-            JSON.stringify({ error: "Missing imageBase64 or mimeType" }),
-            { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-        );
-    }
+    // ── Validate + sanitise tags ──────────────────────────────
+    const tags = Array.isArray(parsed.tags)
+      ? parsed.tags
+          .filter((t) => typeof t === "string" && t.trim().length > 0)
+          .map((t) => t.trim().toLowerCase().slice(0, 50))
+          .slice(0, 10)
+      : [];
 
-    // ── Enforce a size cap to protect the API budget ─────────────
-    // The frontend pre-compresses to ~512x512 WebP, but a malicious
-    // caller could send a huge base64 string. Reject anything over
-    // 2 MB (base64 inflates by ~33%, so this is ~1.5 MB of binary).
-    if (body.imageBase64.length > 2_000_000) {
-        return new Response(
-            JSON.stringify({ error: "Image too large. Maximum 2MB after compression." }),
-            { status: 413, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-        );
-    }
+    const hasPii = Boolean(parsed.has_pii);
+    const piiReason = hasPii
+      ? String(parsed.pii_reason ?? "Sensitive information detected in image.")
+      : undefined;
 
-    // ── Call OpenAI GPT-4o Vision ────────────────────────────────
-    const dataUrl = `data:${body.mimeType};base64,${body.imageBase64}`;
+    const result: TagResult = {
+      tags,
+      hasPii,
+      piiReason,
+    };
 
-    try {
-        const openaiResponse = await fetch(
-            "https://api.openai.com/v1/chat/completions",
-            {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${openaiApiKey}`,
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    model: "gpt-4o",
-                    messages: [
-                        {
-                            role: "user",
-                            content: [
-                                { type: "text", text: PII_PROMPT },
-                                {
-                                    type: "image_url",
-                                    image_url: { url: dataUrl, detail: "low" },
-                                },
-                            ],
-                        },
-                    ],
-                    max_tokens: 300,
-                    temperature: 0.2,
-                }),
-            }
-        );
-
-        if (!openaiResponse.ok) {
-            const errText = await openaiResponse.text();
-            console.error(
-                "[lost-found-auto-tag] OpenAI error:",
-                openaiResponse.status,
-                errText
-            );
-            return new Response(
-                JSON.stringify({
-                    error: "Image recognition failed",
-                    detail: `OpenAI returned ${openaiResponse.status}`,
-                }),
-                {
-                    status: 502,
-                    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-                }
-            );
-        }
-
-        const visionData: VisionApiResponse = await openaiResponse.json();
-        const content = visionData.choices?.[0]?.message?.content;
-        if (!content) {
-            return new Response(
-                JSON.stringify({ error: "Vision API returned empty response" }),
-                { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-            );
-        }
-
-        // ── Parse the JSON content (strip markdown fences if present) ──
-        const cleaned = content
-            .replace(/^```json\s*/i, "")
-            .replace(/^```\s*/i, "")
-            .replace(/\s*```$/i, "")
-            .trim();
-
-        let parsed: TagResult;
-        try {
-            parsed = JSON.parse(cleaned);
-        } catch {
-            console.error("[lost-found-auto-tag] Failed to parse vision response:", cleaned);
-            return new Response(
-                JSON.stringify({
-                    error: "Vision API returned malformed JSON",
-                    raw: cleaned.slice(0, 500),
-                }),
-                { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-            );
-        }
-
-        // ── Validate + sanitise tags ──────────────────────────────
-        const tags = Array.isArray(parsed.tags)
-            ? parsed.tags
-                  .filter((t) => typeof t === "string" && t.trim().length > 0)
-                  .map((t) => t.trim().toLowerCase().slice(0, 50))
-                  .slice(0, 10)
-            : [];
-
-        const hasPii = Boolean(parsed.has_pii);
-        const piiReason = hasPii
-            ? String(parsed.pii_reason ?? "Sensitive information detected in image.")
-            : undefined;
-
-        const result: TagResult = {
-            tags,
-            hasPii,
-            piiReason,
-        };
-
-        return new Response(JSON.stringify(result), {
-            headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-        });
-    } catch (err) {
-        console.error("[lost-found-auto-tag] Network error:", err);
-        return new Response(
-            JSON.stringify({ error: "Network error", detail: String(err) }),
-            { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-        );
-    }
+    return new Response(JSON.stringify(result), {
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    console.error("[lost-found-auto-tag] Network error:", err);
+    return new Response(JSON.stringify({ error: "Network error", detail: String(err) }), {
+      status: 502,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+  }
 });

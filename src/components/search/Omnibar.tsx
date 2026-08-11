@@ -133,7 +133,9 @@ export function Omnibar() {
           role="combobox"
           aria-expanded={isOpen}
           aria-controls="omnibar-results"
-          aria-activedescendant={flatResults[selectedIndex] ? `omnibar-result-${selectedIndex}` : undefined}
+          aria-activedescendant={
+            flatResults[selectedIndex] ? `omnibar-result-${selectedIndex}` : undefined
+          }
           className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-9 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         />
         {isLoading && (
@@ -184,7 +186,8 @@ export function Omnibar() {
                       </p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         {String(hit.location ?? "")}
-                        {hit.event_date && ` · ${new Date(String(hit.event_date)).toLocaleDateString()}`}
+                        {hit.event_date &&
+                          ` · ${new Date(String(hit.event_date)).toLocaleDateString()}`}
                       </p>
                     </div>
                   )}

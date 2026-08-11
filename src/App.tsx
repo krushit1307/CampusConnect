@@ -49,6 +49,7 @@ import GalleryPage from "./routes/gallery";
 import { BreadcrumbProvider } from "@/components/BreadcrumbsContext";
 import AriaAnnouncer from "@/components/accessibility/AriaAnnouncer";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
+import { LoginRecoveryModal } from "@/components/auth/LoginRecoveryModal";
 import { MfaChallengeGuard } from "@/components/auth/MfaChallengeGuard";
 function RemoteLoadingScreen() {
   return (
@@ -121,6 +122,7 @@ const DashboardCalendar = lazy(() => import("./routes/dashboard.calendar"));
 const GlobalCalendar = lazy(() => import("./routes/calendar"));
 const Feed = lazy(() => import("./routes/feed"));
 const EventsMapPage = lazy(() => import("./routes/events.map"));
+const MapPage = lazy(() => import("./routes/map"));
 const ForgotPassword = lazy(() => import("./routes/forgot-password"));
 const ResetPassword = lazy(() => import("./routes/reset-password"));
 const Settings = lazy(() => import("./routes/settings"));
@@ -240,6 +242,8 @@ const router = createBrowserRouter(
           <Route path="/events/:eventId/gantt" element={<EventGantt />} />
           {/* Events Map View with clustering */}
           <Route path="events/map" element={<EventsMapPage />} />
+          {/* Campus Heatmap - Live Activity */}
+          <Route path="/map" element={<MapPage />} />
           <Route path="challenge" element={<ChallengeArena />} />
           <Route path="leaderboard" element={<Leaderboard />} />
           <Route path="/feed" element={<Feed />} />
@@ -368,6 +372,7 @@ export default function App() {
             <LazyMotion features={loadDomAnimation} strict={import.meta.env.DEV}>
               <CommandPaletteProvider>
                 <OfflineIndicator />
+                <LoginRecoveryModal />
                 {/* Floating Dark Mode Toggle */}
                 <div className="fixed bottom-4 right-4 z-[9999]">
                   <ThemeToggle />

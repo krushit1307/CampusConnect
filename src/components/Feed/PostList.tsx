@@ -86,7 +86,8 @@ export const PostList = () => {
     }
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const posts = data?.pages.flatMap((page: RelayConnection<Post>) => page.edges.map((edge) => edge.node)) ?? [];
+  const posts =
+    data?.pages.flatMap((page: RelayConnection<Post>) => page.edges.map((edge) => edge.node)) ?? [];
 
   return (
     <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full p-4">

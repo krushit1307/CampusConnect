@@ -105,7 +105,8 @@ export default function RecommendedCarousel({
             Personalize Your Event Feed
           </h2>
           <p className="text-sm font-mono text-gray-800 leading-relaxed mb-6">
-            Select your interest keywords to seed your semantic matching profile. Supabase pgvector will suggest matching events in real-time.
+            Select your interest keywords to seed your semantic matching profile. Supabase pgvector
+            will suggest matching events in real-time.
           </p>
 
           <div className="flex flex-wrap gap-2.5 mb-6">

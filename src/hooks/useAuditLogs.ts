@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 // =============================================================================
 // Hook: useAuditLogs
 // Issue: #2727 - Implement a Unified Audit Log of all Admin Actions
-// Description: Fetches and manages the state of the audit log feed for the 
+// Description: Fetches and manages the state of the audit log feed for the
 // Club Admin Dashboard. Supports filtering by table, action type, and actor.
 // Uses InfiniteQuery for efficient "load more" pagination.
 // =============================================================================
@@ -60,7 +60,7 @@ export function useAuditLogs(clubId: string, filters: AuditFilters = {}) {
           *,
           actor_profile:profiles!actor_id(full_name, avatar_url)
         `,
-          { count: "exact" }
+          { count: "exact" },
         )
         .order("timestamp", { ascending: false })
         .range(from, to);

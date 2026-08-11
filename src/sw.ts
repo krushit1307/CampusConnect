@@ -126,7 +126,9 @@ registerRoute(
 registerRoute(
   ({ url, request }) =>
     request.method === "GET" &&
-    (url.hostname.includes("supabase.co") || url.pathname.includes("/rest/v1/") || url.pathname.includes("/functions/v1/")),
+    (url.hostname.includes("supabase.co") ||
+      url.pathname.includes("/rest/v1/") ||
+      url.pathname.includes("/functions/v1/")),
   new StaleWhileRevalidate({
     cacheName: "supabase-api-cache",
     plugins: [
