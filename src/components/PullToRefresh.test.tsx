@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { PullToRefresh } from "./PullToRefresh.tsx";
@@ -38,12 +40,6 @@ describe("PullToRefresh Component (#1917)", () => {
 
   it("uses a 100px activation threshold (#1917 spec)", () => {
     // Source-level regression check so a future drift back to 80px fails CI.
-    // Reading the source via the test harness avoids the brittle TouchEvent
-    // path (jsdom doesn't implement TouchEvent constructors meaningfully).
-
-    const fs = require("fs");
-
-    const path = require("path");
     const src = fs.readFileSync(path.resolve(__dirname, "PullToRefresh.tsx"), "utf8");
     expect(src).toMatch(/ACTIVATION_THRESHOLD\s*=\s*100\b/);
     expect(src).toMatch(/window\.scrollY\s*===\s*0/);

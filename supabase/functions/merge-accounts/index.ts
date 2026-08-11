@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req) => {
+serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -89,15 +89,17 @@ serve(async (req) => {
       );
     }
 
-    // Initialize admin client to delete the secondary auth.users account
+    // Initialize admin client to ban the secondary auth.users account
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { error: deleteError } = await adminClient.auth.admin.deleteUser(secondary_id);
+    const { error: deleteError } = await adminClient.auth.admin.updateUserById(secondary_id, {
+      ban_duration: "876000h",
+    });
 
     if (deleteError) {
       return new Response(
         JSON.stringify({
-          error: "Failed to delete secondary account from auth.users",
+          error: "Failed to ban secondary account from auth.users",
           details: deleteError.message,
         }),
         {

@@ -3,16 +3,20 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://esm.sh/zod@3.24.2";
 import { encode as base64urlEncode } from "https://deno.land/std@0.168.0/encoding/base64url.ts";
 import { parseJsonBody } from "../_shared/validation.ts";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 // Optional body: auth options can be fetched with no body at all, but if
 // one is provided it must be well-formed and reject unknown keys.
 const authOptionsSchema = z
   .object({
     rpId: z.string().min(1),
-    email: z.string().email("email must be a valid email address").optional(),
+    email: z
+      .string()
+      .max(255, "email is too long")
+      .email("email must be a valid email address")
+      .optional(),
   })
   .strict();
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -39,6 +43,10 @@ serve(async (req: Request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+
+  // Rate limit: 10 requests/minute (authentication)
+  const limited = await rateLimiter(req, "webauthn-auth-options", 10, 60);
+  if (limited) return limited;
 
   try {
     const supabase = createClient(

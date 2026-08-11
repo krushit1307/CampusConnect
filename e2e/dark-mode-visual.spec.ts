@@ -12,28 +12,29 @@ test.describe("Dark Mode Visual Regression: Global Feed", () => {
               cursor: "cursor1",
               node: {
                 id: "post-1",
-                content: "Welcome to CampusConnect! This is a visual regression test for dark mode.",
+                content:
+                  "Welcome to CampusConnect! This is a visual regression test for dark mode.",
                 created_at: "2026-08-03T12:00:00Z",
                 club_id: "club-1",
                 is_pinned: true,
                 profiles: {
                   id: "user-1",
                   full_name: "Test User",
-                  handle: "testuser"
+                  handle: "testuser",
                 },
                 clubs: {
                   id: "club-1",
-                  name: "Testing Club"
+                  name: "Testing Club",
                 },
                 comments: [],
-                post_reactions: []
-              }
-            }
+                post_reactions: [],
+              },
+            },
           ],
           pageInfo: {
             hasNextPage: false,
-            endCursor: "cursor1"
-          }
+            endCursor: "cursor1",
+          },
         }),
       });
     });

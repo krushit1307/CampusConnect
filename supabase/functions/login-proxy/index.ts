@@ -8,7 +8,7 @@ import { parseJsonBody } from "../_shared/validation.ts";
 // Each branch is validated strictly so stray fields are rejected.
 const loginSchema = z
   .object({
-    email: z.string().email("email must be a valid email address"),
+    email: z.string().max(255, "email is too long").email("email must be a valid email address"),
     password: z.string().min(1, "password is required").max(256),
   })
   .strict();
@@ -16,11 +16,10 @@ const loginSchema = z
 const unlockSchema = z
   .object({
     action: z.literal("unlock"),
-    email: z.string().email("email must be a valid email address"),
+    email: z.string().max(255, "email is too long").email("email must be a valid email address"),
     token: z.string().min(1, "token is required"),
   })
   .strict();
-
 const loginProxySchema = z.union([loginSchema, unlockSchema]);
 
 const corsHeaders = {
@@ -421,9 +420,23 @@ serve(async (req: Request) => {
       console.error("[login-proxy] Failed to record login history:", insertHistoryError);
     }
 
+    const isProduction = Deno.env.get("ENVIRONMENT") === "production" || Deno.env.get("DENO_ENV") === "production";
+    const cookieFlags = [
+      `sb-access-token=${signInData.session?.access_token}; Path=/`,
+      "HttpOnly",
+      "SameSite=Strict",
+      isProduction ? "Secure" : "",
+    ]
+      .filter(Boolean)
+      .join("; ");
+
     return new Response(JSON.stringify({ session: signInData.session, user: signInData.user }), {
       status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json",
+        "Set-Cookie": cookieFlags,
+      },
     });
   } catch (err) {
     console.error("[login-proxy] Unexpected error:", err);

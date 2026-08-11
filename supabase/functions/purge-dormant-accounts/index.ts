@@ -28,8 +28,14 @@ Deno.serve(async () => {
 
       await supabase.storage.from("avatars").remove([avatarPath]);
 
-      // Delete Auth user (cascades where configured)
-      await supabase.auth.admin.deleteUser(user.id);
+      // Soft delete profile instead of deleting Auth user
+      await supabase
+        .from("profiles")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", user.id);
+
+      // Ban the Auth user to prevent future logins
+      await supabase.auth.admin.updateUserById(user.id, { ban_duration: "876000h" });
     } catch (e) {
       console.error(`Failed to purge ${user.id}`, e);
     }

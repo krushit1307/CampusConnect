@@ -1,0 +1,16 @@
+version: "3.8"
+
+services:
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.62.1-jammy
+    ipc: host
+    working_dir: /work
+    volumes:
+      - .:/work
+      # Exclude node_modules so we don't mix Windows/Linux binaries, though we need them for tests...
+      # Wait, if we exclude node_modules, we must npm install.
+      # For simplicity, we just mount the current directory and assume npm install runs.
+    environment:
+      - CI=1
+      # On Windows/Mac, host.docker.internal resolves to the host machine.
+      - PLAYWRIGHT_BASE_URL=http://host.docker.internal:5173

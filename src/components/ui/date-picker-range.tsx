@@ -1,6 +1,6 @@
 import * as React from "react";
 import { DayPicker, DateRange } from "react-day-picker";
-import { format } from "date-fns";
+import format from "date-fns/format";
 import "react-day-picker/dist/style.css";
 
 // This interface fixes the TypeScript Build and Lint errors!

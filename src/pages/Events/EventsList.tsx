@@ -12,8 +12,14 @@ import { EventCardSkeleton } from "@/components/EventCardSkeleton";
 import { Search, Loader2, Calendar as CalendarIcon, Download, MapPin } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addMonths } from "date-fns";
+import format from "date-fns/format";
+import startOfWeek from "date-fns/startOfWeek";
+import endOfWeek from "date-fns/endOfWeek";
+import startOfMonth from "date-fns/startOfMonth";
+import endOfMonth from "date-fns/endOfMonth";
+import addMonths from "date-fns/addMonths";
 import { matchesDateFilter } from "@/lib/eventUtils";
+import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { getMultiIcsContent } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -42,16 +48,23 @@ export interface EventItem {
   end_date?: string | null;
   location: string | null;
   banner_url?: string | null;
+  announce_date?: string | null;
   created_at?: string | null;
-  clubs: { name: string } | { name: string }[] | null;
+  clubs:
+    | { name: string; average_lead_time_days?: number | null }
+    | { name: string; average_lead_time_days?: number | null }[]
+    | null;
   event_rsvps: { id: string; user_id: string }[] | null;
   saved_events: { id: string; user_id: string }[] | null;
   rsvp_count?: number;
   saved_count?: number;
   max_attendees?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 import EventsCalendar from "@/components/events/EventsCalendar";
+import EventMap from "@/components/events/EventMap";
 import { useParams } from "react-router-dom";
 
 // Helper: Check if two event date ranges overlap
@@ -77,7 +90,7 @@ export default function EventsList() {
   const emailVerified = useEmailVerification();
   const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [filter, setFilter] = useState<string>("All");
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [viewMode, setViewMode] = useState<"list" | "calendar" | "map">("list");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [sortLoaded, setSortLoaded] = useState(false);
   const [hidePastEvents, setHidePastEvents] = useState(false);
@@ -195,8 +208,8 @@ export default function EventsList() {
           .from("events")
           .select(
             `
-            id, title, description, event_date, start_date, end_date, location, banner_url, created_at, max_attendees,
-            clubs (name),
+            id, title, description, event_date, start_date, end_date, location, banner_url, created_at, announce_date, max_attendees, latitude, longitude,
+            clubs (name, average_lead_time_days),
             event_rsvps(count),
             saved_events(count)
           `,
@@ -315,6 +328,40 @@ export default function EventsList() {
       }
 
       return (fetchedData || []) as unknown as EventItem[];
+    },
+  });
+
+  const { data: trendingEvents, isLoading: isTrendingLoading } = useQuery({
+    queryKey: ["trendingEvents"],
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("trending-events");
+        if (error) throw error;
+
+        const uuids = data?.events || [];
+        if (!uuids || uuids.length === 0) return [];
+
+        const { data: eventsData, error: dbError } = await supabase
+          .from("events")
+          .select(
+            `
+            id, title, description, event_date, start_date, end_date, location, banner_url, created_at, max_attendees, latitude, longitude,
+            clubs (name),
+            event_rsvps(count),
+            saved_events(count)
+          `,
+          )
+          .in("id", uuids);
+
+        if (dbError) throw dbError;
+
+        return (eventsData as unknown as EventItem[]).sort((a, b) => {
+          return uuids.indexOf(a.id) - uuids.indexOf(b.id);
+        });
+      } catch (err) {
+        console.error("Failed to load trending events:", err);
+        return [];
+      }
     },
   });
 
@@ -530,6 +577,8 @@ export default function EventsList() {
         return;
       }
 
+      const idempotencyKey = getRsvpIdempotencyKey(eventId);
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -542,12 +591,14 @@ export default function EventsList() {
         },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
+          "Idempotency-Key": idempotencyKey,
         },
       });
 
       if (error) {
         throw error;
       }
+      clearRsvpIdempotencyKey(eventId);
     },
     onSuccess: async (_data, variables) => {
       toast.success(
@@ -662,7 +713,6 @@ export default function EventsList() {
 
       // Show confetti only when successfully RSVPing (not when cancelling)
       if (!hasRsvpd) {
-        // @ts-expect-error - canvas-confetti lacks type declarations
         import("canvas-confetti")
           .then((m) => {
             const fireConfetti = m.default || m;
@@ -1035,13 +1085,21 @@ export default function EventsList() {
                         >
                           Calendar
                         </button>
-                        <Link
-                          to="/events/map"
-                          className="flex items-center gap-1 px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors bg-white text-black hover:bg-cream cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                        <button
+                          type="button"
+                          onClick={() => setViewMode("map")}
+                          aria-pressed={viewMode === "map"}
+                          className={`flex items-center gap-1 px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black ${
+                            viewMode === "map"
+                              ? "bg-black text-cream"
+                              : "bg-white text-black hover:bg-cream"
+                          }`}
                         >
-                          <MapPin className="h-3.5 w-3.5 text-red-500" />
+                          <MapPin
+                            className={`h-3.5 w-3.5 ${viewMode === "map" ? "text-red-400" : "text-red-500"}`}
+                          />
                           Map
-                        </Link>
+                        </button>
                       </div>
 
                       <button
@@ -1070,109 +1128,154 @@ export default function EventsList() {
                   </div>
                 </div>
               </section>
-              <section className="bg-cream px-4 py-12 md:px-6">
-                {viewMode === "list" ? (
+              <section
+                className={`bg-cream px-4 py-12 md:px-6 ${viewMode === "map" ? "h-[80vh] min-h-[600px] flex flex-col" : ""}`}
+              >
+                {viewMode === "map" ? (
+                  <EventMap events={filteredEvents} />
+                ) : viewMode === "list" ? (
                   <>
-                    <AnimatePresence mode="sync">
-                      {isLoading ? (
-                        <motion.div
-                          key="events-loading-skeletons"
-                          layout
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.25, ease: "easeInOut" }}
-                          className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
-                        >
-                          {Array.from({ length: 6 }).map((_, i) => (
-                            <EventCardSkeleton key={`events-skeleton-${i}`} index={i} />
-                          ))}
-                        </motion.div>
-                      ) : sortedEvents.length === 0 && filter !== "All" ? (
-                        <motion.div
-                          key="events-empty-filter"
-                          layout
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.25, ease: "easeInOut" }}
-                          className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
-                        >
-                          <div className="col-span-full mx-auto w-full max-w-md animate-in fade-in-0 zoom-in-95 duration-300">
-                            <EmptyState
-                              illustrationType="no-events"
-                              title={`No ${filter} events found`}
-                              description="Try a different category, or clear the filter to see everything."
-                              action={{
-                                label: "Clear filter",
-                                onClick: () => {
-                                  setFilter("All");
-                                  setDateFilterType("all");
-                                  setSpecificDate(undefined);
-                                },
-                              }}
-                            />
+                    {(isTrendingLoading || (trendingEvents && trendingEvents.length > 0)) &&
+                      filter === "All" &&
+                      !searchQuery && (
+                        <div className="mx-auto max-w-7xl mb-12">
+                          <div className="flex items-center gap-2 mb-6">
+                            <h2 className="text-2xl font-bold font-display">Trending Now</h2>
+                            <span className="text-xl">🔥</span>
                           </div>
-                        </motion.div>
-                      ) : sortedEvents.length === 0 ? (
-                        <motion.div
-                          key="events-empty-results"
-                          layout
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.25, ease: "easeInOut" }}
-                          className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
-                        >
-                          <div className="col-span-full mx-auto max-w-md text-center neu-border bg-white p-8">
-                            <EmptyState
-                              illustrationType="no-results"
-                              title="No events found"
-                              description={`No events matched “${searchQuery}”. Try clearing your filters or searching for another term.`}
-                              action={{
-                                label: "Reset filters",
-                                onClick: () => {
-                                  setFilter("All");
-                                  setSearchInput("");
-                                  setSearchQuery("");
-                                  setDateFilterType("all");
-                                  setSpecificDate(undefined);
-                                },
-                              }}
-                            />
+                          <div className="flex gap-4 overflow-x-auto pb-4 snap-x hide-scrollbar">
+                            {isTrendingLoading
+                              ? Array.from({ length: 4 }).map((_, i) => (
+                                  <div
+                                    key={`trending-skel-${i}`}
+                                    className="min-w-[300px] md:min-w-[350px] snap-start"
+                                  >
+                                    <EventCardSkeleton index={i} />
+                                  </div>
+                                ))
+                              : trendingEvents?.map((e, index) => (
+                                  <div
+                                    key={`trending-${e.id}`}
+                                    className="min-w-[300px] md:min-w-[350px] snap-start"
+                                  >
+                                    <EventCard
+                                      event={e}
+                                      index={index}
+                                      user={user}
+                                      active={e.id === eventId}
+                                      onRsvpToggle={handleRsvpToggle}
+                                      isRsvpPending={toggleRsvp.isPending}
+                                      onBookmarkToggle={handleBookmarkToggle}
+                                      isBookmarkPending={toggleBookmark.isPending}
+                                    />
+                                  </div>
+                                ))}
                           </div>
-                        </motion.div>
-                      ) : (
-                        <motion.div
-                          key="events-loaded-grid"
-                          layout
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.25, ease: "easeInOut" }}
-                          className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
-                        >
-                          {sortedEvents.map((e, index) => (
-                            <motion.div key={e.id} layout>
-                              <EventCard
-                                event={e}
-                                index={index}
-                                user={user}
-                                active={e.id === eventId}
-                                onRsvpToggle={(eventId, hasRsvpd) =>
-                                  handleRsvpToggle(eventId, hasRsvpd)
-                                }
-                                isRsvpPending={toggleRsvp.isPending}
-                                onBookmarkToggle={(eventId, isSaved) =>
-                                  handleBookmarkToggle(eventId, isSaved)
-                                }
-                                isBookmarkPending={toggleBookmark.isPending}
-                              />
-                            </motion.div>
-                          ))}
-                        </motion.div>
+                        </div>
                       )}
-                    </AnimatePresence>
+
+                    <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
+                      <AnimatePresence mode="sync">
+                        {isLoading ? (
+                          <motion.div
+                            key="events-loading-skeletons"
+                            layout
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.25, ease: "easeInOut" }}
+                            className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
+                          >
+                            {Array.from({ length: 6 }).map((_, i) => (
+                              <EventCardSkeleton key={`events-skeleton-${i}`} index={i} />
+                            ))}
+                          </motion.div>
+                        ) : sortedEvents.length === 0 && filter !== "All" ? (
+                          <motion.div
+                            key="events-empty-filter"
+                            layout
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.25, ease: "easeInOut" }}
+                            className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
+                          >
+                            <div className="col-span-full mx-auto w-full max-w-md animate-in fade-in-0 zoom-in-95 duration-300">
+                              <EmptyState
+                                illustrationType="no-events"
+                                title={`No ${filter} events found`}
+                                description="Try a different category, or clear the filter to see everything."
+                                action={{
+                                  label: "Clear filter",
+                                  onClick: () => {
+                                    setFilter("All");
+                                    setDateFilterType("all");
+                                    setSpecificDate(undefined);
+                                  },
+                                }}
+                              />
+                            </div>
+                          </motion.div>
+                        ) : sortedEvents.length === 0 ? (
+                          <motion.div
+                            key="events-empty-results"
+                            layout
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.25, ease: "easeInOut" }}
+                            className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
+                          >
+                            <div className="col-span-full mx-auto max-w-md text-center neu-border bg-white p-8">
+                              <EmptyState
+                                illustrationType="no-results"
+                                title="No events found"
+                                description={`No events matched “${searchQuery}”. Try clearing your filters or searching for another term.`}
+                                action={{
+                                  label: "Reset filters",
+                                  onClick: () => {
+                                    setFilter("All");
+                                    setSearchInput("");
+                                    setSearchQuery("");
+                                    setDateFilterType("all");
+                                    setSpecificDate(undefined);
+                                  },
+                                }}
+                              />
+                            </div>
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="events-loaded-grid"
+                            layout
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.25, ease: "easeInOut" }}
+                            className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
+                          >
+                            {sortedEvents.map((e, index) => (
+                              <motion.div key={e.id} layout>
+                                <EventCard
+                                  event={e}
+                                  index={index}
+                                  user={user}
+                                  active={e.id === eventId}
+                                  onRsvpToggle={(eventId, hasRsvpd) =>
+                                    handleRsvpToggle(eventId, hasRsvpd)
+                                  }
+                                  isRsvpPending={toggleRsvp.isPending}
+                                  onBookmarkToggle={(eventId, isSaved) =>
+                                    handleBookmarkToggle(eventId, isSaved)
+                                  }
+                                  isBookmarkPending={toggleBookmark.isPending}
+                                />
+                              </motion.div>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
 
                     {isLoadingMore && (
                       <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3 mt-8">

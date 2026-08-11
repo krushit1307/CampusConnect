@@ -3,7 +3,9 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { User } from "@supabase/supabase-js";
 import { CalendarDays, ChevronDown, X } from "lucide-react";
-import { startOfWeek, endOfWeek, isWithinInterval } from "date-fns";
+import startOfWeek from "date-fns/startOfWeek";
+import endOfWeek from "date-fns/endOfWeek";
+import isWithinInterval from "date-fns/isWithinInterval";
 import { CampusTimeline, type TimelineEvent } from "@/components/events/CampusTimeline";
 import { AdminCalendar } from "@/components/admin/AdminCalendar";
 import { CalendarSkeleton } from "@/components/DashboardWidgetSkeleton";
@@ -103,7 +105,7 @@ export default function DashboardCalendar() {
           )
         `,
         )
-        .eq("user_id", user?.id);
+        .eq("user_id", user!.id);
 
       if (error) throw error;
       return (data as unknown as RsvpQueryRow[]) || [];

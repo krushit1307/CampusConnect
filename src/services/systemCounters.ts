@@ -2,8 +2,9 @@
  * System Counters Service
  * Provides optimized access to table row counts without expensive COUNT(*) queries.
  */
-import { supabase } from "../lib/supabaseClient";
+import { createClient } from "../lib/supabase/client";
 
+const supabase = createClient();
 export interface SystemCount {
   table_name: "events" | "profiles" | "clubs";
   row_count: number;

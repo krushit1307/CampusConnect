@@ -8,6 +8,7 @@ import {
   verifyRpIdHash,
 } from "../shared/crypto-verify.ts";
 import { parseJsonBody } from "../_shared/validation.ts";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 const webauthnVerifySchema = z
   .object({
@@ -40,6 +41,10 @@ serve(async (req: Request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+
+  // Rate limit: 10 requests/minute (authentication)
+  const limited = await rateLimiter(req, "webauthn-auth-verify", 10, 60);
+  if (limited) return limited;
 
   try {
     const supabase = createClient(

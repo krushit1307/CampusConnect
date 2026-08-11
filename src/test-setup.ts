@@ -1,5 +1,19 @@
+import { vi, expect } from "vitest";
+import * as matchers from "@testing-library/jest-dom/matchers";
+// Extend Vitest expect with jest-dom matchers
+expect.extend(matchers);
+
+// Safely extend Vitest with jest-axe custom matcher if available
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { toHaveNoViolations } = require("jest-axe");
+  if (toHaveNoViolations) {
+    expect.extend(toHaveNoViolations);
+  }
+} catch {
+  // jest-axe not present in dev environment
+}
 import "@testing-library/jest-dom/vitest";
-import { vi } from "vitest";
 import React from "react";
 
 process.env.VITE_SUPABASE_URL = process.env.VITE_SUPABASE_URL || "https://placeholder.supabase.co";
@@ -52,6 +66,14 @@ if (typeof globalThis.ResizeObserver === "undefined") {
     unobserve() {}
     disconnect() {}
   } as unknown as typeof globalThis.ResizeObserver;
+}
+
+// Polyfill scrollIntoView for cmdk and Radix UI tests in JSDOM
+if (typeof window !== "undefined") {
+  window.HTMLElement.prototype.scrollIntoView = vi.fn();
+  if (window.Element && !window.Element.prototype.scrollIntoView) {
+    window.Element.prototype.scrollIntoView = vi.fn();
+  }
 }
 
 // Mock lucide-react using importOriginal so that ALL icons are available

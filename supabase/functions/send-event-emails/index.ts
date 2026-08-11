@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
 import { verifyAuth } from "../shared/auth-middleware.ts";
-import { limitRate } from "../shared/rate_limiter.ts";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -57,6 +57,7 @@ serve(async (req) => {
       .from("events")
       .select("*, clubs(name)")
       .eq("id", event_id)
+      .is("deleted_at", null)
       .single();
 
     if (eventError || !event) {

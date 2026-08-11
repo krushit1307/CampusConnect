@@ -37,7 +37,11 @@ export const transitionEventStatuses = async () => {
 };
 
 // Self-executing if invoked directly via CLI (e.g. npx tsx cron/eventStatusTransition.ts)
-if (process.argv[1] && (process.argv[1].endsWith("eventStatusTransition.ts") || process.argv[1].endsWith("eventStatusTransition.js"))) {
+if (
+  process.argv[1] &&
+  (process.argv[1].endsWith("eventStatusTransition.ts") ||
+    process.argv[1].endsWith("eventStatusTransition.js"))
+) {
   (async () => {
     try {
       await transitionEventStatuses();
@@ -47,7 +51,9 @@ if (process.argv[1] && (process.argv[1].endsWith("eventStatusTransition.ts") || 
       console.error("[CLI Execution] Failed:", err);
       try {
         await closePool();
-      } catch {}
+      } catch (e) {
+        // ignore
+      }
       process.exit(1);
     }
   })();

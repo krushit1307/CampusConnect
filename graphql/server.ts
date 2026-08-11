@@ -51,7 +51,7 @@ export const yoga = createYoga({
 
       if (authUser) {
         user = { id: authUser.id, role: "USER" };
-        
+
         // Fetch role from profiles
         const { data: profile } = await supabase
           .from("profiles")
@@ -74,13 +74,15 @@ export const yoga = createYoga({
       clubLoader,
       commentsByPostLoader,
     };
+
+    return { user, request };
   },
   plugins: [
     requestLoggingPlugin(),
     openTelemetryPlugin(),
     createGraphQLSecurityPlugin({
       maxDepth: 5,
-      rateLimit: { maxMutations: 10, windowMs: 60000 },
+      rateLimit: { maxRequests: 100, maxMutations: 10, windowMs: 60000 },
     }),
   ],
 });
@@ -97,7 +99,7 @@ async function gracefulShutdown(signal: string) {
 
   // eslint-disable-next-line no-console
   console.log(`[server] Received ${signal}, closing Postgres pool...`);
-  
+
   try {
     await closePool();
     // eslint-disable-next-line no-console

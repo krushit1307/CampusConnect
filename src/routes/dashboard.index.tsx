@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useQuery } from "@/hooks/useReactQueryReplacement";
+import { useQuery, useMutation, queryClient } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useRef, useState } from "react";
 import { User } from "@supabase/supabase-js";
@@ -17,10 +17,19 @@ import {
   Users,
 } from "lucide-react";
 import TrendingCarousel from "@/components/Clubs/TrendingCarousel";
+import RecommendedCarousel from "@/components/Dashboard/RecommendedCarousel";
 import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
 import LazyHydrate from "@/components/LazyHydrate";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { WidgetErrorFallback } from "@/components/WidgetErrorFallback";
+interface Club {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  member_count?: number;
+}
 
 interface SavedEventDetails {
   id: string;
@@ -50,13 +59,13 @@ interface ActivityPostRow {
 
 interface ActivityRsvpRow {
   id: string;
-  rsvp_at: string;
+  rsvp_at: string | null;
   events: { id: string; title: string } | { id: string; title: string }[] | null;
 }
 
 interface ActivityClubMemberRow {
   id: string;
-  joined_at: string;
+  joined_at: string | null;
   clubs: { name: string } | { name: string }[] | null;
 }
 
@@ -195,7 +204,7 @@ export default function DashboardOverview() {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", user?.id)
+        .eq("id", user!.id)
         .single();
       if (error) throw error;
       return data;
@@ -262,7 +271,7 @@ export default function DashboardOverview() {
       const { data, error } = await supabase
         .from("club_members")
         .select(`role_id, club_roles (id, title, permissions_level), clubs (id, name, slug)`)
-        .eq("user_id", user?.id)
+        .eq("user_id", user!.id)
         .eq("status", "approved");
       if (error) throw error;
       return data || [];
@@ -276,10 +285,27 @@ export default function DashboardOverview() {
       const { data, error } = await supabase
         .from("events")
         .select(`*, clubs (name), event_rsvps!inner (id, user_id)`)
-        .eq("event_rsvps.user_id", user?.id)
+        .eq("event_rsvps.user_id", user!.id)
         .gte("event_date", new Date().toISOString())
         .order("event_date", { ascending: true })
         .limit(3);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const {
+    data: recommendedEvents = [],
+    isLoading: isRecommendedLoading,
+    refetch: refetchRecommended,
+  } = useQuery({
+    queryKey: ["recommendedEvents", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("recommend_events_for_user", {
+        p_user_id: user!.id,
+        p_limit: 10,
+      });
       if (error) throw error;
       return data || [];
     },
@@ -304,8 +330,8 @@ export default function DashboardOverview() {
           )
         `,
         )
-        .eq("user_id", user?.id)
-        .order("saved_at", { ascending: false });
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -319,20 +345,20 @@ export default function DashboardOverview() {
         supabase
           .from("posts")
           .select("id, content, created_at, clubs(name)")
-          .eq("author_id", user?.id)
+          .eq("author_id", user!.id)
           .is("deleted_at", null)
           .order("created_at", { ascending: false })
           .limit(5),
         supabase
           .from("event_rsvps")
           .select("id, rsvp_at, events(id, title)")
-          .eq("user_id", user?.id)
+          .eq("user_id", user!.id)
           .order("rsvp_at", { ascending: false })
           .limit(5),
         supabase
           .from("club_members")
-          .select("joined_at, clubs(name)")
-          .eq("user_id", user?.id)
+          .select("id, joined_at, clubs(name)")
+          .eq("user_id", user!.id)
           .eq("status", "approved")
           .order("joined_at", { ascending: false })
           .limit(5),
@@ -354,7 +380,7 @@ export default function DashboardOverview() {
           id: `rsvp-${r.id}`,
           type: "rsvp",
           description: event?.title ? `You RSVP'd to ${event.title}` : "You RSVP'd to an event",
-          created_at: r.rsvp_at,
+          created_at: r.rsvp_at || "",
         };
       });
 
@@ -364,7 +390,7 @@ export default function DashboardOverview() {
           id: `club-${m.id}`,
           type: "club_join",
           description: club?.name ? `You joined ${club.name}` : "You joined a club",
-          created_at: m.joined_at,
+          created_at: m.joined_at || "",
         };
       });
 
@@ -401,7 +427,7 @@ export default function DashboardOverview() {
             onClick={() => {
               setAnimateIn(false);
               setTimeout(() => {
-                setDismissed(true);
+                setWelcomeDismissed(true);
                 localStorage.setItem("cc_welcome_dismissed", "true");
               }, 500); // Wait for transition out
             }}
@@ -510,10 +536,20 @@ export default function DashboardOverview() {
       <AnalyticsLoadProgress isLoading={isAnalyticsLoading} />
 
       <div className="lg:col-span-3">
+        <RecommendedCarousel
+          userId={user?.id || ""}
+          hasInterestVector={!!profile?.interest_vector}
+          events={recommendedEvents}
+          isLoading={isRecommendedLoading}
+          refetch={refetchRecommended}
+        />
+      </div>
+
+      <div className="lg:col-span-3">
         {isTrendingLoading ? (
           <TrendingCarouselSkeleton />
         ) : (
-          <TrendingCarousel clubs={trendingClubs} />
+          <TrendingCarousel clubs={trendingClubs as unknown as Club[]} />
         )}
       </div>
 
@@ -714,14 +750,5 @@ function Widget({
 }
 
 function WidgetError({ title }: { title: string }) {
-  return (
-    <div className="neu-border bg-red-50 p-4 sm:p-6">
-      <div className="mb-4 flex items-center justify-between border-b-2 border-red-200 pb-3">
-        <h2 className="text-xl font-bold">{title}</h2>
-      </div>
-      <p className="font-mono text-sm text-red-600">
-        This widget failed to load. Other sections remain unaffected.
-      </p>
-    </div>
-  );
+  return <WidgetErrorFallback title={title} />;
 }

@@ -5,7 +5,6 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
-import { Settings, Users, Calendar } from "lucide-react";
 import {
   Settings,
   Users,
@@ -14,13 +13,25 @@ import {
   XCircle,
   CheckCircle,
   Download,
+  Trash2,
+  RefreshCw,
+  BarChart3,
+  AlertTriangle,
 } from "lucide-react";
+import { HoldToConfirmButton } from "@/components/ui/HoldToConfirmButton";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
-import { RosterExport } from "@/components/RosterExport";
+import DiffViewer from "@/components/Editor/DiffViewer";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { ClubMembersTable } from "@/components/Clubs/ClubMembersTable";
-import { ClubSocialLinksEditor } from "@/components/Clubs/ClubSocialLinksEditor";import {
+import { ClubSocialLinksEditor } from "@/components/Clubs/ClubSocialLinksEditor";
+import { ClubColorPicker } from "@/components/Clubs/ClubColorPicker";
+import { isValidHexColor } from "@/lib/clubTheming";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
+import ClubAnalyticsDashboard from "@/components/clubs/ClubAnalyticsDashboard";
+import PermissionsGrid from "@/components/Clubs/PermissionsGrid";
+import ClubRenewalWizard from "@/components/ClubRenewalWizard"; // <-- NEW IMPORT FOR OUR WIZARD
+import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogHeader,
@@ -41,7 +52,10 @@ interface ServerClub {
   visibility: string | null;
   github_repo_url: string | null;
   social_links: Record<string, string> | null;
+  primary_color: string | null;
+  secondary_color: string | null;
   version: number;
+  status: string; // <-- Added status to interface
 }
 
 export default function ClubManageRoute() {
@@ -49,7 +63,16 @@ export default function ClubManageRoute() {
   const navigate = useNavigate();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<"settings" | "members" | "events">("settings");
+
+  const [activeTab, setActiveTab] = useState<
+    "settings" | "members" | "permissions" | "events" | "constitution" | "trash" | "analytics"
+  >("settings");
+
+  // Mock constitution versions for demo
+  const oldConstitution =
+    "# Club Bylaws\n\n1. Be respectful to everyone.\n2. Meetings are on Tuesdays.";
+  const newConstitution =
+    "# Club Bylaws\n\n1. Be respectful to all members.\n2. Meetings are on Wednesdays at 5 PM.\n3. Have fun!";
 
   // Form State
   const [name, setName] = useState("");
@@ -60,14 +83,115 @@ export default function ClubManageRoute() {
   const [githubRepoUrl, setGithubRepoUrl] = useState("");
   const [twitterUrl, setTwitterUrl] = useState("");
   const [instagramUrl, setInstagramUrl] = useState("");
-const [websiteUrl, setWebsiteUrl] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
   const [socialLinksOrder, setSocialLinksOrder] = useState<string[]>([
     "website",
     "twitter",
     "instagram",
-  ]);  const [promoVideoUrl, setPromoVideoUrl] = useState("");
+  ]);
+  const [promoVideoUrl, setPromoVideoUrl] = useState("");
+  const [primaryColor, setPrimaryColor] = useState("");
+  const [secondaryColor, setSecondaryColor] = useState("");
   const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
-  const [serverClub, setServerClub] = useState<any>(null);
+  const [serverClub, setServerClub] = useState<ServerClub | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+  }, [supabase]);
+
+  // Fetch Club Data
+  const {
+    data: club,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["club_manage", slug],
+    queryFn: async () => {
+      if (!user) throw new Error("Not logged in");
+
+      const { data, error } = await supabase
+        .from("clubs")
+        .select(
+          `
+          id, name, slug, status, description, banner_url, logo_url, visibility, github_repo_url, social_links, social_links_order, promo_video_url, version,
+          club_members (id, role, status, user_id, joined_at, can_edit_events, can_manage_finance, can_remove_members, can_post_news, can_manage_permissions, profiles (full_name, avatar_url, handle)),
+          events (id, title, event_date, max_attendees, event_rsvps(id))
+        `, // <-- Added status to query above
+        )
+        .eq("slug", slug)
+        .single();
+
+      if (error) throw error;
+
+      const currentMember = data.club_members.find(
+        (m: { user_id: string; role: string }) => m.user_id === user.id,
+      );
+      if (!currentMember || currentMember.role !== "admin") {
+        throw new Error("Unauthorized");
+      }
+
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  // Fetch Trash Events
+  const {
+    data: trashEvents = [],
+    isLoading: isTrashLoading,
+    refetch: refetchTrash,
+  } = useQuery({
+    queryKey: ["club_trash_events", slug],
+    queryFn: async () => {
+      if (!user || !club) return [];
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, title, deleted_at, max_attendees")
+        .eq("club_id", club.id)
+        .not("deleted_at", "is", null)
+        .order("deleted_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: activeTab === "trash" && !!club,
+  });
+
+  const restoreEventMutation = useMutation({
+    mutationFn: async (eventId: string) => {
+      const { error } = await supabase
+        .from("events")
+        .update({ deleted_at: null })
+        .eq("id", eventId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Event restored successfully!");
+      refetchTrash();
+      refetch();
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to restore event");
+    },
+  });
+
+  // Form State
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [bannerUrl, setBannerUrl] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [visibility, setVisibility] = useState<"public" | "private">("public");
+  const [githubRepoUrl, setGithubRepoUrl] = useState("");
+  const [twitterUrl, setTwitterUrl] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [socialLinksOrder, setSocialLinksOrder] = useState<string[]>([
+    "website",
+    "twitter",
+    "instagram",
+  ]);
+  const [promoVideoUrl, setPromoVideoUrl] = useState("");
+  const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
+  const [serverClub, setServerClub] = useState<ServerClub | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -86,7 +210,8 @@ const [websiteUrl, setWebsiteUrl] = useState("");
         .from("clubs")
         .select(
           `
-id, name, slug, description, banner_url, logo_url, visibility, github_repo_url, social_links, social_links_order, promo_video_url, version,          club_members (id, role, status, user_id, joined_at, profiles (full_name, avatar_url, handle)),
+          id, name, slug, description, banner_url, logo_url, visibility, github_repo_url, social_links, social_links_order, promo_video_url, version,
+          club_members (id, club_id, role, status, user_id, joined_at, created_at, removed_at, termination_reason, can_edit_events, can_manage_finance, can_remove_members, can_post_news, can_manage_permissions, profiles (full_name, avatar_url, handle)),
           events (id, title, event_date, max_attendees, event_rsvps(id))
         `,
         )
@@ -113,16 +238,17 @@ id, name, slug, description, banner_url, logo_url, visibility, github_repo_url, 
       setDescription(club.description || "");
       setBannerUrl(club.banner_url || "");
       setLogoUrl(club.logo_url || "");
-      setVisibility(club.visibility || "public");
+      setVisibility((club.visibility as "public" | "private") || "public");
       setGithubRepoUrl(club.github_repo_url || "");
       const links = (club.social_links || {}) as Record<string, string>;
       setTwitterUrl(links.twitter || "");
       setInstagramUrl(links.instagram || "");
-setWebsiteUrl(links.website || "");
+      setWebsiteUrl(links.website || "");
       const savedOrder = (club.social_links_order || []) as string[];
-      setSocialLinksOrder(
-        savedOrder.length > 0 ? savedOrder : ["website", "twitter", "instagram"],
-      );      setPromoVideoUrl(club.promo_video_url || "");
+      setSocialLinksOrder(savedOrder.length > 0 ? savedOrder : ["website", "twitter", "instagram"]);
+      setPromoVideoUrl(club.promo_video_url || "");
+      setPrimaryColor(club.primary_color || "");
+      setSecondaryColor(club.secondary_color || "");
     }
   }, [club]);
 
@@ -151,6 +277,20 @@ setWebsiteUrl(links.website || "");
         field: "Promo Video URL",
         draft: promoVideoUrl,
         server: serverClub.promo_video_url || "",
+      });
+    }
+    if (primaryColor !== (serverClub.primary_color || "")) {
+      diffs.push({
+        field: "Primary Color",
+        draft: primaryColor,
+        server: serverClub.primary_color || "",
+      });
+    }
+    if (secondaryColor !== (serverClub.secondary_color || "")) {
+      diffs.push({
+        field: "Secondary Color",
+        draft: secondaryColor,
+        server: serverClub.secondary_color || "",
       });
     }
     if (visibility !== (serverClub.visibility || "public")) {
@@ -209,6 +349,15 @@ setWebsiteUrl(links.website || "");
         }
       }
 
+      const trimmedPrimaryColor = primaryColor.trim();
+      const trimmedSecondaryColor = secondaryColor.trim();
+      if (trimmedPrimaryColor && !isValidHexColor(trimmedPrimaryColor)) {
+        throw new Error("Primary color must be a hex value like #RRGGBB");
+      }
+      if (trimmedSecondaryColor && !isValidHexColor(trimmedSecondaryColor)) {
+        throw new Error("Secondary color must be a hex value like #RRGGBB");
+      }
+
       let targetVersion = club.version || 1;
       if (force) {
         const { data: latest, error: fetchErr } = await supabase
@@ -224,10 +373,12 @@ setWebsiteUrl(links.website || "");
         .from("clubs")
         .update({
           name,
-          description,
+          description: sanitizeHtml(description),
           banner_url: bannerUrl,
           logo_url: logoUrl,
           promo_video_url: promoVideoUrl || null,
+          primary_color: trimmedPrimaryColor || null,
+          secondary_color: trimmedSecondaryColor || null,
           visibility,
           github_repo_url: githubRepo,
           social_links: socialLinks,
@@ -253,9 +404,9 @@ setWebsiteUrl(links.website || "");
         const { data: latest } = await supabase
           .from("clubs")
           .select(
-            "name, description, banner_url, logo_url, promo_video_url, visibility, github_repo_url, social_links, version",
+            "name, description, banner_url, logo_url, promo_video_url, visibility, github_repo_url, social_links, primary_color, secondary_color, version, status",
           )
-          .eq("id", club?.id)
+          .eq("id", club!.id)
           .single();
         if (latest) {
           setServerClub(latest);
@@ -299,6 +450,29 @@ setWebsiteUrl(links.website || "");
     },
   });
 
+  const updatePermissionsMutation = useMutation({
+    mutationFn: async (updates: any[]) => {
+      const { error } = await supabase.rpc("batch_update_permissions", {
+        updates: updates.map((u) => ({
+          member_id: u.memberId,
+          can_edit_events: u.permissions.can_edit_events,
+          can_manage_finance: u.permissions.can_manage_finance,
+          can_remove_members: u.permissions.can_remove_members,
+          can_post_news: u.permissions.can_post_news,
+          can_manage_permissions: u.permissions.can_manage_permissions,
+        })),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Permissions updated successfully");
+      refetch();
+    },
+    onError: (err) => {
+      toast.error(`Failed to update permissions: ${err.message}`);
+    },
+  });
+
   if (isLoading) {
     return (
       <SiteShell>
@@ -317,6 +491,20 @@ setWebsiteUrl(links.website || "");
     );
   }
 
+  // -------------------------------------------------------------
+  // NEW LOGIC: SHOW WIZARD IF CLUB STATUS IS PENDING_RENEWAL
+  // -------------------------------------------------------------
+  if (club.status === "pending_renewal") {
+    return (
+      <SiteShell>
+        <div className="bg-cream min-h-screen py-12 px-4">
+          <ClubRenewalWizard clubId={club.id} />
+        </div>
+      </SiteShell>
+    );
+  }
+
+  // Otherwise, show the normal manage dashboard
   return (
     <SiteShell>
       <div className="bg-cream min-h-screen">
@@ -360,6 +548,16 @@ setWebsiteUrl(links.website || "");
                 <Users size={18} /> Members
               </button>
               <button
+                onClick={() => setActiveTab("permissions")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "permissions"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <ShieldCheck size={18} /> Permissions
+              </button>
+              <button
                 onClick={() => setActiveTab("events")}
                 className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
                   activeTab === "events"
@@ -368,6 +566,36 @@ setWebsiteUrl(links.website || "");
                 }`}
               >
                 <Calendar size={18} /> Events
+              </button>
+              <button
+                onClick={() => setActiveTab("constitution")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "constitution"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <Settings size={18} /> Constitution
+              </button>
+              <button
+                onClick={() => setActiveTab("trash")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "trash"
+                    ? "bg-red-500 text-white hover:-translate-y-1"
+                    : "bg-white text-red-500 hover:bg-red-50"
+                }`}
+              >
+                <Trash2 size={18} /> Trash
+              </button>
+              <button
+                onClick={() => setActiveTab("analytics")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "analytics"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <BarChart3 size={18} /> Analytics
               </button>
             </nav>
           </aside>
@@ -381,7 +609,7 @@ setWebsiteUrl(links.website || "");
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    updateClubMutation.mutate();
+                    updateClubMutation.mutate(undefined as any);
                   }}
                   className="space-y-4"
                 >
@@ -434,6 +662,28 @@ setWebsiteUrl(links.website || "");
                       onUploadComplete={(url) => setPromoVideoUrl(url || "")}
                     />
                   </div>
+                  <div className="border-t-2 border-black pt-4">
+                    <label className="font-mono text-sm font-bold uppercase mb-1 block">
+                      Club Brand Colors
+                    </label>
+                    <p className="mb-3 text-xs font-mono text-gray-600">
+                      Used across your club's public page — header, logo, and buttons. Leave both
+                      empty to use the CampusConnect defaults. Must be hex values like #RRGGBB or
+                      #RGB.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <ClubColorPicker
+                        label="Primary Color"
+                        value={primaryColor}
+                        onChange={setPrimaryColor}
+                      />
+                      <ClubColorPicker
+                        label="Secondary Color"
+                        value={secondaryColor}
+                        onChange={setSecondaryColor}
+                      />
+                    </div>
+                  </div>
                   <div>
                     <label className="font-mono text-sm font-bold uppercase mb-1 block">
                       Visibility
@@ -447,7 +697,7 @@ setWebsiteUrl(links.website || "");
                       <option value="private">Private</option>
                     </select>
                   </div>
-<div>
+                  <div>
                     <label className="font-mono text-sm font-bold uppercase mb-1 block">
                       GitHub Repo URL
                     </label>
@@ -468,7 +718,8 @@ setWebsiteUrl(links.website || "");
                       if (platform === "instagram") setInstagramUrl(value);
                     }}
                     onOrderChange={setSocialLinksOrder}
-                  />                  <button
+                  />{" "}
+                  <button
                     type="submit"
                     disabled={updateClubMutation.isPending}
                     className="neu-border neu-press w-full bg-lime p-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 disabled:opacity-50"
@@ -476,6 +727,37 @@ setWebsiteUrl(links.website || "");
                     {updateClubMutation.isPending ? "Saving..." : "Save Settings"}
                   </button>
                 </form>
+
+                <div className="neu-border border-red-500 bg-red-50/30 p-6 space-y-4 mt-8">
+                  <h3 className="font-display text-xl font-bold text-red-600 flex items-center gap-2">
+                    <AlertTriangle size={20} className="text-red-600" /> Danger Zone
+                  </h3>
+                  <p className="font-mono text-sm text-gray-700">
+                    Deleting this club is a permanent action. Click and hold the button below for 3
+                    seconds (or press Enter/Space for confirmation dialog) to execute deletion.
+                  </p>
+                  <div>
+                    <HoldToConfirmButton
+                      onConfirm={async () => {
+                        try {
+                          const { error } = await supabase.from("clubs").delete().eq("id", club.id);
+                          if (error) throw error;
+                          toast.success("Club deleted successfully");
+                          navigate("/clubs");
+                        } catch (err: any) {
+                          toast.error(err?.message || "Failed to delete club");
+                        }
+                      }}
+                      holdDuration={3000}
+                      confirmTitle="Delete Club permanently?"
+                      confirmDescription={`Are you sure you want to permanently delete "${club.name}"? This action cannot be undone.`}
+                      confirmText="Delete Club"
+                      variant="destructive"
+                    >
+                      Hold for 3s to Delete Club
+                    </HoldToConfirmButton>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -510,10 +792,24 @@ setWebsiteUrl(links.website || "");
                       Manage Members
                     </h2>
                     <ClubMembersTable
-                      members={(club.club_members || []).map((m: any) => ({
-                        ...m,
-                        role: optimisticRoles[m.id] || m.role,
-                      }))}
+                      members={(club.club_members || []).map(
+                        (m: {
+                          id: string;
+                          role: string;
+                          status: string;
+                          user_id: string;
+                          club_id?: string;
+                          joined_at?: string | null;
+                          created_at?: string;
+                          removed_at?: string | null;
+                          termination_reason?: string | null;
+                          profiles: unknown;
+                        }) => ({
+                          ...m,
+                          club_id: m.club_id || club.id,
+                          role: optimisticRoles[m.id] || m.role,
+                        }),
+                      )}
                       currentUserId={user?.id}
                       isMutating={updateMemberMutation.isPending}
                       onApprove={(memberId) =>
@@ -533,6 +829,42 @@ setWebsiteUrl(links.website || "");
                 );
               })()}
 
+            {activeTab === "permissions" && (
+              <div className="neu-border bg-white p-6 space-y-6">
+                <h2 className="font-display text-2xl font-bold border-b-2 border-black pb-2">
+                  Role Permissions
+                </h2>
+                <PermissionsGrid
+                  members={(club.club_members || []).map((m: any) => {
+                    const profile = Array.isArray(m.profiles)
+                      ? m.profiles[0]
+                      : (m.profiles as {
+                          full_name: string;
+                          handle: string;
+                          avatar_url: string | null;
+                        });
+                    return {
+                      id: m.id,
+                      user_id: m.user_id,
+                      fullName: profile?.full_name || "Unknown User",
+                      handle: profile?.handle || "",
+                      avatarUrl: profile?.avatar_url || null,
+                      role: m.role,
+                      status: m.status,
+                      can_edit_events: m.can_edit_events || false,
+                      can_manage_finance: m.can_manage_finance || false,
+                      can_remove_members: m.can_remove_members || false,
+                      can_post_news: m.can_post_news || false,
+                      can_manage_permissions: m.can_manage_permissions || false,
+                    };
+                  })}
+                  currentUserId={user?.id || ""}
+                  onSave={(updates) => updatePermissionsMutation.mutateAsync(updates)}
+                  isSaving={updatePermissionsMutation.isPending}
+                />
+              </div>
+            )}
+
             {activeTab === "events" && (
               <div className="neu-border bg-white p-6 space-y-6">
                 <h2 className="font-display text-2xl font-bold border-b-2 border-black pb-2">
@@ -546,7 +878,7 @@ setWebsiteUrl(links.website || "");
                       (e: {
                         id: string;
                         title: string;
-                        max_attendees: number;
+                        max_attendees: number | null;
                         event_rsvps: unknown[];
                       }) => (
                         <div
@@ -580,6 +912,66 @@ setWebsiteUrl(links.website || "");
                 </div>
               </div>
             )}
+
+            {activeTab === "trash" && (
+              <div className="neu-border bg-white p-6 space-y-6">
+                <h2 className="font-display text-2xl font-bold border-b-2 border-black pb-2 text-red-600 flex items-center gap-2">
+                  <Trash2 size={24} /> Deleted Events Trash
+                </h2>
+                <p className="font-mono text-sm text-gray-600">
+                  Events deleted within the last 30 days can be restored here. After 30 days, they
+                  are permanently deleted.
+                </p>
+                <div className="space-y-4">
+                  {isTrashLoading ? (
+                    <p className="font-mono text-sm text-gray-500">Loading trash...</p>
+                  ) : trashEvents.length === 0 ? (
+                    <p className="font-mono text-sm text-gray-500">Trash is empty.</p>
+                  ) : (
+                    trashEvents.map((e) => (
+                      <div
+                        key={e.id}
+                        className="neu-border border-red-200 p-4 flex flex-col md:flex-row md:items-center justify-between hover:bg-red-50 flex-wrap gap-4"
+                      >
+                        <div>
+                          <p className="font-bold font-display text-lg text-red-800">{e.title}</p>
+                          <p className="text-xs text-red-500 font-mono mt-1">
+                            Deleted on:{" "}
+                            {e.deleted_at ? new Date(e.deleted_at).toLocaleString() : "Unknown"}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => restoreEventMutation.mutate(e.id)}
+                            disabled={restoreEventMutation.isPending}
+                            className="neu-border neu-press bg-lime text-black px-4 py-2 font-mono text-xs font-bold uppercase hover:-translate-y-1 transition-transform disabled:opacity-50 flex items-center gap-2"
+                          >
+                            <RefreshCw
+                              size={14}
+                              className={restoreEventMutation.isPending ? "animate-spin" : ""}
+                            />
+                            Restore
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "constitution" && (
+              <div className="neu-border bg-white p-6 space-y-6">
+                <h2 className="font-display text-2xl font-bold border-b-2 border-black pb-2">
+                  Review Constitution Updates
+                </h2>
+                <p className="font-mono text-sm text-gray-600 mb-4">
+                  Visual diff of proposed changes to the club bylaws:
+                </p>
+                <DiffViewer oldText={oldConstitution} newText={newConstitution} />
+              </div>
+            )}
+            {activeTab === "analytics" && <ClubAnalyticsDashboard clubId={club.id} />}
           </main>
         </div>
       </div>

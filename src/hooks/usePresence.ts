@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { User } from "@supabase/supabase-js";
 
 export type PresenceStatus = "online" | "idle" | "offline";
 
@@ -77,92 +78,108 @@ export function getPresenceStatus(lastSeen: string) {
   return "online" as const;
 }
 
-export function usePresence(userId?: string) {
+interface PresenceContextType {
+  onlineUsers: number;
+  presenceMap: Record<string, PresenceStateEntry>;
+}
+
+const PresenceContext = createContext<PresenceContextType | undefined>(undefined);
+
+export const PresenceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const supabase = createClient();
+  const [user, setUser] = useState<User | null>(null);
   const [onlineUsers, setOnlineUsers] = useState(0);
   const [presenceMap, setPresenceMap] = useState<Record<string, PresenceStateEntry>>({});
+  const updateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!userId) {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!user) {
       setOnlineUsers(0);
       setPresenceMap({});
       return;
     }
 
-    const supabase = createClient();
     const forceLeftUsers = new Set<string>();
     const channel = supabase.channel("campus_online", {
       config: {
         presence: {
-          key: userId,
+          key: user.id,
         },
       },
     });
 
     const updatePresence = () => {
-      const state = channel.presenceState();
-      const map = buildPresenceMap(
-        state as Record<string, Array<Record<string, unknown>> | undefined>,
-      );
-      const activeKeys = Object.keys(map).filter((key) => !forceLeftUsers.has(key));
-
-      setPresenceMap(map);
-      setOnlineUsers(activeKeys.length);
+      if (updateTimeoutRef.current) return;
+      updateTimeoutRef.current = setTimeout(() => {
+        updateTimeoutRef.current = null;
+        const state = channel.presenceState();
+        const map = buildPresenceMap(state as any);
+        const activeKeys = Object.keys(map).filter((key) => !forceLeftUsers.has(key));
+        setPresenceMap(map);
+        setOnlineUsers(activeKeys.length);
+      }, 500); // Throttle status updates to optimize performance & limit re-renders
     };
 
     channel
-      .on("presence", { event: "sync" }, () => {
-        updatePresence();
-      })
-      .on("presence", { event: "join" }, () => {
-        updatePresence();
-      })
-      .on("presence", { event: "leave" }, () => {
-        updatePresence();
-      })
+      .on("presence", { event: "sync" }, updatePresence)
+      .on("presence", { event: "join" }, updatePresence)
+      .on("presence", { event: "leave" }, updatePresence)
       .on("broadcast", { event: "ghost-leave" }, ({ payload }) => {
         if (payload?.userId) {
           forceLeftUsers.add(String(payload.userId));
           updatePresence();
         }
-      })
-      .subscribe(async (status) => {
-        if (status !== "SUBSCRIBED") return;
-
-        await channel.track({
-          userId,
-          status: "online",
-          lastSeen: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
       });
 
-    let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-    let activeTimer: ReturnType<typeof setTimeout> | null = null;
+    channel.subscribe(async (status) => {
+      if (status !== "SUBSCRIBED") return;
+      await channel.track({
+        userId: user.id,
+        status: "online",
+        lastSeen: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    });
 
-    const sendHeartbeat = async () => {
+    // Heartbeat tracking
+    const heartbeatTimer = setInterval(async () => {
       const payload: PresencePayload = {
-        userId,
+        userId: user.id,
         status: "online",
         lastSeen: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
-      const { error } = await supabase.from("presence_heartbeats").upsert({
-        user_id: userId,
+      await supabase.from("presence_heartbeats").upsert({
+        user_id: user.id,
         last_pinged_at: new Date().toISOString(),
       });
 
-      if (error) {
-        console.error("[usePresence] Heartbeat ping failed:", error);
-        return;
-      }
-
       await channel.track(payload);
-    };
+    }, HEARTBEAT_INTERVAL_MS);
+
+    // Idle monitoring
+    let activeTimer: ReturnType<typeof setTimeout> | null = null;
 
     const markIdle = () => {
       void channel.track({
-        userId,
+        userId: user.id,
         status: "idle",
         lastSeen: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -174,33 +191,28 @@ export function usePresence(userId?: string) {
       activeTimer = setTimeout(markIdle, IDLE_TIMEOUT_MS);
     };
 
+    const handleActivity = () => {
+      void channel.track({
+        userId: user.id,
+        status: "online",
+        lastSeen: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      scheduleIdle();
+    };
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
         if (activeTimer) clearTimeout(activeTimer);
         void channel.track({
-          userId,
+          userId: user.id,
           status: "offline",
           lastSeen: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });
-        return;
+      } else {
+        handleActivity();
       }
-
-      void sendHeartbeat();
-      scheduleIdle();
-    };
-
-    const handleActivity = () => {
-      void sendHeartbeat();
-      scheduleIdle();
-    };
-
-    const startHeartbeat = () => {
-      void sendHeartbeat();
-      heartbeatTimer = setInterval(() => {
-        void sendHeartbeat();
-      }, HEARTBEAT_INTERVAL_MS);
-      scheduleIdle();
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -208,24 +220,49 @@ export function usePresence(userId?: string) {
     window.addEventListener("keydown", handleActivity, { passive: true });
     window.addEventListener("click", handleActivity, { passive: true });
 
-    startHeartbeat();
+    scheduleIdle();
 
     return () => {
-      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
       if (activeTimer) clearTimeout(activeTimer);
+      clearInterval(heartbeatTimer);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("mousemove", handleActivity);
       window.removeEventListener("keydown", handleActivity);
       window.removeEventListener("click", handleActivity);
+
       void channel.track({
-        userId,
+        userId: user.id,
         status: "offline",
         lastSeen: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
-      void channel.unsubscribe();
+      channel.unsubscribe();
     };
-  }, [userId]);
+  }, [user, supabase]);
 
-  return useMemo(() => ({ onlineUsers, presenceMap }), [onlineUsers, presenceMap]);
+  const value = useMemo(() => ({ onlineUsers, presenceMap }), [onlineUsers, presenceMap]);
+
+  return React.createElement(PresenceContext.Provider, { value }, children);
+};
+
+export function usePresence(userId?: string) {
+  const context = useContext(PresenceContext);
+  if (!context) {
+    throw new Error("usePresence must be used within a PresenceProvider");
+  }
+
+  const isOnline = useMemo(() => {
+    if (!userId) return false;
+    return context.presenceMap[userId]?.status === "online";
+  }, [context.presenceMap, userId]);
+
+  return useMemo(
+    () => ({
+      onlineUsers: context.onlineUsers,
+      presenceMap: context.presenceMap,
+      isOnline,
+    }),
+    [context.onlineUsers, context.presenceMap, isOnline],
+  );
 }

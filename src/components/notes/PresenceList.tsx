@@ -11,10 +11,13 @@ export function PresenceList({ provider }: PresenceListProps) {
   const [activeUsers, setActiveUsers] = React.useState<any[]>([]);
 
   React.useEffect(() => {
-    if (!provider || !provider.awareness) return;
+    if (!provider) return;
+    const awareness =
+      typeof provider.getAwareness === "function" ? provider.getAwareness() : provider.awareness;
+    if (!awareness) return;
 
     const updatePresence = () => {
-      const states = provider.awareness.getStates();
+      const states = awareness.getStates();
       const users: any[] = [];
       states.forEach((state: any) => {
         if (state.user) {
@@ -24,11 +27,11 @@ export function PresenceList({ provider }: PresenceListProps) {
       setActiveUsers(users);
     };
 
-    provider.awareness.on("change", updatePresence);
+    awareness.on("change", updatePresence);
     updatePresence(); // initial load
 
     return () => {
-      provider.awareness.off("change", updatePresence);
+      awareness.off("change", updatePresence);
     };
   }, [provider]);
 

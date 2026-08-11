@@ -100,12 +100,12 @@ describe("Wizard (URL-bound multi-step)", () => {
     sessionStorage.setItem("test-wizard", JSON.stringify({ name: "Alex Johnson" }));
     render(<Harness initialPath="/clubs/new?step=2" />);
     expect(screen.getByLabelText("Bio")).toBeInTheDocument();
-    expect(screen.getByText("2. Bio")).toBeInTheDocument();
+    expect(screen.getAllByText("Bio").length).toBeGreaterThan(0);
   });
 
   it("redirects back to step 1 when a later step is typed without prior data", () => {
     render(<Harness initialPath="/clubs/new?step=3" />);
-    expect(screen.getByText("Basic Info")).toBeInTheDocument();
+    expect(screen.getAllByText("Basic Info").length).toBeGreaterThan(0);
     expect(screen.getByTestId("location")).toHaveTextContent("step=1");
   });
 

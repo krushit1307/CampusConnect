@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
-import { useInfiniteQuery, useMutation, useQueryClient } from "@/hooks/useReactQueryReplacement";
+import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import {
   Bell,
@@ -14,7 +14,10 @@ import {
   WifiOff,
 } from "lucide-react";
 import { toast } from "sonner";
-import { format, isToday, isYesterday, isThisWeek } from "date-fns";
+import format from "date-fns/format";
+import isToday from "date-fns/isToday";
+import isYesterday from "date-fns/isYesterday";
+import isThisWeek from "date-fns/isThisWeek";
 import { SwipeToDismiss } from "@/components/ui/SwipeToDismiss";
 import { useGraphQLSubscription } from "@/hooks/useGraphQLSubscription";
 import {
@@ -23,7 +26,6 @@ import {
 } from "@/components/notifications/NotificationFilterToolbar";
 import { NotificationPreferenceModal } from "@/components/notifications/NotificationPreferenceModal";
 
-/** GraphQL subscription document for real-time notifications. */
 const NOTIFICATION_SUBSCRIPTION = /* GraphQL */ `
   subscription NotificationReceived($userId: ID!) {
     notificationReceived(userId: $userId) {
@@ -35,6 +37,9 @@ const NOTIFICATION_SUBSCRIPTION = /* GraphQL */ `
       link
       isRead
       createdAt
+      recentActors
+      groupCount
+      referenceId
     }
   }
 `;
@@ -49,12 +54,15 @@ interface GQLNotification {
   link: string | null;
   isRead: boolean;
   createdAt: string;
-  metadata?: Record<string, any> | null;
+  metadata?: Record<string, unknown> | null;
+  recentActors?: string[] | null;
+  groupCount?: number | null;
+  referenceId?: string | null;
 }
 
 export function getNotificationLink(
   type: string,
-  metadata: any,
+  metadata: Record<string, unknown> | null | undefined,
   fallbackLink?: string | null,
 ): string | undefined {
   if (!metadata || typeof metadata !== "object") {
@@ -66,21 +74,21 @@ export function getNotificationLink(
     case "event_rsvp":
     case "event_invite":
     case "event_update":
-      if (metadata.event_id) return `/events/${metadata.event_id}`;
+      if (metadata.event_id) return `/events/${metadata.event_id as string}`;
       break;
     case "club":
     case "club_application_approved":
     case "club_invite":
-      if (metadata.club_id) return `/clubs/${metadata.club_id}`;
+      if (metadata.club_id) return `/clubs/${metadata.club_id as string}`;
       break;
     case "mention":
     case "reply":
     case "post_like":
       if (metadata.post_id) {
         if (metadata.comment_id) {
-          return `/posts/${metadata.post_id}#comment-${metadata.comment_id}`;
+          return `/posts/${metadata.post_id as string}#comment-${metadata.comment_id as string}`;
         }
-        return `/posts/${metadata.post_id}`;
+        return `/posts/${metadata.post_id as string}`;
       }
       break;
     case "message":
@@ -112,13 +120,14 @@ export default function NotificationsRoute() {
   const subscriptionOperation = currentUserId
     ? {
         query: NOTIFICATION_SUBSCRIPTION,
-        variables: { userId: currentUserId },
+        variables: { userId: currentUserId } as NotificationReceivedSubscriptionVariables,
       }
     : null;
 
-  const { data: subscriptionPayload, connected: subscriptionConnected } = useGraphQLSubscription<{
-    notificationReceived: GQLNotification;
-  }>(subscriptionOperation, { skip: !currentUserId });
+  const { data: subscriptionPayload, connected: subscriptionConnected } =
+    useGraphQLSubscription<NotificationReceivedSubscription>(subscriptionOperation, {
+      skip: !currentUserId,
+    });
 
   // When a new notification arrives via subscription, prepend it to the
   // TanStack Query cache and show a toast so the user is immediately aware.
@@ -142,6 +151,9 @@ export default function NotificationsRoute() {
       is_read: notification.isRead,
       created_at: notification.createdAt,
       metadata: notification.metadata ?? null,
+      recent_actors: notification.recentActors ?? [],
+      group_count: notification.groupCount ?? 1,
+      reference_id: notification.referenceId ?? null,
     };
 
     queryClient.setQueryData(
@@ -255,6 +267,72 @@ export default function NotificationsRoute() {
   });
 
   const rawNotifications = data?.pages.flatMap((page) => page.notifications) || [];
+
+  const actorIds = Array.from(
+    new Set(rawNotifications.flatMap((n: any) => n.recent_actors || []).filter(Boolean)),
+  );
+
+  const { data: profilesMap } = useQuery({
+    queryKey: ["profiles-bulk", actorIds],
+    queryFn: async () => {
+      if (actorIds.length === 0) return {};
+      const { data: profiles, error } = await supabase
+        .from("profiles")
+        .select("id, first_name, last_name, handle")
+        .in("id", actorIds);
+      if (error) throw error;
+
+      const map: Record<string, { first_name: string; last_name: string; handle: string }> = {};
+      profiles?.forEach((p) => {
+        map[p.id] = p;
+      });
+      return map;
+    },
+    enabled: actorIds.length > 0,
+  });
+
+  const getDynamicMessage = (n: any) => {
+    if (n.type !== "post_like" || !n.recent_actors || n.recent_actors.length === 0) {
+      return n.message;
+    }
+
+    const names = n.recent_actors
+      .map((id: string) => {
+        const p = profilesMap?.[id];
+        if (p) {
+          return `${p.first_name} ${p.last_name}`.trim();
+        }
+        return null;
+      })
+      .filter(Boolean);
+
+    if (names.length === 0) {
+      return n.message;
+    }
+
+    const count = n.group_count || 1;
+
+    if (count === 1) {
+      return `${names[0]} liked your post.`;
+    }
+
+    if (count === 2) {
+      if (names.length >= 2) {
+        return `${names[0]} and ${names[1]} liked your post.`;
+      } else {
+        return `${names[0]} and 1 other liked your post.`;
+      }
+    }
+
+    // count > 2
+    if (names.length >= 2) {
+      const remaining = count - 2;
+      return `${names[0]}, ${names[1]}, and ${remaining} other${remaining > 1 ? "s" : ""} liked your post.`;
+    } else {
+      const remaining = count - 1;
+      return `${names[0]} and ${remaining} other${remaining > 1 ? "s" : ""} liked your post.`;
+    }
+  };
 
   const allNotifications = rawNotifications.filter((n) => {
     if (activeCategory === "unread" && n.is_read) return false;
@@ -438,7 +516,7 @@ export default function NotificationsRoute() {
                                 )}
                               </div>
                               <p className="font-mono text-sm text-gray-600 mt-1 line-clamp-2">
-                                {n.message}
+                                {getDynamicMessage(n)}
                               </p>
                               {n.metadata && typeof n.metadata === "object" && (
                                 <div className="flex flex-wrap gap-1.5 mt-2">

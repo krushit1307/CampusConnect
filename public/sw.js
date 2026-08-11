@@ -1,11 +1,10 @@
-<<<<<<< HEAD
 self.addEventListener("push", (event) => {
   if (!event.data) return;
 
   try {
     const data = event.data.json();
     const title = data.title || "CampusConnect Announcement";
-    
+
     const options = {
       body: data.message,
       icon: "/favicon.png",
@@ -24,8 +23,8 @@ self.addEventListener("push", (event) => {
         body: event.data.text(),
         icon: "/favicon.png",
         badge: "/favicon.png",
-        data: { url: "/" }
-      })
+        data: { url: "/" },
+      }),
     );
   }
 });
@@ -50,8 +49,10 @@ self.addEventListener("notificationclick", (event) => {
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }
-    })
-=======
+    }),
+  );
+});
+
 /**
  * CampusConnect Custom Service Worker
  *
@@ -259,6 +260,5 @@ self.addEventListener("notificationclick", (event) => {
         return clients.openWindow(targetUrl);
       }
     }),
->>>>>>> upstream/main
   );
 });

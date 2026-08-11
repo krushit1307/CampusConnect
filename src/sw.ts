@@ -4,6 +4,7 @@ import { registerRoute } from "workbox-routing";
 import { NetworkOnly, StaleWhileRevalidate } from "workbox-strategies";
 import { BackgroundSyncPlugin } from "workbox-background-sync";
 import { CacheableResponsePlugin } from "workbox-cacheable-response";
+import { ExpirationPlugin } from "workbox-expiration";
 
 declare let self: ServiceWorkerGlobalScope;
 
@@ -121,10 +122,25 @@ registerRoute(
   }),
 );
 
-// All other Supabase API calls (GET requests) — always go to network, never cache.
+// All other Supabase API calls (GET requests) — cache with StaleWhileRevalidate and expire old cache entries via LRU.
 registerRoute(
-  ({ url }) => url.hostname.includes("supabase.co") || url.pathname.includes("/rest/v1/"),
-  new NetworkOnly(),
+  ({ url, request }) =>
+    request.method === "GET" &&
+    (url.hostname.includes("supabase.co") ||
+      url.pathname.includes("/rest/v1/") ||
+      url.pathname.includes("/functions/v1/")),
+  new StaleWhileRevalidate({
+    cacheName: "supabase-api-cache",
+    plugins: [
+      new CacheableResponsePlugin({
+        statuses: [0, 200],
+      }),
+      new ExpirationPlugin({
+        maxEntries: 100,
+        maxAgeSeconds: 24 * 60 * 60, // 24 hours
+      }),
+    ],
+  }),
 );
 
 // Offline fallback for full-page navigations (e.g. a hard refresh while offline).

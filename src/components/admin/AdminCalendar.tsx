@@ -1,8 +1,11 @@
 import React, { useState, useCallback, useMemo } from "react";
 import { Calendar, dateFnsLocalizer, View } from "react-big-calendar";
 import withDragAndDrop, { EventInteractionArgs } from "react-big-calendar/lib/addons/dragAndDrop";
-import { format, getDay, parse, startOfWeek } from "date-fns";
-import { enUS } from "date-fns/locale";
+import format from "date-fns/format";
+import getDay from "date-fns/getDay";
+import parse from "date-fns/parse";
+import startOfWeek from "date-fns/startOfWeek";
+import enUS from "date-fns/locale/en-US";
 import {
   Calendar as CalendarIcon,
   Clock,

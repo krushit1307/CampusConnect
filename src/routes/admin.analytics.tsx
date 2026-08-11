@@ -4,7 +4,9 @@ import type { User } from "@supabase/supabase-js";
 import { BarChart3, LayoutPanelLeft, X } from "lucide-react";
 import { toast } from "sonner";
 import type { DateRange } from "react-day-picker";
-import { differenceInDays, format, subDays } from "date-fns";
+import differenceInDays from "date-fns/differenceInDays";
+import format from "date-fns/format";
+import subDays from "date-fns/subDays";
 import {
   Area,
   AreaChart,
