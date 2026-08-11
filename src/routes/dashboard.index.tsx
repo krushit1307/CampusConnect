@@ -22,6 +22,7 @@ import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/Dashb
 import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
 import LazyHydrate from "@/components/LazyHydrate";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { WidgetErrorFallback } from "@/components/WidgetErrorFallback";
 interface Club {
   id: string;
   name: string;
@@ -749,14 +750,5 @@ function Widget({
 }
 
 function WidgetError({ title }: { title: string }) {
-  return (
-    <div className="neu-border bg-red-50 p-4 sm:p-6">
-      <div className="mb-4 flex items-center justify-between border-b-2 border-red-200 pb-3">
-        <h2 className="text-xl font-bold">{title}</h2>
-      </div>
-      <p className="font-mono text-sm text-red-600">
-        This widget failed to load. Other sections remain unaffected.
-      </p>
-    </div>
-  );
+  return <WidgetErrorFallback title={title} />;
 }
