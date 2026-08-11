@@ -118,6 +118,7 @@ import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
 import { CaptchaWidget } from "@/components/CaptchaWidget";
 import { Blurhash } from "react-blurhash";
 import { isValidBlurhash, DEFAULT_FALLBACK_BLURHASH } from "@/lib/blurhashUtils";
+import { EventDescriptionTranslation } from "@/components/events/EventDescriptionTranslation";
 
 /**
  * Hero banner for the event detail page.
@@ -1762,20 +1763,12 @@ export default function EventDetailsPage() {
             <div className="flex flex-col gap-8 lg:flex-row">
               <main className="flex-1 min-w-0">
                 {event.description ? (
-                  <p className="mt-4 whitespace-pre-line text-base leading-7 text-black/80">
-                    {event.description}
-                  </p>
+                  <EventDescriptionTranslation eventId={event.id} description={event.description} />
                 ) : (
                   <p className="mt-4 font-mono text-sm italic text-black/40">
                     No description provided for this event.
                   </p>
                 )}
-
-                <div
-                  id="event-description-container"
-                  className="prose prose-lg max-w-none dark:prose-invert prose-headings:scroll-mt-24"
-                  dangerouslySetInnerHTML={{ __html: event.description || "" }}
-                />
               </main>
               <aside className="lg:w-64 shrink-0">
                 <TableOfContents items={tocItems} />
