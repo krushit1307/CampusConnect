@@ -60,7 +60,7 @@ import {
 import PredictiveTurnout from "@/components/events/PredictiveTurnout";
 import LiveQA from "@/components/qa/LiveQA";
 import EventFeedbackForm from "@/components/EventFeedbackForm";
-import { CarpoolSection } from "@/components/events/carpool/CarpoolSection";
+import { CarpoolMatchingSection } from "@/components/events/carpool/CarpoolMatchingSection";
 import { EventLiveChat } from "@/components/events/EventLiveChat";
 import { ReportDialog } from "@/components/ReportDialog";
 import { GeofencedCheckInButton } from "@/components/GeofencedCheckInButton";
@@ -1842,9 +1842,9 @@ export default function EventDetailsPage() {
             <LiveQA eventId={eventId} userId={user?.id} isOrganizer={isOrganizer} />
           </div>
 
-          {/* Transportation / Carpool (Issue #2748) */}
+          {/* Transportation / Carpool Matching (Issue #2877) */}
           <div className="mt-8">
-            <CarpoolSection eventId={eventId} user={user} />
+            <CarpoolMatchingSection eventId={eventId} user={user} />
           </div>
 
           {/* Live Chat (Issue #2741) */}
