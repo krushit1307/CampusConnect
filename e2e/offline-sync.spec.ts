@@ -16,7 +16,10 @@ test.describe("Offline Synchronization E2E Suite (#2432)", () => {
     // Monitor network requests for POST /api/likes or /rest/v1/likes
     page.on("request", (request) => {
       const url = request.url();
-      if ((url.includes("/api/likes") || url.includes("/rest/v1/likes")) && request.method() === "POST") {
+      if (
+        (url.includes("/api/likes") || url.includes("/rest/v1/likes")) &&
+        request.method() === "POST"
+      ) {
         if (context.isOffline?.() || networkHitWhileOffline) {
           networkHitWhileOffline = true;
         }
@@ -32,19 +35,23 @@ test.describe("Offline Synchronization E2E Suite (#2432)", () => {
     await context.setOffline(true);
 
     // 3. Click the Like button on a post while offline
-    const likeButton = page.locator("[data-testid='like-button'], button:has-text('Like'), button[aria-label='Like']").first();
+    const likeButton = page
+      .locator("[data-testid='like-button'], button:has-text('Like'), button[aria-label='Like']")
+      .first();
     if (await likeButton.isVisible()) {
       await likeButton.click();
 
       // 4. Assert optimistic UI update and offline toast notification
-      const heartIcon = page.locator("[data-testid='heart-icon'], .text-red-500, [aria-pressed='true']").first();
-      if (await heartIcon.count() > 0) {
+      const heartIcon = page
+        .locator("[data-testid='heart-icon'], .text-red-500, [aria-pressed='true']")
+        .first();
+      if ((await heartIcon.count()) > 0) {
         await expect(heartIcon).toBeVisible();
       }
 
       // Assert Toast message or status indicator
       const offlineToast = page.locator("text=/Saved offline|Offline/i").first();
-      if (await offlineToast.count() > 0) {
+      if ((await offlineToast.count()) > 0) {
         await expect(offlineToast).toBeVisible();
       }
 
@@ -65,10 +72,10 @@ test.describe("Offline Synchronization E2E Suite (#2432)", () => {
     context,
   }) => {
     await page.goto("/");
-    
+
     // Simulate offline state
     await context.setOffline(true);
-    
+
     // Verify offline banner/toast or offline state handling
     await page.evaluate(() => {
       window.dispatchEvent(new Event("offline"));

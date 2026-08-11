@@ -22,6 +22,7 @@ export interface Profile {
   full_name: string | null;
   avatar_url: string | null;
   college: string | null;
+  major: string | null;
   bio: string | null;
   role: "student" | "club_admin";
   /** Fallback timestamp, kept for legacy queries but not used for primary sorting */
@@ -40,6 +41,7 @@ export interface Club {
   name: string;
   /** Unique URL slug for the club (e.g., 'robotics-society') */
   slug: string;
+  category: string | null;
   description: string | null;
   banner_url: string | null;
   logo_url: string | null;

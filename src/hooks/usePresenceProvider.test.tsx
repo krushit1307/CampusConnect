@@ -38,7 +38,7 @@ describe("Presence System", () => {
     render(
       <PresenceProvider>
         <div data-testid="test-child">Child Content</div>
-      </PresenceProvider>
+      </PresenceProvider>,
     );
     expect(screen.getByTestId("test-child")).toBeInTheDocument();
   });

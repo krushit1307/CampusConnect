@@ -3,7 +3,6 @@ import {
   buildResponsiveImageSrcSet,
   getOptimizedImageUrl,
   isSafeImageSrc,
-  isSupabasePublicImage,
 } from "@/lib/imageOptimization";
 
 interface OptimizedImageProps extends Omit<
@@ -35,50 +34,6 @@ export function OptimizedImage({
 }: OptimizedImageProps) {
   const [failed, setFailed] = useState(false);
 
-  const isPublic = useMemo(() => isSupabasePublicImage(src), [src]);
-
-  const avifSrc = useMemo(
-    () =>
-      isPublic
-        ? getOptimizedImageUrl(src, { width, height, quality, resize: "cover", format: "avif" })
-        : undefined,
-    [isPublic, src, width, height, quality],
-  );
-
-  const avifSrcSet = useMemo(
-    () =>
-      isPublic && responsiveWidths
-        ? buildResponsiveImageSrcSet(src, responsiveWidths, {
-            height,
-            quality,
-            resize: "cover",
-            format: "avif",
-          })
-        : undefined,
-    [isPublic, src, responsiveWidths, height, quality],
-  );
-
-  const webpSrc = useMemo(
-    () =>
-      isPublic
-        ? getOptimizedImageUrl(src, { width, height, quality, resize: "cover", format: "webp" })
-        : undefined,
-    [isPublic, src, width, height, quality],
-  );
-
-  const webpSrcSet = useMemo(
-    () =>
-      isPublic && responsiveWidths
-        ? buildResponsiveImageSrcSet(src, responsiveWidths, {
-            height,
-            quality,
-            resize: "cover",
-            format: "webp",
-          })
-        : undefined,
-    [isPublic, src, responsiveWidths, height, quality],
-  );
-
   const fallbackSrc = useMemo(
     () => getOptimizedImageUrl(src, { width, height, quality, resize: "cover" }),
     [src, width, height, quality],
@@ -99,39 +54,6 @@ export function OptimizedImage({
   const isSrcSafe = useMemo(() => isSafeImageSrc(fallbackSrc), [fallbackSrc]);
 
   if (failed || !isSrcSafe) return <>{fallback}</>;
-
-  if (isPublic) {
-    return (
-      <picture>
-        <source
-          type="image/avif"
-          srcSet={avifSrcSet || avifSrc}
-          sizes={avifSrcSet ? sizes : undefined}
-        />
-        <source
-          type="image/webp"
-          srcSet={webpSrcSet || webpSrc}
-          sizes={webpSrcSet ? sizes : undefined}
-        />
-        <img
-          {...imageProps}
-          src={fallbackSrc}
-          srcSet={fallbackSrcSet}
-          sizes={fallbackSrcSet ? sizes : undefined}
-          alt={alt}
-          width={width}
-          height={height}
-          loading={priority ? "eager" : "lazy"}
-          decoding="async"
-          fetchPriority={priority ? "high" : "auto"}
-          onError={(event) => {
-            setFailed(true);
-            onError?.(event);
-          }}
-        />
-      </picture>
-    );
-  }
 
   return (
     <img

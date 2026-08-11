@@ -211,6 +211,12 @@ function ResultCard({ result }: { result: VerificationResult }) {
                   : "—"}
               </span>
             </div>
+            {certificate.club && (
+              <div className="flex justify-between pb-1">
+                <span className="font-bold text-gray-600">Organizing Club</span>
+                <span className="font-bold text-black">{certificate.club}</span>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -72,7 +72,9 @@ export function BasicsStepForm() {
         >
           <option value="">Select a category…</option>
           {CATEGORIES.map((cat) => (
-            <option key={cat} value={cat}>{cat}</option>
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
           ))}
         </select>
         {validationErrors.category && (
@@ -96,9 +98,7 @@ export function BasicsStepForm() {
           }
           placeholder="e.g. hackathon, ai, beginners"
         />
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          {formData.tags.length}/10 tags
-        </p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">{formData.tags.length}/10 tags</p>
       </div>
     </div>
   );

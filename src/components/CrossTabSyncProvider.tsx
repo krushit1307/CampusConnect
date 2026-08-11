@@ -17,11 +17,11 @@ import { useAuthBroadcast } from "@/hooks/useAuthBroadcast";
 import { useThemeBroadcast } from "@/hooks/useThemeBroadcast";
 
 export function CrossTabSyncProvider() {
-    useAuthBroadcast();
-    useThemeBroadcast();
-    // Note: useCartBroadcast is called inside the cart UI component,
-    // not here, because the cart state needs to be scoped to the
-    // checkout component's lifecycle. The auth and theme hooks are
-    // global, so they live here.
-    return null;
+  useAuthBroadcast();
+  useThemeBroadcast();
+  // Note: useCartBroadcast is called inside the cart UI component,
+  // not here, because the cart state needs to be scoped to the
+  // checkout component's lifecycle. The auth and theme hooks are
+  // global, so they live here.
+  return null;
 }

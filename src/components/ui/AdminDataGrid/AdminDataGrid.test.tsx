@@ -26,13 +26,7 @@ const COLUMNS: ColumnDef<TestUser, unknown>[] = [
   {
     id: "select",
     header: "Select",
-    cell: ({ row }) => (
-      <input
-        type="checkbox"
-        data-testid={`check-${row.original.id}`}
-        readOnly
-      />
-    ),
+    cell: ({ row }) => <input type="checkbox" data-testid={`check-${row.original.id}`} readOnly />,
     enableSorting: false,
     enableColumnFilter: false,
     enableResizing: false,

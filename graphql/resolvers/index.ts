@@ -624,7 +624,7 @@ export const resolvers = {
 
       const { data, error } = await query;
       if (error) throw error;
-      
+
       const result = data || [];
       profilesCache.set(cacheKey, result);
       return result;

@@ -93,7 +93,7 @@ serve(async (req: Request) => {
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     const { error: deleteError } = await adminClient.auth.admin.updateUserById(secondary_id, {
-      ban_duration: '876000h'
+      ban_duration: "876000h",
     });
 
     if (deleteError) {

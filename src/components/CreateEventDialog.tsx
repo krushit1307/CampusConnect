@@ -293,26 +293,6 @@ export function CreateEventDialog({
         return { isOffline: true };
       }
 
-      const startDateIso = new Date(values.startDate).toISOString();
-      const endDateIso = new Date(values.endDate).toISOString();
-
-      const { error } = await supabase.from("events").insert({
-        title: values.title.trim(),
-        description: values.description.trim(),
-        location: values.location?.trim() || null,
-        start_date: startDateIso,
-        end_date: endDateIso,
-        event_date: startDateIso,
-        created_by: user.id,
-        club_id: myClub.id,
-        alcohol_present: !!values.alcoholPresent,
-        max_attendees: values.maxAttendees ? Number(values.maxAttendees) : null,
-        off_campus_speaker: !!values.offCampusSpeaker,
-        status: "draft", // default status
-      });
-
-      if (error) {
-        throw new Error(error.message);
       try {
         const { error } = await supabase.from("events").insert(payload);
         if (error) {
@@ -1039,10 +1019,6 @@ export function CreateEventDialog({
               </FormItem>
             </div>
 
-            <DialogFooter className="pt-2">
-              <Button type="submit" disabled={createEvent.isPending} className="w-full sm:w-auto">
-                {createEvent.isPending ? "Creating..." : "Create event"}
-              </Button>
             <DialogFooter className="pt-2 flex gap-2">
               {step > 0 && (
                 <Button type="button" variant="outline" onClick={handleBack}>

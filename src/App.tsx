@@ -49,6 +49,7 @@ import GalleryPage from "./routes/gallery";
 import { BreadcrumbProvider } from "@/components/BreadcrumbsContext";
 import AriaAnnouncer from "@/components/accessibility/AriaAnnouncer";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
+import { LoginRecoveryModal } from "@/components/auth/LoginRecoveryModal";
 import { MfaChallengeGuard } from "@/components/auth/MfaChallengeGuard";
 function RemoteLoadingScreen() {
   return (
@@ -112,6 +113,7 @@ const ClubNotesRoute = lazy(() => import("./routes/clubs.$slug.notes"));
 const ClubArticlesRoute = lazy(() => import("./routes/clubs.$slug.articles"));
 const ClubArticleDetailsRoute = lazy(() => import("./routes/clubs.$slug.articles.$articleId"));
 const ClubsLayout = lazy(() => import("./routes/clubs"));
+const ClubDiscoveryQuiz = lazy(() => import("./routes/clubs.fit"));
 const Dashboard = lazy(() => import("./routes/dashboard"));
 const DashboardOverview = lazy(() => import("./routes/dashboard.index"));
 const DashboardRsvps = lazy(() => import("./routes/dashboard.rsvps"));
@@ -188,6 +190,7 @@ const router = createBrowserRouter(
           <Route path="/verify" element={<VerifyCertificate />} />
           <Route path="/clubs" element={<ClubsLayout />}>
             <Route index element={<ClubsIndex />} />
+            <Route path="fit" element={<ClubDiscoveryQuiz />} />
             <Route path="new" element={<ClubNew />} />
             <Route path=":slug" element={<ClubDetails />} />
             <Route path=":slug/manage" element={<ClubManageRoute />} />
@@ -366,6 +369,7 @@ export default function App() {
             <LazyMotion features={loadDomAnimation} strict={import.meta.env.DEV}>
               <CommandPaletteProvider>
                 <OfflineIndicator />
+                <LoginRecoveryModal />
                 {/* Floating Dark Mode Toggle */}
                 <div className="fixed bottom-4 right-4 z-[9999]">
                   <ThemeToggle />

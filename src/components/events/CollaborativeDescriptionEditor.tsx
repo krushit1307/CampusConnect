@@ -103,9 +103,7 @@ export default function CollaborativeDescriptionEditor({
         // Monitor active collaborators via Presence
         provider.awareness.on("update", () => {
           const states = Array.from(provider.awareness.getStates().values());
-          const users = states
-            .map((s: any) => s.user?.name)
-            .filter(Boolean) as string[];
+          const users = states.map((s: any) => s.user?.name).filter(Boolean) as string[];
           setActiveUsers(Array.from(new Set(users)));
         });
 
@@ -169,7 +167,9 @@ export default function CollaborativeDescriptionEditor({
     return (
       <div className="flex flex-col items-center justify-center p-6 border-2 border-black bg-cream/30 min-h-[160px]">
         <Loader2 className="h-6 w-6 animate-spin text-black mb-2" />
-        <span className="font-mono text-xs font-bold text-gray-600">Connecting to collab board...</span>
+        <span className="font-mono text-xs font-bold text-gray-600">
+          Connecting to collab board...
+        </span>
       </div>
     );
   }

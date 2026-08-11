@@ -162,7 +162,8 @@ export default function RecapPage() {
                 You were quiet this year!
               </h2>
               <p className="font-mono text-sm text-black/80">
-                You didn&apos;t check in to any events during {year}. Let&apos;s change that next semester!
+                You didn&apos;t check in to any events during {year}. Let&apos;s change that next
+                semester!
               </p>
             </motion.div>
           );
@@ -319,7 +320,10 @@ export default function RecapPage() {
               <span className="font-mono text-xl font-bold uppercase">comments posted</span>
             </div>
             <p className="font-mono text-sm text-white/80">
-              Busiest month: <strong className="uppercase bg-white text-black px-2 py-0.5 border border-black">{recap.busiest_month}</strong>
+              Busiest month:{" "}
+              <strong className="uppercase bg-white text-black px-2 py-0.5 border border-black">
+                {recap.busiest_month}
+              </strong>
             </p>
           </motion.div>
         );

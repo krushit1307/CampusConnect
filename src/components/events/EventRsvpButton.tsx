@@ -8,6 +8,8 @@ import {
   getEventRsvpState,
   type EventRsvpState,
 } from "../../lib/waitlist";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
+import { ResumeDropzone } from "../resume/ResumeDropzone";
 
 interface EventRsvpButtonProps {
   eventId: string;
@@ -44,6 +46,7 @@ export function EventRsvpButton({
   const [state, setState] = useState<EventRsvpState | null>(initialState ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
 
   // Fetch the RSVP state on mount if no initial state was provided.
   useEffect(() => {
@@ -61,14 +64,27 @@ export function EventRsvpButton({
     };
   }, [eventId, userId, initialState]);
 
-  const handleJoin = async () => {
+  const handleJoinClick = () => {
     if (!userId) {
       setError("Please log in to RSVP.");
       return;
     }
+    if (state?.is_resume_required) {
+      setIsResumeModalOpen(true);
+    } else {
+      executeJoin();
+    }
+  };
+
+  const executeJoin = async (resumePath?: string) => {
+    if (!userId) return;
+
     setLoading(true);
     setError(null);
-    const result = await joinEventOrWaitlist(eventId, userId);
+    setIsResumeModalOpen(false);
+
+    const result = await joinEventOrWaitlist(eventId, userId, resumePath);
+
     setLoading(false);
     if (!result.success) {
       setError(result.error);
@@ -94,6 +110,26 @@ export function EventRsvpButton({
     setState(fresh);
     onRsvpChanged?.();
   };
+
+  const renderResumeModal = () => (
+    <Dialog open={isResumeModalOpen} onOpenChange={setIsResumeModalOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Resume Required</DialogTitle>
+          <DialogDescription>
+            The organizer requires a resume for this event. Please upload a PDF under 2MB.
+          </DialogDescription>
+        </DialogHeader>
+        {userId && (
+          <ResumeDropzone
+            eventId={eventId}
+            userId={userId}
+            onUploadSuccess={(path) => executeJoin(path)}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
 
   // ── Loading state ──────────────────────────────────────────────
   if (state === null) {
@@ -149,9 +185,7 @@ export function EventRsvpButton({
             <Clock className="h-4 w-4" aria-hidden="true" />
             On Waitlist
             {state.user_waitlist_position && (
-              <span className="font-mono text-xs">
-                (#{state.user_waitlist_position})
-              </span>
+              <span className="font-mono text-xs">(#{state.user_waitlist_position})</span>
             )}
           </Button>
           <Button
@@ -177,6 +211,7 @@ export function EventRsvpButton({
   if (state.is_full) {
     return (
       <div className="flex flex-col gap-2">
+        {renderResumeModal()}
         <div
           className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
           role="status"
@@ -185,11 +220,15 @@ export function EventRsvpButton({
           <span>
             <strong>Event Full</strong>
             {state.waitlist_count > 0 && (
-              <> — {state.waitlist_count} {state.waitlist_count === 1 ? "person" : "people"} on Waitlist</>
+              <>
+                {" "}
+                — {state.waitlist_count} {state.waitlist_count === 1 ? "person" : "people"} on
+                Waitlist
+              </>
             )}
           </span>
         </div>
-        <Button onClick={handleJoin} disabled={loading} size="lg" className="gap-2">
+        <Button onClick={handleJoinClick} disabled={loading} size="lg" className="gap-2">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
           Join Waitlist
         </Button>
@@ -201,7 +240,8 @@ export function EventRsvpButton({
   // ── Not RSVPed, spots available → RSVP NOW ──────────────────────
   return (
     <div className="flex flex-col gap-2">
-      <Button onClick={handleJoin} disabled={loading} size="lg" className="gap-2">
+      {renderResumeModal()}
+      <Button onClick={handleJoinClick} disabled={loading} size="lg" className="gap-2">
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
         RSVP NOW
       </Button>
