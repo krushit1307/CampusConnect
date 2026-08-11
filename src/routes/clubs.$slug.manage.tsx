@@ -16,7 +16,9 @@ import {
   Trash2,
   RefreshCw,
   BarChart3,
+  AlertTriangle,
 } from "lucide-react";
+import { HoldToConfirmButton } from "@/components/ui/HoldToConfirmButton";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 import DiffViewer from "@/components/Editor/DiffViewer";
@@ -170,6 +172,64 @@ export default function ClubManageRoute() {
     onError: (err: Error) => {
       toast.error(err.message || "Failed to restore event");
     },
+  });
+
+  // Form State
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [bannerUrl, setBannerUrl] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [visibility, setVisibility] = useState<"public" | "private">("public");
+  const [githubRepoUrl, setGithubRepoUrl] = useState("");
+  const [twitterUrl, setTwitterUrl] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [socialLinksOrder, setSocialLinksOrder] = useState<string[]>([
+    "website",
+    "twitter",
+    "instagram",
+  ]);
+  const [promoVideoUrl, setPromoVideoUrl] = useState("");
+  const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
+  const [serverClub, setServerClub] = useState<ServerClub | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+  }, [supabase]);
+
+  const {
+    data: club,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["club_manage", slug],
+    queryFn: async () => {
+      if (!user) throw new Error("Not logged in");
+
+      const { data, error } = await supabase
+        .from("clubs")
+        .select(
+          `
+          id, name, slug, description, banner_url, logo_url, visibility, github_repo_url, social_links, social_links_order, promo_video_url, version,
+          club_members (id, club_id, role, status, user_id, joined_at, created_at, removed_at, termination_reason, can_edit_events, can_manage_finance, can_remove_members, can_post_news, can_manage_permissions, profiles (full_name, avatar_url, handle)),
+          events (id, title, event_date, max_attendees, event_rsvps(id))
+        `,
+        )
+        .eq("slug", slug)
+        .single();
+
+      if (error) throw error;
+
+      const currentMember = data.club_members.find(
+        (m: { user_id: string; role: string }) => m.user_id === user.id,
+      );
+      if (!currentMember || currentMember.role !== "admin") {
+        throw new Error("Unauthorized");
+      }
+
+      return data;
+    },
+    enabled: !!user,
   });
 
   useEffect(() => {
@@ -667,6 +727,37 @@ export default function ClubManageRoute() {
                     {updateClubMutation.isPending ? "Saving..." : "Save Settings"}
                   </button>
                 </form>
+
+                <div className="neu-border border-red-500 bg-red-50/30 p-6 space-y-4 mt-8">
+                  <h3 className="font-display text-xl font-bold text-red-600 flex items-center gap-2">
+                    <AlertTriangle size={20} className="text-red-600" /> Danger Zone
+                  </h3>
+                  <p className="font-mono text-sm text-gray-700">
+                    Deleting this club is a permanent action. Click and hold the button below for 3
+                    seconds (or press Enter/Space for confirmation dialog) to execute deletion.
+                  </p>
+                  <div>
+                    <HoldToConfirmButton
+                      onConfirm={async () => {
+                        try {
+                          const { error } = await supabase.from("clubs").delete().eq("id", club.id);
+                          if (error) throw error;
+                          toast.success("Club deleted successfully");
+                          navigate("/clubs");
+                        } catch (err: any) {
+                          toast.error(err?.message || "Failed to delete club");
+                        }
+                      }}
+                      holdDuration={3000}
+                      confirmTitle="Delete Club permanently?"
+                      confirmDescription={`Are you sure you want to permanently delete "${club.name}"? This action cannot be undone.`}
+                      confirmText="Delete Club"
+                      variant="destructive"
+                    >
+                      Hold for 3s to Delete Club
+                    </HoldToConfirmButton>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -707,10 +798,15 @@ export default function ClubManageRoute() {
                           role: string;
                           status: string;
                           user_id: string;
-                          joined_at: string | null;
+                          club_id?: string;
+                          joined_at?: string | null;
+                          created_at?: string;
+                          removed_at?: string | null;
+                          termination_reason?: string | null;
                           profiles: unknown;
                         }) => ({
                           ...m,
+                          club_id: m.club_id || club.id,
                           role: optimisticRoles[m.id] || m.role,
                         }),
                       )}

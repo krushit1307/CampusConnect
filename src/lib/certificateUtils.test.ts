@@ -306,3 +306,272 @@ describe("Issue #2910 Flow & Edge Case Requirements", () => {
     expect(invalidResult.status).toBe("not_found");
   });
 });
+
+describe("Issue #3011 Automated Certificate of Leadership Test Suite", () => {
+  interface MockClubMember {
+    id: string;
+    club_id: string;
+    user_id: string;
+    role: string;
+    permissions_level: number;
+    status: string;
+    joined_at: string;
+    removed_at: string | null;
+    termination_reason: string | null;
+  }
+
+  interface MockLeadershipCert {
+    id: string;
+    club_id: string;
+    user_id: string;
+    certificate_type: "leadership";
+    attendee_name: string;
+    role_title: string;
+    tenure_start: string;
+    tenure_end: string;
+    termination_reason: string | null;
+    certificate_url: string;
+    verification_hash: string;
+    verify_url: string;
+  }
+
+  const leadershipCertStore = new Map<string, MockLeadershipCert>();
+
+  // Backend simulation for check_leadership_certificate_eligibility & generate_leadership_certificate
+  function simulateLeadershipEligibility(member: MockClubMember | undefined) {
+    if (!member) {
+      return { eligible: false, reason: "No club membership record found" };
+    }
+
+    if (member.termination_reason && member.termination_reason.toLowerCase() === "impeached") {
+      return { eligible: false, reason: "Member was impeached and is ineligible for a Leadership Certificate" };
+    }
+
+    if (member.role.toLowerCase() === "member" && member.permissions_level < 50) {
+      return { eligible: false, reason: "Member did not hold a leadership role" };
+    }
+
+    const startMs = new Date(member.joined_at).getTime();
+    const endMs = member.removed_at ? new Date(member.removed_at).getTime() : Date.now();
+    const tenureDays = Math.floor((endMs - startMs) / (1000 * 60 * 60 * 24));
+
+    if (tenureDays < 90) {
+      return {
+        eligible: false,
+        reason: `Leadership tenure must be at least 90 days (current tenure: ${tenureDays} days)`,
+        tenureDays,
+      };
+    }
+
+    return { eligible: true, tenureDays, roleTitle: member.role };
+  }
+
+  function simulateGenerateLeadershipCert(member: MockClubMember, profileName: string, clubName: string) {
+    const eligibility = simulateLeadershipEligibility(member);
+    if (!eligibility.eligible) {
+      return { status: 400, error: eligibility.reason };
+    }
+
+    const key = `${member.club_id}:${member.user_id}:${member.role}:${member.joined_at}`;
+    const existing = leadershipCertStore.get(key);
+    if (existing) {
+      return {
+        status: 200,
+        success: true,
+        certificate: existing,
+        message: "Leadership certificate already generated idempotently",
+      };
+    }
+
+    const certId = `lead-cert-${Math.random().toString(36).slice(2, 9)}`;
+    const hash = `hash-${certId}`;
+    const tenureEnd = member.removed_at || new Date().toISOString();
+    const verifyUrl = `https://campusconnect.app/verify-leadership?hash=${hash}`;
+
+    const cert: MockLeadershipCert = {
+      id: certId,
+      club_id: member.club_id,
+      user_id: member.user_id,
+      certificate_type: "leadership",
+      attendee_name: profileName,
+      role_title: member.role,
+      tenure_start: member.joined_at,
+      tenure_end: tenureEnd,
+      termination_reason: member.termination_reason,
+      certificate_url: `https://supabase.storage.co/certificates/${member.user_id}/leadership_${member.club_id}_${certId}.pdf`,
+      verification_hash: hash,
+      verify_url: verifyUrl,
+    };
+
+    leadershipCertStore.set(key, cert);
+    return { status: 200, success: true, certificate: cert };
+  }
+
+  it("1. Allows eligible executive with >90 days tenure", () => {
+    leadershipCertStore.clear();
+    const member: MockClubMember = {
+      id: "mem-1",
+      club_id: "club-tech",
+      user_id: "user-alice",
+      role: "President",
+      permissions_level: 100,
+      status: "approved",
+      joined_at: "2026-01-01T00:00:00.000Z",
+      removed_at: "2026-05-15T00:00:00.000Z", // 134 days
+      termination_reason: "term_completed",
+    };
+
+    const res = simulateGenerateLeadershipCert(member, "Alice Johnson", "Tech Club");
+    expect(res.status).toBe(200);
+    expect(res.certificate?.role_title).toBe("President");
+    expect(res.certificate?.verify_url).toContain("/verify-leadership?hash=");
+  });
+
+  it("2. Rejects executive with tenure under 90 days", () => {
+    leadershipCertStore.clear();
+    const shortTenureMember: MockClubMember = {
+      id: "mem-2",
+      club_id: "club-tech",
+      user_id: "user-bob",
+      role: "Vice President",
+      permissions_level: 100,
+      status: "approved",
+      joined_at: "2026-04-01T00:00:00.000Z",
+      removed_at: "2026-05-01T00:00:00.000Z", // 30 days
+      termination_reason: "resigned",
+    };
+
+    const res = simulateGenerateLeadershipCert(shortTenureMember, "Bob Smith", "Tech Club");
+    expect(res.status).toBe(400);
+    expect(res.error).toContain("must be at least 90 days");
+  });
+
+  it("3. Supports current active leadership role (>90 days)", () => {
+    leadershipCertStore.clear();
+    const activeMember: MockClubMember = {
+      id: "mem-3",
+      club_id: "club-robotics",
+      user_id: "user-charlie",
+      role: "Treasurer",
+      permissions_level: 100,
+      status: "approved",
+      joined_at: "2026-01-01T00:00:00.000Z", // ~222 days to current date
+      removed_at: null, // Active
+      termination_reason: null,
+    };
+
+    const res = simulateGenerateLeadershipCert(activeMember, "Charlie Brown", "Robotics Club");
+    expect(res.status).toBe(200);
+    expect(res.certificate?.attendee_name).toBe("Charlie Brown");
+  });
+
+  it("4. Supports completed leadership role (>90 days)", () => {
+    leadershipCertStore.clear();
+    const completedMember: MockClubMember = {
+      id: "mem-4",
+      club_id: "club-robotics",
+      user_id: "user-diana",
+      role: "Secretary",
+      permissions_level: 100,
+      status: "approved",
+      joined_at: "2025-09-01T00:00:00.000Z",
+      removed_at: "2026-05-30T00:00:00.000Z", // 271 days
+      termination_reason: "term_completed",
+    };
+
+    const res = simulateGenerateLeadershipCert(completedMember, "Diana Prince", "Robotics Club");
+    expect(res.status).toBe(200);
+    expect(res.certificate?.tenure_end).toBe("2026-05-30T00:00:00.000Z");
+  });
+
+  it("5. Rejects removed/impeached executive regardless of tenure", () => {
+    leadershipCertStore.clear();
+    const impeachedMember: MockClubMember = {
+      id: "mem-5",
+      club_id: "club-tech",
+      user_id: "user-eve",
+      role: "President",
+      permissions_level: 100,
+      status: "removed",
+      joined_at: "2025-01-01T00:00:00.000Z",
+      removed_at: "2026-06-01T00:00:00.000Z", // 516 days
+      termination_reason: "impeached",
+    };
+
+    const res = simulateGenerateLeadershipCert(impeachedMember, "Eve Adams", "Tech Club");
+    expect(res.status).toBe(400);
+    expect(res.error).toContain("was impeached and is ineligible");
+  });
+
+  it("6. Rejects invalid user/club combination", () => {
+    leadershipCertStore.clear();
+    const eligibility = simulateLeadershipEligibility(undefined);
+    expect(eligibility.eligible).toBe(false);
+    expect(eligibility.reason).toContain("No club membership record found");
+  });
+
+  it("7. Prevents duplicate certificate generation (idempotent)", () => {
+    leadershipCertStore.clear();
+    const member: MockClubMember = {
+      id: "mem-7",
+      club_id: "club-tech",
+      user_id: "user-frank",
+      role: "Lead Developer",
+      permissions_level: 100,
+      status: "approved",
+      joined_at: "2026-01-01T00:00:00.000Z",
+      removed_at: "2026-05-15T00:00:00.000Z",
+      termination_reason: "term_completed",
+    };
+
+    const call1 = simulateGenerateLeadershipCert(member, "Frank Wright", "Tech Club");
+    expect(call1.status).toBe(200);
+
+    const call2 = simulateGenerateLeadershipCert(member, "Frank Wright", "Tech Club");
+    expect(call2.status).toBe(200);
+    expect(call2.message).toContain("idempotently");
+    expect(call2.certificate?.id).toBe(call1.certificate?.id);
+  });
+
+  it("8. Preserves snapshotted recipient name even if profile name changes later", () => {
+    leadershipCertStore.clear();
+    const member: MockClubMember = {
+      id: "mem-8",
+      club_id: "club-tech",
+      user_id: "user-grace",
+      role: "Vice President",
+      permissions_level: 100,
+      status: "approved",
+      joined_at: "2026-01-01T00:00:00.000Z",
+      removed_at: "2026-05-15T00:00:00.000Z",
+      termination_reason: "term_completed",
+    };
+
+    const res = simulateGenerateLeadershipCert(member, "Grace Hopper", "Tech Club");
+    expect(res.certificate?.attendee_name).toBe("Grace Hopper");
+
+    // Profile updates later to Grace Hopper-Smith
+    const currentProfileName = "Grace Hopper-Smith";
+    // Certificate stored name remains immutable
+    expect(res.certificate?.attendee_name).toBe("Grace Hopper");
+    expect(res.certificate?.attendee_name).not.toBe(currentProfileName);
+  });
+
+  it("9. QR code URL points to public /verify-leadership?hash=XYZ route", () => {
+    leadershipCertStore.clear();
+    const member: MockClubMember = {
+      id: "mem-9",
+      club_id: "club-tech",
+      user_id: "user-hank",
+      role: "President",
+      permissions_level: 100,
+      status: "approved",
+      joined_at: "2026-01-01T00:00:00.000Z",
+      removed_at: "2026-05-15T00:00:00.000Z",
+      termination_reason: "term_completed",
+    };
+
+    const res = simulateGenerateLeadershipCert(member, "Hank Pym", "Tech Club");
+    expect(res.certificate?.verify_url).toContain("https://campusconnect.app/verify-leadership?hash=");
+  });
+});

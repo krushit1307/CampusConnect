@@ -354,10 +354,12 @@ serve(async (req) => {
         emailSent = true;
       }
 
-    if (ledgerError) {
-      console.warn(
-        `Failed to store ledger hash for certificate ${certRow.id}: ${ledgerError.message}`,
-      );
+      if (emailSent) {
+        await supabase
+          .from("certificates")
+          .update({ email_sent_at: new Date().toISOString() })
+          .eq("id", certId);
+      }
     }
 
     return new Response(
