@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { Eye } from "lucide-react";
 import {
   ShieldAlert,
   CheckCircle,
@@ -303,7 +304,42 @@ export default function AdminUsersPage() {
     },
     [copyToClipboard],
   );
+const handleImpersonate = useCallback(async (profile: Profile) => {
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
+    if (!session?.access_token) {
+      toast.error("Admin session not found.");
+      return;
+    }
+
+    const response = await fetch("/api/admin/impersonate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        target_user_id: profile.id,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to impersonate user.");
+    }
+
+    sessionStorage.setItem("impersonation_token", data.token);
+    sessionStorage.setItem("impersonated_user", JSON.stringify(data.user));
+
+    window.location.reload();
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : "Failed to impersonate user.");
+  }
+}, [supabase]);
   // Edit quick action
   const openEditDialog = useCallback((profile: Profile) => {
     setEditingProfile(profile);
@@ -417,7 +453,13 @@ export default function AdminUsersPage() {
               exportFilename="campus-users-export"
               renderRowContextMenu={(profile) => (
                 <>
-                  <ContextMenuItem
+<ContextMenuItem
+  className="cursor-pointer gap-2 rounded-none focus:bg-lime focus:text-black"
+  onSelect={() => void handleImpersonate(profile)}
+>
+  <Eye className="h-3.5 w-3.5" />
+  Impersonate
+</ContextMenuItem>                  <ContextMenuItem
                     className="cursor-pointer gap-2 rounded-none focus:bg-lime focus:text-black"
                     onSelect={() => openEditDialog(profile)}
                   >

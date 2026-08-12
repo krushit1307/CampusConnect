@@ -4,12 +4,13 @@ import { useServer } from "graphql-ws/lib/use/ws";
 import express from "express";
 import { yoga, schema, pubsub } from "./server";
 import { createClient } from "../src/lib/supabase/client";
-
+import { handleImpersonation } from "./impersonation";
 const app = express();
 
+app.use(express.json());
+import { handleImpersonation } from "./impersonation";
 // Bind GraphQL Yoga as middleware
 app.use(yoga.graphqlEndpoint, yoga);
-
 const server = http.createServer(app);
 
 // Setup WebSocket server
