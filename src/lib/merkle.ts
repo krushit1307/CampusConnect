@@ -24,7 +24,7 @@ export class MerkleTree {
   constructor(depth: number, leaves: bigint[]) {
     this.depth = depth;
     const maxLeaves = 1 << depth;
-    
+
     // Fill up to maxLeaves with 0n
     this.leaves = [...leaves];
     while (this.leaves.length < maxLeaves) {

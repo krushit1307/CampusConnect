@@ -1,5 +1,7 @@
 import React from "react";
-import { Calendar, Check, Link as LinkIcon } from "lucide-react";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Check from "lucide-react/dist/esm/icons/check";
+import LinkIcon from "lucide-react/dist/esm/icons/link";
 import { toast } from "sonner";
 import { getIcsContent } from "@/lib/utils";
 import { Button } from "@/components/ui/button";

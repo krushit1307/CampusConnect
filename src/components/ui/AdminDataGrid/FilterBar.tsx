@@ -1,14 +1,11 @@
 import React, { useState, useCallback } from "react";
 import { type Column, type ColumnDef } from "@tanstack/react-table";
-import { PlusCircle, X, Filter } from "lucide-react";
+import PlusCircle from "lucide-react/dist/esm/icons/plus-circle";
+import X from "lucide-react/dist/esm/icons/x";
+import Filter from "lucide-react/dist/esm/icons/filter";
 
 export type FilterOperator =
-  | "contains"
-  | "equals"
-  | "startsWith"
-  | "endsWith"
-  | "isEmpty"
-  | "isNotEmpty";
+  "contains" | "equals" | "startsWith" | "endsWith" | "isEmpty" | "isNotEmpty";
 
 export interface FilterRule {
   id: string;
@@ -46,9 +43,7 @@ export function FilterBar<TData>({
   const [draftOperator, setDraftOperator] = useState<FilterOperator>("contains");
   const [draftValue, setDraftValue] = useState("");
 
-  const filterableColumns = columns.filter(
-    (col) => col.id !== "select" && col.id !== "actions",
-  );
+  const filterableColumns = columns.filter((col) => col.id !== "select" && col.id !== "actions");
 
   const handleAddFilter = useCallback(() => {
     if (!draftColumnId) return;
@@ -70,8 +65,7 @@ export function FilterBar<TData>({
     [filterRules, onFilterRulesChange],
   );
 
-  const noValueNeeded =
-    draftOperator === "isEmpty" || draftOperator === "isNotEmpty";
+  const noValueNeeded = draftOperator === "isEmpty" || draftOperator === "isNotEmpty";
 
   return (
     <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
@@ -129,7 +123,10 @@ export function FilterBar<TData>({
           >
             {/* Column selector */}
             <div className="space-y-1">
-              <label htmlFor="filter-column-select" className="font-bold uppercase text-[10px] text-gray-600">
+              <label
+                htmlFor="filter-column-select"
+                className="font-bold uppercase text-[10px] text-gray-600"
+              >
                 Column
               </label>
               <select
@@ -151,7 +148,10 @@ export function FilterBar<TData>({
 
             {/* Operator selector */}
             <div className="space-y-1">
-              <label htmlFor="filter-operator-select" className="font-bold uppercase text-[10px] text-gray-600">
+              <label
+                htmlFor="filter-operator-select"
+                className="font-bold uppercase text-[10px] text-gray-600"
+              >
                 Operator
               </label>
               <select
@@ -171,7 +171,10 @@ export function FilterBar<TData>({
             {/* Value input */}
             {!noValueNeeded && (
               <div className="space-y-1">
-                <label htmlFor="filter-value-input" className="font-bold uppercase text-[10px] text-gray-600">
+                <label
+                  htmlFor="filter-value-input"
+                  className="font-bold uppercase text-[10px] text-gray-600"
+                >
                   Value
                 </label>
                 <input

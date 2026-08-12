@@ -11,7 +11,9 @@ import { useSessionRecoveryStore } from "@/store/useSessionRecoveryStore";
 import { processQueue } from "@/lib/sessionRecovery";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { Lock, Loader2, AlertCircle } from "lucide-react";
+import Lock from "lucide-react/dist/esm/icons/lock";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
 
 export function LoginRecoveryModal() {
   const { isOpen, userEmail, error, isSubmitting, setError, setSubmitting, closeModal } =

@@ -82,8 +82,7 @@ export function EventCreationWizard({ onSubmit }: EventCreationWizardProps) {
       // Clear the persisted localStorage state on success.
       resetWizard();
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Submission failed. Please try again.";
+      const message = err instanceof Error ? err.message : "Submission failed. Please try again.";
       setSubmissionError(message);
     }
   };

@@ -1,6 +1,7 @@
 import React from "react";
 import { useLocation, Link } from "react-router-dom";
-import { ChevronRight, Home } from "lucide-react";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import Home from "lucide-react/dist/esm/icons/home";
 
 interface AutoBreadcrumbsProps {
   customLabels?: Record<string, string>;

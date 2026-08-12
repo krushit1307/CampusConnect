@@ -1,23 +1,21 @@
 import React, { useState, useMemo } from "react";
-import {
-  Users,
-  CheckSquare,
-  Plus,
-  Trash2,
-  CheckCircle2,
-  Circle,
-  Clock,
-  Filter,
-  Search,
-  Sparkles,
-  TrendingUp,
-  AlertTriangle,
-  UserPlus,
-  Shield,
-  Tag,
-  DollarSign,
-  PieChart,
-} from "lucide-react";
+import Users from "lucide-react/dist/esm/icons/users";
+import CheckSquare from "lucide-react/dist/esm/icons/check-square";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import Circle from "lucide-react/dist/esm/icons/circle";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import Filter from "lucide-react/dist/esm/icons/filter";
+import Search from "lucide-react/dist/esm/icons/search";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import TrendingUp from "lucide-react/dist/esm/icons/trending-up";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import UserPlus from "lucide-react/dist/esm/icons/user-plus";
+import Shield from "lucide-react/dist/esm/icons/shield";
+import Tag from "lucide-react/dist/esm/icons/tag";
+import DollarSign from "lucide-react/dist/esm/icons/dollar-sign";
+import PieChart from "lucide-react/dist/esm/icons/pie-chart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";

@@ -66,7 +66,7 @@ export interface EventWizardStore {
  */
 export function validateStep(
   stepIndex: number,
-  formData: EventWizardFormData
+  formData: EventWizardFormData,
 ): { errors: Record<string, string>; isValid: boolean } {
   const step = WIZARD_STEPS[stepIndex];
   if (!step || !step.schema) {
@@ -75,7 +75,11 @@ export function validateStep(
 
   // Extract only the fields this step's schema cares about, so that
   // partially-filled fields from later steps don't trigger errors.
-  const stepShape = step.schema.shape as Record<string, z.ZodTypeAny>;
+  let baseSchema: z.ZodTypeAny = step.schema as any;
+  while (baseSchema instanceof z.ZodEffects) {
+    baseSchema = baseSchema.innerType();
+  }
+  const stepShape = (baseSchema as z.ZodObject<any>).shape as Record<string, z.ZodTypeAny>;
   const stepData: Record<string, unknown> = {};
   for (const key of Object.keys(stepShape)) {
     stepData[key] = (formData as Record<string, unknown>)[key];
@@ -100,9 +104,10 @@ export function validateStep(
  * Helper: validate the entire form against the master schema.
  * Used on the final step before submitting to Supabase.
  */
-export function validateMaster(
-  formData: EventWizardFormData
-): { errors: Record<string, string>; isValid: boolean } {
+export function validateMaster(formData: EventWizardFormData): {
+  errors: Record<string, string>;
+  isValid: boolean;
+} {
   const result = eventWizardMasterSchema.safeParse(formData);
   if (result.success) {
     return { errors: {}, isValid: true };
@@ -224,8 +229,8 @@ export const useEventWizardStore = create<EventWizardStore>()(
         step: state.step,
         formData: state.formData,
       }),
-    }
-  )
+    },
+  ),
 );
 
 /**

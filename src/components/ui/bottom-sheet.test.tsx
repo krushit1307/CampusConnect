@@ -23,12 +23,7 @@ describe("BottomSheet Component (#1734)", () => {
   it("calls onClose when close button is clicked", () => {
     const handleClose = vi.fn();
     render(
-      <BottomSheet
-        isOpen={true}
-        onClose={handleClose}
-        title="Test Drawer"
-        showCloseButton={true}
-      >
+      <BottomSheet isOpen={true} onClose={handleClose} title="Test Drawer" showCloseButton={true}>
         <div>Content</div>
       </BottomSheet>,
     );
@@ -41,12 +36,7 @@ describe("BottomSheet Component (#1734)", () => {
 
   it("renders with custom snapPoints configuration", () => {
     render(
-      <BottomSheet
-        isOpen={true}
-        onClose={vi.fn()}
-        title="SnapPoint Drawer"
-        snapPoints={[0.5, 1]}
-      >
+      <BottomSheet isOpen={true} onClose={vi.fn()} title="SnapPoint Drawer" snapPoints={[0.5, 1]}>
         <div>SnapPoint Body</div>
       </BottomSheet>,
     );

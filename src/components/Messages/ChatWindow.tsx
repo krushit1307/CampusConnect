@@ -1,5 +1,6 @@
 import { useRef, useEffect } from "react";
-import { Lock, AlertTriangle } from "lucide-react";
+import Lock from "lucide-react/dist/esm/icons/lock";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
 import { useChatStore } from "@/store/useChatStore";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";

@@ -20,7 +20,7 @@ pub async fn run_postgres_listener(config: Config, broadcaster: Arc<Broadcaster>
 
                 // Spawn connection handler task
                 let stream_task = tokio::spawn(async move {
-                    if let Err(e) = futures_util::future::poll_fn(|cx| connection.poll_message(cx)).await {
+                    if let Err(e) = connection.await {
                         error!("Postgres connection error: {}", e);
                     }
                 });

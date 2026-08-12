@@ -5,7 +5,8 @@ import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEventAvailability } from "@/hooks/useEventAvailability";
 import { HeatmapCalendar } from "@/components/Availability/HeatmapCalendar";
-import { ArrowLeft, Users } from "lucide-react";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Users from "lucide-react/dist/esm/icons/users";
 
 export default function EventAvailabilityPage() {
   const { eventId = "" } = useParams();

@@ -9,17 +9,15 @@
  */
 
 import { useEffect, useState } from "react";
-import {
-  Fingerprint,
-  Key,
-  Loader2,
-  Plus,
-  Trash2,
-  Pencil,
-  Check,
-  X,
-  ShieldCheck,
-} from "lucide-react";
+import Fingerprint from "lucide-react/dist/esm/icons/fingerprint";
+import Key from "lucide-react/dist/esm/icons/key";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import Pencil from "lucide-react/dist/esm/icons/pencil";
+import Check from "lucide-react/dist/esm/icons/check";
+import X from "lucide-react/dist/esm/icons/x";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
 import { toast } from "sonner";
 import { useWebAuthn, type PasskeyCredential } from "@/hooks/useWebAuthn";
 

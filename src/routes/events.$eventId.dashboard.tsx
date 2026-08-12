@@ -5,7 +5,7 @@ import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import ReactECharts from "echarts-for-react";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
 import { ChartSkeleton } from "@/components/ui/ChartSkeleton";
 
 const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));

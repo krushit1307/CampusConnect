@@ -9,7 +9,8 @@ import { DateRangePicker } from "./DateRangePicker";
 import { TicketTiers } from "./TicketTiers";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "../ui/card";
-import { Save, Loader2 } from "lucide-react";
+import Save from "lucide-react/dist/esm/icons/save";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import { toast } from "sonner";
 
 interface EventFormProps {

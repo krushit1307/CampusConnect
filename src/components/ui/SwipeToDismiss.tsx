@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { LazyMotion, m, useMotionValue, useTransform, animate, type PanInfo } from "framer-motion";
-import { Trash2 } from "lucide-react";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
 import { loadDomMax } from "@/lib/motionFeatures";
 
 // How far (px) the card must travel before we treat it as a deliberate dismiss.

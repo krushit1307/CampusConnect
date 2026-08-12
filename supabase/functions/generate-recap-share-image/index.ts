@@ -61,7 +61,9 @@ async function fetchUserProfile(userId: string): Promise<any> {
 }
 
 function buildTemplate(recap: any, profile: any, year: number) {
-  const name = profile ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() : "Student";
+  const name = profile
+    ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim()
+    : "Student";
   const handle = profile?.handle ? `@${profile.handle}` : "";
 
   return {
@@ -225,7 +227,8 @@ function buildTemplate(recap: any, profile: any, year: number) {
                           fontWeight: "bold",
                           color: "#000000",
                         },
-                        children: recap.user_percentile <= 10 ? `Top ${recap.user_percentile}%` : "Active",
+                        children:
+                          recap.user_percentile <= 10 ? `Top ${recap.user_percentile}%` : "Active",
                       },
                     },
                     {
@@ -360,9 +363,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     });
   } catch (err: any) {
     console.error("[generate-recap-share-image] Render error:", err);
-    return new Response(JSON.stringify({ error: "Failed to render share image.", details: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: "Failed to render share image.", details: err.message }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 });

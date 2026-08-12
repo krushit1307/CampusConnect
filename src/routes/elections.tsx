@@ -4,7 +4,13 @@ import { useQuery, useMutation, queryClient } from "@/hooks/useReactQueryReplace
 import { createClient } from "@/lib/supabase/client";
 import { generateVoteProof } from "@/lib/zkp";
 import { MerkleTree, hash1, stringToBigInt } from "@/lib/merkle";
-import { ShieldCheck, Vote, Loader2, Sparkles, Plus, AlertCircle, CheckCircle } from "lucide-react";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import Vote from "lucide-react/dist/esm/icons/vote";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
 import { toast } from "sonner";
 
 interface Election {
@@ -39,10 +45,17 @@ export default function Elections() {
   const [isGeneratingProof, setIsGeneratingProof] = useState(false);
 
   // Fetch elections list
-  const { data: elections = [], isLoading: isLoadingElections, refetch: refetchElections } = useQuery<Election[]>({
+  const {
+    data: elections = [],
+    isLoading: isLoadingElections,
+    refetch: refetchElections,
+  } = useQuery<Election[]>({
     queryKey: ["elections"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("elections").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("elections")
+        .select("*")
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -84,11 +97,14 @@ export default function Elections() {
       const title = `Student Council Election ${new Date().getFullYear()} - ${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
       // Generate 8 mock voter tokens
-      const mockTokens = Array.from({ length: 8 }, (_, i) => `voter-token-${i + 1}-${Math.floor(Math.random() * 1000)}`);
-      
+      const mockTokens = Array.from(
+        { length: 8 },
+        (_, i) => `voter-token-${i + 1}-${Math.floor(Math.random() * 1000)}`,
+      );
+
       // Calculate leaf commitments
       const commitments = mockTokens.map((t) => hash1(stringToBigInt(t)));
-      
+
       // Build Merkle tree of depth 8
       const tree = new MerkleTree(8, commitments);
       const root = tree.getRoot().toString();
@@ -117,11 +133,11 @@ export default function Elections() {
       toast.success("Mock election created successfully!");
       refetchElections();
       setSelectedElectionId(data.election.id);
-      
+
       // Open modal or alert showing tokens to user for copy-pasting
       const tokensStr = data.mockTokens.join("\n");
       alert(
-        `Mock Election Created!\n\nHere are 8 eligible voter tokens you can copy and use to vote:\n\n${tokensStr}\n\nKeep them safe! They prove voter eligibility anonymously.`
+        `Mock Election Created!\n\nHere are 8 eligible voter tokens you can copy and use to vote:\n\n${tokensStr}\n\nKeep them safe! They prove voter eligibility anonymously.`,
       );
     },
     onError: (err: any) => {
@@ -149,7 +165,7 @@ export default function Elections() {
       if (votersErr || !dbVoters) throw new Error("Failed to retrieve eligible voters commitments");
 
       const commitments = dbVoters.map((v) => BigInt(v.commitment));
-      
+
       // Convert user's token to bigint, and compute user commitment
       const userBigIntToken = stringToBigInt(voterToken.trim());
       const userCommitment = hash1(userBigIntToken);
@@ -171,21 +187,24 @@ export default function Elections() {
         proofObj.pathElements,
         proofObj.pathIndices,
         BigInt(selectedCandidate),
-        BigInt(election.merkle_root)
+        BigInt(election.merkle_root),
       );
 
       // 3. Submit proof to Supabase verify-vote Edge Function
       toast.info("Submitting proof to anonymous verification service...", { duration: 3000 });
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-vote`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          proof,
-          publicSignals,
-          electionId: selectedElectionId,
-          voteChoice: selectedCandidate,
-        }),
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-vote`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            proof,
+            publicSignals,
+            electionId: selectedElectionId,
+            voteChoice: selectedCandidate,
+          }),
+        },
+      );
 
       const result = await response.json();
       if (!response.ok) {
@@ -231,7 +250,8 @@ export default function Elections() {
             Anonymous Voting
           </h1>
           <p className="mx-auto max-w-2xl font-mono text-sm text-gray-800 mt-4 leading-relaxed">
-            Elections powered by local **Zero-Knowledge Proofs (zk-SNARKs)**. Your voter identity is cryptographically separated from your choice before it leaves your browser.
+            Elections powered by local **Zero-Knowledge Proofs (zk-SNARKs)**. Your voter identity is
+            cryptographically separated from your choice before it leaves your browser.
           </p>
         </div>
 
@@ -261,7 +281,9 @@ export default function Elections() {
             ) : elections.length === 0 ? (
               <div className="neu-border bg-white p-6 text-center">
                 <p className="font-mono text-sm text-gray-500">No active elections.</p>
-                <p className="font-mono text-xs text-gray-400 mt-1">Click "Create Mock" to start testing.</p>
+                <p className="font-mono text-xs text-gray-400 mt-1">
+                  Click "Create Mock" to start testing.
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -278,8 +300,12 @@ export default function Elections() {
                         : "bg-white text-black shadow-[4px_4px_0_0_#000]"
                     }`}
                   >
-                    <h3 className="font-display font-bold text-lg leading-tight truncate">{election.title}</h3>
-                    <p className={`font-mono text-xs mt-2 ${selectedElectionId === election.id ? "text-gray-400" : "text-gray-500"}`}>
+                    <h3 className="font-display font-bold text-lg leading-tight truncate">
+                      {election.title}
+                    </h3>
+                    <p
+                      className={`font-mono text-xs mt-2 ${selectedElectionId === election.id ? "text-gray-400" : "text-gray-500"}`}
+                    >
                       Root: {election.merkle_root.substring(0, 16)}...
                     </p>
                   </button>
@@ -300,7 +326,9 @@ export default function Elections() {
                   </div>
 
                   <div>
-                    <label className="block font-mono text-xs font-bold uppercase mb-2">Select Candidate</label>
+                    <label className="block font-mono text-xs font-bold uppercase mb-2">
+                      Select Candidate
+                    </label>
                     <div className="space-y-3">
                       {CANDIDATES.map((candidate) => (
                         <button
@@ -324,7 +352,10 @@ export default function Elections() {
                   </div>
 
                   <div>
-                    <label htmlFor="token-input" className="block font-mono text-xs font-bold uppercase mb-2">
+                    <label
+                      htmlFor="token-input"
+                      className="block font-mono text-xs font-bold uppercase mb-2"
+                    >
                       Voter Token (Secret)
                     </label>
                     <input
@@ -342,7 +373,12 @@ export default function Elections() {
 
                   <button
                     onClick={() => castVoteMutation.mutate()}
-                    disabled={castVoteMutation.isPending || isGeneratingProof || !selectedCandidate || !voterToken}
+                    disabled={
+                      castVoteMutation.isPending ||
+                      isGeneratingProof ||
+                      !selectedCandidate ||
+                      !voterToken
+                    }
                     className="w-full neu-border bg-lime p-3 font-mono text-sm font-black uppercase shadow-[4px_4px_0_0_#000] hover:bg-lime/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
                   >
                     {isGeneratingProof ? (
@@ -376,12 +412,15 @@ export default function Elections() {
 
                     <div className="space-y-6">
                       {tallies.map((candidate) => {
-                        const percentage = totalVotes > 0 ? (candidate.count / totalVotes) * 100 : 0;
+                        const percentage =
+                          totalVotes > 0 ? (candidate.count / totalVotes) * 100 : 0;
                         return (
                           <div key={candidate.id} className="space-y-1">
                             <div className="flex justify-between font-mono text-xs font-bold">
                               <span>{candidate.name}</span>
-                              <span>{candidate.count} ({percentage.toFixed(0)}%)</span>
+                              <span>
+                                {candidate.count} ({percentage.toFixed(0)}%)
+                              </span>
                             </div>
                             <div className="h-6 w-full bg-white border-2 border-black">
                               <div
@@ -398,7 +437,8 @@ export default function Elections() {
                   <div className="mt-8 border-t border-black/10 pt-4 flex items-start gap-2.5 bg-white/50 p-3 border border-black font-mono text-[11px] leading-relaxed text-gray-700">
                     <CheckCircle className="h-4 w-4 shrink-0 text-lime-600" />
                     <span>
-                      Each bar represents cryptographically validated votes confirmed via zero-knowledge proofs. No link exists to individual user IDs.
+                      Each bar represents cryptographically validated votes confirmed via
+                      zero-knowledge proofs. No link exists to individual user IDs.
                     </span>
                   </div>
                 </div>
@@ -408,7 +448,8 @@ export default function Elections() {
                 <Vote className="h-16 w-16 text-lime mb-4" />
                 <h3 className="font-display text-2xl font-bold uppercase">Select an Election</h3>
                 <p className="font-mono text-sm text-gray-500 mt-2 max-w-sm mx-auto">
-                  Choose an active election from the sidebar to vote or view real-time anonymous results.
+                  Choose an active election from the sidebar to vote or view real-time anonymous
+                  results.
                 </p>
               </div>
             )}

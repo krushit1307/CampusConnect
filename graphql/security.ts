@@ -292,10 +292,25 @@ export function createGraphQLSecurityPlugin(options: SecurityPluginOptions = {})
           def.kind === Kind.OPERATION_DEFINITION && def.operation === "mutation",
       );
 
-      if (!isMutation) return;
+if (!isMutation) return;
 
-      const ip = context?.request instanceof Request ? getClientIp(context.request) : "127.0.0.1";
-      const { allowed, retryAfterMs } = mutationWindow.check(ip);
+const user = context?.user as
+  | { is_impersonated?: boolean }
+  | undefined;
+
+if (user?.is_impersonated === true) {
+  throw new GraphQLError(
+    "Forbidden: Mutations are disabled during impersonation.",
+    {
+      extensions: {
+        code: "IMPERSONATION_READ_ONLY",
+        http: { status: 403 },
+      },
+    },
+  );
+}
+
+const ip = context?.request instanceof Request ? getClientIp(context.request) : "127.0.0.1";      const { allowed, retryAfterMs } = mutationWindow.check(ip);
 
       if (!allowed) {
         throw new GraphQLError(

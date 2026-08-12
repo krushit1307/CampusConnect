@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Pause, Play, Trash2, Upload, AlertTriangle } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Pause from "lucide-react/dist/esm/icons/pause";
+import Play from "lucide-react/dist/esm/icons/play";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import Upload from "lucide-react/dist/esm/icons/upload";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
 import { cn } from "@/lib/utils";
 import { clamp, formatTime } from "@/lib/audio/waveform";
 import { computeWaveformPeaks } from "@/lib/audio/waveformLoader";

@@ -18,12 +18,8 @@ vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
     auth: {
       getUser: mockGetUser,
-      getSession: vi.fn().mockResolvedValue({
-        data: { session: { user: { id: "user-123", email_confirmed_at: "2026-01-01" } } },
-      }),
-      onAuthStateChange: vi
-        .fn()
-        .mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
+      getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: "user-123", email_confirmed_at: "2026-01-01" } } } }),
+      onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
     },
     from: vi.fn().mockImplementation((table) => {
       if (table === "notifications") {
@@ -34,9 +30,7 @@ vi.mock("@/lib/supabase/client", () => ({
       if (table === "profiles") {
         return {
           select: vi.fn().mockReturnValue({
-            in: vi
-              .fn()
-              .mockImplementation(() => Promise.resolve({ data: mockProfiles.data, error: null })),
+            in: vi.fn().mockImplementation(() => Promise.resolve({ data: mockProfiles.data, error: null })),
           }),
         };
       }
@@ -131,9 +125,7 @@ describe("NotificationsRoute Component", () => {
     // group_count = 5, names are Alice Smith and Bob Jones. So dynamic message should be:
     // "Alice Smith, Bob Jones, and 3 others liked your post."
     await waitFor(() => {
-      expect(
-        screen.getByText("Alice Smith, Bob Jones, and 3 others liked your post."),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Alice Smith, Bob Jones, and 3 others liked your post.")).toBeInTheDocument();
     });
   });
 });

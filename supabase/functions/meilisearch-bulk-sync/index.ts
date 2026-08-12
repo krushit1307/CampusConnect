@@ -30,7 +30,8 @@ const BATCH_SIZE = 1000;
 const TABLES = [
   {
     name: "events",
-    columns: "id, title, description, location, event_date, start_date, end_date, club_id, banner_url, short_id, max_attendees, status, created_at",
+    columns:
+      "id, title, description, location, event_date, start_date, end_date, club_id, banner_url, short_id, max_attendees, status, created_at",
   },
   {
     name: "clubs",
@@ -55,9 +56,10 @@ Deno.serve(async (req: Request) => {
   if (!supabaseUrl || !serviceRoleKey || !meiliHost || !meiliApiKey) {
     return new Response(
       JSON.stringify({
-        error: "Missing env vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, MEILI_HOST, MEILI_API_KEY",
+        error:
+          "Missing env vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, MEILI_HOST, MEILI_API_KEY",
       }),
-      { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
     );
   }
 
@@ -133,7 +135,7 @@ Deno.serve(async (req: Request) => {
         const response = await fetch(url, {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${meiliApiKey}`,
+            Authorization: `Bearer ${meiliApiKey}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify(documents),
@@ -142,15 +144,13 @@ Deno.serve(async (req: Request) => {
         if (!response.ok) {
           const errText = await response.text();
           results[table.name].errors.push(
-            `Meili push error at offset ${offset}: ${response.status} ${errText}`
+            `Meili push error at offset ${offset}: ${response.status} ${errText}`,
           );
         } else {
           results[table.name].synced += documents.length;
         }
       } catch (err) {
-        results[table.name].errors.push(
-          `Network error at offset ${offset}: ${String(err)}`
-        );
+        results[table.name].errors.push(`Network error at offset ${offset}: ${String(err)}`);
       }
 
       results[table.name].total += documents.length;
@@ -167,6 +167,6 @@ Deno.serve(async (req: Request) => {
       success: true,
       results,
     }),
-    { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+    { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
   );
 });

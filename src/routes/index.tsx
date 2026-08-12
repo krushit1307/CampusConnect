@@ -4,7 +4,9 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { Sparkle } from "@/components/site/Sparkle";
 import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
 import { Icon } from "@/components/ui/icon";
-import { Users, Calendar, GraduationCap } from "lucide-react";
+import Users from "lucide-react/dist/esm/icons/users";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import GraduationCap from "lucide-react/dist/esm/icons/graduation-cap";
 import { useExperimentStore } from "@/store/useExperimentStore";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
@@ -154,17 +156,19 @@ interface FAQItem {
 const FAQ_ITEMS = [
   { category: "general", qKey: "home.faq.items.q1", aKey: "home.faq.items.a1" },
   { category: "general", qKey: "home.faq.items.q2", aKey: "home.faq.items.a2" },
-  { category: "clubs",   qKey: "home.faq.items.q3", aKey: "home.faq.items.a3" },
-  { category: "clubs",   qKey: "home.faq.items.q4", aKey: "home.faq.items.a4" },
-  { category: "events",  qKey: "home.faq.items.q5", aKey: "home.faq.items.a5" },
-  { category: "events",  qKey: "home.faq.items.q6", aKey: "home.faq.items.a6" },
-  { category: "security",qKey: "home.faq.items.q7", aKey: "home.faq.items.a7" },
-  { category: "security",qKey: "home.faq.items.q8", aKey: "home.faq.items.a8" },
+  { category: "clubs", qKey: "home.faq.items.q3", aKey: "home.faq.items.a3" },
+  { category: "clubs", qKey: "home.faq.items.q4", aKey: "home.faq.items.a4" },
+  { category: "events", qKey: "home.faq.items.q5", aKey: "home.faq.items.a5" },
+  { category: "events", qKey: "home.faq.items.q6", aKey: "home.faq.items.a6" },
+  { category: "security", qKey: "home.faq.items.q7", aKey: "home.faq.items.a7" },
+  { category: "security", qKey: "home.faq.items.q8", aKey: "home.faq.items.a8" },
 ];
 
 export default function Landing() {
   const { t } = useTranslation();
-  const [activeCategory, setActiveCategory] = useState<"all" | "general" | "clubs" | "events" | "security">("all");
+  const [activeCategory, setActiveCategory] = useState<
+    "all" | "general" | "clubs" | "events" | "security"
+  >("all");
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   const supabase = createClient();
@@ -252,9 +256,7 @@ export default function Landing() {
   return (
     <SiteShell>
       {/* ANNOUNCEMENT MARQUEE — scrolls above the hero, homepage only */}
-      <Marquee>
-        {t("home.marquee")}
-      </Marquee>
+      <Marquee>{t("home.marquee")}</Marquee>
 
       {/* HERO — Multi-layered parallax with 3 SVG depth layers */}
       <section className="relative h-96 w-full overflow-hidden md:h-[500px]">
@@ -575,7 +577,9 @@ export default function Landing() {
           <p className="mb-6 font-mono italic leading-relaxed text-gray-800">
             {t("home.testimonial.quote")}
           </p>
-          <p className="font-display font-bold text-brand-blue-dark">{t("home.testimonial.attribution")}</p>
+          <p className="font-display font-bold text-brand-blue-dark">
+            {t("home.testimonial.attribution")}
+          </p>
         </div>
       </section>
 
@@ -590,7 +594,10 @@ export default function Landing() {
             {[
               { t: t("home.landscape.vs_forms_title"), d: t("home.landscape.vs_forms_desc") },
               { t: t("home.landscape.vs_discord_title"), d: t("home.landscape.vs_discord_desc") },
-              { t: t("home.landscape.vs_eventbrite_title"), d: t("home.landscape.vs_eventbrite_desc") },
+              {
+                t: t("home.landscape.vs_eventbrite_title"),
+                d: t("home.landscape.vs_eventbrite_desc"),
+              },
               { t: t("home.landscape.vs_portals_title"), d: t("home.landscape.vs_portals_desc") },
             ].map((c, idx) => (
               <ScrollReveal key={c.t} delay={idx * 150}>
@@ -615,15 +622,23 @@ export default function Landing() {
               </h2>
               <div className="grid grid-cols-2 gap-4">
                 <div className="neu-border bg-rose-200 p-5 border-l-4 border-l-[#123a57] transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-brand-blue-dark)]">
-                  <p className="eyebrow font-bold text-gray-800">{t("home.hosting.cloud_eyebrow")}</p>
-                  <h3 className="mt-2 text-2xl font-bold text-blue-950">{t("home.hosting.cloud_title")}</h3>
+                  <p className="eyebrow font-bold text-gray-800">
+                    {t("home.hosting.cloud_eyebrow")}
+                  </p>
+                  <h3 className="mt-2 text-2xl font-bold text-blue-950">
+                    {t("home.hosting.cloud_title")}
+                  </h3>
                   <p className="mt-3 font-mono text-xs leading-relaxed text-gray-800">
                     {t("home.hosting.cloud_desc")}
                   </p>
                 </div>
                 <div className="neu-border bg-rose-200 p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-ink)]">
-                  <p className="eyebrow font-bold text-gray-800">{t("home.hosting.selfhost_eyebrow")}</p>
-                  <h3 className="mt-2 text-2xl font-bold text-blue-950">{t("home.hosting.selfhost_title")}</h3>
+                  <p className="eyebrow font-bold text-gray-800">
+                    {t("home.hosting.selfhost_eyebrow")}
+                  </p>
+                  <h3 className="mt-2 text-2xl font-bold text-blue-950">
+                    {t("home.hosting.selfhost_title")}
+                  </h3>
                   <p className="mt-3 font-mono text-xs leading-relaxed text-gray-800">
                     {t("home.hosting.selfhost_desc")}
                   </p>
@@ -642,8 +657,12 @@ export default function Landing() {
                 <table className="w-full font-mono text-sm text-left">
                   <thead>
                     <tr className="bg-brand-blue-dark text-brand-yellow-bg-alt">
-                      <th className="border-b-2 border-black p-4 font-bold">{t("home.hosting.tech_layer")}</th>
-                      <th className="border-b-2 border-black p-4 font-bold">{t("home.hosting.tech_choice")}</th>
+                      <th className="border-b-2 border-black p-4 font-bold">
+                        {t("home.hosting.tech_layer")}
+                      </th>
+                      <th className="border-b-2 border-black p-4 font-bold">
+                        {t("home.hosting.tech_choice")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -701,7 +720,7 @@ export default function Landing() {
       >
         <div className="mx-auto max-w-4xl">
           <div className="mb-12 text-center">
-          <SectionEyebrow>{t("home.faq.eyebrow")}</SectionEyebrow>
+            <SectionEyebrow>{t("home.faq.eyebrow")}</SectionEyebrow>
             <h2 className="mt-2 text-4xl font-bold text-red-900 md:text-5xl">
               {t("home.faq.title")}
             </h2>
@@ -794,9 +813,7 @@ export default function Landing() {
             {t("home.contact.title")}
           </h2>
 
-          <p className="mt-6 font-mono text-gray-700">
-            {t("home.contact.subtitle")}
-          </p>
+          <p className="mt-6 font-mono text-gray-700">{t("home.contact.subtitle")}</p>
 
           <a
             href="mailto:support@campusconnect.com"

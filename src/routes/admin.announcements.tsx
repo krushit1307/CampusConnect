@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Navigate, Link } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
-import { ShieldAlert, Send } from "lucide-react";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import Send from "lucide-react/dist/esm/icons/send";
 import { toast } from "sonner";
 
 import { SiteShell } from "@/components/site/SiteShell";
@@ -21,7 +22,7 @@ export default function AdminAnnouncements() {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [url, setUrl] = useState("");
-  
+
   // New states for Job Queue & Live Progress
   const [isSending, setIsSending] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -31,7 +32,9 @@ export default function AdminAnnouncements() {
     let active = true;
     const initialise = async () => {
       try {
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        const {
+          data: { user: currentUser },
+        } = await supabase.auth.getUser();
         if (!active) return;
         setUser(currentUser);
         if (!currentUser) return;
@@ -55,7 +58,9 @@ export default function AdminAnnouncements() {
       }
     };
     void initialise();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [supabase]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -80,7 +85,7 @@ export default function AdminAnnouncements() {
       // Fallback for demo if backend isn't fully wired yet
       const data = await response.json().catch(() => ({ jobId: "demo-job-" + Date.now() }));
       const newJobId = data.jobId || "demo-job-" + Date.now();
-      
+
       setJobId(newJobId);
       toast.success(`Announcement queued! (Job ID: ${newJobId})`);
 
@@ -101,7 +106,6 @@ export default function AdminAnnouncements() {
           return nextProgress;
         });
       }, 1000);
-
     } catch (error) {
       console.error(error);
       toast.error(error instanceof Error ? error.message : "Failed to queue announcement.");
@@ -132,7 +136,10 @@ export default function AdminAnnouncements() {
             <p className="mt-3 font-mono text-sm leading-6 text-gray-700">
               Only system administrators can send campus announcements.
             </p>
-            <Link to="/" className="neu-border neu-press mt-6 inline-block bg-black px-5 py-3 font-mono text-xs font-bold uppercase text-cream">
+            <Link
+              to="/"
+              className="neu-border neu-press mt-6 inline-block bg-black px-5 py-3 font-mono text-xs font-bold uppercase text-cream"
+            >
               Return home
             </Link>
           </div>
@@ -158,18 +165,46 @@ export default function AdminAnnouncements() {
           <div className="neu-border neu-shadow bg-white p-6 md:p-8">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <label htmlFor="title" className="eyebrow font-bold text-black">Announcement Title <span className="text-red-500">*</span></label>
-                <input id="title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40" required disabled={isSending} />
+                <label htmlFor="title" className="eyebrow font-bold text-black">
+                  Announcement Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="title"
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                  required
+                  disabled={isSending}
+                />
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="message" className="eyebrow font-bold text-black">Message Body <span className="text-red-500">*</span></label>
-                <textarea id="message" value={message} onChange={(e) => setMessage(e.target.value)} className="min-h-32 w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40" required disabled={isSending} />
+                <label htmlFor="message" className="eyebrow font-bold text-black">
+                  Message Body <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  id="message"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  className="min-h-32 w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                  required
+                  disabled={isSending}
+                />
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="url" className="eyebrow font-bold text-black">Target URL (Optional)</label>
-                <input id="url" type="text" value={url} onChange={(e) => setUrl(e.target.value)} className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40" disabled={isSending} />
+                <label htmlFor="url" className="eyebrow font-bold text-black">
+                  Target URL (Optional)
+                </label>
+                <input
+                  id="url"
+                  type="text"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                  disabled={isSending}
+                />
               </div>
 
               {/* Live Progress Bar (Issue Requirement) */}
@@ -180,7 +215,10 @@ export default function AdminAnnouncements() {
                     <span>{progress}%</span>
                   </div>
                   <div className="h-3 w-full overflow-hidden rounded-full border-2 border-black bg-gray-200">
-                    <div className="h-full bg-black transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
+                    <div
+                      className="h-full bg-black transition-all duration-500 ease-out"
+                      style={{ width: `${progress}%` }}
+                    />
                   </div>
                   <p className="font-mono text-xs text-gray-600">
                     {progress < 100 ? "Sending emails in background chunks..." : "Completed!"}
@@ -189,7 +227,11 @@ export default function AdminAnnouncements() {
               )}
 
               <div className="pt-4">
-                <button type="submit" disabled={isSending} className="neu-border neu-press flex w-full items-center justify-center gap-2 bg-black px-5 py-3 font-mono text-sm font-bold uppercase text-cream disabled:opacity-50 md:w-auto">
+                <button
+                  type="submit"
+                  disabled={isSending}
+                  className="neu-border neu-press flex w-full items-center justify-center gap-2 bg-black px-5 py-3 font-mono text-sm font-bold uppercase text-cream disabled:opacity-50 md:w-auto"
+                >
                   <Send className="h-4 w-4" />
                   {isSending ? "Queuing..." : "Send Announcement"}
                 </button>

@@ -16,6 +16,8 @@ import {
 import { NotFoundPage } from "@/components/NotFoundPage";
 import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
 import { UserProfileSkeleton } from "@/components/UserProfileSkeleton";
+import { HistoryTimeline, TimelineItem } from "@/components/profile/HistoryTimeline";
+import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
 import { ProgressRing } from "@/components/profile/ProgressRing";
 
 import { useState, useEffect } from "react";
@@ -456,6 +458,11 @@ export default function Profile() {
                 )}
               </div>
             )}
+          </div>
+
+          {/* Attendance Heatmap Section */}
+          <div className="space-y-6">
+            <AttendanceHeatmap userId={profile.id} />
           </div>
 
           {/* Activity History Section */}

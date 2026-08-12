@@ -1,18 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  Gamepad2,
-  Compass,
-  AlertOctagon,
-  Volume2,
-  VolumeX,
-  Coffee,
-  GraduationCap,
-  ArrowLeft,
-  RotateCcw,
-  Play,
-  Sparkles,
-} from "lucide-react";
+import Gamepad2 from "lucide-react/dist/esm/icons/gamepad-2";
+import Compass from "lucide-react/dist/esm/icons/compass";
+import AlertOctagon from "lucide-react/dist/esm/icons/alert-octagon";
+import Volume2 from "lucide-react/dist/esm/icons/volume-2";
+import VolumeX from "lucide-react/dist/esm/icons/volume-x";
+import Coffee from "lucide-react/dist/esm/icons/coffee";
+import GraduationCap from "lucide-react/dist/esm/icons/graduation-cap";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw";
+import Play from "lucide-react/dist/esm/icons/play";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 
 // Synthesized Audio engine using Web Audio API to avoid external assets dependency
 function playSound(

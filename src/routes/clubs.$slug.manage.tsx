@@ -5,17 +5,18 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
-import {
-  Settings,
-  Users,
-  Calendar,
-  ShieldCheck,
-  XCircle,
-  CheckCircle,
-  Download,
-  Trash2,
-  BarChart3,
-} from "lucide-react";
+import Settings from "lucide-react/dist/esm/icons/settings";
+import Users from "lucide-react/dist/esm/icons/users";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import XCircle from "lucide-react/dist/esm/icons/xcircle";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import Download from "lucide-react/dist/esm/icons/download";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import BarChart3 from "lucide-react/dist/esm/icons/bar-chart-3";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import { HoldToConfirmButton } from "@/components/ui/HoldToConfirmButton";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 import DiffViewer from "@/components/Editor/DiffViewer";
@@ -26,6 +27,8 @@ import { ClubColorPicker } from "@/components/Clubs/ClubColorPicker";
 import { isValidHexColor } from "@/lib/clubTheming";
 import { sanitizeHtml } from "@/lib/sanitizeHtml";
 import ClubAnalyticsDashboard from "@/components/clubs/ClubAnalyticsDashboard";
+import PermissionsGrid from "@/components/Clubs/PermissionsGrid";
+import ClubRenewalWizard from "@/components/ClubRenewalWizard"; // <-- NEW IMPORT FOR OUR WIZARD
 import {
   AlertDialog,
   AlertDialogContent,
@@ -50,6 +53,7 @@ interface ServerClub {
   primary_color: string | null;
   secondary_color: string | null;
   version: number;
+  status: string; // <-- Added status to interface
 }
 
 export default function ClubManageRoute() {
@@ -57,18 +61,77 @@ export default function ClubManageRoute() {
   const navigate = useNavigate();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<"settings" | "members" | "events" | "constitution">(
-    "settings",
-  );
+
+  const [activeTab, setActiveTab] = useState<
+    "settings" | "members" | "permissions" | "events" | "constitution" | "trash" | "analytics"
+  >("settings");
 
   // Mock constitution versions for demo
   const oldConstitution =
     "# Club Bylaws\n\n1. Be respectful to everyone.\n2. Meetings are on Tuesdays.";
   const newConstitution =
     "# Club Bylaws\n\n1. Be respectful to all members.\n2. Meetings are on Wednesdays at 5 PM.\n3. Have fun!";
-  const [activeTab, setActiveTab] = useState<
-    "settings" | "members" | "permissions" | "events" | "trash" | "analytics"
-  >("settings");
+
+  // Form State
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [bannerUrl, setBannerUrl] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [visibility, setVisibility] = useState<"public" | "private">("public");
+  const [githubRepoUrl, setGithubRepoUrl] = useState("");
+  const [twitterUrl, setTwitterUrl] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [socialLinksOrder, setSocialLinksOrder] = useState<string[]>([
+    "website",
+    "twitter",
+    "instagram",
+  ]);
+  const [promoVideoUrl, setPromoVideoUrl] = useState("");
+  const [primaryColor, setPrimaryColor] = useState("");
+  const [secondaryColor, setSecondaryColor] = useState("");
+  const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
+  const [serverClub, setServerClub] = useState<ServerClub | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+  }, [supabase]);
+
+  // Fetch Club Data
+  const {
+    data: club,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["club_manage", slug],
+    queryFn: async () => {
+      if (!user) throw new Error("Not logged in");
+
+      const { data, error } = await supabase
+        .from("clubs")
+        .select(
+          `
+          id, name, slug, status, description, banner_url, logo_url, visibility, github_repo_url, social_links, social_links_order, promo_video_url, version,
+          club_members (id, role, status, user_id, joined_at, can_edit_events, can_manage_finance, can_remove_members, can_post_news, can_manage_permissions, profiles (full_name, avatar_url, handle)),
+          events (id, title, event_date, max_attendees, event_rsvps(id))
+        `, // <-- Added status to query above
+        )
+        .eq("slug", slug)
+        .single();
+
+      if (error) throw error;
+
+      const currentMember = data.club_members.find(
+        (m: { user_id: string; role: string }) => m.user_id === user.id,
+      );
+      if (!currentMember || currentMember.role !== "admin") {
+        throw new Error("Unauthorized");
+      }
+
+      return data;
+    },
+    enabled: !!user,
+  });
 
   // Fetch Trash Events
   const {
@@ -107,66 +170,6 @@ export default function ClubManageRoute() {
     onError: (err: Error) => {
       toast.error(err.message || "Failed to restore event");
     },
-  });
-
-  // Form State
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [bannerUrl, setBannerUrl] = useState("");
-  const [logoUrl, setLogoUrl] = useState("");
-  const [visibility, setVisibility] = useState<"public" | "private">("public");
-  const [githubRepoUrl, setGithubRepoUrl] = useState("");
-  const [twitterUrl, setTwitterUrl] = useState("");
-  const [instagramUrl, setInstagramUrl] = useState("");
-  const [websiteUrl, setWebsiteUrl] = useState("");
-  const [socialLinksOrder, setSocialLinksOrder] = useState<string[]>([
-    "website",
-    "twitter",
-    "instagram",
-  ]);
-  const [promoVideoUrl, setPromoVideoUrl] = useState("");
-  const [primaryColor, setPrimaryColor] = useState("");
-  const [secondaryColor, setSecondaryColor] = useState("");
-  const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
-  const [serverClub, setServerClub] = useState<ServerClub | null>(null);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
-  }, [supabase]);
-
-  const {
-    data: club,
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey: ["club_manage", slug],
-    queryFn: async () => {
-      if (!user) throw new Error("Not logged in");
-
-      const { data, error } = await supabase
-        .from("clubs")
-        .select(
-          `
-          id, name, slug, description, banner_url, logo_url, visibility, github_repo_url, social_links, social_links_order, promo_video_url, version,
-          club_members (id, role, status, user_id, joined_at, can_edit_events, can_manage_finance, can_remove_members, can_post_news, can_manage_permissions, profiles (full_name, avatar_url, handle)),
-          events (id, title, event_date, max_attendees, event_rsvps(id))
-        `,
-        )
-        .eq("slug", slug)
-        .single();
-
-      if (error) throw error;
-
-      const currentMember = data.club_members.find(
-        (m: { user_id: string; role: string }) => m.user_id === user.id,
-      );
-      if (!currentMember || currentMember.role !== "admin") {
-        throw new Error("Unauthorized");
-      }
-
-      return data;
-    },
-    enabled: !!user,
   });
 
   useEffect(() => {
@@ -341,7 +344,7 @@ export default function ClubManageRoute() {
         const { data: latest } = await supabase
           .from("clubs")
           .select(
-            "name, description, banner_url, logo_url, promo_video_url, visibility, github_repo_url, social_links, primary_color, secondary_color, version",
+            "name, description, banner_url, logo_url, promo_video_url, visibility, github_repo_url, social_links, primary_color, secondary_color, version, status",
           )
           .eq("id", club!.id)
           .single();
@@ -368,10 +371,7 @@ export default function ClubManageRoute() {
       if (updates.role && typeof updates.role === "string") {
         setOptimisticRoles((prev) => ({ ...prev, [memberId]: updates.role as string }));
       }
-      const { error } = await supabase
-        .from("club_members")
-        .update(updates as TablesUpdate<"club_members">)
-        .eq("id", memberId);
+      const { error } = await supabase.from("club_members").update(updates).eq("id", memberId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -391,8 +391,7 @@ export default function ClubManageRoute() {
   });
 
   const updatePermissionsMutation = useMutation({
-    mutationFn: async (updates: PermissionUpdate[]) => {
-      // Batch update all permissions in a single transaction
+    mutationFn: async (updates: any[]) => {
       const { error } = await supabase.rpc("batch_update_permissions", {
         updates: updates.map((u) => ({
           member_id: u.memberId,
@@ -432,6 +431,20 @@ export default function ClubManageRoute() {
     );
   }
 
+  // -------------------------------------------------------------
+  // NEW LOGIC: SHOW WIZARD IF CLUB STATUS IS PENDING_RENEWAL
+  // -------------------------------------------------------------
+  if (club.status === "pending_renewal") {
+    return (
+      <SiteShell>
+        <div className="bg-cream min-h-screen py-12 px-4">
+          <ClubRenewalWizard clubId={club.id} />
+        </div>
+      </SiteShell>
+    );
+  }
+
+  // Otherwise, show the normal manage dashboard
   return (
     <SiteShell>
       <div className="bg-cream min-h-screen">
@@ -503,6 +516,8 @@ export default function ClubManageRoute() {
                 }`}
               >
                 <Settings size={18} /> Constitution
+              </button>
+              <button
                 onClick={() => setActiveTab("trash")}
                 className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
                   activeTab === "trash"
@@ -517,7 +532,7 @@ export default function ClubManageRoute() {
                 className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
                   activeTab === "analytics"
                     ? "bg-black text-white hover:-translate-y-1"
-                    : "bg-white text-black hover:bg-gray-55 hover:bg-gray-50"
+                    : "bg-white text-black hover:bg-gray-50"
                 }`}
               >
                 <BarChart3 size={18} /> Analytics
@@ -652,6 +667,37 @@ export default function ClubManageRoute() {
                     {updateClubMutation.isPending ? "Saving..." : "Save Settings"}
                   </button>
                 </form>
+
+                <div className="neu-border border-red-500 bg-red-50/30 p-6 space-y-4 mt-8">
+                  <h3 className="font-display text-xl font-bold text-red-600 flex items-center gap-2">
+                    <AlertTriangle size={20} className="text-red-600" /> Danger Zone
+                  </h3>
+                  <p className="font-mono text-sm text-gray-700">
+                    Deleting this club is a permanent action. Click and hold the button below for 3
+                    seconds (or press Enter/Space for confirmation dialog) to execute deletion.
+                  </p>
+                  <div>
+                    <HoldToConfirmButton
+                      onConfirm={async () => {
+                        try {
+                          const { error } = await supabase.from("clubs").delete().eq("id", club.id);
+                          if (error) throw error;
+                          toast.success("Club deleted successfully");
+                          navigate("/clubs");
+                        } catch (err: any) {
+                          toast.error(err?.message || "Failed to delete club");
+                        }
+                      }}
+                      holdDuration={3000}
+                      confirmTitle="Delete Club permanently?"
+                      confirmDescription={`Are you sure you want to permanently delete "${club.name}"? This action cannot be undone.`}
+                      confirmText="Delete Club"
+                      variant="destructive"
+                    >
+                      Hold for 3s to Delete Club
+                    </HoldToConfirmButton>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -692,10 +738,15 @@ export default function ClubManageRoute() {
                           role: string;
                           status: string;
                           user_id: string;
-                          joined_at: string | null;
+                          club_id?: string;
+                          joined_at?: string | null;
+                          created_at?: string;
+                          removed_at?: string | null;
+                          termination_reason?: string | null;
                           profiles: unknown;
                         }) => ({
                           ...m,
+                          club_id: m.club_id || club.id,
                           role: optimisticRoles[m.id] || m.role,
                         }),
                       )}
