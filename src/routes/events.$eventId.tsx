@@ -63,6 +63,7 @@ import LiveQA from "@/components/qa/LiveQA";
 import EventFeedbackForm from "@/components/EventFeedbackForm";
 import { CarpoolMatchingSection } from "@/components/events/carpool/CarpoolMatchingSection";
 import { EventLiveChat } from "@/components/events/EventLiveChat";
+import { EventSubmissions } from "@/components/EventSubmissions";
 import { ReportDialog } from "@/components/ReportDialog";
 import { GeofencedCheckInButton } from "@/components/GeofencedCheckInButton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -1859,6 +1860,16 @@ export default function EventDetailsPage() {
           {/* Live Chat (Issue #2741) */}
           <div className="mt-8">
             <EventLiveChat eventId={eventId} user={user} />
+          </div>
+
+          {/* Secure File Drop for Competitions (Issue #3006) */}
+          <div className="mt-8">
+            <EventSubmissions
+              eventId={eventId}
+              submissionDeadline={(event as any).submission_deadline}
+              userRsvp={!!userRsvp}
+              isOrganizer={isOrganizer}
+            />
           </div>
           {/* Description */}
           <div className="mt-8">
