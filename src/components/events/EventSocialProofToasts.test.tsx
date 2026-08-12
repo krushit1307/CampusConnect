@@ -2,6 +2,7 @@ import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { getEventRsvpState } from "@/lib/waitlist";
+import type { EventRsvpState } from "@/lib/waitlist";
 import { EventSocialProofToasts } from "./EventSocialProofToasts";
 
 // Render framer-motion elements as plain nodes so exit animations (driven by
@@ -25,8 +26,13 @@ vi.mock("framer-motion", async () => {
   };
 });
 
-type RsvpPayload = { eventType: string; new: Record<string, unknown> };
 type RecentRsvp = { id: string; user_id: string; status: string; rsvp_at: string };
+
+type RsvpPayload = {
+  eventType: string;
+  new: Record<string, unknown> | null;
+  old?: RecentRsvp;
+};
 
 const { supabaseMocks, buildClient } = vi.hoisted(() => {
   const buildClient = () => ({
@@ -210,6 +216,67 @@ describe("EventSocialProofToasts", () => {
     expect(screen.queryByText("Alex just RSVP'd!")).not.toBeInTheDocument();
   });
 
+  it("defers RSVPs until identity resolves and drops the viewer's own", async () => {
+    let resolveUser!: (value: unknown) => void;
+    supabaseMocks.getUser.mockReturnValue(
+      new Promise((resolve) => {
+        resolveUser = resolve;
+      }),
+    );
+
+    render(<EventSocialProofToasts eventId="evt-1" />);
+    await act(async () => {});
+
+    // The RSVP arrives while supabase.auth.getUser() is still in flight.
+    act(() => fireRsvp("rsvp-me", "current-user"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3100);
+    });
+    await act(async () => {});
+    expect(screen.queryByText("Alex just RSVP'd!")).not.toBeInTheDocument();
+
+    // Identity resolves to the same user — the buffered self-RSVP must not
+    // produce a toast even after the aggregation window.
+    await act(async () => {
+      resolveUser({ data: { user: { id: "current-user" } }, error: null });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3100);
+    });
+    await act(async () => {});
+    expect(screen.queryByText("Alex just RSVP'd!")).not.toBeInTheDocument();
+  });
+
+  it("toasts an RSVP from someone else that arrived before identity resolves", async () => {
+    let resolveUser!: (value: unknown) => void;
+    supabaseMocks.getUser.mockReturnValue(
+      new Promise((resolve) => {
+        resolveUser = resolve;
+      }),
+    );
+
+    render(<EventSocialProofToasts eventId="evt-1" />);
+    await act(async () => {});
+
+    act(() => fireRsvp("rsvp-1", "user-1"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3100);
+    });
+    await act(async () => {});
+    expect(screen.queryByText("Alex just RSVP'd!")).not.toBeInTheDocument();
+
+    // Once identity resolves, the buffered RSVP flows through the normal
+    // aggregation and toast path.
+    await act(async () => {
+      resolveUser({ data: { user: { id: "current-user" } }, error: null });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3100);
+    });
+    await act(async () => {});
+    expect(screen.getByText("Alex just RSVP'd!")).toBeInTheDocument();
+  });
+
   it("shows queued toasts one at a time, in order", async () => {
     supabaseMocks.profileByUser = {
       "user-1": { full_name: "Alex" },
@@ -262,7 +329,12 @@ describe("EventSocialProofToasts", () => {
       supabaseMocks.rsvpHandler?.({
         eventType: "DELETE",
         new: null,
-        old: { id: "rsvp-cancelled", user_id: "user-1", status: "attending" },
+        old: {
+          id: "rsvp-cancelled",
+          user_id: "user-1",
+          status: "attending",
+          rsvp_at: "2026-08-12T09:00:00.000Z",
+        },
       });
     });
     await act(async () => {});
@@ -347,6 +419,165 @@ describe("EventSocialProofToasts", () => {
     });
     await act(async () => {});
     expect(screen.queryByText("Alex just RSVP'd!")).not.toBeInTheDocument();
+  });
+
+  it("ignores a stale capacity fetch from a previous event", async () => {
+    let resolveEventA!: (value: unknown) => void;
+    mockedGetEventRsvpState
+      .mockImplementationOnce(
+        () =>
+          new Promise<EventRsvpState | null>((resolve) => {
+            resolveEventA = resolve;
+          }),
+      )
+      .mockResolvedValue({ ...defaultCapacityState, max_attendees: 10, attending_count: 7 });
+
+    const { rerender } = render(<EventSocialProofToasts eventId="evt-a" />);
+    await act(async () => {});
+
+    // Navigate to event B before event A's capacity fetch resolves. B's own
+    // fetch reports 3 spots left.
+    rerender(<EventSocialProofToasts eventId="evt-b" />);
+    await act(async () => {});
+    expect(screen.getByText("Only 3 spots left!")).toBeInTheDocument();
+
+    // A's stale result (6 spots left) resolves late and must be dropped.
+    await act(async () => {
+      resolveEventA({ ...defaultCapacityState, max_attendees: 10, attending_count: 4 });
+    });
+    await act(async () => {});
+    expect(screen.getByText("Only 3 spots left!")).toBeInTheDocument();
+    expect(screen.queryByText("Only 6 spots left!")).not.toBeInTheDocument();
+
+    // Event B still processes its own RSVP activity normally.
+    act(() => fireRsvp("rsvp-b", "user-b"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3100);
+    });
+    await act(async () => {});
+    expect(screen.getByText("Alex just RSVP'd!")).toBeInTheDocument();
+  });
+
+  it("ignores a delayed profile lookup from a previous event", async () => {
+    let resolveProfile!: (value: { data: { full_name: string } | null; error: null }) => void;
+    supabaseMocks.from.mockImplementationOnce(() => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: () =>
+            new Promise<{ data: { full_name: string } | null; error: null }>((resolve) => {
+              resolveProfile = resolve;
+            }),
+        }),
+      }),
+    }));
+
+    const { rerender } = render(<EventSocialProofToasts eventId="evt-a" />);
+    await act(async () => {});
+
+    act(() => fireRsvp("rsvp-a", "user-a"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3100);
+    });
+    await act(async () => {});
+
+    // Event A's toast is now awaiting its profile lookup; navigate to event B
+    // before it resolves.
+    rerender(<EventSocialProofToasts eventId="evt-b" />);
+    await act(async () => {});
+
+    await act(async () => {
+      resolveProfile({ data: { full_name: "OldAttendee" }, error: null });
+    });
+    await act(async () => {});
+    expect(screen.queryByText("OldAttendee just RSVP'd!")).not.toBeInTheDocument();
+
+    // Event B's own RSVP still toasts normally.
+    act(() => fireRsvp("rsvp-b", "user-b"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3100);
+    });
+    await act(async () => {});
+    expect(screen.getByText("Alex just RSVP'd!")).toBeInTheDocument();
+  });
+
+  it("ignores a stale fallback replay from a previous event", async () => {
+    let resolveFallbackA!: (value: { data: RecentRsvp[]; error: null }) => void;
+    supabaseMocks.profileByUser = {
+      "user-a": { full_name: "OldAttendee" },
+      "user-b": { full_name: "Buffy" },
+    };
+    supabaseMocks.recentRsvps = [
+      {
+        id: "rsvp-a1",
+        user_id: "user-a",
+        status: "attending",
+        rsvp_at: "2026-08-12T09:30:00.000Z",
+      },
+    ];
+    supabaseMocks.from.mockImplementationOnce(() => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            gte: () => ({
+              order: () => ({
+                limit: () =>
+                  new Promise<{ data: RecentRsvp[]; error: null }>((resolve) => {
+                    resolveFallbackA = resolve;
+                  }),
+              }),
+            }),
+          }),
+        }),
+      }),
+    }));
+
+    const { rerender } = render(<EventSocialProofToasts eventId="evt-a" />);
+    await act(async () => {});
+
+    // evt-a's grace period elapses and its fallback query stays in flight.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5100);
+    });
+    await act(async () => {});
+    expect(screen.queryByText("OldAttendee just RSVP'd!")).not.toBeInTheDocument();
+
+    supabaseMocks.recentRsvps = [
+      {
+        id: "rsvp-b1",
+        user_id: "user-b",
+        status: "attending",
+        rsvp_at: "2026-08-12T09:30:00.000Z",
+      },
+    ];
+    rerender(<EventSocialProofToasts eventId="evt-b" />);
+    await act(async () => {});
+
+    // evt-b's own grace elapses and its fallback replays normally.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5200);
+    });
+    await act(async () => {});
+    expect(screen.getByText("Buffy just RSVP'd!")).toBeInTheDocument();
+
+    // evt-a's stale fallback rows finally resolve — they must never surface.
+    await act(async () => {
+      resolveFallbackA({
+        data: [
+          {
+            id: "rsvp-a1",
+            user_id: "user-a",
+            status: "attending",
+            rsvp_at: "2026-08-12T09:30:00.000Z",
+          },
+        ],
+        error: null,
+      });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20000);
+    });
+    await act(async () => {});
+    expect(screen.queryByText("OldAttendee just RSVP'd!")).not.toBeInTheDocument();
   });
 
   it("removes the realtime channel on unmount", async () => {

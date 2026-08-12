@@ -58,6 +58,11 @@ export const EventSocialProofToasts: React.FC<EventSocialProofToastsProps> = ({ 
   const displayTimerRef = useRef<number | null>(null);
   const fallbackTimersRef = useRef<number[]>([]);
   const burstCounterRef = useRef(0);
+  const eventGenRef = useRef(0);
+  const identityResolvedRef = useRef(false);
+  const identityReadyRef = useRef<Promise<void> | null>(null);
+  const pendingRsvpsRef = useRef<RsvpRow[]>([]);
+  const refreshCapacityRef = useRef<() => Promise<void>>(async () => {});
 
   const enqueueToast = useCallback((toast: SocialProofToast) => {
     setQueue((prev) => [...prev, toast]);
@@ -65,6 +70,7 @@ export const EventSocialProofToasts: React.FC<EventSocialProofToastsProps> = ({ 
 
   const enqueueRsvpToast = useCallback(
     async (rsvp: RsvpRow) => {
+      const gen = eventGenRef.current;
       if (!mountedRef.current) return;
       let name: string | null = null;
       const { data } = await supabase
@@ -72,8 +78,8 @@ export const EventSocialProofToasts: React.FC<EventSocialProofToastsProps> = ({ 
         .select("full_name")
         .eq("id", rsvp.user_id)
         .maybeSingle();
+      if (gen !== eventGenRef.current || !mountedRef.current) return;
       if (data?.full_name) name = data.full_name;
-      if (!mountedRef.current) return;
       enqueueToast({
         id: rsvp.id,
         message: name ? `${name} just RSVP'd!` : "Someone just RSVP'd!",
@@ -83,8 +89,9 @@ export const EventSocialProofToasts: React.FC<EventSocialProofToastsProps> = ({ 
   );
 
   const refreshCapacity = useCallback(async () => {
+    const gen = eventGenRef.current;
     const state = await getEventRsvpState(eventId);
-    if (!state || !mountedRef.current) return;
+    if (!state || gen !== eventGenRef.current || !mountedRef.current) return;
     const remaining =
       state.max_attendees != null ? state.max_attendees - state.attending_count : null;
     if (remaining != null && remaining <= LOW_CAPACITY_THRESHOLD) {
@@ -94,12 +101,16 @@ export const EventSocialProofToasts: React.FC<EventSocialProofToastsProps> = ({ 
     }
   }, [eventId]);
 
+  useEffect(() => {
+    refreshCapacityRef.current = refreshCapacity;
+  }, [refreshCapacity]);
+
   const flushBatch = useCallback(() => {
     const batch = batchRef.current;
     batch.timer = null;
     const rsvps = batch.rsvps.splice(0);
     if (rsvps.length === 0) return;
-    void refreshCapacity();
+    void refreshCapacityRef.current();
     if (rsvps.length === 1) {
       void enqueueRsvpToast(rsvps[0]);
     } else {
@@ -109,33 +120,46 @@ export const EventSocialProofToasts: React.FC<EventSocialProofToastsProps> = ({ 
         message: `${rsvps.length} people just RSVP'd!`,
       });
     }
-  }, [enqueueRsvpToast, enqueueToast, refreshCapacity]);
+  }, [enqueueRsvpToast, enqueueToast]);
+
+  // Returns true when the row was accepted into a toast batch (its capacity
+  // refresh runs when the batch flushes), so the caller skips its own refresh.
+  // False for filtered rows and for rows deferred until the viewer's identity
+  // resolves, so the caller refreshes the warning immediately and the hint
+  // never goes stale while a toast is held back.
+  const processInsert = useCallback(
+    (row: RsvpRow) => {
+      if (!mountedRef.current) return true;
+      if (!row?.id || row.status !== "attending") return false;
+      if (!identityResolvedRef.current) {
+        pendingRsvpsRef.current.push(row);
+        return false;
+      }
+      if (currentUserIdRef.current && row.user_id === currentUserIdRef.current) return false;
+      if (seenRsvpIdsRef.current.has(row.id)) return false;
+      seenRsvpIdsRef.current.add(row.id);
+      hasLiveActivityRef.current = true;
+
+      const batch = batchRef.current;
+      batch.rsvps.push(row);
+      if (batch.timer == null) {
+        batch.timer = window.setTimeout(flushBatch, AGGREGATION_WINDOW_MS);
+      }
+      return true;
+    },
+    [flushBatch],
+  );
 
   const handleRsvpChange = useCallback(
     (payload: RealtimePostgresChangesPayload<RsvpRow>) => {
       if (payload.eventType === "INSERT") {
-        const row = payload.new as RsvpRow;
-        if (
-          row?.id &&
-          row.status === "attending" &&
-          (!currentUserIdRef.current || row.user_id !== currentUserIdRef.current) &&
-          !seenRsvpIdsRef.current.has(row.id)
-        ) {
-          seenRsvpIdsRef.current.add(row.id);
-          hasLiveActivityRef.current = true;
-
-          const batch = batchRef.current;
-          batch.rsvps.push(row);
-          if (batch.timer == null) {
-            batch.timer = window.setTimeout(flushBatch, AGGREGATION_WINDOW_MS);
-          }
-          return;
-        }
+        if (processInsert(payload.new as RsvpRow)) return;
       }
-      // Cancellations and promotions change attendance — keep the warning honest.
-      void refreshCapacity();
+      // Cancellations, promotions, and filtered rows change attendance — keep
+      // the warning honest.
+      void refreshCapacityRef.current();
     },
-    [flushBatch, refreshCapacity],
+    [processInsert],
   );
 
   useSupabaseSubscription<RsvpRow>({
@@ -146,25 +170,60 @@ export const EventSocialProofToasts: React.FC<EventSocialProofToastsProps> = ({ 
     onData: handleRsvpChange,
   });
 
-  // Resolve the current user id and own all timers so they can be cleared on unmount.
+  // Resolve the viewer's identity once and own all timers so they can be
+  // cleared on unmount. RSVPs arriving before identity resolves are buffered
+  // so the viewer's own RSVP is never toasted.
   useEffect(() => {
     mountedRef.current = true;
-    void supabase.auth.getUser().then(({ data }) => {
-      if (data?.user) currentUserIdRef.current = data.user.id;
-    });
+    identityReadyRef.current = supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (data?.user) currentUserIdRef.current = data.user.id;
+      })
+      .catch(() => {
+        // Identity lookup failed; proceed without a viewer id so buffered
+        // RSVPs are never held back indefinitely.
+      })
+      .then(() => {
+        identityResolvedRef.current = true;
+        pendingRsvpsRef.current.splice(0).forEach((row) => processInsert(row));
+      });
     return () => {
       mountedRef.current = false;
+      identityResolvedRef.current = false;
+      currentUserIdRef.current = null;
+      pendingRsvpsRef.current = [];
       if (batchRef.current.timer != null) window.clearTimeout(batchRef.current.timer);
       if (displayTimerRef.current != null) window.clearTimeout(displayTimerRef.current);
       fallbackTimersRef.current.forEach((timer) => window.clearTimeout(timer));
       fallbackTimersRef.current = [];
     };
-  }, []);
+  }, [processInsert]);
 
+  // Reset all event-scoped state when the event changes so nothing from the
+  // previous event can leak into the new one, and bump the generation counter
+  // so in-flight work for the old event is dropped when it resolves.
   useEffect(() => {
     if (!eventId) return;
-    void refreshCapacity();
-  }, [eventId, refreshCapacity]);
+    eventGenRef.current += 1;
+    hasLiveActivityRef.current = false;
+    seenRsvpIdsRef.current.clear();
+    pendingRsvpsRef.current = [];
+    batchRef.current = { timer: null, rsvps: [] };
+    setQueue([]);
+    setCurrent(null);
+    setSpotsLeft(null);
+    void refreshCapacityRef.current();
+    return () => {
+      if (batchRef.current.timer != null) window.clearTimeout(batchRef.current.timer);
+      fallbackTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      fallbackTimersRef.current = [];
+      if (displayTimerRef.current != null) {
+        window.clearTimeout(displayTimerRef.current);
+        displayTimerRef.current = null;
+      }
+    };
+  }, [eventId]);
 
   // Show one toast at a time; advance the queue when the current one expires.
   useEffect(() => {
@@ -180,6 +239,9 @@ export const EventSocialProofToasts: React.FC<EventSocialProofToastsProps> = ({ 
 
   // With no live activity while viewing, replay recent RSVPs on a stagger.
   const runFallback = useCallback(async () => {
+    const gen = eventGenRef.current;
+    if (identityReadyRef.current) await identityReadyRef.current;
+    if (gen !== eventGenRef.current || !mountedRef.current) return;
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const { data } = await supabase
       .from("event_rsvps")
@@ -189,21 +251,21 @@ export const EventSocialProofToasts: React.FC<EventSocialProofToastsProps> = ({ 
       .gte("rsvp_at", oneHourAgo)
       .order("rsvp_at", { ascending: false })
       .limit(FALLBACK_MAX_RSVPS);
-    if (!data || data.length === 0 || !mountedRef.current) return;
+    if (gen !== eventGenRef.current || !mountedRef.current || !data || data.length === 0) return;
 
-    const recent = data.filter(
-      (rsvp) => !currentUserIdRef.current || rsvp.user_id !== currentUserIdRef.current,
-    );
+    const recent = data.filter((rsvp) => rsvp.user_id !== currentUserIdRef.current);
     recent.forEach((rsvp, index) => {
       seenRsvpIdsRef.current.add(rsvp.id);
       const timer = window.setTimeout(() => {
-        if (!mountedRef.current || hasLiveActivityRef.current) return;
+        if (gen !== eventGenRef.current || !mountedRef.current || hasLiveActivityRef.current) {
+          return;
+        }
         void enqueueRsvpToast(rsvp);
       }, index * FALLBACK_STAGGER_MS);
       fallbackTimersRef.current.push(timer);
     });
-    void refreshCapacity();
-  }, [eventId, enqueueRsvpToast, refreshCapacity]);
+    void refreshCapacityRef.current();
+  }, [eventId, enqueueRsvpToast]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -213,16 +275,9 @@ export const EventSocialProofToasts: React.FC<EventSocialProofToastsProps> = ({ 
     }, FALLBACK_GRACE_MS);
     fallbackTimersRef.current.push(graceTimer);
     return () => {
-      // Also clears on eventId changes (e.g. navigating between events), not
-      // just on unmount, so stale timers can never fire on a different event.
+      // The eventId reset effect clears the whole fallback timer list on both
+      // event changes and unmount; this only needs to clear its own timer.
       window.clearTimeout(graceTimer);
-      fallbackTimersRef.current.forEach((timer) => window.clearTimeout(timer));
-      fallbackTimersRef.current = [];
-      if (batchRef.current.timer != null) {
-        window.clearTimeout(batchRef.current.timer);
-        batchRef.current.timer = null;
-        batchRef.current.rsvps = [];
-      }
     };
   }, [eventId, runFallback]);
 
