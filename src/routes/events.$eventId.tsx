@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { parseCoordinates } from "@/lib/eventUtils";
+import { EventFaqSection } from "@/components/events/EventFaqSection";
 
 function rsvpRowsToCsv(rows: { name: string; email: string; rsvp_date: string; status: string }[]) {
   const headers = ["User Name", "Email", "RSVP Date", "Status"];
@@ -549,6 +550,8 @@ export default function EventDetailsPage() {
               </a>
             </div>
           </div>
+
+          <EventFaqSection eventId={event.id} isOrganizer={isOrganizer} userId={user?.id} />
         </div>
       </section>
 
