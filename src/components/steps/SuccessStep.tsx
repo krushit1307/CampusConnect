@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCircle2 } from "lucide-react";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
 import { useEventWizard } from "../../hooks/useEventWizard";
 
 export function SuccessStep({ wizard }: { wizard: ReturnType<typeof useEventWizard> }) {

@@ -1,4 +1,5 @@
-import { ArrowUp, ChevronsUp } from "lucide-react";
+import ArrowUp from "lucide-react/dist/esm/icons/arrow-up";
+import ChevronsUp from "lucide-react/dist/esm/icons/chevrons-up";
 import { useCallback } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";

@@ -1,23 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQueryClient,
-  useQuery,
-} from "@/hooks/useReactQueryReplacement";
+import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import {
-  Bell,
-  Calendar,
-  Building,
-  Info,
-  MessageSquare,
-  CheckCircle2,
-  Wifi,
-  WifiOff,
-} from "lucide-react";
+import Bell from "lucide-react/dist/esm/icons/bell";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Building from "lucide-react/dist/esm/icons/building";
+import Info from "lucide-react/dist/esm/icons/info";
+import MessageSquare from "lucide-react/dist/esm/icons/message-square";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import Wifi from "lucide-react/dist/esm/icons/wifi";
+import WifiOff from "lucide-react/dist/esm/icons/wifi-off";
 import { toast } from "sonner";
 import format from "date-fns/format";
 import isToday from "date-fns/isToday";
@@ -49,10 +42,22 @@ const NOTIFICATION_SUBSCRIPTION = /* GraphQL */ `
   }
 `;
 
-import {
-  NotificationReceivedSubscription,
-  NotificationReceivedSubscriptionVariables,
-} from "@/generated/graphql";
+/** Shape of a Notification from the GraphQL subscription payload. */
+interface GQLNotification {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  link: string | null;
+  isRead: boolean;
+  createdAt: string;
+  metadata?: Record<string, unknown> | null;
+  recentActors?: string[] | null;
+  groupCount?: number | null;
+  referenceId?: string | null;
+}
+
 export function getNotificationLink(
   type: string,
   metadata: Record<string, unknown> | null | undefined,

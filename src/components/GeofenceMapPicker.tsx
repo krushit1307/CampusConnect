@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Marker, Circle, useMapEvents } from "react-leaflet";
-import { Crosshair, MapPin } from "lucide-react";
+import Crosshair from "lucide-react/dist/esm/icons/crosshair";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 

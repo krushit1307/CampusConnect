@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { CalendarPlus } from "lucide-react";
+import CalendarPlus from "lucide-react/dist/esm/icons/calendar-plus";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useMemo, useState } from "react";

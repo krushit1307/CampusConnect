@@ -1,6 +1,8 @@
 import React, { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { Building, Calendar, MessageSquare } from "lucide-react";
+import Building from "lucide-react/dist/esm/icons/building";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import MessageSquare from "lucide-react/dist/esm/icons/message-square";
 import { Link } from "react-router-dom";
 
 export interface TimelineItem {

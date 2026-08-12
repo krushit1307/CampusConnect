@@ -14,7 +14,7 @@ export interface ApiImportResponse {
  * Handles POST /api/admin/users/import API requests
  */
 export async function handleBulkUserImportApiRequest(
-  csvContent: string | Buffer,
+  csvContent: string | Uint8Array,
   batchSize: number = 500,
 ): Promise<ApiImportResponse> {
   try {

@@ -127,7 +127,8 @@ export const VideoScrubber: React.FC<VideoScrubberProps> = ({
     return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
-  const progressPercent = duration > 0 ? Math.min(100, Math.max(0, (progress / duration) * 100)) : 0;
+  const progressPercent =
+    duration > 0 ? Math.min(100, Math.max(0, (progress / duration) * 100)) : 0;
 
   return (
     <div className={`relative w-full select-none ${className}`}>

@@ -1,7 +1,11 @@
 import React from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, SlidersHorizontal, CheckCheck, Trash2, X } from "lucide-react";
+import Search from "lucide-react/dist/esm/icons/search";
+import SlidersHorizontal from "lucide-react/dist/esm/icons/sliders-horizontal";
+import CheckCheck from "lucide-react/dist/esm/icons/check-check";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import X from "lucide-react/dist/esm/icons/x";
 
 export type NotificationCategory = "all" | "unread" | "event" | "club" | "reply" | "security";
 

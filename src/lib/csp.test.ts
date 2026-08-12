@@ -53,9 +53,7 @@ describe("Content Security Policy (CSP) Configuration (#1561)", () => {
     // Allowed: <script src="..."> or <script type="module" src="...">
     const inlineScriptRegex = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi;
     const matches = Array.from(htmlContent.matchAll(inlineScriptRegex));
-    const inlineContent = matches
-      .map((m) => m[1].trim())
-      .filter((content) => content.length > 0);
+    const inlineContent = matches.map((m) => m[1].trim()).filter((content) => content.length > 0);
 
     expect(inlineContent.length).toBe(0);
   });

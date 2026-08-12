@@ -1,17 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { createClient } from "@/lib/supabase/client";
-import {
-  Video,
-  VideoOff,
-  Mic,
-  MicOff,
-  MonitorUp,
-  MonitorOff,
-  LogOut,
-  Users,
-  Sparkles,
-} from "lucide-react";
+import Video from "lucide-react/dist/esm/icons/video";
+import VideoOff from "lucide-react/dist/esm/icons/video-off";
+import Mic from "lucide-react/dist/esm/icons/mic";
+import MicOff from "lucide-react/dist/esm/icons/mic-off";
+import MonitorUp from "lucide-react/dist/esm/icons/monitor-up";
+import MonitorOff from "lucide-react/dist/esm/icons/monitor-off";
+import LogOut from "lucide-react/dist/esm/icons/log-out";
+import Users from "lucide-react/dist/esm/icons/users";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 import { toast } from "sonner";
 
 interface PeerConnectionState {
@@ -378,7 +376,8 @@ export default function StudyRoom() {
         <div className="neu-border bg-red-100 p-8 max-w-md shadow-[4px_4px_0_0_#000]">
           <h2 className="text-2xl font-black text-black mb-4">🚪 Room is Full</h2>
           <p className="font-mono text-sm text-gray-700 mb-6">
-            Study Room {roomId} has reached its limit of 5 participants. IMPT: WebRTC mesh topologies cannot support larger rooms without latency degradation.
+            Study Room {roomId} has reached its limit of 5 participants. IMPT: WebRTC mesh
+            topologies cannot support larger rooms without latency degradation.
           </p>
           <button
             onClick={() => navigate("/dashboard")}
@@ -488,11 +487,7 @@ export default function StudyRoom() {
           }`}
           title={isScreenSharing ? "Stop Sharing Screen" : "Share Screen"}
         >
-          {isScreenSharing ? (
-            <MonitorOff className="h-5 w-5" />
-          ) : (
-            <MonitorUp className="h-5 w-5" />
-          )}
+          {isScreenSharing ? <MonitorOff className="h-5 w-5" /> : <MonitorUp className="h-5 w-5" />}
         </button>
 
         <button

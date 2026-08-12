@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Download, X } from "lucide-react";
+import Download from "lucide-react/dist/esm/icons/download";
+import X from "lucide-react/dist/esm/icons/x";
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];

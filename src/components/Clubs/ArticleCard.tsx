@@ -1,6 +1,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, Calendar, User } from "lucide-react";
+import BookOpen from "lucide-react/dist/esm/icons/book-open";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import User from "lucide-react/dist/esm/icons/user";
 import { formatStandardDate } from "@/utils/dateUtils";
 
 interface ArticleCardProps {

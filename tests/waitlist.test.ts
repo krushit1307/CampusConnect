@@ -9,11 +9,7 @@ vi.mock("../src/lib/supabase/client", () => ({
 }));
 
 import { supabase } from "../src/lib/supabase/client";
-import {
-  joinEventOrWaitlist,
-  cancelEventRsvp,
-  getEventRsvpState,
-} from "../src/lib/waitlist";
+import { joinEventOrWaitlist, cancelEventRsvp, getEventRsvpState } from "../src/lib/waitlist";
 
 const mockRpc = supabase.rpc as ReturnType<typeof vi.fn>;
 
@@ -32,6 +28,22 @@ describe("waitlist — joinEventOrWaitlist", () => {
     expect(mockRpc).toHaveBeenCalledWith("join_event_or_waitlist", {
       p_event_id: "evt-1",
       p_user_id: "usr-1",
+      p_resume_path: null,
+    });
+  });
+
+  it("passes an optional resume path to events that require a resume", async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: { success: true, status: "attending" },
+      error: null,
+    });
+
+    await joinEventOrWaitlist("evt-1", "usr-1", "resumes/usr-1.pdf");
+
+    expect(mockRpc).toHaveBeenCalledWith("join_event_or_waitlist", {
+      p_event_id: "evt-1",
+      p_user_id: "usr-1",
+      p_resume_path: "resumes/usr-1.pdf",
     });
   });
 
@@ -175,8 +187,11 @@ describe("waitlist — race-condition safety (SQL contract)", () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
     const sql = fs.readFileSync(
-      path.resolve(__dirname, "../supabase/migrations/20260816000000_automated_waitlist_system.sql"),
-      "utf-8"
+      path.resolve(
+        __dirname,
+        "../supabase/migrations/20260816000000_automated_waitlist_system.sql",
+      ),
+      "utf-8",
     );
     expect(sql).toContain("FOR UPDATE");
     expect(sql).toContain("FROM public.events");
@@ -186,8 +201,11 @@ describe("waitlist — race-condition safety (SQL contract)", () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
     const sql = fs.readFileSync(
-      path.resolve(__dirname, "../supabase/migrations/20260816000000_automated_waitlist_system.sql"),
-      "utf-8"
+      path.resolve(
+        __dirname,
+        "../supabase/migrations/20260816000000_automated_waitlist_system.sql",
+      ),
+      "utf-8",
     );
     expect(sql).toContain("FOR UPDATE SKIP LOCKED");
   });
@@ -196,8 +214,11 @@ describe("waitlist — race-condition safety (SQL contract)", () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
     const sql = fs.readFileSync(
-      path.resolve(__dirname, "../supabase/migrations/20260816000000_automated_waitlist_system.sql"),
-      "utf-8"
+      path.resolve(
+        __dirname,
+        "../supabase/migrations/20260816000000_automated_waitlist_system.sql",
+      ),
+      "utf-8",
     );
     expect(sql).toContain("ADD COLUMN IF NOT EXISTS status");
     expect(sql).toContain("'waitlisted'");
@@ -209,8 +230,11 @@ describe("waitlist — race-condition safety (SQL contract)", () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
     const sql = fs.readFileSync(
-      path.resolve(__dirname, "../supabase/migrations/20260816000000_automated_waitlist_system.sql"),
-      "utf-8"
+      path.resolve(
+        __dirname,
+        "../supabase/migrations/20260816000000_automated_waitlist_system.sql",
+      ),
+      "utf-8",
     );
     expect(sql).toContain("extensions.net.http_post");
     expect(sql).toContain("waitlist-promotion-email");

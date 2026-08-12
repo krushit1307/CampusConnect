@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useEventTasks } from "@/hooks/useEventTasks";
 import { GanttChart } from "@/components/gantt/GanttChart";
 import { AddTaskModal } from "@/components/gantt/AddTaskModal";
-import { ArrowLeft } from "lucide-react";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
 
 export default function EventGanttPage() {
   const { eventId = "" } = useParams();

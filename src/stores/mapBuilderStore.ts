@@ -39,9 +39,7 @@ export const useMapBuilderStore = create<MapBuilderState>((set) => ({
     })),
   updateElement: (id, updates) =>
     set((state) => ({
-      elements: state.elements.map((el) =>
-        el.id === id ? { ...el, ...updates } : el
-      ),
+      elements: state.elements.map((el) => (el.id === id ? { ...el, ...updates } : el)),
     })),
   removeElement: (id) =>
     set((state) => ({

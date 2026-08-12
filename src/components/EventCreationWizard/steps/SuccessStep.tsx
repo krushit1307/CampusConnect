@@ -1,5 +1,5 @@
 // src/components/EventCreationWizard/steps/SuccessStep.tsx
-import { CheckCircle2 } from "lucide-react";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
 import { Button } from "../../ui/button";
 
 interface SuccessStepProps {

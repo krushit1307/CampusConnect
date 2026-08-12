@@ -133,7 +133,8 @@ CREATE TABLE events (
   created_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  short_id TEXT UNIQUE
+  short_id TEXT UNIQUE,
+  generates_certificate BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 ALTER TABLE events
@@ -248,8 +249,13 @@ CREATE TABLE certificates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID REFERENCES events(id) ON DELETE CASCADE,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  attendee_name TEXT,
+  event_title TEXT,
+  event_date TIMESTAMPTZ,
   certificate_url TEXT NOT NULL,
-  issued_at TIMESTAMPTZ DEFAULT NOW()
+  issued_at TIMESTAMPTZ DEFAULT NOW(),
+  email_sent_at TIMESTAMPTZ,
+  CONSTRAINT unique_event_user_certificate UNIQUE (event_id, user_id)
 );
 
 CREATE TABLE saved_events (

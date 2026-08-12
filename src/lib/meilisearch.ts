@@ -12,28 +12,28 @@
  * A single search result from Meilisearch.
  */
 export interface MeiliSearchHit {
-    id: string;
-    [key: string]: unknown;
+  id: string;
+  [key: string]: unknown;
 }
 
 /**
  * The response from a Meilisearch multi-search call.
  */
 export interface MeiliMultiSearchResult {
-    events: MeiliSearchHit[];
-    clubs: MeiliSearchHit[];
-    profiles: MeiliSearchHit[];
+  events: MeiliSearchHit[];
+  clubs: MeiliSearchHit[];
+  profiles: MeiliSearchHit[];
 }
 
 /**
  * The categorised results returned to the Omnibar component.
  */
 export interface UnifiedSearchResults {
-    events: MeiliSearchHit[];
-    clubs: MeiliSearchHit[];
-    profiles: MeiliSearchHit[];
-    totalHits: number;
-    processingTimeMs: number;
+  events: MeiliSearchHit[];
+  clubs: MeiliSearchHit[];
+  profiles: MeiliSearchHit[];
+  totalHits: number;
+  processingTimeMs: number;
 }
 
 /**
@@ -48,42 +48,39 @@ export interface UnifiedSearchResults {
  * @param signal Optional AbortSignal for debouncing.
  */
 export async function unifiedSearch(
-    query: string,
-    limitPerIndex: number = 5,
-    signal?: AbortSignal
+  query: string,
+  limitPerIndex: number = 5,
+  signal?: AbortSignal,
 ): Promise<UnifiedSearchResults> {
-    if (!query.trim()) {
-        return { events: [], clubs: [], profiles: [], totalHits: 0, processingTimeMs: 0 };
-    }
+  if (!query.trim()) {
+    return { events: [], clubs: [], profiles: [], totalHits: 0, processingTimeMs: 0 };
+  }
 
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? "";
-    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? "";
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
 
-    const response = await fetch(
-        `${supabaseUrl}/functions/v1/meilisearch-search`,
-        {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${anonKey}`,
-            },
-            body: JSON.stringify({ query, limitPerIndex }),
-            signal,
-        }
-    );
+  const response = await fetch(`${supabaseUrl}/functions/v1/meilisearch-search`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${anonKey}`,
+    },
+    body: JSON.stringify({ query, limitPerIndex }),
+    signal,
+  });
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error("[meilisearch] Search failed:", response.status, errorText);
-        return { events: [], clubs: [], profiles: [], totalHits: 0, processingTimeMs: 0 };
-    }
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("[meilisearch] Search failed:", response.status, errorText);
+    return { events: [], clubs: [], profiles: [], totalHits: 0, processingTimeMs: 0 };
+  }
 
-    const data = await response.json();
-    return {
-        events: data.events ?? [],
-        clubs: data.clubs ?? [],
-        profiles: data.profiles ?? [],
-        totalHits: data.totalHits ?? 0,
-        processingTimeMs: data.processingTimeMs ?? 0,
-    };
+  const data = await response.json();
+  return {
+    events: data.events ?? [],
+    clubs: data.clubs ?? [],
+    profiles: data.profiles ?? [],
+    totalHits: data.totalHits ?? 0,
+    processingTimeMs: data.processingTimeMs ?? 0,
+  };
 }

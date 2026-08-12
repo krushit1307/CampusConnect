@@ -7,11 +7,6 @@ const dirname =
   typeof __dirname !== "undefined" ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  test: {
-    environment: "jsdom",
-    setupFiles: ["./src/test-setup.ts"],
-    exclude: ["**/node_modules/**", "**/dist/**", "**/.github/**", "**/e2e/**"],
-  },
   plugins: [viteReact()],
   resolve: {
     alias: {
@@ -22,6 +17,13 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test-setup.ts"],
     globals: true,
+    // Keep the 300+ file suite within a predictable CI/developer memory budget.
+    // Vitest otherwise scales workers to the host CPU count, multiplying the
+    // jsdom and transformed-module footprint until Node reaches its heap limit.
+    pool: "vmForks",
+    minWorkers: 1,
+    maxWorkers: 2,
+    vmMemoryLimit: "512MB",
     include: [
       "src/**/*.test.{ts,tsx}",
       "src/**/*.spec.{ts,tsx}",

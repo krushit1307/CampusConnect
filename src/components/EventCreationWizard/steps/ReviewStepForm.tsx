@@ -40,10 +40,25 @@ export function ReviewStepForm() {
           </button>
         </div>
         <dl className="space-y-1 text-sm">
-          <div><dt className="inline font-medium">Title: </dt><dd className="inline">{formData.title || "—"}</dd></div>
-          <div><dt className="inline font-medium">Category: </dt><dd className="inline">{formData.category || "—"}</dd></div>
-          <div><dt className="inline font-medium">Tags: </dt><dd className="inline">{formData.tags.length ? formData.tags.join(", ") : "—"}</dd></div>
-          <div><dt className="inline font-medium">Description: </dt><dd className="inline">{formData.description.slice(0, 100)}{formData.description.length > 100 ? "…" : ""}</dd></div>
+          <div>
+            <dt className="inline font-medium">Title: </dt>
+            <dd className="inline">{formData.title || "—"}</dd>
+          </div>
+          <div>
+            <dt className="inline font-medium">Category: </dt>
+            <dd className="inline">{formData.category || "—"}</dd>
+          </div>
+          <div>
+            <dt className="inline font-medium">Tags: </dt>
+            <dd className="inline">{formData.tags.length ? formData.tags.join(", ") : "—"}</dd>
+          </div>
+          <div>
+            <dt className="inline font-medium">Description: </dt>
+            <dd className="inline">
+              {formData.description.slice(0, 100)}
+              {formData.description.length > 100 ? "…" : ""}
+            </dd>
+          </div>
         </dl>
       </section>
 
@@ -60,14 +75,32 @@ export function ReviewStepForm() {
           </button>
         </div>
         <dl className="space-y-1 text-sm">
-          <div><dt className="inline font-medium">Start: </dt><dd className="inline">{formatDate(formData.startDate)}</dd></div>
-          <div><dt className="inline font-medium">End: </dt><dd className="inline">{formatDate(formData.endDate)}</dd></div>
-          <div><dt className="inline font-medium">Location: </dt><dd className="inline">{formData.location || "—"}</dd></div>
-          <div><dt className="inline font-medium">Virtual: </dt><dd className="inline">{formData.isVirtual ? "Yes" : "No"}</dd></div>
+          <div>
+            <dt className="inline font-medium">Start: </dt>
+            <dd className="inline">{formatDate(formData.startDate)}</dd>
+          </div>
+          <div>
+            <dt className="inline font-medium">End: </dt>
+            <dd className="inline">{formatDate(formData.endDate)}</dd>
+          </div>
+          <div>
+            <dt className="inline font-medium">Location: </dt>
+            <dd className="inline">{formData.location || "—"}</dd>
+          </div>
+          <div>
+            <dt className="inline font-medium">Virtual: </dt>
+            <dd className="inline">{formData.isVirtual ? "Yes" : "No"}</dd>
+          </div>
           {formData.isVirtual && (
-            <div><dt className="inline font-medium">Meeting URL: </dt><dd className="inline">{formData.meetingUrl || "—"}</dd></div>
+            <div>
+              <dt className="inline font-medium">Meeting URL: </dt>
+              <dd className="inline">{formData.meetingUrl || "—"}</dd>
+            </div>
           )}
-          <div><dt className="inline font-medium">Capacity: </dt><dd className="inline">{formData.capacity}</dd></div>
+          <div>
+            <dt className="inline font-medium">Capacity: </dt>
+            <dd className="inline">{formData.capacity}</dd>
+          </div>
         </dl>
       </section>
 
@@ -84,14 +117,18 @@ export function ReviewStepForm() {
           </button>
         </div>
         <dl className="space-y-1 text-sm">
-          <div><dt className="inline font-medium">Type: </dt><dd className="inline">{formData.isPaid ? "Paid" : "Free"}</dd></div>
+          <div>
+            <dt className="inline font-medium">Type: </dt>
+            <dd className="inline">{formData.isPaid ? "Paid" : "Free"}</dd>
+          </div>
           {formData.isPaid && (
             <div>
               <dt className="inline font-medium">Tiers ({formData.tickets.length}): </dt>
               <dd className="inline">
                 {formData.tickets.map((t, i) => (
                   <span key={i}>
-                    {t.name} (${t.price}, cap {t.capacity}){i < formData.tickets.length - 1 ? ", " : ""}
+                    {t.name} (${t.price}, cap {t.capacity})
+                    {i < formData.tickets.length - 1 ? ", " : ""}
                   </span>
                 ))}
               </dd>
@@ -113,7 +150,10 @@ export function ReviewStepForm() {
           </button>
         </div>
         <dl className="space-y-1 text-sm">
-          <div><dt className="inline font-medium">Cover Image: </dt><dd className="inline">{formData.coverImageUrl ? "Yes" : "None"}</dd></div>
+          <div>
+            <dt className="inline font-medium">Cover Image: </dt>
+            <dd className="inline">{formData.coverImageUrl ? "Yes" : "None"}</dd>
+          </div>
           <div>
             <dt className="inline font-medium">Banner Color: </dt>
             <dd className="inline">
@@ -125,9 +165,18 @@ export function ReviewStepForm() {
               {formData.bannerColor}
             </dd>
           </div>
-          <div><dt className="inline font-medium">Featured: </dt><dd className="inline">{formData.isFeatured ? "Yes" : "No"}</dd></div>
-          <div><dt className="inline font-medium">Waitlist: </dt><dd className="inline">{formData.allowWaitlist ? "Yes" : "No"}</dd></div>
-          <div><dt className="inline font-medium">Reminder Emails: </dt><dd className="inline">{formData.sendReminderEmails ? "Yes" : "No"}</dd></div>
+          <div>
+            <dt className="inline font-medium">Featured: </dt>
+            <dd className="inline">{formData.isFeatured ? "Yes" : "No"}</dd>
+          </div>
+          <div>
+            <dt className="inline font-medium">Waitlist: </dt>
+            <dd className="inline">{formData.allowWaitlist ? "Yes" : "No"}</dd>
+          </div>
+          <div>
+            <dt className="inline font-medium">Reminder Emails: </dt>
+            <dd className="inline">{formData.sendReminderEmails ? "Yes" : "No"}</dd>
+          </div>
         </dl>
       </section>
     </div>

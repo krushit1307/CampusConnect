@@ -43,9 +43,7 @@ Deno.test("excludes events the user already RSVP'd to", () => {
 
 Deno.test("applies +CLUB_BOOST for events hosted by clubs the user follows", () => {
   const e = event({ id: "evt-club", club_id: "club-1" });
-  const picks = scoreAndSelectTopEvents(
-    ctx({ events: [e], followedClubIds: new Set(["club-1"]) }),
-  );
+  const picks = scoreAndSelectTopEvents(ctx({ events: [e], followedClubIds: new Set(["club-1"]) }));
   assertEquals(picks.length, 1);
   assertEquals(picks[0].score, CLUB_BOOST);
   assertEquals(picks[0].reasons.length, 1);
@@ -53,9 +51,7 @@ Deno.test("applies +CLUB_BOOST for events hosted by clubs the user follows", () 
 
 Deno.test("applies +TAG_BOOST per matching tag from previously attended events", () => {
   const e = event({ id: "evt-tag", tag_paths: ["ai", "ml"] });
-  const picks = scoreAndSelectTopEvents(
-    ctx({ events: [e], attendedTagPaths: new Set(["ai"]) }),
-  );
+  const picks = scoreAndSelectTopEvents(ctx({ events: [e], attendedTagPaths: new Set(["ai"]) }));
   assertEquals(picks[0].score, TAG_BOOST);
 
   const picks2 = scoreAndSelectTopEvents(
@@ -73,7 +69,12 @@ Deno.test("combines club and tag boosts and ranks by total score", () => {
       event_date: "2026-08-20T10:00:00.000Z",
     }),
     event({ id: "club-only", club_id: "club-1", event_date: "2026-08-18T10:00:00.000Z" }),
-    event({ id: "tag-only", club_id: null, tag_paths: ["ai"], event_date: "2026-08-17T10:00:00.000Z" }),
+    event({
+      id: "tag-only",
+      club_id: null,
+      tag_paths: ["ai"],
+      event_date: "2026-08-17T10:00:00.000Z",
+    }),
     event({ id: "none", club_id: null, event_date: "2026-08-16T10:00:00.000Z" }),
   ];
   const picks = scoreAndSelectTopEvents(
@@ -83,7 +84,10 @@ Deno.test("combines club and tag boosts and ranks by total score", () => {
       attendedTagPaths: new Set(["ai"]),
     }),
   );
-  assertEquals(picks.map((p) => p.id), ["both", "club-only", "tag-only"]);
+  assertEquals(
+    picks.map((p) => p.id),
+    ["both", "club-only", "tag-only"],
+  );
   assertEquals(picks[0].score, CLUB_BOOST + TAG_BOOST);
   assertEquals(picks[1].score, CLUB_BOOST);
   assertEquals(picks[2].score, TAG_BOOST);
@@ -97,7 +101,10 @@ Deno.test("ties are broken by earliest event date", () => {
     event({ id: "earlier", event_date: "2026-08-16T10:00:00.000Z" }),
   ];
   const picks = scoreAndSelectTopEvents(ctx({ events }));
-  assertEquals(picks.map((p) => p.id), ["earlier", "later"]);
+  assertEquals(
+    picks.map((p) => p.id),
+    ["earlier", "later"],
+  );
 });
 
 Deno.test("returns empty when there are no eligible events", () => {
@@ -112,5 +119,8 @@ Deno.test("still recommends score-0 events so users never get a blank digest", (
     }),
   );
   assertEquals(picks.length, DEFAULT_TOP_N);
-  assertEquals(picks.every((p) => p.score === 0), true);
+  assertEquals(
+    picks.every((p) => p.score === 0),
+    true,
+  );
 });

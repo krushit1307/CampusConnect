@@ -4,7 +4,7 @@ import { useFormContext } from "react-hook-form";
 import { EventFormData } from "../../lib/eventFormSchema";
 import { Button } from "../ui/button";
 import { Label } from "../ui/label";
-import { CalendarIcon } from "lucide-react";
+import CalendarIcon from "lucide-react/dist/esm/icons/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Calendar } from "../ui/calendar";
 import format from "date-fns/format";
@@ -45,16 +45,12 @@ export const DateRangePicker: React.FC = () => {
             <Calendar
               mode="single"
               selected={startDate}
-              onSelect={(date) =>
-                date && setValue("startDate", date, { shouldValidate: true })
-              }
+              onSelect={(date) => date && setValue("startDate", date, { shouldValidate: true })}
               initialFocus
             />
           </PopoverContent>
         </Popover>
-        {errors.startDate && (
-          <p className="text-xs text-destructive">{errors.startDate.message}</p>
-        )}
+        {errors.startDate && <p className="text-xs text-destructive">{errors.startDate.message}</p>}
       </div>
 
       <div className="space-y-2">
@@ -77,16 +73,12 @@ export const DateRangePicker: React.FC = () => {
             <Calendar
               mode="single"
               selected={endDate}
-              onSelect={(date) =>
-                date && setValue("endDate", date, { shouldValidate: true })
-              }
+              onSelect={(date) => date && setValue("endDate", date, { shouldValidate: true })}
               initialFocus
             />
           </PopoverContent>
         </Popover>
-        {errors.endDate && (
-          <p className="text-xs text-destructive">{errors.endDate.message}</p>
-        )}
+        {errors.endDate && <p className="text-xs text-destructive">{errors.endDate.message}</p>}
       </div>
     </div>
   );

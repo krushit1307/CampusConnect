@@ -1,5 +1,9 @@
 import { Helmet } from "react-helmet-async";
+<<<<<<< HEAD
 import { Network } from "lucide-react";
+=======
+import Network from "lucide-react/dist/esm/icons/network";
+>>>>>>> origin/main
 import { ClubTree } from "@/components/clubs/ClubTree";
 
 export default function ClubHierarchyRoute() {

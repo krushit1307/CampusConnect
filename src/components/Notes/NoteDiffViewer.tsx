@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { computeWordDiff, computeLineDiff } from "@/lib/diffUtils";
-import { Layers, Columns, PlusCircle, MinusCircle } from "lucide-react";
+import Layers from "lucide-react/dist/esm/icons/layers";
+import Columns from "lucide-react/dist/esm/icons/columns";
+import PlusCircle from "lucide-react/dist/esm/icons/plus-circle";
+import MinusCircle from "lucide-react/dist/esm/icons/minus-circle";
 import { Button } from "@/components/ui/button";
 
 interface NoteDiffViewerProps {

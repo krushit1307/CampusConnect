@@ -4,7 +4,7 @@ import { useFormContext } from "react-hook-form";
 import { EventFormData } from "../../lib/eventFormSchema";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { MapPin } from "lucide-react";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
 import { cn } from "../../lib/utils";
 
 /**
@@ -28,9 +28,7 @@ export const LocationInput: React.FC = () => {
           {...register("location")}
         />
       </div>
-      {errors.location && (
-        <p className="text-xs text-destructive">{errors.location.message}</p>
-      )}
+      {errors.location && <p className="text-xs text-destructive">{errors.location.message}</p>}
     </div>
   );
 };

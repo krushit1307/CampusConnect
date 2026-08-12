@@ -1,6 +1,10 @@
 // src/components/events/EventRsvpButton.tsx
 import { useEffect, useState } from "react";
-import { Loader2, Users, Clock, Check, X } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Users from "lucide-react/dist/esm/icons/users";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import Check from "lucide-react/dist/esm/icons/check";
+import X from "lucide-react/dist/esm/icons/x";
 import { Button } from "../ui/button";
 import {
   joinEventOrWaitlist,
@@ -8,6 +12,7 @@ import {
   getEventRsvpState,
   type EventRsvpState,
 } from "../../lib/waitlist";
+
 import { useIdempotentPayment } from "../../hooks/useIdempotentPayment";
 import { Checkbox } from "../ui/checkbox";
 import {
@@ -19,6 +24,7 @@ import {
   DialogDescription,
 } from "../ui/dialog";
 import { Label } from "../ui/label";
+import { ResumeDropzone } from "../resume/ResumeDropzone";
 
 interface EventRsvpButtonProps {
   eventId: string;
@@ -55,6 +61,16 @@ export function EventRsvpButton({
   const [state, setState] = useState<EventRsvpState | null>(initialState ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
+
+  // Mocking a ticket price since database schema lacks it currently
+  const ticketPrice = 14.5;
+  const isPaidEvent = true;
+
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [roundUp, setRoundUp] = useState(false);
+
+  const { processPayment, isProcessing } = useIdempotentPayment();
 
   // Mocking a ticket price since database schema lacks it currently
   const ticketPrice = 14.5;
@@ -81,14 +97,27 @@ export function EventRsvpButton({
     };
   }, [eventId, userId, initialState]);
 
-  const handleJoin = async () => {
+  const handleJoinClick = () => {
     if (!userId) {
       setError("Please log in to RSVP.");
       return;
     }
+    if (state?.is_resume_required) {
+      setIsResumeModalOpen(true);
+    } else {
+      executeJoin();
+    }
+  };
+
+  const executeJoin = async (resumePath?: string) => {
+    if (!userId) return;
+
     setLoading(true);
     setError(null);
-    const result = await joinEventOrWaitlist(eventId, userId);
+    setIsResumeModalOpen(false);
+
+    const result = await joinEventOrWaitlist(eventId, userId, resumePath);
+
     setLoading(false);
     if (!result.success) {
       setError(result.error);
@@ -136,6 +165,26 @@ export function EventRsvpButton({
     setState(fresh);
     onRsvpChanged?.();
   };
+
+  const renderResumeModal = () => (
+    <Dialog open={isResumeModalOpen} onOpenChange={setIsResumeModalOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Resume Required</DialogTitle>
+          <DialogDescription>
+            The organizer requires a resume for this event. Please upload a PDF under 2MB.
+          </DialogDescription>
+        </DialogHeader>
+        {userId && (
+          <ResumeDropzone
+            eventId={eventId}
+            userId={userId}
+            onUploadSuccess={(path) => executeJoin(path)}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
 
   // ── Loading state ──────────────────────────────────────────────
   if (state === null) {
@@ -217,6 +266,7 @@ export function EventRsvpButton({
   if (state.is_full) {
     return (
       <div className="flex flex-col gap-2">
+        {renderResumeModal()}
         <div
           className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
           role="status"
@@ -233,7 +283,7 @@ export function EventRsvpButton({
             )}
           </span>
         </div>
-        <Button onClick={handleJoin} disabled={loading} size="lg" className="gap-2">
+        <Button onClick={handleJoinClick} disabled={loading} size="lg" className="gap-2">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
           Join Waitlist
         </Button>
@@ -246,6 +296,7 @@ export function EventRsvpButton({
   return (
     <>
       <div className="flex flex-col gap-2">
+        {renderResumeModal()}
         {isPaidEvent ? (
           <Button
             onClick={() => setIsCheckoutModalOpen(true)}
@@ -257,7 +308,7 @@ export function EventRsvpButton({
             Buy Ticket
           </Button>
         ) : (
-          <Button onClick={handleJoin} disabled={loading} size="lg" className="gap-2">
+          <Button onClick={handleJoinClick} disabled={loading} size="lg" className="gap-2">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
             RSVP NOW
           </Button>

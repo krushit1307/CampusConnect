@@ -9,12 +9,12 @@ test.describe("Visual Regression: Core Pages", () => {
     await page.route("*/**/graphql", async (route) => {
       const request = route.request();
       const postData = request.postDataJSON();
-      
+
       // We can inspect the operationName and mock accordingly,
       // but for visual tests where we just want the layout to remain static,
-      // we can return a generic mocked response or let it pass if we are 
+      // we can return a generic mocked response or let it pass if we are
       // relying on a seeded DB. If relying on DB, we might mask elements.
-      
+
       // Let's pass the request for now and rely on masking dynamic content.
       await route.continue();
     });
@@ -23,9 +23,9 @@ test.describe("Visual Regression: Core Pages", () => {
   const getMaskOptions = (page: any) => ({
     // Mask typical dynamic elements like dates, timestamps, or dynamic feeds
     mask: [
-      page.locator('.dynamic-timestamp'), 
-      page.locator('.user-avatar'),
-      page.locator('[data-testid="feed-timestamp"]')
+      page.locator(".dynamic-timestamp"),
+      page.locator(".user-avatar"),
+      page.locator('[data-testid="feed-timestamp"]'),
     ],
     animations: "disabled" as const,
     fullPage: true,
@@ -45,7 +45,7 @@ test.describe("Visual Regression: Core Pages", () => {
 
   test("Profile Page", async ({ page }) => {
     // Assuming /profile or /profile/me redirects, let's use a known static profile path if possible
-    await page.goto("/profile/test-user"); 
+    await page.goto("/profile/test-user");
     await page.waitForLoadState("networkidle");
     await expect(page).toHaveScreenshot("profile-page.png", getMaskOptions(page));
   });

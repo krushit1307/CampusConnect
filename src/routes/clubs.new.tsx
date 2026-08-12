@@ -3,7 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, UseFormReturn } from "react-hook-form";
 import { toast } from "sonner";
-import { Plus, Trash2, Mail, UserCheck } from "lucide-react";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import Mail from "lucide-react/dist/esm/icons/mail";
+import UserCheck from "lucide-react/dist/esm/icons/user-check";
 
 import { createClient } from "@/lib/supabase/client";
 import { sanitizeHtml } from "@/lib/sanitizeHtml";
@@ -315,8 +318,38 @@ export default function CreateClubWizard() {
                     alt="Club Logo preview"
                     className="h-full w-full object-cover"
                   />
-                </div>
+                ) : (
+                  <span className="font-display text-lg font-bold text-black">
+                    {form.watch("name")
+                      ? form
+                          .watch("name")
+                          .split(" ")
+                          .filter(Boolean)
+                          .map((part: string) => part[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()
+                      : "CL"}
+                  </span>
+                )}
               </div>
+            </div>
+            <div className="flex-1">
+              <p className="eyebrow mb-1 font-bold text-black">Club Logo</p>
+              <ImageCropUpload
+                aspect={1}
+                bucket="avatars"
+                value={form.watch("logo_url") ?? undefined}
+                onUploaded={(url) =>
+                  form.setValue("logo_url", url, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  })
+                }
+                accept="image/jpeg,image/png,image/webp"
+                maxSizeBytes={2 * 1024 * 1024}
+                hint="JPG, PNG or WEBP · Max 2 MB · Fixed 1:1 crop"
+              />
             </div>
           </div>
         ),

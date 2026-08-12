@@ -1,5 +1,8 @@
 // src/components/EventCreationWizard/WizardNavigation.tsx
-import { ChevronLeft, ChevronRight, Loader2, Check } from "lucide-react";
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Check from "lucide-react/dist/esm/icons/check";
 import { Button } from "../ui/button";
 import { WIZARD_STEPS } from "../../lib/eventWizardSchema";
 import { useEventWizardStore } from "../../store/useEventWizardStore";
@@ -42,10 +45,7 @@ export function WizardNavigation({ onSubmit }: WizardNavigationProps) {
         variant="ghost"
         onClick={back}
         disabled={isFirstStep || isSubmitting}
-        className={cn(
-          "gap-1",
-          isFirstStep && "invisible"
-        )}
+        className={cn("gap-1", isFirstStep && "invisible")}
       >
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         Back
@@ -71,12 +71,7 @@ export function WizardNavigation({ onSubmit }: WizardNavigationProps) {
           )}
         </Button>
       ) : (
-        <Button
-          type="button"
-          onClick={next}
-          disabled={isSubmitting}
-          className="gap-1"
-        >
+        <Button type="button" onClick={next} disabled={isSubmitting} className="gap-1">
           Next
           <ChevronRight className="h-4 w-4" aria-hidden="true" />
         </Button>

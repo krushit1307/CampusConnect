@@ -29,17 +29,15 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import {
-  ArrowUp,
-  ArrowDown,
-  ArrowUpDown,
-  Download,
-  Eye,
-  EyeOff,
-  Loader2,
-  GripVertical,
-  X,
-} from "lucide-react";
+import ArrowUp from "lucide-react/dist/esm/icons/arrow-up";
+import ArrowDown from "lucide-react/dist/esm/icons/arrow-down";
+import ArrowUpDown from "lucide-react/dist/esm/icons/arrow-up-down";
+import Download from "lucide-react/dist/esm/icons/download";
+import Eye from "lucide-react/dist/esm/icons/eye";
+import EyeOff from "lucide-react/dist/esm/icons/eye-off";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import GripVertical from "lucide-react/dist/esm/icons/grip-vertical";
+import X from "lucide-react/dist/esm/icons/x";
 import { FilterBar, type FilterRule, type FilterOperator } from "./FilterBar";
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent } from "@/components/ui/context-menu";
 import { useHasTextSelection } from "@/hooks/useHasTextSelection";
