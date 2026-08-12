@@ -8,7 +8,6 @@ export const comments = {
       AUTOMATION.claimWelcomeMarker,
       `Hey @${user}, awesome to have you on board for this! 🚀\n\n` +
         `We've officially assigned issue #${issueNumber} to you. Be sure to check out our **CONTRIBUTING.md** before starting, and keep your PR scoped to this issue for an easier review process.\n\n` +
-        `⏳ Try to open a PR within **3 days**. If you need extra time, just drop a quick progress update here and you can keep going.\n\n` +
         `Can't wait to see your work. Happy coding! ✨`,
     ),
 
@@ -19,17 +18,17 @@ export const comments = {
 
   maxIssueLimitReached: ({ user, activeCount }) =>
     `Hey @${user}, we love the energy! 🌟\n\n` +
-    `You've reached our limit with **${activeCount} active assigned issues** (the max is **7**). This helps ensure everyone gets a chance to contribute.\n\n` +
+    `You've reached our limit with **${activeCount} active assigned issues** (the max is **10**). This helps ensure everyone gets a chance to contribute.\n\n` +
     `Once you finish or release an active issue (using \`${COMMANDS.unclaim}\`), you can definitely claim another one!`,
 
   invalidClaim: ({ user }) =>
     `Hi @${user}, thanks for wanting to jump in! 😊\n\n` +
-    `To claim an issue, please comment exactly \`${COMMANDS.claim}\` (no extra text).\n\n` +
+    `To claim this issue, please comment exactly \`${COMMANDS.claim}\` (no extra text) to claim it.\n\n` +
     `If you're new here, **CONTRIBUTING.md** has the full contribution workflow to help you get started smoothly.`,
 
   wrongIssueAuthorClaimAttempt: ({ user, issueAuthor }) =>
     `Hi @${user}, thank you for your interest in this issue! 🙏\n\n` +
-    `This particular issue was opened by @${issueAuthor}, and for contributor-opened issues, automatic claiming is limited to the issue author.\n\n` +
+    `This particular issue was opened by @${issueAuthor}, and for contributor-opened issues, claiming is limited to the issue author.\n\n` +
     `We really appreciate your eagerness to contribute — please feel free to browse our other open issues, there's likely a great fit for you!`,
 
   duplicateClaim: ({ user }) =>
@@ -54,7 +53,7 @@ export const comments = {
     withMarker(
       AUTOMATION.assignmentWelcomeMarker,
       `Hi @${assignee}, welcome aboard! 🎉\n\n` +
-        `You are now assigned to issue #${issueNumber}. Please follow **CONTRIBUTING.md**, keep your PR focused on this issue, and aim to open it within **3 days**.\n\n` +
+        `You are now assigned to issue #${issueNumber}. Please follow **CONTRIBUTING.md** and keep your PR focused on this issue.\n\n` +
         `If anything blocks you along the way, just leave a short update here — we're happy to help. Looking forward to your contribution! 🚀`,
     ),
 
@@ -63,32 +62,11 @@ export const comments = {
     `A quick validation pass is running now. If anything is missing, you'll see it below with clear next steps — nothing to worry about, we're here to help you get it merge-ready. 💙`,
 
   welcomeMessage: ({ user }) =>
-    `Hey @${user}, welcome to the **CampusConnect** community! 🎉\n\n` +
-    `We are thrilled to have you! A great place to start is **CONTRIBUTING.md**. If you get stuck, don't hesitate to ask for help in Discussions.\n\n` +
-    `Can't wait to see your awesome contributions! 🌟`,
-
-  reminder12h: ({ assignee }) =>
     withMarker(
-      AUTOMATION.reminder12Marker,
-      `Hi @${assignee}, just a friendly check-in! 👋\n\n` +
-        `It's been about **1 day** since this issue was assigned to you. If you're actively working on it, that's great — just leave a short progress update or open a draft PR to keep your claim active.\n\n` +
-        `No pressure, we just want to keep things moving smoothly for everyone. 😊`,
-    ),
-
-  reminder18h: ({ assignee }) =>
-    withMarker(
-      AUTOMATION.reminder18Marker,
-      `Hi @${assignee}, another friendly reminder! ⏰\n\n` +
-        `It's been around **2 days** without any activity on this claim. If you're still working on it, please leave a quick update so we can keep it assigned to you.\n\n` +
-        `We'd hate to see you lose your spot — just a small update is all it takes! 💙`,
-    ),
-
-  expiration24h: ({ assignee }) =>
-    withMarker(
-      AUTOMATION.expiredMarker,
-      `Hi @${assignee}, thank you again for your interest in this issue! 🙏\n\n` +
-        `Since there was no activity within the **3-day** claim window, the issue has been released so other contributors can get a chance to work on it.\n\n` +
-        `If it's still available and you'd like to continue, you're more than welcome to claim it again — we'd love to see you back! 😊`,
+      AUTOMATION.firstIssueWelcomeMarker,
+      `Hey @${user}, welcome to the **CampusConnect** community! 🎉\n\n` +
+        `We are thrilled to have you! A great place to start is **CONTRIBUTING.md**. If you want to take up an issue, simply comment \`${COMMANDS.claim}\` on it! If you get stuck, don't hesitate to ask for help in Discussions.\n\n` +
+        `Can't wait to see your awesome contributions! 🌟`,
     ),
 
   prValidationChecklist: ({ body }) => withMarker(AUTOMATION.prChecklistMarker, body),
@@ -108,7 +86,7 @@ export const comments = {
     "📝 Please add a clear PR description explaining what changed, why it changed, and how you tested it. A good description makes review so much smoother — thanks for taking the time!",
 
   issueClosed: ({ user, issueNumber }) =>
-    `Hi @${user}, just letting you know issue #${issueNumber} has been closed. Claim reminders and assignment metadata were cleaned up automatically. Thanks for your involvement! 🙏`,
+    `Hi @${user}, just letting you know issue #${issueNumber} has been closed. Claim reminders and assignment metadata were cleaned up. Thanks for your involvement! 🙏`,
 
   issueReopened: ({ user, issueNumber }) =>
     `Hi @${user}, heads up — issue #${issueNumber} has been reopened. 🔄\n\n` +
@@ -128,13 +106,13 @@ export const comments = {
     withMarker(
       AUTOMATION.firstWelcomeMarker,
       `Hey @${user}, a massive welcome to **CampusConnect**! 🎉\n\n` +
-        `Congratulations on your first contribution! 🎉 Check out **CONTRIBUTING.md** if you haven't already, and use Discussions if you ever need help or feedback.\n\n` +
+        `Congratulations on your first contribution! 🎉 Check out **CONTRIBUTING.md** if you haven't already. Remember, you can always use the \`${COMMANDS.claim}\` command to claim issues you'd like to work on! Use Discussions if you ever need help or feedback.\n\n` +
         `So glad to have you with us. Cheers to many more! 🌟`,
     ),
 
-  naturalLanguageClaimGuidance: ({ user }) =>
-    `Hi @${user}, thanks so much for your interest in this issue! 😊\n\n` +
-    `To claim it, just comment exactly \`${COMMANDS.claim}\`.\n\n` +
+  generalCommentClaimGuidance: ({ user }) =>
+    `Hi @${user}, thanks for commenting on this issue! 😊\n\n` +
+    `If you would like to work on it, please comment exactly \`${COMMANDS.claim}\` or use keywords like "assign me" to claim it.\n\n` +
     `You can also check out **CONTRIBUTING.md** for the full contribution flow. We're excited to see you get started!`,
 
   issueAlreadyClaimed: ({ user }) =>

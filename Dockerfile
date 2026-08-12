@@ -1,32 +1,26 @@
-# Use the official Node image
-FROM node:22-alpine AS base
+# Stage 1: Build the application
+FROM node:18 AS builder
 WORKDIR /app
-
-# Stage 1: Install dependencies
-FROM base AS install
 COPY package*.json ./
 RUN npm ci
-
-# Stage 2: Development environment
-FROM base AS dev
-COPY --from=install /app/node_modules ./node_modules
-COPY . .
-EXPOSE 8080
-ENV PORT=8080
-ENV HOST=0.0.0.0
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "8080"]
-
-# Stage 3: Build the application for production
-FROM base AS builder
-COPY --from=install /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-# Stage 4: Production runner environment (using serve for SPA)
-FROM node:22-alpine AS runner
+# Stage 2: Production environment
+FROM node:18-alpine AS production
+WORKDIR /app
 ENV NODE_ENV=production
+
+# Install only production dependencies
+COPY package*.json ./
+RUN npm ci --omit=dev --ignore-scripts
+
+# Install serve to run the application
 RUN npm install -g serve
+
+# Copy compiled files from builder
 COPY --from=builder /app/dist ./dist
+
 EXPOSE 3000
 ENV PORT=3000
 CMD ["serve", "-s", "dist", "-l", "3000"]
