@@ -65,12 +65,13 @@ function compileDigestHtml(
       const safeClub = escapeHtml(clubName);
       const safeLocation = escapeHtml(event.location || "TBA");
       const eventUrl = `${safeAppUrl}/events/${escapeHtml(event.id)}`;
-      const reasonsHtml = event.reasons.length > 0
-        ? `
+      const reasonsHtml =
+        event.reasons.length > 0
+          ? `
           <div style="font-size: 11px; font-weight: 700; font-family: monospace; text-transform: uppercase; color: #166534; margin-bottom: 10px;">
             &#127919; ${event.reasons.map((r) => escapeHtml(r)).join(" &bull; ")}
           </div>`
-        : "";
+          : "";
 
       return `
         <div style="margin-bottom: 20px; padding: 16px; border: 2px solid #000000; background-color: #f7f7f5;">
@@ -264,7 +265,9 @@ serve(async (req) => {
 
     if (digestEvents.length === 0) {
       return new Response(
-        JSON.stringify({ message: "No upcoming events in the next 7 days. Skipping newsletter digest." }),
+        JSON.stringify({
+          message: "No upcoming events in the next 7 days. Skipping newsletter digest.",
+        }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -273,15 +276,18 @@ serve(async (req) => {
     const { data: subscribers, error: subError } = await supabase.rpc("get_digest_subscribers");
     if (subError) throw new Error(`Failed to fetch newsletter subscribers: ${subError.message}`);
 
-    const users = (subscribers ?? []).filter(
-      (u: DigestUser) => Boolean(u.user_id && u.email && u.email.includes("@")),
+    const users = (subscribers ?? []).filter((u: DigestUser) =>
+      Boolean(u.user_id && u.email && u.email.includes("@")),
     ) as DigestUser[];
 
     if (users.length === 0) {
-      return new Response(JSON.stringify({ message: "No subscribers opted into newsletter digest." }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ message: "No subscribers opted into newsletter digest." }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // 4. Load personalization data in a few batched queries (avoid N+1 per user)
@@ -353,7 +359,8 @@ serve(async (req) => {
       for (const l of data ?? []) {
         const info = subscriberRsvpInfo.get(l.rsvp_id);
         if (!info) continue;
-        if (!attendedEventsByUser.has(info.user_id)) attendedEventsByUser.set(info.user_id, new Set());
+        if (!attendedEventsByUser.has(info.user_id))
+          attendedEventsByUser.set(info.user_id, new Set());
         attendedEventsByUser.get(info.user_id)!.add(info.event_id);
       }
     }
@@ -391,8 +398,9 @@ serve(async (req) => {
         events: digestEvents,
         followedClubIds: clubsByUser.get(user.user_id) ?? new Set(),
         attendedTagPaths: new Set(
-          Array.from(attendedEventsByUser.get(user.user_id) ?? new Set())
-            .flatMap((eventId) => tagsByEvent.get(eventId) ?? []),
+          Array.from(attendedEventsByUser.get(user.user_id) ?? new Set()).flatMap(
+            (eventId) => tagsByEvent.get(eventId) ?? [],
+          ),
         ),
         rsvpedEventIds: rsvpsByUser.get(user.user_id) ?? new Set(),
       };
@@ -409,7 +417,10 @@ serve(async (req) => {
         unsubscribeToken = crypto.randomUUID();
         const { error: tokenError } = await supabase
           .from("user_preferences")
-          .upsert({ user_id: user.user_id, unsubscribe_token: unsubscribeToken }, { onConflict: "user_id" });
+          .upsert(
+            { user_id: user.user_id, unsubscribe_token: unsubscribeToken },
+            { onConflict: "user_id" },
+          );
         if (tokenError) {
           failed.push({
             user_id: user.user_id,
@@ -419,8 +430,7 @@ serve(async (req) => {
         }
       }
 
-      const unsubscribeUrl =
-        `${supabaseUrl}/functions/v1/digest-unsubscribe?email=${encodeURIComponent(user.email)}&token=${encodeURIComponent(unsubscribeToken)}`;
+      const unsubscribeUrl = `${supabaseUrl}/functions/v1/digest-unsubscribe?email=${encodeURIComponent(user.email)}&token=${encodeURIComponent(unsubscribeToken)}`;
       const html = compileDigestHtml(user, picks, appUrl, unsubscribeUrl);
       const subject = `CampusConnect Weekly Digest: ${picks.length} event${picks.length === 1 ? "" : "s"} picked for you`;
 

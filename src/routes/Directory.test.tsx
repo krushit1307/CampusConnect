@@ -3,7 +3,12 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import Directory from "./Directory";
 import { generateMockUsers, filterUsers } from "../components/Directory/userData";
 
+import { useDirectoryStore } from "@/store/useDirectoryStore";
+
 describe("Directory", () => {
+  beforeEach(() => {
+    useDirectoryStore.getState().resetFilters();
+  });
   it("renders the directory header and search input", () => {
     render(<Directory />);
     expect(screen.getByText("University User Directory")).toBeInTheDocument();

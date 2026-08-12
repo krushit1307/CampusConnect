@@ -18,7 +18,7 @@ serve(async (req: Request) => {
   if (limited) return limited;
 
   try {
-    const { clubId, templateId } = await req.json().catch(() => ({}));
+    const { clubId, templateId, targetAudience } = await req.json().catch(() => ({}));
 
     if (!clubId) {
       return new Response(JSON.stringify({ error: "clubId is required" }), {
@@ -69,6 +69,7 @@ serve(async (req: Request) => {
         club_id: clubId,
         template_id: templateId || null,
         status: "pending",
+        target_audience: targetAudience || "all",
       })
       .select("id")
       .single();

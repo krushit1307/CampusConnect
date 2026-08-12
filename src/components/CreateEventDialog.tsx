@@ -1,3 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { useMutation, useQuery } from "@/hooks/useReactQueryReplacement";
+import { Plus, MapPin, CalendarIcon } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
@@ -64,6 +70,14 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FlyerUploader } from "@/components/FlyerUploader";
@@ -100,11 +114,19 @@ const defaultValues: LocalEventFormValues = {
   title: "",
   description: "",
   category: "",
+  venue_id: "",
   location: "",
   latitude: null,
   longitude: null,
   geofencingEnabled: false,
   geofenceRadiusMeters: 100,
+  accessibility_features: {
+    has_elevator: false,
+    wheelchair_ramp: false,
+    gender_neutral_restrooms: false,
+    hearing_loop: false,
+    low_sensory_zone: false,
+  },
   startDate: "",
   endDate: "",
   alcoholPresent: false,
@@ -172,6 +194,18 @@ export function CreateEventDialog({
     mode: "onBlur",
   });
 
+  const { data: venues } = useQuery({
+    queryKey: ["venues"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("venues").select("*").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const watchedLocation = form.watch("location");
+  const watchedDescription = form.watch("description");
+  const watchedVenueId = form.watch("venue_id");
   const control = form.control as never;
 
   const isUndoingRedoingRef = useRef(false);
@@ -248,7 +282,10 @@ export function CreateEventDialog({
 
   const currentDescription = watchedDescription || "";
 
+  const isCustomVenue = watchedVenueId === "custom";
+
   const showMapPreview =
+    isCustomVenue &&
     watchedLocation &&
     watchedLocation.trim().length > 0 &&
     watchedLocation.trim().toLowerCase() !== "online";
@@ -299,20 +336,15 @@ export function CreateEventDialog({
       const { error } = await supabase.from("events").insert({
         title: values.title.trim(),
         description: values.description.trim(),
-        location: values.location?.trim() || null,
+        venue_id: values.venue_id && values.venue_id !== "custom" ? values.venue_id : null,
+        location: isCustomVenue ? values.location?.trim() || null : null,
+        accessibility_features: isCustomVenue ? values.accessibility_features : null,
         start_date: startDateIso,
         end_date: endDateIso,
         event_date: startDateIso,
         created_by: user.id,
         club_id: myClub.id,
-        alcohol_present: !!values.alcoholPresent,
-        max_attendees: values.maxAttendees ? Number(values.maxAttendees) : null,
-        off_campus_speaker: !!values.offCampusSpeaker,
-        status: "draft", // default status
       });
-
-      if (error) {
-        throw new Error(error.message);
       try {
         const { error } = await supabase.from("events").insert(payload);
         if (error) {
@@ -442,7 +474,7 @@ export function CreateEventDialog({
           </button>
         )}
       </DialogTrigger>
-      <DialogContent className="neu-border neu-shadow bg-cream sm:max-w-md text-black">
+      <DialogContent className="neu-border neu-shadow bg-cream sm:max-w-md text-black max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between gap-2">
             <DialogTitle className="text-black">Create a new event</DialogTitle>
@@ -642,6 +674,119 @@ export function CreateEventDialog({
                   </div>
                 )}
 
+
+
+            <FormField
+              control={form.control}
+              name="venue_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-red-800" required>
+                    Venue
+                  </FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl className="text-black">
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a venue" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {venues?.map((v: any) => (
+                        <SelectItem key={v.id} value={v.id}>
+                          {v.name} ({v.capacity} capacity)
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="custom">Custom Location</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {isCustomVenue && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="location"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-red-800" required>
+                        Custom Location
+                      </FormLabel>
+                      <FormControl className="text-black">
+                        <Input
+                          placeholder='e.g. "Main Auditorium, IIT Bombay" or "Online"'
+                          {...field}
+                        />
+                      </FormControl>
+                      <p className="text-xs text-black/50 mt-1">
+                        Enter a venue name, address, or "Online"
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {watchedLocation?.trim().toLowerCase() !== "online" && (
+                  <div className="border border-black p-3 rounded-md bg-white/50 space-y-2">
+                    <FormLabel className="text-red-800 text-sm font-bold block mb-2">
+                      Accessibility Audit
+                    </FormLabel>
+                    <p className="text-xs text-black/70 mb-2">
+                      Please accurately report the venue's accessibility features.
+                    </p>
+
+                    {[
+                      { id: "has_elevator", label: "Elevator Available" },
+                      { id: "wheelchair_ramp", label: "Wheelchair Ramp Available" },
+                      { id: "gender_neutral_restrooms", label: "Gender-Neutral Restrooms" },
+                      { id: "hearing_loop", label: "Hearing Loop Available" },
+                      { id: "low_sensory_zone", label: "Low-Sensory/Quiet Zone" },
+                    ].map((feature) => (
+                      <FormField
+                        key={feature.id}
+                        control={form.control}
+                        name={`accessibility_features.${feature.id}` as any}
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-0 p-1">
+                            <FormControl>
+                              <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-black">
+                                {feature.label}
+                              </FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {showMapPreview && (
+                  <div className="rounded overflow-hidden border-2 border-black">
+                    <iframe
+                      className="w-full"
+                      height="180"
+                      loading="lazy"
+                      src={`https://maps.google.com/maps?q=${encodeURIComponent(watchedLocation || "")}&output=embed`}
+                      title="Location preview"
+                    />
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(watchedLocation || "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-1 bg-white py-1.5 font-mono text-xs font-bold underline hover:bg-cream"
+                    >
+                      <MapPin size={12} />
+                      Open in Google Maps ↗
+                    </a>
+                  </div>
+                )}
+              </>
+            )}
                 <FormField
                   control={control}
                   name="geofencingEnabled"
@@ -1039,10 +1184,6 @@ export function CreateEventDialog({
               </FormItem>
             </div>
 
-            <DialogFooter className="pt-2">
-              <Button type="submit" disabled={createEvent.isPending} className="w-full sm:w-auto">
-                {createEvent.isPending ? "Creating..." : "Create event"}
-              </Button>
             <DialogFooter className="pt-2 flex gap-2">
               {step > 0 && (
                 <Button type="button" variant="outline" onClick={handleBack}>

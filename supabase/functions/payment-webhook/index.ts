@@ -118,6 +118,53 @@ Deno.serve(async (req) => {
       }
 
       console.log(`[Webhook Ingestion] Successfully set RSVP ${rsvpId} status to PAID.`);
+
+      // 6. Handle Micro-Donation splitting (Issue #2876)
+      if (
+        session.metadata?.include_charity_donation === "true" ||
+        session.metadata?.include_charity_donation === true
+      ) {
+        console.log(
+          `[Webhook Ingestion] Detected Charity Donation. Fetching line items for Session ${session.id}...`,
+        );
+
+        try {
+          const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
+          const charityItem = lineItems.data.find(
+            (item: any) =>
+              item.description?.toLowerCase().includes("charity") ||
+              item.price?.product_data?.name?.toLowerCase().includes("charity"),
+          );
+
+          if (charityItem) {
+            const donationAmount = charityItem.amount_total;
+            const { error: charityError } = await supabase.from("charity_ledger").insert({
+              user_id: session.metadata.user_id || null, // Assuming you passed user_id in metadata
+              event_id: session.metadata.event_id || null, // Assuming you passed event_id in metadata
+              stripe_session_id: session.id,
+              donation_amount_cents: donationAmount,
+            });
+
+            if (charityError) {
+              console.error("[DB Error] Failed to insert into charity_ledger:", charityError);
+              // Consider whether to fail the whole webhook or just log it
+            } else {
+              console.log(
+                `[Webhook Ingestion] Successfully recorded $${(donationAmount / 100).toFixed(2)} to charity_ledger.`,
+              );
+            }
+          } else {
+            console.warn(
+              `[Webhook Ingestion] include_charity_donation flag was true, but no Charity line item found for session ${session.id}`,
+            );
+          }
+        } catch (err: any) {
+          console.error(
+            `[Stripe API Error] Failed to fetch line items for session ${session.id}:`,
+            err.message,
+          );
+        }
+      }
     }
 
     return new Response(JSON.stringify({ status: "success", eventId }), {

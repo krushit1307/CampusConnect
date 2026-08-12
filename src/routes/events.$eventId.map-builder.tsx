@@ -34,7 +34,12 @@ const checkOverlap = (el1: MapBuilderElement, el2: MapBuilderElement): boolean =
 };
 
 // Draggable item for palette
-function PaletteItem({ type, label, defaultWidth, defaultHeight }: {
+function PaletteItem({
+  type,
+  label,
+  defaultWidth,
+  defaultHeight,
+}: {
   type: "table" | "stage" | "boundary" | "booth";
   label: string;
   defaultWidth: number;
@@ -80,7 +85,9 @@ function CanvasElement({ element }: { element: MapBuilderElement }) {
   });
 
   // Calculate if this element overlaps with any other element
-  const hasOverlap = elements.some((other) => other.id !== element.id && checkOverlap(element, other));
+  const hasOverlap = elements.some(
+    (other) => other.id !== element.id && checkOverlap(element, other),
+  );
 
   const style = {
     position: "absolute" as const,
@@ -181,7 +188,10 @@ function CanvasElement({ element }: { element: MapBuilderElement }) {
 
       {/* Overlap Indicator */}
       {hasOverlap && (
-        <div className="absolute top-1 right-1 bg-red-500 border border-black w-2.5 h-2.5 rounded-full" title="Overlapping element" />
+        <div
+          className="absolute top-1 right-1 bg-red-500 border border-black w-2.5 h-2.5 rounded-full"
+          title="Overlapping element"
+        />
       )}
     </div>
   );
@@ -305,7 +315,15 @@ export default function CampusMapBuilder() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [selectedElementId, elements, gridSize, canvasWidth, canvasHeight, updateElement, removeElement]);
+  }, [
+    selectedElementId,
+    elements,
+    gridSize,
+    canvasWidth,
+    canvasHeight,
+    updateElement,
+    removeElement,
+  ]);
 
   // Handle DragEnd events from dnd-kit context
   const handleDragEnd = (event: DragEndEvent) => {
@@ -449,10 +467,30 @@ export default function CampusMapBuilder() {
                     <Layout className="w-4 h-4" /> Elements Palette
                   </h3>
                   <div className="flex flex-col gap-3">
-                    <PaletteItem type="table" label="Table / Booth" defaultWidth={80} defaultHeight={60} />
-                    <PaletteItem type="stage" label="Main Stage" defaultWidth={160} defaultHeight={100} />
-                    <PaletteItem type="boundary" label="Boundary / Wall" defaultWidth={120} defaultHeight={20} />
-                    <PaletteItem type="booth" label="Small Counter" defaultWidth={60} defaultHeight={60} />
+                    <PaletteItem
+                      type="table"
+                      label="Table / Booth"
+                      defaultWidth={80}
+                      defaultHeight={60}
+                    />
+                    <PaletteItem
+                      type="stage"
+                      label="Main Stage"
+                      defaultWidth={160}
+                      defaultHeight={100}
+                    />
+                    <PaletteItem
+                      type="boundary"
+                      label="Boundary / Wall"
+                      defaultWidth={120}
+                      defaultHeight={20}
+                    />
+                    <PaletteItem
+                      type="booth"
+                      label="Small Counter"
+                      defaultWidth={60}
+                      defaultHeight={60}
+                    />
                   </div>
                 </div>
 
@@ -463,9 +501,15 @@ export default function CampusMapBuilder() {
                   </h4>
                   <p>• Drag items from palette onto the grid canvas</p>
                   <p>• Click items on canvas to select them</p>
-                  <p>• Move selected item with <b>Arrow Keys</b></p>
-                  <p>• Press <b>R</b> to rotate selected elements</p>
-                  <p>• Press <b>Delete</b> to remove selected elements</p>
+                  <p>
+                    • Move selected item with <b>Arrow Keys</b>
+                  </p>
+                  <p>
+                    • Press <b>R</b> to rotate selected elements
+                  </p>
+                  <p>
+                    • Press <b>Delete</b> to remove selected elements
+                  </p>
                   <p>• Drag bottom-right corner of selected items to resize</p>
                 </div>
 
@@ -481,12 +525,15 @@ export default function CampusMapBuilder() {
                         <input
                           type="text"
                           value={selectedElement.label}
-                          onChange={(e) => updateElement(selectedElement.id, { label: e.target.value })}
+                          onChange={(e) =>
+                            updateElement(selectedElement.id, { label: e.target.value })
+                          }
                           className="w-full mt-1 border-2 border-black p-1 bg-white text-xs"
                         />
                       </div>
                       <div>
-                        <span className="font-bold">Grid Position:</span> {selectedElement.x}, {selectedElement.y}
+                        <span className="font-bold">Grid Position:</span> {selectedElement.x},{" "}
+                        {selectedElement.y}
                       </div>
                       <div className="flex gap-2 pt-1">
                         <button

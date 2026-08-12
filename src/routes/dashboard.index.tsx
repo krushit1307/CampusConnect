@@ -22,6 +22,8 @@ import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/Dashb
 import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
 import LazyHydrate from "@/components/LazyHydrate";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { WidgetErrorFallback } from "@/components/WidgetErrorFallback";
+import { RelativeTime } from "@/components/ui/RelativeTime";
 interface Club {
   id: string;
   name: string;
@@ -294,7 +296,11 @@ export default function DashboardOverview() {
     enabled: !!user?.id,
   });
 
-  const { data: recommendedEvents = [], isLoading: isRecommendedLoading, refetch: refetchRecommended } = useQuery({
+  const {
+    data: recommendedEvents = [],
+    isLoading: isRecommendedLoading,
+    refetch: refetchRecommended,
+  } = useQuery({
     queryKey: ["recommendedEvents", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("recommend_events_for_user", {
@@ -703,9 +709,7 @@ export default function DashboardOverview() {
                     <Icon className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>
                       {item.description}
-                      <span className="ml-2 text-black/50">
-                        {formatRelativeActivityTime(item.created_at)}
-                      </span>
+                      <RelativeTime date={item.created_at} className="ml-2 text-black/50" />
                     </span>
                   </li>
                 );
@@ -745,14 +749,5 @@ function Widget({
 }
 
 function WidgetError({ title }: { title: string }) {
-  return (
-    <div className="neu-border bg-red-50 p-4 sm:p-6">
-      <div className="mb-4 flex items-center justify-between border-b-2 border-red-200 pb-3">
-        <h2 className="text-xl font-bold">{title}</h2>
-      </div>
-      <p className="font-mono text-sm text-red-600">
-        This widget failed to load. Other sections remain unaffected.
-      </p>
-    </div>
-  );
+  return <WidgetErrorFallback title={title} />;
 }

@@ -153,9 +153,7 @@ export function AsyncCombobox<T>({
           aria-expanded={isOpen}
           aria-controls={listboxId}
           aria-autocomplete="list"
-          aria-activedescendant={
-            isOpen && focusedIndex >= 0 ? optionId(focusedIndex) : undefined
-          }
+          aria-activedescendant={isOpen && focusedIndex >= 0 ? optionId(focusedIndex) : undefined}
           value={inputValue}
           disabled={disabled}
           placeholder={placeholder}

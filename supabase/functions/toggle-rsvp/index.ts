@@ -407,7 +407,6 @@ serve(async (req: Request) => {
 
           return respond({ success: true, status: "approved" }, 200);
         }
-        }
 
         if (data === "ALREADY_RSVPED") {
           return respond({ error: "You have already RSVPed to this event." }, 400);

@@ -101,7 +101,11 @@ serve(async (req) => {
   }
 
   if (req.method !== "POST") {
-    return htmlPage(405, "Method not allowed", "This unsubscribe link only supports GET and POST requests.");
+    return htmlPage(
+      405,
+      "Method not allowed",
+      "This unsubscribe link only supports GET and POST requests.",
+    );
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";

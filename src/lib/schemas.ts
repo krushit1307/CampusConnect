@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getPasswordStrength } from "@/components/ui/password-strength";
 
 // --- Database Native Enums (#2020) -------------------------------------------
 
@@ -164,7 +165,6 @@ export const signUpSchema = z
   .refine(
     (data) => {
       if (!data.password) return true;
-      const { getPasswordStrength } = require("@/components/ui/password-strength");
       const result = getPasswordStrength(
         data.password,
         [data.firstName, data.lastName, data.email].filter(Boolean),

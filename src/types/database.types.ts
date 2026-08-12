@@ -320,25 +320,55 @@ export type Database = {
         Row: {
           id: string;
           user_id: string;
-          event_id: string;
+          event_id: string | null;
+          club_id: string | null;
+          attendee_name: string | null;
+          event_title: string | null;
+          event_date: string | null;
           certificate_url: string;
+          certificate_type: "attendance" | "leadership";
+          role_title: string | null;
+          tenure_start: string | null;
+          tenure_end: string | null;
+          termination_reason: string | null;
           issued_at: string | null;
+          email_sent_at: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
-          event_id: string;
+          event_id?: string | null;
+          club_id?: string | null;
+          attendee_name?: string | null;
+          event_title?: string | null;
+          event_date?: string | null;
           certificate_url: string;
+          certificate_type?: "attendance" | "leadership";
+          role_title?: string | null;
+          tenure_start?: string | null;
+          tenure_end?: string | null;
+          termination_reason?: string | null;
           issued_at?: string | null;
+          email_sent_at?: string | null;
           created_at?: string;
         };
         Update: {
           id?: string;
           user_id?: string;
-          event_id?: string;
+          event_id?: string | null;
+          club_id?: string | null;
+          attendee_name?: string | null;
+          event_title?: string | null;
+          event_date?: string | null;
           certificate_url?: string;
+          certificate_type?: "attendance" | "leadership";
+          role_title?: string | null;
+          tenure_start?: string | null;
+          tenure_end?: string | null;
+          termination_reason?: string | null;
           issued_at?: string | null;
+          email_sent_at?: string | null;
           created_at?: string;
         };
         Relationships: [
@@ -401,6 +431,7 @@ export type Database = {
           blurhash: string | null;
           created_at: string;
           updated_at: string;
+          generates_certificate: boolean;
           accommodation_deadline: string | null;
         };
         Insert: {
@@ -445,6 +476,7 @@ export type Database = {
           blurhash?: string | null;
           created_at?: string;
           updated_at?: string;
+          generates_certificate?: boolean;
           accommodation_deadline?: string | null;
         };
         Update: {
@@ -489,6 +521,7 @@ export type Database = {
           blurhash?: string | null;
           created_at?: string;
           updated_at?: string;
+          generates_certificate?: boolean;
           accommodation_deadline?: string | null;
         };
         Relationships: [
@@ -997,6 +1030,8 @@ export type Database = {
           role: "member" | "admin" | "owner";
           status: "pending" | "approved" | "rejected";
           joined_at: string | null;
+          removed_at: string | null;
+          termination_reason: "term_completed" | "resigned" | "impeached" | "removed" | "role_changed" | string | null;
           created_at: string;
         };
         Insert: {
@@ -1006,6 +1041,8 @@ export type Database = {
           role?: "member" | "admin" | "owner";
           status?: "pending" | "approved" | "rejected";
           joined_at?: string | null;
+          removed_at?: string | null;
+          termination_reason?: "term_completed" | "resigned" | "impeached" | "removed" | "role_changed" | string | null;
           created_at?: string;
         };
         Update: {
@@ -1015,6 +1052,8 @@ export type Database = {
           role?: "member" | "admin" | "owner";
           status?: "pending" | "approved" | "rejected";
           joined_at?: string | null;
+          removed_at?: string | null;
+          termination_reason?: "term_completed" | "resigned" | "impeached" | "removed" | "role_changed" | string | null;
           created_at?: string;
         };
         Relationships: [
@@ -2222,4 +2261,3 @@ export type Enums<
   : PublicEnumNameOrOptions extends keyof Database["public"]["Enums"]
     ? Database["public"]["Enums"][PublicEnumNameOrOptions]
     : never;
-    

@@ -237,6 +237,7 @@ export default function ClubProfile() {
   }
 
   const [latestJob, setLatestJob] = useState<BulkEmailJob | null>(null);
+  const [targetAudience, setTargetAudience] = useState<"all" | "alumni" | "students">("all");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null));
@@ -386,7 +387,7 @@ export default function ClubProfile() {
     mutationFn: async () => {
       if (!club) throw new Error("Club not loaded");
       const { data, error } = await supabase.functions.invoke("send-newsletter", {
-        body: { clubId: club.id },
+        body: { clubId: club.id, targetAudience },
       });
       if (error) throw error;
       return data;
@@ -968,6 +969,19 @@ export default function ClubProfile() {
                           This will be processed asynchronously in the background to prevent server
                           timeouts.
                         </p>
+
+                        <div className="mt-4 space-y-2 max-w-xs">
+                          <label className="eyebrow font-bold text-black dark:text-cream">Target Audience</label>
+                          <select
+                            value={targetAudience}
+                            onChange={(e) => setTargetAudience(e.target.value as any)}
+                            className="neu-border border-2 border-black bg-white text-black w-full p-2 font-mono text-xs outline-none dark:bg-zinc-800 dark:text-white"
+                          >
+                            <option value="all">All Members</option>
+                            <option value="students">Student Members Only</option>
+                            <option value="alumni">Alumni Members Only</option>
+                          </select>
+                        </div>
 
                         <div className="mt-6 flex flex-wrap items-center gap-4">
                           <button

@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils";
 // =============================================================================
 // Component: AuditLogViewer
 // Issue: #2727 - Implement a Unified Audit Log of all Admin Actions
-// Description: Renders the chronological timeline of administrative actions 
-// for a club. Includes filtering controls, diff viewing for updates, and 
+// Description: Renders the chronological timeline of administrative actions
+// for a club. Includes filtering controls, diff viewing for updates, and
 // infinite scrolling. Fully supports Dark/Light mode.
 // =============================================================================
 
@@ -21,15 +21,8 @@ export function AuditLogViewer({ clubId }: AuditLogViewerProps) {
   const [filters, setFilters] = useState<AuditFilters>({});
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
 
-  const {
-    data,
-    isLoading,
-    isError,
-    error,
-    hasNextPage,
-    fetchNextPage,
-    isFetchingNextPage,
-  } = useAuditLogs(clubId, filters);
+  const { data, isLoading, isError, error, hasNextPage, fetchNextPage, isFetchingNextPage } =
+    useAuditLogs(clubId, filters);
 
   // Flatten infinite query pages into a single array
   const logs = useMemo(() => data?.pages.flat() ?? [], [data]);
@@ -172,7 +165,7 @@ const AuditLogItem: React.FC<{
       <div
         className={cn(
           "absolute left-0 w-8 h-8 rounded-full flex items-center justify-center ring-4 ring-background border-2 border-black",
-          colorClasses
+          colorClasses,
         )}
       >
         {log.action === "INSERT" && (
@@ -204,7 +197,7 @@ const AuditLogItem: React.FC<{
       <div
         className={cn(
           "bg-card border-2 border-black rounded-none p-4 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all cursor-pointer",
-          isExpanded && "ring-2 ring-primary ring-offset-2"
+          isExpanded && "ring-2 ring-primary ring-offset-2",
         )}
         onClick={onToggle}
       >
@@ -226,18 +219,12 @@ const AuditLogItem: React.FC<{
                 {formatAuditSummary(log)}
               </p>
               <p className="text-xs font-mono text-muted-foreground mt-0.5">
-                {new Date(log.timestamp).toLocaleString()} • ID:{" "}
-                {log.record_id.substring(0, 8)}...
+                {new Date(log.timestamp).toLocaleString()} • ID: {log.record_id.substring(0, 8)}...
               </p>
             </div>
           </div>
 
-          <Badge
-            className={cn(
-              "font-mono border-2 border-black uppercase",
-              colorClasses
-            )}
-          >
+          <Badge className={cn("font-mono border-2 border-black uppercase", colorClasses)}>
             {log.action}
           </Badge>
         </div>
@@ -250,10 +237,7 @@ const AuditLogItem: React.FC<{
             </h4>
             <div className="space-y-3">
               {diffs.map((diff, idx) => (
-                <div
-                  key={idx}
-                  className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm"
-                >
+                <div key={idx} className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
                   <div className="bg-red-50 dark:bg-red-950/30 p-2 rounded border-2 border-red-200 dark:border-red-900">
                     <span className="text-xs font-mono font-bold text-red-800 dark:text-red-300 block mb-1">
                       {diff.field} (Old)
@@ -278,8 +262,7 @@ const AuditLogItem: React.FC<{
 
         {isExpanded && diffs.length === 0 && log.action === "UPDATE" && (
           <p className="text-xs font-mono text-muted-foreground italic mt-2">
-            No trackable field changes detected (possibly system metadata
-            update).
+            No trackable field changes detected (possibly system metadata update).
           </p>
         )}
       </div>

@@ -2,9 +2,7 @@ import { useNavigate, useBlocker } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
-import { Camera, Loader2, X, Plus, CreditCard } from "lucide-react";
-import { useTheme } from "@/components/theme-provider";
-import { Check, Loader2, X, Plus } from "lucide-react";
+import { Camera, Check, Loader2, X, Plus, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 
@@ -34,6 +32,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
+import { AutoTaggingSettings } from "@/components/AutoTaggingSettings";
 
 const FONT_SIZE_KEY = "campusconnect-font-size";
 
@@ -85,6 +84,8 @@ export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [handleAvailability, setHandleAvailability] = useState<HandleAvailability>("idle");
+  const [personalEmail, setPersonalEmail] = useState("");
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const [handleFeedback, setHandleFeedback] = useState<string | null>(null);
   const handleCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [borderThickness, setBorderThickness] = useState(4);
@@ -106,7 +107,7 @@ export default function SettingsPage() {
     skillInputRef.current?.focus();
   };
 
-  const handleSkillKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+  const handleSkillKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
       handleAddSkill();
@@ -125,19 +126,7 @@ export default function SettingsPage() {
         setUser(user);
       }
     });
-
-      // Credentials verified successfully. Continue with existing deletion flow.
-      setConfirmOpen(false);
-      setDeletePassword("");
-      toast.success("Account deleted successfully.");
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "An unexpected error occurred during verification.";
-      setDeleteError(message);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
+  }, []);
   useEffect(() => {
     // Load appearance settings from localStorage
     const savedThickness = localStorage.getItem("theme-border-thickness");
@@ -193,6 +182,76 @@ export default function SettingsPage() {
     },
     enabled: !!user?.id,
   });
+
+  const { data: latestExportJob, refetch: refetchExportJob } = useQuery({
+    queryKey: ["latest_export_job", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("data_export_jobs")
+        .select("*")
+        .eq("user_id", user?.id)
+        .order("requested_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const [isExporting, setIsExporting] = useState(false);
+  const handleRequestDataTakeout = async () => {
+    if (!user) return;
+    setIsExporting(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      // Only require the function name if we configure standard supabase client or we use fetch.
+      // We will use fetch since the existing code uses it.
+      // Note: we can also use supabase.functions.invoke.
+      const { error } = await supabase.functions.invoke("request-data-takeout");
+      if (error) throw error;
+      toast.success("Your data export is being prepared! You will receive an email shortly.");
+      refetchExportJob();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to request data takeout");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleAlumniTransition = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !personalEmail.trim()) return;
+    setIsTransitioning(true);
+    try {
+      const { error: authError } = await supabase.auth.updateUser({
+        email: personalEmail.trim(),
+      });
+      if (authError) throw authError;
+
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({
+          role: "alumni",
+          alumni_transitioned_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
+      
+      if (profileError) throw profileError;
+
+      toast.success(
+        "Alumni transition initiated! A confirmation link has been sent to your new email. Please confirm it to complete the authentication change."
+      );
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to initiate alumni transition.");
+    } finally {
+      setIsTransitioning(false);
+    }
+  };
+
   const [isWalletDownloading, setIsWalletDownloading] = useState(false);
 
   const handleAddToAppleWallet = async () => {
@@ -532,11 +591,7 @@ export default function SettingsPage() {
     }
   }, [currentHandle, profile?.handle]);
 
-  const pStats = profile as typeof profile & {
-    lastActivityAt?: string;
-    welcomeSource?: string;
-    processedClaimCommentIds?: number[];
-  };
+  const pStats = profile as Record<string, any> | null;
 
   if (isProfileLoading && !profile) {
     return (
@@ -644,7 +699,7 @@ export default function SettingsPage() {
             </div>
 
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <FormField
                     control={form.control}
@@ -853,7 +908,9 @@ export default function SettingsPage() {
                     <input
                       ref={skillInputRef}
                       value={skillInput}
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => setSkillInput(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setSkillInput(e.target.value)
+                      }
                       onKeyDown={handleSkillKeyDown}
                       placeholder="e.g. React, Python, UI Design…"
                       className="flex-1 border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
@@ -963,6 +1020,134 @@ export default function SettingsPage() {
             <Toggle label="Weekly digest of club activity" defaultChecked />
             <Toggle label="New certificates" />
           </Panel>
+
+          <Panel title="Auto-Tagging (Facial Recognition)">
+            <AutoTaggingSettings user={user} />
+          </Panel>
+
+          <Panel title="Privacy / Account">
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-bold text-black uppercase mb-1">Download My Data</h3>
+                <p className="font-mono text-xs text-muted-foreground">
+                  Request a copy of all your personal data (RSVPs, posts, comments, etc.). This
+                  process runs in the background. You will receive an email with a secure download
+                  link when it's ready.
+                </p>
+              </div>
+
+              {latestExportJob?.status === "processing" || latestExportJob?.status === "pending" ? (
+                <div className="flex items-center gap-2 p-3 bg-lime/20 border-2 border-black">
+                  <Loader2 className="h-4 w-4 animate-spin text-black" />
+                  <span className="font-mono text-sm font-bold uppercase">
+                    Your export is being prepared...
+                  </span>
+                </div>
+              ) : latestExportJob?.status === "completed" &&
+                new Date(latestExportJob.expires_at) > new Date() ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 p-3 bg-green-100 border-2 border-black">
+                    <Check className="h-4 w-4 text-green-700" />
+                    <span className="font-mono text-sm font-bold uppercase text-green-800">
+                      Export Ready
+                    </span>
+                  </div>
+                  <p className="font-mono text-xs text-black">
+                    Please check your email for the download link, or request a new one.
+                  </p>
+                  <button
+                    onClick={handleRequestDataTakeout}
+                    disabled={isExporting}
+                    className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream disabled:opacity-50"
+                  >
+                    {isExporting ? "Requesting..." : "Request New Export"}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleRequestDataTakeout}
+                  disabled={isExporting}
+                  className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream disabled:opacity-50"
+                >
+                  {isExporting ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Requesting...
+                    </span>
+                  ) : (
+                    "Download My Data"
+                  )}
+                </button>
+              )}
+            </div>
+          </Panel>
+
+          {profile?.role !== "alumni" && (
+            <Panel title="Alumni Account Transition" tone="bg-[#e0f2fe]">
+              <div className="space-y-4">
+                <p className="font-mono text-xs text-gray-700">
+                  Graduating soon? Transition your account to an Alumni status. This allows you to retain your profile using a personal email address (like Gmail) after your university email is deactivated.
+                </p>
+                <div className="bg-amber-50 border-2 border-black p-3 font-mono text-[10px] text-amber-800">
+                  ⚠️ Note: A 3-month grace period begins immediately, during which you will retain full student capabilities. After 3 months, you will be restricted from RSVPing to student-only events or holding active club executive roles.
+                </div>
+                <form onSubmit={handleAlumniTransition} className="space-y-4">
+                  <div className="space-y-1">
+                    <label htmlFor="personalEmail" className="eyebrow font-bold text-black">
+                      New Personal Email Address
+                    </label>
+                    <input
+                      id="personalEmail"
+                      type="email"
+                      required
+                      placeholder="your.name@gmail.com"
+                      value={personalEmail}
+                      onChange={(e) => setPersonalEmail(e.target.value)}
+                      className="w-full border-2 border-black bg-white px-3 py-2 font-mono text-sm outline-none focus:bg-lime/20"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isTransitioning || !personalEmail}
+                    className="neu-border neu-press bg-[#0284c7] hover:bg-[#0369a1] text-white px-4 py-2 font-mono text-xs font-bold uppercase disabled:opacity-50"
+                  >
+                    {isTransitioning ? "Transitioning..." : "Transition Account to Alumni"}
+                  </button>
+                </form>
+              </div>
+            </Panel>
+          )}
+
+          {profile?.role === "alumni" && (
+            <Panel title="Alumni Account Status" tone="bg-[#f0fdf4]">
+              <div className="space-y-3 font-mono text-xs text-gray-700">
+                <p className="font-bold text-emerald-800 flex items-center gap-1.5">
+                  ✓ Alumni Status Active
+                </p>
+                <p>
+                  Transitioned on:{" "}
+                  <strong>
+                    {profile.alumni_transitioned_at
+                      ? new Date(profile.alumni_transitioned_at).toLocaleDateString()
+                      : "Recently"}
+                  </strong>
+                </p>
+                {profile.alumni_transitioned_at && (
+                  <p>
+                    Grace Period Status:{" "}
+                    {new Date(profile.alumni_transitioned_at).getTime() + 90 * 24 * 60 * 60 * 1000 > Date.now() ? (
+                      <span className="text-blue-700 font-bold">
+                        Active (Student privileges remain for summer handover)
+                      </span>
+                    ) : (
+                      <span className="text-gray-500 font-bold">
+                        Expired (Standard Alumni restrictions active)
+                      </span>
+                    )}
+                  </p>
+                )}
+              </div>
+            </Panel>
+          )}
 
           <Panel title="Danger zone" tone="bg-red-50">
             <button

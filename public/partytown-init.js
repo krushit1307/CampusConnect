@@ -1,4 +1,4 @@
 window.partytown = {
   lib: "/~partytown/",
-  forward: ["dataLayer.push", "fbq"]
+  forward: ["dataLayer.push", "fbq"],
 };
