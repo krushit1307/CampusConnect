@@ -5,6 +5,8 @@ import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
+import { EventSeatingManager } from "@/components/events/EventSeatingManager";
+import { InteractiveSeatingChart } from "@/components/events/InteractiveSeatingChart";
 import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -464,6 +466,10 @@ export default function EventDetailsPage() {
               </p>
             )}
           </div>
+
+          <EventSeatingManager eventId={event.id} isOrganizer={isOrganizer} />
+
+          <InteractiveSeatingChart eventId={event.id} user={user} />
 
           {/* Map Embed */}
           {event.location && event.location.toLowerCase() !== "online" && (
