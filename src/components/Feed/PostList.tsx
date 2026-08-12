@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useInView } from "react-intersection-observer";
 import { supabase } from "@/lib/supabase/client";
-import { Flag } from "lucide-react";
+import Flag from "lucide-react/dist/esm/icons/flag";
 import { ReportDialog } from "@/components/ReportDialog";
 import { RelayConnection, encodeRelayCursor, decodeRelayCursor } from "@/lib/relayPagination";
 import { useInfiniteQuery } from "@/hooks/useReactQueryReplacement";

@@ -2,7 +2,11 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import type { CarpoolWithDetails } from "@/lib/supabase/carpool";
-import { Car, Clock, MapPin, MessageSquare, Users } from "lucide-react";
+import Car from "lucide-react/dist/esm/icons/car";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import MessageSquare from "lucide-react/dist/esm/icons/message-square";
+import Users from "lucide-react/dist/esm/icons/users";
 
 interface CarpoolCardProps {
   carpool: CarpoolWithDetails;

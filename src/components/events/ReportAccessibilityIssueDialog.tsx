@@ -23,7 +23,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { useMutation } from "@/hooks/useReactQueryReplacement";
 import type { User } from "@supabase/supabase-js";
-import { Flag } from "lucide-react";
+import Flag from "lucide-react/dist/esm/icons/flag";
 
 interface ReportAccessibilityIssueDialogProps {
   eventId: string;

@@ -1,6 +1,8 @@
 import React, { useState, useCallback } from "react";
 import { type Column, type ColumnDef } from "@tanstack/react-table";
-import { PlusCircle, X, Filter } from "lucide-react";
+import PlusCircle from "lucide-react/dist/esm/icons/plus-circle";
+import X from "lucide-react/dist/esm/icons/x";
+import Filter from "lucide-react/dist/esm/icons/filter";
 
 export type FilterOperator =
   "contains" | "equals" | "startsWith" | "endsWith" | "isEmpty" | "isNotEmpty";

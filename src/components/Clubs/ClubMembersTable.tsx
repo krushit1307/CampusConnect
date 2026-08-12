@@ -7,7 +7,9 @@ import {
   type ColumnDef,
   type Row,
 } from "@tanstack/react-table";
-import { CheckCircle, ShieldCheck, XCircle } from "lucide-react";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import XCircle from "lucide-react/dist/esm/icons/xcircle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MemberContextMenu } from "./MemberContextMenu";
 import { SearchInput } from "@/components/ui/SearchInput";

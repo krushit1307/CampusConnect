@@ -5,19 +5,17 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
-import {
-  Settings,
-  Users,
-  Calendar,
-  ShieldCheck,
-  XCircle,
-  CheckCircle,
-  Download,
-  Trash2,
-  RefreshCw,
-  BarChart3,
-  AlertTriangle,
-} from "lucide-react";
+import Settings from "lucide-react/dist/esm/icons/settings";
+import Users from "lucide-react/dist/esm/icons/users";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import XCircle from "lucide-react/dist/esm/icons/xcircle";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import Download from "lucide-react/dist/esm/icons/download";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import BarChart3 from "lucide-react/dist/esm/icons/bar-chart-3";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
 import { HoldToConfirmButton } from "@/components/ui/HoldToConfirmButton";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";

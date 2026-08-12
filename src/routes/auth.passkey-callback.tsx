@@ -17,7 +17,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, CheckCircle2, AlertCircle, Fingerprint } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import Fingerprint from "lucide-react/dist/esm/icons/fingerprint";
 import { Sparkle } from "@/components/site/Sparkle";
 
 type Status = "loading" | "success" | "error";

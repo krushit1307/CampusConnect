@@ -1,5 +1,8 @@
 // src/components/EventCreationWizard/WizardNavigation.tsx
-import { ChevronLeft, ChevronRight, Loader2, Check } from "lucide-react";
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Check from "lucide-react/dist/esm/icons/check";
 import { Button } from "../ui/button";
 import { WIZARD_STEPS } from "../../lib/eventWizardSchema";
 import { useEventWizardStore } from "../../store/useEventWizardStore";

@@ -3,22 +3,20 @@ import { createClient } from "@/lib/supabase/client";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useAuthHydration } from "@/hooks/useAuthHydration";
 import { toast } from "sonner";
-import {
-  Search,
-  Plus,
-  X,
-  MapPin,
-  Tag,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  Filter,
-  Package,
-  Loader2,
-  Coins,
-  QrCode,
-  Scan,
-} from "lucide-react";
+import Search from "lucide-react/dist/esm/icons/search";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import X from "lucide-react/dist/esm/icons/x";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Tag from "lucide-react/dist/esm/icons/tag";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import Filter from "lucide-react/dist/esm/icons/filter";
+import Package from "lucide-react/dist/esm/icons/package";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Coins from "lucide-react/dist/esm/icons/coins";
+import QrCode from "lucide-react/dist/esm/icons/qr-code";
+import Scan from "lucide-react/dist/esm/icons/scan";
 import { QRCodeSVG } from "qrcode.react";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import { Button } from "@/components/ui/button";

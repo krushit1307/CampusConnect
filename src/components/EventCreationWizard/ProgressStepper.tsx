@@ -1,5 +1,5 @@
 // src/components/EventCreationWizard/ProgressStepper.tsx
-import { Check } from "lucide-react";
+import Check from "lucide-react/dist/esm/icons/check";
 import { WIZARD_STEPS } from "../../lib/eventWizardSchema";
 import { useEventWizardStore } from "../../store/useEventWizardStore";
 import { cn } from "../../lib/utils";

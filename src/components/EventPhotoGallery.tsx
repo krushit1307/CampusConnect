@@ -4,7 +4,12 @@ import { createClient } from "@/lib/supabase/client";
 import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
 import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
-import { Camera, Loader2, Trash2, UserCheck, UserX, Sparkles } from "lucide-react";
+import Camera from "lucide-react/dist/esm/icons/camera";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import UserCheck from "lucide-react/dist/esm/icons/user-check";
+import UserX from "lucide-react/dist/esm/icons/user-x";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 import { SwipeableLightbox } from "./SwipeableLightbox";
 import { FaceAutoTaggingService } from "@/services/faceAutoTaggingService";
 

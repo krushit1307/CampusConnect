@@ -8,7 +8,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CalendarX2, ShieldAlert } from "lucide-react";
+import CalendarX2 from "lucide-react/dist/esm/icons/calendar-x-2";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
 
 interface EventRsvpCancelDialogProps {
   open: boolean;

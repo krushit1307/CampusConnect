@@ -3,22 +3,22 @@ import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery } from "@/hooks/useReactQueryReplacement";
-import { Plus, MapPin, CalendarIcon } from "lucide-react";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import CalendarIcon from "lucide-react/dist/esm/icons/calendar";
 import { useState, useEffect, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 import { useMutation, useQuery } from "@/hooks/useReactQueryReplacement";
 import { useUndoableState } from "@/hooks/useUndoableState";
-import {
-  Plus,
-  MapPin,
-  CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
-  Check,
-  X,
-  WifiOff,
-} from "lucide-react";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import CalendarIcon from "lucide-react/dist/esm/icons/calendar";
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import Check from "lucide-react/dist/esm/icons/check";
+import X from "lucide-react/dist/esm/icons/x";
+import WifiOff from "lucide-react/dist/esm/icons/wifi-off";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import type { DateRange } from "react-day-picker";

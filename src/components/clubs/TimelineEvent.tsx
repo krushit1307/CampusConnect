@@ -1,6 +1,11 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Calendar, Award, Users, Rocket, Star, Zap } from "lucide-react";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Award from "lucide-react/dist/esm/icons/award";
+import Users from "lucide-react/dist/esm/icons/users";
+import Rocket from "lucide-react/dist/esm/icons/rocket";
+import Star from "lucide-react/dist/esm/icons/star";
+import Zap from "lucide-react/dist/esm/icons/zap";
 import { TimelineMilestone } from "./Timeline";
 
 interface TimelineEventProps {

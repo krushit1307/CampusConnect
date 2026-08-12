@@ -2,24 +2,22 @@ import React, { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { registerDeviceSession } from "@/lib/deviceSession";
 import { toast } from "sonner";
-import {
-  ShieldCheck,
-  ShieldAlert,
-  Smartphone,
-  Monitor,
-  Key,
-  Fingerprint,
-  Lock,
-  Clock,
-  Globe,
-  Loader2,
-  Trash2,
-  RefreshCw,
-  CheckCircle2,
-  AlertTriangle,
-  ChevronRight,
-  ExternalLink,
-} from "lucide-react";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import Smartphone from "lucide-react/dist/esm/icons/smartphone";
+import Monitor from "lucide-react/dist/esm/icons/monitor";
+import Key from "lucide-react/dist/esm/icons/key";
+import Fingerprint from "lucide-react/dist/esm/icons/fingerprint";
+import Lock from "lucide-react/dist/esm/icons/lock";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import Globe from "lucide-react/dist/esm/icons/globe";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import ExternalLink from "lucide-react/dist/esm/icons/external-link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MfaSetupModal } from "./MfaSetupModal";

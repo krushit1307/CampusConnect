@@ -1,6 +1,6 @@
 // src/components/AffiliationBadgesToggle.tsx
 import React from "react";
-import { Shield } from "lucide-react";
+import Shield from "lucide-react/dist/esm/icons/shield";
 
 interface AffiliationBadgesToggleProps {
   checked: boolean;

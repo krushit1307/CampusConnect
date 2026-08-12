@@ -2,7 +2,9 @@
 import React, { useState } from "react";
 import { ClubAffiliation } from "@/types/clubAffiliation";
 import { useClubAffiliations } from "@/hooks/useClubAffiliations";
-import { Award, Shield, ChevronDown } from "lucide-react";
+import Award from "lucide-react/dist/esm/icons/award";
+import Shield from "lucide-react/dist/esm/icons/shield";
+import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
 
 interface ClubAffiliationBadgesProps {
   userId?: string | null;

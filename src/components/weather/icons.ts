@@ -1,13 +1,11 @@
-import {
-  Sun,
-  Cloud,
-  CloudRain,
-  CloudDrizzle,
-  CloudLightning,
-  Snowflake,
-  CloudFog,
-  CloudOff,
-} from "lucide-react";
+import Sun from "lucide-react/dist/esm/icons/sun";
+import Cloud from "lucide-react/dist/esm/icons/cloud";
+import CloudRain from "lucide-react/dist/esm/icons/cloud-rain";
+import CloudDrizzle from "lucide-react/dist/esm/icons/cloud-drizzle";
+import CloudLightning from "lucide-react/dist/esm/icons/cloud-lightning";
+import Snowflake from "lucide-react/dist/esm/icons/snowflake";
+import CloudFog from "lucide-react/dist/esm/icons/cloud-fog";
+import CloudOff from "lucide-react/dist/esm/icons/cloud-off";
 import type { WeatherConditionCode } from "./types";
 
 /**

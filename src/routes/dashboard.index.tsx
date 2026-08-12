@@ -3,19 +3,17 @@ import { useQuery, useMutation, queryClient } from "@/hooks/useReactQueryReplace
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useRef, useState } from "react";
 import { User } from "@supabase/supabase-js";
-import {
-  Sparkles,
-  Check,
-  X,
-  ArrowRight,
-  User as UserIcon,
-  GraduationCap,
-  FileText,
-  Link2,
-  Calendar,
-  MessageCircle,
-  Users,
-} from "lucide-react";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Check from "lucide-react/dist/esm/icons/check";
+import X from "lucide-react/dist/esm/icons/x";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
+import UserIcon from "lucide-react/dist/esm/icons/user";
+import GraduationCap from "lucide-react/dist/esm/icons/graduation-cap";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import Link2 from "lucide-react/dist/esm/icons/link-2";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
+import Users from "lucide-react/dist/esm/icons/users";
 import TrendingCarousel from "@/components/Clubs/TrendingCarousel";
 import RecommendedCarousel from "@/components/Dashboard/RecommendedCarousel";
 import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/DashboardWidgetSkeleton";

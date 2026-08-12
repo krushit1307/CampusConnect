@@ -3,7 +3,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { SiteShell } from "@/components/site/SiteShell";
-import { Search, Loader2, ArrowRight, Sparkles, Filter } from "lucide-react";
+import Search from "lucide-react/dist/esm/icons/search";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Filter from "lucide-react/dist/esm/icons/filter";
 import { Link, useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 

@@ -3,7 +3,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
-import { Upload, Users, FileText, CreditCard, ChevronRight, ChevronLeft, Plus, Trash2, CheckCircle2, Shield, Loader2 } from "lucide-react";
+import Upload from "lucide-react/dist/esm/icons/upload";
+import Users from "lucide-react/dist/esm/icons/users";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import CreditCard from "lucide-react/dist/esm/icons/credit-card";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import Shield from "lucide-react/dist/esm/icons/shield";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { CascadingCategorySelect } from "@/components/Clubs/CascadingCategorySelect";
 

@@ -1,6 +1,10 @@
 // src/components/events/EventRsvpButton.tsx
 import { useEffect, useState } from "react";
-import { Loader2, Users, Clock, Check, X } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Users from "lucide-react/dist/esm/icons/users";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import Check from "lucide-react/dist/esm/icons/check";
+import X from "lucide-react/dist/esm/icons/x";
 import { Button } from "../ui/button";
 import {
   joinEventOrWaitlist,

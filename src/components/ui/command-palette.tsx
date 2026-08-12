@@ -1,18 +1,16 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { Command } from "cmdk";
-import {
-  Calendar,
-  Compass,
-  Home,
-  Settings,
-  Search,
-  ShieldAlert,
-  User,
-  Bookmark,
-  ChevronLeft,
-  ArrowRight,
-} from "lucide-react";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Compass from "lucide-react/dist/esm/icons/compass";
+import Home from "lucide-react/dist/esm/icons/home";
+import Settings from "lucide-react/dist/esm/icons/settings";
+import Search from "lucide-react/dist/esm/icons/search";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import User from "lucide-react/dist/esm/icons/user";
+import Bookmark from "lucide-react/dist/esm/icons/bookmark";
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
 import { createClient } from "@/lib/supabase/client";
 import { useCommandPalette } from "@/components/CommandPaletteProvider";
 import { useCommandPaletteSearch } from "@/hooks/useCommandPaletteSearch";

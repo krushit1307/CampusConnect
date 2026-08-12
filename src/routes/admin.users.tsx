@@ -3,17 +3,15 @@ import { Navigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { Eye } from "lucide-react";
-import {
-  ShieldAlert,
-  CheckCircle,
-  XCircle,
-  FileSpreadsheet,
-  Pencil,
-  Trash2,
-  Copy,
-  Loader2,
-} from "lucide-react";
+import Eye from "lucide-react/dist/esm/icons/eye";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import XCircle from "lucide-react/dist/esm/icons/xcircle";
+import FileSpreadsheet from "lucide-react/dist/esm/icons/file-spreadsheet";
+import Pencil from "lucide-react/dist/esm/icons/pencil";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import Copy from "lucide-react/dist/esm/icons/copy";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import { type ColumnDef } from "@tanstack/react-table";
 import { AdminDataGrid } from "@/components/ui/AdminDataGrid";
 import { BulkUserImportModal } from "@/components/admin/BulkUserImportModal";

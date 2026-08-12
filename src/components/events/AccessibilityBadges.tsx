@@ -1,5 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ArrowUpDown, Accessibility, Users, Ear, Flower, AlertTriangle } from "lucide-react";
+import ArrowUpDown from "lucide-react/dist/esm/icons/arrow-up-down";
+import Accessibility from "lucide-react/dist/esm/icons/accessibility";
+import Users from "lucide-react/dist/esm/icons/users";
+import Ear from "lucide-react/dist/esm/icons/ear";
+import Flower from "lucide-react/dist/esm/icons/flower";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface AccessibilityFeatures {

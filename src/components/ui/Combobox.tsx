@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useRef, forwardRef, useId } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Check, ChevronsUpDown } from "lucide-react";
+import Check from "lucide-react/dist/esm/icons/check";
+import ChevronsUpDown from "lucide-react/dist/esm/icons/chevrons-up-down";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {

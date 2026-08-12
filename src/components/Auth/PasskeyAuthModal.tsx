@@ -8,16 +8,14 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  KeyRound,
-  Shield,
-  Fingerprint,
-  Trash2,
-  Plus,
-  CheckCircle2,
-  RefreshCw,
-  Smartphone,
-} from "lucide-react";
+import KeyRound from "lucide-react/dist/esm/icons/key-round";
+import Shield from "lucide-react/dist/esm/icons/shield";
+import Fingerprint from "lucide-react/dist/esm/icons/fingerprint";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import Smartphone from "lucide-react/dist/esm/icons/smartphone";
 import { toast } from "sonner";
 
 interface RegisteredPasskey {

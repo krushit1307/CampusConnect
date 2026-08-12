@@ -23,7 +23,8 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { useMutation, useQuery } from "@/hooks/useReactQueryReplacement";
 import type { User } from "@supabase/supabase-js";
-import { AlertCircle, Trash2 } from "lucide-react";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
 import { format } from "date-fns";
 
 interface ManageAccessibilityOverridesDialogProps {

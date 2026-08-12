@@ -1,7 +1,13 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
-import { ShieldCheck, ShieldX, Loader2, Search, Award, CheckCircle2, FileText } from "lucide-react";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import ShieldX from "lucide-react/dist/esm/icons/shield-x";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Search from "lucide-react/dist/esm/icons/search";
+import Award from "lucide-react/dist/esm/icons/award";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import FileText from "lucide-react/dist/esm/icons/file-text";
 import { formatStandardDate } from "@/utils/dateUtils";
 
 interface VerificationResult {

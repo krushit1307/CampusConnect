@@ -6,7 +6,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
-import { MessageCircleQuestion, Send, CheckCircle2, User, UserX, Clock, Edit2 } from "lucide-react";
+import MessageCircleQuestion from "lucide-react/dist/esm/icons/message-circle-question";
+import Send from "lucide-react/dist/esm/icons/send";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import User from "lucide-react/dist/esm/icons/user";
+import UserX from "lucide-react/dist/esm/icons/user-x";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import Edit2 from "lucide-react/dist/esm/icons/edit-2";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";

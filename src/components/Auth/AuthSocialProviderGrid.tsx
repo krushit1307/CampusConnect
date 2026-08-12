@@ -1,7 +1,12 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { KeyRound, Mail, ShieldAlert, ArrowRight, CheckCircle2, Globe } from "lucide-react";
+import KeyRound from "lucide-react/dist/esm/icons/key-round";
+import Mail from "lucide-react/dist/esm/icons/mail";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import Globe from "lucide-react/dist/esm/icons/globe";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { getFriendlyAuthError } from "@/utils/authErrors";

@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { Share2, Copy, Check, MessageCircle, Twitter, Linkedin } from "lucide-react";
+import Share2 from "lucide-react/dist/esm/icons/share-2";
+import Copy from "lucide-react/dist/esm/icons/copy";
+import Check from "lucide-react/dist/esm/icons/check";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
+import Twitter from "lucide-react/dist/esm/icons/twitter";
+import Linkedin from "lucide-react/dist/esm/icons/linkedin";
 import { toast } from "sonner";
 import {
   Dialog,

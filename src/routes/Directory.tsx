@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { Search } from "lucide-react";
+import Search from "lucide-react/dist/esm/icons/search";
 import { VirtualList } from "@/components/ui/VirtualList";
 import { UserCard } from "@/components/Directory/UserCard";
 import { generateMockUsers, filterUsers } from "@/components/Directory/userData";

@@ -10,7 +10,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Clock } from "lucide-react";
+import Clock from "lucide-react/dist/esm/icons/clock";
 import { Label } from "@/components/ui/label";
 
 import { User } from "@supabase/supabase-js";

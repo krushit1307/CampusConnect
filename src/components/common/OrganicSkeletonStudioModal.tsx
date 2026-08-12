@@ -1,15 +1,13 @@
 import React, { useState } from "react";
-import {
-  Sparkles,
-  Layout,
-  CheckCircle,
-  AlertTriangle,
-  X,
-  RefreshCw,
-  Layers,
-  FileText,
-  Sliders,
-} from "lucide-react";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Layout from "lucide-react/dist/esm/icons/layout";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import X from "lucide-react/dist/esm/icons/x";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import Layers from "lucide-react/dist/esm/icons/layers";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import Sliders from "lucide-react/dist/esm/icons/sliders";
 import {
   OrganicSkeleton,
   TextSkeleton,

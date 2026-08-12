@@ -1,4 +1,4 @@
-import { Lock } from "lucide-react";
+import Lock from "lucide-react/dist/esm/icons/lock";
 import type { Message } from "@/store/useChatStore";
 import { useChatStore } from "@/store/useChatStore";
 import LinkPreviewCard from "./LinkPreviewCard";

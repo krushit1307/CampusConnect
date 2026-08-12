@@ -2,7 +2,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
-import { Camera, Check, ShieldAlert, Trash2, Loader2, Sparkles, Upload, Lock } from "lucide-react";
+import Camera from "lucide-react/dist/esm/icons/camera";
+import Check from "lucide-react/dist/esm/icons/check";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Upload from "lucide-react/dist/esm/icons/upload";
+import Lock from "lucide-react/dist/esm/icons/lock";
 import { FaceAutoTaggingService } from "@/services/faceAutoTaggingService";
 import { UserFaceOptIn } from "@/types/faceAutoTagging";
 import { ConfirmModal } from "@/components/ui/confirm-modal";

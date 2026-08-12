@@ -7,21 +7,19 @@ import { useTheme } from "@/components/theme-provider";
 import { MentionRenderer } from "@/components/MentionRenderer";
 import { TableBuilderModal } from "@/components/TableBuilderModal";
 import { insertMarkdownBlock } from "@/lib/insertMarkdownBlock";
-import {
-  Bold,
-  Code2,
-  Eye,
-  Heading2,
-  Italic,
-  Link2,
-  List,
-  ListOrdered,
-  MessageSquareText,
-  Pencil,
-  Quote,
-  AtSign,
-  Table as TableIcon,
-} from "lucide-react";
+import Bold from "lucide-react/dist/esm/icons/bold";
+import Code2 from "lucide-react/dist/esm/icons/code-2";
+import Eye from "lucide-react/dist/esm/icons/eye";
+import Heading2 from "lucide-react/dist/esm/icons/heading-2";
+import Italic from "lucide-react/dist/esm/icons/italic";
+import Link2 from "lucide-react/dist/esm/icons/link-2";
+import List from "lucide-react/dist/esm/icons/list";
+import ListOrdered from "lucide-react/dist/esm/icons/list-ordered";
+import MessageSquareText from "lucide-react/dist/esm/icons/message-square-text";
+import Pencil from "lucide-react/dist/esm/icons/pencil";
+import Quote from "lucide-react/dist/esm/icons/quote";
+import AtSign from "lucide-react/dist/esm/icons/at-sign";
+import TableIcon from "lucide-react/dist/esm/icons/table";
 
 export type MarkdownEditorProps = {
   value: string;

@@ -29,27 +29,25 @@ import { formatDateLong } from "@/lib/dateFormatter";
 import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { toast } from "sonner";
 import { ShareMenu } from "@/components/ui/ShareMenu";
-import {
-  ArrowLeft,
-  Check,
-  Copy,
-  Download,
-  Link as LinkIcon,
-  MapPin,
-  MapPinOff,
-  Users,
-  CreditCard,
-  X,
-  CheckCircle,
-  Clock,
-  Calendar,
-  Star,
-  HelpCircle,
-  Flag,
-  ShieldAlert,
-  QrCode,
-  Eye,
-} from "lucide-react";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Check from "lucide-react/dist/esm/icons/check";
+import Copy from "lucide-react/dist/esm/icons/copy";
+import Download from "lucide-react/dist/esm/icons/download";
+import LinkIcon from "lucide-react/dist/esm/icons/link";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import MapPinOff from "lucide-react/dist/esm/icons/map-pin-off";
+import Users from "lucide-react/dist/esm/icons/users";
+import CreditCard from "lucide-react/dist/esm/icons/credit-card";
+import X from "lucide-react/dist/esm/icons/x";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Star from "lucide-react/dist/esm/icons/star";
+import HelpCircle from "lucide-react/dist/esm/icons/help-circle";
+import Flag from "lucide-react/dist/esm/icons/flag";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import QrCode from "lucide-react/dist/esm/icons/qr-code";
+import Eye from "lucide-react/dist/esm/icons/eye";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
