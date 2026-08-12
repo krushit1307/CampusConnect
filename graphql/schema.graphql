@@ -1,0 +1,34 @@
+# Location 1: New Directive and Role Enum Definition
+directive @auth(requires: Role = ADMIN) on OBJECT | FIELD_DEFINITION
+
+enum Role {
+  USER
+  ADMIN
+  SUPERADMIN
+}
+
+type User {
+  id: ID!
+  name: String!
+  email: String!
+  # Location 2 Example: Field-level protection returning null on failure
+  socialSecurityNumber: String @auth(requires: ADMIN)
+  role: Role!
+}
+
+type Club {
+  id: ID!
+  name: String!
+  description: String
+}
+
+type Query {
+  me: User
+  club(id: ID!): Club
+}
+
+type Mutation {
+  # Object/Field level protection
+  deleteClub(id: ID!): Boolean @auth(requires: SUPERADMIN)
+  updateProfile(name: String): User
+}
