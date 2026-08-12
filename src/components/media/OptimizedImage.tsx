@@ -3,6 +3,7 @@ import {
   buildResponsiveImageSrcSet,
   getOptimizedImageUrl,
   isSafeImageSrc,
+  isSupabasePublicImage,
 } from "@/lib/imageOptimization";
 
 interface OptimizedImageProps extends Omit<
@@ -35,10 +36,13 @@ export function OptimizedImage({
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
+ feature/micro-donations-2876
 fix/webauthn-config-2866
 
-<<<<<<< HEAD
-=======
+ HEAD
+
+
+ main
   const isPublic = useMemo(() => isSupabasePublicImage(src), [src]);
 
   const lqipSrc = useMemo(
@@ -48,8 +52,11 @@ fix/webauthn-config-2866
         : undefined,
     [isPublic, src, width, height],
   );
+feature/micro-donations-2876
 >main
->>>>>>> origin/main
+ origin/main
+
+ main
   const fallbackSrc = useMemo(
     () => getOptimizedImageUrl(src, { width, height, quality, resize: "cover" }),
     [src, width, height, quality],
@@ -67,10 +74,11 @@ fix/webauthn-config-2866
 
   if (failed || !isSrcSafe) return <>{fallback}</>;
 
-<<<<<<< HEAD
-=======
- fix/webauthn-config-2866
+feature/micro-donations-2876
+ HEAD
 
+ fix/webauthn-config-2866
+ main
   const wrapperClass = `${imageProps.className || ""} relative overflow-hidden inline-block`.trim();
 
   const cleanImageProps = { ...imageProps };
@@ -136,9 +144,11 @@ fix/webauthn-config-2866
       </div>
     );
   }
+ feature/micro-donations-2876
 
  main
->>>>>>> origin/main
+ origin/main
+main
   return (
     <div className={wrapperClass} style={{ ...imageProps.style, width, height }}>
       {lqipSrc && (
