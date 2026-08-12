@@ -23,6 +23,7 @@ import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
 import LazyHydrate from "@/components/LazyHydrate";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { WidgetErrorFallback } from "@/components/WidgetErrorFallback";
+import { RelativeTime } from "@/components/ui/RelativeTime";
 interface Club {
   id: string;
   name: string;
@@ -708,9 +709,7 @@ export default function DashboardOverview() {
                     <Icon className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>
                       {item.description}
-                      <span className="ml-2 text-black/50">
-                        {formatRelativeActivityTime(item.created_at)}
-                      </span>
+                      <RelativeTime date={item.created_at} className="ml-2 text-black/50" />
                     </span>
                   </li>
                 );
