@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
-import { Github, MessageCircle, ExternalLink } from "lucide-react";
+import Github from "lucide-react/dist/esm/icons/github";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
+import ExternalLink from "lucide-react/dist/esm/icons/external-link";
 
 const NAV_LINKS = [
   { label: "Events", to: "/events" },

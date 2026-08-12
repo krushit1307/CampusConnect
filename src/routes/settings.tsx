@@ -2,7 +2,10 @@ import { useNavigate } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
-import { Camera, Loader2, X, Plus } from "lucide-react";
+import Camera from "lucide-react/dist/esm/icons/camera";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import X from "lucide-react/dist/esm/icons/x";
+import Plus from "lucide-react/dist/esm/icons/plus";
 import { toast } from "sonner";
 import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
 

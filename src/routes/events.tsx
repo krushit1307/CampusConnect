@@ -9,7 +9,9 @@ import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { toast } from "sonner";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
-import { Loader2, Search, Calendar } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Search from "lucide-react/dist/esm/icons/search";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
 import {
   Select,
   SelectContent,

@@ -1,16 +1,14 @@
 import { FeedPostSkeleton } from "@/components/FeedPostSkeleton";
 import { useMutation, useQuery, useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import type { User } from "@supabase/supabase-js";
-import {
-  Link2,
-  ArrowUp,
-  MessageCircle,
-  MessageSquareText,
-  PenLine,
-  Pin,
-  Sparkles,
-  Trash2,
-} from "lucide-react";
+import Link2 from "lucide-react/dist/esm/icons/link-2";
+import ArrowUp from "lucide-react/dist/esm/icons/arrow-up";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
+import MessageSquareText from "lucide-react/dist/esm/icons/message-square-text";
+import PenLine from "lucide-react/dist/esm/icons/pen-line";
+import Pin from "lucide-react/dist/esm/icons/pin";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
 import { useEffect, useRef, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";

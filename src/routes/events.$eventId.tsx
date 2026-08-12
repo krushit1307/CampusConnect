@@ -7,18 +7,16 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
 import { toast } from "sonner";
-import {
-  ArrowLeft,
-  Calendar,
-  Check,
-  Copy,
-  Download,
-  Link as LinkIcon,
-  MapPin,
-  MapPinOff,
-  Share2,
-  Users,
-} from "lucide-react";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Check from "lucide-react/dist/esm/icons/check";
+import Copy from "lucide-react/dist/esm/icons/copy";
+import Download from "lucide-react/dist/esm/icons/download";
+import LinkIcon from "lucide-react/dist/esm/icons/link";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import MapPinOff from "lucide-react/dist/esm/icons/map-pin-off";
+import Share2 from "lucide-react/dist/esm/icons/share-2";
+import Users from "lucide-react/dist/esm/icons/users";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";

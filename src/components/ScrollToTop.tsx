@@ -1,4 +1,4 @@
-import { ArrowUp } from "lucide-react";
+import ArrowUp from "lucide-react/dist/esm/icons/arrow-up";
 import { useEffect, useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";

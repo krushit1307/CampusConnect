@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Home } from "lucide-react";
+import Home from "lucide-react/dist/esm/icons/home";
 import { Button } from "@/components/ui/button";
 
 function GradientCode({ code }: { code: string }) {

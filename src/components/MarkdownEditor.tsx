@@ -1,18 +1,16 @@
 import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import {
-  Bold,
-  Code2,
-  Eye,
-  Heading2,
-  Italic,
-  Link2,
-  List,
-  ListOrdered,
-  MessageSquareText,
-  Pencil,
-  Quote,
-} from "lucide-react";
+import Bold from "lucide-react/dist/esm/icons/bold";
+import Code2 from "lucide-react/dist/esm/icons/code-2";
+import Eye from "lucide-react/dist/esm/icons/eye";
+import Heading2 from "lucide-react/dist/esm/icons/heading-2";
+import Italic from "lucide-react/dist/esm/icons/italic";
+import Link2 from "lucide-react/dist/esm/icons/link-2";
+import List from "lucide-react/dist/esm/icons/list";
+import ListOrdered from "lucide-react/dist/esm/icons/list-ordered";
+import MessageSquareText from "lucide-react/dist/esm/icons/message-square-text";
+import Pencil from "lucide-react/dist/esm/icons/pencil";
+import Quote from "lucide-react/dist/esm/icons/quote";
 
 export type MarkdownEditorProps = {
   value: string;

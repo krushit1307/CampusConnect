@@ -1,7 +1,12 @@
 import { formatDate, formatEventDateRange, getCountdown, getGoogleCalendarUrl } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { FormEvent, useState } from "react";
-import { Calendar, Check, Share2, X, Link as LinkIcon, Bookmark } from "lucide-react";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Check from "lucide-react/dist/esm/icons/check";
+import Share2 from "lucide-react/dist/esm/icons/share-2";
+import X from "lucide-react/dist/esm/icons/x";
+import LinkIcon from "lucide-react/dist/esm/icons/link";
+import Bookmark from "lucide-react/dist/esm/icons/bookmark";
 import { toast } from "sonner";
 import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";

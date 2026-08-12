@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { UsersRound, X } from "lucide-react";
+import UsersRound from "lucide-react/dist/esm/icons/users-round";
+import X from "lucide-react/dist/esm/icons/x";
 import type { User } from "@supabase/supabase-js";
 import { CreateClubDialog } from "@/components/CreateClubDialog";
 
