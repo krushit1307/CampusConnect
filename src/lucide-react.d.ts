@@ -1,0 +1,13 @@
+declare module 'lucide-react/dist/esm/icons/dollar-sign';
+declare module 'lucide-react/dist/esm/icons/download';
+declare module 'lucide-react/dist/esm/icons/alert-triangle';
+declare module 'lucide-react/dist/esm/icons/check-circle';
+declare module 'lucide-react/dist/esm/icons/arrow-left';
+declare module 'lucide-react/dist/esm/icons/settings';
+declare module 'lucide-react/dist/esm/icons/users';
+declare module 'lucide-react/dist/esm/icons/calendar';
+declare module 'lucide-react/dist/esm/icons/shield-check';
+declare module 'lucide-react/dist/esm/icons/xcircle';
+declare module 'lucide-react/dist/esm/icons/trash-2';
+declare module 'lucide-react/dist/esm/icons/refresh-cw';
+declare module 'lucide-react/dist/esm/icons/bar-chart-3';
