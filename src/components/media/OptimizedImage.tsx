@@ -3,6 +3,7 @@ import {
   buildResponsiveImageSrcSet,
   getOptimizedImageUrl,
   isSafeImageSrc,
+  isSupabasePublicImage,
 } from "@/lib/imageOptimization";
 
 interface OptimizedImageProps extends Omit<
@@ -35,7 +36,11 @@ export function OptimizedImage({
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
+ feature/ghost-mode-2878
   const isPublic = useMemo(() => isSafeImageSrc(src), [src]);
+
+  const isPublic = useMemo(() => isSupabasePublicImage(src), [src]);
+ main
 
   const lqipSrc = useMemo(
     () =>
@@ -126,9 +131,11 @@ export function OptimizedImage({
       </div>
     );
   }
+ feature/ghost-mode-2878
 
  main
->>>>>>> origin/main
+ origin/main
+ main
   return (
     <div className={wrapperClass} style={{ ...imageProps.style, width, height }}>
       {lqipSrc && (
