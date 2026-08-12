@@ -12,10 +12,10 @@
  * You usually don't need to change this file unless we are adding new backend services!
  */
 import { createBrowserClient } from "@supabase/ssr";
+import type { Database } from "@/types/database.types";
 
 // Polyfill WebSocket for SSR on older Node.js versions (e.g. Node 20)
 if (typeof window === "undefined" && !globalThis.WebSocket) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (globalThis as any).WebSocket = class {};
 }
 
@@ -111,8 +111,11 @@ export function createClient() {
     throw new Error(`Invalid Supabase URL: "${supabaseUrl}". Please check your .env.local file.`);
   }
 
-  return createBrowserClient(supabaseUrl, supabaseAnonKey);
+  return createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
 }
+
+// Export singleton instance for direct imports
+export const supabase = createClient();
 
 /**
  * Sends a request to join an invite-only club.
@@ -122,10 +125,10 @@ export function createClient() {
  */
 export async function requestClubJoin(clubId: string, userId: string, message?: string | null) {
   const normalizedMessage = message ?? "";
-  const supabase = createClient();
+  const supabaseClient = createClient();
 
   // 1. Check if a request already exists
-  const { data: existingRequest, error: fetchError } = await supabase
+  const { data: existingRequest, error: fetchError } = await supabaseClient
     .from("club_requests")
     .select("id, status")
     .eq("club_id", clubId)
@@ -146,7 +149,7 @@ export async function requestClubJoin(clubId: string, userId: string, message?: 
   }
 
   // 2. Insert new request
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from("club_requests")
     .insert({
       club_id: clubId,

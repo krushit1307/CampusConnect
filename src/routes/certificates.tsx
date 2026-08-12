@@ -3,18 +3,15 @@ import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
-import { User } from "@supabase/supabase-js";
-import Award from "lucide-react/dist/esm/icons/award";
-import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
-import Copy from "lucide-react/dist/esm/icons/copy";
-import Download from "lucide-react/dist/esm/icons/download";
-import X from "lucide-react/dist/esm/icons/x";
-import QrCode from "lucide-react/dist/esm/icons/qr-code";
+import type { User } from "@supabase/supabase-js";
+import { Award, ArrowRight, Copy, Download, Loader2, QrCode, X, BadgeCheck } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { formatDateOnly } from "@/lib/utils";
+import { formatStandardDate } from "@/utils/dateUtils";
+import { downloadCertificatePdf } from "@/lib/certificateUtils";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { useConfetti } from "@/hooks/useConfetti";
 
 interface CertificateClub {
   name: string;
@@ -28,11 +25,19 @@ interface CertificateEvent {
 interface Certificate {
   id: string;
   certificate_url: string;
+  verify_url?: string | null;
+  verification_hash?: string | null;
   issued_at: string | null;
+  certificate_type?: "attendance" | "leadership";
+  role_title?: string | null;
+  tenure_start?: string | null;
+  tenure_end?: string | null;
+  event_title?: string | null;
   events: CertificateEvent | CertificateEvent[] | null;
 }
 
 export default function Certificates() {
+  const { fireCannon } = useConfetti();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
@@ -42,11 +47,11 @@ export default function Certificates() {
   const [isTicketOpen, setIsTicketOpen] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+    supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null));
   }, [supabase]);
 
   const {
-    data: certs = [],
+    data: certs = [] as Certificate[],
     isLoading,
     isError,
     refetch,
@@ -57,11 +62,11 @@ export default function Certificates() {
         .from("certificates")
         .select(
           `
-          id, certificate_url, issued_at,
+          id, certificate_url, verify_url, verification_hash, issued_at, certificate_type, role_title, tenure_start, tenure_end, event_title,
           events (title, clubs (name))
         `,
         )
-        .eq("user_id", user?.id)
+        .eq("user_id", user!.id)
         .order("issued_at", { ascending: false });
 
       if (error) {
@@ -104,7 +109,7 @@ export default function Certificates() {
             </>
           ) : certs.length === 0 ? (
             <div className="col-span-full font-mono py-10 text-neutral-600">
-              You don't have any certificates yet. Attend events to earn them!
+              You don&apos;t have any certificates yet. Attend events to earn them!
             </div>
           ) : displayedCerts.length === 0 ? (
             <div className="col-span-full">
@@ -205,7 +210,9 @@ export default function Certificates() {
                         </div>
                         <div className="flex justify-between border-b border-black/10 pb-1">
                           <span className="font-bold uppercase text-black">Issued</span>
-                          <span>{c.issued_at ? formatDateOnly(c.issued_at, "short") : "N/A"}</span>
+                          <span>
+                            {c.issued_at ? formatStandardDate(c.issued_at, "MMM d, yyyy") : "N/A"}
+                          </span>
                         </div>
                         <div className="flex justify-between pb-1">
                           <span className="font-bold uppercase text-black">Verify ID</span>
@@ -221,6 +228,7 @@ export default function Certificates() {
                           onClick={() => {
                             setSelectedCert(c);
                             setIsDialogOpen(true);
+                            fireCannon();
                           }}
                           className="neu-border neu-press flex-1 bg-black text-cream hover:bg-lime hover:text-black py-2.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer"
                         >
@@ -237,6 +245,16 @@ export default function Certificates() {
                           <QrCode className="h-4 w-4" />
                         </button>
                       </div>
+                      {c.verify_url && (
+                        <a
+                          href={c.verify_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-3 neu-border neu-press flex w-full items-center justify-center gap-2 bg-white hover:bg-lime py-2.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer"
+                        >
+                          <BadgeCheck className="h-4 w-4" /> Verify on Blockchain
+                        </a>
+                      )}
                     </div>
                   </article>
                 );
@@ -259,7 +277,8 @@ export default function Certificates() {
                   ? event.clubs[0]
                   : event.clubs
                 : null;
-              const ticketUrl = ticketCert.certificate_url || window.location.href;
+              const ticketUrl =
+                ticketCert.verify_url || ticketCert.certificate_url || window.location.href;
               return (
                 <div className="flex flex-col">
                   {/* Top Bar */}
@@ -278,7 +297,7 @@ export default function Certificates() {
 
                   {/* Ticket Card */}
                   <div className="p-5 group">
-                    <div className="neu-border bg-white p-5 flex flex-col gap-4 shadow-[4px_4px_0_0_#000] transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-[6px_6px_0_0_#000]">
+                    <div className="neu-border bg-white p-5 flex flex-col gap-4 shadow-[4px_4px_0_0_var(--color-ink)] transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-[6px_6px_0_0_var(--color-ink)]">
                       {/* Header stripe */}
                       <div className="bg-lime neu-border px-3 py-2 text-center">
                         <p className="font-mono text-[10px] font-black uppercase tracking-widest">
@@ -288,7 +307,7 @@ export default function Certificates() {
 
                       {/* QR Code */}
                       <div className="flex justify-center">
-                        <div className="neu-border bg-white p-3 shadow-[3px_3px_0_0_#000]">
+                        <div className="neu-border bg-white p-3 shadow-[3px_3px_0_0_var(--color-ink)]">
                           <QRCodeSVG
                             value={ticketUrl}
                             size={140}
@@ -321,7 +340,7 @@ export default function Certificates() {
                           <span className="font-bold uppercase text-gray-500">Issued</span>
                           <span className="font-bold text-black">
                             {ticketCert.issued_at
-                              ? formatDateOnly(ticketCert.issued_at, "short")
+                              ? formatStandardDate(ticketCert.issued_at, "MMM d, yyyy")
                               : "—"}
                           </span>
                         </div>
@@ -423,7 +442,7 @@ export default function Certificates() {
                           <p className="font-bold uppercase text-gray-500">Date of Issue</p>
                           <p className="font-bold text-black">
                             {selectedCert.issued_at
-                              ? formatDateOnly(selectedCert.issued_at, "long")
+                              ? formatStandardDate(selectedCert.issued_at, "MMMM d, yyyy")
                               : "N/A"}
                           </p>
                         </div>
@@ -434,10 +453,28 @@ export default function Certificates() {
                         <div>
                           <span className="font-bold uppercase">Certificate ID: </span>
                           <span className="select-all">{selectedCert.id}</span>
+                          {selectedCert.verification_hash && (
+                            <div className="mt-1">
+                              <span className="font-bold uppercase">Ledger Hash: </span>
+                              <span className="select-all break-all">
+                                {selectedCert.verification_hash.slice(0, 24)}…
+                              </span>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex items-center gap-1.5 bg-black text-cream px-2 py-0.5 border border-black font-bold uppercase text-[9px]">
-                          <span>Verifiable Link Active</span>
-                        </div>
+                        <a
+                          href={
+                            selectedCert.verify_url ||
+                            (selectedCert.certificate_type === "leadership"
+                              ? `/verify-leadership?hash=${selectedCert.verification_hash || selectedCert.id}`
+                              : `/verify?cert=${selectedCert.id}`)
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 bg-black text-cream px-2 py-0.5 border border-black font-bold uppercase text-[9px] hover:bg-lime hover:text-black transition-colors"
+                        >
+                          <span>Verify on Chain</span>
+                        </a>
                       </div>
                     </div>
                   </div>
@@ -460,35 +497,36 @@ export default function Certificates() {
                     <button
                       onClick={async () => {
                         setOpeningId(selectedCert.id);
-                        const minDuration = new Promise((resolve) => setTimeout(resolve, 400));
+                        const minDuration = new Promise((resolve) => setTimeout(resolve, 500));
                         try {
-                          const response = await fetch(selectedCert.certificate_url);
-                          const blob = await response.blob();
-                          const blobUrl = window.URL.createObjectURL(blob);
-
-                          const link = document.createElement("a");
-                          link.href = blobUrl;
-                          const eventTitle = event?.title || "certificate";
-                          const filename = `${eventTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-certificate.pdf`;
-                          link.download = filename;
-
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
-                          window.URL.revokeObjectURL(blobUrl);
+                          await downloadCertificatePdf({
+                            certificateUrl: selectedCert.certificate_url,
+                            eventTitle: event?.title,
+                            studentName: user?.email?.split("@")[0] || "Student",
+                            issuedAt: selectedCert.issued_at,
+                            certId: selectedCert.id,
+                          });
+                          toast.success("Certificate downloaded successfully!");
                         } catch (err) {
                           console.error("PDF download failed:", err);
-                          // Fallback to opening in new window if fetch fails
-                          window.open(selectedCert.certificate_url, "_blank");
+                          toast.error("Failed to download certificate.");
+                        } finally {
+                          await minDuration;
+                          setOpeningId(null);
                         }
-                        await minDuration;
-                        setOpeningId(null);
                       }}
                       disabled={openingId === selectedCert.id}
                       className="neu-border neu-press flex-1 bg-black text-cream hover:bg-lime hover:text-black py-3 font-mono text-xs font-bold uppercase transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
                     >
-                      <Download className="h-4 w-4" />{" "}
-                      {openingId === selectedCert.id ? "Downloading..." : "Download PDF"}
+                      {openingId === selectedCert.id ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" /> Downloading PDF...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-4 w-4" /> Download PDF
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

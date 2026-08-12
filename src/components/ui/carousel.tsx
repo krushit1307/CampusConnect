@@ -1,8 +1,6 @@
 import * as React from "react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import useEmblaCarousel, { type UseEmblaCarouselType } from "embla-carousel-react";
-import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
-import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
-
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -31,11 +29,9 @@ const CarouselContext = React.createContext<CarouselContextProps | null>(null);
 
 function useCarousel() {
   const context = React.useContext(CarouselContext);
-
   if (!context) {
     throw new Error("useCarousel must be used within a <Carousel />");
   }
-
   return context;
 }
 
@@ -45,6 +41,9 @@ const Carousel = React.forwardRef<
 >(({ orientation = "horizontal", opts, setApi, plugins, className, children, ...props }, ref) => {
   const [carouselRef, api] = useEmblaCarousel(
     {
+      watchDrag: true,
+      dragFree: true,
+      containScroll: "keepSnap",
       ...opts,
       axis: orientation === "horizontal" ? "x" : "y",
       loop: true,
@@ -55,9 +54,7 @@ const Carousel = React.forwardRef<
   const [canScrollNext, setCanScrollNext] = React.useState(false);
 
   const onSelect = React.useCallback((api: CarouselApi) => {
-    if (!api) {
-      return;
-    }
+    if (!api) return;
 
     const count = api.slideNodes().length;
 
@@ -99,24 +96,20 @@ const Carousel = React.forwardRef<
   );
 
   React.useEffect(() => {
-    if (!api || !setApi) {
-      return;
-    }
+    if (!api || !setApi) return;
 
     setApi(api);
   }, [api, setApi]);
 
   React.useEffect(() => {
-    if (!api) {
-      return;
-    }
+    if (!api) return;
 
     onSelect(api);
     api.on("reInit", onSelect);
     api.on("select", onSelect);
 
     return () => {
-      api?.off("select", onSelect);
+      api.off("select", onSelect);
     };
   }, [api, onSelect]);
 
@@ -124,7 +117,7 @@ const Carousel = React.forwardRef<
     <CarouselContext.Provider
       value={{
         carouselRef,
-        api: api,
+        api,
         opts,
         orientation: orientation || (opts?.axis === "y" ? "vertical" : "horizontal"),
         scrollPrev,
@@ -153,7 +146,11 @@ const CarouselContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HT
     const { carouselRef, orientation } = useCarousel();
 
     return (
-      <div ref={carouselRef} className="overflow-hidden">
+      <div
+        ref={carouselRef}
+        className="overflow-hidden"
+        style={{ touchAction: "pan-y pinch-zoom" }}
+      >
         <div
           ref={ref}
           className={cn(
@@ -200,7 +197,7 @@ const CarouselPrevious = React.forwardRef<HTMLButtonElement, React.ComponentProp
         variant={variant}
         size={size}
         className={cn(
-          "absolute  h-8 w-8 rounded-full",
+          "absolute h-8 w-8 rounded-full z-10",
           orientation === "horizontal"
             ? "-left-12 top-1/2 -translate-y-1/2"
             : "-top-12 left-1/2 -translate-x-1/2 rotate-90",
@@ -228,7 +225,7 @@ const CarouselNext = React.forwardRef<HTMLButtonElement, React.ComponentProps<ty
         variant={variant}
         size={size}
         className={cn(
-          "absolute h-8 w-8 rounded-full",
+          "absolute h-8 w-8 rounded-full z-10",
           orientation === "horizontal"
             ? "-right-12 top-1/2 -translate-y-1/2"
             : "-bottom-12 left-1/2 -translate-x-1/2 rotate-90",

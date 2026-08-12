@@ -1,5 +1,5 @@
-import Bookmark from "lucide-react/dist/esm/icons/bookmark";
-import CalendarDays from "lucide-react/dist/esm/icons/calendar-days";
+import { Bookmark, CalendarDays } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { User } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
@@ -8,8 +8,9 @@ import { EventCard } from "@/components/EventCard";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
 import { useMutation, useQuery } from "@/hooks/useReactQueryReplacement";
 import { normalizeSavedEvents } from "@/lib/bookmarks";
+import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { createClient } from "@/lib/supabase/client";
-
+import EmptyBookmarks from "@/components/EmptyBookmarks";
 interface BookmarkedEvent {
   id: string;
   title: string;
@@ -62,12 +63,14 @@ export default function DashboardBookmarks() {
             end_date,
             location,
             banner_url,
-            clubs (name),
+            created_at,
+            announce_date,
+            clubs (name, average_lead_time_days),
             event_rsvps (id, user_id)
           )
         `,
         )
-        .eq("user_id", user?.id)
+        .eq("user_id", user!.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -80,8 +83,16 @@ export default function DashboardBookmarks() {
   useEffect(() => {
     if (!user?.id) return;
 
+    const channelName = `bookmarks-${user.id}`;
+    // Prevent duplicate subscriptions by removing any existing channel with this topic
+    supabase.getChannels().forEach((c) => {
+      if (c.topic === `realtime:${channelName}` || c.topic === channelName) {
+        void supabase.removeChannel(c);
+      }
+    });
+
     const channel = supabase
-      .channel(`bookmarks-${user.id}`)
+      .channel(channelName)
       .on(
         "postgres_changes",
         {
@@ -97,6 +108,7 @@ export default function DashboardBookmarks() {
       .subscribe();
 
     return () => {
+      void channel.unsubscribe();
       void supabase.removeChannel(channel);
     };
   }, [refetch, supabase, user?.id]);
@@ -125,6 +137,8 @@ export default function DashboardBookmarks() {
     mutationFn: async ({ eventId, hasRsvpd }: { eventId: string; hasRsvpd: boolean }) => {
       if (!user) throw new Error("You must be signed in to update an RSVP.");
 
+      const idempotencyKey = getRsvpIdempotencyKey(eventId);
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -133,10 +147,12 @@ export default function DashboardBookmarks() {
         body: { eventId, hasRsvpd },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
+          "Idempotency-Key": idempotencyKey,
         },
       });
 
       if (error) throw error;
+      clearRsvpIdempotencyKey(eventId);
       return data;
     },
     onSuccess: () => {
@@ -167,45 +183,59 @@ export default function DashboardBookmarks() {
         </span>
       </div>
 
-      {isLoading || isFetching ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3" aria-label="Loading bookmarks">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <EventCardSkeleton key={index} />
-          ))}
-        </div>
-      ) : bookmarkedEvents.length === 0 ? (
-        <section className="neu-border relative overflow-hidden bg-lavender px-6 py-14 text-center sm:px-10">
-          <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border-2 border-black bg-white shadow-[4px_4px_0_0_#000]">
-            <CalendarDays aria-hidden="true" size={30} strokeWidth={2.5} />
-          </div>
-          <h3 className="mt-6 text-2xl font-black">No bookmarked events yet</h3>
-          <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-gray-700">
-            Explore upcoming campus events and tap the bookmark icon on any event you want to save
-            here.
-          </p>
-          <Link
-            to="/events"
-            className="neu-border neu-press mt-6 inline-flex bg-black px-5 py-3 font-mono text-xs font-bold uppercase tracking-wider text-cream"
+      <AnimatePresence mode="sync">
+        {isLoading ? (
+          <motion.div
+            key="bookmarks-loading-skeletons"
+            layout
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+            aria-label="Loading bookmarks"
           >
-            Explore events →
-          </Link>
-        </section>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {bookmarkedEvents.map((event, index) => (
-            <EventCard
-              key={event.id}
-              event={event}
-              index={index}
-              user={user}
-              onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
-              isRsvpPending={toggleRsvp.isPending}
-              onBookmarkToggle={(eventId) => unsaveEvent.mutate({ eventId })}
-              isBookmarkPending={unsaveEvent.isPending}
-            />
-          ))}
-        </div>
-      )}
+            {Array.from({ length: 3 }).map((_, index) => (
+              <EventCardSkeleton key={`bookmark-skel-${index}`} index={index} />
+            ))}
+          </motion.div>
+        ) : bookmarkedEvents.length === 0 ? (
+          <motion.div
+            key="bookmarks-empty"
+            layout
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+          >
+            <EmptyBookmarks />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="bookmarks-loaded-grid"
+            layout
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+          >
+            {bookmarkedEvents.map((event, index) => (
+              <motion.div key={event.id} layout>
+                <EventCard
+                  event={event}
+                  index={index}
+                  user={user}
+                  onRsvpToggle={(eventId, hasRsvpd) => toggleRsvp.mutate({ eventId, hasRsvpd })}
+                  isRsvpPending={toggleRsvp.isPending}
+                  onBookmarkToggle={(eventId) => unsaveEvent.mutate({ eventId })}
+                  isBookmarkPending={unsaveEvent.isPending}
+                />
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

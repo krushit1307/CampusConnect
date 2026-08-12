@@ -9,7 +9,7 @@ foreach ($issue in $issues) {
         $assigneeLogins = $issue.assignees | ForEach-Object { "@" + $_.login }
         $assigneesString = $assigneeLogins -join ", "
         
-        $message = "Hi $assigneesString, please note that our contribution guidelines have been updated. Contributors can now have a maximum of 7 active issues, and you have 3 days to open a PR for your assigned issues."
+        $message = "Hi $assigneesString, please note that our contribution guidelines have been updated. Contributors can now have a maximum of 7 active issues, and there is no longer a strict time limit to open a PR."
         
         Write-Host "Commenting on issue #$($issue.number) tagging $assigneesString"
         gh issue comment $issue.number --body $message
