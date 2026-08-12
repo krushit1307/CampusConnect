@@ -14,6 +14,7 @@ import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
+import { useBannerColor } from "@/hooks/useBannerColor";
 import { MapSkeleton } from "@/components/ui/MapSkeleton";
 
 const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ default: m.EventMap })));
@@ -136,10 +137,17 @@ function EventHeroBanner({
   title: string;
 }) {
   const [loaded, setLoaded] = useState(false);
+  const { gradientStyle } = useBannerColor(bannerUrl);
   const hash = isValidBlurhash(blurhash) ? (blurhash as string) : DEFAULT_FALLBACK_BLURHASH;
 
   return (
     <>
+      {/* Dynamic Banner Color Overlay (#1744) */}
+      <div
+        data-testid="banner-dynamic-gradient"
+        className="absolute inset-0 z-1 pointer-events-none transition-all duration-700 opacity-80"
+        style={{ background: gradientStyle }}
+      />
       {/* BlurHash canvas — removed from DOM once real image loads */}
       {!loaded && (
         <div className="absolute inset-0 z-0" aria-hidden="true">

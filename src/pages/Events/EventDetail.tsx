@@ -5,6 +5,7 @@ import { useConfetti } from "../../hooks/useConfetti";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
+import { useBannerColor } from "@/hooks/useBannerColor";
 
 interface EventDetailRecord {
   id: string;
@@ -49,17 +50,27 @@ export default function EventDetail() {
   }
 
   const clubName = Array.isArray(event.clubs) ? event.clubs[0]?.name : event.clubs?.name;
+  const { gradientStyle } = useBannerColor(event.banner_url);
 
   return (
-    <article className="min-h-full bg-white">
+    <article className="relative min-h-full bg-white transition-colors duration-700">
+      {/* Dynamic Extracted Banner Background Gradient (#1744) */}
+      {event.banner_url && (
+        <div
+          data-testid="banner-dynamic-gradient"
+          className="absolute inset-0 pointer-events-none h-96 transition-all duration-700 opacity-90"
+          style={{ background: gradientStyle }}
+        />
+      )}
       {event.banner_url && (
         <img
           src={event.banner_url}
           alt=""
-          className="h-64 w-full border-b-2 border-black object-cover"
+          crossOrigin="anonymous"
+          className="relative z-10 h-64 w-full border-b-2 border-black object-cover"
         />
       )}
-      <div className="space-y-6 p-6 md:p-8">
+      <div className="relative z-10 space-y-6 p-6 md:p-8">
         {clubName && <p className="eyebrow font-bold">{clubName}</p>}
         <h1 className="font-display text-4xl font-bold">{event.title}</h1>
         <div className="flex flex-wrap gap-4 font-mono text-sm text-gray-700">
