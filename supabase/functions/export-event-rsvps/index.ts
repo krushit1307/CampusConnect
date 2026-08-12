@@ -68,13 +68,10 @@ serve(async (req) => {
     }
 
     if (event.created_by !== user.id) {
-      return new Response(
-        JSON.stringify({ error: "Only the event organizer can export RSVPs." }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      return new Response(JSON.stringify({ error: "Only the event organizer can export RSVPs." }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Fetch RSVPs joined with profile info
