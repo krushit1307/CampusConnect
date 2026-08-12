@@ -1,18 +1,16 @@
 import React, { useState } from "react";
-import {
-  Upload,
-  FileSpreadsheet,
-  AlertTriangle,
-  CheckCircle2,
-  Cpu,
-  Download,
-  X,
-  Layers,
-  RefreshCw,
-  Clock,
-  Database,
-  FileText,
-} from "lucide-react";
+import Upload from "lucide-react/dist/esm/icons/upload";
+import FileSpreadsheet from "lucide-react/dist/esm/icons/file-spreadsheet";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import Cpu from "lucide-react/dist/esm/icons/cpu";
+import Download from "lucide-react/dist/esm/icons/download";
+import X from "lucide-react/dist/esm/icons/x";
+import Layers from "lucide-react/dist/esm/icons/layers";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import Database from "lucide-react/dist/esm/icons/database";
+import FileText from "lucide-react/dist/esm/icons/file-text";
 import {
   generateDummyUserCsv,
   BulkImportSummary,

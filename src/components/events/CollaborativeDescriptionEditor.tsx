@@ -6,7 +6,9 @@ import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
 import * as Y from "yjs";
 import { createClient } from "@/lib/supabase/client";
 import { SupabaseYjsProvider } from "@/lib/supabase/yjsProvider";
-import { Loader2, Users, AlertCircle } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Users from "lucide-react/dist/esm/icons/users";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
 
 interface CollaborativeDescriptionEditorProps {
   eventId: string;

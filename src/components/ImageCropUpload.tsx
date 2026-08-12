@@ -1,6 +1,7 @@
 import { useState, useRef, type DragEvent, type ChangeEvent } from "react";
 import Cropper from "react-easy-crop";
-import { Loader2, UploadCloud } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import UploadCloud from "lucide-react/dist/esm/icons/upload-cloud";
 import { toast } from "sonner";
 
 import { createClient } from "@/lib/supabase/client";

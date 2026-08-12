@@ -1,8 +1,4 @@
-import {
-  QueryClientProvider as NormalQueryClientProvider,
-  queryClient,
-  persister,
-} from "@/hooks/useReactQueryReplacement";
+import { queryClient, persister } from "@/hooks/useReactQueryReplacement";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { AnimatePresence, LazyMotion, MotionConfig } from "framer-motion";
@@ -25,27 +21,9 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import MaintenancePage from "./components/MaintenancePage";
 import { CommandPaletteProvider } from "@/components/CommandPaletteProvider";
-import { NotFoundPage } from "./components/NotFoundPage";
 import { createClient } from "./lib/supabase/client";
-// Pages
-import Index from "./routes/index";
-import Auth from "./routes/auth";
-import Certificates from "./routes/certificates";
-import ClubsIndex from "./routes/clubs.index";
-import ClubDetails from "./routes/clubs.$slug";
-import ClubsLayout from "./routes/clubs";
-import Dashboard from "./routes/dashboard";
-import DashboardOverview from "./routes/dashboard.index";
-import DashboardRsvps from "./routes/dashboard.rsvps";
-import DashboardBookmarks from "./routes/dashboard.bookmarks";
-import EventsIndex from "./routes/events";
-import EventDetails from "./routes/events.$eventId";
-import Feed from "./routes/feed";
-import ForgotPassword from "./routes/forgot-password";
-import ResetPassword from "./routes/reset-password";
-import Settings from "./routes/settings";
-import PendingClubsAdmin from "./routes/admin.clubs.pending";
 import GalleryPage from "./routes/gallery";
+import { RouteSkeleton } from "./components/RouteSkeleton";
 import { BreadcrumbProvider } from "@/components/BreadcrumbsContext";
 import AriaAnnouncer from "@/components/accessibility/AriaAnnouncer";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
@@ -57,6 +35,10 @@ function RemoteLoadingScreen() {
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
     </div>
   );
+}
+
+function PageFallback() {
+  return <RouteSkeleton />;
 }
 
 const HEALTH_CHECK_URL =
@@ -206,10 +188,7 @@ const router = createBrowserRouter(
             <Route path="bookmarks" element={<DashboardBookmarks />} />
             <Route path="calendar" element={<DashboardCalendar />} />
           </Route>
-          feat/mobile-bottom-sheet
           {/* Events Layout with Split-Screen desktop and Mobile Bottom Sheet */}
-          {/* Events — Split Screen Layout */}
-          main
           <Route
             path="/events"
             element={
@@ -218,7 +197,6 @@ const router = createBrowserRouter(
               </Suspense>
             }
           >
-            feat/mobile-bottom-sheet
             <Route
               index
               element={
@@ -227,8 +205,6 @@ const router = createBrowserRouter(
                 </Suspense>
               }
             />
-            <Route index element={<EmptyState />} />
-            main
             <Route
               path=":eventId"
               element={
@@ -260,17 +236,11 @@ const router = createBrowserRouter(
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/restore" element={<AdminRestorePage />} />
           <Route path="/admin/dlq" element={<AdminDlqPage />} />
-          <Route path="*" element={<NotFoundPage />} />
           {/* Catch-all route for 404 errors */}
           <Route path="*" element={<NotFound />} />
         </Route>
 
-        <Route path="/feed" element={<Feed />} />
         <Route path="/gallery" element={<GalleryPage />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
       </Route>
     </Route>,
   ),
@@ -309,12 +279,46 @@ async function checkDatabaseConnection(): Promise<boolean> {
   }
 }
 
+function usePushNotifications() {
+  useEffect(() => {
+    async function syncToken() {
+      try {
+        const supabase = createClient();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+        // Mock FCM token generation since no real Web Push setup exists
+        const fcmToken =
+          localStorage.getItem("fcm_token") || `mock-fcm-${session.user.id}-${Date.now()}`;
+        localStorage.setItem("fcm_token", fcmToken);
+
+        await supabase
+          .from("profiles")
+          .update({ timezone, fcm_token: fcmToken })
+          .eq("id", session.user.id);
+      } catch (e) {
+        console.error("Failed to sync push token/timezone", e);
+      }
+    }
+    syncToken();
+  }, []);
+}
+
 export default function App() {
   const [dbStatus, setDbStatus] = useState<DbStatus>("checking");
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
 
+  usePushNotifications();
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
     const verify = async () => {
       const isOnline = await checkDatabaseConnection();
       setDbStatus(isOnline ? "online" : "offline");

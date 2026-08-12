@@ -72,9 +72,10 @@ serve(async (req: Request) => {
         throw new Error(`Club not found or inaccessible: ${clubError?.message}`);
       }
 
-      // 2. Retrieve all approved member emails for this club
+      // 2. Retrieve approved member emails for this club filtered by target audience
       const { data: members, error: membersError } = await supabase.rpc("get_club_member_emails", {
         p_club_id: clubId,
+        p_target_audience: job.target_audience || "all",
       });
 
       if (membersError) {

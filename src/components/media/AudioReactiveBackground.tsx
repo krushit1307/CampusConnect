@@ -1,18 +1,16 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useOnScreen } from "@/hooks/useOnScreen";
 import { ShaderPipeline, ShaderPreset, AudioData } from "@/lib/webgl/shaderPipeline";
-import {
-  Mic,
-  Upload,
-  Play,
-  Pause,
-  Sliders,
-  Sparkles,
-  Volume2,
-  VolumeX,
-  Maximize2,
-  Minimize2,
-} from "lucide-react";
+import Mic from "lucide-react/dist/esm/icons/mic";
+import Upload from "lucide-react/dist/esm/icons/upload";
+import Play from "lucide-react/dist/esm/icons/play";
+import Pause from "lucide-react/dist/esm/icons/pause";
+import Sliders from "lucide-react/dist/esm/icons/sliders";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Volume2 from "lucide-react/dist/esm/icons/volume-2";
+import VolumeX from "lucide-react/dist/esm/icons/volume-x";
+import Maximize2 from "lucide-react/dist/esm/icons/maximize-2";
+import Minimize2 from "lucide-react/dist/esm/icons/minimize-2";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import {

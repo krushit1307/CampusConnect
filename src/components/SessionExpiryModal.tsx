@@ -9,7 +9,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2 } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 
 export function SessionExpiryModal() {
   const { showModal, isRefreshing, refreshSession, handleLogout } = useSessionExpiry();

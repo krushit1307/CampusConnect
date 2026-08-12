@@ -4,7 +4,7 @@ import { useFormContext } from "react-hook-form";
 import { EventFormData } from "../../lib/eventFormSchema";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { MapPin } from "lucide-react";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
 import { cn } from "../../lib/utils";
 
 /**

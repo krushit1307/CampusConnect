@@ -37,7 +37,11 @@ export interface EventRsvpState {
  * the current attending count vs. `max_attendees`. This is the
  * race-condition-safe path described in issue #2693.
  */
-export async function joinEventOrWaitlist(eventId: string, userId: string): Promise<JoinResult> {
+export async function joinEventOrWaitlist(
+  eventId: string,
+  userId: string,
+  resumePath?: string,
+): Promise<JoinResult> {
   const { data, error } = await supabase.rpc("join_event_or_waitlist", {
     p_event_id: eventId,
     p_user_id: userId,

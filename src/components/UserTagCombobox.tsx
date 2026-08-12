@@ -1,7 +1,7 @@
 import React from "react";
 import { AsyncCombobox } from "@/components/ui/async-combobox";
 import { HighlightText } from "@/components/ui/HighlightText";
-import { User } from "lucide-react";
+import User from "lucide-react/dist/esm/icons/user";
 import { createClient } from "@/lib/supabase/client";
 
 export interface UserProfile {

@@ -17,7 +17,7 @@ import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import { CommandPalette } from "@/components/ui/command-palette";
 import { showAnnouncementToast } from "@/lib/announcements/sse";
 import { SkipToContent } from "@/components/SkipToContent";
-
+import ImpersonationBanner from "@/components/ImpersonationBanner";
 // Persistent banner shown while the browser has no network connection.
 function OfflineBanner() {
   const [isOffline, setIsOffline] = useState(
@@ -189,5 +189,6 @@ export default function Layout() {
         <CommandPalette />
       </WebRTCProvider>
     </TooltipProvider>
+    <ImpersonationBanner />
   );
 }

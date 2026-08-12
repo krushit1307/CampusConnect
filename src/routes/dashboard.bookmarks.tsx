@@ -1,4 +1,5 @@
-import { Bookmark, CalendarDays } from "lucide-react";
+import Bookmark from "lucide-react/dist/esm/icons/bookmark";
+import CalendarDays from "lucide-react/dist/esm/icons/calendar-days";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { User } from "@supabase/supabase-js";

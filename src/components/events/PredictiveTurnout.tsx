@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
-import {
-  Brain,
-  Cpu,
-  CloudRain,
-  Sun,
-  Cloud,
-  AlertCircle,
-  TrendingUp,
-  HelpCircle,
-} from "lucide-react";
+import Brain from "lucide-react/dist/esm/icons/brain";
+import Cpu from "lucide-react/dist/esm/icons/cpu";
+import CloudRain from "lucide-react/dist/esm/icons/cloud-rain";
+import Sun from "lucide-react/dist/esm/icons/sun";
+import Cloud from "lucide-react/dist/esm/icons/cloud";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import TrendingUp from "lucide-react/dist/esm/icons/trending-up";
+import HelpCircle from "lucide-react/dist/esm/icons/help-circle";
 
 interface PredictiveTurnoutProps {
   rsvpCount: number;

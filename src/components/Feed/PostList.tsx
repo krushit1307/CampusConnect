@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useInView } from "react-intersection-observer";
 import { supabase } from "@/lib/supabase/client";
-import { Flag } from "lucide-react";
+import Flag from "lucide-react/dist/esm/icons/flag";
 import { ReportDialog } from "@/components/ReportDialog";
 import { RelayConnection, encodeRelayCursor, decodeRelayCursor } from "@/lib/relayPagination";
 import { useInfiniteQuery } from "@/hooks/useReactQueryReplacement";
+import { ClubAffiliationBadges } from "@/components/ClubAffiliationBadges";
 
 const PAGE_SIZE = 10;
 
@@ -13,6 +14,10 @@ interface Post {
   id: string | number;
   title?: string;
   content?: string;
+  author_id?: string;
+  user_id?: string;
+  author_name?: string;
+  display_badges?: boolean;
   created_at?: string;
   [key: string]: unknown; // Allows additional dynamic fields without using `any`
 }
@@ -91,27 +96,40 @@ export const PostList = () => {
 
   return (
     <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full p-4">
-      {posts.map((post: Post) => (
-        <div
-          key={post.id}
-          className="p-4 border rounded-lg shadow-sm bg-card text-card-foreground flex flex-col justify-between"
-        >
-          <div>
-            <h3 className="font-bold text-lg">{post.title || "Untitled Post"}</h3>
-            <p className="mt-2 text-muted-foreground">{post.content}</p>
+      {posts.map((post: Post) => {
+        const postAuthorId = (post.author_id || post.user_id) as string | undefined;
+        const displayBadges = post.display_badges !== false;
+
+        return (
+          <div
+            key={post.id}
+            className="p-4 border rounded-lg shadow-sm bg-card text-card-foreground flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <span className="font-bold text-sm text-black dark:text-cream">
+                  {post.author_name || (postAuthorId ? `User_${String(postAuthorId).substring(0, 4)}` : "Anonymous")}
+                </span>
+                {postAuthorId && (
+                  <ClubAffiliationBadges userId={postAuthorId} displayBadges={displayBadges} size="xs" />
+                )}
+              </div>
+              <h3 className="font-bold text-lg">{post.title || "Untitled Post"}</h3>
+              <p className="mt-2 text-muted-foreground">{post.content}</p>
+            </div>
+            <div className="mt-3 flex items-center justify-end border-t pt-2">
+              <button
+                type="button"
+                onClick={() => setReportPostId(String(post.id))}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                aria-label={`Report post ${post.title || post.id}`}
+              >
+                <Flag size={14} /> Report
+              </button>
+            </div>
           </div>
-          <div className="mt-3 flex items-center justify-end border-t pt-2">
-            <button
-              type="button"
-              onClick={() => setReportPostId(String(post.id))}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
-              aria-label={`Report post ${post.title || post.id}`}
-            >
-              <Flag size={14} /> Report
-            </button>
-          </div>
-        </div>
-      ))}
+        );
+      })}
 
       {/* Sentinel element observed by IntersectionObserver */}
       <div ref={sentinelRef} className="h-12 flex items-center justify-center p-4">

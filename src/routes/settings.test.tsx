@@ -96,3 +96,26 @@ describe("SettingsPage Quiet Hours Preferences", () => {
     });
   });
 });
+
+describe("SettingsPage Alumni Account Transition", () => {
+  it("renders alumni transition panel when role is student and submits new personal email", async () => {
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>,
+    );
+
+    const transitionHeading = await screen.findByText("Alumni Account Transition");
+    expect(transitionHeading).toBeInTheDocument();
+
+    const emailInput = screen.getByLabelText(/new personal email address/i);
+    expect(emailInput).toBeInTheDocument();
+
+    fireEvent.change(emailInput, { target: { value: "graduated@gmail.com" } });
+    expect((emailInput as HTMLInputElement).value).toBe("graduated@gmail.com");
+
+    const submitBtn = screen.getByRole("button", { name: /transition account to alumni/i });
+    expect(submitBtn).toBeInTheDocument();
+    fireEvent.click(submitBtn);
+  });
+});

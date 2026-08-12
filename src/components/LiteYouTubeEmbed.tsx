@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { Play } from "lucide-react";
+import Play from "lucide-react/dist/esm/icons/play";
 
 interface LiteYouTubeEmbedProps {
   videoId: string;

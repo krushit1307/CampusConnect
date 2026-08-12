@@ -91,6 +91,53 @@ describe("eventFormSchema", () => {
     const result = eventFormSchema.safeParse({ ...valid, title: "   " });
     expect(result.success).toBe(false);
   });
+
+  it("rejects custom venues without accessibility audit", () => {
+    const result = eventFormSchema.safeParse({
+      ...valid,
+      venue_id: undefined,
+      location: "Main Auditorium",
+      accessibility_features: undefined,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error.flatten().fieldErrors.accessibility_features).toBeDefined();
+  });
+
+  it("accepts custom venues with accessibility audit", () => {
+    const result = eventFormSchema.safeParse({
+      ...valid,
+      venue_id: undefined,
+      location: "Main Auditorium",
+      accessibility_features: {
+        has_elevator: true,
+        wheelchair_ramp: false,
+        gender_neutral_restrooms: true,
+        hearing_loop: false,
+        low_sensory_zone: false,
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts master venues without accessibility audit in payload", () => {
+    const result = eventFormSchema.safeParse({
+      ...valid,
+      venue_id: "some-uuid",
+      location: undefined,
+      accessibility_features: undefined,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts online events without accessibility audit in payload", () => {
+    const result = eventFormSchema.safeParse({
+      ...valid,
+      venue_id: undefined,
+      location: "Online",
+      accessibility_features: undefined,
+    });
+    expect(result.success).toBe(true);
   it("has exact Zod error messages for min length constraints", () => {
     const result = eventFormSchema.safeParse({
       title: "",

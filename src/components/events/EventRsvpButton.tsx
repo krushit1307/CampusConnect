@@ -1,6 +1,10 @@
 // src/components/events/EventRsvpButton.tsx
 import { useEffect, useState } from "react";
-import { Loader2, Users, Clock, Check, X } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Users from "lucide-react/dist/esm/icons/users";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import Check from "lucide-react/dist/esm/icons/check";
+import X from "lucide-react/dist/esm/icons/x";
 import { Button } from "../ui/button";
 import {
   joinEventOrWaitlist,
@@ -8,8 +12,22 @@ import {
   getEventRsvpState,
   type EventRsvpState,
 } from "../../lib/waitlist";
+ feature/carpool-matching-2877
+import { useIdempotentPayment } from "../../hooks/useIdempotentPayment";
+import { Checkbox } from "../ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "../ui/dialog";
+import { Label } from "../ui/label";
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
 import { ResumeDropzone } from "../resume/ResumeDropzone";
+ main
 
 interface EventRsvpButtonProps {
   eventId: string;
@@ -47,6 +65,15 @@ export function EventRsvpButton({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
+
+  // Mocking a ticket price since database schema lacks it currently
+  const ticketPrice = 14.5;
+  const isPaidEvent = true;
+
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [roundUp, setRoundUp] = useState(false);
+
+  const { processPayment, isProcessing } = useIdempotentPayment();
 
   // Fetch the RSVP state on mount if no initial state was provided.
   useEffect(() => {
@@ -94,6 +121,28 @@ export function EventRsvpButton({
     const fresh = await getEventRsvpState(eventId, userId);
     setState(fresh);
     onRsvpChanged?.();
+  };
+
+  const handleCheckout = async () => {
+    if (!userId) {
+      setError("Please log in to RSVP.");
+      return;
+    }
+
+    try {
+      await processPayment({
+        eventId,
+        quantity: 1,
+        amount: ticketPrice * 100, // Cents
+        includeCharityDonation: roundUp,
+      });
+      setIsCheckoutModalOpen(false);
+      // Mock update to UI since we don't have the full webhook pipeline available locally
+      setState((prev) => (prev ? { ...prev, user_status: "attending" } : prev));
+      onRsvpChanged?.();
+    } catch (err: any) {
+      // Error handled by hook
+    }
   };
 
   const handleCancel = async () => {
@@ -239,6 +288,75 @@ export function EventRsvpButton({
 
   // ── Not RSVPed, spots available → RSVP NOW ──────────────────────
   return (
+ feature/carpool-matching-2877
+    <>
+      <div className="flex flex-col gap-2">
+        {isPaidEvent ? (
+          <Button
+            onClick={() => setIsCheckoutModalOpen(true)}
+            disabled={loading}
+            size="lg"
+            className="gap-2"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
+            Buy Ticket
+          </Button>
+        ) : (
+          <Button onClick={handleJoin} disabled={loading} size="lg" className="gap-2">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
+            RSVP NOW
+          </Button>
+        )}
+        {state.max_attendees && (
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {state.attending_count} / {state.max_attendees} spots filled
+          </p>
+        )}
+        {error && <p className="text-sm text-red-600">{error}</p>}
+      </div>
+
+      <Dialog open={isCheckoutModalOpen} onOpenChange={setIsCheckoutModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Complete Your Purchase</DialogTitle>
+            <DialogDescription>
+              Ticket for this event costs ${ticketPrice.toFixed(2)}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex items-center space-x-2 my-4 p-4 border rounded-md bg-slate-50 dark:bg-slate-900">
+            <Checkbox
+              id="round-up"
+              checked={roundUp}
+              onCheckedChange={(checked) => setRoundUp(checked as boolean)}
+            />
+            <div className="grid gap-1.5 leading-none">
+              <Label htmlFor="round-up" className="font-semibold cursor-pointer">
+                Round up to ${Math.ceil(ticketPrice).toFixed(2)} to support the Campus Food Bank?
+              </Label>
+              <p className="text-sm text-slate-500">
+                Donate the ${(Math.ceil(ticketPrice) - ticketPrice).toFixed(2)} difference to our
+                student food bank.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCheckoutModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCheckout} disabled={isProcessing}>
+              {isProcessing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                `Pay $${(roundUp ? Math.ceil(ticketPrice) : ticketPrice).toFixed(2)}`
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+
     <div className="flex flex-col gap-2">
       {renderResumeModal()}
       <Button onClick={handleJoinClick} disabled={loading} size="lg" className="gap-2">
@@ -252,5 +370,6 @@ export function EventRsvpButton({
       )}
       {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
+ main
   );
 }

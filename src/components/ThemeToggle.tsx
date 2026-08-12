@@ -1,4 +1,7 @@
-import { Moon, Settings2, Sun, Contrast } from "lucide-react";
+import Moon from "lucide-react/dist/esm/icons/moon";
+import Settings2 from "lucide-react/dist/esm/icons/settings-2";
+import Sun from "lucide-react/dist/esm/icons/sun";
+import Contrast from "lucide-react/dist/esm/icons/contrast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTheme } from "./theme-provider";
 

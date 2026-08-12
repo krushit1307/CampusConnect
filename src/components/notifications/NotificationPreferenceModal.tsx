@@ -15,7 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Sliders, Bell, Mail, Smartphone, Volume2, Moon, ShieldCheck, Check } from "lucide-react";
+import Sliders from "lucide-react/dist/esm/icons/sliders";
+import Bell from "lucide-react/dist/esm/icons/bell";
+import Mail from "lucide-react/dist/esm/icons/mail";
+import Smartphone from "lucide-react/dist/esm/icons/smartphone";
+import Volume2 from "lucide-react/dist/esm/icons/volume-2";
+import Moon from "lucide-react/dist/esm/icons/moon";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import Check from "lucide-react/dist/esm/icons/check";
 import { toast } from "sonner";
 
 interface NotificationPreferenceModalProps {

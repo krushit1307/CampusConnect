@@ -238,7 +238,7 @@ describe("notifications — SQL contract (migration guards)", () => {
     const sql = fs.readFileSync(
       path.resolve(
         __dirname,
-        "../supabase/migrations/20260816000001_unified_notification_center.sql",
+        "../../supabase/migrations/20260816000001_unified_notification_center.sql",
       ),
       "utf-8",
     );
@@ -254,7 +254,7 @@ describe("notifications — SQL contract (migration guards)", () => {
     const sql = fs.readFileSync(
       path.resolve(
         __dirname,
-        "../supabase/migrations/20260816000001_unified_notification_center.sql",
+        "../../supabase/migrations/20260816000001_unified_notification_center.sql",
       ),
       "utf-8",
     );
@@ -270,7 +270,7 @@ describe("notifications — SQL contract (migration guards)", () => {
     const sql = fs.readFileSync(
       path.resolve(
         __dirname,
-        "../supabase/migrations/20260816000001_unified_notification_center.sql",
+        "../../supabase/migrations/20260816000001_unified_notification_center.sql",
       ),
       "utf-8",
     );
@@ -285,7 +285,7 @@ describe("notifications — SQL contract (migration guards)", () => {
     const sql = fs.readFileSync(
       path.resolve(
         __dirname,
-        "../supabase/migrations/20260816000001_unified_notification_center.sql",
+        "../../supabase/migrations/20260816000001_unified_notification_center.sql",
       ),
       "utf-8",
     );

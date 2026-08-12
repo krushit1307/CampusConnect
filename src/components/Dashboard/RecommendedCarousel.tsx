@@ -9,7 +9,11 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import { Sparkles, Calendar, MapPin, Loader2, Check } from "lucide-react";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Check from "lucide-react/dist/esm/icons/check";
 import { toast } from "sonner";
 
 interface RecommendedEvent {

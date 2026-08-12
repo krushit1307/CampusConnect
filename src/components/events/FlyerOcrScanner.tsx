@@ -13,7 +13,12 @@ import {
   DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Camera, Upload, Sparkles, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import Camera from "lucide-react/dist/esm/icons/camera";
+import Upload from "lucide-react/dist/esm/icons/upload";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import { toast } from "sonner";
 
 export interface FlyerOcrScannerProps {

@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Progress } from "@/components/ui/progress";
-import { Users, Flame, AlertTriangle, CheckCircle2 } from "lucide-react";
+import Users from "lucide-react/dist/esm/icons/users";
+import Flame from "lucide-react/dist/esm/icons/flame";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
 import { cn } from "@/lib/utils";
 
 interface EventCapacityGaugeProps {

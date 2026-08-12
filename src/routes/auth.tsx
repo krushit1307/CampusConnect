@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { PasswordStrengthMeter, getPasswordStrength } from "@/components/ui/password-strength";
-import { ArrowLeft } from "lucide-react";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useExperimentStore } from "@/store/useExperimentStore";

@@ -35,7 +35,6 @@ export function OptimizedImage({
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
- feat/waitlist-priority
 
   const isPublic = useMemo(() => isSupabasePublicImage(src), [src]);
 
@@ -47,7 +46,6 @@ export function OptimizedImage({
     [isPublic, src, width, height],
   );
 
-main
   const fallbackSrc = useMemo(
     () => getOptimizedImageUrl(src, { width, height, quality, resize: "cover" }),
     [src, width, height, quality],
@@ -65,7 +63,6 @@ main
 
   if (failed || !isSrcSafe) return <>{fallback}</>;
 
- feat/waitlist-priority
 
   const wrapperClass = `${imageProps.className || ""} relative overflow-hidden inline-block`.trim();
 

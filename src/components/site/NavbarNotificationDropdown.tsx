@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Bell, BellOff, Loader2, Search, X } from "lucide-react";
+import Bell from "lucide-react/dist/esm/icons/bell";
+import BellOff from "lucide-react/dist/esm/icons/bell-off";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Search from "lucide-react/dist/esm/icons/search";
+import X from "lucide-react/dist/esm/icons/x";
 import { Input } from "@/components/ui/input";
 import { Link } from "react-router-dom";
 import NotificationItem from "./NotificationItem";

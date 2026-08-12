@@ -14,8 +14,13 @@ import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
+import { EventSeatingManager } from "@/components/events/EventSeatingManager";
+import { InteractiveSeatingChart } from "@/components/events/InteractiveSeatingChart";
+import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
+import { useBannerColor } from "@/hooks/useBannerColor";
 import { MapSkeleton } from "@/components/ui/MapSkeleton";
-
+import { Helmet } from "react-helmet-async";
+import { buildOpenGraphTags } from "@/lib/seo/eventMeta";
 const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ default: m.EventMap })));
 import { formatEventDateRange } from "@/lib/utils";
 import { AddToCalendarDropdown } from "@/components/events/AddToCalendarDropdown";
@@ -24,27 +29,25 @@ import { formatDateLong } from "@/lib/dateFormatter";
 import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { toast } from "sonner";
 import { ShareMenu } from "@/components/ui/ShareMenu";
-import {
-  ArrowLeft,
-  Check,
-  Copy,
-  Download,
-  Link as LinkIcon,
-  MapPin,
-  MapPinOff,
-  Users,
-  CreditCard,
-  X,
-  CheckCircle,
-  Clock,
-  Calendar,
-  Star,
-  HelpCircle,
-  Flag,
-  ShieldAlert,
-  QrCode,
-  Eye,
-} from "lucide-react";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Check from "lucide-react/dist/esm/icons/check";
+import Copy from "lucide-react/dist/esm/icons/copy";
+import Download from "lucide-react/dist/esm/icons/download";
+import LinkIcon from "lucide-react/dist/esm/icons/link";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import MapPinOff from "lucide-react/dist/esm/icons/map-pin-off";
+import Users from "lucide-react/dist/esm/icons/users";
+import CreditCard from "lucide-react/dist/esm/icons/credit-card";
+import X from "lucide-react/dist/esm/icons/x";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Star from "lucide-react/dist/esm/icons/star";
+import HelpCircle from "lucide-react/dist/esm/icons/help-circle";
+import Flag from "lucide-react/dist/esm/icons/flag";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import QrCode from "lucide-react/dist/esm/icons/qr-code";
+import Eye from "lucide-react/dist/esm/icons/eye";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -60,8 +63,9 @@ import {
 import PredictiveTurnout from "@/components/events/PredictiveTurnout";
 import LiveQA from "@/components/qa/LiveQA";
 import EventFeedbackForm from "@/components/EventFeedbackForm";
-import { CarpoolSection } from "@/components/events/carpool/CarpoolSection";
+import { CarpoolMatchingSection } from "@/components/events/carpool/CarpoolMatchingSection";
 import { EventLiveChat } from "@/components/events/EventLiveChat";
+import { EventSubmissions } from "@/components/EventSubmissions";
 import { ReportDialog } from "@/components/ReportDialog";
 import { GeofencedCheckInButton } from "@/components/GeofencedCheckInButton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -81,6 +85,10 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { ImageWithBlur } from "@/components/ui/ImageWithBlur";
 import { parseCoordinates } from "@/lib/eventUtils";
+import { EventFaqSection } from "@/components/events/EventFaqSection";
+import { AccessibilityBadges } from "@/components/events/AccessibilityBadges";
+import { ReportAccessibilityIssueDialog } from "@/components/events/ReportAccessibilityIssueDialog";
+import { ManageAccessibilityOverridesDialog } from "@/components/events/ManageAccessibilityOverridesDialog";
 import EventFeedbackForm from "@/components/EventFeedbackForm";
 import { EventPhotoGallery } from "@/components/EventPhotoGallery";
 import { EventMap } from "@/components/EventMap";
@@ -118,6 +126,7 @@ import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
 import { CaptchaWidget } from "@/components/CaptchaWidget";
 import { Blurhash } from "react-blurhash";
 import { isValidBlurhash, DEFAULT_FALLBACK_BLURHASH } from "@/lib/blurhashUtils";
+import { EventDescriptionTranslation } from "@/components/events/EventDescriptionTranslation";
 
 /**
  * Hero banner for the event detail page.
@@ -135,10 +144,17 @@ function EventHeroBanner({
   title: string;
 }) {
   const [loaded, setLoaded] = useState(false);
+  const { gradientStyle } = useBannerColor(bannerUrl);
   const hash = isValidBlurhash(blurhash) ? (blurhash as string) : DEFAULT_FALLBACK_BLURHASH;
 
   return (
     <>
+      {/* Dynamic Banner Color Overlay (#1744) */}
+      <div
+        data-testid="banner-dynamic-gradient"
+        className="absolute inset-0 z-1 pointer-events-none transition-all duration-700 opacity-80"
+        style={{ background: gradientStyle }}
+      />
       {/* BlurHash canvas — removed from DOM once real image loads */}
       {!loaded && (
         <div className="absolute inset-0 z-0" aria-hidden="true">
@@ -500,6 +516,13 @@ export default function EventDetailsPage() {
         .from("events")
         .select(
           `
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, venue_id, accessibility_features,
+          clubs (name, slug),
+          event_rsvps (id, user_id),
+          attendee_count,
+          venues (
+            name, building, capacity, accessibility_features
+          )
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by, is_high_risk, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash, latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline,
           profiles (full_name, email),
           clubs (name, slug),
@@ -616,6 +639,19 @@ export default function EventDetailsPage() {
     },
   });
 
+  const { data: overrides } = useQuery({
+    queryKey: ["venue_overrides", event?.venue_id],
+    queryFn: async () => {
+      if (!event?.venue_id) return [];
+      const { data, error } = await supabase
+        .from("venue_accessibility_overrides")
+        .select("*")
+        .eq("venue_id", event.venue_id)
+        .gt("expires_at", new Date().toISOString());
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!event?.venue_id,
   interface EventSignature {
     id: string;
     event_id: string;
@@ -1174,7 +1210,20 @@ export default function EventDetailsPage() {
     Array.isArray(rawFeedbacks) ? (rawFeedbacks as { user_id: string }[]) : undefined,
     user?.id,
   );
+const eventUrl =
+  typeof window !== "undefined"
+    ? window.location.href
+    : `${import.meta.env.VITE_SITE_URL ?? ""}/events/${event.short_id ?? event.id}`;
 
+const ogTags = buildOpenGraphTags({
+  title: event.title,
+  description: event.description,
+  bannerUrl: event.banner_url,
+  eventDate: event.event_date,
+  location: event.location,
+  url: eventUrl,
+  eventId: event.id,
+});
   // We calculate waitlist info earlier in useMemo now
   const rawWaitlist = (event as Record<string, unknown>).event_waitlist;
 
@@ -1333,9 +1382,44 @@ export default function EventDetailsPage() {
     maxAttendees > 0 &&
     attendeeCount >= maxAttendees;
 
-  return (
-    <SiteShell>
-      {/* Breadcrumb nav */}
+return (
+  <>
+    <Helmet>
+      <title>{ogTags.ogTitle}</title>
+
+      <meta name="description" content={ogTags.ogDescription} />
+
+      <meta property="og:type" content="website" />
+      <meta property="og:title" content={ogTags.ogTitle} />
+      <meta property="og:description" content={ogTags.ogDescription} />
+      <meta property="og:url" content={ogTags.ogUrl} />
+
+      {ogTags.ogImage && (
+        <>
+          <meta property="og:image" content={ogTags.ogImage} />
+          <meta property="og:image:width" content="1200" />
+          <meta property="og:image:height" content="630" />
+          <meta property="og:image:type" content="image/png" />
+        </>
+      )}
+
+      {ogTags.eventStartTime && (
+        <meta
+          property="event:start_time"
+          content={ogTags.eventStartTime}
+        />
+      )}
+
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content={ogTags.ogTitle} />
+      <meta name="twitter:description" content={ogTags.ogDescription} />
+
+      {ogTags.ogImage && (
+        <meta name="twitter:image" content={ogTags.ogImage} />
+      )}
+    </Helmet>
+
+    <SiteShell>      {/* Breadcrumb nav */}
       <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6" aria-label="Breadcrumb">
         <div className="mx-auto max-w-4xl">
           {/* Mobile: simple back link */}
@@ -1842,14 +1926,24 @@ export default function EventDetailsPage() {
             <LiveQA eventId={eventId} userId={user?.id} isOrganizer={isOrganizer} />
           </div>
 
-          {/* Transportation / Carpool (Issue #2748) */}
+          {/* Transportation / Carpool Matching (Issue #2877) */}
           <div className="mt-8">
-            <CarpoolSection eventId={eventId} user={user} />
+            <CarpoolMatchingSection eventId={eventId} user={user} />
           </div>
 
           {/* Live Chat (Issue #2741) */}
           <div className="mt-8">
             <EventLiveChat eventId={eventId} user={user} />
+          </div>
+
+          {/* Secure File Drop for Competitions (Issue #3006) */}
+          <div className="mt-8">
+            <EventSubmissions
+              eventId={eventId}
+              submissionDeadline={(event as any).submission_deadline}
+              userRsvp={!!userRsvp}
+              isOrganizer={isOrganizer}
+            />
           </div>
           {/* Description */}
           <div className="mt-8">
@@ -1859,20 +1953,12 @@ export default function EventDetailsPage() {
             <div className="flex flex-col gap-8 lg:flex-row">
               <main className="flex-1 min-w-0">
                 {event.description ? (
-                  <p className="mt-4 whitespace-pre-line text-base leading-7 text-black/80">
-                    {event.description}
-                  </p>
+                  <EventDescriptionTranslation eventId={event.id} description={event.description} />
                 ) : (
                   <p className="mt-4 font-mono text-sm italic text-black/40">
                     No description provided for this event.
                   </p>
                 )}
-
-                <div
-                  id="event-description-container"
-                  className="prose prose-lg max-w-none dark:prose-invert prose-headings:scroll-mt-24"
-                  dangerouslySetInnerHTML={{ __html: event.description || "" }}
-                />
               </main>
               <aside className="lg:w-64 shrink-0">
                 <TableOfContents items={tocItems} />
@@ -1880,6 +1966,11 @@ export default function EventDetailsPage() {
             </div>
           </div>
 
+          <EventSeatingManager eventId={event.id} isOrganizer={isOrganizer} />
+
+          <InteractiveSeatingChart eventId={event.id} user={user} />
+
+          {/* Map Embed */}
           {/* Read-only map layout for attendees */}
           {event.map_layout && Array.isArray(event.map_layout) && event.map_layout.length > 0 && (
             <div className="mt-10 border-t-2 border-black pt-8">
@@ -2076,6 +2167,32 @@ export default function EventDetailsPage() {
               )}
             </div>
 
+          {/* Accessibility Features */}
+          {(event.venues?.accessibility_features || event.accessibility_features) && (
+            <div className="mt-8">
+              <div className="flex items-center justify-between border-b-2 border-black pb-2 mb-4">
+                <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
+                  Accessibility
+                </h2>
+                <div className="flex items-center gap-2">
+                  <ReportAccessibilityIssueDialog
+                    eventId={event.id}
+                    venueId={event.venue_id}
+                    user={user}
+                  />
+                  {isOrganizer && event.venue_id && (
+                    <ManageAccessibilityOverridesDialog venueId={event.venue_id} user={user} />
+                  )}
+                </div>
+              </div>
+              <AccessibilityBadges
+                features={event.venues?.accessibility_features || event.accessibility_features}
+                overrides={overrides || []}
+              />
+            </div>
+          )}
+
+          {/* Social Share Buttons */}
             {event.is_high_risk && (
               <div className="mt-8 border-2 border-black bg-yellow-50 p-6 font-mono text-sm">
                 <h2 className="text-xl font-bold uppercase tracking-tight text-black mb-3">
@@ -2213,6 +2330,7 @@ export default function EventDetailsPage() {
             </div>
           </div>
 
+          <EventFaqSection eventId={event.id} isOrganizer={isOrganizer} userId={user?.id} />
           {/* Kanban Board for Organizer */}
           {isOrganizer && (
             <div className="mt-12 border-t-4 border-black pt-10">
@@ -2894,5 +3012,6 @@ export default function EventDetailsPage() {
         </div>
       )}
     </SiteShell>
+    </>
   );
 }

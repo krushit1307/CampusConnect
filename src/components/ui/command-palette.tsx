@@ -1,18 +1,16 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { Command } from "cmdk";
-import {
-  Calendar,
-  Compass,
-  Home,
-  Settings,
-  Search,
-  ShieldAlert,
-  User,
-  Bookmark,
-  ChevronLeft,
-  ArrowRight,
-} from "lucide-react";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Compass from "lucide-react/dist/esm/icons/compass";
+import Home from "lucide-react/dist/esm/icons/home";
+import Settings from "lucide-react/dist/esm/icons/settings";
+import Search from "lucide-react/dist/esm/icons/search";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import User from "lucide-react/dist/esm/icons/user";
+import Bookmark from "lucide-react/dist/esm/icons/bookmark";
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
 import { createClient } from "@/lib/supabase/client";
 import { useCommandPalette } from "@/components/CommandPaletteProvider";
 import { useCommandPaletteSearch } from "@/hooks/useCommandPaletteSearch";
@@ -24,8 +22,9 @@ export interface CommandPaletteProps {
 
 export function CommandPalette({ open: externalOpen, onOpenChange }: CommandPaletteProps) {
   const [internalOpen, setInternalOpen] = React.useState(false);
-  const [query, setQuery] = React.useState("");
-  const [pages, setPages] = React.useState<string[]>(["home"]);
+const [query, setQuery] = React.useState("");
+const [categoryFilter, setCategoryFilter] = React.useState<string | null>(null);
+const [dateFilter, setDateFilter] = React.useState<"this_week" | null>(null);  const [pages, setPages] = React.useState<string[]>(["home"]);
   const activePage = pages[pages.length - 1];
 
   const navigate = useNavigate();
@@ -37,9 +36,10 @@ export function CommandPalette({ open: externalOpen, onOpenChange }: CommandPale
       setInternalOpen(value);
       onOpenChange?.(value);
       if (!value) {
-        setQuery("");
-        setPages(["home"]);
-      }
+setQuery("");
+setPages(["home"]);
+setCategoryFilter(null);
+setDateFilter(null);      }
     },
     [onOpenChange],
   );
@@ -101,9 +101,13 @@ export function CommandPalette({ open: externalOpen, onOpenChange }: CommandPale
     }
   }, [isOpen, activePage, fallbackClubs.length, fallbackEvents.length, fallbackUsers.length]);
 
-  const searchQuery = activePage === "home" ? query : `${activePage}:${query}`;
-  const { results, isLoading } = useCommandPaletteSearch(searchQuery);
+const searchQuery = activePage === "home" ? query : `${activePage}:${query}`;
 
+const { results, isLoading } = useCommandPaletteSearch(
+  searchQuery,
+  activePage === "events" ? categoryFilter : null,
+  activePage === "events" ? dateFilter : null,
+);
   const handleSelect = (path: string) => {
     setIsOpen(false);
     navigate(path);
@@ -165,7 +169,44 @@ export function CommandPalette({ open: externalOpen, onOpenChange }: CommandPale
               ESC
             </kbd>
           </div>
+<Command.List className="max-h-[300px] overflow-y-auto p-2 bg-cream"></Command.List>
+          {activePage === "events" && (
+  <div className="flex flex-wrap gap-2 border-b-2 border-black bg-cream p-2">
+    <button
+      type="button"
+      onClick={() => setDateFilter(dateFilter === "this_week" ? null : "this_week")}
+      className={`border-2 border-black px-3 py-1 font-mono text-xs font-bold ${
+        dateFilter === "this_week" ? "bg-lime" : "bg-white"
+      }`}
+    >
+      This Week
+    </button>
 
+    <button
+      type="button"
+      onClick={() =>
+        setCategoryFilter(categoryFilter === "Academic" ? null : "Academic")
+      }
+      className={`border-2 border-black px-3 py-1 font-mono text-xs font-bold ${
+        categoryFilter === "Academic" ? "bg-lime" : "bg-white"
+      }`}
+    >
+      Academic
+    </button>
+
+    <button
+      type="button"
+      onClick={() =>
+        setCategoryFilter(categoryFilter === "Social" ? null : "Social")
+      }
+      className={`border-2 border-black px-3 py-1 font-mono text-xs font-bold ${
+        categoryFilter === "Social" ? "bg-lime" : "bg-white"
+      }`}
+    >
+      Social
+    </button>
+  </div>
+)}
           <Command.List className="max-h-[300px] overflow-y-auto p-2 bg-cream">
             {isLoading && (
               <div className="px-3 py-2 font-mono text-xs text-gray-500">Searching...</div>

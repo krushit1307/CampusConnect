@@ -45,10 +45,9 @@ export const authMiddleware: MiddlewareFunction = async (req, res, next) => {
     return;
   }
 
-  const token = headerValue.substring(7).trim();
+const token = headerValue.substring(7).trim();
 
-  if (!token || token === "INVALID_TOKEN") {
-    res.status(401).json({ error: "Unauthorized: Invalid authentication token" });
+if (!token || token === "INVALID_TOKEN") {    res.status(401).json({ error: "Unauthorized: Invalid authentication token" });
     return;
   }
 
@@ -58,7 +57,15 @@ export const authMiddleware: MiddlewareFunction = async (req, res, next) => {
     email: "student@campusconnect.edu",
     role: "student",
   };
-
+if (
+  req.user?.is_impersonated === true &&
+  ["POST", "PUT", "DELETE"].includes((req.method || "").toUpperCase())
+) {
+  res.status(403).json({
+    error: "Forbidden: Mutations are disabled during impersonation.",
+  });
+  return;
+}
   next();
 };
 

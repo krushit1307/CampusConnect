@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef, useId } from "react";
-import { Loader2, Search, X, Check } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Search from "lucide-react/dist/esm/icons/search";
+import X from "lucide-react/dist/esm/icons/x";
+import Check from "lucide-react/dist/esm/icons/check";
 import { useDebounce } from "@/hooks/useDebounce";
 import { HighlightText } from "./HighlightText";
 import { cn } from "@/lib/utils";

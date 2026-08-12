@@ -1,5 +1,8 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { List, ChevronDown, AlignLeft, ArrowUpRight } from "lucide-react";
+import List from "lucide-react/dist/esm/icons/list";
+import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
+import AlignLeft from "lucide-react/dist/esm/icons/align-left";
+import ArrowUpRight from "lucide-react/dist/esm/icons/arrow-up-right";
 import { cn } from "@/lib/utils";
 
 export interface HeadingItem {

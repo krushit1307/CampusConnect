@@ -5,21 +5,19 @@ import { EventCardNode } from "./extensions/EventCardExtension";
 import { UserMentionExtension } from "./extensions/UserMentionExtension";
 import React, { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import {
-  Bold,
-  Italic,
-  Code,
-  Heading1,
-  Heading2,
-  List,
-  ListOrdered,
-  Quote,
-  AtSign,
-  Calendar,
-  Search,
-  X,
-  Link2,
-} from "lucide-react";
+import Bold from "lucide-react/dist/esm/icons/bold";
+import Italic from "lucide-react/dist/esm/icons/italic";
+import Code from "lucide-react/dist/esm/icons/code";
+import Heading1 from "lucide-react/dist/esm/icons/heading-1";
+import Heading2 from "lucide-react/dist/esm/icons/heading-2";
+import List from "lucide-react/dist/esm/icons/list";
+import ListOrdered from "lucide-react/dist/esm/icons/list-ordered";
+import Quote from "lucide-react/dist/esm/icons/quote";
+import AtSign from "lucide-react/dist/esm/icons/at-sign";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Search from "lucide-react/dist/esm/icons/search";
+import X from "lucide-react/dist/esm/icons/x";
+import Link2 from "lucide-react/dist/esm/icons/link-2";
 import { Button } from "@/components/ui/button";
 
 interface TiptapRichTextEditorProps {

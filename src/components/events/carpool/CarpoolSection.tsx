@@ -15,7 +15,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, Car, Loader2 } from "lucide-react";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import Car from "lucide-react/dist/esm/icons/car";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 
 interface CarpoolSectionProps {
   eventId: string;

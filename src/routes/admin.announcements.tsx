@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Navigate, Link } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
-import { ShieldAlert, Send } from "lucide-react";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import Send from "lucide-react/dist/esm/icons/send";
 import { toast } from "sonner";
 
 import { SiteShell } from "@/components/site/SiteShell";
