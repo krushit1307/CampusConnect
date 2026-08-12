@@ -26,7 +26,9 @@ export function ShareMenu({ url, title, text, children }: ShareMenuProps) {
   const encodedUrl = encodeURIComponent(url);
   const shareText = text || `Check out: ${title}`;
   const encodedShareText = encodeURIComponent(shareText);
-
+const shareUrl = eventId
+  ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/event-share?event_id=${encodeURIComponent(eventId)}`
+  : window.location.href;
   const handleShareClick = async (e: React.MouseEvent) => {
     if (webShare.canShare) {
       e.preventDefault();

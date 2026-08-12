@@ -16,7 +16,8 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { useBannerColor } from "@/hooks/useBannerColor";
 import { MapSkeleton } from "@/components/ui/MapSkeleton";
-
+import { Helmet } from "react-helmet-async";
+import { buildOpenGraphTags } from "@/lib/seo/eventMeta";
 const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ default: m.EventMap })));
 import { formatEventDateRange } from "@/lib/utils";
 import { AddToCalendarDropdown } from "@/components/events/AddToCalendarDropdown";
@@ -1183,7 +1184,20 @@ export default function EventDetailsPage() {
     Array.isArray(rawFeedbacks) ? (rawFeedbacks as { user_id: string }[]) : undefined,
     user?.id,
   );
+const eventUrl =
+  typeof window !== "undefined"
+    ? window.location.href
+    : `${import.meta.env.VITE_SITE_URL ?? ""}/events/${event.short_id ?? event.id}`;
 
+const ogTags = buildOpenGraphTags({
+  title: event.title,
+  description: event.description,
+  bannerUrl: event.banner_url,
+  eventDate: event.event_date,
+  location: event.location,
+  url: eventUrl,
+  eventId: event.id,
+});
   // We calculate waitlist info earlier in useMemo now
   const rawWaitlist = (event as Record<string, unknown>).event_waitlist;
 
@@ -1342,9 +1356,44 @@ export default function EventDetailsPage() {
     maxAttendees > 0 &&
     attendeeCount >= maxAttendees;
 
-  return (
-    <SiteShell>
-      {/* Breadcrumb nav */}
+return (
+  <>
+    <Helmet>
+      <title>{ogTags.ogTitle}</title>
+
+      <meta name="description" content={ogTags.ogDescription} />
+
+      <meta property="og:type" content="website" />
+      <meta property="og:title" content={ogTags.ogTitle} />
+      <meta property="og:description" content={ogTags.ogDescription} />
+      <meta property="og:url" content={ogTags.ogUrl} />
+
+      {ogTags.ogImage && (
+        <>
+          <meta property="og:image" content={ogTags.ogImage} />
+          <meta property="og:image:width" content="1200" />
+          <meta property="og:image:height" content="630" />
+          <meta property="og:image:type" content="image/png" />
+        </>
+      )}
+
+      {ogTags.eventStartTime && (
+        <meta
+          property="event:start_time"
+          content={ogTags.eventStartTime}
+        />
+      )}
+
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content={ogTags.ogTitle} />
+      <meta name="twitter:description" content={ogTags.ogDescription} />
+
+      {ogTags.ogImage && (
+        <meta name="twitter:image" content={ogTags.ogImage} />
+      )}
+    </Helmet>
+
+    <SiteShell>      {/* Breadcrumb nav */}
       <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6" aria-label="Breadcrumb">
         <div className="mx-auto max-w-4xl">
           {/* Mobile: simple back link */}
@@ -2895,5 +2944,6 @@ export default function EventDetailsPage() {
         </div>
       )}
     </SiteShell>
+    </>
   );
 }
