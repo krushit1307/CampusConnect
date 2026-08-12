@@ -252,6 +252,27 @@ export default function ClubProfile() {
     enabled: Boolean(slug),
   });
 
+  const {
+    data: milestones,
+    isLoading: isLoadingMilestones,
+    error: milestonesError,
+  } = useQuery({
+    queryKey: ["club_milestones", slug],
+    queryFn: async () => {
+      if (!slug) return [];
+      const { data, error } = await supabase
+        .from("club_milestones")
+        .select("*")
+        .eq("club_id", club?.id ?? "")
+        .order("year", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: Boolean(slug && club),
+    staleTime: 1000 * 60 * 5,
+  });
+
   useEffect(() => {
     if (!user || !club) return;
     supabase
