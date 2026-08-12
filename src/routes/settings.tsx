@@ -32,6 +32,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
+import { AutoTaggingSettings } from "@/components/AutoTaggingSettings";
 
 const FONT_SIZE_KEY = "campusconnect-font-size";
 
@@ -985,6 +986,10 @@ export default function SettingsPage() {
             <Toggle label="Email me about upcoming RSVPs" defaultChecked />
             <Toggle label="Weekly digest of club activity" defaultChecked />
             <Toggle label="New certificates" />
+          </Panel>
+
+          <Panel title="Auto-Tagging (Facial Recognition)">
+            <AutoTaggingSettings user={user} />
           </Panel>
 
           <Panel title="Privacy / Account">
