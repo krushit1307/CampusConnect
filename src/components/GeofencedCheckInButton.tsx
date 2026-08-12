@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { MapPin, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useGeofencedCheckIn } from "@/hooks/useGeofencedCheckIn";

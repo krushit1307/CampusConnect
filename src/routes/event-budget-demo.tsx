@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { BudgetSimulator } from "@/components/BudgetSimulator";
-import { DollarSign } from "lucide-react";
+import DollarSign from "lucide-react/dist/esm/icons/dollar-sign";
 import type { BudgetOutput } from "@/lib/budgetCalculator";
 
 /**

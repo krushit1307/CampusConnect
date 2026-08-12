@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { Award, CheckCircle2, Download, Loader2, QrCode, ShieldAlert, X } from "lucide-react";
+import Award from "lucide-react/dist/esm/icons/award";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import Download from "lucide-react/dist/esm/icons/download";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import QrCode from "lucide-react/dist/esm/icons/qr-code";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import X from "lucide-react/dist/esm/icons/x";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { QRCodeSVG } from "qrcode.react";
 import { createClient } from "@/lib/supabase/client";

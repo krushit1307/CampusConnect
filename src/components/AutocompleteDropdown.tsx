@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { highlightMatch, HighlightSegment } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 
 export interface AutocompleteResult {
   id: string;

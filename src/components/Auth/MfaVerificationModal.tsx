@@ -8,7 +8,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ShieldCheck, AlertCircle, RefreshCw, Lock } from "lucide-react";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import Lock from "lucide-react/dist/esm/icons/lock";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 

@@ -1,4 +1,5 @@
-import { ExternalLink, Globe } from "lucide-react";
+import ExternalLink from "lucide-react/dist/esm/icons/external-link";
+import Globe from "lucide-react/dist/esm/icons/globe";
 import { useLinkPreview } from "@/hooks/useLinkPreview";
 
 // ---------------------------------------------------------------------------

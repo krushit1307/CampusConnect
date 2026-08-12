@@ -49,19 +49,22 @@ export const yoga = createYoga({
       const { data: authData } = await supabase.auth.getUser(token);
       const authUser = authData?.user;
 
-      if (authUser) {
-        user = { id: authUser.id, role: "USER" };
+if (authUser) {
+  user = {
+    id: authUser.id,
+    role: "USER",
+    is_impersonated: false,
+    admin_id: null,
+  };
 
-        // Fetch role from profiles
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", authUser.id)
-          .single();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", authUser.id)
+    .single();
 
-        user.role = profile?.role || "USER";
-      }
-    }
+  user.role = profile?.role || "USER";
+}    }
 
     const profileLoader = createProfileLoader();
     const clubLoader = createClubLoader();

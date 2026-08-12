@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Home, ArrowLeft } from "lucide-react";
+import Home from "lucide-react/dist/esm/icons/home";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
 import { Helmet } from "react-helmet-async";
 
 /**

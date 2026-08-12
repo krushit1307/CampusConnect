@@ -17,7 +17,12 @@
 //   - Re-analyzing after the user edits the image.
 
 import { useCallback, useRef, useState } from "react";
-import { Upload, Loader2, X, AlertTriangle, RefreshCw, CheckCircle2 } from "lucide-react";
+import Upload from "lucide-react/dist/esm/icons/upload";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import X from "lucide-react/dist/esm/icons/x";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
 import { autoTagImage, type AutoTagResult } from "@/lib/imageTagger";
 
 interface ImageAutoTaggerProps {

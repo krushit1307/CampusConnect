@@ -1,6 +1,11 @@
 import React, { useRef } from "react";
 import { DocumentScrollSpy, HeadingItem } from "./DocumentScrollSpy";
-import { FileText, Shield, Scale, Users, Calendar, Award } from "lucide-react";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import Shield from "lucide-react/dist/esm/icons/shield";
+import Scale from "lucide-react/dist/esm/icons/scale";
+import Users from "lucide-react/dist/esm/icons/users";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Award from "lucide-react/dist/esm/icons/award";
 
 export interface ClubConstitutionViewerProps {
   clubName?: string;

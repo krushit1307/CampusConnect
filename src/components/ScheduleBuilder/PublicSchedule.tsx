@@ -1,5 +1,7 @@
 import React, { useState } from "react";
-import { Heart, MapPin, User } from "lucide-react";
+import Heart from "lucide-react/dist/esm/icons/heart";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import User from "lucide-react/dist/esm/icons/user";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useEventSchedule } from "@/hooks/useEventSchedule";
 import type { ScheduleSession } from "@/types/schedule";

@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
-import { Calendar, MapPin } from "lucide-react";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
 import { useParams } from "react-router-dom";
 import { useConfetti } from "../../hooks/useConfetti";
 import { useQuery } from "@/hooks/useReactQueryReplacement";

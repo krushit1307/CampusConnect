@@ -5,31 +5,29 @@ import Image from "@tiptap/extension-image";
 import TextAlign from "@tiptap/extension-text-align";
 import Highlight from "@tiptap/extension-highlight";
 import Link from "@tiptap/extension-link";
-import {
-  Bold,
-  Italic,
-  Strikethrough,
-  Code,
-  Heading1,
-  Heading2,
-  Heading3,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  AlignJustify,
-  Highlighter,
-  Link as LinkIcon,
-  Unlink,
-  Image as ImageIcon,
-  List,
-  ListOrdered,
-  Quote,
-  Undo,
-  Redo,
-  FileCode,
-  AlertCircle,
-  Upload,
-} from "lucide-react";
+import Bold from "lucide-react/dist/esm/icons/bold";
+import Italic from "lucide-react/dist/esm/icons/italic";
+import Strikethrough from "lucide-react/dist/esm/icons/strikethrough";
+import Code from "lucide-react/dist/esm/icons/code";
+import Heading1 from "lucide-react/dist/esm/icons/heading-1";
+import Heading2 from "lucide-react/dist/esm/icons/heading-2";
+import Heading3 from "lucide-react/dist/esm/icons/heading-3";
+import AlignLeft from "lucide-react/dist/esm/icons/align-left";
+import AlignCenter from "lucide-react/dist/esm/icons/align-center";
+import AlignRight from "lucide-react/dist/esm/icons/align-right";
+import AlignJustify from "lucide-react/dist/esm/icons/align-justify";
+import Highlighter from "lucide-react/dist/esm/icons/highlighter";
+import LinkIcon from "lucide-react/dist/esm/icons/link";
+import Unlink from "lucide-react/dist/esm/icons/unlink";
+import ImageIcon from "lucide-react/dist/esm/icons/image";
+import List from "lucide-react/dist/esm/icons/list";
+import ListOrdered from "lucide-react/dist/esm/icons/list-ordered";
+import Quote from "lucide-react/dist/esm/icons/quote";
+import Undo from "lucide-react/dist/esm/icons/undo";
+import Redo from "lucide-react/dist/esm/icons/redo";
+import FileCode from "lucide-react/dist/esm/icons/file-code";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import Upload from "lucide-react/dist/esm/icons/upload";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";

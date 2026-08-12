@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { X } from "lucide-react";
+import X from "lucide-react/dist/esm/icons/x";
 import { cn } from "@/lib/utils";
 
 interface SearchInputProps {

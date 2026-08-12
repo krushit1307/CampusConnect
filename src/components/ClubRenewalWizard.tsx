@@ -1,7 +1,9 @@
 import React, { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import SignatureCanvas from "react-signature-canvas";
-import { CheckCircle2, ChevronRight, Upload } from "lucide-react";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import Upload from "lucide-react/dist/esm/icons/upload";
 import { createBrowserClient } from "@supabase/ssr";
 
 interface RenewalFormData {

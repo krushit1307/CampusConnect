@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Users } from "lucide-react";
+import Users from "lucide-react/dist/esm/icons/users";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SharedClub } from "@/lib/sharedClubs";
 

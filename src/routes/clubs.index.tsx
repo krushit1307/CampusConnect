@@ -10,7 +10,11 @@ import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
 import { FilterSidebar, TAGS_SEARCH_PARAM } from "@/components/Clubs/FilterSidebar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, X, Users, Plus, Sparkles } from "lucide-react";
+import Search from "lucide-react/dist/esm/icons/search";
+import X from "lucide-react/dist/esm/icons/x";
+import Users from "lucide-react/dist/esm/icons/users";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 import { ClubCardSkeleton } from "@/components/ui/ClubCardSkeleton";
 
 // Fixed (not Math.random) pattern so the skeleton layout never shifts

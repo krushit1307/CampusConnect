@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import { X } from "lucide-react";
+import X from "lucide-react/dist/esm/icons/x";
 
 interface Skill {
   id: string;

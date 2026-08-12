@@ -16,7 +16,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Filter, X, SlidersHorizontal } from "lucide-react";
+import Filter from "lucide-react/dist/esm/icons/filter";
+import X from "lucide-react/dist/esm/icons/x";
+import SlidersHorizontal from "lucide-react/dist/esm/icons/sliders-horizontal";
 import { createClient } from "@/lib/supabase/client";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 

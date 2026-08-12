@@ -8,17 +8,15 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  History,
-  Clock,
-  User,
-  RotateCcw,
-  FileText,
-  GitCompare,
-  Plus,
-  Loader2,
-  CheckCircle2,
-} from "lucide-react";
+import History from "lucide-react/dist/esm/icons/history";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import User from "lucide-react/dist/esm/icons/user";
+import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import GitCompare from "lucide-react/dist/esm/icons/git-compare";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
 import { useNoteVersions, type NoteVersion } from "@/hooks/useNoteVersions";
 import { NoteDiffViewer } from "./NoteDiffViewer";
 import { toast } from "sonner";

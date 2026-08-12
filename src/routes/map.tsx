@@ -1,6 +1,7 @@
 import { Suspense, lazy } from "react";
 import { RouteSkeleton } from "@/components/RouteSkeleton";
-import { MapPin, Clock } from "lucide-react";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Clock from "lucide-react/dist/esm/icons/clock";
 
 const CampusHeatmap = lazy(() =>
   import("@/components/CampusHeatmap").then((m) => ({ default: m.CampusHeatmap })),

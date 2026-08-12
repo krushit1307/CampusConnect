@@ -3,16 +3,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import { DndContext, useDraggable, useDroppable, DragEndEvent } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
-import {
-  ArrowLeft,
-  Save,
-  RotateCw,
-  Trash2,
-  Maximize2,
-  Layout,
-  HelpCircle,
-  Sparkles,
-} from "lucide-react";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Save from "lucide-react/dist/esm/icons/save";
+import RotateCw from "lucide-react/dist/esm/icons/rotate-cw";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import Maximize2 from "lucide-react/dist/esm/icons/maximize-2";
+import Layout from "lucide-react/dist/esm/icons/layout";
+import HelpCircle from "lucide-react/dist/esm/icons/help-circle";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";

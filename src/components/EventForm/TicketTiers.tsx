@@ -6,7 +6,10 @@ import { EventFormData, TicketTier } from "../../lib/eventFormSchema";
 import { TicketTierItem } from "./TicketTierItem";
 import { Button } from "../ui/button";
 import { useTicketCalculations } from "../../hooks/useTicketCalculations";
-import { PlusCircle, AlertTriangle, DollarSign, Layers } from "lucide-react";
+import PlusCircle from "lucide-react/dist/esm/icons/plus-circle";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import DollarSign from "lucide-react/dist/esm/icons/dollar-sign";
+import Layers from "lucide-react/dist/esm/icons/layers";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 

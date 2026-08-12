@@ -3,16 +3,14 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  MapPin,
-  Link2,
-  Calendar,
-  Award,
-  Building,
-  CalendarPlus,
-  ArrowRight,
-  History as HistoryIcon,
-} from "lucide-react";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Link2 from "lucide-react/dist/esm/icons/link-2";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Award from "lucide-react/dist/esm/icons/award";
+import Building from "lucide-react/dist/esm/icons/building";
+import CalendarPlus from "lucide-react/dist/esm/icons/calendar-plus";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
+import HistoryIcon from "lucide-react/dist/esm/icons/history";
 import { NotFoundPage } from "@/components/NotFoundPage";
 import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
 import { UserProfileSkeleton } from "@/components/UserProfileSkeleton";

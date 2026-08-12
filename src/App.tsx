@@ -279,12 +279,46 @@ async function checkDatabaseConnection(): Promise<boolean> {
   }
 }
 
+function usePushNotifications() {
+  useEffect(() => {
+    async function syncToken() {
+      try {
+        const supabase = createClient();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+        // Mock FCM token generation since no real Web Push setup exists
+        const fcmToken =
+          localStorage.getItem("fcm_token") || `mock-fcm-${session.user.id}-${Date.now()}`;
+        localStorage.setItem("fcm_token", fcmToken);
+
+        await supabase
+          .from("profiles")
+          .update({ timezone, fcm_token: fcmToken })
+          .eq("id", session.user.id);
+      } catch (e) {
+        console.error("Failed to sync push token/timezone", e);
+      }
+    }
+    syncToken();
+  }, []);
+}
+
 export default function App() {
   const [dbStatus, setDbStatus] = useState<DbStatus>("checking");
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
 
+  usePushNotifications();
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
     const verify = async () => {
       const isOnline = await checkDatabaseConnection();
       setDbStatus(isOnline ? "online" : "offline");

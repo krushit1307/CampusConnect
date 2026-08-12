@@ -8,18 +8,16 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  ShieldCheck,
-  Copy,
-  Check,
-  QrCode,
-  Key,
-  Smartphone,
-  AlertCircle,
-  RefreshCw,
-  Loader2,
-  Download,
-} from "lucide-react";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import Copy from "lucide-react/dist/esm/icons/copy";
+import Check from "lucide-react/dist/esm/icons/check";
+import QrCode from "lucide-react/dist/esm/icons/qr-code";
+import Key from "lucide-react/dist/esm/icons/key";
+import Smartphone from "lucide-react/dist/esm/icons/smartphone";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Download from "lucide-react/dist/esm/icons/download";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { QRCodeSVG } from "qrcode.react";

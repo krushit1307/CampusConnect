@@ -4,7 +4,12 @@ import { createClient } from "@/lib/supabase/client";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { motion } from "framer-motion";
-import { Loader2, AlertCircle, ArrowRight, ShieldCheck, Sparkles, RefreshCw } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
 import { toast } from "sonner";
 
 interface QueueStatusResponse {

@@ -4,7 +4,13 @@ import { useQuery, useMutation, queryClient } from "@/hooks/useReactQueryReplace
 import { createClient } from "@/lib/supabase/client";
 import { generateVoteProof } from "@/lib/zkp";
 import { MerkleTree, hash1, stringToBigInt } from "@/lib/merkle";
-import { ShieldCheck, Vote, Loader2, Sparkles, Plus, AlertCircle, CheckCircle } from "lucide-react";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import Vote from "lucide-react/dist/esm/icons/vote";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
 import { toast } from "sonner";
 
 interface Election {

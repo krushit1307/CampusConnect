@@ -1,5 +1,6 @@
 // src/components/EventCreationWizard/steps/TicketingStepForm.tsx
-import { Plus, Trash2 } from "lucide-react";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
 import { useEventWizardStore } from "../../../store/useEventWizardStore";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";

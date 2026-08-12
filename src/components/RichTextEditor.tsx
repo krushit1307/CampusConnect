@@ -1,5 +1,7 @@
 import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle } from "react";
-import { Bold, Italic, Link2 } from "lucide-react";
+import Bold from "lucide-react/dist/esm/icons/bold";
+import Italic from "lucide-react/dist/esm/icons/italic";
+import Link2 from "lucide-react/dist/esm/icons/link-2";
 
 export type RichTextEditorRef = {
   focusWrite: () => void;
