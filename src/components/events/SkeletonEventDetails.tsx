@@ -1,5 +1,5 @@
-import { Skeleton } from "@/components/ui/skeleton";
 import { SiteShell } from "@/components/site/SiteShell";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function SkeletonEventDetails() {
   return (
@@ -66,9 +66,7 @@ export function SkeletonEventDetails() {
             {/* Share / Social section */}
             <div className="mt-10 pt-6 border-t-2 border-black/10">
               <Skeleton className="h-4 w-32 bg-black/10" />
-              <div className="mt-4 flex gap-3">
-                <Skeleton className="h-9 w-24 bg-black/10" />
-                <Skeleton className="h-9 w-24 bg-black/10" />
+              <div className="mt-4">
                 <Skeleton className="h-9 w-24 bg-black/10" />
               </div>
             </div>

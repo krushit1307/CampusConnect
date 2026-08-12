@@ -1,9 +1,79 @@
-@import "tailwindcss" source(none);
+@import "tailwindcss";
+@config "../tailwind.config.js";
+@plugin "@tailwindcss/typography";
 @import "./styles/disabled-buttons.css";
 @source "../src";
+/* Runtime-selected utility maps must remain available in production builds. */
+@source inline("bg-lime bg-sky bg-lavender bg-peach text-green-700 text-yellow-700 text-red-700 bg-destructive bg-orange-500 bg-green-600 bg-transparent text-destructive text-orange-600");
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant high-contrast (&:is(.high-contrast *));
+
+/* Space Grotesk Custom Font Declarations */
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("/fonts/space-grotesk-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("/fonts/space-grotesk-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Space Mono Custom Font Declarations */
+@font-face {
+  font-family: "Space Mono";
+  src: url("/fonts/space-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Space Mono";
+  src: url("/fonts/space-mono-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Fallback Metric Override font-faces to eliminate Layout Shift (CLS) */
+@font-face {
+  font-family: "Space Grotesk Fallback";
+  src: local("Arial");
+  size-adjust: 102.5%;
+  ascent-override: 95%;
+  descent-override: 23%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Space Mono Fallback";
+  src: local("Courier New");
+  size-adjust: 91.5%;
+  ascent-override: 104%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+}
 
 @theme inline {
   --radius-sm: 0px;
@@ -52,18 +122,18 @@
   --color-lavender: var(--lavender);
   --color-peach: var(--peach);
   --color-ink: var(--ink);
-  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Space Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Space Grotesk", "Space Grotesk Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Space Mono", "Space Mono Fallback", ui-monospace, SFMono-Regular, monospace;
 }
 
 :root {
   --font-size-base: 16px;
   --radius: 0px;
   --cream: #f3f1e4;
-  --lime: #acc412;
-  --sky: #08b3ca;
-  --lavender: #d9cdeb;
-  --peach: #e37c2d;
+  --lime: #6f8000;
+  --sky: #007b8f;
+  --lavender: #8367a7;
+  --peach: #c55913;
   --ink: #000000;
   --background: #f3f1e4;
   --foreground: #000000;
@@ -79,7 +149,7 @@
   --muted-foreground: #333333;
   --accent: #dff25c;
   --accent-foreground: #000000;
-  --destructive: #e53935;
+  --destructive: #d32f2f;
   --destructive-foreground: #ffffff;
   --border: #000000;
   --input: #000000;
@@ -97,8 +167,8 @@
   --sidebar-accent-foreground: #000000;
   --sidebar-border: #000000;
   --sidebar-ring: #000000;
-  --border-thickness: 2px;
-  --border-radius: 0px;
+  --border-thickness: 4px;
+  --border-radius: 8px;
 }
 
 .dark {
@@ -131,6 +201,36 @@
   --sidebar-ring: #dff25c;
 }
 
+.high-contrast {
+  --background: #ffffff;
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #000000;
+  --primary-foreground: #ffffff;
+  --secondary: #ffffff;
+  --secondary-foreground: #000000;
+  --muted: #ffffff;
+  --muted-foreground: #000000;
+  --accent: #000000;
+  --accent-foreground: #ffffff;
+  --destructive: #cc0000;
+  --destructive-foreground: #ffffff;
+  --border: #000000;
+  --input: #000000;
+  --ring: #000000;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #000000;
+  --sidebar-primary: #000000;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #000000;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #000000;
+  --sidebar-ring: #000000;
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
@@ -144,6 +244,10 @@
       linear-gradient(135deg, #f8efe2 0%, #eef8fb 48%, #f6e0c5 100%);
     color: var(--color-foreground);
     font-family: var(--font-mono);
+    /* Disable the browser's native pull-to-refresh so the custom Feed
+       PullToRefresh component is the only path that triggers a refetch
+       (issue #1917). */
+    overscroll-behavior-y: none;
   }
 
   h1,
@@ -235,20 +339,37 @@
 
   .college-card {
     background: rgba(255, 255, 255, 0.92);
-    border: 2px solid #123a57;
+    border: var(--border-thickness) solid #123a57;
+    border-radius: var(--border-radius);
     box-shadow: 6px 6px 0 0 #123a57;
     backdrop-filter: blur(6px);
   }
 
   .college-pill {
-    border: 2px solid #123a57;
+    border: var(--border-thickness) solid #123a57;
+    border-radius: var(--border-radius);
     background: rgba(255, 255, 255, 0.92);
     box-shadow: 4px 4px 0 0 #123a57;
   }
 }
 
+/*
+ * Glassmorphism navbar effect, toggled on/off via IntersectionObserver
+ * (see useScrollSentinel + Navbar.tsx) rather than always-on, since
+ * backdrop-filter is expensive to composite on mobile GPUs.
+ *
+ * Safari (desktop + iOS) only recognizes the -webkit- prefixed property.
+ * Without it, Safari silently ignores backdrop-filter and the navbar
+ * renders as a flat, opaque block instead of frosted glass.
+ */
+@utility navbar-glass {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
 @utility neu-border {
-  border: 2px solid #000000;
+  border: var(--border-thickness) solid #000000;
+  border-radius: var(--border-radius);
 }
 
 @utility neu-shadow {
@@ -512,8 +633,8 @@
 }
 
 .rbc-month-view {
-  border: 2px solid #000000 !important;
-  border-radius: 0px !important;
+  border: var(--border-thickness) solid #000000 !important;
+  border-radius: var(--border-radius) !important;
 }
 
 .rbc-day-bg {
@@ -552,8 +673,8 @@
 }
 
 .rbc-event {
-  border: 2px solid #000000 !important;
-  border-radius: 0px !important;
+  border: var(--border-thickness) solid #000000 !important;
+  border-radius: var(--border-radius) !important;
   background-color: var(--peach) !important;
   color: #000000 !important;
   font-family: var(--font-mono) !important;
@@ -582,8 +703,8 @@
 }
 
 .rbc-toolbar button {
-  border: 2px solid #000000 !important;
-  border-radius: 0px !important;
+  border: var(--border-thickness) solid #000000 !important;
+  border-radius: var(--border-radius) !important;
   background-color: #ffffff !important;
   color: #000000 !important;
   font-family: var(--font-mono) !important;
@@ -615,15 +736,52 @@
   transform: none !important;
 }
 /* ============================================================
-   Feed Reaction Spring Micro-Interaction (issue #483)
-   - Plays a bouncy spring scale on like/unlike toggle.
-   - Class is always present on the emoji <span>; replay is
-     triggered by remounting the span via a changing React key
-     (see src/routes/feed.tsx → reactionBursts state).
-   - Respects prefers-reduced-motion (handled globally above).
+   Announcement Marquee — pure CSS keyframe ticker
+   - Animation applied to each child div individually.
+   - translateX(-100%) on a child = scroll exactly one full
+     copy off-screen; the second copy replaces it seamlessly.
+   - No JS timers, no state, no rAF. GPU transform only.
+   - prefers-reduced-motion: animation off, text centered.
    ============================================================ */
 
-@keyframes reaction-spring {
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.marquee-wrapper {
+  display: flex;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.marquee-child {
+  animation: marquee 20s linear infinite;
+  /* Shrink-0 keeps the child at its natural width inside the flex row */
+  flex-shrink: 0;
+  min-width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-child {
+    animation: none;
+    /* Static centered text when motion is reduced */
+    min-width: unset;
+    flex: 1;
+    text-align: center;
+  }
+  /* Hide the second duplicate copy — only one copy needed when static */
+  .marquee-child + .marquee-child {
+    display: none;
+  }
+}
+
+/* ============================================================
+   Feed Reaction Spring Micro-Interaction (issue #483)
   0% {
     transform: scale(1);
   }
@@ -650,6 +808,53 @@
   animation: reaction-spring 450ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
+/* ============================================================
+   First RSVP Confetti Celebration (issue #260)
+   - Pure CSS confetti burst, triggered when a user's RSVP
+     count for event_rsvps reaches 1 for the first time.
+   - Auto-dismissed after 3s via setTimeout in events.tsx.
+   - Respects prefers-reduced-motion (handled globally above).
+   ============================================================ */
+
+.confetti-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 9999;
+}
+
+.confetti-piece {
+  position: absolute;
+  top: -10px;
+  left: calc(var(--i) * 3.33%);
+  width: 10px;
+  height: 10px;
+  background: var(--lime);
+  animation: confetti-fall 3s ease-in forwards;
+  animation-delay: calc(var(--i) * 40ms);
+}
+
+.confetti-piece:nth-child(3n) {
+  background: var(--sky);
+  border-radius: 50%;
+}
+
+.confetti-piece:nth-child(3n + 1) {
+  background: var(--peach);
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
 /* Neubrutalist scrollbars, applied globally */
 * {
   scrollbar-width: thin;
@@ -673,4 +878,112 @@
 
 *::-webkit-scrollbar-thumb:hover {
   background-color: #1f1f1f;
+}
+
+/* --- Neubrutalist Custom Component Animation System --- */
+@theme {
+  --animate-wiggle: wiggle 3s ease-in-out infinite;
+  --animate-subtle-bounce: subtle-bounce 2s ease-in-out infinite;
+
+  @keyframes wiggle {
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-6px) rotate(2deg);
+    }
+  }
+
+  @keyframes subtle-bounce {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+}
+
+/* Disable default fade transition for root view transitions */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Ensure the new snapshot layers on top during clip-path expansion */
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 9999;
+}
+
+/* ─── Tiptap Collaboration Cursors ──────────────────────────────────────────── */
+
+.collaboration-cursor__caret {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 2px solid var(--color, #000);
+  border-right: none;
+  word-break: normal;
+  pointer-events: none;
+}
+
+.collaboration-cursor__label {
+  position: absolute;
+  top: -1.4em;
+  left: -1px;
+  font-size: 11px;
+  font-family: monospace;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  padding: 2px 6px;
+  border-radius: 2px;
+  border: 2px solid #000;
+  background-color: var(--color, #000);
+  color: #fff;
+  user-select: none;
+  pointer-events: none;
+  transform: translateY(-2px);
+  box-shadow: 2px 2px 0 #000;
+}
+
+/* ─── Tiptap editor base styles ─────────────────────────────────────────────── */
+
+.ProseMirror {
+  outline: none;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #aaa;
+  pointer-events: none;
+  height: 0;
+  font-family: monospace;
+}
+
+/* Neobrutalist editor focus ring */
+.ProseMirror:focus {
+  outline: none;
+}
+
+/* High Contrast accessibility overrides */
+.high-contrast body {
+  background: #ffffff !important;
+}
+
+.high-contrast a {
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+}
+
+.high-contrast a:hover {
+  background-color: #000000 !important;
+  color: #ffffff !important;
 }
