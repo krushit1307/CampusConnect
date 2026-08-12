@@ -2,6 +2,14 @@ import { z } from "zod";
 
 export const TITLE_MAX_LENGTH = 100;
 
+export const accessibilityFeaturesSchema = z.object({
+  has_elevator: z.boolean(),
+  wheelchair_ramp: z.boolean(),
+  gender_neutral_restrooms: z.boolean(),
+  hearing_loop: z.boolean(),
+  low_sensory_zone: z.boolean(),
+});
+
 export const eventFormSchema = z
   .object({
     title: z
@@ -10,14 +18,28 @@ export const eventFormSchema = z
       .min(1, "Title is required.")
       .max(TITLE_MAX_LENGTH, `Title must be ${TITLE_MAX_LENGTH} characters or fewer.`),
     description: z.string().trim().min(1, "Description is required."),
+    venue_id: z.string().optional(),
     location: z.string().trim().optional(),
+    accessibility_features: accessibilityFeaturesSchema.optional(),
     startDate: z.string().min(1, "Start date is required."),
     endDate: z.string().min(1, "End date is required."),
   })
   .refine((data) => new Date(data.endDate) > new Date(data.startDate), {
     message: "End date must be after the start date.",
     path: ["endDate"],
-  });
+  })
+  .refine(
+    (data) => {
+      if (data.venue_id) return true;
+      const isOnline = data.location?.trim().toLowerCase() === "online";
+      if (isOnline || !data.location?.trim()) return true;
+      return data.accessibility_features !== undefined;
+    },
+    {
+      message: "Custom venues require an accessibility audit.",
+      path: ["accessibility_features"],
+    },
+  );
 
 export type EventFormValues = z.infer<typeof eventFormSchema>;
 

@@ -19,7 +19,10 @@ serve(async (req) => {
   }
 
   // Rate Limiting: 5 requests per minute per IP
-  const rateLimitResponse = await limitRate(req, "send-event-emails", { limit: 5, windowMs: 60000 });
+  const rateLimitResponse = await limitRate(req, "send-event-emails", {
+    limit: 5,
+    windowMs: 60000,
+  });
   if (rateLimitResponse) {
     return rateLimitResponse;
   }

@@ -24,6 +24,9 @@ import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { parseCoordinates } from "@/lib/eventUtils";
+import { AccessibilityBadges } from "@/components/events/AccessibilityBadges";
+import { ReportAccessibilityIssueDialog } from "@/components/events/ReportAccessibilityIssueDialog";
+import { ManageAccessibilityOverridesDialog } from "@/components/events/ManageAccessibilityOverridesDialog";
 
 function rsvpRowsToCsv(rows: { name: string; email: string; rsvp_date: string; status: string }[]) {
   const headers = ["User Name", "Email", "RSVP Date", "Status"];
@@ -73,10 +76,13 @@ export default function EventDetailsPage() {
         .from("club_analytics_view")
         .select(
           `
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, venue_id, accessibility_features,
           clubs (name, slug),
           event_rsvps (id, user_id),
-          attendee_count
+          attendee_count,
+          venues (
+            name, building, capacity, accessibility_features
+          )
         `,
         )
         .eq("id", eventId)
@@ -135,6 +141,21 @@ export default function EventDetailsPage() {
       }
       return data;
     },
+  });
+
+  const { data: overrides } = useQuery({
+    queryKey: ["venue_overrides", event?.venue_id],
+    queryFn: async () => {
+      if (!event?.venue_id) return [];
+      const { data, error } = await supabase
+        .from("venue_accessibility_overrides")
+        .select("*")
+        .eq("venue_id", event.venue_id)
+        .gt("expires_at", new Date().toISOString());
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!event?.venue_id,
   });
 
   const toggleRsvp = useMutation({
@@ -513,6 +534,31 @@ export default function EventDetailsPage() {
                   </a>
                 </>
               )}
+            </div>
+          )}
+
+          {/* Accessibility Features */}
+          {(event.venues?.accessibility_features || event.accessibility_features) && (
+            <div className="mt-8">
+              <div className="flex items-center justify-between border-b-2 border-black pb-2 mb-4">
+                <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
+                  Accessibility
+                </h2>
+                <div className="flex items-center gap-2">
+                  <ReportAccessibilityIssueDialog
+                    eventId={event.id}
+                    venueId={event.venue_id}
+                    user={user}
+                  />
+                  {isOrganizer && event.venue_id && (
+                    <ManageAccessibilityOverridesDialog venueId={event.venue_id} user={user} />
+                  )}
+                </div>
+              </div>
+              <AccessibilityBadges
+                features={event.venues?.accessibility_features || event.accessibility_features}
+                overrides={overrides || []}
+              />
             </div>
           )}
 
