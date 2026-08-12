@@ -13,7 +13,6 @@ describe("OptimizedImage Component", () => {
     expect(images.length).toBeGreaterThanOrEqual(1);
 
     // Verify main image is rendered correctly
- main
     const imgEl = screen.getByRole("img", { name: "Test Banner" });
     expect(imgEl).toBeInTheDocument();
     expect(imgEl).toHaveAttribute("src");
