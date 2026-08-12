@@ -1,35 +1,45 @@
-import { useEffect, useState, useCallback } from "react";
-
+import { queryClient, persister } from "@/hooks/useReactQueryReplacement";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { Suspense, lazy, useEffect, useState } from "react";
+import { AnimatePresence, LazyMotion, MotionConfig } from "framer-motion";
+import { loadDomAnimation } from "@/lib/motionFeatures";
 import {
   createBrowserRouter,
   RouterProvider,
   createRoutesFromElements,
   Route,
+  useLocation,
+  Outlet,
 } from "react-router-dom";
 
-// Layout
+// Layout & Core Components (Loaded eagerly)
 import Layout from "./components/Layout";
 import { ErrorBoundary, RouteErrorBoundary } from "./components/ErrorBoundary";
+import { PageWrapper } from "./components/PageWrapper";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { ThemeProvider } from "@/components/theme-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import MaintenancePage from "./components/MaintenancePage";
+import { CommandPaletteProvider } from "@/components/CommandPaletteProvider";
 import { createClient } from "./lib/supabase/client";
-// Pages
-import Index from "./routes/index";
-import Auth from "./routes/auth";
-import Certificates from "./routes/certificates";
-import ClubsIndex from "./routes/clubs.index";
-import ClubDetails from "./routes/clubs.$slug";
-import ClubsLayout from "./routes/clubs";
-import Dashboard from "./routes/dashboard";
-import DashboardOverview from "./routes/dashboard.index";
-import DashboardRsvps from "./routes/dashboard.rsvps";
-import DashboardBookmarks from "./routes/dashboard.bookmarks";
-import EventsIndex from "./routes/events";
-import EventDetails from "./routes/events.$eventId";
-import Feed from "./routes/feed";
-import ForgotPassword from "./routes/forgot-password";
-import ResetPassword from "./routes/reset-password";
-import Settings from "./routes/settings";
-import PendingClubsAdmin from "./routes/admin.clubs.pending";
+import GalleryPage from "./routes/gallery";
+import { RouteSkeleton } from "./components/RouteSkeleton";
+import { BreadcrumbProvider } from "@/components/BreadcrumbsContext";
+import AriaAnnouncer from "@/components/accessibility/AriaAnnouncer";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
+import { LoginRecoveryModal } from "@/components/auth/LoginRecoveryModal";
+import { MfaChallengeGuard } from "@/components/auth/MfaChallengeGuard";
+function RemoteLoadingScreen() {
+  return (
+    <div className="flex h-screen w-full items-center justify-center bg-slate-950 text-white">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+    </div>
+  );
+}
+
+function PageFallback() {
+  return <RouteSkeleton />;
+}
 
 const HEALTH_CHECK_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_HEALTH_URL) ||
@@ -37,6 +47,7 @@ const HEALTH_CHECK_URL =
   "/api/health";
 
 const HEALTH_CHECK_TIMEOUT = 8000; // 8 seconds
+const PrintableCharter = lazy(() => import("./routes/print.charter.$slug"));
 
 interface HealthStatus {
   ok: boolean;
@@ -64,81 +75,173 @@ async function checkDatabaseHealth(): Promise<HealthStatus> {
       };
     }
 
-    const data = await response.json().catch(() => null);
-    if (data && typeof data === "object" && "status" in data && data.status !== "ok") {
-      return {
-        ok: false,
-        error: `API health status: ${data.status}`,
-      };
-    }
-
     return { ok: true };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown connection error";
-    return {
-      ok: false,
-      error: `Connection failed: ${message}`,
-    };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message };
   }
 }
 
-function LoadingScreen() {
+// Lazy-loaded Routes / Pages
+const Index = lazy(() => import("./routes/index"));
+const Auth = lazy(() => import("./routes/auth"));
+const Certificates = lazy(() => import("./routes/certificates"));
+const VerifyCertificate = lazy(() => import("./routes/verify"));
+const ClubsIndex = lazy(() => import("./routes/clubs.index"));
+const ClubNew = lazy(() => import("./routes/clubs.new"));
+const ClubDetails = lazy(() => import("./routes/clubs.$slug"));
+const ClubManageRoute = lazy(() => import("./routes/clubs.$slug.manage"));
+const ClubNotesRoute = lazy(() => import("./routes/clubs.$slug.notes"));
+const ClubArticlesRoute = lazy(() => import("./routes/clubs.$slug.articles"));
+const ClubArticleDetailsRoute = lazy(() => import("./routes/clubs.$slug.articles.$articleId"));
+const ClubsLayout = lazy(() => import("./routes/clubs"));
+const ClubDiscoveryQuiz = lazy(() => import("./routes/clubs.fit"));
+const Dashboard = lazy(() => import("./routes/dashboard"));
+const DashboardOverview = lazy(() => import("./routes/dashboard.index"));
+const DashboardRsvps = lazy(() => import("./routes/dashboard.rsvps"));
+const DashboardBookmarks = lazy(() => import("./routes/dashboard.bookmarks"));
+const DashboardCalendar = lazy(() => import("./routes/dashboard.calendar"));
+const GlobalCalendar = lazy(() => import("./routes/calendar"));
+const Feed = lazy(() => import("./routes/feed"));
+const EventsMapPage = lazy(() => import("./routes/events.map"));
+const MapPage = lazy(() => import("./routes/map"));
+const ForgotPassword = lazy(() => import("./routes/forgot-password"));
+const ResetPassword = lazy(() => import("./routes/reset-password"));
+const Settings = lazy(() => import("./routes/settings"));
+const VerifyEmail = lazy(() => import("./routes/verify-email"));
+const Directory = lazy(() => import("./routes/Directory"));
+const MessagesRoute = lazy(() => import("./routes/messages"));
+const PendingClubsAdmin = lazy(() => import("./routes/admin.clubs.pending"));
+const AnalyticsAdmin = lazy(() => import("./routes/admin.analytics"));
+const AdminReportsPage = lazy(() => import("./routes/admin.reports"));
+const AdminUsersPage = lazy(() => import("./routes/admin.users"));
+const AdminRestorePage = lazy(() => import("./routes/admin.restore"));
+const AdminDlqPage = lazy(() => import("./routes/admin.dlq"));
+const NotFound = lazy(() => import("./routes/NotFound"));
+const ChallengeArena = lazy(() => import("./routes/challenge"));
+const EventDashboard = lazy(() => import("./routes/events.$eventId.dashboard"));
+const EventGantt = lazy(() => import("./routes/events.$eventId.gantt"));
+const LostFound = lazy(() => import("./routes/lost-found"));
+const Leaderboard = lazy(() =>
+  import("./components/Leaderboard").then((m) => ({ default: m.Leaderboard })),
+);
+const Recap = lazy(() => import("./routes/recap"));
+const MfaChallenge = lazy(() => import("./routes/mfa-challenge"));
+
+const EventsLayout = lazy(() => import("./pages/Events/EventsLayout"));
+const LazyEventsIndex = lazy(() => import("./pages/Events/EventsList"));
+const LazyEventDetails = lazy(() => import("./pages/Events/EventDetail"));
+const EmptyState = lazy(() => import("./pages/Events/EmptyState"));
+
+// ---------------------------------------------------------------------------
+// Animated Outlet Wrapper for Framer Motion transitions with Skeleton Fallback
+// ---------------------------------------------------------------------------
+function AnimatedOutlet() {
+  const location = useLocation();
+  const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (prefersReduced) {
+    return (
+      <PageWrapper key={location.pathname}>
+        <Suspense fallback={<PageFallback />}>
+          <Outlet />
+        </Suspense>
+      </PageWrapper>
+    );
+  }
+
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#ffde00",
-        fontFamily: "Inter, system-ui, sans-serif",
-        fontWeight: 800,
-        fontSize: "1.25rem",
-        color: "#0a0a0a",
-      }}
-    >
-      <div
-        style={{
-          border: "4px solid #0a0a0a",
-          padding: "24px 40px",
-          backgroundColor: "#ffffff",
-          boxShadow: "8px 8px 0px 0px #0a0a0a",
-        }}
-      >
-        CHECKING SYSTEM STATUS...
-      </div>
-    </div>
+    <AnimatePresence mode="wait">
+      <PageWrapper key={location.pathname}>
+        <Suspense fallback={<RouteSkeleton />}>
+          <Outlet />
+        </Suspense>
+      </PageWrapper>
+    </AnimatePresence>
   );
 }
 
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route element={<Layout />} errorElement={<RouteErrorBoundary />}>
-      <Route path="/" element={<Index />} />
-      <Route path="/auth" element={<Auth />} />
-      <Route path="/certificates" element={<Certificates />} />
+      <Route element={<MfaChallengeGuard />}>
+        <Route element={<AnimatedOutlet />}>
+          <Route index element={<Index />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/mfa-challenge" element={<MfaChallenge />} />
+          <Route path="/certificates" element={<Certificates />} />
+          <Route path="/verify" element={<VerifyCertificate />} />
+          <Route path="/clubs" element={<ClubsLayout />}>
+            <Route index element={<ClubsIndex />} />
+            <Route path="fit" element={<ClubDiscoveryQuiz />} />
+            <Route path="new" element={<ClubNew />} />
+            <Route path=":slug" element={<ClubDetails />} />
+            <Route path=":slug/manage" element={<ClubManageRoute />} />
+            <Route path=":slug/notes" element={<ClubNotesRoute />} />
+            <Route path=":slug/articles" element={<ClubArticlesRoute />} />
+            <Route path=":slug/articles/:articleId" element={<ClubArticleDetailsRoute />} />
+          </Route>
+          <Route path="/print/charter/:slug" element={<PrintableCharter />} />
+          <Route path="/dashboard" element={<Dashboard />}>
+            <Route index element={<DashboardOverview />} />
+            <Route path="rsvps" element={<DashboardRsvps />} />
+            <Route path="bookmarks" element={<DashboardBookmarks />} />
+            <Route path="calendar" element={<DashboardCalendar />} />
+          </Route>
+          {/* Events Layout with Split-Screen desktop and Mobile Bottom Sheet */}
+          <Route
+            path="/events"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <EventsLayout />
+              </Suspense>
+            }
+          >
+            <Route
+              index
+              element={
+                <Suspense fallback={<PageFallback />}>
+                  <EmptyState />
+                </Suspense>
+              }
+            />
+            <Route
+              path=":eventId"
+              element={
+                <Suspense fallback={<PageFallback />}>
+                  <LazyEventDetails />
+                </Suspense>
+              }
+            />
+          </Route>
+          <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
+          <Route path="/events/:eventId/gantt" element={<EventGantt />} />
+          {/* Events Map View with clustering */}
+          <Route path="events/map" element={<EventsMapPage />} />
+          {/* Campus Heatmap - Live Activity */}
+          <Route path="/map" element={<MapPage />} />
+          <Route path="challenge" element={<ChallengeArena />} />
+          <Route path="leaderboard" element={<Leaderboard />} />
+          <Route path="/feed" element={<Feed />} />
+          <Route path="/lost-found" element={<LostFound />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/recap" element={<Recap />} />
+          <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
+          <Route path="/admin/analytics" element={<AnalyticsAdmin />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/messages" element={<MessagesRoute />} />
+          <Route path="/admin/reports" element={<AdminReportsPage />} />
+          <Route path="/admin/users" element={<AdminUsersPage />} />
+          <Route path="/admin/restore" element={<AdminRestorePage />} />
+          <Route path="/admin/dlq" element={<AdminDlqPage />} />
+          {/* Catch-all route for 404 errors */}
+          <Route path="*" element={<NotFound />} />
+        </Route>
 
-      <Route path="/clubs" element={<ClubsLayout />}>
-        <Route index element={<ClubsIndex />} />
-        <Route path=":slug" element={<ClubDetails />} />
+        <Route path="/gallery" element={<GalleryPage />} />
       </Route>
-
-      <Route path="/dashboard" element={<Dashboard />}>
-        <Route index element={<DashboardOverview />} />
-        <Route path="rsvps" element={<DashboardRsvps />} />
-        <Route path="bookmarks" element={<DashboardBookmarks />} />
-      </Route>
-
-      <Route path="/events">
-        <Route index element={<EventsIndex />} />
-        <Route path=":eventId" element={<EventDetails />} />
-      </Route>
-
-      <Route path="/feed" element={<Feed />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/settings" element={<Settings />} />
-      <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
     </Route>,
   ),
 );
@@ -148,11 +251,6 @@ const DB_RETRY_INTERVAL_MS = 15000;
 
 type DbStatus = "checking" | "online" | "offline";
 
-/**
- * Pings Supabase with a cheap, RLS-open HEAD request. Returns false if the
- * client throws (bad config, connection refused, DNS failure, etc.) or if
- * the request doesn't resolve within the timeout.
- */
 async function checkDatabaseConnection(): Promise<boolean> {
   try {
     const supabase = createClient();
@@ -182,37 +280,84 @@ async function checkDatabaseConnection(): Promise<boolean> {
 }
 
 export default function App() {
-  const [dbStatus, setDbStatus] = useState<HealthStatus | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [retryCount, setRetryCount] = useState(0);
-
-  const performHealthCheck = useCallback(async () => {
-    setIsLoading(true);
-    const result = await checkDatabaseHealth();
-    setDbStatus(result);
-    setIsLoading(false);
-  }, []);
+  const [dbStatus, setDbStatus] = useState<DbStatus>("checking");
 
   useEffect(() => {
-    performHealthCheck();
-  }, [performHealthCheck, retryCount]);
+    let timer: ReturnType<typeof setTimeout>;
 
-  if (isLoading) {
-    return <LoadingScreen />;
-  }
+    const verify = async () => {
+      const isOnline = await checkDatabaseConnection();
+      setDbStatus(isOnline ? "online" : "offline");
+      if (!isOnline) {
+        timer = setTimeout(verify, DB_RETRY_INTERVAL_MS);
+      }
+    };
 
-  if (dbStatus && !dbStatus.ok) {
-    return (
-      <MaintenancePage
-        onRetry={() => setRetryCount((prev) => prev + 1)}
-        errorDetails={dbStatus.error}
-      />
-    );
+    verify();
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (dbStatus === "offline") {
+    if (typeof navigator !== "undefined" && navigator.onLine) {
+      return <MaintenancePage />;
+    }
+    // If device is offline, allow the app to render with cached data
   }
 
   return (
-    <ErrorBoundary>
-      <RouterProvider router={router} />
-    </ErrorBoundary>
+    <ThemeProvider>
+      <AriaAnnouncer />
+      <TooltipProvider>
+        <PersistQueryClientProvider
+          client={queryClient}
+          persistOptions={{
+            persister,
+            dehydrateOptions: {
+              shouldDehydrateQuery: (query) => {
+                if (query.state.status !== "success") return false;
+                const queryKeyStr = JSON.stringify(query.queryKey).toLowerCase();
+                if (
+                  queryKeyStr.includes("password") ||
+                  queryKeyStr.includes("billing") ||
+                  queryKeyStr.includes("payment")
+                ) {
+                  return false;
+                }
+                return true;
+              },
+            },
+          }}
+        >
+          <ErrorBoundary>
+            {/*
+              App-wide LazyMotion provider. Every `m.*` component in the tree
+              renders using this lightweight `domAnimation` feature set
+              (fetched from a separate chunk) instead of statically bundling
+              framer-motion's full ~35kb `motion` object. `strict` is only
+              enabled in dev so that any stray `motion.div` (which would
+              silently pull in the full bundle) throws loudly during
+              development instead of shipping to production.
+            */}
+            <LazyMotion features={loadDomAnimation} strict={import.meta.env.DEV}>
+              <CommandPaletteProvider>
+                <OfflineIndicator />
+                <LoginRecoveryModal />
+                {/* Floating Dark Mode Toggle */}
+                <div className="fixed bottom-4 right-4 z-[9999]">
+                  <ThemeToggle />
+                </div>
+
+                <BreadcrumbProvider>
+                  <MotionConfig reducedMotion="user">
+                    <RouterProvider router={router} />
+                  </MotionConfig>
+                </BreadcrumbProvider>
+              </CommandPaletteProvider>
+            </LazyMotion>
+          </ErrorBoundary>
+        </PersistQueryClientProvider>
+      </TooltipProvider>
+    </ThemeProvider>
   );
 }
