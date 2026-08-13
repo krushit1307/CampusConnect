@@ -75,6 +75,15 @@ export function EventRsvpButton({
 
   const { processPayment, isProcessing } = useIdempotentPayment();
 
+  // Mocking a ticket price since database schema lacks it currently
+  const ticketPrice = 14.5;
+  const isPaidEvent = true;
+
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [roundUp, setRoundUp] = useState(false);
+
+  const { processPayment, isProcessing } = useIdempotentPayment();
+
   // Fetch the RSVP state on mount if no initial state was provided.
   useEffect(() => {
     if (initialState) {
@@ -287,11 +296,15 @@ export function EventRsvpButton({
 
   // ── Not RSVPed, spots available → RSVP NOW ──────────────────────
   return (
+ feature/ghost-mode-2878
     <>
       <div className="flex flex-col gap-2">
         {renderResumeModal()}
+
+ main
     <>
       <div className="flex flex-col gap-2">
+        {renderResumeModal()}
         {isPaidEvent ? (
           <Button
             onClick={() => setIsCheckoutModalOpen(true)}
@@ -374,6 +387,9 @@ export function EventRsvpButton({
         </DialogContent>
       </Dialog>
     </>
+ feature/ghost-mode-2878
 
+
+ main
   );
 }

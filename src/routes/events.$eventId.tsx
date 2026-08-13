@@ -1235,6 +1235,7 @@ const eventUrl =
     ? window.location.href
     : `${import.meta.env.VITE_SITE_URL ?? ""}/events/${event.short_id ?? event.id}`;
 
+ feature/ghost-mode-2878
   const ogTags = buildOpenGraphTags({
     title: event.title,
     description: event.description,
@@ -1246,6 +1247,22 @@ const eventUrl =
   });
 
   const rawWaitlist = adminWaitlist || [];
+
+ HEAD
+
+const ogTags = buildOpenGraphTags({
+  title: event.title,
+  description: event.description,
+  bannerUrl: event.banner_url,
+  eventDate: event.event_date,
+  location: event.location,
+  url: eventUrl,
+  eventId: event.id,
+});
+ origin/main
+  // We calculate waitlist info earlier in useMemo now
+  const rawWaitlist = (event as Record<string, unknown>).event_waitlist;
+ main
 
   const club = event.clubs ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
   const coordsCheck = event.location

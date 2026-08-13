@@ -3,7 +3,10 @@ import { createClient } from "@/lib/supabase/client";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useAuthHydration } from "@/hooks/useAuthHydration";
 import { toast } from "sonner";
-<<<<<<< HEAD
+ feature/ghost-mode-2878
+ HEAD
+
+ main
 import {
   Search,
   Plus,
@@ -20,7 +23,8 @@ import {
   QrCode,
   Scan,
 } from "lucide-react";
-=======
+ feature/ghost-mode-2878
+
 import Search from "lucide-react/dist/esm/icons/search";
 import Plus from "lucide-react/dist/esm/icons/plus";
 import X from "lucide-react/dist/esm/icons/x";
@@ -35,7 +39,9 @@ import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import Coins from "lucide-react/dist/esm/icons/coins";
 import QrCode from "lucide-react/dist/esm/icons/qr-code";
 import Scan from "lucide-react/dist/esm/icons/scan";
->>>>>>> origin/main
+ origin/main
+
+ main
 import { QRCodeSVG } from "qrcode.react";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import { Button } from "@/components/ui/button";
