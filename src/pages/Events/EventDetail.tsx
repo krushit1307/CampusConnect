@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { EventSocialProofToasts } from "@/components/events/EventSocialProofToasts";
 import { useBannerColor } from "@/hooks/useBannerColor";
-
+import { EventFeedbackSurvey } from "@/components/events/EventFeedbackSurvey";
 interface EventDetailRecord {
   id: string;
   title: string;
@@ -91,6 +91,7 @@ export default function EventDetail() {
         </div>
         {event.description && <p className="whitespace-pre-wrap leading-7">{event.description}</p>}
       </div>
+      <EventFeedbackSurvey eventId={event.id} />
       <EventSocialProofToasts eventId={event.id} />
     </article>
   );
