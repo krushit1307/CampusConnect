@@ -133,8 +133,8 @@ const EventsLayout = lazy(() => import("./pages/Events/EventsLayout"));
 const LazyEventsIndex = lazy(() => import("./pages/Events/EventsList"));
 const LazyEventDetails = lazy(() => import("./pages/Events/EventDetail"));
 const EmptyState = lazy(() => import("./pages/Events/EmptyState"));
-const EventKiosk = lazy(() => import("./routes/events.$eventId.kiosk"));
-
+const TourManager = lazy(() => import("./routes/tours.manage"));
+const TourMode = lazy(() => import("./routes/tours.$tourId"));
 // ---------------------------------------------------------------------------
 // Animated Outlet Wrapper for Framer Motion transitions with Skeleton Fallback
 // ---------------------------------------------------------------------------
@@ -229,8 +229,9 @@ const router = createBrowserRouter(
           {/* Events Map View with clustering */}
           <Route path="events/map" element={<EventsMapPage />} />
           {/* Campus Heatmap - Live Activity */}
-          <Route path="/map" element={<MapPage />} />
-          <Route path="challenge" element={<ChallengeArena />} />
+<Route path="/map" element={<MapPage />} />
+<Route path="/tours/manage" element={<TourManager />} />
+<Route path="/tours/:tourId" element={<TourMode />} />          <Route path="challenge" element={<ChallengeArena />} />
           <Route path="leaderboard" element={<Leaderboard />} />
           <Route path="/feed" element={<Feed />} />
           <Route path="/lost-found" element={<LostFound />} />
