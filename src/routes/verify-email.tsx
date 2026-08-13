@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { createClient } from "@/lib/supabase/client";
 import { Sparkle } from "@/components/site/Sparkle";
-import { CheckCircle2, AlertCircle, Loader2, ArrowLeft, Mail } from "lucide-react";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Mail from "lucide-react/dist/esm/icons/mail";
 import { toast } from "sonner";
 import { useWebAuthn } from "@/hooks/useWebAuthn";
 

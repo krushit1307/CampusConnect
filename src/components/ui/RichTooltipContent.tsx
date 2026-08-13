@@ -1,6 +1,11 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-import { Calendar, Clock, MapPin, AlertCircle, Info, ExternalLink } from "lucide-react";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import Info from "lucide-react/dist/esm/icons/info";
+import ExternalLink from "lucide-react/dist/esm/icons/external-link";
 
 /* ── Date Tooltip ── */
 

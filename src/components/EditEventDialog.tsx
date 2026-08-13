@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, type Control } from "react-hook-form";
-import { Edit3, GitMerge } from "lucide-react";
+import Edit3 from "lucide-react/dist/esm/icons/edit-3";
+import GitMerge from "lucide-react/dist/esm/icons/git-merge";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 

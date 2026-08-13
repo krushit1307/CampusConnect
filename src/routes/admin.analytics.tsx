@@ -1,7 +1,9 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, Link } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
-import { BarChart3, LayoutPanelLeft, X } from "lucide-react";
+import BarChart3 from "lucide-react/dist/esm/icons/bar-chart-3";
+import LayoutPanelLeft from "lucide-react/dist/esm/icons/layout-panel-left";
+import X from "lucide-react/dist/esm/icons/x";
 import { toast } from "sonner";
 import type { DateRange } from "react-day-picker";
 import differenceInDays from "date-fns/differenceInDays";

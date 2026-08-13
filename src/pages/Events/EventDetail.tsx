@@ -1,10 +1,12 @@
 import React, { useEffect } from "react";
-import { Calendar, MapPin } from "lucide-react";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
 import { useParams } from "react-router-dom";
 import { useConfetti } from "../../hooks/useConfetti";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
+import { EventSocialProofToasts } from "@/components/events/EventSocialProofToasts";
 import { useBannerColor } from "@/hooks/useBannerColor";
 
 interface EventDetailRecord {
@@ -89,6 +91,7 @@ export default function EventDetail() {
         </div>
         {event.description && <p className="whitespace-pre-wrap leading-7">{event.description}</p>}
       </div>
+      <EventSocialProofToasts eventId={event.id} />
     </article>
   );
 }

@@ -5,8 +5,9 @@ import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import ReactECharts from "echarts-for-react";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
 import { ChartSkeleton } from "@/components/ui/ChartSkeleton";
+import { EventFinancesSection } from "@/components/analytics/EventFinancesSection";
 
 const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));
 
@@ -249,6 +250,8 @@ export default function EventDashboard() {
               </Suspense>
             </div>
           </div>
+          
+          <EventFinancesSection eventId={eventId!} />
         </div>
       </div>
     </SiteShell>

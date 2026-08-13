@@ -14,9 +14,13 @@ import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
+import { EventSeatingManager } from "@/components/events/EventSeatingManager";
+import { InteractiveSeatingChart } from "@/components/events/InteractiveSeatingChart";
+import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
 import { useBannerColor } from "@/hooks/useBannerColor";
 import { MapSkeleton } from "@/components/ui/MapSkeleton";
-
+import { Helmet } from "react-helmet-async";
+import { buildOpenGraphTags } from "@/lib/seo/eventMeta";
 const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ default: m.EventMap })));
 import { formatEventDateRange } from "@/lib/utils";
 import { AddToCalendarDropdown } from "@/components/events/AddToCalendarDropdown";
@@ -25,27 +29,25 @@ import { formatDateLong } from "@/lib/dateFormatter";
 import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { toast } from "sonner";
 import { ShareMenu } from "@/components/ui/ShareMenu";
-import {
-  ArrowLeft,
-  Check,
-  Copy,
-  Download,
-  Link as LinkIcon,
-  MapPin,
-  MapPinOff,
-  Users,
-  CreditCard,
-  X,
-  CheckCircle,
-  Clock,
-  Calendar,
-  Star,
-  HelpCircle,
-  Flag,
-  ShieldAlert,
-  QrCode,
-  Eye,
-} from "lucide-react";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Check from "lucide-react/dist/esm/icons/check";
+import Copy from "lucide-react/dist/esm/icons/copy";
+import Download from "lucide-react/dist/esm/icons/download";
+import LinkIcon from "lucide-react/dist/esm/icons/link";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import MapPinOff from "lucide-react/dist/esm/icons/map-pin-off";
+import Users from "lucide-react/dist/esm/icons/users";
+import CreditCard from "lucide-react/dist/esm/icons/credit-card";
+import X from "lucide-react/dist/esm/icons/x";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Star from "lucide-react/dist/esm/icons/star";
+import HelpCircle from "lucide-react/dist/esm/icons/help-circle";
+import Flag from "lucide-react/dist/esm/icons/flag";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import QrCode from "lucide-react/dist/esm/icons/qr-code";
+import Eye from "lucide-react/dist/esm/icons/eye";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -63,6 +65,7 @@ import LiveQA from "@/components/qa/LiveQA";
 import EventFeedbackForm from "@/components/EventFeedbackForm";
 import { CarpoolMatchingSection } from "@/components/events/carpool/CarpoolMatchingSection";
 import { EventLiveChat } from "@/components/events/EventLiveChat";
+import { EventSubmissions } from "@/components/EventSubmissions";
 import { ReportDialog } from "@/components/ReportDialog";
 import { GeofencedCheckInButton } from "@/components/GeofencedCheckInButton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -79,9 +82,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { SeatingCanvas } from "@/components/events/SeatingCanvas";
+import { SponsorManager } from "@/components/events/SponsorManager";
+import { SteganographicQRScanner } from "@/components/events/SteganographicQRScanner";
+import { EventGuestList } from "@/components/events/EventGuestList";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { ImageWithBlur } from "@/components/ui/ImageWithBlur";
 import { parseCoordinates } from "@/lib/eventUtils";
+import { EventFaqSection } from "@/components/events/EventFaqSection";
+import { AccessibilityBadges } from "@/components/events/AccessibilityBadges";
+import { ReportAccessibilityIssueDialog } from "@/components/events/ReportAccessibilityIssueDialog";
+import { ManageAccessibilityOverridesDialog } from "@/components/events/ManageAccessibilityOverridesDialog";
 import EventFeedbackForm from "@/components/EventFeedbackForm";
 import { EventPhotoGallery } from "@/components/EventPhotoGallery";
 import { EventMap } from "@/components/EventMap";
@@ -509,11 +522,16 @@ export default function EventDetailsPage() {
         .from("events")
         .select(
           `
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, venue_id, accessibility_features,
+          clubs (name, slug),
+          event_rsvps (id, user_id),
+          attendee_count,
+          venues (
+            name, building, capacity, accessibility_features
+          )
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by, is_high_risk, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash, latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline,
           profiles (full_name, email),
           clubs (name, slug),
-          event_rsvps (id, user_id, status, checked_in, rsvp_at, accommodations_requested, profiles (first_name, last_name, avatar_url)),
-          event_waitlist (id, user_id, created_at, profiles (first_name, last_name, avatar_url)),
           event_metrics (views)
         `,
         )
@@ -573,46 +591,6 @@ export default function EventDetailsPage() {
               },
             ],
             requires_approval: true,
-            event_rsvps:
-              eventId === "mock-1"
-                ? [
-                    {
-                      id: "rsvp-1",
-                      user_id: "user-1",
-                      status: "approved",
-                      checked_in: false,
-                      rsvp_at: new Date().toISOString(),
-                      profiles: { first_name: "John", last_name: "Doe", avatar_url: null },
-                    },
-                    {
-                      id: "rsvp-2",
-                      user_id: "user-2",
-                      status: "waitlisted",
-                      checked_in: false,
-                      rsvp_at: new Date().toISOString(),
-                      profiles: { first_name: "Alice", last_name: "Smith", avatar_url: null },
-                    },
-                    {
-                      id: "rsvp-3",
-                      user_id: "user-3",
-                      status: "rejected",
-                      checked_in: false,
-                      rsvp_at: new Date().toISOString(),
-                      profiles: { first_name: "Bob", last_name: "Johnson", avatar_url: null },
-                    },
-                  ]
-                : [],
-            event_waitlist:
-              eventId === "mock-1"
-                ? [
-                    {
-                      id: "wait-1",
-                      user_id: "user-4",
-                      created_at: new Date().toISOString(),
-                      profiles: { first_name: "Emma", last_name: "Brown", avatar_url: null },
-                    },
-                  ]
-                : [],
             attendee_count: eventId === "mock-1" ? 1 : 0,
             profiles: { full_name: "Mock Organizer", email: "mock@example.com" },
             accommodation_deadline: null,
@@ -625,6 +603,19 @@ export default function EventDetailsPage() {
     },
   });
 
+  const { data: overrides } = useQuery({
+    queryKey: ["venue_overrides", event?.venue_id],
+    queryFn: async () => {
+      if (!event?.venue_id) return [];
+      const { data, error } = await supabase
+        .from("venue_accessibility_overrides")
+        .select("*")
+        .eq("venue_id", event.venue_id)
+        .gt("expires_at", new Date().toISOString());
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!event?.venue_id,
   interface EventSignature {
     id: string;
     event_id: string;
@@ -649,9 +640,68 @@ export default function EventDetailsPage() {
     enabled: !!eventId,
   });
 
+  const { data: myRsvp, refetch: refetchMyRsvp } = useQuery({
+    queryKey: ["my_rsvp", eventId, user?.id],
+    queryFn: async () => {
+      if (!user?.id || eventId.startsWith("mock-")) return null;
+      const { data, error } = await supabase
+        .from("event_rsvps")
+        .select("*")
+        .eq("event_id", eventId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id && !!eventId,
+  });
+
+  const { data: adminRsvps, refetch: refetchAdminRsvps } = useQuery({
+    queryKey: ["admin_rsvps", eventId],
+    queryFn: async () => {
+      if (eventId.startsWith("mock-") || !isOrganizer) return [];
+      const { data, error } = await supabase
+        .from("event_rsvps")
+        .select(
+          "id, user_id, status, checked_in, rsvp_at, accommodations_requested, profiles (first_name, last_name, avatar_url)",
+        )
+        .eq("event_id", eventId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!eventId && !!isOrganizer,
+  });
+
+  const { data: adminWaitlist, refetch: refetchAdminWaitlist } = useQuery({
+    queryKey: ["admin_waitlist", eventId],
+    queryFn: async () => {
+      if (eventId.startsWith("mock-") || !isOrganizer) return [];
+      const { data, error } = await supabase
+        .from("event_waitlist")
+        .select("id, user_id, created_at, profiles (first_name, last_name, avatar_url)")
+        .eq("event_id", eventId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!eventId && !!isOrganizer,
+  });
+
+  const { data: publicGuests, refetch: refetchPublicGuests } = useQuery({
+    queryKey: ["public_event_guests", eventId],
+    queryFn: async () => {
+      if (eventId.startsWith("mock-")) return [];
+      const { data, error } = await supabase.rpc("get_public_event_guests", {
+        p_event_id: eventId,
+      });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!eventId,
+  });
+
   const { waitlist, isOnWaitlist, waitlistPosition } = useMemo(() => {
-    return buildWaitlistInfo((event as any)?.event_waitlist, user?.id);
-  }, [event, user]);
+    return buildWaitlistInfo(adminWaitlist || [], user?.id);
+  }, [adminWaitlist, user]);
 
   const { data: waitlistScore } = useQuery({
     queryKey: ["waitlist_score", eventId, user?.id],
@@ -1032,15 +1082,8 @@ export default function EventDetailsPage() {
   }>({ waitlisted: [], approved: [], rejected: [] });
 
   useEffect(() => {
-    if (!event) return;
-
-    const typedEvent = event as unknown as {
-      event_waitlist: EventWaitlist[];
-      event_rsvps: EventRsvp[];
-    };
-
-    setColumns(buildKanbanColumns(typedEvent.event_waitlist || [], typedEvent.event_rsvps || []));
-  }, [event]);
+    setColumns(buildKanbanColumns((adminWaitlist as any) || [], (adminRsvps as any) || []));
+  }, [adminWaitlist, adminRsvps]);
 
   const updateRsvpStatus = useMutation({
     mutationFn: async ({
@@ -1110,11 +1153,15 @@ export default function EventDetailsPage() {
     },
     onSuccess: () => {
       toast.success("RSVP status updated!");
-      refetch();
+      refetchMyRsvp();
+      refetchAdminRsvps();
+      refetchPublicGuests();
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to update RSVP status.");
-      refetch();
+      refetchMyRsvp();
+      refetchAdminRsvps();
+      refetchPublicGuests();
     },
   });
 
@@ -1173,19 +1220,49 @@ export default function EventDetailsPage() {
     );
   }
 
-  const rsvps = Array.isArray(event.event_rsvps)
-    ? (event.event_rsvps as unknown as EventRsvp[])
-    : [];
-  const { hasRsvpd, isCheckedIn, hasEnded } = buildRsvpStatus(rsvps, user?.id, event.end_date);
-  const myRsvpId = user ? rsvps.find((r) => r.user_id === user.id)?.id : undefined;
+  const rsvps = adminRsvps || [];
+  const hasRsvpd = !!myRsvp && (myRsvp.status === "attending" || myRsvp.status === "waitlisted");
+  const isCheckedIn = !!myRsvp && myRsvp.checked_in;
+  const hasEnded = new Date().getTime() > new Date(event.end_date).getTime();
+  const myRsvpId = myRsvp?.id;
   const rawFeedbacks = (event as Record<string, unknown>).event_feedbacks;
   const { hasSubmittedFeedback } = buildFeedbackStatus(
     Array.isArray(rawFeedbacks) ? (rawFeedbacks as { user_id: string }[]) : undefined,
     user?.id,
   );
+const eventUrl =
+  typeof window !== "undefined"
+    ? window.location.href
+    : `${import.meta.env.VITE_SITE_URL ?? ""}/events/${event.short_id ?? event.id}`;
 
+ feature/ghost-mode-2878
+  const ogTags = buildOpenGraphTags({
+    title: event.title,
+    description: event.description,
+    bannerUrl: event.banner_url,
+    eventDate: event.event_date,
+    location: event.location,
+    url: eventUrl,
+    eventId: event.id,
+  });
+
+  const rawWaitlist = adminWaitlist || [];
+
+ HEAD
+
+const ogTags = buildOpenGraphTags({
+  title: event.title,
+  description: event.description,
+  bannerUrl: event.banner_url,
+  eventDate: event.event_date,
+  location: event.location,
+  url: eventUrl,
+  eventId: event.id,
+});
+ origin/main
   // We calculate waitlist info earlier in useMemo now
   const rawWaitlist = (event as Record<string, unknown>).event_waitlist;
+ main
 
   const club = event.clubs ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
   const coordsCheck = event.location
@@ -1333,7 +1410,7 @@ export default function EventDetailsPage() {
   };
 
   const attendeeCount =
-    ((event as Record<string, unknown>).attendee_count as number) ?? rsvps.length;
+    ((event as Record<string, unknown>).attendee_count as number) ?? (publicGuests?.length || 0);
   const maxAttendees = (event as Record<string, unknown>).max_attendees as
     number | null | undefined;
   const isAtCapacity =
@@ -1342,9 +1419,44 @@ export default function EventDetailsPage() {
     maxAttendees > 0 &&
     attendeeCount >= maxAttendees;
 
-  return (
-    <SiteShell>
-      {/* Breadcrumb nav */}
+return (
+  <>
+    <Helmet>
+      <title>{ogTags.ogTitle}</title>
+
+      <meta name="description" content={ogTags.ogDescription} />
+
+      <meta property="og:type" content="website" />
+      <meta property="og:title" content={ogTags.ogTitle} />
+      <meta property="og:description" content={ogTags.ogDescription} />
+      <meta property="og:url" content={ogTags.ogUrl} />
+
+      {ogTags.ogImage && (
+        <>
+          <meta property="og:image" content={ogTags.ogImage} />
+          <meta property="og:image:width" content="1200" />
+          <meta property="og:image:height" content="630" />
+          <meta property="og:image:type" content="image/png" />
+        </>
+      )}
+
+      {ogTags.eventStartTime && (
+        <meta
+          property="event:start_time"
+          content={ogTags.eventStartTime}
+        />
+      )}
+
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content={ogTags.ogTitle} />
+      <meta name="twitter:description" content={ogTags.ogDescription} />
+
+      {ogTags.ogImage && (
+        <meta name="twitter:image" content={ogTags.ogImage} />
+      )}
+    </Helmet>
+
+    <SiteShell>      {/* Breadcrumb nav */}
       <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6" aria-label="Breadcrumb">
         <div className="mx-auto max-w-4xl">
           {/* Mobile: simple back link */}
@@ -1860,6 +1972,21 @@ export default function EventDetailsPage() {
           <div className="mt-8">
             <EventLiveChat eventId={eventId} user={user} />
           </div>
+
+          {/* Public Guest List */}
+          <div className="mt-8">
+            <EventGuestList eventId={eventId} />
+          </div>
+
+          {/* Secure File Drop for Competitions (Issue #3006) */}
+          <div className="mt-8">
+            <EventSubmissions
+              eventId={eventId}
+              submissionDeadline={(event as any).submission_deadline}
+              userRsvp={!!userRsvp}
+              isOrganizer={isOrganizer}
+            />
+          </div>
           {/* Description */}
           <div className="mt-8">
             <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
@@ -1881,6 +2008,11 @@ export default function EventDetailsPage() {
             </div>
           </div>
 
+          <EventSeatingManager eventId={event.id} isOrganizer={isOrganizer} />
+
+          <InteractiveSeatingChart eventId={event.id} user={user} />
+
+          {/* Map Embed */}
           {/* Read-only map layout for attendees */}
           {event.map_layout && Array.isArray(event.map_layout) && event.map_layout.length > 0 && (
             <div className="mt-10 border-t-2 border-black pt-8">
@@ -2077,6 +2209,32 @@ export default function EventDetailsPage() {
               )}
             </div>
 
+          {/* Accessibility Features */}
+          {(event.venues?.accessibility_features || event.accessibility_features) && (
+            <div className="mt-8">
+              <div className="flex items-center justify-between border-b-2 border-black pb-2 mb-4">
+                <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
+                  Accessibility
+                </h2>
+                <div className="flex items-center gap-2">
+                  <ReportAccessibilityIssueDialog
+                    eventId={event.id}
+                    venueId={event.venue_id}
+                    user={user}
+                  />
+                  {isOrganizer && event.venue_id && (
+                    <ManageAccessibilityOverridesDialog venueId={event.venue_id} user={user} />
+                  )}
+                </div>
+              </div>
+              <AccessibilityBadges
+                features={event.venues?.accessibility_features || event.accessibility_features}
+                overrides={overrides || []}
+              />
+            </div>
+          )}
+
+          {/* Social Share Buttons */}
             {event.is_high_risk && (
               <div className="mt-8 border-2 border-black bg-yellow-50 p-6 font-mono text-sm">
                 <h2 className="text-xl font-bold uppercase tracking-tight text-black mb-3">
@@ -2214,6 +2372,7 @@ export default function EventDetailsPage() {
             </div>
           </div>
 
+          <EventFaqSection eventId={event.id} isOrganizer={isOrganizer} userId={user?.id} />
           {/* Kanban Board for Organizer */}
           {isOrganizer && (
             <div className="mt-12 border-t-4 border-black pt-10">
@@ -2895,5 +3054,6 @@ export default function EventDetailsPage() {
         </div>
       )}
     </SiteShell>
+    </>
   );
 }

@@ -3,7 +3,10 @@ import format from "date-fns/format";
 import addDays from "date-fns/addDays";
 import startOfWeek from "date-fns/startOfWeek";
 import isSameDay from "date-fns/isSameDay";
-import { Calendar, Eraser, PaintBucket, RotateCcw } from "lucide-react";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Eraser from "lucide-react/dist/esm/icons/eraser";
+import PaintBucket from "lucide-react/dist/esm/icons/paint-bucket";
+import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 

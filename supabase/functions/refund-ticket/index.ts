@@ -73,7 +73,7 @@ serve(async (req: Request) => {
     // 4. Fetch Event details for timeline check
     const { data: event, error: eventError } = await supabase
       .from("events")
-      .select("title, event_date")
+      .select("title, event_date, refund_policy_hours")
       .eq("id", rsvp.event_id)
       .single();
 
@@ -84,18 +84,19 @@ serve(async (req: Request) => {
       });
     }
 
-    // 5. Evaluate refund rules based on event date
+    // 5. Evaluate refund rules based on event date and policy hours
     const now = Date.now();
     const eventTime = new Date(event.event_date).getTime();
     const timeDiffMs = eventTime - now;
+    const policyHours = typeof event.refund_policy_hours === "number" ? event.refund_policy_hours : 48;
 
     let refundPercentage = 0;
-    if (timeDiffMs >= 48 * 60 * 60 * 1000) {
-      // 48 hours or more
+    if (timeDiffMs >= policyHours * 60 * 60 * 1000) {
+      // Within refund policy timeline -> 100% refund
       refundPercentage = 100;
     } else if (timeDiffMs > 0) {
-      // Less than 48 hours but event hasn't started yet
-      refundPercentage = 50;
+      // Past timeline but event hasn't started yet -> 0% refund (Warning block / no refund)
+      refundPercentage = 0;
     } else {
       // Event has already started or ended
       return new Response(JSON.stringify({ error: "Cannot cancel ticket after the event has started." }), {

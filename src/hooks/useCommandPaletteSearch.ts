@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-
+import { useMemo } from "react";
+import { useQuery } from "@/hooks/useReactQueryReplacement";
+import { useDebounce } from "@/hooks/use-debounce";
+import { searchService } from "@/services/searchService";
 export type CommandSearchResultType = "club" | "event" | "person";
 
 export interface CommandSearchResult {
@@ -38,8 +39,40 @@ function parseQuery(raw: string): { scope: CommandSearchResultType | null; term:
  * Supports `events:`, `clubs:`, and `users:` prefixes to scope the search
  * to a single table.
  */
-export function useCommandPaletteSearch(query: string) {
-  const [results, setResults] = useState<CommandSearchResult[]>([]);
+export function useCommandPaletteSearch(
+  query: string,
+  categoryFilter: string | null = null,
+  dateFilter: "this_week" | null = null,
+) {
+  const debouncedQuery = useDebounce(query, 200);
+
+  const { data = [], isLoading } = useQuery({
+    queryKey: ["command-palette-search", debouncedQuery, categoryFilter, dateFilter],
+    enabled: Boolean(debouncedQuery.trim()),
+    queryFn: async () => {
+      const results = await searchService.searchEvents({
+        query: debouncedQuery,
+        categoryFilter,
+        dateFilter,
+      });
+
+      return results.map((event: { id: string; title: string }) => ({
+        id: event.id,
+        type: "event" as const,
+        label: event.title,
+        sublabel: "Event",
+        path: `/events/${event.id}`,
+      }));
+    },
+  });
+
+  const results = useMemo(() => data, [data]);
+
+  return {
+    results,
+    isLoading,
+  };
+}  const [results, setResults] = useState<CommandSearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {

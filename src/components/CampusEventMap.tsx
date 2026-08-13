@@ -7,7 +7,10 @@ import "leaflet.heat";
 import { createClient } from "@/lib/supabase/client";
 import { parseCoordinates, formatEventDateRange } from "@/lib/eventUtils";
 import { formatStandardDate } from "@/utils/dateUtils";
-import { MapPin, Calendar, Search, RefreshCw } from "lucide-react";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Search from "lucide-react/dist/esm/icons/search";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
 
 // Campus center default (Delhi campus or customizable)
 const DEFAULT_MAP_CENTER: [number, number] = [28.7041, 77.1025];

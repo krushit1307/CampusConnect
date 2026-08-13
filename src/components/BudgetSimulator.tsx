@@ -1,5 +1,9 @@
 import { useState, useMemo, useCallback } from "react";
-import { Trash2, Plus, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import TrendingUp from "lucide-react/dist/esm/icons/trending-up";
+import TrendingDown from "lucide-react/dist/esm/icons/trending-down";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
 import {
   calculateBudget,
   getProfitStatusMessage,

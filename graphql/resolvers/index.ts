@@ -1,7 +1,7 @@
 import { GraphQLError } from "graphql";
 import { pubsub, RedisPubSub } from "../pubsub";
 import { createClient } from "../../src/lib/supabase/client";
-
+import { query as pgQuery } from "../db";
 const supabase = createClient();
 
 // Redis-backed PubSub (with in-memory fallback) used across all subscriptions.
@@ -247,35 +247,29 @@ export function decodeCursor(cursor: string): { createdAt: string; id: string } 
 // Batch fetch profiles by ID array
 export const createProfileLoader = () =>
   new SimpleDataLoader<string, ProfileRecord>(async (userIds) => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .in("id", userIds as string[]);
+    // A feed page can reference hundreds of distinct authors at once.
+    // Passing the whole array as ONE bound parameter (ANY($1)) avoids
+    // building/parsing a giant "IN ($1, $2, ..., $500)" SQL string.
+    const { rows } = await pgQuery<ProfileRecord>("SELECT * FROM profiles WHERE id = ANY($1)", [
+      userIds,
+    ]);
 
-    if (error) throw error;
-
-    const profileMap = new Map<string, ProfileRecord>(
-      (data || []).map((p: ProfileRecord) => [p.id, p]),
-    );
+    const profileMap = new Map<string, ProfileRecord>(rows.map((p) => [p.id, p]));
 
     return userIds.map((id) => profileMap.get(id) || null);
   });
-
 // Batch fetch clubs by ID array
 export const createClubLoader = () =>
   new SimpleDataLoader<string, ClubRecord>(async (clubIds) => {
-    const { data, error } = await supabase
-      .from("clubs")
-      .select("*")
-      .in("id", clubIds as string[]);
+    // Same array-binding optimization as createProfileLoader above.
+    const { rows } = await pgQuery<ClubRecord>("SELECT * FROM clubs WHERE id = ANY($1)", [
+      clubIds,
+    ]);
 
-    if (error) throw error;
-
-    const clubMap = new Map<string, ClubRecord>((data || []).map((c: ClubRecord) => [c.id, c]));
+    const clubMap = new Map<string, ClubRecord>(rows.map((c) => [c.id, c]));
 
     return clubIds.map((id) => clubMap.get(id) || null);
   });
-
 // Batch fetch comments for a set of post IDs
 export const createCommentsByPostLoader = () =>
   new SimpleDataLoader<string, CommentRecord[]>(async (postIds) => {

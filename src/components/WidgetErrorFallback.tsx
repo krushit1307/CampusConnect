@@ -1,5 +1,9 @@
 import React, { useState } from "react";
-import { AlertTriangle, RotateCcw, Bug, ChevronDown, ChevronUp } from "lucide-react";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw";
+import Bug from "lucide-react/dist/esm/icons/bug";
+import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
+import ChevronUp from "lucide-react/dist/esm/icons/chevron-up";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 

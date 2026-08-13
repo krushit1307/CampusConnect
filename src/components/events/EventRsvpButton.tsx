@@ -1,6 +1,10 @@
 // src/components/events/EventRsvpButton.tsx
 import { useEffect, useState } from "react";
-import { Loader2, Users, Clock, Check, X } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Users from "lucide-react/dist/esm/icons/users";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import Check from "lucide-react/dist/esm/icons/check";
+import X from "lucide-react/dist/esm/icons/x";
 import { Button } from "../ui/button";
 import {
   joinEventOrWaitlist,
@@ -8,7 +12,7 @@ import {
   getEventRsvpState,
   type EventRsvpState,
 } from "../../lib/waitlist";
- feature/carpool-matching-2877
+
 import { useIdempotentPayment } from "../../hooks/useIdempotentPayment";
 import { Checkbox } from "../ui/checkbox";
 import {
@@ -20,10 +24,7 @@ import {
   DialogDescription,
 } from "../ui/dialog";
 import { Label } from "../ui/label";
-
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
 import { ResumeDropzone } from "../resume/ResumeDropzone";
- main
 
 interface EventRsvpButtonProps {
   eventId: string;
@@ -61,6 +62,18 @@ export function EventRsvpButton({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
+
+
+
+  // Mocking a ticket price since database schema lacks it currently
+  const ticketPrice = 14.5;
+  const isPaidEvent = true;
+
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [roundUp, setRoundUp] = useState(false);
+  const [isAnonymous, setIsAnonymous] = useState(false);
+
+  const { processPayment, isProcessing } = useIdempotentPayment();
 
   // Mocking a ticket price since database schema lacks it currently
   const ticketPrice = 14.5;
@@ -106,8 +119,7 @@ export function EventRsvpButton({
     setError(null);
     setIsResumeModalOpen(false);
 
-    const result = await joinEventOrWaitlist(eventId, userId, resumePath);
-
+    const result = await joinEventOrWaitlist(eventId, userId, isAnonymous, resumePath);
     setLoading(false);
     if (!result.success) {
       setError(result.error);
@@ -284,9 +296,15 @@ export function EventRsvpButton({
 
   // ── Not RSVPed, spots available → RSVP NOW ──────────────────────
   return (
- feature/carpool-matching-2877
+ feature/ghost-mode-2878
     <>
       <div className="flex flex-col gap-2">
+        {renderResumeModal()}
+
+ main
+    <>
+      <div className="flex flex-col gap-2">
+        {renderResumeModal()}
         {isPaidEvent ? (
           <Button
             onClick={() => setIsCheckoutModalOpen(true)}
@@ -298,11 +316,28 @@ export function EventRsvpButton({
             Buy Ticket
           </Button>
         ) : (
-          <Button onClick={handleJoin} disabled={loading} size="lg" className="gap-2">
+          <Button onClick={handleJoinClick} disabled={loading} size="lg" className="gap-2">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
             RSVP NOW
           </Button>
         )}
+
+        <div className="flex items-start space-x-2 my-2 p-3 border rounded-md bg-slate-50 dark:bg-slate-900">
+          <Checkbox
+            id="anonymous-rsvp"
+            checked={isAnonymous}
+            onCheckedChange={(checked) => setIsAnonymous(checked as boolean)}
+          />
+          <div className="grid gap-1.5 leading-none mt-0.5">
+            <Label htmlFor="anonymous-rsvp" className="font-semibold cursor-pointer">
+              Hide my name from the public guest list
+            </Label>
+            <p className="text-xs text-slate-500">
+              Your RSVP will count toward capacity, but your identity will be masked publicly.
+            </p>
+          </div>
+        </div>
+        
         {state.max_attendees && (
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {state.attending_count} / {state.max_attendees} spots filled
@@ -352,20 +387,9 @@ export function EventRsvpButton({
         </DialogContent>
       </Dialog>
     </>
+ feature/ghost-mode-2878
 
-    <div className="flex flex-col gap-2">
-      {renderResumeModal()}
-      <Button onClick={handleJoinClick} disabled={loading} size="lg" className="gap-2">
-        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
-        RSVP NOW
-      </Button>
-      {state.max_attendees && (
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          {state.attending_count} / {state.max_attendees} spots filled
-        </p>
-      )}
-      {error && <p className="text-sm text-red-600">{error}</p>}
-    </div>
+
  main
   );
 }

@@ -1,28 +1,13 @@
--- Create push_subscriptions table
-CREATE TABLE public.push_subscriptions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    endpoint TEXT NOT NULL UNIQUE,
-    p256dh TEXT NOT NULL,
-    auth TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Enable RLS
-ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
-
--- Policies
-CREATE POLICY "Users can view their own push subscriptions"
-    ON public.push_subscriptions FOR SELECT
-    USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert their own push subscriptions"
-    ON public.push_subscriptions FOR INSERT
-    WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete their own push subscriptions"
-    ON public.push_subscriptions FOR DELETE
-    USING (auth.uid() = user_id);
-
--- Create index for faster lookups
-CREATE INDEX push_subscriptions_user_id_idx ON public.push_subscriptions(user_id);
+-- Migration: 20260803000000_push_subscriptions.sql
+-- Description: Create push_subscriptions table
+--
+-- SUPERSEDED: this was the third of three independently-committed
+-- migrations all named "push_subscriptions", each defining a
+-- conflicting shape of the same table (this one used a bare
+-- CREATE TABLE with no IF NOT EXISTS, so it would additionally fail
+-- outright with "relation already exists" once the table had already
+-- been created by an earlier migration in the chain).
+--
+-- 20260726000005 is now the single canonical definition. This file is
+-- kept as a no-op, rather than deleted, to preserve migration history.
+SELECT 1;

@@ -133,6 +133,7 @@ const EventsLayout = lazy(() => import("./pages/Events/EventsLayout"));
 const LazyEventsIndex = lazy(() => import("./pages/Events/EventsList"));
 const LazyEventDetails = lazy(() => import("./pages/Events/EventDetail"));
 const EmptyState = lazy(() => import("./pages/Events/EmptyState"));
+const EventKiosk = lazy(() => import("./routes/events.$eventId.kiosk"));
 
 // ---------------------------------------------------------------------------
 // Animated Outlet Wrapper for Framer Motion transitions with Skeleton Fallback
@@ -216,6 +217,14 @@ const router = createBrowserRouter(
             />
           </Route>
           <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
+          <Route
+            path="/events/:eventId/kiosk"
+            element={
+              <Suspense fallback={<RemoteLoadingScreen />}>
+                <EventKiosk />
+              </Suspense>
+            }
+          />
           <Route path="/events/:eventId/gantt" element={<EventGantt />} />
           {/* Events Map View with clustering */}
           <Route path="events/map" element={<EventsMapPage />} />
@@ -281,12 +290,43 @@ async function checkDatabaseConnection(): Promise<boolean> {
   }
 }
 
+function usePushNotifications() {
+  useEffect(() => {
+    async function syncToken() {
+      try {
+        const supabase = createClient();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+        // Mock FCM token generation since no real Web Push setup exists
+        const fcmToken =
+          localStorage.getItem("fcm_token") || `mock-fcm-${session.user.id}-${Date.now()}`;
+        localStorage.setItem("fcm_token", fcmToken);
+
+        await supabase
+          .from("profiles")
+          // @ts-ignore - timezone and fcm_token exist in DB
+          .update({ timezone, fcm_token: fcmToken })
+          .eq("id", session.user.id);
+      } catch (e) {
+        console.error("Failed to sync push token/timezone", e);
+      }
+    }
+    syncToken();
+  }, []);
+}
+
 export default function App() {
   const [dbStatus, setDbStatus] = useState<DbStatus>("checking");
 
+  usePushNotifications();
+
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
-
     const verify = async () => {
       const isOnline = await checkDatabaseConnection();
       setDbStatus(isOnline ? "online" : "offline");
@@ -316,7 +356,7 @@ export default function App() {
           persistOptions={{
             persister,
             dehydrateOptions: {
-              shouldDehydrateQuery: (query) => {
+              shouldDehydrateQuery: (query: any) => {
                 if (query.state.status !== "success") return false;
                 const queryKeyStr = JSON.stringify(query.queryKey).toLowerCase();
                 if (

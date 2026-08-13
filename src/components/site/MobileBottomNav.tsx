@@ -1,6 +1,11 @@
 import { useLocation } from "react-router-dom";
 import { Link } from "react-router-dom";
-import { Calendar, Users, Rss, LayoutDashboard, MessageSquare, Award } from "lucide-react";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Users from "lucide-react/dist/esm/icons/users";
+import Rss from "lucide-react/dist/esm/icons/rss";
+import LayoutDashboard from "lucide-react/dist/esm/icons/layout-dashboard";
+import MessageSquare from "lucide-react/dist/esm/icons/message-square";
+import Award from "lucide-react/dist/esm/icons/award";
 
 const links = [
   { to: "/events", label: "Events", icon: Calendar },

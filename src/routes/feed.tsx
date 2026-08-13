@@ -3,7 +3,10 @@ import { Link } from "react-router-dom";
 import { createClient } from "@/lib/supabase/client";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { SiteShell } from "@/components/site/SiteShell";
-import { Loader2, Calendar, MapPin, Sparkles } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 
 export default function Feed() {
   const supabase = createClient();
