@@ -125,7 +125,7 @@ import {
 import DynamicQRCode from "@/components/events/DynamicQRCode";
 import { isCaptchaConfigured, shouldRequireCaptcha } from "@/lib/captcha";
 import { EditEventDialog } from "@/components/EditEventDialog";
-import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import { DynamicEventPoster } from "@/components/events/DynamicEventPoster";import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
 import { ActivePoll } from "@/components/polls/ActivePoll";
 import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
@@ -523,16 +523,14 @@ export default function EventDetailsPage() {
         .select(
           `
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by, venue_id, accessibility_features,
-          clubs (name, slug),
-          event_rsvps (id, user_id),
+clubs (name, slug, logo_url, primary_color, secondary_color),          event_rsvps (id, user_id),
           attendee_count,
           venues (
             name, building, capacity, accessibility_features
           )
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by, is_high_risk, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash, latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline,
           profiles (full_name, email),
-          clubs (name, slug),
-          event_metrics (views)
+clubs (name, slug, logo_url, primary_color, secondary_color),          event_metrics (views)
         `,
         )
         .or(`short_id.eq.${eventId},id.eq.${eventId}`)
@@ -1816,10 +1814,21 @@ return (
                   {exportCsv.isPending ? "Exporting..." : "Export CSV"}
                 </Button>
                 <CreatePollDialog eventId={eventId} user={user!} onPollCreated={() => refetch()} />
-                <EditEventDialog event={event} user={user} onSuccess={() => refetch()} />
-                <Link
-                  to={`/events/${eventId}/builder`}
-                  className="neu-border neu-press flex h-12 items-center justify-center bg-sky px-5 font-mono text-sm font-bold uppercase tracking-wider text-black transition-all duration-300 hover:scale-105 active:scale-95"
+<EditEventDialog event={event} user={user} onSuccess={() => refetch()} />
+<DynamicEventPoster
+  event={{
+    id: event.id,
+    title: event.title,
+    event_date: event.event_date,
+    start_date: event.start_date,
+    end_date: event.end_date,
+    location: event.location,
+  }}
+  club={club}
+  eventUrl={shareUrl}
+/>
+<Link
+  to={`/events/${eventId}/builder`}                  className="neu-border neu-press flex h-12 items-center justify-center bg-sky px-5 font-mono text-sm font-bold uppercase tracking-wider text-black transition-all duration-300 hover:scale-105 active:scale-95"
                 >
                   Layout Builder
                 </Link>
