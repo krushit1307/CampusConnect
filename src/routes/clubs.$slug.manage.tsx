@@ -17,7 +17,11 @@ import {
   RefreshCw,
   BarChart3,
   AlertTriangle,
+  Mail,
 } from "lucide-react";
+import { NewsletterAnalyticsPanel } from "@/components/Clubs/NewsletterAnalyticsPanel";
+import { NewsletterEditor } from "@/components/Editor/NewsletterEditor";
+import type { Newsletter } from "@/types/newsletter";
 import { HoldToConfirmButton } from "@/components/ui/HoldToConfirmButton";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
@@ -65,8 +69,11 @@ export default function ClubManageRoute() {
   const [user, setUser] = useState<User | null>(null);
 
   const [activeTab, setActiveTab] = useState<
-    "settings" | "members" | "permissions" | "events" | "constitution" | "trash" | "analytics"
+    "settings" | "members" | "permissions" | "events" | "newsletters" | "constitution" | "trash" | "analytics"
   >("settings");
+
+  const [isEditingNewsletter, setIsEditingNewsletter] = useState(false);
+  const [selectedNewsletter, setSelectedNewsletter] = useState<Newsletter | null>(null);
 
   // Mock constitution versions for demo
   const oldConstitution =
@@ -510,6 +517,19 @@ export default function ClubManageRoute() {
                 <Calendar size={18} /> Events
               </button>
               <button
+                onClick={() => {
+                  setActiveTab("newsletters");
+                  setIsEditingNewsletter(false);
+                }}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "newsletters"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <Mail size={18} /> Newsletters
+              </button>
+              <button
                 onClick={() => setActiveTab("constitution")}
                 className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
                   activeTab === "constitution"
@@ -852,6 +872,31 @@ export default function ClubManageRoute() {
                     )
                   )}
                 </div>
+              </div>
+            )}
+
+            {activeTab === "newsletters" && (
+              <div>
+                {isEditingNewsletter ? (
+                  <NewsletterEditor
+                    clubId={club.id}
+                    existingNewsletter={selectedNewsletter}
+                    onSaved={() => setIsEditingNewsletter(false)}
+                    onCancel={() => setIsEditingNewsletter(false)}
+                  />
+                ) : (
+                  <NewsletterAnalyticsPanel
+                    clubId={club.id}
+                    onCreateNew={() => {
+                      setSelectedNewsletter(null);
+                      setIsEditingNewsletter(true);
+                    }}
+                    onEditNewsletter={(nl) => {
+                      setSelectedNewsletter(nl);
+                      setIsEditingNewsletter(true);
+                    }}
+                  />
+                )}
               </div>
             )}
 
