@@ -33,6 +33,21 @@ import {
 // ⚠️ Adjust if your Supabase Storage bucket for club banners has a different name
 const BUCKET_NAME = "club-banners";
 
+function legacyRoleToLevel(role: unknown): number {
+  switch (role) {
+    case "admin":
+    case "owner":
+      return 100;
+    case "organizer":
+      return 40;
+    case "member":
+    case "alumni":
+      return 10;
+    default:
+      return 0;
+  }
+}
+
 export default function ClubManageRoute() {
   const { slug = "" } = useParams();
   const navigate = useNavigate();
@@ -81,7 +96,8 @@ export default function ClubManageRoute() {
         .select(
           `
           id, name, slug, description, banner_url, logo_url, visibility, github_repo_url, social_links, promo_video_url, version,
-          club_members (id, role, status, user_id, joined_at, profiles (full_name, avatar_url, handle)),
+          club_members (id, role, role_id, status, user_id, joined_at, club_roles (id, title, permissions_level), profiles (full_name, avatar_url, handle)),
+          club_roles (id, title, permissions_level),
           events (id, title, event_date, max_attendees, event_rsvps(id))
         `,
         )
@@ -93,7 +109,12 @@ export default function ClubManageRoute() {
       const currentMember = data.club_members.find(
         (m: { user_id: string; role: string }) => m.user_id === user.id,
       );
-      if (!currentMember || currentMember.role !== "admin") {
+      const currentRoleLevel = currentMember?.role_id
+        ? data.club_roles.find((r: { id: string }) => r.id === currentMember.role_id)
+            ?.permissions_level
+        : legacyRoleToLevel(currentMember?.role);
+
+      if (!currentMember || (currentRoleLevel ?? 0) < 100) {
         throw new Error("Unauthorized");
       }
 
@@ -500,19 +521,26 @@ export default function ClubManageRoute() {
                   (m: {
                     id: string;
                     role: string;
+                    role_id: string | null;
                     status: string;
                     user_id: string;
                     joined_at: string | null;
+                    club_roles: { title: string; permissions_level: number }[] | null;
                     profiles: unknown;
                   }) => {
                     const profile = Array.isArray(m.profiles)
                       ? m.profiles[0]
                       : (m.profiles as { full_name: string; handle: string });
+                    const dynamicRole = Array.isArray(m.club_roles)
+                      ? m.club_roles[0]
+                      : m.club_roles;
                     return {
                       id: m.id,
                       full_name: profile?.full_name || null,
                       handle: profile?.handle || null,
-                      role: m.role,
+                      role: dynamicRole?.title ?? m.role,
+                      permissionsLevel: dynamicRole?.permissions_level,
+                      role_id: m.role_id,
                       status: m.status,
                       joined_at: m.joined_at || null,
                     };
@@ -527,6 +555,7 @@ export default function ClubManageRoute() {
                     <ClubMembersTable
                       members={club.club_members}
                       currentUserId={user?.id}
+                      clubRoles={club.club_roles}
                       isMutating={updateMemberMutation.isPending}
                       onApprove={(memberId) =>
                         updateMemberMutation.mutate({ memberId, updates: { status: "approved" } })
@@ -534,11 +563,8 @@ export default function ClubManageRoute() {
                       onReject={(memberId) =>
                         updateMemberMutation.mutate({ memberId, updates: { status: "rejected" } })
                       }
-                      onToggleRole={(memberId, currentRole) =>
-                        updateMemberMutation.mutate({
-                          memberId,
-                          updates: { role: currentRole === "admin" ? "member" : "admin" },
-                        })
+                      onAssignRole={(memberId, roleId) =>
+                        updateMemberMutation.mutate({ memberId, updates: { role_id: roleId } })
                       }
                     />
                   </div>

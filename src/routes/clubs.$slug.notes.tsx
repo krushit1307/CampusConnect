@@ -60,13 +60,17 @@ export default function CollaborativeNotesRoute() {
     if (!club || !currentUser) return;
     supabase
       .from("club_members")
-      .select("role")
+      .select("role_id, club_roles (permissions_level)")
       .eq("club_id", club.id)
       .eq("user_id", currentUser.id)
       .eq("status", "approved")
       .single()
       .then(({ data }) => {
-        setIsAdmin(data?.role === "admin" || data?.role === "owner");
+        const level = Array.isArray(data?.club_roles)
+          ? data?.club_roles[0]?.permissions_level
+          : (data?.club_roles as unknown as { permissions_level: number } | null)
+              ?.permissions_level;
+        setIsAdmin((level ?? 0) >= 100);
       });
   }, [club, currentUser]);
 

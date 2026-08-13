@@ -40,6 +40,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
+import { useClubPermissions } from "@/hooks/useClubPermissions";
 
 interface ClubMemberProfile {
   full_name: string;
@@ -52,6 +53,7 @@ interface ClubMember {
   role: string;
   status: string;
   user_id: string;
+  club_roles?: { title: string; permissions_level: number }[] | null;
   profiles: ClubMemberProfile | ClubMemberProfile[];
 }
 
@@ -65,6 +67,7 @@ interface MemberItem {
   name: string;
   handle: string;
   role: "admin" | "member" | "organizer" | "alumni";
+  permissionsLevel?: number;
   avatarUrl: string | null;
   userId: string;
 }
@@ -235,6 +238,8 @@ export default function ClubProfile() {
     enabled: Boolean(slug),
   });
 
+  const { can, isMember } = useClubPermissions(club?.id as string | undefined, user?.id);
+
   const joinMutation = useMutation({
     mutationFn: async () => {
       if (!user || !club) throw new Error("Must be logged in");
@@ -306,10 +311,12 @@ export default function ClubProfile() {
     : [];
   const memberList = members.map((m: ClubMember) => {
     const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
+    const dynamicRole = Array.isArray(m.club_roles) ? m.club_roles[0] : m.club_roles;
     return {
       name: profile?.full_name || "Unknown User",
       handle: profile?.handle || "",
-      role: m.role as "admin" | "member" | "organizer" | "alumni",
+      role: (dynamicRole?.title ?? m.role) as "admin" | "member" | "organizer" | "alumni",
+      permissionsLevel: dynamicRole?.permissions_level,
       avatarUrl: profile?.avatar_url || null,
       userId: m.user_id,
     };
@@ -419,7 +426,7 @@ export default function ClubProfile() {
                     Meeting Notes
                   </Link>
                 )}
-                {membership?.role === "admin" && (
+                {can("club.manage") && (
                   <Link
                     to={`/clubs/${club.slug}/manage`}
                     className="neu-border neu-press bg-brand-yellow-base px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
@@ -570,7 +577,7 @@ export default function ClubProfile() {
                                 </p>
                               )}
                             </div>
-                            <RoleBadge role={m.role} />
+                            <RoleBadge role={m.role} permissionsLevel={m.permissionsLevel} />
                           </li>
                         ))}
                       </ul>
