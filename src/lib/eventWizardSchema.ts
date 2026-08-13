@@ -166,12 +166,12 @@ export const eventWizardMasterSchema = z
     category: basicsStepSchema.shape.category,
     tags: basicsStepSchema.shape.tags,
     // Date & Location
-    startDate: dateLocationStepSchema.shape.startDate,
-    endDate: dateLocationStepSchema.shape.endDate,
-    location: dateLocationStepSchema.shape.location,
-    isVirtual: dateLocationStepSchema.shape.isVirtual,
-    meetingUrl: dateLocationStepSchema.shape.meetingUrl,
-    capacity: dateLocationStepSchema.shape.capacity,
+    startDate: dateLocationStepBaseSchema.shape.startDate,
+    endDate: dateLocationStepBaseSchema.shape.endDate,
+    location: dateLocationStepBaseSchema.shape.location,
+    isVirtual: dateLocationStepBaseSchema.shape.isVirtual,
+    meetingUrl: dateLocationStepBaseSchema.shape.meetingUrl,
+    capacity: dateLocationStepBaseSchema.shape.capacity,
     // Ticketing
     isPaid: ticketingStepBaseSchema.shape.isPaid,
     isResumeRequired: ticketingStepBaseSchema.shape.isResumeRequired,
