@@ -3,6 +3,7 @@ import {
   buildResponsiveImageSrcSet,
   getOptimizedImageUrl,
   isSafeImageSrc,
+  isSupabasePublicImage,
 } from "@/lib/imageOptimization";
 
 interface OptimizedImageProps extends Omit<
@@ -35,8 +36,6 @@ export function OptimizedImage({
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
-fix/webauthn-config-2866
-
   const isPublic = useMemo(() => isSupabasePublicImage(src), [src]);
 
   const lqipSrc = useMemo(
@@ -46,7 +45,6 @@ fix/webauthn-config-2866
         : undefined,
     [isPublic, src, width, height],
   );
->main
   const fallbackSrc = useMemo(
     () => getOptimizedImageUrl(src, { width, height, quality, resize: "cover" }),
     [src, width, height, quality],
@@ -63,8 +61,6 @@ fix/webauthn-config-2866
   const isSrcSafe = useMemo(() => isSafeImageSrc(fallbackSrc), [fallbackSrc]);
 
   if (failed || !isSrcSafe) return <>{fallback}</>;
-
- fix/webauthn-config-2866
 
   const wrapperClass = `${imageProps.className || ""} relative overflow-hidden inline-block`.trim();
 
@@ -131,8 +127,6 @@ fix/webauthn-config-2866
       </div>
     );
   }
-
- main
   return (
     <div className={wrapperClass} style={{ ...imageProps.style, width, height }}>
       {lqipSrc && (

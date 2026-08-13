@@ -102,18 +102,6 @@ const STEP_FIELDS = STEPS.map((s) => s.fields as unknown as (keyof EventFormValu
 
 type Step = 0 | 1 | 2 | 3;
 
-const defaultValues: EventFormValues = {
-  title: "",
-  description: "",
-  venue_id: "",
-  location: "",
-  accessibility_features: {
-    has_elevator: false,
-    wheelchair_ramp: false,
-    gender_neutral_restrooms: false,
-    hearing_loop: false,
-    low_sensory_zone: false,
-  },
 // Define an extended interface locally to handle the extra location field safely
 interface LocalEventFormValues extends EventFormValues {
   location?: string;
@@ -127,11 +115,19 @@ const defaultValues: LocalEventFormValues = {
   title: "",
   description: "",
   category: "",
+  venue_id: "",
   location: "",
   latitude: null,
   longitude: null,
   geofencingEnabled: false,
   geofenceRadiusMeters: 100,
+  accessibility_features: {
+    has_elevator: false,
+    wheelchair_ramp: false,
+    gender_neutral_restrooms: false,
+    hearing_loop: false,
+    low_sensory_zone: false,
+  },
   startDate: "",
   endDate: "",
   alcoholPresent: false,
@@ -160,7 +156,6 @@ export function CreateEventDialog({
   const supabase = createClient();
   const isOnline = useOnlineStatus();
 
-  const form = useForm<EventFormValues>({
   // Issue #2082: Strip time to block past dates properly without timezone bugs
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -494,8 +489,7 @@ export function CreateEventDialog({
           </button>
         )}
       </DialogTrigger>
-      <DialogContent className="neu-border neu-shadow bg-violet-500 sm:max-w-md text-black max-h-[90vh] overflow-y-auto">
-      <DialogContent className="neu-border neu-shadow bg-cream sm:max-w-md text-black">
+      <DialogContent className="neu-border neu-shadow bg-cream sm:max-w-md text-black max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between gap-2">
             <DialogTitle className="text-black">Create a new event</DialogTitle>
@@ -695,10 +689,7 @@ export function CreateEventDialog({
                   </div>
                 )}
 
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+
 
             <FormField
               control={form.control}

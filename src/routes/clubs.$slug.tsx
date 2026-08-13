@@ -50,6 +50,7 @@ import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
 import { getClubThemeVars } from "@/lib/clubTheming";
 import { ClubHeader } from "@/components/Clubs/ClubHeader";
 import { ClubJobsSection } from "@/components/Clubs/ClubJobsSection";
+import { CrowdfundingCampaignSection } from "@/components/Clubs/Crowdfunding/CrowdfundingCampaignSection";
 import { FlipCard } from "@/components/ui/FlipCard";
 import { useSearchParams } from "react-router-dom";
 
@@ -963,6 +964,8 @@ export default function ClubProfile() {
                         </a>
                       )}
                     </div>
+
+                    <CrowdfundingCampaignSection clubId={club.id} />
 
                     {isAdmin && (
                       <div className="neu-border mt-8 border-2 border-black bg-white p-6 dark:bg-zinc-900 dark:border-cream">

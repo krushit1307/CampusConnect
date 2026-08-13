@@ -32,7 +32,9 @@ import { isValidHexColor } from "@/lib/clubTheming";
 import { sanitizeHtml } from "@/lib/sanitizeHtml";
 import ClubAnalyticsDashboard from "@/components/clubs/ClubAnalyticsDashboard";
 import PermissionsGrid from "@/components/Clubs/PermissionsGrid";
-import ClubRenewalWizard from "@/components/ClubRenewalWizard"; // <-- NEW IMPORT FOR OUR WIZARD
+import ClubRenewalWizard from "@/components/ClubRenewalWizard";
+import { ClubFinancesTab } from "@/components/Clubs/ClubFinancesTab";
+import DollarSign from "lucide-react/dist/esm/icons/dollar-sign";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -552,6 +554,16 @@ export default function ClubManageRoute() {
               >
                 <BarChart3 size={18} /> Analytics
               </button>
+              <button
+                onClick={() => setActiveTab("finances")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "finances"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <DollarSign size={18} /> Finances
+              </button>
             </nav>
           </aside>
 
@@ -959,7 +971,13 @@ export default function ClubManageRoute() {
                 <DiffViewer oldText={oldConstitution} newText={newConstitution} />
               </div>
             )}
-            {activeTab === "analytics" && <ClubAnalyticsDashboard clubId={club.id} />}
+            {activeTab === "analytics" && (
+              <ClubAnalyticsDashboard clubId={club.id} />
+            )}
+
+            {activeTab === "finances" && (
+              <ClubFinancesTab clubId={club.id} />
+            )}
           </main>
         </div>
       </div>

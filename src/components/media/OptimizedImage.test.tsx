@@ -4,22 +4,15 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { OptimizedImage } from "./OptimizedImage";
 
 describe("OptimizedImage Component", () => {
- fix/webauthn-config-2866
-  it("renders public Supabase image using the Edge Function URL", () => {
-
   it("renders public Supabase image with LQIP and uses Edge Function URL format", () => {
- main
     const src = "https://example.supabase.co/storage/v1/object/public/event-banners/banner.png";
     render(<OptimizedImage src={src} alt="Test Banner" width={400} height={300} />);
-
- fix/webauthn-config-2866
 
     // Verify LQIP placeholder image exists (it's hidden/blur image)
     const images = screen.getAllByRole("img", { hidden: true });
     expect(images.length).toBeGreaterThanOrEqual(1);
 
     // Verify main image is rendered correctly
- main
     const imgEl = screen.getByRole("img", { name: "Test Banner" });
     expect(imgEl).toBeInTheDocument();
     expect(imgEl).toHaveAttribute("src");
