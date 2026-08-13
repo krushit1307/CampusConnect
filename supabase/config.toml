@@ -433,3 +433,7 @@ verify_jwt = false
 [functions.webauthn-authenticate]
 enabled = true
 verify_jwt = false
+
+[functions.smart-auto-categorize]
+enabled = true
+verify_jwt = false

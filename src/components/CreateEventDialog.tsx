@@ -150,10 +150,13 @@ export function CreateEventDialog({
   /** "fab" renders a compact circular icon-only trigger for use inside ScrollAwareFab (#1232) */
   variant?: "default" | "fab";
 }) {
-  const [open, setOpen] = useState(false);
-  const [step, setStep] = useState<Step>(0);
-  const [clubId, setClubId] = useState<string | null>(null);
-  const supabase = createClient();
+const [open, setOpen] = useState(false);
+const [step, setStep] = useState<Step>(0);
+const [clubId, setClubId] = useState<string | null>(null);
+const [aiSuggestions, setAiSuggestions] = useState<
+  { id: string; name: string }[]
+>([]);
+const [isSuggestingCategories, setIsSuggestingCategories] = useState(false);  const supabase = createClient();
   const isOnline = useOnlineStatus();
 
   // Issue #2082: Strip time to block past dates properly without timezone bugs
@@ -204,11 +207,54 @@ export function CreateEventDialog({
     },
   });
 
-  const watchedLocation = form.watch("location");
-  const watchedDescription = form.watch("description");
-  const watchedVenueId = form.watch("venue_id");
-  const control = form.control as never;
+const watchedLocation = form.watch("location");
+const watchedTitle = form.watch("title");
+const watchedDescription = form.watch("description");
+const watchedVenueId = form.watch("venue_id");
+const control = form.control as never;
 
+useEffect(() => {
+  const title = String(watchedTitle || "").trim();
+  const description = String(watchedDescription || "").trim();
+
+  if (!title && !description) {
+    setAiSuggestions([]);
+    return;
+  }
+
+  const timer = window.setTimeout(async () => {
+    setIsSuggestingCategories(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "smart-auto-categorize",
+        {
+          body: {
+            title,
+            description,
+            club_id: clubId,
+            suggest_only: true,
+          },
+        },
+      );
+
+      if (error) {
+        console.warn("AI category suggestion failed:", error);
+        setAiSuggestions([]);
+        return;
+      }
+
+      setAiSuggestions(data?.categories || []);
+    } catch (error) {
+      console.warn("AI category suggestion failed:", error);
+      setAiSuggestions([]);
+    } finally {
+      setIsSuggestingCategories(false);
+    }
+  }, 800);
+
+  return () => window.clearTimeout(timer);
+}, [watchedTitle, watchedDescription, clubId]);
   const isUndoingRedoingRef = useRef(false);
   const {
     state: undoableState,
@@ -574,8 +620,7 @@ export function CreateEventDialog({
                   name="category"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Category</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+<FormLabel>Category</FormLabel>                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select a category" />
@@ -593,6 +638,59 @@ export function CreateEventDialog({
                     </FormItem>
                   )}
                 />
+                {(isSuggestingCategories || aiSuggestions.length > 0) && (
+  <div className="rounded-lg border-2 border-dashed border-black/30 bg-yellow-50 p-4">
+    <div className="mb-2 flex items-center justify-between">
+      <div>
+        <p className="font-mono text-xs font-bold uppercase text-black">
+          AI Suggested Tags
+        </p>
+        <p className="text-xs text-black/60">
+          Suggestions are based on the event title and description.
+        </p>
+      </div>
+
+      {isSuggestingCategories && (
+        <span className="text-xs font-mono font-bold">
+          Analyzing...
+        </span>
+      )}
+    </div>
+
+    {!isSuggestingCategories && aiSuggestions.length > 0 && (
+      <div className="flex flex-wrap gap-2">
+        {aiSuggestions.map((suggestion) => (
+          <button
+            key={suggestion.id}
+            type="button"
+            onClick={() => {
+              const currentTags = form.getValues("tags") || [];
+
+              form.setValue("category", suggestion.id, {
+                shouldValidate: true,
+              });
+
+              form.setValue(
+                "tags",
+                [...new Set([...currentTags, suggestion.name])].slice(0, 10),
+                { shouldValidate: true },
+              );
+            }}
+            className="rounded-full border-2 border-black bg-white px-3 py-1 text-xs font-bold hover:bg-black hover:text-white"
+          >
+            {suggestion.name}
+          </button>
+        ))}
+      </div>
+    )}
+
+    {!isSuggestingCategories && aiSuggestions.length > 0 && (
+      <p className="mt-3 text-xs text-black/50">
+        Click a suggestion to use it. You can still change the category or tags manually.
+      </p>
+    )}
+  </div>
+)}
                 <FormField
                   control={control}
                   name="tags"
