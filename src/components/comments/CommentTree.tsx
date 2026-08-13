@@ -1,17 +1,18 @@
 // =============================================================================
 // Component: CommentTree
 // Issue: #2388 - Implement Hierarchical Trees (ltree) for deeply nested comments
-// Description: Recursively renders the nested comment tree UI with proper
-// indentation, dark mode support, and responsive design.
+// Issue: #3005 - Club Affiliation Badges System for Forum & Chat
 // =============================================================================
 
 import React from "react";
+import { ClubAffiliationBadges } from "@/components/ClubAffiliationBadges";
 
 interface Comment {
   id: string;
   author_id: string;
   content: string;
   created_at: string;
+  display_badges?: boolean;
   children?: Comment[];
 }
 
@@ -68,10 +69,15 @@ export const CommentTree: React.FC<CommentTreeProps> = ({ comment, depth = 0 }) 
   return (
     <div className={`${getIndentClass(currentDepth)} mt-3`}>
       <div className={`border-l-2 ${getBorderColor(currentDepth)} pl-4 py-2 transition-colors`}>
-        <div className="flex items-center gap-2 mb-1">
+        <div className="flex items-center gap-2 flex-wrap mb-1">
           <span className="font-semibold text-sm text-gray-900 dark:text-white">
             User_{comment.author_id.substring(0, 4)}
           </span>
+          <ClubAffiliationBadges
+            userId={comment.author_id}
+            displayBadges={comment.display_badges !== false}
+            size="xs"
+          />
           <span className="text-xs text-gray-500 dark:text-gray-400">
             {formatDate(comment.created_at)}
           </span>

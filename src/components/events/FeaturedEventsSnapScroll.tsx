@@ -1,6 +1,10 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Calendar, MapPin, ChevronDown, Sparkles, ArrowRight } from "lucide-react";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
 import { SnapScrollContainer, SnapSection } from "@/components/ui/SnapScrollContainer";
 import { formatDate } from "@/lib/utils";
 import { FeaturedEvent } from "@/components/home/featuredGrid";

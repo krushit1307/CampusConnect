@@ -5,7 +5,12 @@ import { createClient } from "@/lib/supabase/client";
 import { SiteShell } from "@/components/site/SiteShell";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Sparkles, Users, ArrowRight, ArrowLeft, Check, Loader2 } from "lucide-react";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Users from "lucide-react/dist/esm/icons/users";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Check from "lucide-react/dist/esm/icons/check";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 
 interface RecommendedClub {
   club_id: string;

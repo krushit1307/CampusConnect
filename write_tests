@@ -1,0 +1,29 @@
+--- a/write_tests
+@@ -0,0 +1,30 @@
++# Test file for Volunteer Shift Management module in CampusConnect
++
++import unittest
++from volunteer_shift_management import VolunteerShiftManager
++
++class TestVolunteerShiftManager(unittest.TestCase):
++    def setUp(self):
++        self.manager = VolunteerShiftManager()
++
++    def test_schedule_shift(self):
++        shift_info = {
++            'date': '2023-10-01',
++            'time': '10:00 AM',
++            'duration': 2,
++            'location': 'Library'
++        }
++        self.manager.schedule_shift(shift_info)
++        self.assertIn(shift_info, self.manager.shifts)
++
++    def test_assign_volunteer(self):
++        shift_id = 1
++        volunteer_name = 'John Doe'
++        self.manager.assign_volunteer(shift_id, volunteer_name)
++        self.assertIn((shift_id, volunteer_name), self.manager.assignments)
++
++if __name__ == '__main__':
++    unittest.main()

@@ -17,7 +17,9 @@ import {
   RefreshCw,
   BarChart3,
   AlertTriangle,
+  ClipboardList,
 } from "lucide-react";
+import { EventLogisticsChecklist } from "@/components/events/EventLogisticsChecklist";
 import { HoldToConfirmButton } from "@/components/ui/HoldToConfirmButton";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
@@ -30,7 +32,9 @@ import { isValidHexColor } from "@/lib/clubTheming";
 import { sanitizeHtml } from "@/lib/sanitizeHtml";
 import ClubAnalyticsDashboard from "@/components/clubs/ClubAnalyticsDashboard";
 import PermissionsGrid from "@/components/Clubs/PermissionsGrid";
-import ClubRenewalWizard from "@/components/ClubRenewalWizard"; // <-- NEW IMPORT FOR OUR WIZARD
+import ClubRenewalWizard from "@/components/ClubRenewalWizard";
+import { ClubFinancesTab } from "@/components/Clubs/ClubFinancesTab";
+import DollarSign from "lucide-react/dist/esm/icons/dollar-sign";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -64,7 +68,7 @@ export default function ClubManageRoute() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
 
-  const [activeTab, setActiveTab] = useState<
+const [activeTab, setActiveTab] = useState<
     | "settings"
     | "members"
     | "permissions"
@@ -74,6 +78,7 @@ export default function ClubManageRoute() {
     | "analytics"
     | "milestones"
   >("settings");
+  const [selectedLogisticsEventId, setSelectedLogisticsEventId] = useState<string>("");
 
   // Mock constitution versions for demo
   const oldConstitution =
@@ -517,6 +522,16 @@ export default function ClubManageRoute() {
                 <Calendar size={18} /> Events
               </button>
               <button
+                onClick={() => setActiveTab("logistics")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "logistics"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <ClipboardList size={18} /> Logistics
+              </button>
+              <button
                 onClick={() => setActiveTab("constitution")}
                 className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
                   activeTab === "constitution"
@@ -555,6 +570,16 @@ export default function ClubManageRoute() {
                 }`}
               >
                 <BarChart3 size={18} /> Analytics
+              </button>
+              <button
+                onClick={() => setActiveTab("finances")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "finances"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <DollarSign size={18} /> Finances
               </button>
             </nav>
           </aside>
@@ -872,6 +897,39 @@ export default function ClubManageRoute() {
               </div>
             )}
 
+            {activeTab === "logistics" && (
+              <div className="space-y-6">
+                {club.events && club.events.length > 0 ? (
+                  <>
+                    <div className="flex items-center gap-3 neu-border p-4 bg-white dark:bg-zinc-900 font-mono text-xs">
+                      <span className="font-bold uppercase">Select Event:</span>
+                      <select
+                        value={selectedLogisticsEventId || club.events[0]?.id || ""}
+                        onChange={(e) => setSelectedLogisticsEventId(e.target.value)}
+                        className="p-2 neu-border bg-white dark:bg-zinc-800 text-black dark:text-white font-bold"
+                      >
+                        {club.events.map((e: { id: string; title: string }) => (
+                          <option key={e.id} value={e.id}>
+                            {e.title}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <EventLogisticsChecklist
+                      eventId={selectedLogisticsEventId || club.events[0]?.id || ""}
+                      clubId={club.id}
+                      eventData={club.events.find((e: { id: string }) => e.id === (selectedLogisticsEventId || club.events[0]?.id))}
+                    />
+                  </>
+                ) : (
+                  <div className="neu-border p-8 bg-white text-center font-mono text-xs text-gray-500">
+                    No active events found for this club. Create an event to start managing logistics tasks.
+                  </div>
+                )}
+              </div>
+            )}
+
             {activeTab === "trash" && (
               <div className="neu-border bg-white p-6 space-y-6">
                 <h2 className="font-display text-2xl font-bold border-b-2 border-black pb-2 text-red-600 flex items-center gap-2">
@@ -930,7 +988,13 @@ export default function ClubManageRoute() {
                 <DiffViewer oldText={oldConstitution} newText={newConstitution} />
               </div>
             )}
-            {activeTab === "analytics" && <ClubAnalyticsDashboard clubId={club.id} />}
+            {activeTab === "analytics" && (
+              <ClubAnalyticsDashboard clubId={club.id} />
+            )}
+
+            {activeTab === "finances" && (
+              <ClubFinancesTab clubId={club.id} />
+            )}
           </main>
         </div>
       </div>

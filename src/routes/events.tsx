@@ -9,7 +9,7 @@ import { User } from "@supabase/supabase-js";
 import { EventCard } from "@/components/EventCard";
 import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { toast } from "sonner";
-import { Search } from "lucide-react";
+import Search from "lucide-react/dist/esm/icons/search";
 import { useDebounce } from "@/hooks/use-debounce";
 import { AutocompleteDropdown, AutocompleteResult } from "@/components/AutocompleteDropdown";
 import { useNavigate } from "react-router-dom";

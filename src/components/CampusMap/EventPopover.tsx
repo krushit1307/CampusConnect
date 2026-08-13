@@ -2,7 +2,10 @@
 import React from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { Button } from "../ui/button";
-import { Calendar, MapPin, Users, ArrowRight } from "lucide-react";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Users from "lucide-react/dist/esm/icons/users";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
 import { formatDateTimeShort } from "@/lib/dateFormatter";
 import { cn } from "../../lib/utils";
 

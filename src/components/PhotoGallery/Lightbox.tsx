@@ -3,7 +3,11 @@ import React, { useEffect, useCallback } from "react";
 import { GalleryPhoto } from "../../types/gallery";
 import { Dialog, DialogContent } from "../ui/dialog";
 import { Button } from "../ui/button";
-import { X, ChevronLeft, ChevronRight, Download, Info } from "lucide-react";
+import X from "lucide-react/dist/esm/icons/x";
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import Download from "lucide-react/dist/esm/icons/download";
+import Info from "lucide-react/dist/esm/icons/info";
 import { formatDateShort } from "@/lib/dateFormatter";
 import { cn } from "../../lib/utils";
 

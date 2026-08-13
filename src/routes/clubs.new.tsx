@@ -3,7 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, UseFormReturn } from "react-hook-form";
 import { toast } from "sonner";
-import { Plus, Trash2, Mail, UserCheck } from "lucide-react";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import Mail from "lucide-react/dist/esm/icons/mail";
+import UserCheck from "lucide-react/dist/esm/icons/user-check";
 
 import { createClient } from "@/lib/supabase/client";
 import { sanitizeHtml } from "@/lib/sanitizeHtml";

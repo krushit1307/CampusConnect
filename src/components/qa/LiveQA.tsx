@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { useLiveQA } from "@/hooks/useLiveQA";
 import { toast } from "sonner";
-import { MessageSquare, Play, CheckCircle, Send, Radio } from "lucide-react";
+import MessageSquare from "lucide-react/dist/esm/icons/message-square";
+import Play from "lucide-react/dist/esm/icons/play";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import Send from "lucide-react/dist/esm/icons/send";
+import Radio from "lucide-react/dist/esm/icons/radio";
 
 type LiveQAProps = {
   eventId: string;

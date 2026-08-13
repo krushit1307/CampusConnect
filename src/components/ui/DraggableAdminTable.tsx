@@ -23,7 +23,11 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, SlidersHorizontal, ArrowUp, ArrowDown, X } from "lucide-react";
+import GripVertical from "lucide-react/dist/esm/icons/grip-vertical";
+import SlidersHorizontal from "lucide-react/dist/esm/icons/sliders-horizontal";
+import ArrowUp from "lucide-react/dist/esm/icons/arrow-up";
+import ArrowDown from "lucide-react/dist/esm/icons/arrow-down";
+import X from "lucide-react/dist/esm/icons/x";
 
 export interface DraggableAdminTableProps<TData> {
   tableId: string;

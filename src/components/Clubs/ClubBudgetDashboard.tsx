@@ -1,16 +1,14 @@
 import { useState } from "react";
 import { useClubBudget } from "@/hooks/useClubBudget";
-import {
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-  PiggyBank,
-  Plus,
-  Receipt,
-  Clock,
-  CheckCircle,
-  XCircle,
-} from "lucide-react";
+import DollarSign from "lucide-react/dist/esm/icons/dollar-sign";
+import TrendingUp from "lucide-react/dist/esm/icons/trending-up";
+import TrendingDown from "lucide-react/dist/esm/icons/trending-down";
+import PiggyBank from "lucide-react/dist/esm/icons/piggy-bank";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Receipt from "lucide-react/dist/esm/icons/receipt";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import XCircle from "lucide-react/dist/esm/icons/xcircle";
 import { toast } from "sonner";
 
 interface ClubBudgetDashboardProps {

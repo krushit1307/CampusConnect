@@ -1,7 +1,12 @@
 // src/components/search/Omnibar.tsx
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Calendar, Users, User, Loader2, X } from "lucide-react";
+import Search from "lucide-react/dist/esm/icons/search";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Users from "lucide-react/dist/esm/icons/users";
+import User from "lucide-react/dist/esm/icons/user";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import X from "lucide-react/dist/esm/icons/x";
 import { unifiedSearch, type UnifiedSearchResults, type MeiliSearchHit } from "@/lib/meilisearch";
 
 const DEBOUNCE_MS = 200;

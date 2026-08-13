@@ -1,6 +1,9 @@
 // src/components/notifications/NotificationCenterDropdown.tsx
 import { useEffect, useRef, useState } from "react";
-import { Bell, Check, CheckCheck, Loader2 } from "lucide-react";
+import Bell from "lucide-react/dist/esm/icons/bell";
+import Check from "lucide-react/dist/esm/icons/check";
+import CheckCheck from "lucide-react/dist/esm/icons/check-check";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useNotificationCenterStore } from "@/store/useNotificationCenterStore";

@@ -2,12 +2,18 @@ import { useNavigate, useBlocker } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
-import { Camera, Check, Loader2, X, Plus, CreditCard } from "lucide-react";
+import Camera from "lucide-react/dist/esm/icons/camera";
+import Check from "lucide-react/dist/esm/icons/check";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import X from "lucide-react/dist/esm/icons/x";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import CreditCard from "lucide-react/dist/esm/icons/credit-card";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { Switch } from "@/components/ui/switch";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
@@ -32,6 +38,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
+import { AutoTaggingSettings } from "@/components/AutoTaggingSettings";
 
 const FONT_SIZE_KEY = "campusconnect-font-size";
 
@@ -83,6 +90,8 @@ export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [handleAvailability, setHandleAvailability] = useState<HandleAvailability>("idle");
+  const [personalEmail, setPersonalEmail] = useState("");
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const [handleFeedback, setHandleFeedback] = useState<string | null>(null);
   const handleCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [borderThickness, setBorderThickness] = useState(4);
@@ -215,6 +224,37 @@ export default function SettingsPage() {
       toast.error(error.message || "Failed to request data takeout");
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleAlumniTransition = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !personalEmail.trim()) return;
+    setIsTransitioning(true);
+    try {
+      const { error: authError } = await supabase.auth.updateUser({
+        email: personalEmail.trim(),
+      });
+      if (authError) throw authError;
+
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({
+          role: "alumni",
+          alumni_transitioned_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
+
+      if (profileError) throw profileError;
+
+      toast.success(
+        "Alumni transition initiated! A confirmation link has been sent to your new email. Please confirm it to complete the authentication change.",
+      );
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to initiate alumni transition.");
+    } finally {
+      setIsTransitioning(false);
     }
   };
 
@@ -952,6 +992,10 @@ export default function SettingsPage() {
             </div>
           </Panel>
 
+          <Panel title="Language Preferences">
+            <LanguageSwitcher />
+          </Panel>
+
           <Panel title="Text Size">
             <div className="flex items-center gap-4">
               <button
@@ -985,6 +1029,10 @@ export default function SettingsPage() {
             <Toggle label="Email me about upcoming RSVPs" defaultChecked />
             <Toggle label="Weekly digest of club activity" defaultChecked />
             <Toggle label="New certificates" />
+          </Panel>
+
+          <Panel title="Auto-Tagging (Facial Recognition)">
+            <AutoTaggingSettings user={user} />
           </Panel>
 
           <Panel title="Privacy / Account">
@@ -1042,6 +1090,79 @@ export default function SettingsPage() {
               )}
             </div>
           </Panel>
+
+          {profile?.role !== "alumni" && (
+            <Panel title="Alumni Account Transition" tone="bg-[#e0f2fe]">
+              <div className="space-y-4">
+                <p className="font-mono text-xs text-gray-700">
+                  Graduating soon? Transition your account to an Alumni status. This allows you to
+                  retain your profile using a personal email address (like Gmail) after your
+                  university email is deactivated.
+                </p>
+                <div className="bg-amber-50 border-2 border-black p-3 font-mono text-[10px] text-amber-800">
+                  ⚠️ Note: A 3-month grace period begins immediately, during which you will retain
+                  full student capabilities. After 3 months, you will be restricted from RSVPing to
+                  student-only events or holding active club executive roles.
+                </div>
+                <form onSubmit={handleAlumniTransition} className="space-y-4">
+                  <div className="space-y-1">
+                    <label htmlFor="personalEmail" className="eyebrow font-bold text-black">
+                      New Personal Email Address
+                    </label>
+                    <input
+                      id="personalEmail"
+                      type="email"
+                      required
+                      placeholder="your.name@gmail.com"
+                      value={personalEmail}
+                      onChange={(e) => setPersonalEmail(e.target.value)}
+                      className="w-full border-2 border-black bg-white px-3 py-2 font-mono text-sm outline-none focus:bg-lime/20"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isTransitioning || !personalEmail}
+                    className="neu-border neu-press bg-[#0284c7] hover:bg-[#0369a1] text-white px-4 py-2 font-mono text-xs font-bold uppercase disabled:opacity-50"
+                  >
+                    {isTransitioning ? "Transitioning..." : "Transition Account to Alumni"}
+                  </button>
+                </form>
+              </div>
+            </Panel>
+          )}
+
+          {profile?.role === "alumni" && (
+            <Panel title="Alumni Account Status" tone="bg-[#f0fdf4]">
+              <div className="space-y-3 font-mono text-xs text-gray-700">
+                <p className="font-bold text-emerald-800 flex items-center gap-1.5">
+                  ✓ Alumni Status Active
+                </p>
+                <p>
+                  Transitioned on:{" "}
+                  <strong>
+                    {profile.alumni_transitioned_at
+                      ? new Date(profile.alumni_transitioned_at).toLocaleDateString()
+                      : "Recently"}
+                  </strong>
+                </p>
+                {profile.alumni_transitioned_at && (
+                  <p>
+                    Grace Period Status:{" "}
+                    {new Date(profile.alumni_transitioned_at).getTime() + 90 * 24 * 60 * 60 * 1000 >
+                    Date.now() ? (
+                      <span className="text-blue-700 font-bold">
+                        Active (Student privileges remain for summer handover)
+                      </span>
+                    ) : (
+                      <span className="text-gray-500 font-bold">
+                        Expired (Standard Alumni restrictions active)
+                      </span>
+                    )}
+                  </p>
+                )}
+              </div>
+            </Panel>
+          )}
 
           <Panel title="Danger zone" tone="bg-red-50">
             <button

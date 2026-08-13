@@ -1,6 +1,11 @@
 // src/components/events/AddToCalendarDropdown.tsx
 import { useEffect, useRef, useState } from "react";
-import { Calendar, ChevronDown, Apple, Globe, Check, Loader2 } from "lucide-react";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
+import Apple from "lucide-react/dist/esm/icons/apple";
+import Globe from "lucide-react/dist/esm/icons/globe";
+import Check from "lucide-react/dist/esm/icons/check";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import {
   downloadIcsFile,
   getGoogleCalendarUrl,

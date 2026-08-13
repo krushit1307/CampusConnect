@@ -8,7 +8,7 @@ import {
   type CollaborationUser,
   uint8ToBase64,
 } from "@/hooks/useCollaborativeEditor";
-import { History } from "lucide-react";
+import History from "lucide-react/dist/esm/icons/history";
 import { Button } from "@/components/ui/button";
 import { NoteVersionHistoryModal } from "@/components/Notes/NoteVersionHistoryModal";
 import * as Y from "yjs";

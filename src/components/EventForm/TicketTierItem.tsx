@@ -7,7 +7,11 @@ import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
-import { Trash2, GripVertical, DollarSign, Users, Tag } from "lucide-react";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import GripVertical from "lucide-react/dist/esm/icons/grip-vertical";
+import DollarSign from "lucide-react/dist/esm/icons/dollar-sign";
+import Users from "lucide-react/dist/esm/icons/users";
+import Tag from "lucide-react/dist/esm/icons/tag";
 import { cn } from "../../lib/utils";
 
 interface TicketTierItemProps {

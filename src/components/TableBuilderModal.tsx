@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { Plus, Minus, Table as TableIcon } from "lucide-react";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Minus from "lucide-react/dist/esm/icons/minus";
+import TableIcon from "lucide-react/dist/esm/icons/table";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import {

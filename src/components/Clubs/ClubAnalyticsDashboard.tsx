@@ -13,16 +13,14 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import {
-  TrendingUp,
-  Users,
-  Eye,
-  MessageSquare,
-  CalendarCheck,
-  Calendar,
-  Filter,
-  BarChart2,
-} from "lucide-react";
+import TrendingUp from "lucide-react/dist/esm/icons/trending-up";
+import Users from "lucide-react/dist/esm/icons/users";
+import Eye from "lucide-react/dist/esm/icons/eye";
+import MessageSquare from "lucide-react/dist/esm/icons/message-square";
+import CalendarCheck from "lucide-react/dist/esm/icons/calendar-check";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Filter from "lucide-react/dist/esm/icons/filter";
+import BarChart2 from "lucide-react/dist/esm/icons/bar-chart-2";
 import { toast } from "sonner";
 
 // ─── Types ─────────────────────────────────────────────────────────────────

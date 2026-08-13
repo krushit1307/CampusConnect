@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
-import { X } from "lucide-react";
+import X from "lucide-react/dist/esm/icons/x";
 import { cn } from "@/lib/utils";
 
 export interface BottomSheetProps {

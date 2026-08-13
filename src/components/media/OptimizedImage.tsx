@@ -45,7 +45,6 @@ export function OptimizedImage({
         : undefined,
     [isPublic, src, width, height],
   );
-
   const fallbackSrc = useMemo(
     () => getOptimizedImageUrl(src, { width, height, quality, resize: "cover" }),
     [src, width, height, quality],
@@ -128,7 +127,6 @@ export function OptimizedImage({
       </div>
     );
   }
-
   return (
     <div className={wrapperClass} style={{ ...imageProps.style, width, height }}>
       {lqipSrc && (

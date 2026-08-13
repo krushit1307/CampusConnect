@@ -7,7 +7,10 @@ import {
 } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { useState } from "react";
-import { Calendar, Share2, Link as LinkIcon, Bookmark } from "lucide-react";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Share2 from "lucide-react/dist/esm/icons/share-2";
+import LinkIcon from "lucide-react/dist/esm/icons/link";
+import Bookmark from "lucide-react/dist/esm/icons/bookmark";
 import { toast } from "sonner";
 import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";
