@@ -982,8 +982,23 @@ export default function ClubManageRoute() {
               </div>
             )}
             {activeTab === "analytics" && (
-              <ClubAnalyticsDashboard clubId={club.id} />
-            )}
+  <>
+    <div className="mb-4 flex justify-end">
+      <button
+        type="button"
+        onClick={() =>
+          navigate(`/clubs/${club.slug}/series-analytics`)
+        }
+        className="neu-border neu-press flex items-center gap-2 bg-yellow-200 px-4 py-2 font-mono text-xs font-bold uppercase"
+      >
+        <BarChart3 size={16} />
+        Series Analytics
+      </button>
+    </div>
+
+    <ClubAnalyticsDashboard clubId={club.id} />
+  </>
+)}
 
             {activeTab === "finances" && (
               <ClubFinancesTab clubId={club.id} />

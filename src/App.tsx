@@ -92,7 +92,9 @@ const ClubsIndex = lazy(() => import("./routes/clubs.index"));
 const ClubNew = lazy(() => import("./routes/clubs.new"));
 const ClubDetails = lazy(() => import("./routes/clubs.$slug"));
 const ClubManageRoute = lazy(() => import("./routes/clubs.$slug.manage"));
-const ClubNotesRoute = lazy(() => import("./routes/clubs.$slug.notes"));
+const ClubSeriesAnalyticsRoute = lazy(
+  () => import("./routes/clubs.$slug.series-analytics"),
+);const ClubNotesRoute = lazy(() => import("./routes/clubs.$slug.notes"));
 const ClubArticlesRoute = lazy(() => import("./routes/clubs.$slug.articles"));
 const ClubArticleDetailsRoute = lazy(() => import("./routes/clubs.$slug.articles.$articleId"));
 const ClubsLayout = lazy(() => import("./routes/clubs"));
@@ -179,6 +181,7 @@ const router = createBrowserRouter(
             <Route path="new" element={<ClubNew />} />
             <Route path=":slug" element={<ClubDetails />} />
             <Route path=":slug/manage" element={<ClubManageRoute />} />
+            <Route path=":slug/series-analytics" element={<ClubSeriesAnalyticsRoute />} />
             <Route path=":slug/notes" element={<ClubNotesRoute />} />
             <Route path=":slug/articles" element={<ClubArticlesRoute />} />
             <Route path=":slug/articles/:articleId" element={<ClubArticleDetailsRoute />} />
