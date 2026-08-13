@@ -27,8 +27,8 @@ import { RouteSkeleton } from "./components/RouteSkeleton";
 import { BreadcrumbProvider } from "@/components/BreadcrumbsContext";
 import AriaAnnouncer from "@/components/accessibility/AriaAnnouncer";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
-import { LoginRecoveryModal } from "@/components/auth/LoginRecoveryModal";
-import { MfaChallengeGuard } from "@/components/auth/MfaChallengeGuard";
+import { LoginRecoveryModal } from "@/components/Auth/LoginRecoveryModal";
+import { MfaChallengeGuard } from "@/components/Auth/MfaChallengeGuard";
 function RemoteLoadingScreen() {
   return (
     <div className="flex h-screen w-full items-center justify-center bg-slate-950 text-white">
@@ -132,6 +132,7 @@ const EventsLayout = lazy(() => import("./pages/Events/EventsLayout"));
 const LazyEventsIndex = lazy(() => import("./pages/Events/EventsList"));
 const LazyEventDetails = lazy(() => import("./pages/Events/EventDetail"));
 const EmptyState = lazy(() => import("./pages/Events/EmptyState"));
+const EventKiosk = lazy(() => import("./routes/events.$eventId.kiosk"));
 
 // ---------------------------------------------------------------------------
 // Animated Outlet Wrapper for Framer Motion transitions with Skeleton Fallback
@@ -215,6 +216,14 @@ const router = createBrowserRouter(
             />
           </Route>
           <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
+          <Route
+            path="/events/:eventId/kiosk"
+            element={
+              <Suspense fallback={<RemoteLoadingScreen />}>
+                <EventKiosk />
+              </Suspense>
+            }
+          />
           <Route path="/events/:eventId/gantt" element={<EventGantt />} />
           {/* Events Map View with clustering */}
           <Route path="events/map" element={<EventsMapPage />} />
@@ -298,6 +307,7 @@ function usePushNotifications() {
 
         await supabase
           .from("profiles")
+          // @ts-ignore - timezone and fcm_token exist in DB
           .update({ timezone, fcm_token: fcmToken })
           .eq("id", session.user.id);
       } catch (e) {
@@ -311,14 +321,10 @@ function usePushNotifications() {
 export default function App() {
   const [dbStatus, setDbStatus] = useState<DbStatus>("checking");
 
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-
   usePushNotifications();
 
-  if (isLoading) {
-    return <LoadingScreen />;
-  }
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
     const verify = async () => {
       const isOnline = await checkDatabaseConnection();
       setDbStatus(isOnline ? "online" : "offline");
@@ -348,7 +354,7 @@ export default function App() {
           persistOptions={{
             persister,
             dehydrateOptions: {
-              shouldDehydrateQuery: (query) => {
+              shouldDehydrateQuery: (query: any) => {
                 if (query.state.status !== "success") return false;
                 const queryKeyStr = JSON.stringify(query.queryKey).toLowerCase();
                 if (

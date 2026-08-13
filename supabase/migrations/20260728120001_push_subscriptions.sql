@@ -1,38 +1,15 @@
--- Migration: Push Subscriptions Table
--- Description: Creates a table to store Web Push Notification subscriptions for users,
--- allowing the backend to target specific devices with direct message alerts.
-
-CREATE TABLE IF NOT EXISTS public.push_subscriptions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    endpoint TEXT NOT NULL,
-    p256dh TEXT NOT NULL,
-    auth TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(user_id, endpoint)
-);
-
--- Index for fast lookups by user_id
-CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id ON public.push_subscriptions(user_id);
-
--- Enable Row Level Security
-ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies
-CREATE POLICY "Users can view their own push subscriptions"
-    ON public.push_subscriptions FOR SELECT
-    USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert their own push subscriptions"
-    ON public.push_subscriptions FOR INSERT
-    WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete their own push subscriptions"
-    ON public.push_subscriptions FOR DELETE
-    USING (auth.uid() = user_id);
-
--- Add to realtime publication if needed for cross-device sync
-ALTER PUBLICATION supabase_realtime ADD TABLE public.push_subscriptions;
-
-COMMENT ON TABLE public.push_subscriptions IS 'Stores Web Push API subscription details for user devices.';
+-- Migration: 20260728120001_push_subscriptions.sql
+-- Description: Creates a table to store Web Push Notification subscriptions.
+--
+-- SUPERSEDED: this was one of three independently-committed migrations
+-- all named "push_subscriptions", each defining a conflicting shape of
+-- the same table. Applying this one after 20260726000005 hard-failed
+-- with `column "user_id" does not exist`, since that earlier migration
+-- (at the time) created the table with a `profile_id` column instead.
+--
+-- 20260726000005 is now the single canonical definition (rewritten to
+-- use `user_id`, matching what this migration originally intended and
+-- what the push Edge Functions actually query against). This file is
+-- kept as a no-op, rather than deleted, to preserve migration history
+-- and avoid renumbering anything already applied elsewhere.
+SELECT 1;

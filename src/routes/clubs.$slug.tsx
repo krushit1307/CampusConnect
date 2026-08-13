@@ -50,6 +50,7 @@ import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
 import { getClubThemeVars } from "@/lib/clubTheming";
 import { ClubHeader } from "@/components/Clubs/ClubHeader";
 import { ClubJobsSection } from "@/components/Clubs/ClubJobsSection";
+import { CrowdfundingCampaignSection } from "@/components/Clubs/Crowdfunding/CrowdfundingCampaignSection";
 import { FlipCard } from "@/components/ui/FlipCard";
 import { useSearchParams } from "react-router-dom";
 
@@ -256,6 +257,27 @@ export default function ClubProfile() {
   } = useQuery({
     ...createClubProfileQueryOptions(supabase, slug ?? ""),
     enabled: Boolean(slug),
+  });
+
+  const {
+    data: milestones,
+    isLoading: isLoadingMilestones,
+    error: milestonesError,
+  } = useQuery({
+    queryKey: ["club_milestones", slug],
+    queryFn: async () => {
+      if (!slug) return [];
+      const { data, error } = await supabase
+        .from("club_milestones")
+        .select("*")
+        .eq("club_id", club?.id ?? "")
+        .order("year", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: Boolean(slug && club),
+    staleTime: 1000 * 60 * 5,
   });
 
   useEffect(() => {
@@ -963,6 +985,8 @@ export default function ClubProfile() {
                         </a>
                       )}
                     </div>
+
+                    <CrowdfundingCampaignSection clubId={club.id} />
 
                     {isAdmin && (
                       <div className="neu-border mt-8 border-2 border-black bg-white p-6 dark:bg-zinc-900 dark:border-cream">

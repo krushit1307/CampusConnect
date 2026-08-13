@@ -36,9 +36,15 @@ export function OptimizedImage({
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
+feature/ghost-mode-2878
  feature/ghost-mode-2878
   const isPublic = useMemo(() => isSafeImageSrc(src), [src]);
 
+
+feat/waitlist-priority
+
+ main
+ main
   const isPublic = useMemo(() => isSupabasePublicImage(src), [src]);
  main
 
@@ -49,6 +55,10 @@ export function OptimizedImage({
         : undefined,
     [isPublic, src, width, height],
   );
+ feat/waitlist-priority
+
+
+ main
   const fallbackSrc = useMemo(
     () => getOptimizedImageUrl(src, { width, height, quality, resize: "cover" }),
     [src, width, height, quality],
@@ -66,6 +76,9 @@ export function OptimizedImage({
 
   if (failed || !isSrcSafe) return <>{fallback}</>;
 
+ feat/waitlist-priority
+
+ main
   const wrapperClass = `${imageProps.className || ""} relative overflow-hidden inline-block`.trim();
 
   const cleanImageProps = { ...imageProps };

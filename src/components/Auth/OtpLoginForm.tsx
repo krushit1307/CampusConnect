@@ -9,11 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import Mail from "lucide-react/dist/esm/icons/mail";
-import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
-import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
-import KeyRound from "lucide-react/dist/esm/icons/key-round";
-import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import { Mail, ArrowRight, RefreshCw, KeyRound, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
 export interface OtpLoginFormProps {
