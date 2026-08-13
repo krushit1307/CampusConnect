@@ -1,5 +1,6 @@
 import { useNavigate, useBlocker } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { DeleteAccountModal } from "@/components/DeleteAccountModal";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import Camera from "lucide-react/dist/esm/icons/camera";
@@ -1165,24 +1166,25 @@ export default function SettingsPage() {
           )}
 
           <Panel title="Danger zone" tone="bg-red-50">
-            <button
-              onClick={() => setConfirmOpen(true)}
-              className="neu-border neu-press bg-brand-blue-dark px-4 py-2 font-mono text-xs font-bold uppercase text-white"
-            >
-              Delete account
-            </button>
+            <div className="space-y-4">
+              <p className="font-mono text-xs text-red-700 font-bold uppercase">
+                ⚠️ Danger Zone: Account Deletion (GDPR Right to be Forgotten)
+              </p>
+              <p className="font-mono text-xs text-muted-foreground">
+                This will permanently delete your account, your profile, your event RSVPs, your
+                waitlist positions, and clean up any personal files. Your forum posts will be
+                anonymized, and transaction records will be scrubbed of PII but retained for
+                financial audits.
+              </p>
+              <button
+                onClick={() => setConfirmOpen(true)}
+                className="neu-border neu-press bg-red-600 hover:bg-red-700 px-4 py-2 font-mono text-xs font-bold uppercase text-white"
+              >
+                Delete account
+              </button>
+            </div>
 
-            <ConfirmModal
-              open={confirmOpen}
-              title="Delete account?"
-              description="This action cannot be undone."
-              confirmText="Delete"
-              cancelText="Cancel"
-              onCancel={() => setConfirmOpen(false)}
-              onConfirm={() => {
-                setConfirmOpen(false);
-              }}
-            />
+            <DeleteAccountModal open={confirmOpen} onClose={() => setConfirmOpen(false)} />
           </Panel>
         </div>
       </section>
