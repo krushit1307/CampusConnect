@@ -36,11 +36,15 @@ export function OptimizedImage({
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
+feature/micro-donations-2876
  feature/micro-donations-2876
 fix/webauthn-config-2866
 
  HEAD
 
+
+feat/waitlist-priority
+ main
 
  main
   const isPublic = useMemo(() => isSupabasePublicImage(src), [src]);
@@ -52,9 +56,14 @@ fix/webauthn-config-2866
         : undefined,
     [isPublic, src, width, height],
   );
+ feature/micro-donations-2876
 feature/micro-donations-2876
 >main
  origin/main
+
+ feat/waitlist-priority
+
+ main
 
  main
   const fallbackSrc = useMemo(
@@ -74,10 +83,15 @@ feature/micro-donations-2876
 
   if (failed || !isSrcSafe) return <>{fallback}</>;
 
+ feature/micro-donations-2876
 feature/micro-donations-2876
  HEAD
 
  fix/webauthn-config-2866
+
+ feat/waitlist-priority
+
+ main
  main
   const wrapperClass = `${imageProps.className || ""} relative overflow-hidden inline-block`.trim();
 

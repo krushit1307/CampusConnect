@@ -1,0 +1,14 @@
+{
+  "navbar": {
+    "dashboard": "Panel",
+    "discover": "Descubrir",
+    "clubs": "Mis Clubes",
+    "settings": "Configuraciones",
+    "logout": "Cerrar sesión"
+  },
+  "settings": {
+    "title": "Configuraciones",
+    "language": "Idioma",
+    "language_desc": "Seleccione su idioma preferido."
+  }
+}

@@ -14,6 +14,7 @@
     "build:remote": "vite build --config vite.config.events.ts",
     "preview": "vite preview",
     "lint": "eslint .",
+    "check-i18n": "node scripts/check-i18n.cjs",
     "commitlint": "commitlint --edit",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
