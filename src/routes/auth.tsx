@@ -34,6 +34,7 @@ import { Turnstile } from "@marsidev/react-turnstile";
 import { AuthSocialProviderGrid } from "@/components/auth/AuthSocialProviderGrid";
 import { PasskeyAuthModal } from "@/components/auth/PasskeyAuthModal";
 import { requiresMfaChallenge } from "@/lib/mfa";
+import { useReferral } from "@/hooks/useReferral";
 
 export default function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -44,6 +45,7 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const supabase = createClient();
   const { registerPasskey } = useWebAuthn();
+  const { getStoredReferralCode, clearStoredReferralCode } = useReferral();
 
   const signInForm = useForm<SignInFormValues>({
     resolver: zodResolver(signInSchema),
@@ -145,6 +147,7 @@ export default function AuthPage() {
             last_name: values.lastName,
             full_name: `${values.firstName} ${values.lastName}`.trim(),
             newsletter_opt_in: values.newsletterOptIn,
+            referred_by_code: getStoredReferralCode(),
           },
         },
       });
@@ -153,6 +156,8 @@ export default function AuthPage() {
 
       toast.success("Account created! A verification link has been sent to your email.");
       setCaptchaToken("");
+      clearStoredReferralCode();
+
       if (signUpData?.session) {
         try {
           const enrolled = await registerPasskey("Passkey");

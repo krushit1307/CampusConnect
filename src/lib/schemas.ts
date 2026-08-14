@@ -153,7 +153,8 @@ export const signUpSchema = z
       .trim()
       .min(1, "Email is required.")
       .max(255, "Email cannot exceed 255 characters.")
-      .email("Please enter a valid email address."),
+      .email("Please enter a valid email address.")
+      .refine((val) => val.endsWith(".edu"), "University email (.edu) is required to sign up."),
     password: passwordRules,
     confirmPassword: z.string().min(1, "Please confirm your password."),
     newsletterOptIn: z.boolean().default(false),
