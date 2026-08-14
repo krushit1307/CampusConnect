@@ -8,6 +8,7 @@ export interface ClubRoleInfo {
   title: string;
   /** Numeric authority level from club_roles.permissions_level. */
   permissionsLevel: number;
+  permissions?: string[];
   id: string;
 }
 
@@ -43,7 +44,7 @@ export function useClubPermissions(clubId: string | undefined, userId: string | 
         .select(
           `
           id, status, user_id,
-          club_roles (id, title, permissions_level),
+          club_roles (id, title, permissions_level, permissions),
           role_id
         `,
         )
@@ -82,7 +83,8 @@ export function useClubPermissions(clubId: string | undefined, userId: string | 
       isMember: Boolean(member && approved),
       isApproved: approved,
       isLoading,
-      can: (permission: ClubPermission) => canRole(roleLevel, permission),
+      can: (permission: ClubPermission) =>
+        canRole(roleInfo ?? (legacyLevel ? { permissionsLevel: legacyLevel } : null), permission),
     };
   }, [member, isLoading]);
 }

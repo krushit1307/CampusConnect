@@ -12,29 +12,25 @@
 // means UI gating and server-side checks share the exact same vocabulary.
 
 export const CLUB_ROLE_PERMISSIONS = {
-  /** View club info, members, and events. */
-  "members.view": 10,
-  /** Read the club's public content feed. */
-  "content.view": 10,
-  /** Create club events. */
-  "events.create": 40,
-  /** Edit/publish posts on the club feed. */
-  "content.publish": 40,
-  /** Read budget/voting records. */
-  "budget.read": 60,
-  /** View club analytics dashboards. */
-  "analytics.view": 60,
-  /** Approve/reject pending members. */
-  "members.manage": 100,
-  /** Assign club roles to members. */
-  "roles.assign": 100,
-  /** Edit club settings (name, description, visibility, links). */
-  "club.manage": 100,
+  "members.view": "View club info, members, and events.",
+  "content.view": "Read the club's public content feed.",
+  "events.create": "Create club events.",
+  "content.publish": "Edit/publish posts on the club feed.",
+  "budget.read": "Read budget/voting records.",
+  "analytics.view": "View club analytics dashboards.",
+  "members.manage": "Approve/reject pending members.",
+  "roles.assign": "Assign club roles to members.",
+  "club.manage": "Edit club settings.",
 } as const;
 
 export type ClubPermission = keyof typeof CLUB_ROLE_PERMISSIONS;
 
 export type ClubRoleLevel = 10 | 40 | 60 | 100;
+
+export interface ClubRoleData {
+  permissionsLevel: number;
+  permissions?: string[];
+}
 
 /** Built-in roles seeded per club by the migration. */
 export const BUILTIN_ROLES = {
@@ -55,10 +51,13 @@ export function roleTitleForLevel(level: number): string {
   return ROLE_TITLES_BY_LEVEL[level as ClubRoleLevel] ?? "Member";
 }
 
-export function canRole(roleLevel: number | null | undefined, permission: ClubPermission): boolean {
-  if (roleLevel == null) return false;
-  const required = CLUB_ROLE_PERMISSIONS[permission];
-  return roleLevel >= required;
+export function canRole(
+  role: ClubRoleData | null | undefined,
+  permission: ClubPermission,
+): boolean {
+  if (!role) return false;
+  if (role.permissionsLevel >= 100) return true;
+  return Array.isArray(role.permissions) && role.permissions.includes(permission);
 }
 
 /** Maps the legacy pre-migration `club_members.role` string to an authority level. */

@@ -20,6 +20,7 @@ import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { RosterExport } from "@/components/RosterExport";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { ClubMembersTable } from "@/components/Clubs/ClubMembersTable";
+import { ClubRolesManager } from "@/components/Clubs/ClubRolesManager";
 import { ClubAnalyticsDashboard } from "@/components/Clubs/ClubAnalyticsDashboard";
 import {
   AlertDialog,
@@ -55,14 +56,18 @@ export default function ClubManageRoute() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const initialTab = searchParams.get("tab");
-  const [activeTab, setActiveTab] = useState<"settings" | "members" | "events" | "analytics">(
+  const [activeTab, setActiveTab] = useState<
+    "settings" | "members" | "roles" | "events" | "analytics"
+  >(
     initialTab === "analytics"
       ? "analytics"
       : initialTab === "members"
         ? "members"
-        : initialTab === "events"
-          ? "events"
-          : "settings",
+        : initialTab === "roles"
+          ? "roles"
+          : initialTab === "events"
+            ? "events"
+            : "settings",
   );
 
   // Form State
@@ -95,9 +100,9 @@ export default function ClubManageRoute() {
         .from("clubs")
         .select(
           `
-          id, name, slug, description, banner_url, logo_url, visibility, github_repo_url, social_links, promo_video_url, version,
-          club_members (id, role, role_id, status, user_id, joined_at, club_roles (id, title, permissions_level), profiles (full_name, avatar_url, handle)),
-          club_roles (id, title, permissions_level),
+          *,
+          club_members (id, role, role_id, status, user_id, joined_at, club_roles (title, permissions_level), profiles (full_name, handle, avatar_url)),
+          club_roles (id, title, permissions_level, permissions),
           events (id, title, event_date, max_attendees, event_rsvps(id))
         `,
         )
@@ -378,6 +383,16 @@ export default function ClubManageRoute() {
               >
                 <BarChart2 size={18} /> Analytics
               </button>
+              <button
+                onClick={() => setActiveTab("roles")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "roles"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <ShieldCheck size={18} /> Roles
+              </button>
             </nav>
           </aside>
 
@@ -570,6 +585,12 @@ export default function ClubManageRoute() {
                   </div>
                 );
               })()}
+
+            {activeTab === "roles" && (
+              <div className="neu-border bg-white p-6 space-y-6">
+                <ClubRolesManager clubId={club.id} clubRoles={club.club_roles || []} />
+              </div>
+            )}
 
             {activeTab === "events" && (
               <div className="neu-border bg-white p-6 space-y-6">
