@@ -1,5 +1,6 @@
 import { useNavigate, useBlocker } from "react-router-dom";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { DeleteAccountModal } from "@/components/DeleteAccountModal";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import Camera from "lucide-react/dist/esm/icons/camera";
@@ -13,6 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { Switch } from "@/components/ui/switch";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
@@ -243,11 +245,11 @@ export default function SettingsPage() {
           alumni_transitioned_at: new Date().toISOString(),
         })
         .eq("id", user.id);
-      
+
       if (profileError) throw profileError;
 
       toast.success(
-        "Alumni transition initiated! A confirmation link has been sent to your new email. Please confirm it to complete the authentication change."
+        "Alumni transition initiated! A confirmation link has been sent to your new email. Please confirm it to complete the authentication change.",
       );
       refetch();
     } catch (err: any) {
@@ -991,6 +993,10 @@ export default function SettingsPage() {
             </div>
           </Panel>
 
+          <Panel title="Language Preferences">
+            <LanguageSwitcher />
+          </Panel>
+
           <Panel title="Text Size">
             <div className="flex items-center gap-4">
               <button
@@ -1090,10 +1096,14 @@ export default function SettingsPage() {
             <Panel title="Alumni Account Transition" tone="bg-[#e0f2fe]">
               <div className="space-y-4">
                 <p className="font-mono text-xs text-gray-700">
-                  Graduating soon? Transition your account to an Alumni status. This allows you to retain your profile using a personal email address (like Gmail) after your university email is deactivated.
+                  Graduating soon? Transition your account to an Alumni status. This allows you to
+                  retain your profile using a personal email address (like Gmail) after your
+                  university email is deactivated.
                 </p>
                 <div className="bg-amber-50 border-2 border-black p-3 font-mono text-[10px] text-amber-800">
-                  ⚠️ Note: A 3-month grace period begins immediately, during which you will retain full student capabilities. After 3 months, you will be restricted from RSVPing to student-only events or holding active club executive roles.
+                  ⚠️ Note: A 3-month grace period begins immediately, during which you will retain
+                  full student capabilities. After 3 months, you will be restricted from RSVPing to
+                  student-only events or holding active club executive roles.
                 </div>
                 <form onSubmit={handleAlumniTransition} className="space-y-4">
                   <div className="space-y-1">
@@ -1139,7 +1149,8 @@ export default function SettingsPage() {
                 {profile.alumni_transitioned_at && (
                   <p>
                     Grace Period Status:{" "}
-                    {new Date(profile.alumni_transitioned_at).getTime() + 90 * 24 * 60 * 60 * 1000 > Date.now() ? (
+                    {new Date(profile.alumni_transitioned_at).getTime() + 90 * 24 * 60 * 60 * 1000 >
+                    Date.now() ? (
                       <span className="text-blue-700 font-bold">
                         Active (Student privileges remain for summer handover)
                       </span>
@@ -1155,24 +1166,25 @@ export default function SettingsPage() {
           )}
 
           <Panel title="Danger zone" tone="bg-red-50">
-            <button
-              onClick={() => setConfirmOpen(true)}
-              className="neu-border neu-press bg-brand-blue-dark px-4 py-2 font-mono text-xs font-bold uppercase text-white"
-            >
-              Delete account
-            </button>
+            <div className="space-y-4">
+              <p className="font-mono text-xs text-red-700 font-bold uppercase">
+                ⚠️ Danger Zone: Account Deletion (GDPR Right to be Forgotten)
+              </p>
+              <p className="font-mono text-xs text-muted-foreground">
+                This will permanently delete your account, your profile, your event RSVPs, your
+                waitlist positions, and clean up any personal files. Your forum posts will be
+                anonymized, and transaction records will be scrubbed of PII but retained for
+                financial audits.
+              </p>
+              <button
+                onClick={() => setConfirmOpen(true)}
+                className="neu-border neu-press bg-red-600 hover:bg-red-700 px-4 py-2 font-mono text-xs font-bold uppercase text-white"
+              >
+                Delete account
+              </button>
+            </div>
 
-            <ConfirmModal
-              open={confirmOpen}
-              title="Delete account?"
-              description="This action cannot be undone."
-              confirmText="Delete"
-              cancelText="Cancel"
-              onCancel={() => setConfirmOpen(false)}
-              onConfirm={() => {
-                setConfirmOpen(false);
-              }}
-            />
+            <DeleteAccountModal open={confirmOpen} onClose={() => setConfirmOpen(false)} />
           </Panel>
         </div>
       </section>

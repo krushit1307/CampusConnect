@@ -5,17 +5,23 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
-import Settings from "lucide-react/dist/esm/icons/settings";
-import Users from "lucide-react/dist/esm/icons/users";
-import Calendar from "lucide-react/dist/esm/icons/calendar";
-import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
-import XCircle from "lucide-react/dist/esm/icons/xcircle";
-import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
-import Download from "lucide-react/dist/esm/icons/download";
-import Trash2 from "lucide-react/dist/esm/icons/trash-2";
-import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
-import BarChart3 from "lucide-react/dist/esm/icons/bar-chart-3";
-import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import {
+  Settings,
+  Users,
+  Calendar,
+  ShieldCheck,
+  XCircle,
+  CheckCircle,
+  Download,
+  Trash2,
+  RefreshCw,
+  BarChart3,
+  AlertTriangle,
+  Mail,
+} from "lucide-react";
+import { NewsletterAnalyticsPanel } from "@/components/Clubs/NewsletterAnalyticsPanel";
+import { NewsletterEditor } from "@/components/Editor/NewsletterEditor";
+import type { Newsletter } from "@/types/newsletter";
 import { HoldToConfirmButton } from "@/components/ui/HoldToConfirmButton";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
@@ -28,7 +34,9 @@ import { isValidHexColor } from "@/lib/clubTheming";
 import { sanitizeHtml } from "@/lib/sanitizeHtml";
 import ClubAnalyticsDashboard from "@/components/clubs/ClubAnalyticsDashboard";
 import PermissionsGrid from "@/components/Clubs/PermissionsGrid";
-import ClubRenewalWizard from "@/components/ClubRenewalWizard"; // <-- NEW IMPORT FOR OUR WIZARD
+import ClubRenewalWizard from "@/components/ClubRenewalWizard";
+import { ClubFinancesTab } from "@/components/Clubs/ClubFinancesTab";
+import DollarSign from "lucide-react/dist/esm/icons/dollar-sign";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -63,8 +71,12 @@ export default function ClubManageRoute() {
   const [user, setUser] = useState<User | null>(null);
 
   const [activeTab, setActiveTab] = useState<
-    "settings" | "members" | "permissions" | "events" | "constitution" | "trash" | "analytics"
+    "settings" | "members" | "permissions" | "events" | "newsletters" | "constitution" | "trash" | "analytics"
   >("settings");
+  const [selectedLogisticsEventId, setSelectedLogisticsEventId] = useState<string>("");
+
+  const [isEditingNewsletter, setIsEditingNewsletter] = useState(false);
+  const [selectedNewsletter, setSelectedNewsletter] = useState<Newsletter | null>(null);
 
   // Mock constitution versions for demo
   const oldConstitution =
@@ -508,6 +520,19 @@ export default function ClubManageRoute() {
                 <Calendar size={18} /> Events
               </button>
               <button
+                onClick={() => {
+                  setActiveTab("newsletters");
+                  setIsEditingNewsletter(false);
+                }}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "newsletters"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <Mail size={18} /> Newsletters
+              </button>
+              <button
                 onClick={() => setActiveTab("constitution")}
                 className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
                   activeTab === "constitution"
@@ -516,6 +541,16 @@ export default function ClubManageRoute() {
                 }`}
               >
                 <Settings size={18} /> Constitution
+              </button>
+              <button
+                onClick={() => setActiveTab("milestones")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "milestones"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <Calendar size={18} /> Legacy Timeline
               </button>
               <button
                 onClick={() => setActiveTab("trash")}
@@ -536,6 +571,16 @@ export default function ClubManageRoute() {
                 }`}
               >
                 <BarChart3 size={18} /> Analytics
+              </button>
+              <button
+                onClick={() => setActiveTab("finances")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "finances"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <DollarSign size={18} /> Finances
               </button>
             </nav>
           </aside>
@@ -853,6 +898,31 @@ export default function ClubManageRoute() {
               </div>
             )}
 
+            {activeTab === "newsletters" && (
+              <div>
+                {isEditingNewsletter ? (
+                  <NewsletterEditor
+                    clubId={club.id}
+                    existingNewsletter={selectedNewsletter}
+                    onSaved={() => setIsEditingNewsletter(false)}
+                    onCancel={() => setIsEditingNewsletter(false)}
+                  />
+                ) : (
+                  <NewsletterAnalyticsPanel
+                    clubId={club.id}
+                    onCreateNew={() => {
+                      setSelectedNewsletter(null);
+                      setIsEditingNewsletter(true);
+                    }}
+                    onEditNewsletter={(nl) => {
+                      setSelectedNewsletter(nl);
+                      setIsEditingNewsletter(true);
+                    }}
+                  />
+                )}
+              </div>
+            )}
+
             {activeTab === "trash" && (
               <div className="neu-border bg-white p-6 space-y-6">
                 <h2 className="font-display text-2xl font-bold border-b-2 border-black pb-2 text-red-600 flex items-center gap-2">
@@ -911,7 +981,28 @@ export default function ClubManageRoute() {
                 <DiffViewer oldText={oldConstitution} newText={newConstitution} />
               </div>
             )}
-            {activeTab === "analytics" && <ClubAnalyticsDashboard clubId={club.id} />}
+            {activeTab === "analytics" && (
+  <>
+    <div className="mb-4 flex justify-end">
+      <button
+        type="button"
+        onClick={() =>
+          navigate(`/clubs/${club.slug}/series-analytics`)
+        }
+        className="neu-border neu-press flex items-center gap-2 bg-yellow-200 px-4 py-2 font-mono text-xs font-bold uppercase"
+      >
+        <BarChart3 size={16} />
+        Series Analytics
+      </button>
+    </div>
+
+    <ClubAnalyticsDashboard clubId={club.id} />
+  </>
+)}
+
+            {activeTab === "finances" && (
+              <ClubFinancesTab clubId={club.id} />
+            )}
           </main>
         </div>
       </div>

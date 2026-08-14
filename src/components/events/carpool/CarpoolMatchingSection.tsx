@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
-import Loader2 from "lucide-react/dist/esm/icons/loader-2";
-import Car from "lucide-react/dist/esm/icons/car";
-import Users from "lucide-react/dist/esm/icons/users";
-import Check from "lucide-react/dist/esm/icons/check";
-import MapPin from "lucide-react/dist/esm/icons/map-pin";
-import Clock from "lucide-react/dist/esm/icons/clock";
+import { Loader2, Car, Users, Check, MapPin, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

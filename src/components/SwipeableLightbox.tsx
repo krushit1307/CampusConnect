@@ -27,6 +27,13 @@ export function SwipeableLightbox({ images, initialIndex = 0, onClose }: Swipeab
 
   const handleDragEnd = (_: unknown, info: PanInfo) => {
     const { offset, velocity } = info;
+
+    // Check vertical drag-to-dismiss gesture (#1751)
+    if (offset.y > 100 || velocity.y > 500) {
+      onClose();
+      return;
+    }
+
     const swipe = Math.abs(offset.x) * velocity.x;
     if (swipe < -swipeConfidenceThreshold || offset.x < -swipeDistanceThreshold) {
       paginate(1);

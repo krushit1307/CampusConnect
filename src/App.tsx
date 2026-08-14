@@ -29,6 +29,7 @@ import AriaAnnouncer from "@/components/accessibility/AriaAnnouncer";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { LoginRecoveryModal } from "@/components/auth/LoginRecoveryModal";
 import { MfaChallengeGuard } from "@/components/auth/MfaChallengeGuard";
+import UnsubscribeRoute from "./routes/unsubscribe";
 function RemoteLoadingScreen() {
   return (
     <div className="flex h-screen w-full items-center justify-center bg-slate-950 text-white">
@@ -91,7 +92,9 @@ const ClubsIndex = lazy(() => import("./routes/clubs.index"));
 const ClubNew = lazy(() => import("./routes/clubs.new"));
 const ClubDetails = lazy(() => import("./routes/clubs.$slug"));
 const ClubManageRoute = lazy(() => import("./routes/clubs.$slug.manage"));
-const ClubNotesRoute = lazy(() => import("./routes/clubs.$slug.notes"));
+const ClubSeriesAnalyticsRoute = lazy(
+  () => import("./routes/clubs.$slug.series-analytics"),
+);const ClubNotesRoute = lazy(() => import("./routes/clubs.$slug.notes"));
 const ClubArticlesRoute = lazy(() => import("./routes/clubs.$slug.articles"));
 const ClubArticleDetailsRoute = lazy(() => import("./routes/clubs.$slug.articles.$articleId"));
 const ClubsLayout = lazy(() => import("./routes/clubs"));
@@ -132,7 +135,8 @@ const EventsLayout = lazy(() => import("./pages/Events/EventsLayout"));
 const LazyEventsIndex = lazy(() => import("./pages/Events/EventsList"));
 const LazyEventDetails = lazy(() => import("./pages/Events/EventDetail"));
 const EmptyState = lazy(() => import("./pages/Events/EmptyState"));
-
+const TourManager = lazy(() => import("./routes/tours.manage"));
+const TourMode = lazy(() => import("./routes/tours.$tourId"));
 // ---------------------------------------------------------------------------
 // Animated Outlet Wrapper for Framer Motion transitions with Skeleton Fallback
 // ---------------------------------------------------------------------------
@@ -177,6 +181,7 @@ const router = createBrowserRouter(
             <Route path="new" element={<ClubNew />} />
             <Route path=":slug" element={<ClubDetails />} />
             <Route path=":slug/manage" element={<ClubManageRoute />} />
+            <Route path=":slug/series-analytics" element={<ClubSeriesAnalyticsRoute />} />
             <Route path=":slug/notes" element={<ClubNotesRoute />} />
             <Route path=":slug/articles" element={<ClubArticlesRoute />} />
             <Route path=":slug/articles/:articleId" element={<ClubArticleDetailsRoute />} />
@@ -215,12 +220,21 @@ const router = createBrowserRouter(
             />
           </Route>
           <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
+          <Route
+            path="/events/:eventId/kiosk"
+            element={
+              <Suspense fallback={<RemoteLoadingScreen />}>
+                <EventKiosk />
+              </Suspense>
+            }
+          />
           <Route path="/events/:eventId/gantt" element={<EventGantt />} />
           {/* Events Map View with clustering */}
           <Route path="events/map" element={<EventsMapPage />} />
           {/* Campus Heatmap - Live Activity */}
-          <Route path="/map" element={<MapPage />} />
-          <Route path="challenge" element={<ChallengeArena />} />
+<Route path="/map" element={<MapPage />} />
+<Route path="/tours/manage" element={<TourManager />} />
+<Route path="/tours/:tourId" element={<TourMode />} />          <Route path="challenge" element={<ChallengeArena />} />
           <Route path="leaderboard" element={<Leaderboard />} />
           <Route path="/feed" element={<Feed />} />
           <Route path="/lost-found" element={<LostFound />} />
@@ -236,6 +250,7 @@ const router = createBrowserRouter(
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/restore" element={<AdminRestorePage />} />
           <Route path="/admin/dlq" element={<AdminDlqPage />} />
+          <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
           {/* Catch-all route for 404 errors */}
           <Route path="*" element={<NotFound />} />
         </Route>
@@ -298,6 +313,7 @@ function usePushNotifications() {
 
         await supabase
           .from("profiles")
+          // @ts-ignore - timezone and fcm_token exist in DB
           .update({ timezone, fcm_token: fcmToken })
           .eq("id", session.user.id);
       } catch (e) {
@@ -311,14 +327,10 @@ function usePushNotifications() {
 export default function App() {
   const [dbStatus, setDbStatus] = useState<DbStatus>("checking");
 
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-
   usePushNotifications();
 
-  if (isLoading) {
-    return <LoadingScreen />;
-  }
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
     const verify = async () => {
       const isOnline = await checkDatabaseConnection();
       setDbStatus(isOnline ? "online" : "offline");
@@ -348,7 +360,7 @@ export default function App() {
           persistOptions={{
             persister,
             dehydrateOptions: {
-              shouldDehydrateQuery: (query) => {
+              shouldDehydrateQuery: (query: any) => {
                 if (query.state.status !== "success") return false;
                 const queryKeyStr = JSON.stringify(query.queryKey).toLowerCase();
                 if (

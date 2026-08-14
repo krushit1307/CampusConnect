@@ -73,8 +73,8 @@ function DashboardContent({ user }: WithAuthProps) {
           origin: { y: 0.6 },
         });
       }
-    } catch (e) {
-      console.error("Confetti trigger failed:", e);
+    } catch (err) {
+      console.error("Confetti trigger failed:", err);
     }
   };
 

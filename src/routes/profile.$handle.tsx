@@ -3,14 +3,16 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import MapPin from "lucide-react/dist/esm/icons/map-pin";
-import Link2 from "lucide-react/dist/esm/icons/link-2";
-import Calendar from "lucide-react/dist/esm/icons/calendar";
-import Award from "lucide-react/dist/esm/icons/award";
-import Building from "lucide-react/dist/esm/icons/building";
-import CalendarPlus from "lucide-react/dist/esm/icons/calendar-plus";
-import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
-import HistoryIcon from "lucide-react/dist/esm/icons/history";
+import {
+  MapPin,
+  Link2,
+  Calendar,
+  Award,
+  Building,
+  CalendarPlus,
+  ArrowRight,
+  History as HistoryIcon,
+} from "lucide-react";
 import { NotFoundPage } from "@/components/NotFoundPage";
 import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
 import { UserProfileSkeleton } from "@/components/UserProfileSkeleton";
@@ -102,10 +104,16 @@ export default function Profile() {
     queryKey: ["profileEvents", profile?.id],
     queryFn: async () => {
       if (!profile) return [];
-      const { data } = await supabase
+      let query = supabase
         .from("event_rsvps")
         .select("events (id, title, event_date, clubs (slug, name))")
         .eq("user_id", profile.id);
+
+      if (!user || user.id !== profile.id) {
+        query = query.eq("is_anonymous", false);
+      }
+
+      const { data } = await query;
 
       const events = (data || [])
         .map((r) => (Array.isArray(r.events) ? r.events[0] : r.events))
@@ -143,10 +151,16 @@ export default function Profile() {
           .select("id, joined_at, clubs (name, slug)")
           .eq("user_id", profile.id)
           .eq("status", "approved"),
-        supabase
-          .from("event_rsvps")
-          .select("id, rsvp_at, events (id, title, event_date)")
-          .eq("user_id", profile.id),
+        (() => {
+          let query = supabase
+            .from("event_rsvps")
+            .select("id, rsvp_at, events (id, title, event_date)")
+            .eq("user_id", profile.id);
+          if (!user || user.id !== profile.id) {
+            query = query.eq("is_anonymous", false);
+          }
+          return query;
+        })(),
         supabase
           .from("posts")
           .select("id, content, created_at, clubs (name, slug)")
