@@ -2,16 +2,14 @@ import { useState, useRef, useEffect } from "react";
 import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
 import { uploadFileResumable } from "@/lib/supabase/resumableUpload";
 import { toast } from "sonner";
-import {
-  Video,
-  UploadCloud,
-  Trash2,
-  RefreshCw,
-  Cpu,
-  CheckCircle,
-  AlertTriangle,
-  Play,
-} from "lucide-react";
+import Video from "lucide-react/dist/esm/icons/video";
+import UploadCloud from "lucide-react/dist/esm/icons/upload-cloud";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import Cpu from "lucide-react/dist/esm/icons/cpu";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import Play from "lucide-react/dist/esm/icons/play";
 import { Progress } from "@/components/ui/progress";
 
 interface PromoVideoUploaderProps {

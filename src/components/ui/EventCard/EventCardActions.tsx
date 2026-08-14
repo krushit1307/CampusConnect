@@ -1,4 +1,9 @@
-import { Calendar, Link as LinkIcon } from "lucide-react";
+import React from "react";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Check from "lucide-react/dist/esm/icons/check";
+import LinkIcon from "lucide-react/dist/esm/icons/link";
+import { toast } from "sonner";
+import { getIcsContent } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EventRSVPButton } from "@/components/EventRSVPButton";
@@ -17,12 +22,39 @@ export function EventCardActions() {
     googleCalendarUrl,
     handleRsvpToggleClick,
     handleCopyLink,
+    copied,
     confirmOpen,
     setConfirmOpen,
     ticketOpen,
     setTicketOpen,
     onRsvpToggle,
   } = useEventCardContext();
+
+  const handleDownloadIcs = () => {
+    const icsContent = getIcsContent({
+      title: event.title,
+      description: event.description,
+      event_date: event.event_date,
+      start_date: event.start_date,
+      end_date: event.end_date,
+      location: event.location,
+    });
+
+    if (!icsContent) {
+      toast.error("Failed to generate calendar file");
+      return;
+    }
+
+    const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `${event.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.ics`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <>
@@ -43,8 +75,12 @@ export function EventCardActions() {
                 variant="outline"
                 className="neu-border neu-press bg-white hover:bg-cream h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
               >
-                <LinkIcon className="h-4 w-4 mr-2" />
-                Copy Link
+                {copied ? (
+                  <Check className="mr-2 h-4 w-4" />
+                ) : (
+                  <LinkIcon className="mr-2 h-4 w-4" />
+                )}
+                {copied ? "Copied! ✓" : "Copy Link"}
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -63,6 +99,16 @@ export function EventCardActions() {
             <Calendar aria-hidden="true" size={14} strokeWidth={3} />
             Add to Google Calendar
           </a>
+        )}
+        {hasRsvpd && googleCalendarUrl && (
+          <button
+            onClick={handleDownloadIcs}
+            type="button"
+            className="neu-border bg-white px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2 text-black"
+          >
+            <Calendar aria-hidden="true" size={14} strokeWidth={3} />
+            Add to Apple/Outlook
+          </button>
         )}
         {hasRsvpd && myRsvp && (
           <Button

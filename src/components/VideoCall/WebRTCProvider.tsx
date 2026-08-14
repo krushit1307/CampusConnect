@@ -2,7 +2,13 @@ import React, { createContext, useContext, useState, useEffect, useRef } from "r
 import { useSignaling, SignalingCallbacks } from "@/hooks/useSignaling";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, Loader2 } from "lucide-react";
+import Phone from "lucide-react/dist/esm/icons/phone";
+import PhoneOff from "lucide-react/dist/esm/icons/phone-off";
+import Mic from "lucide-react/dist/esm/icons/mic";
+import MicOff from "lucide-react/dist/esm/icons/mic-off";
+import Video from "lucide-react/dist/esm/icons/video";
+import VideoOff from "lucide-react/dist/esm/icons/video-off";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 
 interface WebRTCContextType {
   localStream: MediaStream | null;

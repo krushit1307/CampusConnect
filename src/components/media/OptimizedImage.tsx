@@ -3,6 +3,7 @@ import {
   buildResponsiveImageSrcSet,
   getOptimizedImageUrl,
   isSafeImageSrc,
+  isSupabasePublicImage,
 } from "@/lib/imageOptimization";
 
 interface OptimizedImageProps extends Omit<
@@ -33,54 +34,179 @@ export function OptimizedImage({
   ...imageProps
 }: OptimizedImageProps) {
   const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
-  const optimizedSrc = useMemo(
+ feature/ghost-mode-2878
+feature/ghost-mode-2878
+ feature/ghost-mode-2878
+  const isPublic = useMemo(() => isSafeImageSrc(src), [src]);
+
+feature/micro-donations-2876
+ feature/micro-donations-2876
+fix/webauthn-config-2866
+
+ HEAD
+ main
+
+
+feat/waitlist-priority
+ main
+
+ main
+ main
+  const isPublic = useMemo(() => isSupabasePublicImage(src), [src]);
+ main
+
+  const lqipSrc = useMemo(
     () =>
-      getOptimizedImageUrl(src, {
-        width,
-        height,
-        quality,
-        resize: "cover",
-      }),
-    [height, quality, src, width],
+      isPublic
+        ? getOptimizedImageUrl(src, { width: 20, height: Math.round(20 * (height / width)), quality: 20, resize: "cover", format: "webp" })
+        : undefined,
+    [isPublic, src, width, height],
+  );
+ feature/micro-donations-2876
+feature/micro-donations-2876
+>main
+ origin/main
+
+ feat/waitlist-priority
+
+ main
+
+ main
+  const fallbackSrc = useMemo(
+    () => getOptimizedImageUrl(src, { width, height, quality, resize: "cover" }),
+    [src, width, height, quality],
   );
 
-  const srcSet = useMemo(
+  const fallbackSrcSet = useMemo(
     () =>
       responsiveWidths
-        ? buildResponsiveImageSrcSet(src, responsiveWidths, {
-            height,
-            quality,
-            resize: "cover",
-          })
+        ? buildResponsiveImageSrcSet(src, responsiveWidths, { height, quality, resize: "cover" })
         : undefined,
-    [height, quality, responsiveWidths, src],
+    [src, responsiveWidths, height, quality],
   );
 
-  // Guards the sink below: only ever render src values on an explicit scheme
-  // allowlist (http/https/blob/data:image). Anything else — including a
-  // hypothetically crafted javascript:/data:text/html string — falls back
-  // instead of ever reaching the <img> element.
-  const isSrcSafe = useMemo(() => isSafeImageSrc(optimizedSrc), [optimizedSrc]);
+  const isSrcSafe = useMemo(() => isSafeImageSrc(fallbackSrc), [fallbackSrc]);
 
   if (failed || !isSrcSafe) return <>{fallback}</>;
 
+ feature/micro-donations-2876
+feature/micro-donations-2876
+ HEAD
+
+ fix/webauthn-config-2866
+
+ feat/waitlist-priority
+
+ main
+ main
+  const wrapperClass = `${imageProps.className || ""} relative overflow-hidden inline-block`.trim();
+
+  const cleanImageProps = { ...imageProps };
+  delete cleanImageProps.className;
+  delete cleanImageProps.style;
+
+  const contentStyle = {
+    transition: "opacity 0.5s ease-in-out",
+    opacity: loaded ? 1 : 0,
+    width: "100%",
+    height: "100%",
+    display: "block",
+  };
+
+  const lqipStyle = {
+    position: "absolute" as const,
+    inset: 0,
+    width: "100%",
+    height: "100%",
+    objectFit: "cover" as const,
+    filter: "blur(10px)",
+    transform: "scale(1.1)",
+    transition: "opacity 0.5s ease-in-out",
+    opacity: loaded ? 0 : 1,
+    pointerEvents: "none" as const,
+  };
+
+  const handleLoad = () => {
+    setLoaded(true);
+  };
+
+  if (isPublic) {
+    return (
+      <div className={wrapperClass} style={{ ...imageProps.style, width, height }}>
+        {lqipSrc && (
+          <img
+            src={lqipSrc}
+            alt=""
+            aria-hidden="true"
+            style={lqipStyle}
+          />
+        )}
+        <picture style={contentStyle}>
+          <img
+            {...cleanImageProps}
+            src={fallbackSrc}
+            srcSet={fallbackSrcSet}
+            sizes={fallbackSrcSet ? sizes : undefined}
+            alt={alt}
+            width={width}
+            height={height}
+            loading={priority ? "eager" : "lazy"}
+            decoding="async"
+            fetchPriority={priority ? "high" : "auto"}
+            onLoad={handleLoad}
+            onError={(event) => {
+              setFailed(true);
+              onError?.(event);
+            }}
+            style={{ width: "100%", height: "100%", display: "block" }}
+          />
+        </picture>
+      </div>
+    );
+  }
+ feature/ghost-mode-2878
+ feature/ghost-mode-2878
+
+ main
+ origin/main
+ main
+
+ feature/micro-donations-2876
+
+ main
+ origin/main
+main
+ main
   return (
-    <img
-      {...imageProps}
-      src={optimizedSrc}
-      srcSet={srcSet}
-      sizes={srcSet ? sizes : undefined}
-      alt={alt}
-      width={width}
-      height={height}
-      loading={priority ? "eager" : "lazy"}
-      decoding="async"
-      fetchPriority={priority ? "high" : "auto"}
-      onError={(event) => {
-        setFailed(true);
-        onError?.(event);
-      }}
-    />
+    <div className={wrapperClass} style={{ ...imageProps.style, width, height }}>
+      {lqipSrc && (
+        <img
+          src={lqipSrc}
+          alt=""
+          aria-hidden="true"
+          style={lqipStyle}
+        />
+      )}
+      <img
+        {...cleanImageProps}
+        src={fallbackSrc}
+        srcSet={fallbackSrcSet}
+        sizes={fallbackSrcSet ? sizes : undefined}
+        alt={alt}
+        width={width}
+        height={height}
+        loading={priority ? "eager" : "lazy"}
+        decoding="async"
+        fetchPriority={priority ? "high" : "auto"}
+        onLoad={handleLoad}
+        onError={(event) => {
+          setFailed(true);
+          onError?.(event);
+        }}
+        style={contentStyle}
+      />
+    </div>
   );
 }

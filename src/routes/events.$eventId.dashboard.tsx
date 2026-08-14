@@ -1,11 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import ReactECharts from "echarts-for-react";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Star from "lucide-react/dist/esm/icons/star";import { ChartSkeleton } from "@/components/ui/ChartSkeleton";
+import { EventFinancesSection } from "@/components/analytics/EventFinancesSection";
+
+const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));
 
 export default function EventDashboard() {
   const { eventId } = useParams();
@@ -20,10 +24,28 @@ export default function EventDashboard() {
   } = useQuery({
     queryKey: ["event_analytics", eventId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_event_analytics", { p_event_id: eventId });
+      const { data, error } = await supabase.rpc("get_event_analytics", { p_event_id: eventId! });
       if (error) {
         throw new Error(error.message);
       }
+      return data;
+    },
+    enabled: !!eventId,
+  });
+  const { data: feedbackSummary } = useQuery({
+    queryKey: ["event_feedback_summary", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "get_event_feedback_summary",
+        {
+          p_event_id: eventId!,
+        },
+      );
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
       return data;
     },
     enabled: !!eventId,
@@ -35,7 +57,7 @@ export default function EventDashboard() {
       const { data, error } = await supabase
         .from("events")
         .select("title")
-        .eq("id", eventId)
+        .eq("id", eventId!)
         .single();
       if (error) throw error;
       return data;
@@ -70,9 +92,11 @@ export default function EventDashboard() {
   }
 
   // Parse RPC response
-  const rsvpsByDate = analyticsData.rsvps_by_date || [];
-  const attendeesByMajor = analyticsData.attendees_by_major || [];
-  const attendeesByYear = analyticsData.attendees_by_year || [];
+
+  const data = (analyticsData as Record<string, any>) || {};
+  const rsvpsByDate = data.rsvps_by_date || [];
+  const attendeesByMajor = data.attendees_by_major || [];
+  const attendeesByYear = data.attendees_by_year || [];
 
   // ECharts Configurations
   const areaChartOption = {
@@ -188,6 +212,53 @@ export default function EventDashboard() {
               {eventData?.title ? `${eventData.title} Analytics` : "Event Analytics"}
             </h1>
           </div>
+          <div className="mb-8 border-2 border-black bg-yellow-100 p-5 shadow-[4px_4px_0_0_#000]">
+            <div className="flex items-center gap-2">
+              <Star size={20} />
+
+              <h2 className="font-display text-xl font-black uppercase">
+                Post-Event Feedback
+              </h2>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="border-2 border-black bg-white p-4">
+                <p className="font-mono text-xs font-bold uppercase">
+                  Average Rating
+                </p>
+
+                <p className="mt-2 font-display text-3xl font-black">
+                  {Number(feedbackSummary?.average_rating ?? 0).toFixed(1)}
+                  <span className="ml-1 text-lg">/ 5</span>
+                </p>
+              </div>
+
+              <div className="border-2 border-black bg-white p-4">
+                <p className="font-mono text-xs font-bold uppercase">
+                  Responses
+                </p>
+
+                <p className="mt-2 font-display text-3xl font-black">
+                  {feedbackSummary?.response_count ?? 0}
+                </p>
+              </div>
+
+              <div className="border-2 border-black bg-white p-4">
+                <p className="font-mono text-xs font-bold uppercase">
+                  Response Rate
+                </p>
+
+                <p className="mt-2 font-display text-3xl font-black">
+                  {Number(feedbackSummary?.response_rate ?? 0).toFixed(1)}%
+                </p>
+
+                <p className="mt-1 font-mono text-[10px] text-black/50">
+                  Based on {feedbackSummary?.attendee_count ?? 0} checked-in
+                  attendees
+                </p>
+              </div>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
             {/* Area Chart Card */}
@@ -197,6 +268,13 @@ export default function EventDashboard() {
                 style={{ height: "400px", width: "100%" }}
                 opts={{ renderer: "svg" }}
               />
+              <Suspense fallback={<ChartSkeleton height="400px" />}>
+                <EChartsWrapper
+                  option={areaChartOption}
+                  style={{ height: "400px", width: "100%" }}
+                  opts={{ renderer: "svg" }}
+                />
+              </Suspense>
             </div>
 
             {/* Pie Chart Card */}
@@ -228,8 +306,17 @@ export default function EventDashboard() {
                 style={{ height: "350px", width: "100%" }}
                 opts={{ renderer: "svg" }}
               />
+              <Suspense fallback={<ChartSkeleton height="350px" />}>
+                <EChartsWrapper
+                  option={pieChartOption}
+                  style={{ height: "350px", width: "100%" }}
+                  opts={{ renderer: "svg" }}
+                />
+              </Suspense>
             </div>
           </div>
+          
+          <EventFinancesSection eventId={eventId!} />
         </div>
       </div>
     </SiteShell>

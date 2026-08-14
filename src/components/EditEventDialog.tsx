@@ -1,12 +1,19 @@
 import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { Edit3, GitMerge } from "lucide-react";
+import { useForm, type Control } from "react-hook-form";
+import Edit3 from "lucide-react/dist/esm/icons/edit-3";
+import GitMerge from "lucide-react/dist/esm/icons/git-merge";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
-import { eventFormSchema, TITLE_MAX_LENGTH, type EventFormValues } from "@/lib/eventUtils";
+import {
+  eventFormSchema,
+  TITLE_MAX_LENGTH,
+  DEFAULT_EVENT_TAG_OPTIONS,
+  type EventFormValues,
+} from "@/lib/eventUtils";
+import { useQuery } from "@/hooks/useReactQueryReplacement";
 import {
   EventDocument,
   FieldConflict,
@@ -34,8 +41,19 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-import { TagMultiSelect } from "@/components/ui/TagMultiSelect";
+import { MultiSelect } from "@/components/MultiSelect";
+import { DateTimePicker } from "@/components/DateTimePicker";
+import CollaborativeDescriptionEditor from "@/components/events/CollaborativeDescriptionEditor";
+
+const EVENT_CONCURRENT_EDIT_CONFLICT = "EVENT_CONCURRENT_EDIT_CONFLICT";
 
 interface EditEventDialogProps {
   event: EventDocument;
@@ -53,11 +71,26 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
 
   const supabase = createClient();
 
-  const form = useForm<EventFormValues>({
+  const { data: categories = [] } = useQuery({
+    queryKey: ["eventCategories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_categories")
+        .select("id, name")
+        .order("display_order", { ascending: true })
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data as { id: string; name: string }[];
+    },
+    staleTime: 1000 * 60 * 30,
+  });
+
+  const form = useForm<any>({
     resolver: zodResolver(eventFormSchema),
     defaultValues: {
       title: event.title || "",
       description: event.description || "",
+      category: (event.category_id as string) || "",
       location: event.location || "",
       startDate: event.start_date ? new Date(event.start_date).toISOString().slice(0, 16) : "",
       endDate: event.end_date ? new Date(event.end_date).toISOString().slice(0, 16) : "",
@@ -66,12 +99,15 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
     mode: "onBlur",
   });
 
+  const control = form.control as never;
+
   useEffect(() => {
     if (open) {
       setBaseSnapshot(event);
       form.reset({
         title: event.title || "",
         description: event.description || "",
+        category: (event.category_id as string) || "",
         location: event.location || "",
         startDate: event.start_date ? new Date(event.start_date).toISOString().slice(0, 16) : "",
         endDate: event.end_date ? new Date(event.end_date).toISOString().slice(0, 16) : "",
@@ -85,34 +121,88 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
     setIsSaving(true);
 
     try {
-      const { error } = await supabase
+      // Optimistic concurrency control: the version the document was merged
+      // against (docToSave.version is the NEXT version to write, so the WHERE
+      // predicate must target the CURRENT database version).
+      const targetVersion = (docToSave.version || 1) - 1;
+
+      const { data, error } = await supabase
         .from("events")
         .update({
           title: docToSave.title,
           description: docToSave.description,
+          category_id: docToSave.category_id || null,
           location: docToSave.location || null,
           start_date: docToSave.start_date,
           end_date: docToSave.end_date,
           event_date: docToSave.start_date,
           tags: docToSave.tags || [],
           version_vector: docToSave.version_vector || {},
-          version: (docToSave.version || 1) + 1,
-          updated_at: new Date().toISOString(),
+          version: docToSave.version || 1,
         })
-        .eq("id", event.id);
+        .eq("id", event.id)
+        .eq("version", targetVersion)
+        .select("id, version");
 
       if (error) throw new Error(error.message);
 
-      toast.success("Event updated with CRDT differential merge!");
+      // rowCount === 0 -> the database version no longer matches the version
+      // this user fetched (another admin already bumped it). Reject the save.
+      if (!data || data.length === 0) {
+        await handleConcurrentConflict(docToSave);
+        throw new Error(EVENT_CONCURRENT_EDIT_CONFLICT);
+      }
+
+      toast.success("Event updated with optimistic concurrency control!");
       window.dispatchEvent(new Event("refetchEvents"));
       setOpen(false);
       if (onSuccess) onSuccess();
     } catch (err) {
+      if (err instanceof Error && err.message === EVENT_CONCURRENT_EDIT_CONFLICT) {
+        return;
+      }
       console.error("[EditEventDialog] Save error:", err);
       toast.error("Failed to update event. Please try again.");
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleConcurrentConflict = async (docToSave: EventDocument) => {
+    toast.error(
+      "Conflict detected: This event was modified by another user while you were editing.",
+    );
+
+    // UI recovery: fetch the new database state and show exactly what changed
+    // so the user never loses their work.
+    const { data: freshServer, error: serverError } = await supabase
+      .from("events")
+      .select("*")
+      .eq("id", event.id)
+      .single();
+
+    if (serverError || !freshServer) {
+      toast.error("Failed to load the latest event state. Please refresh and try again.");
+      return;
+    }
+
+    const serverDoc = freshServer as EventDocument;
+    const localDraft: EventDocument = {
+      ...docToSave,
+      version: baseSnapshot.version || 1,
+      version_vector: baseSnapshot.version_vector || {},
+    };
+
+    const mergeResult = mergeEventDocuments(
+      baseSnapshot,
+      localDraft,
+      serverDoc,
+      user?.id || "local-admin",
+    );
+
+    setConflicts(mergeResult.conflicts);
+    setMergedDoc(mergeResult.mergedDocument);
+    setConflictModalOpen(true);
   };
 
   const handleFormSubmit = async (values: EventFormValues) => {
@@ -135,6 +225,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
         ...baseSnapshot,
         title: values.title.trim(),
         description: values.description.trim(),
+        category_id: values.category || null,
         location: values.location?.trim() || null,
         start_date: new Date(values.startDate).toISOString(),
         end_date: new Date(values.endDate).toISOString(),
@@ -158,6 +249,11 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
         await executeSave(mergeResult.mergedDocument);
       }
     } catch (err) {
+      if (err instanceof Error && err.message === EVENT_CONCURRENT_EDIT_CONFLICT) {
+        // Conflict UI already surfaced by executeSave
+        setIsSaving(false);
+        return;
+      }
       console.error("[EditEventDialog] Submit error:", err);
       toast.error("Error evaluating concurrent event edits.");
       setIsSaving(false);
@@ -194,7 +290,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
               <FormField
-                control={form.control}
+                control={control}
                 name="title"
                 render={({ field }) => (
                   <FormItem>
@@ -208,32 +304,18 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
               />
 
               <FormField
-                control={form.control}
+                control={control}
                 name="description"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel required>Description</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Event description" rows={3} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="tags"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-mono text-xs font-bold uppercase text-black">
-                      Event Tags
-                    </FormLabel>
-                    <FormControl>
-                      <TagMultiSelect
-                        value={field.value || []}
+                      <CollaborativeDescriptionEditor
+                        eventId={event.id}
+                        initialDescription={event.description || ""}
+                        userId={user?.id || "anon"}
+                        userName={user?.email?.split("@")[0] || "User"}
                         onChange={field.onChange}
-                        placeholder="Select or type event tags (e.g. #Tech, #Career)..."
                       />
                     </FormControl>
                     <FormMessage />
@@ -242,7 +324,56 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
               />
 
               <FormField
-                control={form.control}
+                control={control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel required>Category</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={control}
+                name="tags"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-mono text-xs font-bold uppercase text-black">
+                      Event Tags
+                    </FormLabel>
+                    <FormControl>
+                      <MultiSelect
+                        value={(field.value || []).map((tag: string) => ({
+                          value: tag,
+                          label: tag,
+                        }))}
+                        onChange={(tags) => field.onChange(tags.map((t) => t.value))}
+                        options={DEFAULT_EVENT_TAG_OPTIONS}
+                        placeholder="Select or type event tags (e.g. #Tech, #Career)..."
+                        allowCustom={true}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={control}
                 name="location"
                 render={({ field }) => (
                   <FormItem>
@@ -257,13 +388,13 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField
-                  control={form.control}
+                  control={control}
                   name="startDate"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel required>Start date</FormLabel>
                       <FormControl>
-                        <Input type="datetime-local" {...field} />
+                        <DateTimePicker value={field.value || ""} onChange={field.onChange} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -271,13 +402,13 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                 />
 
                 <FormField
-                  control={form.control}
+                  control={control}
                   name="endDate"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel required>End date</FormLabel>
                       <FormControl>
-                        <Input type="datetime-local" {...field} />
+                        <DateTimePicker value={field.value || ""} onChange={field.onChange} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
