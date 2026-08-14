@@ -92,11 +92,11 @@ const ClubsIndex = lazy(() => import("./routes/clubs.index"));
 const ClubNew = lazy(() => import("./routes/clubs.new"));
 const ClubDetails = lazy(() => import("./routes/clubs.$slug"));
 const ClubManageRoute = lazy(() => import("./routes/clubs.$slug.manage"));
-const ClubSeriesAnalyticsRoute = lazy(
-  () => import("./routes/clubs.$slug.series-analytics"),
-);const ClubNotesRoute = lazy(() => import("./routes/clubs.$slug.notes"));
+const ClubSeriesAnalyticsRoute = lazy(() => import("./routes/clubs.$slug.series-analytics"));
+const ClubNotesRoute = lazy(() => import("./routes/clubs.$slug.notes"));
 const ClubArticlesRoute = lazy(() => import("./routes/clubs.$slug.articles"));
 const ClubArticleDetailsRoute = lazy(() => import("./routes/clubs.$slug.articles.$articleId"));
+const ClubVaultRoute = lazy(() => import("./routes/clubs.$slug.vault"));
 const ClubsLayout = lazy(() => import("./routes/clubs"));
 const ClubDiscoveryQuiz = lazy(() => import("./routes/clubs.fit"));
 const Dashboard = lazy(() => import("./routes/dashboard"));
@@ -185,6 +185,7 @@ const router = createBrowserRouter(
             <Route path=":slug/notes" element={<ClubNotesRoute />} />
             <Route path=":slug/articles" element={<ClubArticlesRoute />} />
             <Route path=":slug/articles/:articleId" element={<ClubArticleDetailsRoute />} />
+            <Route path=":slug/vault" element={<ClubVaultRoute />} />
           </Route>
           <Route path="/print/charter/:slug" element={<PrintableCharter />} />
           <Route path="/dashboard" element={<Dashboard />}>
@@ -232,9 +233,10 @@ const router = createBrowserRouter(
           {/* Events Map View with clustering */}
           <Route path="events/map" element={<EventsMapPage />} />
           {/* Campus Heatmap - Live Activity */}
-<Route path="/map" element={<MapPage />} />
-<Route path="/tours/manage" element={<TourManager />} />
-<Route path="/tours/:tourId" element={<TourMode />} />          <Route path="challenge" element={<ChallengeArena />} />
+          <Route path="/map" element={<MapPage />} />
+          <Route path="/tours/manage" element={<TourManager />} />
+          <Route path="/tours/:tourId" element={<TourMode />} />{" "}
+          <Route path="challenge" element={<ChallengeArena />} />
           <Route path="leaderboard" element={<Leaderboard />} />
           <Route path="/feed" element={<Feed />} />
           <Route path="/lost-found" element={<LostFound />} />
@@ -313,7 +315,7 @@ function usePushNotifications() {
 
         await supabase
           .from("profiles")
-          // @ts-ignore - timezone and fcm_token exist in DB
+          // @ts-expect-error - timezone and fcm_token exist in DB
           .update({ timezone, fcm_token: fcmToken })
           .eq("id", session.user.id);
       } catch (e) {
