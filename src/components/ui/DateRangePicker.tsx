@@ -1,5 +1,5 @@
 import * as React from "react";
-import { CalendarIcon } from "lucide-react";
+import CalendarIcon from "lucide-react/dist/esm/icons/calendar";
 import type { DateRange } from "react-day-picker";
 import format from "date-fns/format";
 import subDays from "date-fns/subDays";

@@ -13,17 +13,15 @@ import {
   decryptMessage,
 } from "@/lib/crypto";
 import { toast } from "sonner";
-import {
-  ShieldCheck,
-  Send,
-  Search,
-  Lock,
-  AlertTriangle,
-  RefreshCw,
-  Smile,
-  Languages,
-} from "lucide-react";
-import { ShieldCheck, Send, Search, Lock, AlertTriangle, RefreshCw, Smile } from "lucide-react";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import Send from "lucide-react/dist/esm/icons/send";
+import Search from "lucide-react/dist/esm/icons/search";
+import Lock from "lucide-react/dist/esm/icons/lock";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import Smile from "lucide-react/dist/esm/icons/smile";
+import Languages from "lucide-react/dist/esm/icons/languages";
+
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import EmojiPicker from "emoji-picker-react";

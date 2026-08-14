@@ -14,7 +14,12 @@ import { parse } from "@/lib/markdown";
 import type { MarkdownNodeChild, HeadingNode } from "@/lib/markdown";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
-import { ArrowLeft, Github, Loader2, CheckCircle, Flag, Bookmark } from "lucide-react";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Github from "lucide-react/dist/esm/icons/github";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import Flag from "lucide-react/dist/esm/icons/flag";
+import Bookmark from "lucide-react/dist/esm/icons/bookmark";
 import { ReportDialog } from "@/components/ReportDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { VideoPlayer } from "@/components/VideoPlayer";
@@ -45,6 +50,7 @@ import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
 import { getClubThemeVars } from "@/lib/clubTheming";
 import { ClubHeader } from "@/components/Clubs/ClubHeader";
 import { ClubJobsSection } from "@/components/Clubs/ClubJobsSection";
+import { CrowdfundingCampaignSection } from "@/components/Clubs/Crowdfunding/CrowdfundingCampaignSection";
 import { FlipCard } from "@/components/ui/FlipCard";
 import { useSearchParams } from "react-router-dom";
 
@@ -237,6 +243,7 @@ export default function ClubProfile() {
   }
 
   const [latestJob, setLatestJob] = useState<BulkEmailJob | null>(null);
+  const [targetAudience, setTargetAudience] = useState<"all" | "alumni" | "students">("all");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null));
@@ -250,6 +257,27 @@ export default function ClubProfile() {
   } = useQuery({
     ...createClubProfileQueryOptions(supabase, slug ?? ""),
     enabled: Boolean(slug),
+  });
+
+  const {
+    data: milestones,
+    isLoading: isLoadingMilestones,
+    error: milestonesError,
+  } = useQuery({
+    queryKey: ["club_milestones", slug],
+    queryFn: async () => {
+      if (!slug) return [];
+      const { data, error } = await supabase
+        .from("club_milestones")
+        .select("*")
+        .eq("club_id", club?.id ?? "")
+        .order("year", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: Boolean(slug && club),
+    staleTime: 1000 * 60 * 5,
   });
 
   useEffect(() => {
@@ -386,7 +414,7 @@ export default function ClubProfile() {
     mutationFn: async () => {
       if (!club) throw new Error("Club not loaded");
       const { data, error } = await supabase.functions.invoke("send-newsletter", {
-        body: { clubId: club.id },
+        body: { clubId: club.id, targetAudience },
       });
       if (error) throw error;
       return data;
@@ -958,6 +986,8 @@ export default function ClubProfile() {
                       )}
                     </div>
 
+                    <CrowdfundingCampaignSection clubId={club.id} />
+
                     {isAdmin && (
                       <div className="neu-border mt-8 border-2 border-black bg-white p-6 dark:bg-zinc-900 dark:border-cream">
                         <h3 className="font-display text-xl font-bold uppercase tracking-tight text-indigo-900 dark:text-indigo-400">
@@ -968,6 +998,19 @@ export default function ClubProfile() {
                           This will be processed asynchronously in the background to prevent server
                           timeouts.
                         </p>
+
+                        <div className="mt-4 space-y-2 max-w-xs">
+                          <label className="eyebrow font-bold text-black dark:text-cream">Target Audience</label>
+                          <select
+                            value={targetAudience}
+                            onChange={(e) => setTargetAudience(e.target.value as any)}
+                            className="neu-border border-2 border-black bg-white text-black w-full p-2 font-mono text-xs outline-none dark:bg-zinc-800 dark:text-white"
+                          >
+                            <option value="all">All Members</option>
+                            <option value="students">Student Members Only</option>
+                            <option value="alumni">Alumni Members Only</option>
+                          </select>
+                        </div>
 
                         <div className="mt-6 flex flex-wrap items-center gap-4">
                           <button

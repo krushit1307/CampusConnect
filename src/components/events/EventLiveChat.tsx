@@ -2,10 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import format from "date-fns/format";
-import { MessageSquare, Send, Wifi, WifiOff } from "lucide-react";
+import MessageSquare from "lucide-react/dist/esm/icons/message-square";
+import Send from "lucide-react/dist/esm/icons/send";
+import Wifi from "lucide-react/dist/esm/icons/wifi";
+import WifiOff from "lucide-react/dist/esm/icons/wifi-off";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useEventLiveChat, type ChatMessage } from "@/hooks/useEventLiveChat";
+import { ClubAffiliationBadges } from "@/components/ClubAffiliationBadges";
 
 type EventLiveChatProps = {
   eventId: string;
@@ -26,11 +30,11 @@ function AuthorBadge({ message }: { message: ChatMessage }) {
 }
 
 /**
- * Real-time live chat for an event (#2741).
+ * Real-time live chat for an event (#2741 & #3005).
  *
  * Messages stream in over SSE (messageAdded subscription) and are sent via
- * the addMessage mutation. Signed-in users can post; anonymous visitors see
- * a sign-in prompt instead of the composer.
+ * the addMessage mutation. Executive club affiliation badges are rendered next to
+ * authors' names.
  */
 export function EventLiveChat({ eventId, user }: EventLiveChatProps) {
   const { messages, loading, sending, connected, error, sendMessage } = useEventLiveChat(eventId);
@@ -95,22 +99,29 @@ export function EventLiveChat({ eventId, user }: EventLiveChatProps) {
             </p>
           ) : (
             <ul className="space-y-3">
-              {messages.map((message) => (
-                <li key={message.id} className="flex items-start gap-3">
-                  <AuthorBadge message={message} />
-                  <div className="min-w-0">
-                    <p className="font-mono text-[10px] font-bold uppercase text-black/60">
-                      {authorName(message)}{" "}
-                      <span className="font-normal normal-case text-black/40">
-                        {format(new Date(message.createdAt), "h:mm a")}
-                      </span>
-                    </p>
-                    <p className="mt-0.5 break-words text-sm leading-snug text-black dark:text-cream">
-                      {message.content}
-                    </p>
-                  </div>
-                </li>
-              ))}
+              {messages.map((message) => {
+                const authorId = message.author?.id || message.userId;
+
+                return (
+                  <li key={message.id} className="flex items-start gap-3">
+                    <AuthorBadge message={message} />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono text-[10px] font-bold uppercase text-black/60">
+                          {authorName(message)}
+                        </span>
+                        {authorId && <ClubAffiliationBadges userId={authorId} size="xs" />}
+                        <span className="font-mono text-[10px] normal-case text-black/40">
+                          {format(new Date(message.createdAt), "h:mm a")}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 break-words text-sm leading-snug text-black dark:text-cream">
+                        {message.content}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

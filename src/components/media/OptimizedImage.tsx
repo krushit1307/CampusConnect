@@ -41,11 +41,16 @@ export function OptimizedImage({
   const lqipSrc = useMemo(
     () =>
       isPublic
-        ? getOptimizedImageUrl(src, { width: 20, height: Math.round(20 * (height / width)), quality: 20, resize: "cover", format: "webp" })
+        ? getOptimizedImageUrl(src, {
+            width: 20,
+            height: Math.round(20 * (height / width)),
+            quality: 20,
+            resize: "cover",
+            format: "webp",
+          })
         : undefined,
     [isPublic, src, width, height],
   );
-
   const fallbackSrc = useMemo(
     () => getOptimizedImageUrl(src, { width, height, quality, resize: "cover" }),
     [src, width, height, quality],
@@ -97,14 +102,7 @@ export function OptimizedImage({
   if (isPublic) {
     return (
       <div className={wrapperClass} style={{ ...imageProps.style, width, height }}>
-        {lqipSrc && (
-          <img
-            src={lqipSrc}
-            alt=""
-            aria-hidden="true"
-            style={lqipStyle}
-          />
-        )}
+        {lqipSrc && <img src={lqipSrc} alt="" aria-hidden="true" style={lqipStyle} />}
         <picture style={contentStyle}>
           <img
             {...cleanImageProps}
@@ -128,17 +126,9 @@ export function OptimizedImage({
       </div>
     );
   }
-
   return (
     <div className={wrapperClass} style={{ ...imageProps.style, width, height }}>
-      {lqipSrc && (
-        <img
-          src={lqipSrc}
-          alt=""
-          aria-hidden="true"
-          style={lqipStyle}
-        />
-      )}
+      {lqipSrc && <img src={lqipSrc} alt="" aria-hidden="true" style={lqipStyle} />}
       <img
         {...cleanImageProps}
         src={fallbackSrc}

@@ -1,5 +1,11 @@
 import React, { useState } from "react";
-import { Sliders, X, Tag, DollarSign, RefreshCw, CheckCircle, Lock } from "lucide-react";
+import Sliders from "lucide-react/dist/esm/icons/sliders";
+import X from "lucide-react/dist/esm/icons/x";
+import Tag from "lucide-react/dist/esm/icons/tag";
+import DollarSign from "lucide-react/dist/esm/icons/dollar-sign";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import Lock from "lucide-react/dist/esm/icons/lock";
 import { DualRangeSlider } from "@/components/ui/DualRangeSlider";
 
 interface DualRangeSliderStudioModalProps {

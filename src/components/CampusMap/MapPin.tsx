@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { MapEvent, EventPopover } from "./EventPopover";
 import { cn } from "../../lib/utils";
-import { MapPin as MapPinIcon } from "lucide-react";
+import MapPinIcon from "lucide-react/dist/esm/icons/map-pin";
 
 interface MapPinProps {
   event: MapEvent;

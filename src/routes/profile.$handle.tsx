@@ -104,10 +104,16 @@ export default function Profile() {
     queryKey: ["profileEvents", profile?.id],
     queryFn: async () => {
       if (!profile) return [];
-      const { data } = await supabase
+      let query = supabase
         .from("event_rsvps")
         .select("events (id, title, event_date, clubs (slug, name))")
         .eq("user_id", profile.id);
+
+      if (!user || user.id !== profile.id) {
+        query = query.eq("is_anonymous", false);
+      }
+
+      const { data } = await query;
 
       const events = (data || [])
         .map((r) => (Array.isArray(r.events) ? r.events[0] : r.events))
@@ -145,10 +151,16 @@ export default function Profile() {
           .select("id, joined_at, clubs (name, slug)")
           .eq("user_id", profile.id)
           .eq("status", "approved"),
-        supabase
-          .from("event_rsvps")
-          .select("id, rsvp_at, events (id, title, event_date)")
-          .eq("user_id", profile.id),
+        (() => {
+          let query = supabase
+            .from("event_rsvps")
+            .select("id, rsvp_at, events (id, title, event_date)")
+            .eq("user_id", profile.id);
+          if (!user || user.id !== profile.id) {
+            query = query.eq("is_anonymous", false);
+          }
+          return query;
+        })(),
         supabase
           .from("posts")
           .select("id, content, created_at, clubs (name, slug)")

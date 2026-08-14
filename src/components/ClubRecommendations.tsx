@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { getRecommendedClubs, RecommendedClub, encodeUserInterests } from "@/lib/recommendations";
-import { Loader2, Sparkles, Users } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Users from "lucide-react/dist/esm/icons/users";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

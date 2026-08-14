@@ -1,5 +1,7 @@
 import { BugReportModal } from "@/components/Modals/BugReportModal";
-import { ExternalLink, Github, MessageCircle } from "lucide-react";
+import ExternalLink from "lucide-react/dist/esm/icons/external-link";
+import Github from "lucide-react/dist/esm/icons/github";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";

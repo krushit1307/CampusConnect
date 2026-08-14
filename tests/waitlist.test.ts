@@ -28,6 +28,22 @@ describe("waitlist — joinEventOrWaitlist", () => {
     expect(mockRpc).toHaveBeenCalledWith("join_event_or_waitlist", {
       p_event_id: "evt-1",
       p_user_id: "usr-1",
+      p_resume_path: null,
+    });
+  });
+
+  it("passes an optional resume path to events that require a resume", async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: { success: true, status: "attending" },
+      error: null,
+    });
+
+    await joinEventOrWaitlist("evt-1", "usr-1", "resumes/usr-1.pdf");
+
+    expect(mockRpc).toHaveBeenCalledWith("join_event_or_waitlist", {
+      p_event_id: "evt-1",
+      p_user_id: "usr-1",
+      p_resume_path: "resumes/usr-1.pdf",
     });
   });
 

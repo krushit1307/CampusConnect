@@ -2,15 +2,13 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import {
-  ShieldCheck,
-  Lock,
-  AlertCircle,
-  RefreshCw,
-  Loader2,
-  LogOut,
-  ArrowLeft,
-} from "lucide-react";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import Lock from "lucide-react/dist/esm/icons/lock";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import LogOut from "lucide-react/dist/esm/icons/log-out";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 

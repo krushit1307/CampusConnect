@@ -4,7 +4,7 @@ import { useFormContext } from "react-hook-form";
 import { EventFormData } from "../../lib/eventFormSchema";
 import { Button } from "../ui/button";
 import { Label } from "../ui/label";
-import { CalendarIcon } from "lucide-react";
+import CalendarIcon from "lucide-react/dist/esm/icons/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Calendar } from "../ui/calendar";
 import format from "date-fns/format";

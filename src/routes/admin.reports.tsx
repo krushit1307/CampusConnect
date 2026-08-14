@@ -3,7 +3,10 @@ import { Navigate, Link } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { ShieldAlert, CheckCircle, XCircle, Trash2 } from "lucide-react";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import XCircle from "lucide-react/dist/esm/icons/x-circle";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 
 const AdminCharts = lazy(() => import("@/components/AdminCharts"));

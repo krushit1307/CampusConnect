@@ -4,12 +4,13 @@ import { useServer } from "graphql-ws/lib/use/ws";
 import express from "express";
 import { yoga, schema, pubsub } from "./server";
 import { createClient } from "../src/lib/supabase/client";
-
+import { handleImpersonation } from "./impersonation";
 const app = express();
 
+app.use(express.json());
+import { handleImpersonation } from "./impersonation";
 // Bind GraphQL Yoga as middleware
 app.use(yoga.graphqlEndpoint, yoga);
-
 const server = http.createServer(app);
 
 // Setup WebSocket server
@@ -67,7 +68,7 @@ server.on("upgrade", (request, socket, head) => {
 const interval = setInterval(() => {
   wss.clients.forEach((ws: any) => {
     if (ws.isAlive === false) {
-      console.log("[WebSocket] Reaping zombie client connection");
+      console.warn("[WebSocket] Reaping zombie client connection");
       return ws.terminate();
     }
     ws.isAlive = false;
@@ -111,15 +112,15 @@ supabaseClient
 
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
-  console.log(`[GraphQL Server] Listening on http://localhost:${PORT}${yoga.graphqlEndpoint}`);
-  console.log(
+  console.warn(`[GraphQL Server] Listening on http://localhost:${PORT}${yoga.graphqlEndpoint}`);
+  console.warn(
     `[GraphQL Server] Subscriptions ready over WebSockets (ws://localhost:${PORT}${yoga.graphqlEndpoint})`,
   );
 });
 
 // Graceful shutdown
 process.on("SIGTERM", async () => {
-  console.log("[server] SIGTERM received, shutting down...");
+  console.warn("[server] SIGTERM received, shutting down...");
   clearInterval(interval);
   await serverCleanup.dispose();
   server.close(() => {

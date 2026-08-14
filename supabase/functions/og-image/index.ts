@@ -34,10 +34,17 @@ let wasmInitialised = false;
 async function ensureWasm() {
   if (wasmInitialised) return;
   // Fetch precompiled WASM binary from the same esm.sh CDN that hosts the JS
-  const wasmUrl = "https://esm.sh/@resvg/resvg-wasm@2.6.2/index_bg.wasm";
-  const wasmBuffer = await fetch(wasmUrl).then((r) => r.arrayBuffer());
-  await initWasm(wasmBuffer);
-  wasmInitialised = true;
+const wasmUrl = "https://esm.sh/@resvg/resvg-wasm@2.6.2/index_bg.wasm";
+
+const response = await fetch(wasmUrl);
+
+if (!response.ok) {
+  throw new Error(`Failed to load resvg WASM: ${response.status}`);
+}
+
+const wasmBuffer = await response.arrayBuffer();
+
+await initWasm(wasmBuffer);  wasmInitialised = true;
 }
 
 // ---------------------------------------------------------------------------
@@ -65,9 +72,11 @@ interface EventRow {
   event_date: string | null;
   location: string | null;
   banner_url: string | null;
-  clubs?: { name: string } | null;
+  clubs?: {
+    name: string;
+    logo_url: string | null;
+  } | null;
 }
-
 async function fetchEvent(eventId: string): Promise<EventRow | null> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -75,8 +84,7 @@ async function fetchEvent(eventId: string): Promise<EventRow | null> {
 
   const { data, error } = await client
     .from("events")
-    .select("id, title, event_date, location, banner_url, clubs(name)")
-    .eq("id", eventId)
+.select("id, title, event_date, location, banner_url, clubs(name, logo_url)")    .eq("id", eventId)
     .maybeSingle();
 
   if (error || !data) return null;
@@ -119,9 +127,9 @@ function buildTemplate(event: EventRow): React.ReactElement {
   const title = truncate(event.title ?? "Campus Event", 65);
   const dateStr = formatEventDate(event.event_date);
   const location = event.location ? truncate(event.location, 55) : null;
-  const clubName = event.clubs?.name ? truncate(event.clubs.name, 40) : null;
-  const hasBanner = !!event.banner_url;
-
+const clubName = event.clubs?.name ? truncate(event.clubs.name, 40) : null;
+const clubLogo = event.clubs?.logo_url ?? null;
+const hasBanner = !!event.banner_url;
   return {
     type: "div",
     props: {
@@ -202,22 +210,38 @@ function buildTemplate(event: EventRow): React.ReactElement {
                       },
                     },
                     // Club name pill
-                    clubName && {
-                      type: "div",
-                      props: {
-                        style: {
-                          background: "rgba(255,255,255,0.12)",
-                          borderRadius: 8,
-                          padding: "6px 16px",
-                          fontSize: 16,
-                          fontWeight: 500,
-                          color: "rgba(255,255,255,0.75)",
-                          border: "1px solid rgba(255,255,255,0.15)",
-                        },
-                        children: clubName,
-                      },
-                    },
-                  ].filter(Boolean),
+clubName && {
+  type: "div",
+  props: {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      background: "rgba(255,255,255,0.12)",
+      borderRadius: 8,
+      padding: "6px 16px",
+      fontSize: 16,
+      fontWeight: 500,
+      color: "rgba(255,255,255,0.75)",
+      border: "1px solid rgba(255,255,255,0.15)",
+    },
+    children: [
+      clubLogo && {
+        type: "img",
+        props: {
+          src: clubLogo,
+          style: {
+            width: 32,
+            height: 32,
+            borderRadius: 6,
+            objectFit: "cover",
+          },
+        },
+      },
+      clubName,
+    ].filter(Boolean),
+  },
+},                  ].filter(Boolean),
                 },
               },
 

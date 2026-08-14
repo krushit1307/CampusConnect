@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Search, Download, FileText, ChevronDown, Loader2 } from "lucide-react";
+import Search from "lucide-react/dist/esm/icons/search";
+import Download from "lucide-react/dist/esm/icons/download";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import { supabase } from "../lib/supabase/client";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";

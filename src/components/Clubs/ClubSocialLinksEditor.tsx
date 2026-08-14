@@ -1,5 +1,8 @@
 import { useRef } from "react";
-import { GripVertical, Twitter, Link2, Globe } from "lucide-react";
+import GripVertical from "lucide-react/dist/esm/icons/grip-vertical";
+import Twitter from "lucide-react/dist/esm/icons/twitter";
+import Link2 from "lucide-react/dist/esm/icons/link-2";
+import Globe from "lucide-react/dist/esm/icons/globe";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { SortableList } from "@/components/ui/SortableList";

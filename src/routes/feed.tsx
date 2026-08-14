@@ -3,7 +3,10 @@ import { Link } from "react-router-dom";
 import { createClient } from "@/lib/supabase/client";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { SiteShell } from "@/components/site/SiteShell";
-import { Loader2, Calendar, MapPin, Sparkles } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 
 export default function Feed() {
   const supabase = createClient();
@@ -24,129 +27,6 @@ export default function Feed() {
     enabled: !!session,
   });
 
-  const trendingPosts: Post[] = trendingData ?? [];
-  const activePosts = feedMode === "latest" ? posts : trendingPosts;
-
-  const { data: blockedUserIds = new Set<string>() } = useQuery({
-    queryKey: ["blockedUserIds", user?.id],
-    queryFn: async () => {
-      if (!user) return new Set<string>();
-      return await getBlockedUserIds(user.id);
-    },
-    enabled: !!user?.id,
-  });
-
-  const nonBlockedPosts = filterBlockedContent(activePosts, blockedUserIds);
-  const filteredPosts = filterPostsBySearch(nonBlockedPosts, searchQuery);
-
-  const isActiveFeedLoading = feedMode === "latest" ? isLoading : isTrendingLoading;
-
-  const parentRef = useRef<HTMLDivElement>(null);
-  const rowVirtualizer = useWindowVirtualizer({
-    count: filteredPosts.length + (isFetchingNextPage ? 2 : 0),
-    estimateSize: useCallback(
-      (index: number) => {
-        const post = filteredPosts[index];
-        if (!post) return 210;
-        let height = 210;
-        if (post.image_url) height += 200;
-        if (post.content && post.content.length > 200) height += 100;
-        return height;
-      },
-      [filteredPosts],
-    ),
-    overscan: 5,
-    scrollMargin: parentRef.current?.offsetTop ?? 0,
-  });
-
-  // Re-measure virtualizer on window resize
-  useEffect(() => {
-    const handleResize = () => {
-      rowVirtualizer.measure();
-    };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [rowVirtualizer]);
-
-  // Infinite scroll trigger based on virtual items
-  const virtualItems = rowVirtualizer.getVirtualItems();
-  useEffect(() => {
-    if (virtualItems.length === 0) return;
-    const lastItem = virtualItems[virtualItems.length - 1];
-    if (
-      lastItem.index >= filteredPosts.length - 3 &&
-      hasNextPage &&
-      !isFetchingNextPage &&
-      !isLoading
-    ) {
-      fetchNextPage();
-    }
-  }, [
-    virtualItems,
-    filteredPosts.length,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-    fetchNextPage,
-  ]);
-
-  // Scroll position restoration (#1432)
-  useEffect(() => {
-    const savedScrollPos = sessionStorage.getItem("feed_scroll_position");
-    if (savedScrollPos) {
-      window.scrollTo(0, parseInt(savedScrollPos, 10));
-    }
-
-    const handleScrollSave = () => {
-      sessionStorage.setItem("feed_scroll_position", window.scrollY.toString());
-    };
-
-    window.addEventListener("scroll", handleScrollSave, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", handleScrollSave);
-    };
-  }, []);
-
-  const postsRef = useRef(posts);
-  const userRef = useRef(user);
-
-  useEffect(() => {
-    postsRef.current = posts;
-  }, [posts]);
-
-  useEffect(() => {
-    userRef.current = user;
-  }, [user]);
-
-  const handleRefetch = useCallback(async () => {
-    setShowNewPostsBanner(false);
-    await refetchPosts();
-  }, [refetchPosts]);
-
-  const handleLoadNewPosts = useCallback(() => {
-    setPrependedPosts((prev) => [...hiddenPosts, ...prev]);
-    setHiddenPosts([]);
-    setShowNewPostsBanner(false);
-  }, [hiddenPosts]);
-
-  useEffect(() => {
-    const channel = supabase
-      .channel("public-posts-insert")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "posts",
-        },
-        async (payload) => {
-          const newRawPost = payload.new;
-          // Ignore posts created by currently authenticated user
-          if (userRef.current && newRawPost.created_by === userRef.current.id) {
-            return;
-          }
-
-          // Fetch the full post with relations
   // 2. Fetch the actual event data in PARALLEL using useQueries
   const carouselQueries = useQueries({
     queries: (config?.carousels || []).map((carousel: any) => ({

@@ -17,7 +17,7 @@ import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import { CommandPalette } from "@/components/ui/command-palette";
 import { showAnnouncementToast } from "@/lib/announcements/sse";
 import { SkipToContent } from "@/components/SkipToContent";
-
+import ImpersonationBanner from "@/components/ImpersonationBanner";
 // Persistent banner shown while the browser has no network connection.
 function OfflineBanner() {
   const [isOffline, setIsOffline] = useState(
@@ -168,26 +168,29 @@ export default function Layout() {
   }, []);
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <WebRTCProvider>
-        <SkipToContent />
-        <OfflineBanner />
-        <TopProgressBar />
-        <SessionExpiryModal />
+    <>
+      <TooltipProvider delayDuration={200}>
+        <WebRTCProvider>
+          <SkipToContent />
+          <OfflineBanner />
+          <TopProgressBar />
+          <SessionExpiryModal />
 
-        <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-        <PWAInstallPrompt />
+          <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+          <PWAInstallPrompt />
 
-        <main id="main-content" className="flex-1 w-full h-full min-h-screen">
-          <Outlet />
-        </main>
+          <main id="main-content" className="flex-1 w-full h-full min-h-screen">
+            <Outlet />
+          </main>
 
-        <Toaster />
-        <ScrollToTop />
-        <RadialFAB />
-        {userId && <FloatingChat />}
-        <CommandPalette />
-      </WebRTCProvider>
-    </TooltipProvider>
+          <Toaster />
+          <ScrollToTop />
+          <RadialFAB />
+          {userId && <FloatingChat />}
+          <CommandPalette />
+        </WebRTCProvider>
+      </TooltipProvider>
+      <ImpersonationBanner />
+    </>
   );
 }

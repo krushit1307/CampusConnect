@@ -80,6 +80,7 @@ export default defineConfig({
               ],
             },
             workbox: {
+              maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
               globPatterns: ["**/*.{js,css,html,ico,png,svg,json,lottie}"],
               runtimeCaching: [
                 {
@@ -189,6 +190,17 @@ export default defineConfig({
               return "vendor-react";
             }
             return "vendor";
+          }
+        },
+      },
+    },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/lucide-react")) {
+            return "lucide-icons";
           }
         },
       },

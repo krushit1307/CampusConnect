@@ -16,7 +16,11 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { createClient } from "@/lib/supabase/client";
 import { formatEventDateRange } from "@/lib/eventUtils";
 import { formatStandardDate } from "@/utils/dateUtils";
-import { MapPin, Calendar, Flame, Users, RefreshCw } from "lucide-react";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Flame from "lucide-react/dist/esm/icons/flame";
+import Users from "lucide-react/dist/esm/icons/users";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
 
 // Campus center default
 const DEFAULT_MAP_CENTER: [number, number] = [28.7041, 77.1025];

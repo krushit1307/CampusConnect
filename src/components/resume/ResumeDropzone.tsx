@@ -1,5 +1,8 @@
 import { useState, useCallback } from "react";
-import { UploadCloud, File, X, Loader2 } from "lucide-react";
+import UploadCloud from "lucide-react/dist/esm/icons/upload-cloud";
+import File from "lucide-react/dist/esm/icons/file";
+import X from "lucide-react/dist/esm/icons/x";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import { useDropzone } from "react-dropzone";
 import { Button } from "../ui/button";
 import { supabase } from "../../lib/supabase/client";

@@ -2,7 +2,9 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import { Link } from "react-router-dom";
 import format from "date-fns/format";
-import { MapPin, Calendar, Users } from "lucide-react";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Users from "lucide-react/dist/esm/icons/users";
 
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";

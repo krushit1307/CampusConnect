@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import ExternalLink from "lucide-react/dist/esm/icons/external-link";
 import { createClient } from "@/lib/supabase/client";
 
 interface RichLinkCardProps {
