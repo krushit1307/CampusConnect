@@ -185,6 +185,8 @@ CREATE TABLE event_waitlist (
   UNIQUE(event_id, user_id)
 );
 
+
+
 CREATE TABLE posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   club_id UUID REFERENCES clubs(id) ON DELETE CASCADE,
@@ -344,6 +346,18 @@ CREATE INDEX idx_poll_votes_poll_id_user_id ON poll_votes(poll_id, user_id);
 CREATE INDEX idx_direct_messages_sender_id ON direct_messages(sender_id);
 CREATE INDEX idx_direct_messages_receiver_id ON direct_messages(receiver_id);
 CREATE INDEX idx_direct_messages_created_at ON direct_messages(created_at);
+
+-------------------------------------------------------------------------------------------------------------
+-- Speeds up filtering/joining posts by the club they belong to
+CREATE INDEX IF NOT EXISTS idx_posts_club_id ON posts(club_id);
+-- Speeds up joining posts to the author's profile data
+CREATE INDEX IF NOT EXISTS idx_posts_author_id ON posts(author_id);
+-- Drastically speeds up ordering the feed chronologically 
+-- The partial index (WHERE deleted_at IS NULL) saves space and speeds up queries that ignore deleted posts
+CREATE INDEX IF NOT EXISTS idx_posts_active_created_at ON posts(created_at DESC) WHERE deleted_at IS NULL;
+-- Speeds up fetching or counting comments for a specific post
+CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id);
+-------------------------------------------------------------------------------------------------------------
 
 -- Helper function: check if user is system admin
 CREATE OR REPLACE FUNCTION public.is_system_admin()
