@@ -7,10 +7,9 @@ import {
 } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { useState } from "react";
-import Calendar from "lucide-react/dist/esm/icons/calendar";
-import Share2 from "lucide-react/dist/esm/icons/share-2";
-import LinkIcon from "lucide-react/dist/esm/icons/link";
-import Bookmark from "lucide-react/dist/esm/icons/bookmark";
+import { MapPin, Calendar, Clock, Link as LinkIcon, Share2, Bookmark, Play } from "lucide-react";
+import { useAudioStore } from "@/store/audioStore";
+import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";
@@ -183,6 +182,30 @@ export function EventCard({
   const [ticketOpen, setTicketOpen] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
 
+  const { playTrack } = useAudioStore();
+  const supabase = createClient();
+
+  const handlePlayRecording = async () => {
+    if (!event.audio_recording_url) return;
+    try {
+      const { data, error } = await supabase.storage
+        .from("event_audio")
+        .createSignedUrl(event.audio_recording_url, 7200);
+
+      if (error) throw error;
+
+      playTrack({
+        url: data.signedUrl,
+        eventId: event.id,
+        title: event.title,
+        clubName: club?.name,
+        clubLogo: club?.logo_url,
+      });
+    } catch (err: any) {
+      toast.error("Could not play recording.");
+    }
+  };
+
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -257,9 +280,6 @@ export function EventCard({
     <div className="group">
       <article
         id={`event-${event.id}`}
- fix/theme-toggle-tooltip-provider
-        className={`neu-border p-5 relative ${colors[index % colors.length]} transition-all duration-300 ease-out group-hover:scale-[1.02] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-ink)]`}
-
         className={`neu-border p-5 relative ${
           active
             ? "bg-blue-100 border-4 border-blue-600 ring-2 ring-blue-600"
@@ -267,7 +287,6 @@ export function EventCard({
         } transition-all duration-300 ease-out group-hover:scale-[1.02] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-ink)]`}
         onMouseEnter={preloadEvent.onMouseEnter}
         onMouseLeave={preloadEvent.onMouseLeave}
- main
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col">
@@ -287,8 +306,6 @@ export function EventCard({
               </span>
             )}
           </div>
- fix/theme-toggle-tooltip-provider
-
           <div className="flex gap-2 relative z-10">
             <TooltipProvider>
               <Tooltip>
@@ -331,57 +348,6 @@ export function EventCard({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-
-        </div>
-        <div className="mt-5">
-          <div>
-            <p className="font-mono text-xs font-bold uppercase text-black">Date &amp; Time</p>
-            <p className="mt-1 text-sm text-red-900">{formatEventDateRange(event)}</p>
-
-            <div className="flex gap-2 relative z-10">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={handleBookmarkClick}
-                      disabled={isBookmarkPending}
-                      className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60"
-                      aria-label={isSaved ? "Unsave event" : "Save event"}
-                    >
-                      <Bookmark className="h-4 w-4" fill={isSaved ? "black" : "none"} />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{isSaved ? "Unsave event" : "Save event"}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <ShareMenu
-                      url={shareUrl}
-                      title={event.title}
-                      text={`Check out this event: ${event.title}`}
-                    >
-                      <button
-                        type="button"
-                        aria-label="Share event link"
-                        className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black"
-                      >
-                        <Share2 aria-hidden="true" size={14} strokeWidth={3} />
-                      </button>
-                    </ShareMenu>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Share event</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
- main
           </div>
         </div>
         <p className="mt-3 font-mono text-xs font-bold uppercase text-black">Event</p>
@@ -475,6 +441,16 @@ export function EventCard({
               className="neu-border neu-press bg-white hover:bg-cream h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 text-black"
             >
               View Ticket
+            </Button>
+          )}
+          {event.audio_recording_url && (
+            <Button
+              type="button"
+              onClick={handlePlayRecording}
+              className="neu-border neu-press bg-blue-600 hover:bg-blue-700 h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 text-white flex items-center gap-2"
+            >
+              <Play className="w-4 h-4 fill-current" />
+              Listen Recording
             </Button>
           )}
         </div>
