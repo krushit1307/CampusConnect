@@ -92,9 +92,8 @@ const ClubsIndex = lazy(() => import("./routes/clubs.index"));
 const ClubNew = lazy(() => import("./routes/clubs.new"));
 const ClubDetails = lazy(() => import("./routes/clubs.$slug"));
 const ClubManageRoute = lazy(() => import("./routes/clubs.$slug.manage"));
-const ClubSeriesAnalyticsRoute = lazy(
-  () => import("./routes/clubs.$slug.series-analytics"),
-);const ClubNotesRoute = lazy(() => import("./routes/clubs.$slug.notes"));
+const ClubSeriesAnalyticsRoute = lazy(() => import("./routes/clubs.$slug.series-analytics"));
+const ClubNotesRoute = lazy(() => import("./routes/clubs.$slug.notes"));
 const ClubArticlesRoute = lazy(() => import("./routes/clubs.$slug.articles"));
 const ClubArticleDetailsRoute = lazy(() => import("./routes/clubs.$slug.articles.$articleId"));
 const ClubsLayout = lazy(() => import("./routes/clubs"));
@@ -130,6 +129,7 @@ const Leaderboard = lazy(() =>
 );
 const Recap = lazy(() => import("./routes/recap"));
 const MfaChallenge = lazy(() => import("./routes/mfa-challenge"));
+const VolunteerRecord = lazy(() => import("./routes/volunteer-record"));
 
 const EventsLayout = lazy(() => import("./pages/Events/EventsLayout"));
 const LazyEventsIndex = lazy(() => import("./pages/Events/EventsList"));
@@ -232,9 +232,10 @@ const router = createBrowserRouter(
           {/* Events Map View with clustering */}
           <Route path="events/map" element={<EventsMapPage />} />
           {/* Campus Heatmap - Live Activity */}
-<Route path="/map" element={<MapPage />} />
-<Route path="/tours/manage" element={<TourManager />} />
-<Route path="/tours/:tourId" element={<TourMode />} />          <Route path="challenge" element={<ChallengeArena />} />
+          <Route path="/map" element={<MapPage />} />
+          <Route path="/tours/manage" element={<TourManager />} />
+          <Route path="/tours/:tourId" element={<TourMode />} />{" "}
+          <Route path="challenge" element={<ChallengeArena />} />
           <Route path="leaderboard" element={<Leaderboard />} />
           <Route path="/feed" element={<Feed />} />
           <Route path="/lost-found" element={<LostFound />} />
@@ -242,6 +243,7 @@ const router = createBrowserRouter(
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/recap" element={<Recap />} />
+          <Route path="/volunteer-record" element={<VolunteerRecord />} />
           <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
           <Route path="/admin/analytics" element={<AnalyticsAdmin />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
@@ -313,7 +315,7 @@ function usePushNotifications() {
 
         await supabase
           .from("profiles")
-          // @ts-ignore - timezone and fcm_token exist in DB
+          // @ts-expect-error - timezone and fcm_token exist in DB
           .update({ timezone, fcm_token: fcmToken })
           .eq("id", session.user.id);
       } catch (e) {
