@@ -41,7 +41,7 @@ describe("HistoryTimeline Component", () => {
     render(
       <MemoryRouter>
         <HistoryTimeline items={mockItems} />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     expect(screen.getByText("Joined Coding Club")).toBeInTheDocument();

@@ -116,8 +116,18 @@ Deno.test("registry - parses id=url[:weight] entries and skips malformed ones", 
     "us-east=https://a.example.com:2, eu-west|wss://b.example.com, ,garbage",
   );
   assertEquals(nodes.length, 2);
-  assertEquals(nodes[0], { id: "us-east", region: "us-east", url: "https://a.example.com", weight: 2 });
-  assertEquals(nodes[1], { id: "eu-west", region: "eu-west", url: "wss://b.example.com", weight: 1 });
+  assertEquals(nodes[0], {
+    id: "us-east",
+    region: "us-east",
+    url: "https://a.example.com",
+    weight: 2,
+  });
+  assertEquals(nodes[1], {
+    id: "eu-west",
+    region: "eu-west",
+    url: "wss://b.example.com",
+    weight: 1,
+  });
 });
 
 Deno.test("registry - empty input returns empty list", () => {
@@ -158,7 +168,11 @@ Deno.test("affinity - malformed or tampered cookie is rejected", () => {
 function makeSelector(overrides: Partial<Parameters<typeof selectNode>[1]> = {}) {
   const nodes = testNodes();
   const ring = buildRing(nodes, 256);
-  const health = new NodeHealthTracker({ failureThreshold: 3, successThreshold: 2, cooldownMs: 10_000 });
+  const health = new NodeHealthTracker({
+    failureThreshold: 3,
+    successThreshold: 2,
+    cooldownMs: 10_000,
+  });
   return {
     opts: {
       nodes,

@@ -13,10 +13,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Newsletter,
-  NewsletterAnalyticsSummary,
-} from "@/types/newsletter";
+import { Newsletter, NewsletterAnalyticsSummary } from "@/types/newsletter";
 import { NewsletterService } from "@/services/newsletterService";
 
 interface NewsletterAnalyticsPanelProps {
@@ -171,8 +168,8 @@ export function NewsletterAnalyticsPanel({
                         item.status === "sent"
                           ? "bg-green-100 text-green-900 border-green-800"
                           : item.status === "sending"
-                          ? "bg-amber-100 text-amber-900 border-amber-800"
-                          : "bg-gray-200 text-gray-800 border-gray-800"
+                            ? "bg-amber-100 text-amber-900 border-amber-800"
+                            : "bg-gray-200 text-gray-800 border-gray-800"
                       }`}
                     >
                       {item.status}

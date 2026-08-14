@@ -189,14 +189,10 @@ async function hmacSha256(key: string, message: string): Promise<string> {
     keyData,
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"]
+    ["sign"],
   );
 
-  const signature = await crypto.subtle.sign(
-    "HMAC",
-    cryptoKey,
-    messageData
-  );
+  const signature = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
 
   return Array.from(new Uint8Array(signature))
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -209,25 +205,19 @@ export async function validateSignature(req: Request): Promise<Response | null> 
   const nonce = req.headers.get("X-Request-Nonce");
 
   if (!signature || !timestamp || !nonce) {
-    return new Response(
-      JSON.stringify({ error: "Missing request signature headers" }),
-      {
-        status: 400,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      }
-    );
+    return new Response(JSON.stringify({ error: "Missing request signature headers" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+    });
   }
 
   // 1. Replay attack time-window check (5 minutes)
   const requestTime = Number(timestamp);
   if (isNaN(requestTime) || Math.abs(Date.now() - requestTime) > 300000) {
-    return new Response(
-      JSON.stringify({ error: "Request signature expired" }),
-      {
-        status: 401,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      }
-    );
+    return new Response(JSON.stringify({ error: "Request signature expired" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+    });
   }
 
   // 2. Replay attack duplicate nonce check in Redis
@@ -236,13 +226,10 @@ export async function validateSignature(req: Request): Promise<Response | null> 
       const nonceKey = `nonce:${nonce}`;
       const exists = await redis.get(nonceKey);
       if (exists) {
-        return new Response(
-          JSON.stringify({ error: "Replay attack detected" }),
-          {
-            status: 401,
-            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-          }
-        );
+        return new Response(JSON.stringify({ error: "Replay attack detected" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        });
       }
       await redis.set(nonceKey, "1", { ex: 300 });
     } catch (err) {
@@ -264,15 +251,11 @@ export async function validateSignature(req: Request): Promise<Response | null> 
   const calculatedSignature = await hmacSha256(key, message);
 
   if (signature !== calculatedSignature) {
-    return new Response(
-      JSON.stringify({ error: "Invalid request signature" }),
-      {
-        status: 401,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      }
-    );
+    return new Response(JSON.stringify({ error: "Invalid request signature" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+    });
   }
 
   return null;
 }
-

@@ -168,27 +168,29 @@ export default function Layout() {
   }, []);
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <WebRTCProvider>
-        <SkipToContent />
-        <OfflineBanner />
-        <TopProgressBar />
-        <SessionExpiryModal />
+    <>
+      <TooltipProvider delayDuration={200}>
+        <WebRTCProvider>
+          <SkipToContent />
+          <OfflineBanner />
+          <TopProgressBar />
+          <SessionExpiryModal />
 
-        <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-        <PWAInstallPrompt />
+          <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+          <PWAInstallPrompt />
 
-        <main id="main-content" className="flex-1 w-full h-full min-h-screen">
-          <Outlet />
-        </main>
+          <main id="main-content" className="flex-1 w-full h-full min-h-screen">
+            <Outlet />
+          </main>
 
-        <Toaster />
-        <ScrollToTop />
-        <RadialFAB />
-        {userId && <FloatingChat />}
-        <CommandPalette />
-      </WebRTCProvider>
-    </TooltipProvider>
-    <ImpersonationBanner />
+          <Toaster />
+          <ScrollToTop />
+          <RadialFAB />
+          {userId && <FloatingChat />}
+          <CommandPalette />
+        </WebRTCProvider>
+      </TooltipProvider>
+      <ImpersonationBanner />
+    </>
   );
 }
