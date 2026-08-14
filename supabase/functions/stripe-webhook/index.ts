@@ -12,20 +12,42 @@ serve(async (req) => {
     // We expect { type: 'checkout.session.completed', data: { metadata: { seatIds: '...', orderId: '...' } } }
 
     if (payload.type === "checkout.session.completed") {
-      const seatIds = payload.data.metadata.seatIds.split(",");
-      const orderId = payload.data.metadata.orderId;
+      const metadata = payload.data.metadata || {};
 
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      if (metadata.type === "bundle") {
+        // Forward bundle requests to process-bundle-checkout edge function
+        const functionUrl = `${supabaseUrl}/functions/v1/process-bundle-checkout`;
+        const res = await fetch(functionUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({ sessionId: payload.data.id }),
+        });
 
-      // Call RPC to confirm
-      const { error } = await supabase.rpc("confirm_seat_purchase", {
-        p_seat_ids: seatIds,
-        p_order_id: orderId,
-      });
+        if (!res.ok) {
+          const errorData = await res.text();
+          console.error("Error calling process-bundle-checkout:", errorData);
+          throw new Error("Bundle checkout processing failed");
+        }
+      } else if (metadata.seatIds) {
+        // Handle seat purchases
+        const seatIds = metadata.seatIds.split(",");
+        const orderId = metadata.orderId;
 
-      if (error) {
-        console.error("RPC Error:", error);
-        throw error;
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+        // Call RPC to confirm
+        const { error } = await supabase.rpc("confirm_seat_purchase", {
+          p_seat_ids: seatIds,
+          p_order_id: orderId,
+        });
+
+        if (error) {
+          console.error("RPC Error:", error);
+          throw error;
+        }
       }
     }
 

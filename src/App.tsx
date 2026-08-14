@@ -137,6 +137,8 @@ const LazyEventDetails = lazy(() => import("./pages/Events/EventDetail"));
 const EmptyState = lazy(() => import("./pages/Events/EmptyState"));
 const TourManager = lazy(() => import("./routes/tours.manage"));
 const TourMode = lazy(() => import("./routes/tours.$tourId"));
+const BundleCheckoutRoute = lazy(() => import("./pages/BundleCheckoutPage"));
+const BundleDetailsRoute = lazy(() => import("./pages/BundleDetailsPage"));
 // ---------------------------------------------------------------------------
 // Animated Outlet Wrapper for Framer Motion transitions with Skeleton Fallback
 // ---------------------------------------------------------------------------
@@ -188,6 +190,8 @@ const router = createBrowserRouter(
             <Route path=":slug/vault" element={<ClubVaultRoute />} />
           </Route>
           <Route path="/print/charter/:slug" element={<PrintableCharter />} />
+          <Route path="/bundles/:bundleId" element={<BundleDetailsRoute />} />
+          <Route path="/bundles/:bundleId/checkout" element={<BundleCheckoutRoute />} />
           <Route path="/dashboard" element={<Dashboard />}>
             <Route index element={<DashboardOverview />} />
             <Route path="rsvps" element={<DashboardRsvps />} />
