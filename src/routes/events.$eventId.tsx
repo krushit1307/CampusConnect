@@ -49,25 +49,19 @@ import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
 import QrCode from "lucide-react/dist/esm/icons/qr-code";
 import Eye from "lucide-react/dist/esm/icons/eye";
 import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
-import {
   Accordion,
   AccordionItem,
   AccordionTrigger,
   AccordionContent,
 } from "@/components/ui/accordion";
-import PredictiveTurnout from "@/components/events/PredictiveTurnout";
 import LiveQA from "@/components/qa/LiveQA";
-import EventFeedbackForm from "@/components/EventFeedbackForm";
 import { CarpoolMatchingSection } from "@/components/events/carpool/CarpoolMatchingSection";
 import { EventLiveChat } from "@/components/events/EventLiveChat";
 import { EventSubmissions } from "@/components/EventSubmissions";
 import { ReportDialog } from "@/components/ReportDialog";
 import { GeofencedCheckInButton } from "@/components/GeofencedCheckInButton";
+import Ticket from "lucide-react/dist/esm/icons/ticket";
+import { useTicketDownload } from "@/hooks/useTicketDownload";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
@@ -326,6 +320,16 @@ function downloadCsv(csvContent: string, filename: string) {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+interface EventSignature {
+  id: string;
+  event_id: string;
+  signer_role: string;
+  signer_name: string;
+  signer_email: string;
+  signature_token: string;
+  signed_at: string | null;
+  ip_address: string | null;
+}
 
 export default function EventDetailsPage() {
   const { eventId = "" } = useParams();
@@ -348,6 +352,7 @@ export default function EventDetailsPage() {
   const [isDecrypting, setIsDecrypting] = useState(false);
   const [decryptError, setDecryptError] = useState<string | null>(null);
   const [isDecryptedModalOpen, setIsDecryptedModalOpen] = useState(false);
+  const { downloadTicket, isGenerating: isTicketGenerating } = useTicketDownload();
 
   const handleViewAccommodation = async (rsvpId: string) => {
     setIsDecrypting(true);
@@ -614,16 +619,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
       return data || [];
     },
     enabled: !!event?.venue_id,
-  interface EventSignature {
-    id: string;
-    event_id: string;
-    signer_role: string;
-    signer_name: string;
-    signer_email: string;
-    signature_token: string;
-    signed_at: string | null;
-    ip_address: string | null;
-  }
+  });
 
   const { data: signatures = [], refetch: refetchSignatures } = useQuery({
     queryKey: ["event_signatures", eventId],
@@ -1801,6 +1797,19 @@ return (
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+
+            {/* Download Ticket — visible to confirmed attendees of upcoming/ongoing events */}
+            {hasRsvpd && !hasEnded && (
+              <Button
+                onClick={() => downloadTicket(event)}
+                disabled={isTicketGenerating}
+                variant="outline"
+                className="neu-border neu-press h-12 bg-lime px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-60"
+              >
+                <Ticket className="mr-2 h-4 w-4" />
+                {isTicketGenerating ? "Generating…" : "Download Ticket"}
+              </Button>
+            )}
 
             {isOrganizer && (
               <>

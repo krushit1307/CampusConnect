@@ -32,8 +32,8 @@ import { ClubSocialLinksEditor } from "@/components/Clubs/ClubSocialLinksEditor"
 import { ClubColorPicker } from "@/components/Clubs/ClubColorPicker";
 import { isValidHexColor } from "@/lib/clubTheming";
 import { sanitizeHtml } from "@/lib/sanitizeHtml";
-import ClubAnalyticsDashboard from "@/components/clubs/ClubAnalyticsDashboard";
-import PermissionsGrid from "@/components/Clubs/PermissionsGrid";
+import { ClubAnalyticsDashboard } from "@/components/clubs/ClubAnalyticsDashboard";
+import { PermissionsGrid } from "@/components/Clubs/PermissionsGrid";
 import ClubRenewalWizard from "@/components/ClubRenewalWizard";
 import { ClubFinancesTab } from "@/components/Clubs/ClubFinancesTab";
 import DollarSign from "lucide-react/dist/esm/icons/dollar-sign";
@@ -71,7 +71,16 @@ export default function ClubManageRoute() {
   const [user, setUser] = useState<User | null>(null);
 
   const [activeTab, setActiveTab] = useState<
-    "settings" | "members" | "permissions" | "events" | "newsletters" | "constitution" | "trash" | "analytics"
+    | "settings"
+    | "members"
+    | "permissions"
+    | "events"
+    | "newsletters"
+    | "logistics"
+    | "constitution"
+    | "trash"
+    | "analytics"
+    | "milestones"
   >("settings");
   const [selectedLogisticsEventId, setSelectedLogisticsEventId] = useState<string>("");
 
@@ -898,6 +907,43 @@ export default function ClubManageRoute() {
               </div>
             )}
 
+            {activeTab === "logistics" && (
+              <div className="space-y-6">
+                {club.events && club.events.length > 0 ? (
+                  <>
+                    <div className="flex items-center gap-3 neu-border p-4 bg-white dark:bg-zinc-900 font-mono text-xs">
+                      <span className="font-bold uppercase">Select Event:</span>
+                      <select
+                        value={selectedLogisticsEventId || club.events[0]?.id || ""}
+                        onChange={(e) => setSelectedLogisticsEventId(e.target.value)}
+                        className="p-2 neu-border bg-white dark:bg-zinc-800 text-black dark:text-white font-bold"
+                      >
+                        {club.events.map((e: { id: string; title: string }) => (
+                          <option key={e.id} value={e.id}>
+                            {e.title}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <EventLogisticsChecklist
+                      eventId={selectedLogisticsEventId || club.events[0]?.id || ""}
+                      clubId={club.id}
+                      eventData={club.events.find(
+                        (e: { id: string }) =>
+                          e.id === (selectedLogisticsEventId || club.events[0]?.id),
+                      )}
+                    />
+                  </>
+                ) : (
+                  <div className="neu-border p-8 bg-white text-center font-mono text-xs text-gray-500">
+                    No active events found for this club. Create an event to start managing
+                    logistics tasks.
+                  </div>
+                )}
+              </div>
+            )}
+
             {activeTab === "newsletters" && (
               <div>
                 {isEditingNewsletter ? (
@@ -982,27 +1028,23 @@ export default function ClubManageRoute() {
               </div>
             )}
             {activeTab === "analytics" && (
-  <>
-    <div className="mb-4 flex justify-end">
-      <button
-        type="button"
-        onClick={() =>
-          navigate(`/clubs/${club.slug}/series-analytics`)
-        }
-        className="neu-border neu-press flex items-center gap-2 bg-yellow-200 px-4 py-2 font-mono text-xs font-bold uppercase"
-      >
-        <BarChart3 size={16} />
-        Series Analytics
-      </button>
-    </div>
+              <>
+                <div className="mb-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/clubs/${club.slug}/series-analytics`)}
+                    className="neu-border neu-press flex items-center gap-2 bg-yellow-200 px-4 py-2 font-mono text-xs font-bold uppercase"
+                  >
+                    <BarChart3 size={16} />
+                    Series Analytics
+                  </button>
+                </div>
 
-    <ClubAnalyticsDashboard clubId={club.id} />
-  </>
-)}
-
-            {activeTab === "finances" && (
-              <ClubFinancesTab clubId={club.id} />
+                <ClubAnalyticsDashboard clubId={club.id} />
+              </>
             )}
+
+            {activeTab === "finances" && <ClubFinancesTab clubId={club.id} />}
           </main>
         </div>
       </div>

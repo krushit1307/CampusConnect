@@ -177,8 +177,11 @@ export default function Layout() {
           <OfflineBanner />
           <TopProgressBar />
           <SessionExpiryModal />
+ feature/3010-membership-bundles
           <ImpersonationBanner />
           <GlobalAudioPlayer />
+
+ main
 
           <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
           <PWAInstallPrompt />
@@ -187,13 +190,21 @@ export default function Layout() {
             <Outlet />
           </main>
 
+ feature/3010-membership-bundles
           <Toaster richColors />
+
+          <Toaster />
+ main
           <ScrollToTop />
           <RadialFAB />
           {userId && <FloatingChat />}
           <CommandPalette />
         </WebRTCProvider>
       </TooltipProvider>
+ feature/3010-membership-bundles
+
+      <ImpersonationBanner />
+ main
     </>
   );
 }

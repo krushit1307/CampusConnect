@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import Eye from "lucide-react/dist/esm/icons/eye";
 import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
 import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
-import XCircle from "lucide-react/dist/esm/icons/xcircle";
+import XCircle from "lucide-react/dist/esm/icons/x-circle";
 import FileSpreadsheet from "lucide-react/dist/esm/icons/file-spreadsheet";
 import Pencil from "lucide-react/dist/esm/icons/pencil";
 import Trash2 from "lucide-react/dist/esm/icons/trash-2";
@@ -302,42 +302,45 @@ export default function AdminUsersPage() {
     },
     [copyToClipboard],
   );
-const handleImpersonate = useCallback(async (profile: Profile) => {
-  try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+  const handleImpersonate = useCallback(
+    async (profile: Profile) => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-    if (!session?.access_token) {
-      toast.error("Admin session not found.");
-      return;
-    }
+        if (!session?.access_token) {
+          toast.error("Admin session not found.");
+          return;
+        }
 
-    const response = await fetch("/api/admin/impersonate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({
-        target_user_id: profile.id,
-      }),
-    });
+        const response = await fetch("/api/admin/impersonate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            target_user_id: profile.id,
+          }),
+        });
 
-    const data = await response.json();
+        const data = await response.json();
 
-    if (!response.ok) {
-      throw new Error(data.error || "Failed to impersonate user.");
-    }
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to impersonate user.");
+        }
 
-    sessionStorage.setItem("impersonation_token", data.token);
-    sessionStorage.setItem("impersonated_user", JSON.stringify(data.user));
+        sessionStorage.setItem("impersonation_token", data.token);
+        sessionStorage.setItem("impersonated_user", JSON.stringify(data.user));
 
-    window.location.reload();
-  } catch (error) {
-    toast.error(error instanceof Error ? error.message : "Failed to impersonate user.");
-  }
-}, [supabase]);
+        window.location.reload();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to impersonate user.");
+      }
+    },
+    [supabase],
+  );
   // Edit quick action
   const openEditDialog = useCallback((profile: Profile) => {
     setEditingProfile(profile);
@@ -451,13 +454,14 @@ const handleImpersonate = useCallback(async (profile: Profile) => {
               exportFilename="campus-users-export"
               renderRowContextMenu={(profile) => (
                 <>
-<ContextMenuItem
-  className="cursor-pointer gap-2 rounded-none focus:bg-lime focus:text-black"
-  onSelect={() => void handleImpersonate(profile)}
->
-  <Eye className="h-3.5 w-3.5" />
-  Impersonate
-</ContextMenuItem>                  <ContextMenuItem
+                  <ContextMenuItem
+                    className="cursor-pointer gap-2 rounded-none focus:bg-lime focus:text-black"
+                    onSelect={() => void handleImpersonate(profile)}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    Impersonate
+                  </ContextMenuItem>{" "}
+                  <ContextMenuItem
                     className="cursor-pointer gap-2 rounded-none focus:bg-lime focus:text-black"
                     onSelect={() => openEditDialog(profile)}
                   >

@@ -28,11 +28,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  NewsletterBlock,
-  NewsletterDesign,
-  Newsletter,
-} from "@/types/newsletter";
+import { NewsletterBlock, NewsletterDesign, Newsletter } from "@/types/newsletter";
 import { NewsletterService } from "@/services/newsletterService";
 import { createClient } from "@/lib/supabase/client";
 
@@ -55,10 +51,10 @@ export function NewsletterEditor({
     existingNewsletter?.design_json?.blocks || [
       { id: "b1", type: "heading", content: "Welcome to Our Club Newsletter!" },
       { id: "b2", type: "text", content: "Here is what we've been working on this month..." },
-    ]
+    ],
   );
   const [backgroundColor, setBackgroundColor] = useState(
-    existingNewsletter?.design_json?.backgroundColor || "#ffffff"
+    existingNewsletter?.design_json?.backgroundColor || "#ffffff",
   );
 
   const [clubEvents, setClubEvents] = useState<any[]>([]);
@@ -69,7 +65,7 @@ export function NewsletterEditor({
   const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   const [currentNewsletter, setCurrentNewsletter] = useState<Newsletter | null>(
-    existingNewsletter || null
+    existingNewsletter || null,
   );
 
   const supabase = createClient();
@@ -98,7 +94,14 @@ export function NewsletterEditor({
     const newBlock: NewsletterBlock = {
       id: `b_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       type,
-      content: type === "heading" ? "New Section Title" : type === "text" ? "Enter paragraph content..." : type === "button" ? "Learn More" : "",
+      content:
+        type === "heading"
+          ? "New Section Title"
+          : type === "text"
+            ? "Enter paragraph content..."
+            : type === "button"
+              ? "Learn More"
+              : "",
       url: type === "button" ? "https://campusconnect.app" : "",
       eventId: type === "event_card" && clubEvents.length > 0 ? clubEvents[0].id : undefined,
     };
@@ -129,9 +132,7 @@ export function NewsletterEditor({
 
       if (uploadErr) throw uploadErr;
 
-      const { data: urlData } = supabase.storage
-        .from("club-banners")
-        .getPublicUrl(uploadData.path);
+      const { data: urlData } = supabase.storage.from("club-banners").getPublicUrl(uploadData.path);
 
       handleUpdateBlock(blockId, { url: urlData.publicUrl });
       toast.success("Image uploaded successfully.");
@@ -140,10 +141,7 @@ export function NewsletterEditor({
     }
   };
 
-  const compiledHtml = NewsletterService.compileDesignToHtml(
-    { blocks, backgroundColor },
-    eventMap
-  );
+  const compiledHtml = NewsletterService.compileDesignToHtml({ blocks, backgroundColor }, eventMap);
 
   const handleSaveDraft = async () => {
     if (!title.trim()) {
@@ -225,13 +223,32 @@ export function NewsletterEditor({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <Button onClick={() => setShowPreviewModal(true)} variant="outline" size="sm" className="neu-border font-mono text-xs uppercase font-bold">
+          <Button
+            onClick={() => setShowPreviewModal(true)}
+            variant="outline"
+            size="sm"
+            className="neu-border font-mono text-xs uppercase font-bold"
+          >
             <Eye className="h-4 w-4 mr-1" /> Preview HTML
           </Button>
-          <Button onClick={handleSaveDraft} disabled={saving} size="sm" className="neu-border bg-black text-white hover:bg-zinc-800 font-mono text-xs uppercase font-bold">
-            {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />} Save Draft
+          <Button
+            onClick={handleSaveDraft}
+            disabled={saving}
+            size="sm"
+            className="neu-border bg-black text-white hover:bg-zinc-800 font-mono text-xs uppercase font-bold"
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-1" />
+            )}{" "}
+            Save Draft
           </Button>
-          <Button onClick={() => setShowDispatchModal(true)} size="sm" className="neu-border bg-red-600 text-white hover:bg-red-700 font-mono text-xs uppercase font-bold">
+          <Button
+            onClick={() => setShowDispatchModal(true)}
+            size="sm"
+            className="neu-border bg-red-600 text-white hover:bg-red-700 font-mono text-xs uppercase font-bold"
+          >
             <Send className="h-4 w-4 mr-1" /> Send Newsletter
           </Button>
         </div>
@@ -241,11 +258,21 @@ export function NewsletterEditor({
       <div className="neu-border p-4 bg-white dark:bg-zinc-900 grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono text-xs">
         <div>
           <label className="block font-bold uppercase mb-1">Newsletter Title (Internal) *</label>
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. August 2026 Monthly Digest" required />
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. August 2026 Monthly Digest"
+            required
+          />
         </div>
         <div>
           <label className="block font-bold uppercase mb-1">Email Subject Line *</label>
-          <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. 📢 Important Updates & Upcoming Events!" required />
+          <Input
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            placeholder="e.g. 📢 Important Updates & Upcoming Events!"
+            required
+          />
         </div>
       </div>
 
@@ -257,22 +284,52 @@ export function NewsletterEditor({
             Add Content Block
           </h3>
           <div className="grid grid-cols-2 gap-2">
-            <Button onClick={() => handleAddBlock("heading")} variant="outline" size="sm" className="neu-border font-mono text-xs flex items-center justify-start gap-1.5">
+            <Button
+              onClick={() => handleAddBlock("heading")}
+              variant="outline"
+              size="sm"
+              className="neu-border font-mono text-xs flex items-center justify-start gap-1.5"
+            >
               <Heading className="h-4 w-4 text-purple-600" /> Heading
             </Button>
-            <Button onClick={() => handleAddBlock("text")} variant="outline" size="sm" className="neu-border font-mono text-xs flex items-center justify-start gap-1.5">
+            <Button
+              onClick={() => handleAddBlock("text")}
+              variant="outline"
+              size="sm"
+              className="neu-border font-mono text-xs flex items-center justify-start gap-1.5"
+            >
               <Type className="h-4 w-4 text-blue-600" /> Paragraph
             </Button>
-            <Button onClick={() => handleAddBlock("image")} variant="outline" size="sm" className="neu-border font-mono text-xs flex items-center justify-start gap-1.5">
+            <Button
+              onClick={() => handleAddBlock("image")}
+              variant="outline"
+              size="sm"
+              className="neu-border font-mono text-xs flex items-center justify-start gap-1.5"
+            >
               <ImageIcon className="h-4 w-4 text-green-600" /> Image
             </Button>
-            <Button onClick={() => handleAddBlock("event_card")} variant="outline" size="sm" className="neu-border font-mono text-xs flex items-center justify-start gap-1.5">
+            <Button
+              onClick={() => handleAddBlock("event_card")}
+              variant="outline"
+              size="sm"
+              className="neu-border font-mono text-xs flex items-center justify-start gap-1.5"
+            >
               <Calendar className="h-4 w-4 text-orange-600" /> Event Card
             </Button>
-            <Button onClick={() => handleAddBlock("button")} variant="outline" size="sm" className="neu-border font-mono text-xs flex items-center justify-start gap-1.5">
+            <Button
+              onClick={() => handleAddBlock("button")}
+              variant="outline"
+              size="sm"
+              className="neu-border font-mono text-xs flex items-center justify-start gap-1.5"
+            >
               <LinkIcon className="h-4 w-4 text-indigo-600" /> Button
             </Button>
-            <Button onClick={() => handleAddBlock("divider")} variant="outline" size="sm" className="neu-border font-mono text-xs flex items-center justify-start gap-1.5">
+            <Button
+              onClick={() => handleAddBlock("divider")}
+              variant="outline"
+              size="sm"
+              className="neu-border font-mono text-xs flex items-center justify-start gap-1.5"
+            >
               <Plus className="h-4 w-4 text-gray-600" /> Divider
             </Button>
           </div>
@@ -286,48 +343,99 @@ export function NewsletterEditor({
             </div>
           ) : (
             blocks.map((b) => (
-              <div key={b.id} className="relative group neu-border bg-white dark:bg-zinc-900 p-4 shadow-[2px_2px_0px_rgba(0,0,0,1)]">
-                <button onClick={() => handleDeleteBlock(b.id)} title="Remove Block" className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-opacity">
+              <div
+                key={b.id}
+                className="relative group neu-border bg-white dark:bg-zinc-900 p-4 shadow-[2px_2px_0px_rgba(0,0,0,1)]"
+              >
+                <button
+                  onClick={() => handleDeleteBlock(b.id)}
+                  title="Remove Block"
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-opacity"
+                >
                   <Trash2 size={14} />
                 </button>
 
                 {b.type === "heading" && (
                   <div>
-                    <span className="font-mono text-[9px] uppercase font-bold text-purple-600 block mb-1">Heading Block</span>
-                    <Input value={b.content || ""} onChange={(e) => handleUpdateBlock(b.id, { content: e.target.value })} className="font-display font-bold text-lg" placeholder="Section Heading..." />
+                    <span className="font-mono text-[9px] uppercase font-bold text-purple-600 block mb-1">
+                      Heading Block
+                    </span>
+                    <Input
+                      value={b.content || ""}
+                      onChange={(e) => handleUpdateBlock(b.id, { content: e.target.value })}
+                      className="font-display font-bold text-lg"
+                      placeholder="Section Heading..."
+                    />
                   </div>
                 )}
 
                 {b.type === "text" && (
                   <div>
-                    <span className="font-mono text-[9px] uppercase font-bold text-blue-600 block mb-1">Text Paragraph</span>
-                    <Textarea value={b.content || ""} onChange={(e) => handleUpdateBlock(b.id, { content: e.target.value })} rows={3} className="font-mono text-xs" placeholder="Write your paragraph..." />
+                    <span className="font-mono text-[9px] uppercase font-bold text-blue-600 block mb-1">
+                      Text Paragraph
+                    </span>
+                    <Textarea
+                      value={b.content || ""}
+                      onChange={(e) => handleUpdateBlock(b.id, { content: e.target.value })}
+                      rows={3}
+                      className="font-mono text-xs"
+                      placeholder="Write your paragraph..."
+                    />
                   </div>
                 )}
 
                 {b.type === "image" && (
                   <div className="space-y-2">
-                    <span className="font-mono text-[9px] uppercase font-bold text-green-600 block">Image Block (Max 1MB)</span>
+                    <span className="font-mono text-[9px] uppercase font-bold text-green-600 block">
+                      Image Block (Max 1MB)
+                    </span>
                     {b.url ? (
                       <div className="space-y-2">
-                        <img src={b.url} alt="" className="max-h-48 object-cover border-2 border-black" />
-                        <Input value={b.url} onChange={(e) => handleUpdateBlock(b.id, { url: e.target.value })} className="font-mono text-xs" placeholder="Image URL..." />
+                        <img
+                          src={b.url}
+                          alt=""
+                          className="max-h-48 object-cover border-2 border-black"
+                        />
+                        <Input
+                          value={b.url}
+                          onChange={(e) => handleUpdateBlock(b.id, { url: e.target.value })}
+                          className="font-mono text-xs"
+                          placeholder="Image URL..."
+                        />
                       </div>
                     ) : (
-                      <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && handleImageUpload(b.id, e.target.files[0])} className="font-mono text-xs cursor-pointer" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) =>
+                          e.target.files?.[0] && handleImageUpload(b.id, e.target.files[0])
+                        }
+                        className="font-mono text-xs cursor-pointer"
+                      />
                     )}
                   </div>
                 )}
 
                 {b.type === "event_card" && (
                   <div>
-                    <span className="font-mono text-[9px] uppercase font-bold text-orange-600 block mb-1">Dynamic Event Card</span>
+                    <span className="font-mono text-[9px] uppercase font-bold text-orange-600 block mb-1">
+                      Dynamic Event Card
+                    </span>
                     {clubEvents.length === 0 ? (
-                      <p className="font-mono text-xs text-red-500 italic">No events found for this club.</p>
+                      <p className="font-mono text-xs text-red-500 italic">
+                        No events found for this club.
+                      </p>
                     ) : (
-                      <select value={b.eventId || ""} onChange={(e) => handleUpdateBlock(b.id, { eventId: e.target.value })} className="w-full p-2 neu-border font-mono text-xs bg-amber-50">
+                      <select
+                        value={b.eventId || ""}
+                        onChange={(e) => handleUpdateBlock(b.id, { eventId: e.target.value })}
+                        className="w-full p-2 neu-border font-mono text-xs bg-amber-50"
+                      >
                         {clubEvents.map((evt) => (
-                          <option key={evt.id} value={evt.id}>{evt.title} ({new Date(evt.start_date || evt.event_date).toLocaleDateString()})</option>
+                          <option key={evt.id} value={evt.id}>
+                            {evt.title} (
+                            {new Date(evt.start_date || evt.event_date).toLocaleDateString()})
+                          </option>
                         ))}
                       </select>
                     )}
@@ -338,17 +446,27 @@ export function NewsletterEditor({
                   <div className="grid grid-cols-2 gap-2 font-mono text-xs">
                     <div>
                       <label className="block font-bold mb-1 text-[10px]">Button Text</label>
-                      <Input value={b.content || ""} onChange={(e) => handleUpdateBlock(b.id, { content: e.target.value })} placeholder="Click Here" />
+                      <Input
+                        value={b.content || ""}
+                        onChange={(e) => handleUpdateBlock(b.id, { content: e.target.value })}
+                        placeholder="Click Here"
+                      />
                     </div>
                     <div>
                       <label className="block font-bold mb-1 text-[10px]">Target Link (URL)</label>
-                      <Input value={b.url || ""} onChange={(e) => handleUpdateBlock(b.id, { url: e.target.value })} placeholder="https://..." />
+                      <Input
+                        value={b.url || ""}
+                        onChange={(e) => handleUpdateBlock(b.id, { url: e.target.value })}
+                        placeholder="https://..."
+                      />
                     </div>
                   </div>
                 )}
 
                 {b.type === "divider" && (
-                  <div className="py-2 text-center font-mono text-xs text-gray-400">--- Horizontal Rule Divider ---</div>
+                  <div className="py-2 text-center font-mono text-xs text-gray-400">
+                    --- Horizontal Rule Divider ---
+                  </div>
                 )}
               </div>
             ))
@@ -360,14 +478,24 @@ export function NewsletterEditor({
       <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
         <DialogContent className="neu-border bg-white dark:bg-zinc-900 max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display text-lg font-bold uppercase">Newsletter Compiled HTML Preview</DialogTitle>
+            <DialogTitle className="font-display text-lg font-bold uppercase">
+              Newsletter Compiled HTML Preview
+            </DialogTitle>
             <DialogDescription className="font-mono text-xs text-gray-500">
               Subject: <strong>{subject || "Untitled Newsletter"}</strong>
             </DialogDescription>
           </DialogHeader>
-          <div className="neu-border p-4 bg-gray-50 dark:bg-zinc-950 overflow-x-auto" dangerouslySetInnerHTML={{ __html: compiledHtml }} />
+          <div
+            className="neu-border p-4 bg-gray-50 dark:bg-zinc-950 overflow-x-auto"
+            dangerouslySetInnerHTML={{ __html: compiledHtml }}
+          />
           <DialogFooter>
-            <Button onClick={() => setShowPreviewModal(false)} className="neu-border font-mono text-xs uppercase font-bold">Close Preview</Button>
+            <Button
+              onClick={() => setShowPreviewModal(false)}
+              className="neu-border font-mono text-xs uppercase font-bold"
+            >
+              Close Preview
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -376,18 +504,39 @@ export function NewsletterEditor({
       <Dialog open={showDispatchModal} onOpenChange={setShowDispatchModal}>
         <DialogContent className="neu-border bg-white dark:bg-zinc-900 max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-display text-lg font-bold uppercase text-red-600">Dispatch Newsletter</DialogTitle>
+            <DialogTitle className="font-display text-lg font-bold uppercase text-red-600">
+              Dispatch Newsletter
+            </DialogTitle>
             <DialogDescription className="font-mono text-xs text-gray-600 dark:text-gray-400 space-y-2 mt-2">
-              <span className="block">Are you sure you want to dispatch <strong>"{title || subject || "this newsletter"}"</strong>?</span>
+              <span className="block">
+                Are you sure you want to dispatch{" "}
+                <strong>"{title || subject || "this newsletter"}"</strong>?
+              </span>
               <span className="block p-2 bg-amber-50 border border-amber-300 text-amber-900 text-[11px]">
-                ⚡ Emails will be dispatched in <strong>batches of 50</strong>. Unsubscribed members will be automatically excluded.
+                ⚡ Emails will be dispatched in <strong>batches of 50</strong>. Unsubscribed members
+                will be automatically excluded.
               </span>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setShowDispatchModal(false)} className="neu-border font-mono text-xs">Cancel</Button>
-            <Button onClick={handleDispatchNewsletter} disabled={dispatching} className="neu-border bg-red-600 text-white hover:bg-red-700 font-mono text-xs font-bold uppercase">
-              {dispatching ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />} Dispatch Now
+            <Button
+              variant="outline"
+              onClick={() => setShowDispatchModal(false)}
+              className="neu-border font-mono text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDispatchNewsletter}
+              disabled={dispatching}
+              className="neu-border bg-red-600 text-white hover:bg-red-700 font-mono text-xs font-bold uppercase"
+            >
+              {dispatching ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4 mr-2" />
+              )}{" "}
+              Dispatch Now
             </Button>
           </DialogFooter>
         </DialogContent>

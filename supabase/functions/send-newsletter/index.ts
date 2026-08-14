@@ -55,7 +55,7 @@ serve(async (req: Request) => {
     if (memberError || !isClubAdmin) {
       return new Response(
         JSON.stringify({ error: "Forbidden: Only club admins or organizers can send newsletters" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -79,7 +79,7 @@ serve(async (req: Request) => {
       {
         status: 202,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
     );
   } catch (error: unknown) {
     console.error("send-newsletter error:", error);

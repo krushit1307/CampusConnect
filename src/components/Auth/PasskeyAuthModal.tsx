@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import KeyRound from "lucide-react/dist/esm/icons/key-round";
 import Shield from "lucide-react/dist/esm/icons/shield";
-import Fingerprint from "lucide-react/dist/esm/icons/fingerprint";
+import Fingerprint from "lucide-react/dist/esm/icons/fingerprint-pattern";
 import Trash2 from "lucide-react/dist/esm/icons/trash-2";
 import Plus from "lucide-react/dist/esm/icons/plus";
 import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";

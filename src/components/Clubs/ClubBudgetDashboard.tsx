@@ -8,7 +8,7 @@ import Plus from "lucide-react/dist/esm/icons/plus";
 import Receipt from "lucide-react/dist/esm/icons/receipt";
 import Clock from "lucide-react/dist/esm/icons/clock";
 import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
-import XCircle from "lucide-react/dist/esm/icons/xcircle";
+import XCircle from "lucide-react/dist/esm/icons/x-circle";
 import { toast } from "sonner";
 
 interface ClubBudgetDashboardProps {
