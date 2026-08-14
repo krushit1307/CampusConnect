@@ -153,15 +153,13 @@ serve(async (req: Request) => {
         }
       }
 
-      const { error: anchorError } = await supabase
-        .from("certificate_ledger_anchors")
-        .insert({
-          day,
-          merkle_root: merkleRoot,
-          tx_hash: receipt.hash,
-          block_number: blockNumber,
-          cert_count: leaves.length,
-        });
+      const { error: anchorError } = await supabase.from("certificate_ledger_anchors").insert({
+        day,
+        merkle_root: merkleRoot,
+        tx_hash: receipt.hash,
+        block_number: blockNumber,
+        cert_count: leaves.length,
+      });
       if (anchorError) {
         throw new Error(`Failed to register anchored day ${day}: ${anchorError.message}`);
       }

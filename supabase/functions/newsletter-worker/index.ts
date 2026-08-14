@@ -58,11 +58,7 @@ serve(async (req: Request) => {
     }
 
     // 2. Fetch club name
-    const { data: club } = await supabase
-      .from("clubs")
-      .select("name")
-      .eq("id", clubId)
-      .single();
+    const { data: club } = await supabase.from("clubs").select("name").eq("id", clubId).single();
 
     const clubName = club?.name || "CampusConnect Club";
 
@@ -77,7 +73,7 @@ serve(async (req: Request) => {
     try {
       const { data: rData, error: rErr } = await supabase.rpc(
         "get_eligible_newsletter_recipients",
-        { p_club_id: clubId }
+        { p_club_id: clubId },
       );
 
       if (!rErr && Array.isArray(rData)) {
@@ -116,7 +112,7 @@ serve(async (req: Request) => {
 
       return new Response(
         JSON.stringify({ message: "No eligible recipients found", newsletterId }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -169,7 +165,9 @@ serve(async (req: Request) => {
           }
         } else {
           // Mock send in test/dev
-          console.log(`[newsletter-worker] Mock batch of ${batch.length} emails sent for club ${clubName}`);
+          console.log(
+            `[newsletter-worker] Mock batch of ${batch.length} emails sent for club ${clubName}`,
+          );
           successfulSends += batch.length;
         }
       } catch (err) {
@@ -204,7 +202,7 @@ serve(async (req: Request) => {
         successfulSends,
         failedSends,
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error: unknown) {
     console.error("newsletter-worker error:", error);

@@ -107,11 +107,7 @@ export function getMerkleProof(
  * Recomputes the root from a leaf + Merkle path (order-independent thanks to
  * canonical pair hashing) and compares it against the expected root.
  */
-export function verifyMerkleProof(
-  leaf: string,
-  path: string[],
-  root: string,
-): boolean {
+export function verifyMerkleProof(leaf: string, path: string[], root: string): boolean {
   let hash = leaf;
   for (const sibling of path) {
     hash = hashPair(hash, sibling);

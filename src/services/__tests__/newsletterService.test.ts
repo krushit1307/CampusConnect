@@ -52,9 +52,7 @@ describe("NewsletterService", () => {
 
   it("renders dynamic event card in HTML when event data is provided", () => {
     const design: NewsletterDesign = {
-      blocks: [
-        { id: "e1", type: "event_card", eventId: "evt-999" },
-      ],
+      blocks: [{ id: "e1", type: "event_card", eventId: "evt-999" }],
     };
 
     const eventMap = {
@@ -83,20 +81,18 @@ describe("NewsletterService", () => {
 
       return {
         eq: () => ({
-          eq: () => Promise.resolve({
-            data: [
-              { id: "n1", total_recipients: 100, successful_sends: 100 },
-              { id: "n2", total_recipients: 50, successful_sends: 50 },
-            ],
+          eq: () =>
+            Promise.resolve({
+              data: [
+                { id: "n1", total_recipients: 100, successful_sends: 100 },
+                { id: "n2", total_recipients: 50, successful_sends: 50 },
+              ],
+            }),
+        }),
+        in: () =>
+          Promise.resolve({
+            data: [{ event_type: "open" }, { event_type: "open" }, { event_type: "click" }],
           }),
-        }),
-        in: () => Promise.resolve({
-          data: [
-            { event_type: "open" },
-            { event_type: "open" },
-            { event_type: "click" },
-          ],
-        }),
       };
     });
 

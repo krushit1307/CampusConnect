@@ -51,7 +51,8 @@ export const eventFormSchema = z
     venue_id: z.string().optional(),
     location: z.string().trim().optional(),
     accessibility_features: accessibilityFeaturesSchema.optional(),
-category: z.string().trim().optional().default(""),    location: z.string().trim().optional(),
+    category: z.string().trim().optional().default(""),
+    location: z.string().trim().optional(),
     latitude: z.number().min(-90).max(90).optional().nullable(),
     longitude: z.number().min(-180).max(180).optional().nullable(),
     geofencingEnabled: z.boolean().optional().default(false),
@@ -98,7 +99,7 @@ category: z.string().trim().optional().default(""),    location: z.string().trim
       message: "Custom venues require an accessibility audit.",
       path: ["accessibility_features"],
     },
-  );
+  )
   .refine((data) => !data.geofencingEnabled || (data.latitude != null && data.longitude != null), {
     message: "Drop a pin on the map to set the check-in geofence location.",
     path: ["latitude"],

@@ -21,13 +21,7 @@ import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
 import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
 import Smile from "lucide-react/dist/esm/icons/smile";
 import Languages from "lucide-react/dist/esm/icons/languages";
-import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
-import Send from "lucide-react/dist/esm/icons/send";
-import Search from "lucide-react/dist/esm/icons/search";
-import Lock from "lucide-react/dist/esm/icons/lock";
-import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
-import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
-import Smile from "lucide-react/dist/esm/icons/smile";
+
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import EmojiPicker from "emoji-picker-react";

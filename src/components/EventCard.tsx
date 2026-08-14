@@ -306,6 +306,10 @@ export function EventCard({
               </span>
             )}
           </div>
+ feature/2986-event-audio-player
+
+
+ main
           <div className="flex gap-2 relative z-10">
             <TooltipProvider>
               <Tooltip>

@@ -1,10 +1,6 @@
 // src/services/newsletterService.ts
 import { createClient } from "@/lib/supabase/client";
-import {
-  Newsletter,
-  NewsletterDesign,
-  NewsletterAnalyticsSummary,
-} from "@/types/newsletter";
+import { Newsletter, NewsletterDesign, NewsletterAnalyticsSummary } from "@/types/newsletter";
 
 export class NewsletterService {
   private static getSupabase() {
@@ -129,21 +125,19 @@ export class NewsletterService {
   static async unsubscribeFromClubNewsletter(
     clubId: string,
     email: string,
-    userId?: string
+    userId?: string,
   ): Promise<void> {
     const supabase = this.getSupabase();
 
-    const { error } = await supabase
-      .from("newsletter_unsubscribes")
-      .upsert(
-        {
-          club_id: clubId,
-          email: email.trim().toLowerCase(),
-          user_id: userId || null,
-          unsubscribed_at: new Date().toISOString(),
-        },
-        { onConflict: "club_id,email" }
-      );
+    const { error } = await supabase.from("newsletter_unsubscribes").upsert(
+      {
+        club_id: clubId,
+        email: email.trim().toLowerCase(),
+        user_id: userId || null,
+        unsubscribed_at: new Date().toISOString(),
+      },
+      { onConflict: "club_id,email" },
+    );
 
     if (error) {
       console.error("Unsubscribe error:", error);
@@ -167,7 +161,7 @@ export class NewsletterService {
     const totalSent = (newsletters || []).length;
     const totalRecipients = (newsletters || []).reduce(
       (acc, n) => acc + (n.successful_sends || n.total_recipients || 0),
-      0
+      0,
     );
 
     const newsletterIds = (newsletters || []).map((n) => n.id);
@@ -193,8 +187,10 @@ export class NewsletterService {
       .select("*", { count: "exact", head: true })
       .eq("club_id", clubId);
 
-    const openRate = totalRecipients > 0 ? Math.min(100, Math.round((openCount / totalRecipients) * 100)) : 0;
-    const clickRate = totalRecipients > 0 ? Math.min(100, Math.round((clickCount / totalRecipients) * 100)) : 0;
+    const openRate =
+      totalRecipients > 0 ? Math.min(100, Math.round((openCount / totalRecipients) * 100)) : 0;
+    const clickRate =
+      totalRecipients > 0 ? Math.min(100, Math.round((clickCount / totalRecipients) * 100)) : 0;
 
     return {
       totalSent,
@@ -210,10 +206,7 @@ export class NewsletterService {
   /**
    * Compiles JSON design blocks into email-safe inline HTML.
    */
-  static compileDesignToHtml(
-    design: NewsletterDesign,
-    eventMap: Record<string, any> = {}
-  ): string {
+  static compileDesignToHtml(design: NewsletterDesign, eventMap: Record<string, any> = {}): string {
     const bgColor = design.backgroundColor || "#ffffff";
     const textColor = design.textColor || "#111827";
 
@@ -236,18 +229,20 @@ export class NewsletterService {
           break;
 
         case "event_card":
-          const evt = block.eventId ? eventMap[block.eventId] : null;
-          if (evt) {
-            const eventDateStr = evt.start_date || evt.event_date
-              ? new Date(evt.start_date || evt.event_date).toLocaleString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "Upcoming Event";
+          {
+            const evt = block.eventId ? eventMap[block.eventId] : null;
+            if (evt) {
+              const eventDateStr =
+                evt.start_date || evt.event_date
+                  ? new Date(evt.start_date || evt.event_date).toLocaleString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "Upcoming Event";
 
-            html += `
+              html += `
               <div style="border: 2px solid #000; background: #fff8dc; padding: 16px; margin: 20px 0; font-family: monospace;">
                 ${evt.banner_url ? `<img src="${evt.banner_url}" alt="" style="width:100%; height:160px; object-fit:cover; border-bottom:2px solid #000; margin-bottom:12px;" />` : ""}
                 <span style="background:#000; color:#fff; font-size:10px; padding:2px 6px; font-weight:bold; text-transform:uppercase;">Campus Event</span>
@@ -256,8 +251,9 @@ export class NewsletterService {
                 <a href="${evt.event_url || `https://campusconnect.app/events/${evt.id}`}" style="display:inline-block; background:#ff4757; color:#fff; text-decoration:none; padding:8px 16px; font-weight:bold; font-size:12px; border:2px solid #000; text-transform:uppercase;">RSVP Now →</a>
               </div>
             `;
-          } else {
-            html += `<div style="border:2px dashed #000; padding:16px; margin:16px 0; text-align:center; font-family:monospace;">[Dynamic Event Card Placeholder]</div>`;
+            } else {
+              html += `<div style="border:2px dashed #000; padding:16px; margin:16px 0; text-align:center; font-family:monospace;">[Dynamic Event Card Placeholder]</div>`;
+            }
           }
           break;
 

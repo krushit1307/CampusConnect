@@ -9,7 +9,7 @@ import {
 } from "@tanstack/react-table";
 import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
 import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
-import XCircle from "lucide-react/dist/esm/icons/xcircle";
+import XCircle from "lucide-react/dist/esm/icons/x-circle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MemberContextMenu } from "./MemberContextMenu";
 import { SearchInput } from "@/components/ui/SearchInput";

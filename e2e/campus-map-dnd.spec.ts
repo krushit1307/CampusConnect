@@ -24,11 +24,9 @@ test.describe("Campus Map Builder DND", () => {
     // Move to raw position (127, 83) relative to start
     const rawX = 127;
     const rawY = 83;
-    await page.mouse.move(
-      box.x + box.width / 2 + rawX,
-      box.y + box.height / 2 + rawY,
-      { steps: 10 }
-    );
+    await page.mouse.move(box.x + box.width / 2 + rawX, box.y + box.height / 2 + rawY, {
+      steps: 10,
+    });
     await page.mouse.up();
 
     // The grid size is 20, so snapping should result in (120, 80) if starting at 0
@@ -60,11 +58,9 @@ test.describe("Campus Map Builder DND", () => {
 
     const rawX = -43;
     const rawY = -15;
-    await page.mouse.move(
-      box.x + box.width / 2 + rawX,
-      box.y + box.height / 2 + rawY,
-      { steps: 5 }
-    );
+    await page.mouse.move(box.x + box.width / 2 + rawX, box.y + box.height / 2 + rawY, {
+      steps: 5,
+    });
     await page.mouse.up();
 
     const expectedX = Math.round(rawX / 20) * 20; // -40
@@ -77,7 +73,7 @@ test.describe("Campus Map Builder DND", () => {
   test("mobile touch dragging simulates pointer events correctly", async ({ page, isMobile }) => {
     // Only run this test in mobile viewports/contexts
     if (!isMobile) test.skip();
-    
+
     await page.goto("/map-builder");
 
     await page.evaluate(() => {
@@ -94,9 +90,9 @@ test.describe("Campus Map Builder DND", () => {
           pointerType: "touch",
           clientX: 100,
           clientY: 100,
-        })
+        }),
       );
-      
+
       // Simulate pointermove
       document.dispatchEvent(
         new PointerEvent("pointermove", {
@@ -105,9 +101,9 @@ test.describe("Campus Map Builder DND", () => {
           pointerType: "touch",
           clientX: 220,
           clientY: 180,
-        })
+        }),
       );
-      
+
       // Simulate pointerup
       document.dispatchEvent(
         new PointerEvent("pointerup", {
@@ -116,7 +112,7 @@ test.describe("Campus Map Builder DND", () => {
           pointerType: "touch",
           clientX: 220,
           clientY: 180,
-        })
+        }),
       );
     });
 

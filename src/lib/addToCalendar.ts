@@ -121,12 +121,25 @@ export function getIcsContent(event: CalendarEvent): string | null {
 }
 
 export function downloadIcsFile(event: CalendarEvent): void {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  if (!supabaseUrl) {
-    console.error("[addToCalendar] VITE_SUPABASE_URL is not defined");
+  const icsContent = getIcsContent(event);
+  if (!icsContent) {
+    console.error("[addToCalendar] Failed to generate .ics content");
     return;
   }
-  window.location.assign(`${supabaseUrl}/functions/v1/calendar-event?event_id=${event.id}`);
+
+  const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${slugify(event.title || event.id)}.ics`;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  // Release the object URL after the click has been processed.
+  // setTimeout ensures the browser has started the download.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // ── Helpers ──────────────────────────────────────────────────────

@@ -22,9 +22,10 @@ export interface CommandPaletteProps {
 
 export function CommandPalette({ open: externalOpen, onOpenChange }: CommandPaletteProps) {
   const [internalOpen, setInternalOpen] = React.useState(false);
-const [query, setQuery] = React.useState("");
-const [categoryFilter, setCategoryFilter] = React.useState<string | null>(null);
-const [dateFilter, setDateFilter] = React.useState<"this_week" | null>(null);  const [pages, setPages] = React.useState<string[]>(["home"]);
+  const [query, setQuery] = React.useState("");
+  const [categoryFilter, setCategoryFilter] = React.useState<string | null>(null);
+  const [dateFilter, setDateFilter] = React.useState<"this_week" | null>(null);
+  const [pages, setPages] = React.useState<string[]>(["home"]);
   const activePage = pages[pages.length - 1];
 
   const navigate = useNavigate();
@@ -36,10 +37,11 @@ const [dateFilter, setDateFilter] = React.useState<"this_week" | null>(null);  c
       setInternalOpen(value);
       onOpenChange?.(value);
       if (!value) {
-setQuery("");
-setPages(["home"]);
-setCategoryFilter(null);
-setDateFilter(null);      }
+        setQuery("");
+        setPages(["home"]);
+        setCategoryFilter(null);
+        setDateFilter(null);
+      }
     },
     [onOpenChange],
   );
@@ -101,13 +103,13 @@ setDateFilter(null);      }
     }
   }, [isOpen, activePage, fallbackClubs.length, fallbackEvents.length, fallbackUsers.length]);
 
-const searchQuery = activePage === "home" ? query : `${activePage}:${query}`;
+  const searchQuery = activePage === "home" ? query : `${activePage}:${query}`;
 
-const { results, isLoading } = useCommandPaletteSearch(
-  searchQuery,
-  activePage === "events" ? categoryFilter : null,
-  activePage === "events" ? dateFilter : null,
-);
+  const { results, isLoading } = useCommandPaletteSearch(
+    searchQuery,
+    activePage === "events" ? categoryFilter : null,
+    activePage === "events" ? dateFilter : null,
+  );
   const handleSelect = (path: string) => {
     setIsOpen(false);
     navigate(path);
@@ -169,44 +171,40 @@ const { results, isLoading } = useCommandPaletteSearch(
               ESC
             </kbd>
           </div>
-<Command.List className="max-h-[300px] overflow-y-auto p-2 bg-cream"></Command.List>
+          <Command.List className="max-h-[300px] overflow-y-auto p-2 bg-cream"></Command.List>
           {activePage === "events" && (
-  <div className="flex flex-wrap gap-2 border-b-2 border-black bg-cream p-2">
-    <button
-      type="button"
-      onClick={() => setDateFilter(dateFilter === "this_week" ? null : "this_week")}
-      className={`border-2 border-black px-3 py-1 font-mono text-xs font-bold ${
-        dateFilter === "this_week" ? "bg-lime" : "bg-white"
-      }`}
-    >
-      This Week
-    </button>
+            <div className="flex flex-wrap gap-2 border-b-2 border-black bg-cream p-2">
+              <button
+                type="button"
+                onClick={() => setDateFilter(dateFilter === "this_week" ? null : "this_week")}
+                className={`border-2 border-black px-3 py-1 font-mono text-xs font-bold ${
+                  dateFilter === "this_week" ? "bg-lime" : "bg-white"
+                }`}
+              >
+                This Week
+              </button>
 
-    <button
-      type="button"
-      onClick={() =>
-        setCategoryFilter(categoryFilter === "Academic" ? null : "Academic")
-      }
-      className={`border-2 border-black px-3 py-1 font-mono text-xs font-bold ${
-        categoryFilter === "Academic" ? "bg-lime" : "bg-white"
-      }`}
-    >
-      Academic
-    </button>
+              <button
+                type="button"
+                onClick={() => setCategoryFilter(categoryFilter === "Academic" ? null : "Academic")}
+                className={`border-2 border-black px-3 py-1 font-mono text-xs font-bold ${
+                  categoryFilter === "Academic" ? "bg-lime" : "bg-white"
+                }`}
+              >
+                Academic
+              </button>
 
-    <button
-      type="button"
-      onClick={() =>
-        setCategoryFilter(categoryFilter === "Social" ? null : "Social")
-      }
-      className={`border-2 border-black px-3 py-1 font-mono text-xs font-bold ${
-        categoryFilter === "Social" ? "bg-lime" : "bg-white"
-      }`}
-    >
-      Social
-    </button>
-  </div>
-)}
+              <button
+                type="button"
+                onClick={() => setCategoryFilter(categoryFilter === "Social" ? null : "Social")}
+                className={`border-2 border-black px-3 py-1 font-mono text-xs font-bold ${
+                  categoryFilter === "Social" ? "bg-lime" : "bg-white"
+                }`}
+              >
+                Social
+              </button>
+            </div>
+          )}
           <Command.List className="max-h-[300px] overflow-y-auto p-2 bg-cream">
             {isLoading && (
               <div className="px-3 py-2 font-mono text-xs text-gray-500">Searching...</div>
@@ -220,7 +218,10 @@ const { results, isLoading } = useCommandPaletteSearch(
 
             {activePage === "home" && !query && (
               <>
-                <Command.Group heading="Sub-Searches" className="font-mono text-[10px] font-black uppercase text-gray-500 px-2 py-1">
+                <Command.Group
+                  heading="Sub-Searches"
+                  className="font-mono text-[10px] font-black uppercase text-gray-500 px-2 py-1"
+                >
                   <Command.Item
                     value="search-clubs"
                     onSelect={() => {
@@ -267,7 +268,10 @@ const { results, isLoading } = useCommandPaletteSearch(
                   </Command.Item>
                 </Command.Group>
 
-                <Command.Group heading="Navigation" className="font-mono text-[10px] font-black uppercase text-gray-500 px-2 py-1 mt-2">
+                <Command.Group
+                  heading="Navigation"
+                  className="font-mono text-[10px] font-black uppercase text-gray-500 px-2 py-1 mt-2"
+                >
                   {navigationItems.map((item) => {
                     const Icon = item.icon;
                     return (
@@ -285,7 +289,10 @@ const { results, isLoading } = useCommandPaletteSearch(
                 </Command.Group>
 
                 {commands.length > 0 && (
-                  <Command.Group heading="Actions" className="font-mono text-[10px] font-black uppercase text-gray-500 px-2 py-1 mt-2">
+                  <Command.Group
+                    heading="Actions"
+                    className="font-mono text-[10px] font-black uppercase text-gray-500 px-2 py-1 mt-2"
+                  >
                     {commands.map((cmd) => {
                       const Icon = cmd.icon;
                       return (
@@ -306,7 +313,10 @@ const { results, isLoading } = useCommandPaletteSearch(
             )}
 
             {query && results.length > 0 && (
-              <Command.Group heading="Results" className="font-mono text-[10px] font-black uppercase text-gray-500 px-2 py-1">
+              <Command.Group
+                heading="Results"
+                className="font-mono text-[10px] font-black uppercase text-gray-500 px-2 py-1"
+              >
                 {results.map((result) => (
                   <Command.Item
                     key={result.id}
@@ -324,7 +334,10 @@ const { results, isLoading } = useCommandPaletteSearch(
             )}
 
             {!query && activePage === "clubs" && (
-              <Command.Group heading="Popular Clubs" className="font-mono text-[10px] font-black uppercase text-gray-500 px-2 py-1">
+              <Command.Group
+                heading="Popular Clubs"
+                className="font-mono text-[10px] font-black uppercase text-gray-500 px-2 py-1"
+              >
                 {fallbackClubs.map((club) => (
                   <Command.Item
                     key={club.id}
@@ -340,7 +353,10 @@ const { results, isLoading } = useCommandPaletteSearch(
             )}
 
             {!query && activePage === "events" && (
-              <Command.Group heading="Recent Events" className="font-mono text-[10px] font-black uppercase text-gray-500 px-2 py-1">
+              <Command.Group
+                heading="Recent Events"
+                className="font-mono text-[10px] font-black uppercase text-gray-500 px-2 py-1"
+              >
                 {fallbackEvents.map((evt) => (
                   <Command.Item
                     key={evt.id}
@@ -356,7 +372,10 @@ const { results, isLoading } = useCommandPaletteSearch(
             )}
 
             {!query && activePage === "users" && (
-              <Command.Group heading="Recent Users" className="font-mono text-[10px] font-black uppercase text-gray-500 px-2 py-1">
+              <Command.Group
+                heading="Recent Users"
+                className="font-mono text-[10px] font-black uppercase text-gray-500 px-2 py-1"
+              >
                 {fallbackUsers.map((user) => {
                   const name = `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim();
                   const displayName = name || `@${user.handle}`;

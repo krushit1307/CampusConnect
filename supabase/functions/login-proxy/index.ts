@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://esm.sh/zod@3.24.2";
+import { corsHeaders } from "../_shared/cors.ts";
+import { verifyTurnstile } from "../_shared/turnstile.ts";
 import { loginLimiter } from "../_shared/rateLimiter.ts";
 import { parseJsonBody } from "../_shared/validation.ts";
 
@@ -144,10 +146,29 @@ serve(async (req: Request) => {
     }
 
     // Standard Login flow
-    const { email, password } = body as { email: string; password: string };
+    const { email, password, captchaToken } = body as {
+      email: string;
+      password: string;
+      captchaToken: string;
+    };
 
     if (!email || !password) {
       return new Response(JSON.stringify({ error: "Email and password are required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!captchaToken) {
+      return new Response(JSON.stringify({ error: "CAPTCHA verification is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const isValidCaptcha = await verifyTurnstile(captchaToken);
+    if (!isValidCaptcha) {
+      return new Response(JSON.stringify({ error: "Invalid or expired CAPTCHA token" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -420,7 +441,8 @@ serve(async (req: Request) => {
       console.error("[login-proxy] Failed to record login history:", insertHistoryError);
     }
 
-    const isProduction = Deno.env.get("ENVIRONMENT") === "production" || Deno.env.get("DENO_ENV") === "production";
+    const isProduction =
+      Deno.env.get("ENVIRONMENT") === "production" || Deno.env.get("DENO_ENV") === "production";
     const cookieFlags = [
       `sb-access-token=${signInData.session?.access_token}; Path=/`,
       "HttpOnly",

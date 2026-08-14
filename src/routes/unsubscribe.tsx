@@ -112,7 +112,8 @@ export default function UnsubscribeRoute() {
             </div>
 
             <p className="text-gray-600 text-[11px]">
-              Note: This preference strictly applies to club marketing newsletters. Critical account security, RSVP, and platform alerts will still be delivered safely.
+              Note: This preference strictly applies to club marketing newsletters. Critical account
+              security, RSVP, and platform alerts will still be delivered safely.
             </p>
           </div>
         ) : (
