@@ -10,6 +10,7 @@ export interface EventPushPayload {
   icon: string;
   data: {
     url: string;
+    target_route: string;
     eventId: string;
   };
   tag: string;
@@ -85,6 +86,7 @@ export function formatEventReminderPayload(
     icon: "/favicon.png",
     data: {
       url: `/events/${eventId}`,
+      target_route: `/events/${eventId}`,
       eventId,
     },
     tag: `event-reminder-${eventId}`,

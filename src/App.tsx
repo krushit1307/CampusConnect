@@ -51,6 +51,7 @@ import AriaAnnouncer from "@/components/accessibility/AriaAnnouncer";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { LoginRecoveryModal } from "@/components/auth/LoginRecoveryModal";
 import { MfaChallengeGuard } from "@/components/auth/MfaChallengeGuard";
+import { PushDeepLinkListener } from "@/components/PushDeepLinkListener";
 function RemoteLoadingScreen() {
   return (
     <div className="flex h-screen w-full items-center justify-center bg-slate-950 text-white">
@@ -380,6 +381,7 @@ export default function App() {
 
                 <BreadcrumbProvider>
                   <MotionConfig reducedMotion="user">
+                    <PushDeepLinkListener router={router} />
                     <RouterProvider router={router} />
                   </MotionConfig>
                 </BreadcrumbProvider>
