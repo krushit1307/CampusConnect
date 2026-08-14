@@ -13,7 +13,7 @@ import {
   type SignUpFormValues,
 } from "@/lib/schemas";
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Sparkle } from "@/components/site/Sparkle";
@@ -30,7 +30,7 @@ import { sendVerificationEmail } from "@/lib/email/service";
 import { getFriendlyAuthError } from "@/utils/authErrors";
 import { PasskeyLoginButton } from "@/components/PasskeyLoginButton";
 import { useWebAuthn } from "@/hooks/useWebAuthn";
-import { Turnstile } from "@marsidev/react-turnstile";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { AuthSocialProviderGrid } from "@/components/auth/AuthSocialProviderGrid";
 import { PasskeyAuthModal } from "@/components/auth/PasskeyAuthModal";
 import { requiresMfaChallenge } from "@/lib/mfa";
@@ -45,7 +45,14 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const supabase = createClient();
   const { registerPasskey } = useWebAuthn();
+ feature/3014-referral-leaderboard
   const { getStoredReferralCode, clearStoredReferralCode } = useReferral();
+
+  const turnstileRef = useRef<TurnstileInstance>(null);
+  const [submitData, setSubmitData] = useState<{ mode: "signin" | "signup"; values: any } | null>(
+    null,
+  );
+ main
 
   const signInForm = useForm<SignInFormValues>({
     resolver: zodResolver(signInSchema),
@@ -79,15 +86,45 @@ export default function AuthPage() {
     setCaptchaToken("");
     signInForm.reset();
     signUpForm.reset();
+    turnstileRef.current?.reset();
   }
 
-  async function onSignIn(values: SignInFormValues) {
+  function onSignInSubmit(values: SignInFormValues) {
+    setLoading(true);
+    setError(null);
+    setSubmitData({ mode: "signin", values });
+    turnstileRef.current?.execute();
+  }
+
+  function onSignUpSubmit(values: SignUpFormValues) {
+    setLoading(true);
+    setError(null);
+    setSubmitData({ mode: "signup", values });
+    turnstileRef.current?.execute();
+  }
+
+  async function handleTurnstileSuccess(token: string) {
+    setCaptchaToken(token);
+    if (!submitData) return;
+
+    if (submitData.mode === "signin") {
+      await performSignIn(submitData.values, token);
+    } else {
+      await performSignUp(submitData.values, token);
+    }
+
+    // Reset Turnstile for subsequent attempts if any
+    turnstileRef.current?.reset();
+    setSubmitData(null);
+  }
+
+  async function performSignIn(values: SignInFormValues, token: string) {
     setLoading(true);
     setError(null);
 
     try {
       const { data, error: invokeError } = await supabase.functions.invoke("login-proxy", {
-        body: { email: values.email, password: values.password },
+        body: { email: values.email, password: values.password, captchaToken: token },
       });
 
       if (invokeError) {
@@ -127,16 +164,18 @@ export default function AuthPage() {
       setLoading(false);
     }
   }
-  async function onSignUp(values: SignUpFormValues) {
+
+  async function performSignUp(values: SignUpFormValues, token: string) {
     setLoading(true);
     setError(null);
 
     try {
-      if (!captchaToken) {
+      if (!token) {
         toast.error("Please complete CAPTCHA verification.");
         setLoading(false);
         return;
       }
+ feature/3014-referral-leaderboard
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: values.email,
         password: values.password,
@@ -148,9 +187,21 @@ export default function AuthPage() {
             full_name: `${values.firstName} ${values.lastName}`.trim(),
             newsletter_opt_in: values.newsletterOptIn,
             referred_by_code: getStoredReferralCode(),
+
+      const { data: signUpData, error: signUpError } = await supabase.functions.invoke(
+        "register-proxy",
+        {
+          body: {
+            email: values.email,
+            password: values.password,
+            captchaToken: token,
+            firstName: values.firstName,
+            lastName: values.lastName,
+            newsletterOptIn: values.newsletterOptIn,
+ main
           },
         },
-      });
+      );
 
       if (signUpError) throw signUpError;
 
@@ -250,7 +301,7 @@ export default function AuthPage() {
             {mode === "signin" ? (
               <Form {...signInForm}>
                 <form
-                  onSubmit={signInForm.handleSubmit(onSignIn)}
+                  onSubmit={signInForm.handleSubmit(onSignInSubmit)}
                   className="space-y-4 text-black"
                   noValidate
                 >
@@ -319,7 +370,7 @@ export default function AuthPage() {
             ) : (
               <Form {...signUpForm}>
                 <form
-                  onSubmit={signUpForm.handleSubmit(onSignUp)}
+                  onSubmit={signUpForm.handleSubmit(onSignUpSubmit)}
                   className="space-y-4 text-black"
                   noValidate
                 >
@@ -459,25 +510,9 @@ export default function AuthPage() {
                       </FormItem>
                     )}
                   />
-                  <Turnstile
-                    siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
-                    onSuccess={(token: string) => setCaptchaToken(token)}
-                    onExpire={() => setCaptchaToken("")}
-                    onError={() => setCaptchaToken("")}
-                  />
-                  <Turnstile
-                    siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
-                    onSuccess={(token: string) => setCaptchaToken(token)}
-                    onExpire={() => setCaptchaToken("")}
-                    onError={() => setCaptchaToken("")}
-                  />
-
-                  {captchaToken && <p className="text-green-600 text-sm">CAPTCHA verified</p>}
                   <Button
                     type="submit"
-
-                    disabled={loading || !captchaToken || passwordResult.score < 3}
-
+                    disabled={loading || passwordResult.score < 3}
                     variant="primary"
                     className="w-full bg-black text-cream hover:bg-black/90 cursor-pointer shadow-[3px_3px_0_0_var(--color-ink)]"
                   >
@@ -486,6 +521,23 @@ export default function AuthPage() {
                 </form>
               </Form>
             )}
+
+            <Turnstile
+              ref={turnstileRef}
+              siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+              options={{ size: "invisible", execution: "execute" } as any}
+              onSuccess={handleTurnstileSuccess}
+              onExpire={() => {
+                setCaptchaToken("");
+                turnstileRef.current?.reset();
+              }}
+              onError={() => {
+                setCaptchaToken("");
+                turnstileRef.current?.reset();
+                setLoading(false);
+                setError("CAPTCHA failed");
+              }}
+            />
 
             <div className="my-6 flex items-center gap-3">
               <div className="h-[2px] flex-1 bg-black" />

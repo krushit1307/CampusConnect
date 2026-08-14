@@ -129,6 +129,7 @@ const Leaderboard = lazy(() =>
   import("./components/Leaderboard").then((m) => ({ default: m.Leaderboard })),
 );
 const Recap = lazy(() => import("./routes/recap"));
+const NetworkPage = lazy(() => import("./routes/network"));
 const MfaChallenge = lazy(() => import("./routes/mfa-challenge"));
 
 const EventsLayout = lazy(() => import("./pages/Events/EventsLayout"));
@@ -252,6 +253,7 @@ const router = createBrowserRouter(
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/recap" element={<Recap />} />
+          <Route path="/network" element={<NetworkPage />} />
           <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
           <Route path="/admin/analytics" element={<AnalyticsAdmin />} />
           <Route path="/verify-email" element={<VerifyEmail />} />

@@ -63,14 +63,10 @@ async function testHmacSha256(key: string, message: string): Promise<string> {
     keyData,
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"]
+    ["sign"],
   );
 
-  const signature = await crypto.subtle.sign(
-    "HMAC",
-    cryptoKey,
-    messageData
-  );
+  const signature = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
 
   return Array.from(new Uint8Array(signature))
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -112,7 +108,7 @@ Deno.test("validateSignature - validates correct signature successfully", async 
     method,
     body: bodyText,
     headers: {
-      "Authorization": `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
       "X-Request-Signature": signature,
       "X-Request-Timestamp": timestamp,
       "X-Request-Nonce": nonce,
@@ -122,4 +118,3 @@ Deno.test("validateSignature - validates correct signature successfully", async 
   const response = await validateSignature(req);
   assertEquals(response, null);
 });
-

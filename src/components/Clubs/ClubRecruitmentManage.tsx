@@ -5,7 +5,7 @@ import Plus from "lucide-react/dist/esm/icons/plus";
 import X from "lucide-react/dist/esm/icons/x";
 import Users from "lucide-react/dist/esm/icons/users";
 import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
-import XCircle from "lucide-react/dist/esm/icons/xcircle";
+import XCircle from "lucide-react/dist/esm/icons/x-circle";
 import Clock from "lucide-react/dist/esm/icons/clock";
 import Eye from "lucide-react/dist/esm/icons/eye";
 import EyeOff from "lucide-react/dist/esm/icons/eye-off";
