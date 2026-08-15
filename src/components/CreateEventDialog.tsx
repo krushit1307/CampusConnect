@@ -882,6 +882,47 @@ export function CreateEventDialog({
                 )}
                 <FormField
                   control={control}
+                  name="is_outdoor"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-white p-4 shadow-sm">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="font-bold cursor-pointer">Outdoor Event</FormLabel>
+                        <p className="text-xs text-black/50">
+                          Mark this as an outdoor event to enable automated weather alerts.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                {form.watch("is_outdoor") && (
+                  <FormField
+                    control={control}
+                    name="backup_indoor_venue"
+                    render={({ field }) => (
+                      <FormItem className="rounded-md border-2 border-black bg-white p-4">
+                        <FormLabel className="font-bold">Backup Indoor Venue</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g. Student Union Hall"
+                            {...field}
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <p className="mt-1 text-xs text-black/50">
+                          If severe weather is forecasted, you will be prompted to automatically
+                          pivot the event here.
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+                <FormField
+                  control={control}
                   name="geofencingEnabled"
                   render={({ field }) => (
                     <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-white p-4 shadow-sm">
