@@ -16,6 +16,7 @@ const LANGUAGES = [
   { code: "en", label: "English" },
   { code: "es", label: "Español" },
   { code: "zh", label: "中文" },
+  { code: "ar", label: "العربية" },
 ] as const;
 
 export function LanguageSwitcher() {
@@ -26,6 +27,8 @@ export function LanguageSwitcher() {
   // Keep <html lang="..."> in sync with the active language (WCAG, SEO, AT)
   useEffect(() => {
     document.documentElement.lang = currentLang;
+    const isRTL = currentLang === "ar" || currentLang === "he";
+    document.documentElement.dir = isRTL ? "rtl" : "ltr";
   }, [currentLang]);
 
   return (
