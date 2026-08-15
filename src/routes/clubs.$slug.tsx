@@ -50,6 +50,7 @@ import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
 import { getClubThemeVars } from "@/lib/clubTheming";
 import { ClubHeader } from "@/components/Clubs/ClubHeader";
 import { ClubJobsSection } from "@/components/Clubs/ClubJobsSection";
+import { ClubOrgChart } from "@/components/Clubs/ClubOrgChart";
 import { CrowdfundingCampaignSection } from "@/components/Clubs/Crowdfunding/CrowdfundingCampaignSection";
 import { FlipCard } from "@/components/ui/FlipCard";
 import { useSearchParams } from "react-router-dom";
@@ -64,9 +65,14 @@ interface ClubMemberProfile {
 interface ClubMember {
   id: string;
   role: string;
+  role_id: string | null;
   status: string;
   user_id: string;
   profiles: ClubMemberProfile | ClubMemberProfile[];
+  club_roles:
+    | { id: string; title: string; reports_to_role_id: string | null }
+    | { id: string; title: string; reports_to_role_id: string | null }[]
+    | null;
 }
 
 interface ClubEvent {
@@ -498,6 +504,37 @@ export default function ClubProfile() {
 
   const officers = memberList.filter((m: MemberItem) => m.role === "admin");
 
+  const orgChartMembers = members.flatMap((member: ClubMember) => {
+    const role = Array.isArray(member.club_roles) ? member.club_roles[0] : member.club_roles;
+    const profile = Array.isArray(member.profiles) ? member.profiles[0] : member.profiles;
+    if (!member.role_id || !role) return [];
+    return [
+      {
+        id: member.id,
+        role_id: member.role_id,
+        role_title: role.title,
+        reports_to_role_id: role.reports_to_role_id,
+        user_id: member.user_id,
+        name: profile?.full_name || "Unknown User",
+        handle: profile?.handle || "",
+        avatar_url: profile?.avatar_url || null,
+        bio: profile?.bio || null,
+      },
+    ];
+  });
+  const orgChartRoles = Array.from(
+    new Map(
+      orgChartMembers.map((member) => [
+        member.role_id,
+        {
+          id: member.role_id,
+          title: member.role_title,
+          reports_to_role_id: member.reports_to_role_id,
+        },
+      ]),
+    ).values(),
+  );
+
   const displayedMembers = isExpanded ? filteredMembers : filteredMembers.slice(0, 10);
 
   const events = Array.isArray(club.events) ? club.events : [];
@@ -831,6 +868,12 @@ export default function ClubProfile() {
                       </div>
                     )}
 
+                    {orgChartRoles.length > 0 && (
+                      <div className="mt-8">
+                        <ClubOrgChart roles={orgChartRoles} members={orgChartMembers} />
+                      </div>
+                    )}
+
                     {/* Members section below the description */}
                     <div className="mt-8 max-w-2xl">
                       <h3 className="font-display text-lg font-bold text-blue-900">Members</h3>
@@ -1000,7 +1043,9 @@ export default function ClubProfile() {
                         </p>
 
                         <div className="mt-4 space-y-2 max-w-xs">
-                          <label className="eyebrow font-bold text-black dark:text-cream">Target Audience</label>
+                          <label className="eyebrow font-bold text-black dark:text-cream">
+                            Target Audience
+                          </label>
                           <select
                             value={targetAudience}
                             onChange={(e) => setTargetAudience(e.target.value as any)}
