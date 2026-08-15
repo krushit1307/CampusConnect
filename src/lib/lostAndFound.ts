@@ -12,10 +12,6 @@ export interface LostItem {
   pii_flagged?: boolean;
   similarity?: number;
   created_at?: string;
-  type?: "lost" | "found";
-  event_id?: string | null;
-  lat?: number | null;
-  lng?: number | null;
 }
 
 /**
@@ -113,7 +109,7 @@ export async function searchLostItems(
  * Submits a newly found item after performing PII validation.
  */
 export async function reportFoundItem(
-  item: Omit<LostItem, "id" | "created_at" | "pii_flagged" | "type">,
+  item: Omit<LostItem, "id" | "created_at" | "pii_flagged">,
 ): Promise<{ success: boolean; data?: LostItem; error?: string }> {
   const fullText = `${item.title} ${item.description ?? ""} ${item.location_found ?? ""}`;
 
@@ -140,10 +136,6 @@ export async function reportFoundItem(
         status: "unclaimed",
         pii_flagged: false,
         embedding,
-        type: "found",
-        event_id: item.event_id,
-        lat: item.lat,
-        lng: item.lng,
       },
     ])
     .select()
@@ -155,51 +147,3 @@ export async function reportFoundItem(
 
   return { success: true, data };
 }
-
-/**
- * Submits a newly lost item after performing PII validation.
- */
-export async function reportLostItem(
-  item: Omit<LostItem, "id" | "created_at" | "pii_flagged" | "type">,
-): Promise<{ success: boolean; data?: LostItem; error?: string }> {
-  const fullText = `${item.title} ${item.description ?? ""} ${item.location_found ?? ""}`;
-
-  if (detectPiiInText(fullText)) {
-    return {
-      success: false,
-      error:
-        "Item submission rejected: Contains potential Personally Identifiable Information (PII).",
-    };
-  }
-
-  const embedding = generateItemEmbedding(fullText);
-  const supabase = createClient();
-
-  const { data, error } = await supabase
-    .from("lost_items")
-    .insert([
-      {
-        title: item.title.trim(),
-        description: item.description?.trim(),
-        category: item.category,
-        image_url: item.image_url,
-        location_found: item.location_found?.trim(),
-        status: "unclaimed",
-        pii_flagged: false,
-        embedding,
-        type: "lost",
-        event_id: item.event_id,
-        lat: item.lat,
-        lng: item.lng,
-      },
-    ])
-    .select()
-    .single();
-
-  if (error) {
-    return { success: false, error: error.message };
-  }
-
-  return { success: true, data };
-}
-
