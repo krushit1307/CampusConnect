@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
+import { duplicateEvent } from "@/lib/events/duplicateEvent";
 import ReactECharts from "echarts-for-react";
 import { toast } from "sonner";
 import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
@@ -210,6 +211,24 @@ export default function EventDashboard() {
             <h1 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
               {eventData?.title ? `${eventData.title} Analytics` : "Event Analytics"}
             </h1>
+            <div className="flex-1" />
+            <button
+              onClick={async () => {
+                try {
+                  const { data: { user } } = await supabase.auth.getUser();
+                  if (!user) throw new Error("Not logged in");
+                  toast.loading("Duplicating event...", { id: "duplicate" });
+                  const newId = await duplicateEvent(supabase, eventId!, user.id);
+                  toast.success("Event duplicated as draft!", { id: "duplicate" });
+                  navigate("/events/" + newId);
+                } catch (err: any) {
+                  toast.error(err.message || "Failed to duplicate event", { id: "duplicate" });
+                }
+              }}
+              className="neu-border neu-press bg-yellow-300 text-black px-4 py-2 font-mono text-xs font-bold uppercase hover:-translate-y-1 transition-transform whitespace-nowrap"
+            >
+              Duplicate Event
+            </button>
           </div>
           <div className="mb-8 border-2 border-black bg-yellow-100 p-5 shadow-[4px_4px_0_0_#000]">
             <div className="flex items-center gap-2">

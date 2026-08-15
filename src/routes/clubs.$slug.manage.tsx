@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
+import { duplicateEvent } from "@/lib/events/duplicateEvent";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
 import {
@@ -886,6 +887,22 @@ export default function ClubManageRoute() {
                             </p>
                           </div>
                           <div className="flex gap-2">
+                            <button
+                              onClick={async () => {
+                                if (!user) return;
+                                try {
+                                  toast.loading("Duplicating event...", { id: "duplicate" });
+                                  const newId = await duplicateEvent(supabase, e.id, user.id);
+                                  toast.success("Event duplicated as draft!", { id: "duplicate" });
+                                  navigate("/events/" + newId);
+                                } catch (err: any) {
+                                  toast.error(err.message || "Failed to duplicate event", { id: "duplicate" });
+                                }
+                              }}
+                              className="neu-border neu-press bg-yellow-300 text-black px-4 py-2 font-mono text-xs font-bold uppercase hover:-translate-y-1 transition-transform"
+                            >
+                              Duplicate
+                            </button>
                             <button
                               onClick={() => navigate(`/events/${e.id}/dashboard`)}
                               className="neu-border neu-press bg-lime text-black px-4 py-2 font-mono text-xs font-bold uppercase hover:-translate-y-1 transition-transform"
