@@ -34,6 +34,7 @@ import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { AuthSocialProviderGrid } from "@/components/auth/AuthSocialProviderGrid";
 import { PasskeyAuthModal } from "@/components/auth/PasskeyAuthModal";
 import { requiresMfaChallenge } from "@/lib/mfa";
+import { useReferral } from "@/hooks/useReferral";
 
 export default function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -44,10 +45,14 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const supabase = createClient();
   const { registerPasskey } = useWebAuthn();
+ feature/3014-referral-leaderboard
+  const { getStoredReferralCode, clearStoredReferralCode } = useReferral();
+
   const turnstileRef = useRef<TurnstileInstance>(null);
   const [submitData, setSubmitData] = useState<{ mode: "signin" | "signup"; values: any } | null>(
     null,
   );
+ main
 
   const signInForm = useForm<SignInFormValues>({
     resolver: zodResolver(signInSchema),
@@ -170,6 +175,19 @@ export default function AuthPage() {
         setLoading(false);
         return;
       }
+ feature/3014-referral-leaderboard
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: values.email,
+        password: values.password,
+        options: {
+          data: {
+            captcha_token: captchaToken,
+            first_name: values.firstName,
+            last_name: values.lastName,
+            full_name: `${values.firstName} ${values.lastName}`.trim(),
+            newsletter_opt_in: values.newsletterOptIn,
+            referred_by_code: getStoredReferralCode(),
+
       const { data: signUpData, error: signUpError } = await supabase.functions.invoke(
         "register-proxy",
         {
@@ -180,6 +198,7 @@ export default function AuthPage() {
             firstName: values.firstName,
             lastName: values.lastName,
             newsletterOptIn: values.newsletterOptIn,
+ main
           },
         },
       );
@@ -188,6 +207,8 @@ export default function AuthPage() {
 
       toast.success("Account created! A verification link has been sent to your email.");
       setCaptchaToken("");
+      clearStoredReferralCode();
+
       if (signUpData?.session) {
         try {
           const enrolled = await registerPasskey("Passkey");

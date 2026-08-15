@@ -1,17 +1,12 @@
 import { z } from "https://esm.sh/zod@3.24.2";
 import { parseJsonBody } from "../_shared/validation.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const processOutboxPayloadSchema = z
   .object({
     table: z.string().min(1),
     action: z.string().min(1),
-    record: z
-      .object({
-        id: z.string().optional(),
-        title: z.string().optional(),
-      })
-      .strict()
-      .optional(),
+    record: z.record(z.any()).optional(), // Relaxed strict schema constraint to support matching objects (#3249)
   })
   .strict();
 
@@ -44,6 +39,10 @@ Deno.serve(async (req) => {
 
     const { table, action, record } = payload;
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     // Simulate external side effects based on table and action
     if (table === "events" && action === "INSERT") {
       console.log(
@@ -54,6 +53,88 @@ Deno.serve(async (req) => {
       console.log(
         `[Outbox Worker] [Guaranteed Delivery] Dispatching notifications for new post: ${record?.id}`,
       );
+    } else if (table === "lost_item_matches" && action === "INSERT") {
+      const match = record;
+      if (match?.lost_item_id && match?.found_item_id) {
+        console.log(`[Outbox Worker] Processing match ${match.id} for lost_item_id: ${match.lost_item_id}, found_item_id: ${match.found_item_id}`);
+
+        // Fetch details of both items
+        const { data: lostItem, error: errLost } = await supabase
+          .from("lost_items")
+          .select("title, user_id")
+          .eq("id", match.lost_item_id)
+          .single();
+
+        const { data: foundItem, error: errFound } = await supabase
+          .from("lost_items")
+          .select("title, user_id")
+          .eq("id", match.found_item_id)
+          .single();
+
+        if (errLost || errFound || !lostItem || !foundItem) {
+          console.error("Failed to retrieve matching item records:", errLost || errFound);
+          throw new Error("Failed to retrieve items");
+        }
+
+        // Fetch profiles of both item owners
+        const { data: profileLost, error: errProfLost } = await supabase
+          .from("profiles")
+          .select("email, first_name, last_name")
+          .eq("id", lostItem.user_id)
+          .single();
+
+        const { data: profileFound, error: errProfFound } = await supabase
+          .from("profiles")
+          .select("email, first_name, last_name")
+          .eq("id", foundItem.user_id)
+          .single();
+
+        if (errProfLost || errProfFound || !profileLost || !profileFound) {
+          console.error("Failed to retrieve matching profiles:", errProfLost || errProfFound);
+          throw new Error("Failed to retrieve user profiles");
+        }
+
+        // Prepare email notification payload
+        const resendApiKey = Deno.env.get("RESEND_API_KEY");
+        const appUrl = Deno.env.get("APP_URL") || "https://campusconnect.edu";
+        
+        const emailList = [profileLost.email, profileFound.email];
+        const emailBody = {
+          from: "CampusConnect Lost & Found <notifications@campusconnect.app>",
+          to: emailList,
+          subject: `Match Found! We found your lost ${lostItem.title || "item"}`,
+          html: `
+            <h2>Lost & Found Match Found!</h2>
+            <p>Hi ${profileLost.first_name || "there"} and ${profileFound.first_name || "there"},</p>
+            <p>We found a high-probability match for the lost item: <strong>${lostItem.title}</strong>.</p>
+            <p>A match was detected based on item details, spatial location, and temporal proximity.</p>
+            <p>Please click below to connect and coordinate the return of the item:</p>
+            <p><a href="${appUrl}/lost-found" style="display: inline-block; background-color: #a3e635; color: #000000; font-weight: bold; text-decoration: none; padding: 10px 20px; border: 2px solid #000000;">View Match & Connect</a></p>
+            <p>Thank you for using CampusConnect!</p>
+          `,
+        };
+
+        if (!resendApiKey || Deno.env.get("MOCK_EMAIL") === "true") {
+          console.log(
+            "Mocking notification email dispatch. Would have sent to:",
+            emailList,
+            emailBody,
+          );
+        } else {
+          const res = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${resendApiKey}`,
+            },
+            body: JSON.stringify(emailBody),
+          });
+          if (!res.ok) {
+            const errBody = await res.text();
+            console.error("Resend matching notification email delivery failed:", errBody);
+          }
+        }
+      }
     }
 
     return new Response(JSON.stringify({ success: true, outbox_id }), {
@@ -69,3 +150,4 @@ Deno.serve(async (req) => {
     });
   }
 });
+

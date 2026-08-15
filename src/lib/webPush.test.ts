@@ -28,6 +28,7 @@ describe("Web Push Utilities (#2645)", () => {
     expect(payload.title).toBe("Upcoming Event: Annual Hackathon 2026");
     expect(payload.body).toContain("starts in 60 minutes");
     expect(payload.data.url).toBe("/events/evt_123");
+    expect(payload.data.target_route).toBe("/events/evt_123");
     expect(payload.data.eventId).toBe("evt_123");
     expect(payload.tag).toBe("event-reminder-evt_123");
   });
