@@ -16,19 +16,21 @@ import {
     SponsorshipCampaign
 } from '../../lib/sponsorship/matchmaking';
 import { SponsorPitchModal } from './SponsorPitchModal';
+import { SponsorshipPricingGrid } from './SponsorshipPricingGrid';
 
 interface SponsorMarketplaceProps {
     requestId: string;
     requestTitle: string;
     requestedAmount: number;
+    clubId?: string;
 }
 
 export const SponsorMarketplace: React.FC<SponsorMarketplaceProps> = ({
     requestId,
     requestTitle,
-    requestedAmount
-}) => {
-    const { matches, pitches, isLoading, error } = useSponsorshipMatches(requestId);
+    requestedAmount,
+    clubId
+}) => {    const { matches, pitches, isLoading, error } = useSponsorshipMatches(requestId);
     const [selectedCampaign, setSelectedCampaign] = useState<SponsorshipCampaign | null>(null);
 
     const getPitchStatus = (campaignId: string) => {
@@ -74,11 +76,16 @@ export const SponsorMarketplace: React.FC<SponsorMarketplaceProps> = ({
                     <p className="text-xl font-black text-indigo-600 dark:text-indigo-400">
                         {formatCurrency(requestedAmount)}
                     </p>
-                </div>
+</div>
             </div>
 
-            {matches.length === 0 ? (
-                <div className="text-center py-16 bg-gray-50 dark:bg-gray-800/50 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700">
+            {clubId && (
+                <div className="pt-2 pb-6 border-b border-gray-200 dark:border-gray-700">
+                    <SponsorshipPricingGrid clubId={clubId} />
+                </div>
+            )}
+
+            {matches.length === 0 ? (                <div className="text-center py-16 bg-gray-50 dark:bg-gray-800/50 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700">
                     <svg className="w-16 h-16 mx-auto text-gray-400 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>

@@ -38,7 +38,9 @@ import { ClubAnalyticsDashboard } from "@/components/clubs/ClubAnalyticsDashboar
 import { PermissionsGrid } from "@/components/Clubs/PermissionsGrid";
 import ClubRenewalWizard from "@/components/ClubRenewalWizard";
 import { ClubFinancesTab } from "@/components/Clubs/ClubFinancesTab";
-import { HandoverChecklist } from "@/components/club/HandoverChecklist";
+import { SponsorshipTiersManager } from "@/components/sponsorship/SponsorshipTiersManager";
+import DollarSign from "lucide-react/dist/esm/icons/dollar-sign";
+import Handshake from "lucide-react/dist/esm/icons/handshake";import { HandoverChecklist } from "@/components/club/HandoverChecklist";
 import DollarSign from "lucide-react/dist/esm/icons/dollar-sign";
 import {
   AlertDialog,
@@ -85,6 +87,7 @@ export default function ClubManageRoute() {
     | "analytics"
     | "milestones"
     | "finances"
+    | "sponsorship"
   >("settings");
   const [selectedLogisticsEventId, setSelectedLogisticsEventId] = useState<string>("");
 
@@ -599,10 +602,19 @@ export default function ClubManageRoute() {
                     : "bg-white text-black hover:bg-gray-50"
                 }`}
               >
-                <DollarSign size={18} /> Finances
+<DollarSign size={18} /> Finances
               </button>
-            </nav>
-          </aside>
+              <button
+                onClick={() => setActiveTab("sponsorship")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "sponsorship"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <Handshake size={18} /> Sponsorship
+              </button>
+            </nav>          </aside>
 
           <main className="flex-1">
             {activeTab === "transition" && (
@@ -1023,8 +1035,11 @@ export default function ClubManageRoute() {
               </>
             )}
 
-            {activeTab === "finances" && <ClubFinancesTab clubId={club.id} />}
-          </main>
+{activeTab === "finances" && <ClubFinancesTab clubId={club.id} />}
+
+            {activeTab === "sponsorship" && (
+              <SponsorshipTiersManager clubId={club.id} />
+            )}          </main>
         </div>
       </div>
 
