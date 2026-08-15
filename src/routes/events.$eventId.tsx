@@ -3,6 +3,8 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
+import { queueRsvpSubmission } from "@/lib/events/offlineRsvpSync";
+import { useOfflineRsvpSync } from "@/hooks/useOfflineRsvpSync";
 import { createClient } from "@/lib/supabase/client";
 import { incrementEventViews } from "@/lib/supabase/events";
 import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
@@ -833,13 +835,33 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
         data: { session },
       } = await supabase.auth.getSession();
 
-      const { error } = await supabase.functions.invoke("toggle-rsvp", {
-        body: { eventId, hasRsvpd, captchaToken, accommodationsRequested },
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
-          "Idempotency-Key": idempotencyKey,
-        },
-      });
+      let funcError = null;
+      try {
+        const { error } = await supabase.functions.invoke("toggle-rsvp", {
+          body: { eventId, hasRsvpd, captchaToken, accommodationsRequested },
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+            "Idempotency-Key": idempotencyKey,
+          },
+        });
+        funcError = error;
+      } catch (err: any) {
+        if (!navigator.onLine || err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed to fetch')) {
+          await queueRsvpSubmission({
+            eventId,
+            hasRsvpd,
+            captchaToken,
+            accommodationsRequested,
+            idempotencyKey,
+            queuedAt: Date.now()
+          });
+          // Throw a specific error to show offline toast
+          throw new Error('OFFLINE_SAVED');
+        } else {
+          throw err;
+        }
+      }
+      if (funcError) throw funcError;
 
       if (error) throw error;
       clearRsvpIdempotencyKey(eventId);
@@ -880,7 +902,9 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
       }
 
       const err = error as Record<string, unknown>;
-      if (
+      if (err?.message === 'OFFLINE_SAVED' || error?.message === 'OFFLINE_SAVED') {
+        toast.success("You're offline. Your RSVP is saved and will sync automatically when you reconnect.", { duration: 5000 });
+      } else if (
         (typeof err?.message === "string" && err.message.includes("Rate limit")) ||
         (typeof err?.details === "string" && err.details.includes("Rate limit")) ||
         (typeof err?.context === "string" && err.context.includes("Rate limit")) ||

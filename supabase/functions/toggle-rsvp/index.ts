@@ -279,7 +279,7 @@ serve(async (req: Request) => {
       let delay = 50; // initial wait time in milliseconds
 
       while (attempts < maxAttempts) {
-        const { data, error } = await supabase.rpc("secure_event_checkout", {
+        const { data, error } = await supabase.rpc("join_event_or_waitlist", {
           p_event_id: eventId,
           p_user_id: user.id,
         });
@@ -288,7 +288,7 @@ serve(async (req: Request) => {
           throw error;
         }
 
-        if (data === "SUCCESS") {
+        if (data && data.success && (data.status === "attending" || data.status === "waitlisted")) {
           if (accommodationsRequested) {
             const { error: updateErr } = await supabase
               .from("event_rsvps")
@@ -405,18 +405,18 @@ serve(async (req: Request) => {
             }
           }
 
-          return respond({ success: true, status: "approved" }, 200);
+          return respond({ success: true, status: data.status, position: data.position }, 200);
         }
 
-        if (data === "ALREADY_RSVPED") {
+        if (data?.error === "ALREADY_RSVPED" || data === "ALREADY_RSVPED") {
           return respond({ error: "You have already RSVPed to this event." }, 400);
         }
 
-        if (data === "FULL") {
+        if (data?.error === "FULL" || data === "FULL") {
           return respond({ error: "Event capacity has been reached." }, 409);
         }
 
-        if (data === "BUSY") {
+        if (data?.error === "BUSY" || data === "BUSY") {
           attempts++;
           if (attempts < maxAttempts) {
             await new Promise((resolve) => setTimeout(resolve, delay));

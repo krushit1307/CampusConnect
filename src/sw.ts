@@ -11,17 +11,7 @@ declare let self: ServiceWorkerGlobalScope;
 precacheAndRoute(self.__WB_MANIFEST || []);
 
 // ── Workbox Background Sync Plugin for RSVP Mutations ──
-const rsvpBgSyncPlugin = new BackgroundSyncPlugin("rsvp-mutations-queue", {
-  maxRetentionTime: 24 * 60, // Retry for up to 24 hours (in minutes)
-  onSync: async (options) => {
-    try {
-      await options.queue.replayRequests();
-      console.log("[SW] RSVP Workbox Background Sync completed replaying queued requests.");
 
-      // Broadcast success message to open tabs
-      const clients = await self.clients.matchAll();
-      for (const client of clients) {
-        client.postMessage({ type: "OFFLINE_RSVP_SYNC_SUCCESS" });
         client.postMessage({ type: "OFFLINE_EVENTS_SYNC" });
       }
     } catch (err) {
@@ -38,18 +28,7 @@ const rsvpBgSyncPlugin = new BackgroundSyncPlugin("rsvp-mutations-queue", {
   },
 });
 
-// Intercept RSVP mutation endpoint (/toggle-rsvp or /event_rsvps)
-registerRoute(
-  ({ url, request }) => {
-    const isRsvpEndpoint =
-      url.pathname.includes("/toggle-rsvp") || url.pathname.includes("/event_rsvps");
-    const isMutationMethod = ["POST", "PUT", "PATCH", "DELETE"].includes(request.method);
-    return isRsvpEndpoint && isMutationMethod;
-  },
-  new NetworkOnly({
-    plugins: [rsvpBgSyncPlugin],
-  }),
-);
+
 
 // ── Workbox Background Sync Plugin for Supabase Mutations ──
 // Intercepts failed POST/PUT/PATCH/DELETE requests (e.g. to /rest/v1/events)
@@ -94,7 +73,16 @@ registerRoute(
 // Listen for custom background sync event tag 'sync-offline-events'
 self.addEventListener("sync" as never, (event: unknown) => {
   const syncEvent = event as { tag: string; waitUntil: (p: Promise<unknown>) => void };
-  if (syncEvent.tag === "sync-offline-events" || syncEvent.tag === "supabase-mutations-queue") {
+  if (syncEvent.tag === "sync-offline-rsvps") {
+    console.log("[SW] Received background sync event tag:", syncEvent.tag);
+    syncEvent.waitUntil(
+      self.clients.matchAll().then((clients) => {
+        for (const client of clients) {
+          client.postMessage({ type: "OFFLINE_RSVP_SYNC" });
+        }
+      })
+    );
+  } else if (syncEvent.tag === "sync-offline-events" || syncEvent.tag === "supabase-mutations-queue") {
     console.log("[SW] Received background sync event tag:", syncEvent.tag);
     syncEvent.waitUntil(
       self.clients.matchAll().then((clients) => {
