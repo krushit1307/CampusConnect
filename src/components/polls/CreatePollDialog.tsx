@@ -26,6 +26,7 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormField,
@@ -50,6 +51,7 @@ export function CreatePollDialog({ eventId, user, onPollCreated }: CreatePollDia
     defaultValues: {
       question: "",
       options: [{ text: "" }, { text: "" }],
+      is_anonymous: false,
     },
     mode: "onBlur",
   });
@@ -76,6 +78,7 @@ export function CreatePollDialog({ eventId, user, onPollCreated }: CreatePollDia
           created_by: user.id,
           question: values.question,
           is_active: true,
+          is_anonymous: values.is_anonymous,
         })
         .select()
         .single();
@@ -105,7 +108,7 @@ export function CreatePollDialog({ eventId, user, onPollCreated }: CreatePollDia
     onSuccess: () => {
       toast.success("Poll launched successfully!");
       setOpen(false);
-      form.reset({ question: "", options: [{ text: "" }, { text: "" }] });
+      form.reset({ question: "", options: [{ text: "" }, { text: "" }], is_anonymous: false });
       onPollCreated?.();
     },
     onError: (error: Error) => {
@@ -211,6 +214,28 @@ export function CreatePollDialog({ eventId, user, onPollCreated }: CreatePollDia
                 </button>
               )}
             </div>
+
+            <FormField
+              control={form.control}
+              name="is_anonymous"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-white p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      className="border-2 border-black"
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="font-mono font-bold">Anonymous Poll</FormLabel>
+                    <DialogDescription className="font-mono text-xs text-black/60">
+                      Hide attendee names from the results and CSV exports.
+                    </DialogDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
 
             <DialogFooter className="pt-2">
               <Button
