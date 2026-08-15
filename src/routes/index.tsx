@@ -185,6 +185,7 @@ export default function Landing() {
           id,
           title,
           description,
+          tldr_summary,
           event_date,
           banner_url,
           popularity_score,

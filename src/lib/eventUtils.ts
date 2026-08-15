@@ -48,6 +48,12 @@ export const eventFormSchema = z
       .min(1, "Title is required.")
       .max(TITLE_MAX_LENGTH, `Title must be ${TITLE_MAX_LENGTH} characters or fewer.`),
     description: z.string().trim().min(1, "Description is required."),
+    tldr_summary: z
+      .string()
+      .trim()
+      .max(100, "TL;DR must be 100 characters or fewer.")
+      .optional()
+      .or(z.literal("")),
     venue_id: z.string().optional(),
     location: z.string().trim().optional(),
     accessibility_features: accessibilityFeaturesSchema.optional(),

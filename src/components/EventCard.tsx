@@ -18,14 +18,15 @@ import { EventRSVPButton } from "@/components/EventRSVPButton";
 import { usePreloadEvent } from "@/hooks/usePreloadEvent";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
 import { ShareMenu } from "@/components/ui/ShareMenu";
-import { ReadMore } from "@/components/ui/ReadMore";
 import { EventRsvpCancelDialog } from "@/components/events/EventRsvpCancelDialog";
+import { getEventTldr } from "@/lib/eventSummary";
 
 interface Event {
   id: string;
   short_id?: string | null;
   title: string;
   description: string | null;
+  tldr_summary?: string | null;
   event_date: string | null;
   start_date?: string | null;
   end_date?: string | null;
@@ -306,19 +307,6 @@ export function EventCard({
               </span>
             )}
           </div>
- feature/2986-event-audio-player
- feature/2986-event-audio-player
- feature/2986-event-audio-player
-
- feature/3010-membership-bundles
- feature/3010-membership-bundles
- main
-
- feature/3014-referral-leaderboard
- main
-
-
- main
           <div className="flex gap-2 relative z-10">
             <TooltipProvider>
               <Tooltip>
@@ -370,11 +358,14 @@ export function EventCard({
           </h2>
         </Link>
         <p className="mt-1 font-mono text-sm font-bold text-blue-900">{club?.name}</p>
-        {event.description ? (
-          <div className="mt-4">
-            <ReadMore text={event.description} />
-          </div>
-        ) : null}
+        {(event.tldr_summary || event.description) && (
+          <p className="mt-3 border-l-4 border-black/30 pl-3 font-mono text-sm font-semibold leading-relaxed text-black/80">
+            <span className="mr-1 text-[10px] font-black uppercase tracking-wider text-black/60">
+              TL;DR:
+            </span>
+            {getEventTldr(event.tldr_summary, event.description)}
+          </p>
+        )}
         <EventProgressBar createdAt={event.created_at} eventDate={event.event_date} />
         <div className="mt-4">
           <EventCapacityGauge

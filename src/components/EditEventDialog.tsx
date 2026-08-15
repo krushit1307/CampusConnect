@@ -90,6 +90,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
     defaultValues: {
       title: event.title || "",
       description: event.description || "",
+      tldr_summary: event.tldr_summary || "",
       category: (event.category_id as string) || "",
       location: event.location || "",
       is_outdoor: event.is_outdoor || false,
@@ -109,6 +110,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
       form.reset({
         title: event.title || "",
         description: event.description || "",
+        tldr_summary: event.tldr_summary || "",
         category: (event.category_id as string) || "",
         location: event.location || "",
         startDate: event.start_date ? new Date(event.start_date).toISOString().slice(0, 16) : "",
@@ -133,6 +135,9 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
         .update({
           title: docToSave.title,
           description: docToSave.description,
+          tldr_summary: docToSave.tldr_summary?.toString().trim() || null,
+          tldr_summary_source: docToSave.tldr_summary?.toString().trim() ? "organizer" : "none",
+          tldr_summary_error: null,
           category_id: docToSave.category_id || null,
           location: docToSave.location || null,
           start_date: docToSave.start_date,
@@ -227,6 +232,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
         ...baseSnapshot,
         title: values.title.trim(),
         description: values.description.trim(),
+        tldr_summary: values.tldr_summary?.trim() || null,
         category_id: values.category || null,
         location: values.location?.trim() || null,
         is_outdoor: values.is_outdoor || false,
@@ -322,6 +328,29 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                         onChange={field.onChange}
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={control}
+                name="tldr_summary"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Feed TL;DR</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Optional one-sentence summary for the event feed"
+                        maxLength={100}
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      The automatic summary can be edited here before students see it. Leave blank
+                      to use the generated summary or fallback.
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}

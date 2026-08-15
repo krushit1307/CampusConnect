@@ -7,6 +7,7 @@ export interface Event {
   id: string;
   title: string;
   description: string | null;
+  tldr_summary?: string | null;
   event_date: string | null;
   start_date?: string | null;
   end_date?: string | null;
