@@ -19,10 +19,11 @@ import { UserProfileSkeleton } from "@/components/UserProfileSkeleton";
 import { HistoryTimeline, TimelineItem } from "@/components/profile/HistoryTimeline";
 import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
 import { ProgressRing } from "@/components/profile/ProgressRing";
-
 import { useState, useEffect } from "react";
 import { SharedClubsSection } from "@/components/profile/SharedClubsSection";
 import { getSharedClubs } from "@/lib/sharedClubs";
+import { ReportDialog } from "@/components/ReportDialog";
+import { AlertTriangle } from "lucide-react";
 
 function getInitials(name: string) {
   return name
@@ -38,6 +39,7 @@ export default function Profile() {
   const { handle } = useParams();
   const supabase = createClient();
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
+  const [isReporting, setIsReporting] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -296,6 +298,18 @@ export default function Profile() {
                 ))}
               </div>
             )}
+            
+            {currentUser && currentUser.id !== profile.id && (
+              <div className="pt-4 flex justify-center md:justify-start">
+                <button
+                  onClick={() => setIsReporting(true)}
+                  className="flex items-center gap-1.5 text-red-500 hover:text-red-700 font-mono text-xs font-bold uppercase transition-colors"
+                >
+                  <AlertTriangle size={14} />
+                  Report User
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -475,6 +489,15 @@ export default function Profile() {
           </div>
         </div>
       </section>
+
+      {isReporting && profile && (
+        <ReportDialog
+          targetType="profile" 
+          targetId={profile.id} 
+          isOpen={isReporting}
+          onClose={() => setIsReporting(false)} 
+        />
+      )}
     </SiteShell>
   );
 }
