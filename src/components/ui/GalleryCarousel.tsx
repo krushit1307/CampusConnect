@@ -2,7 +2,10 @@ import React, { useCallback, useEffect, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import { motion } from "framer-motion";
-import { Pause, Play, ChevronLeft, ChevronRight } from "lucide-react";
+import Pause from "lucide-react/dist/esm/icons/pause";
+import Play from "lucide-react/dist/esm/icons/play";
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
 import { ProgressBar } from "./ProgressBar";
 
 export interface GallerySlide {

@@ -32,6 +32,8 @@ export type Database = {
           promo_video_url: string | null;
           primary_color: string | null;
           secondary_color: string | null;
+          constitution_url: string | null;
+          bylaws_version: number;
           created_at: string;
           updated_at: string;
         };
@@ -63,6 +65,8 @@ export type Database = {
           promo_video_url?: string | null;
           primary_color?: string | null;
           secondary_color?: string | null;
+          constitution_url?: string | null;
+          bylaws_version?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -94,8 +98,49 @@ export type Database = {
           promo_video_url?: string | null;
           primary_color?: string | null;
           secondary_color?: string | null;
+          constitution_url?: string | null;
+          bylaws_version?: number;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      club_roles: {
+        Row: {
+          id: string;
+          club_id: string;
+          title: string;
+          permissions_level: number;
+          is_singular: boolean;
+          created_at: string;
+          signed_bylaws_at: string | null;
+          signature_hash: string | null;
+          bylaws_version_signed: number | null;
+          signed_ip: string | null;
+        };
+        Insert: {
+          id?: string;
+          club_id: string;
+          title: string;
+          permissions_level?: number;
+          is_singular?: boolean;
+          created_at?: string;
+          signed_bylaws_at?: string | null;
+          signature_hash?: string | null;
+          bylaws_version_signed?: number | null;
+          signed_ip?: string | null;
+        };
+        Update: {
+          id?: string;
+          club_id?: string;
+          title?: string;
+          permissions_level?: number;
+          is_singular?: boolean;
+          created_at?: string;
+          signed_bylaws_at?: string | null;
+          signature_hash?: string | null;
+          bylaws_version_signed?: number | null;
+          signed_ip?: string | null;
         };
         Relationships: [];
       };
@@ -320,25 +365,55 @@ export type Database = {
         Row: {
           id: string;
           user_id: string;
-          event_id: string;
+          event_id: string | null;
+          club_id: string | null;
+          attendee_name: string | null;
+          event_title: string | null;
+          event_date: string | null;
           certificate_url: string;
+          certificate_type: "attendance" | "leadership";
+          role_title: string | null;
+          tenure_start: string | null;
+          tenure_end: string | null;
+          termination_reason: string | null;
           issued_at: string | null;
+          email_sent_at: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
-          event_id: string;
+          event_id?: string | null;
+          club_id?: string | null;
+          attendee_name?: string | null;
+          event_title?: string | null;
+          event_date?: string | null;
           certificate_url: string;
+          certificate_type?: "attendance" | "leadership";
+          role_title?: string | null;
+          tenure_start?: string | null;
+          tenure_end?: string | null;
+          termination_reason?: string | null;
           issued_at?: string | null;
+          email_sent_at?: string | null;
           created_at?: string;
         };
         Update: {
           id?: string;
           user_id?: string;
-          event_id?: string;
+          event_id?: string | null;
+          club_id?: string | null;
+          attendee_name?: string | null;
+          event_title?: string | null;
+          event_date?: string | null;
           certificate_url?: string;
+          certificate_type?: "attendance" | "leadership";
+          role_title?: string | null;
+          tenure_start?: string | null;
+          tenure_end?: string | null;
+          termination_reason?: string | null;
           issued_at?: string | null;
+          email_sent_at?: string | null;
           created_at?: string;
         };
         Relationships: [
@@ -401,6 +476,8 @@ export type Database = {
           blurhash: string | null;
           created_at: string;
           updated_at: string;
+          generates_certificate: boolean;
+          accommodation_deadline: string | null;
         };
         Insert: {
           id?: string;
@@ -444,6 +521,8 @@ export type Database = {
           blurhash?: string | null;
           created_at?: string;
           updated_at?: string;
+          generates_certificate?: boolean;
+          accommodation_deadline?: string | null;
         };
         Update: {
           id?: string;
@@ -487,6 +566,8 @@ export type Database = {
           blurhash?: string | null;
           created_at?: string;
           updated_at?: string;
+          generates_certificate?: boolean;
+          accommodation_deadline?: string | null;
         };
         Relationships: [
           {
@@ -570,6 +651,7 @@ export type Database = {
           rsvp_at: string | null;
           created_at: string;
           updated_at: string;
+          accommodations_requested: string | null;
         };
         Insert: {
           id?: string;
@@ -581,6 +663,7 @@ export type Database = {
           rsvp_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          accommodations_requested?: string | null;
         };
         Update: {
           id?: string;
@@ -592,6 +675,7 @@ export type Database = {
           rsvp_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          accommodations_requested?: string | null;
         };
         Relationships: [
           {
@@ -604,6 +688,44 @@ export type Database = {
           {
             foreignKeyName: "event_rsvps_user_id_fkey";
             columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      accommodation_audit_logs: {
+        Row: {
+          id: string;
+          viewer_id: string | null;
+          rsvp_id: string;
+          event_id: string | null;
+          club_id: string | null;
+          action: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          viewer_id?: string | null;
+          rsvp_id: string;
+          event_id?: string | null;
+          club_id?: string | null;
+          action?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          viewer_id?: string | null;
+          rsvp_id?: string;
+          event_id?: string | null;
+          club_id?: string | null;
+          action?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "accommodation_audit_logs_viewer_id_fkey";
+            columns: ["viewer_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
@@ -953,6 +1075,15 @@ export type Database = {
           role: "member" | "admin" | "owner";
           status: "pending" | "approved" | "rejected";
           joined_at: string | null;
+          removed_at: string | null;
+          termination_reason:
+            | "term_completed"
+            | "resigned"
+            | "impeached"
+            | "removed"
+            | "role_changed"
+            | string
+            | null;
           created_at: string;
         };
         Insert: {
@@ -962,6 +1093,15 @@ export type Database = {
           role?: "member" | "admin" | "owner";
           status?: "pending" | "approved" | "rejected";
           joined_at?: string | null;
+          removed_at?: string | null;
+          termination_reason?:
+            | "term_completed"
+            | "resigned"
+            | "impeached"
+            | "removed"
+            | "role_changed"
+            | string
+            | null;
           created_at?: string;
         };
         Update: {
@@ -971,6 +1111,15 @@ export type Database = {
           role?: "member" | "admin" | "owner";
           status?: "pending" | "approved" | "rejected";
           joined_at?: string | null;
+          removed_at?: string | null;
+          termination_reason?:
+            | "term_completed"
+            | "resigned"
+            | "impeached"
+            | "removed"
+            | "role_changed"
+            | string
+            | null;
           created_at?: string;
         };
         Relationships: [
@@ -2178,4 +2327,3 @@ export type Enums<
   : PublicEnumNameOrOptions extends keyof Database["public"]["Enums"]
     ? Database["public"]["Enums"][PublicEnumNameOrOptions]
     : never;
-    

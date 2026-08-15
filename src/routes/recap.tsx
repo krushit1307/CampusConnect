@@ -2,7 +2,12 @@ import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
-import { Loader2, Share2, Sparkles, X, ChevronRight, ChevronLeft } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Share2 from "lucide-react/dist/esm/icons/share-2";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import X from "lucide-react/dist/esm/icons/x";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -162,7 +167,8 @@ export default function RecapPage() {
                 You were quiet this year!
               </h2>
               <p className="font-mono text-sm text-black/80">
-                You didn&apos;t check in to any events during {year}. Let&apos;s change that next semester!
+                You didn&apos;t check in to any events during {year}. Let&apos;s change that next
+                semester!
               </p>
             </motion.div>
           );
@@ -319,7 +325,10 @@ export default function RecapPage() {
               <span className="font-mono text-xl font-bold uppercase">comments posted</span>
             </div>
             <p className="font-mono text-sm text-white/80">
-              Busiest month: <strong className="uppercase bg-white text-black px-2 py-0.5 border border-black">{recap.busiest_month}</strong>
+              Busiest month:{" "}
+              <strong className="uppercase bg-white text-black px-2 py-0.5 border border-black">
+                {recap.busiest_month}
+              </strong>
             </p>
           </motion.div>
         );

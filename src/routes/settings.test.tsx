@@ -8,24 +8,26 @@ import { MemoryRouter } from "react-router-dom";
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
     auth: {
-      getUser: () => Promise.resolve({ data: { user: { id: "user-123", email: "student@univ.edu" } } }),
+      getUser: () =>
+        Promise.resolve({ data: { user: { id: "user-123", email: "student@univ.edu" } } }),
     },
     from: (table: string) => {
       if (table === "profiles") {
         return {
           select: () => ({
             eq: () => ({
-              single: () => Promise.resolve({
-                data: {
-                  id: "user-123",
-                  first_name: "Alex",
-                  last_name: "Rivera",
-                  handle: "alexr",
-                  avatar_theme: "peach",
-                  skills: ["React"],
-                },
-                error: null,
-              }),
+              single: () =>
+                Promise.resolve({
+                  data: {
+                    id: "user-123",
+                    first_name: "Alex",
+                    last_name: "Rivera",
+                    handle: "alexr",
+                    avatar_theme: "peach",
+                    skills: ["React"],
+                  },
+                  error: null,
+                }),
             }),
           }),
         };
@@ -34,15 +36,16 @@ vi.mock("@/lib/supabase/client", () => ({
         return {
           select: () => ({
             eq: () => ({
-              maybeSingle: () => Promise.resolve({
-                data: {
-                  user_id: "user-123",
-                  timezone: "America/New_York",
-                  quiet_hours_start: "22:00:00",
-                  quiet_hours_end: "07:00:00",
-                },
-                error: null,
-              }),
+              maybeSingle: () =>
+                Promise.resolve({
+                  data: {
+                    user_id: "user-123",
+                    timezone: "America/New_York",
+                    quiet_hours_start: "22:00:00",
+                    quiet_hours_end: "07:00:00",
+                  },
+                  error: null,
+                }),
             }),
           }),
           upsert: () => Promise.resolve({ error: null }),
@@ -58,7 +61,7 @@ describe("SettingsPage Quiet Hours Preferences", () => {
     render(
       <MemoryRouter>
         <SettingsPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     // Verify timezone dropdown renders with correct selected option
@@ -91,5 +94,28 @@ describe("SettingsPage Quiet Hours Preferences", () => {
     await waitFor(() => {
       expect(screen.queryByText(/saving/i)).not.toBeInTheDocument();
     });
+  });
+});
+
+describe("SettingsPage Alumni Account Transition", () => {
+  it("renders alumni transition panel when role is student and submits new personal email", async () => {
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>,
+    );
+
+    const transitionHeading = await screen.findByText("Alumni Account Transition");
+    expect(transitionHeading).toBeInTheDocument();
+
+    const emailInput = screen.getByLabelText(/new personal email address/i);
+    expect(emailInput).toBeInTheDocument();
+
+    fireEvent.change(emailInput, { target: { value: "graduated@gmail.com" } });
+    expect((emailInput as HTMLInputElement).value).toBe("graduated@gmail.com");
+
+    const submitBtn = screen.getByRole("button", { name: /transition account to alumni/i });
+    expect(submitBtn).toBeInTheDocument();
+    fireEvent.click(submitBtn);
   });
 });

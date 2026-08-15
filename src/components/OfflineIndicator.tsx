@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { WifiOff } from "lucide-react";
+import WifiOff from "lucide-react/dist/esm/icons/wifi-off";
 import { toast } from "sonner";
 
 export function OfflineIndicator() {

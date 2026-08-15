@@ -3,7 +3,7 @@ import React from "react";
 import { AnimationPlayer, AnimationType } from "./AnimationPlayer";
 import { Button } from "./button";
 import { cn } from "../../lib/utils";
-import { ArrowRight } from "lucide-react";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
 
 interface EmptyStateProps {
   title: string;

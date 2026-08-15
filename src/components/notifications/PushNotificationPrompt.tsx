@@ -6,7 +6,9 @@
  */
 
 import * as React from "react";
-import { Bell, X, Check } from "lucide-react";
+import Bell from "lucide-react/dist/esm/icons/bell";
+import X from "lucide-react/dist/esm/icons/x";
+import Check from "lucide-react/dist/esm/icons/check";
 import { isPushSupported, subscribeToPushNotifications } from "../../lib/push-notifications";
 
 export const PushNotificationPrompt: React.FC = () => {

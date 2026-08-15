@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
+import { duplicateEvent } from "@/lib/events/duplicateEvent";
 import { toast } from "sonner";
 import { User } from "@supabase/supabase-js";
 import {
@@ -14,8 +15,16 @@ import {
   CheckCircle,
   Download,
   Trash2,
+  RefreshCw,
   BarChart3,
+  AlertTriangle,
+  Mail,
+  ArrowRightLeft,
 } from "lucide-react";
+import { NewsletterAnalyticsPanel } from "@/components/Clubs/NewsletterAnalyticsPanel";
+import { NewsletterEditor } from "@/components/Editor/NewsletterEditor";
+import type { Newsletter } from "@/types/newsletter";
+import { HoldToConfirmButton } from "@/components/ui/HoldToConfirmButton";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
 import DiffViewer from "@/components/Editor/DiffViewer";
@@ -25,7 +34,12 @@ import { ClubSocialLinksEditor } from "@/components/Clubs/ClubSocialLinksEditor"
 import { ClubColorPicker } from "@/components/Clubs/ClubColorPicker";
 import { isValidHexColor } from "@/lib/clubTheming";
 import { sanitizeHtml } from "@/lib/sanitizeHtml";
-import ClubAnalyticsDashboard from "@/components/clubs/ClubAnalyticsDashboard";
+import { ClubAnalyticsDashboard } from "@/components/clubs/ClubAnalyticsDashboard";
+import { PermissionsGrid } from "@/components/Clubs/PermissionsGrid";
+import ClubRenewalWizard from "@/components/ClubRenewalWizard";
+import { ClubFinancesTab } from "@/components/Clubs/ClubFinancesTab";
+import { HandoverChecklist } from "@/components/club/HandoverChecklist";
+import DollarSign from "lucide-react/dist/esm/icons/dollar-sign";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -35,7 +49,6 @@ import {
   AlertDialogFooter,
 } from "@/components/ui/alert-dialog";
 
-// ⚠️ Adjust if your Supabase Storage bucket for club banners has a different name
 const BUCKET_NAME = "club-banners";
 
 interface ServerClub {
@@ -50,6 +63,7 @@ interface ServerClub {
   primary_color: string | null;
   secondary_color: string | null;
   version: number;
+  status: string;
 }
 
 export default function ClubManageRoute() {
@@ -57,18 +71,92 @@ export default function ClubManageRoute() {
   const navigate = useNavigate();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<"settings" | "members" | "events" | "constitution">(
-    "settings",
-  );
+
+  const [activeTab, setActiveTab] = useState<
+    | "settings"
+    | "members"
+    | "permissions"
+    | "transition"
+    | "events"
+    | "newsletters"
+    | "logistics"
+    | "constitution"
+    | "trash"
+    | "analytics"
+    | "milestones"
+    | "finances"
+  >("settings");
+  const [selectedLogisticsEventId, setSelectedLogisticsEventId] = useState<string>("");
+
+  const [isEditingNewsletter, setIsEditingNewsletter] = useState(false);
+  const [selectedNewsletter, setSelectedNewsletter] = useState<Newsletter | null>(null);
 
   // Mock constitution versions for demo
   const oldConstitution =
     "# Club Bylaws\n\n1. Be respectful to everyone.\n2. Meetings are on Tuesdays.";
   const newConstitution =
     "# Club Bylaws\n\n1. Be respectful to all members.\n2. Meetings are on Wednesdays at 5 PM.\n3. Have fun!";
-  const [activeTab, setActiveTab] = useState<
-    "settings" | "members" | "permissions" | "events" | "trash" | "analytics"
-  >("settings");
+
+  // Form State
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [bannerUrl, setBannerUrl] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [visibility, setVisibility] = useState<"public" | "private">("public");
+  const [githubRepoUrl, setGithubRepoUrl] = useState("");
+  const [twitterUrl, setTwitterUrl] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [socialLinksOrder, setSocialLinksOrder] = useState<string[]>([
+    "website",
+    "twitter",
+    "instagram",
+  ]);
+  const [promoVideoUrl, setPromoVideoUrl] = useState("");
+  const [primaryColor, setPrimaryColor] = useState("");
+  const [secondaryColor, setSecondaryColor] = useState("");
+  const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
+  const [serverClub, setServerClub] = useState<ServerClub | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+  }, [supabase]);
+
+  // Fetch Club Data
+  const {
+    data: club,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["club_manage", slug],
+    queryFn: async () => {
+      if (!user) throw new Error("Not logged in");
+
+      const { data, error } = await supabase
+        .from("clubs")
+        .select(
+          `
+          id, name, slug, status, description, banner_url, logo_url, visibility, github_repo_url, social_links, social_links_order, promo_video_url, version,
+          club_members (id, role, status, user_id, joined_at, can_edit_events, can_manage_finance, can_remove_members, can_post_news, can_manage_permissions, profiles (full_name, avatar_url, handle)),
+          events (id, title, event_date, max_attendees, event_rsvps(id))
+        `,
+        )
+        .eq("slug", slug)
+        .single();
+
+      if (error) throw error;
+
+      const currentMember = data.club_members.find(
+        (m: { user_id: string; role: string }) => m.user_id === user.id,
+      );
+      if (!currentMember || currentMember.role !== "admin") {
+        throw new Error("Unauthorized");
+      }
+
+      return data;
+    },
+    enabled: !!user,
+  });
 
   // Fetch Trash Events
   const {
@@ -107,66 +195,6 @@ export default function ClubManageRoute() {
     onError: (err: Error) => {
       toast.error(err.message || "Failed to restore event");
     },
-  });
-
-  // Form State
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [bannerUrl, setBannerUrl] = useState("");
-  const [logoUrl, setLogoUrl] = useState("");
-  const [visibility, setVisibility] = useState<"public" | "private">("public");
-  const [githubRepoUrl, setGithubRepoUrl] = useState("");
-  const [twitterUrl, setTwitterUrl] = useState("");
-  const [instagramUrl, setInstagramUrl] = useState("");
-  const [websiteUrl, setWebsiteUrl] = useState("");
-  const [socialLinksOrder, setSocialLinksOrder] = useState<string[]>([
-    "website",
-    "twitter",
-    "instagram",
-  ]);
-  const [promoVideoUrl, setPromoVideoUrl] = useState("");
-  const [primaryColor, setPrimaryColor] = useState("");
-  const [secondaryColor, setSecondaryColor] = useState("");
-  const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
-  const [serverClub, setServerClub] = useState<ServerClub | null>(null);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
-  }, [supabase]);
-
-  const {
-    data: club,
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey: ["club_manage", slug],
-    queryFn: async () => {
-      if (!user) throw new Error("Not logged in");
-
-      const { data, error } = await supabase
-        .from("clubs")
-        .select(
-          `
-          id, name, slug, description, banner_url, logo_url, visibility, github_repo_url, social_links, social_links_order, promo_video_url, version,
-          club_members (id, role, status, user_id, joined_at, can_edit_events, can_manage_finance, can_remove_members, can_post_news, can_manage_permissions, profiles (full_name, avatar_url, handle)),
-          events (id, title, event_date, max_attendees, event_rsvps(id))
-        `,
-        )
-        .eq("slug", slug)
-        .single();
-
-      if (error) throw error;
-
-      const currentMember = data.club_members.find(
-        (m: { user_id: string; role: string }) => m.user_id === user.id,
-      );
-      if (!currentMember || currentMember.role !== "admin") {
-        throw new Error("Unauthorized");
-      }
-
-      return data;
-    },
-    enabled: !!user,
   });
 
   useEffect(() => {
@@ -341,7 +369,7 @@ export default function ClubManageRoute() {
         const { data: latest } = await supabase
           .from("clubs")
           .select(
-            "name, description, banner_url, logo_url, promo_video_url, visibility, github_repo_url, social_links, primary_color, secondary_color, version",
+            "name, description, banner_url, logo_url, promo_video_url, visibility, github_repo_url, social_links, primary_color, secondary_color, version, status",
           )
           .eq("id", club!.id)
           .single();
@@ -368,10 +396,7 @@ export default function ClubManageRoute() {
       if (updates.role && typeof updates.role === "string") {
         setOptimisticRoles((prev) => ({ ...prev, [memberId]: updates.role as string }));
       }
-      const { error } = await supabase
-        .from("club_members")
-        .update(updates as TablesUpdate<"club_members">)
-        .eq("id", memberId);
+      const { error } = await supabase.from("club_members").update(updates).eq("id", memberId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -391,8 +416,7 @@ export default function ClubManageRoute() {
   });
 
   const updatePermissionsMutation = useMutation({
-    mutationFn: async (updates: PermissionUpdate[]) => {
-      // Batch update all permissions in a single transaction
+    mutationFn: async (updates: any[]) => {
       const { error } = await supabase.rpc("batch_update_permissions", {
         updates: updates.map((u) => ({
           member_id: u.memberId,
@@ -427,6 +451,16 @@ export default function ClubManageRoute() {
       <SiteShell>
         <div className="p-8 text-center font-mono text-red-500">
           Unauthorized or Club not found.
+        </div>
+      </SiteShell>
+    );
+  }
+
+  if (club.status === "pending_renewal") {
+    return (
+      <SiteShell>
+        <div className="bg-cream min-h-screen py-12 px-4">
+          <ClubRenewalWizard clubId={club.id} />
         </div>
       </SiteShell>
     );
@@ -485,6 +519,16 @@ export default function ClubManageRoute() {
                 <ShieldCheck size={18} /> Permissions
               </button>
               <button
+                onClick={() => setActiveTab("transition")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "transition"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <ArrowRightLeft size={18} /> Handover Protocol
+              </button>
+              <button
                 onClick={() => setActiveTab("events")}
                 className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
                   activeTab === "events"
@@ -495,6 +539,19 @@ export default function ClubManageRoute() {
                 <Calendar size={18} /> Events
               </button>
               <button
+                onClick={() => {
+                  setActiveTab("newsletters");
+                  setIsEditingNewsletter(false);
+                }}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "newsletters"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <Mail size={18} /> Newsletters
+              </button>
+              <button
                 onClick={() => setActiveTab("constitution")}
                 className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
                   activeTab === "constitution"
@@ -503,6 +560,18 @@ export default function ClubManageRoute() {
                 }`}
               >
                 <Settings size={18} /> Constitution
+              </button>
+              <button
+                onClick={() => setActiveTab("milestones")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "milestones"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <Calendar size={18} /> Legacy Timeline
+              </button>
+              <button
                 onClick={() => setActiveTab("trash")}
                 className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
                   activeTab === "trash"
@@ -517,15 +586,31 @@ export default function ClubManageRoute() {
                 className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
                   activeTab === "analytics"
                     ? "bg-black text-white hover:-translate-y-1"
-                    : "bg-white text-black hover:bg-gray-55 hover:bg-gray-50"
+                    : "bg-white text-black hover:bg-gray-50"
                 }`}
               >
                 <BarChart3 size={18} /> Analytics
+              </button>
+              <button
+                onClick={() => setActiveTab("finances")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "finances"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <DollarSign size={18} /> Finances
               </button>
             </nav>
           </aside>
 
           <main className="flex-1">
+            {activeTab === "transition" && (
+              <div className="space-y-6">
+                <HandoverChecklist clubId={club.id} />
+              </div>
+            )}
+
             {activeTab === "settings" && (
               <div className="neu-border bg-white p-6 space-y-6">
                 <h2 className="font-display text-2xl font-bold border-b-2 border-black pb-2">
@@ -652,34 +737,49 @@ export default function ClubManageRoute() {
                     {updateClubMutation.isPending ? "Saving..." : "Save Settings"}
                   </button>
                 </form>
+
+                <div className="border-t-2 border-black pt-6">
+                  <h3 className="font-display text-xl font-bold mb-4">
+                    Executive Transition Handover
+                  </h3>
+                  <HandoverChecklist clubId={club.id} />
+                </div>
+
+                <div className="neu-border border-red-500 bg-red-50/30 p-6 space-y-4 mt-8">
+                  <h3 className="font-display text-xl font-bold text-red-600 flex items-center gap-2">
+                    <AlertTriangle size={20} className="text-red-600" /> Danger Zone
+                  </h3>
+                  <p className="font-mono text-sm text-gray-700">
+                    Deleting this club is a permanent action. Click and hold the button below for 3
+                    seconds (or press Enter/Space for confirmation dialog) to execute deletion.
+                  </p>
+                  <div>
+                    <HoldToConfirmButton
+                      onConfirm={async () => {
+                        try {
+                          const { error } = await supabase.from("clubs").delete().eq("id", club.id);
+                          if (error) throw error;
+                          toast.success("Club deleted successfully");
+                          navigate("/clubs");
+                        } catch (err: any) {
+                          toast.error(err?.message || "Failed to delete club");
+                        }
+                      }}
+                      holdDuration={3000}
+                      confirmTitle="Delete Club permanently?"
+                      confirmDescription={`Are you sure you want to permanently delete "${club.name}"? This action cannot be undone.`}
+                      confirmText="Delete Club"
+                      variant="destructive"
+                    >
+                      Hold for 3s to Delete Club
+                    </HoldToConfirmButton>
+                  </div>
+                </div>
               </div>
             )}
 
             {activeTab === "members" &&
               (() => {
-                const rosterMembers = (club?.club_members || []).map(
-                  (m: {
-                    id: string;
-                    role: string;
-                    status: string;
-                    user_id: string;
-                    joined_at: string | null;
-                    profiles: unknown;
-                  }) => {
-                    const profile = Array.isArray(m.profiles)
-                      ? m.profiles[0]
-                      : (m.profiles as { full_name: string; handle: string });
-                    return {
-                      id: m.id,
-                      full_name: profile?.full_name || null,
-                      handle: profile?.handle || null,
-                      role: m.role,
-                      status: m.status,
-                      joined_at: m.joined_at || null,
-                    };
-                  },
-                );
-
                 return (
                   <div className="neu-border bg-white p-6 space-y-6">
                     <h2 className="font-display text-2xl font-bold border-b-2 border-black pb-2">
@@ -692,10 +792,15 @@ export default function ClubManageRoute() {
                           role: string;
                           status: string;
                           user_id: string;
-                          joined_at: string | null;
+                          club_id?: string;
+                          joined_at?: string | null;
+                          created_at?: string;
+                          removed_at?: string | null;
+                          termination_reason?: string | null;
                           profiles: unknown;
                         }) => ({
                           ...m,
+                          club_id: m.club_id || club.id,
                           role: optimisticRoles[m.id] || m.role,
                         }),
                       )}
@@ -782,6 +887,22 @@ export default function ClubManageRoute() {
                           </div>
                           <div className="flex gap-2">
                             <button
+                              onClick={async () => {
+                                if (!user) return;
+                                try {
+                                  toast.loading("Duplicating event...", { id: "duplicate" });
+                                  const newId = await duplicateEvent(supabase, e.id, user.id);
+                                  toast.success("Event duplicated as draft!", { id: "duplicate" });
+                                  navigate("/events/" + newId);
+                                } catch (err: any) {
+                                  toast.error(err.message || "Failed to duplicate event", { id: "duplicate" });
+                                }
+                              }}
+                              className="neu-border neu-press bg-yellow-300 text-black px-4 py-2 font-mono text-xs font-bold uppercase hover:-translate-y-1 transition-transform"
+                            >
+                              Duplicate
+                            </button>
+                            <button
                               onClick={() => navigate(`/events/${e.id}/dashboard`)}
                               className="neu-border neu-press bg-lime text-black px-4 py-2 font-mono text-xs font-bold uppercase hover:-translate-y-1 transition-transform"
                             >
@@ -799,6 +920,31 @@ export default function ClubManageRoute() {
                     )
                   )}
                 </div>
+              </div>
+            )}
+
+            {activeTab === "newsletters" && (
+              <div>
+                {isEditingNewsletter ? (
+                  <NewsletterEditor
+                    clubId={club.id}
+                    existingNewsletter={selectedNewsletter}
+                    onSaved={() => setIsEditingNewsletter(false)}
+                    onCancel={() => setIsEditingNewsletter(false)}
+                  />
+                ) : (
+                  <NewsletterAnalyticsPanel
+                    clubId={club.id}
+                    onCreateNew={() => {
+                      setSelectedNewsletter(null);
+                      setIsEditingNewsletter(true);
+                    }}
+                    onEditNewsletter={(nl) => {
+                      setSelectedNewsletter(nl);
+                      setIsEditingNewsletter(true);
+                    }}
+                  />
+                )}
               </div>
             )}
 
@@ -860,7 +1006,24 @@ export default function ClubManageRoute() {
                 <DiffViewer oldText={oldConstitution} newText={newConstitution} />
               </div>
             )}
-            {activeTab === "analytics" && <ClubAnalyticsDashboard clubId={club.id} />}
+            {activeTab === "analytics" && (
+              <>
+                <div className="mb-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/clubs/${club.slug}/series-analytics`)}
+                    className="neu-border neu-press flex items-center gap-2 bg-yellow-200 px-4 py-2 font-mono text-xs font-bold uppercase"
+                  >
+                    <BarChart3 size={16} />
+                    Series Analytics
+                  </button>
+                </div>
+
+                <ClubAnalyticsDashboard clubId={club.id} />
+              </>
+            )}
+
+            {activeTab === "finances" && <ClubFinancesTab clubId={club.id} />}
           </main>
         </div>
       </div>

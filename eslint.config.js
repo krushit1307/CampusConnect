@@ -25,6 +25,7 @@ export default tseslint.config(
       "supabase/functions",
       ".history/**",
       "wasm/image-compressor/pkg",
+      "public/~partytown/**",
     ],
   },
   {

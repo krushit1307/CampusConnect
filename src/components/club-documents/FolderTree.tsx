@@ -1,16 +1,14 @@
 import { useState, useCallback } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
-import {
-  Folder,
-  FolderOpen,
-  ChevronRight,
-  ChevronDown,
-  Plus,
-  Trash2,
-  Pencil,
-  File,
-  MoreHorizontal,
-} from "lucide-react";
+import Folder from "lucide-react/dist/esm/icons/folder";
+import FolderOpen from "lucide-react/dist/esm/icons/folder-open";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import Pencil from "lucide-react/dist/esm/icons/pencil";
+import File from "lucide-react/dist/esm/icons/file";
+import MoreHorizontal from "lucide-react/dist/esm/icons/more-horizontal";
 import type { ClubDocument, FolderTreeNode } from "@/hooks/useClubDocuments";
 
 interface FolderTreeProps {

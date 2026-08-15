@@ -1,7 +1,12 @@
 // src/components/search/Omnibar.tsx
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Calendar, Users, User, Loader2, X } from "lucide-react";
+import Search from "lucide-react/dist/esm/icons/search";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Users from "lucide-react/dist/esm/icons/users";
+import User from "lucide-react/dist/esm/icons/user";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import X from "lucide-react/dist/esm/icons/x";
 import { unifiedSearch, type UnifiedSearchResults, type MeiliSearchHit } from "@/lib/meilisearch";
 
 const DEBOUNCE_MS = 200;
@@ -133,7 +138,9 @@ export function Omnibar() {
           role="combobox"
           aria-expanded={isOpen}
           aria-controls="omnibar-results"
-          aria-activedescendant={flatResults[selectedIndex] ? `omnibar-result-${selectedIndex}` : undefined}
+          aria-activedescendant={
+            flatResults[selectedIndex] ? `omnibar-result-${selectedIndex}` : undefined
+          }
           className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-9 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         />
         {isLoading && (
@@ -184,7 +191,8 @@ export function Omnibar() {
                       </p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         {String(hit.location ?? "")}
-                        {hit.event_date && ` · ${new Date(String(hit.event_date)).toLocaleDateString()}`}
+                        {hit.event_date &&
+                          ` · ${new Date(String(hit.event_date)).toLocaleDateString()}`}
                       </p>
                     </div>
                   )}

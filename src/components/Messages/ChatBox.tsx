@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { createClient } from "@/lib/supabase/client";
 import type { User, RealtimeChannel } from "@supabase/supabase-js";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
@@ -13,17 +14,15 @@ import {
   decryptMessage,
 } from "@/lib/crypto";
 import { toast } from "sonner";
-import {
-  ShieldCheck,
-  Send,
-  Search,
-  Lock,
-  AlertTriangle,
-  RefreshCw,
-  Smile,
-  Languages,
-} from "lucide-react";
-import { ShieldCheck, Send, Search, Lock, AlertTriangle, RefreshCw, Smile } from "lucide-react";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import Send from "lucide-react/dist/esm/icons/send";
+import Search from "lucide-react/dist/esm/icons/search";
+import Lock from "lucide-react/dist/esm/icons/lock";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import Smile from "lucide-react/dist/esm/icons/smile";
+import Languages from "lucide-react/dist/esm/icons/languages";
+
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import EmojiPicker from "emoji-picker-react";
@@ -54,6 +53,9 @@ interface Message {
 }
 
 export default function ChatBox() {
+  const [searchParams] = useSearchParams();
+  const initialUserId = searchParams.get("userId");
+  const initialMessage = searchParams.get("message");
   const supabase = createClient();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);

@@ -17,6 +17,8 @@ import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import { CommandPalette } from "@/components/ui/command-palette";
 import { showAnnouncementToast } from "@/lib/announcements/sse";
 import { SkipToContent } from "@/components/SkipToContent";
+import ImpersonationBanner from "@/components/ImpersonationBanner";
+import { GlobalAudioPlayer } from "@/components/audio/GlobalAudioPlayer";
 
 // Persistent banner shown while the browser has no network connection.
 function OfflineBanner() {
@@ -168,26 +170,68 @@ export default function Layout() {
   }, []);
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <WebRTCProvider>
-        <SkipToContent />
-        <OfflineBanner />
-        <TopProgressBar />
-        <SessionExpiryModal />
+    <>
+      <TooltipProvider delayDuration={200}>
+        <WebRTCProvider>
+          <SkipToContent />
+          <OfflineBanner />
+          <TopProgressBar />
+          <SessionExpiryModal />
+ feature/2986-event-audio-player
+ feature/2986-event-audio-player
+ feature/2986-event-audio-player
 
-        <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-        <PWAInstallPrompt />
+ feature/3010-membership-bundles
+ feature/3010-membership-bundles
+ main
 
-        <main id="main-content" className="flex-1 w-full h-full min-h-screen">
-          <Outlet />
-        </main>
+ feature/3014-referral-leaderboard
+ main
+          <ImpersonationBanner />
+          <GlobalAudioPlayer />
 
-        <Toaster />
-        <ScrollToTop />
-        <RadialFAB />
-        {userId && <FloatingChat />}
-        <CommandPalette />
-      </WebRTCProvider>
-    </TooltipProvider>
+ main
+
+          <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+          <PWAInstallPrompt />
+
+          <main id="main-content" className="flex-1 w-full h-full min-h-screen">
+            <Outlet />
+          </main>
+
+ feature/2986-event-audio-player
+ feature/2986-event-audio-player
+ feature/2986-event-audio-player
+
+ feature/3010-membership-bundles
+ feature/3010-membership-bundles
+ main
+
+ feature/3014-referral-leaderboard
+ main
+          <Toaster richColors />
+
+          <Toaster />
+ main
+          <ScrollToTop />
+          <RadialFAB />
+          {userId && <FloatingChat />}
+          <CommandPalette />
+        </WebRTCProvider>
+      </TooltipProvider>
+ feature/2986-event-audio-player
+ feature/2986-event-audio-player
+ feature/2986-event-audio-player
+
+ feature/3010-membership-bundles
+ feature/3010-membership-bundles
+ main
+
+ feature/3014-referral-leaderboard
+ main
+
+      <ImpersonationBanner />
+ main
+    </>
   );
 }

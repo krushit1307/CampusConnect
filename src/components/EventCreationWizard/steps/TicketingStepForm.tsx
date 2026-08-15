@@ -1,5 +1,6 @@
 // src/components/EventCreationWizard/steps/TicketingStepForm.tsx
-import { Plus, Trash2 } from "lucide-react";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
 import { useEventWizardStore } from "../../../store/useEventWizardStore";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
@@ -48,6 +49,17 @@ export function TicketingStepForm() {
         />
         <Label htmlFor="isPaid" className="cursor-pointer">
           This is a paid event (requires at least one ticket tier)
+        </Label>
+      </div>
+
+      <div className="flex items-center space-x-2 mt-4">
+        <Checkbox
+          id="isResumeRequired"
+          checked={formData.isResumeRequired}
+          onCheckedChange={(checked) => updateFormData({ isResumeRequired: checked === true })}
+        />
+        <Label htmlFor="isResumeRequired" className="cursor-pointer">
+          Require resume during RSVP
         </Label>
       </div>
 
@@ -107,7 +119,9 @@ export function TicketingStepForm() {
                       min={0}
                       step="0.01"
                       value={tier.price}
-                      onChange={(e) => updateTier(index, { price: parseFloat(e.target.value) || 0 })}
+                      onChange={(e) =>
+                        updateTier(index, { price: parseFloat(e.target.value) || 0 })
+                      }
                     />
                   </div>
                   <div className="space-y-1">
@@ -117,7 +131,9 @@ export function TicketingStepForm() {
                       type="number"
                       min={1}
                       value={tier.capacity}
-                      onChange={(e) => updateTier(index, { capacity: parseInt(e.target.value, 10) || 0 })}
+                      onChange={(e) =>
+                        updateTier(index, { capacity: parseInt(e.target.value, 10) || 0 })
+                      }
                     />
                   </div>
                 </div>
@@ -126,7 +142,9 @@ export function TicketingStepForm() {
                   <Checkbox
                     id={`tier-${index}-earlybird`}
                     checked={tier.isEarlyBird}
-                    onCheckedChange={(checked) => updateTier(index, { isEarlyBird: checked === true })}
+                    onCheckedChange={(checked) =>
+                      updateTier(index, { isEarlyBird: checked === true })
+                    }
                   />
                   <Label htmlFor={`tier-${index}-earlybird`} className="cursor-pointer text-xs">
                     Early bird tier (requires an end date)

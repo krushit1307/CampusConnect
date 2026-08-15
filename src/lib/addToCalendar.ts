@@ -13,18 +13,18 @@
  * required.
  */
 export interface CalendarEvent {
-    id: string;
-    title: string;
-    description?: string | null;
-    /** Legacy single-timestamp field (full ISO string). */
-    event_date?: string | null;
-    /** Modern start field (full ISO string). Takes precedence over event_date. */
-    start_date?: string | null;
-    /** Modern end field. Defaults to start + 1 hour if omitted. */
-    end_date?: string | null;
-    location?: string | null;
-    /** Optional URL of the event page on CampusConnect — embedded in the description. */
-    eventUrl?: string;
+  id: string;
+  title: string;
+  description?: string | null;
+  /** Legacy single-timestamp field (full ISO string). */
+  event_date?: string | null;
+  /** Modern start field (full ISO string). Takes precedence over event_date. */
+  start_date?: string | null;
+  /** Modern end field. Defaults to start + 1 hour if omitted. */
+  end_date?: string | null;
+  location?: string | null;
+  /** Optional URL of the event page on CampusConnect — embedded in the description. */
+  eventUrl?: string;
 }
 
 /**
@@ -34,21 +34,21 @@ export interface CalendarEvent {
  * Google expects UTC dates in the compact form `YYYYMMDDTHHMMSSZ`.
  */
 export function getGoogleCalendarUrl(event: CalendarEvent): string | null {
-    const { start, end } = resolveDates(event);
-    if (!start || !end) return null;
+  const { start, end } = resolveDates(event);
+  if (!start || !end) return null;
 
-    const dates = `${formatUtcCompact(start)}/${formatUtcCompact(end)}`;
-    const params = new URLSearchParams({
-        action: "TEMPLATE",
-        text: event.title,
-        dates,
-    });
+  const dates = `${formatUtcCompact(start)}/${formatUtcCompact(end)}`;
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: event.title,
+    dates,
+  });
 
-    const details = buildDescriptionWithLink(event);
-    if (details) params.append("details", details);
-    if (event.location) params.append("location", event.location);
+  const details = buildDescriptionWithLink(event);
+  if (details) params.append("details", details);
+  if (event.location) params.append("location", event.location);
 
-    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
 /**
@@ -56,21 +56,21 @@ export function getGoogleCalendarUrl(event: CalendarEvent): string | null {
  * but a different path and parameter names.
  */
 export function getYahooCalendarUrl(event: CalendarEvent): string | null {
-    const { start, end } = resolveDates(event);
-    if (!start || !end) return null;
+  const { start, end } = resolveDates(event);
+  if (!start || !end) return null;
 
-    const durationMinutes = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
-    const params = new URLSearchParams({
-        v: "60",
-        title: event.title,
-        st: formatUtcCompact(start),
-        dur: String(durationMinutes),
-    });
-    const details = buildDescriptionWithLink(event);
-    if (details) params.append("desc", details);
-    if (event.location) params.append("in_loc", event.location);
+  const durationMinutes = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+  const params = new URLSearchParams({
+    v: "60",
+    title: event.title,
+    st: formatUtcCompact(start),
+    dur: String(durationMinutes),
+  });
+  const details = buildDescriptionWithLink(event);
+  if (details) params.append("desc", details);
+  if (event.location) params.append("in_loc", event.location);
 
-    return `https://calendar.yahoo.com/?${params.toString()}`;
+  return `https://calendar.yahoo.com/?${params.toString()}`;
 }
 
 /**
@@ -86,54 +86,67 @@ export function getYahooCalendarUrl(event: CalendarEvent): string | null {
  * is needed; the .ics spec treats DTSTART/DTEND as absolute instants.
  */
 export function getIcsContent(event: CalendarEvent): string | null {
-    const { start, end } = resolveDates(event);
-    if (!start || !end) return null;
+  const { start, end } = resolveDates(event);
+  if (!start || !end) return null;
 
-    const lines: string[] = [
-        "BEGIN:VCALENDAR",
-        "VERSION:2.0",
-        "PRODID:-//CampusConnect//Event//EN",
-        "CALSCALE:GREGORIAN",
-        "METHOD:PUBLISH",
-        "BEGIN:VEVENT",
-        `UID:${event.id}@campusconnect.app`,
-        `DTSTAMP:${formatUtcCompact(new Date())}`,
-        `DTSTART:${formatUtcCompact(start)}`,
-        `DTEND:${formatUtcCompact(end)}`,
-        `SUMMARY:${escapeIcsText(event.title)}`,
-    ];
+  const lines: string[] = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//CampusConnect//Event//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${event.id}@campusconnect.app`,
+    `DTSTAMP:${formatUtcCompact(new Date())}`,
+    `DTSTART:${formatUtcCompact(start)}`,
+    `DTEND:${formatUtcCompact(end)}`,
+    `SUMMARY:${escapeIcsText(event.title)}`,
+  ];
 
-    const description = buildDescriptionWithLink(event);
-    if (description) {
-        lines.push(`DESCRIPTION:${escapeIcsText(description)}`);
-    }
-    if (event.location) {
-        lines.push(`LOCATION:${escapeIcsText(event.location)}`);
-    }
-    if (event.eventUrl) {
-        lines.push(`URL:${event.eventUrl}`);
-    }
+  const description = buildDescriptionWithLink(event);
+  if (description) {
+    lines.push(`DESCRIPTION:${escapeIcsText(description)}`);
+  }
+  if (event.location) {
+    lines.push(`LOCATION:${escapeIcsText(event.location)}`);
+  }
+  if (event.eventUrl) {
+    lines.push(`URL:${event.eventUrl}`);
+  }
 
-    lines.push("END:VEVENT", "END:VCALENDAR");
+  lines.push("END:VEVENT", "END:VCALENDAR");
 
-    // RFC 5545 requires CRLF line breaks.
-    return lines.join("\r\n");
+  // RFC 5545 requires CRLF line breaks.
+  return lines.join("\r\n");
 }
 
 export function downloadIcsFile(event: CalendarEvent): void {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    if (!supabaseUrl) {
-        console.error("[addToCalendar] VITE_SUPABASE_URL is not defined");
-        return;
-    }
-    window.location.assign(`${supabaseUrl}/functions/v1/calendar-event?event_id=${event.id}`);
+  const icsContent = getIcsContent(event);
+  if (!icsContent) {
+    console.error("[addToCalendar] Failed to generate .ics content");
+    return;
+  }
+
+  const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${slugify(event.title || event.id)}.ics`;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  // Release the object URL after the click has been processed.
+  // setTimeout ensures the browser has started the download.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
 
 interface ResolvedDates {
-    start: Date | null;
-    end: Date | null;
+  start: Date | null;
+  end: Date | null;
 }
 
 /**
@@ -144,24 +157,24 @@ interface ResolvedDates {
  *   - end_date > start_date + 1 hour (default duration)
  */
 function resolveDates(event: CalendarEvent): ResolvedDates {
-    const startValue = event.start_date || event.event_date;
-    if (!startValue) return { start: null, end: null };
+  const startValue = event.start_date || event.event_date;
+  if (!startValue) return { start: null, end: null };
 
-    const start = new Date(startValue);
-    if (isNaN(start.getTime())) return { start: null, end: null };
+  const start = new Date(startValue);
+  if (isNaN(start.getTime())) return { start: null, end: null };
 
-    const endValue = event.end_date
-        ? new Date(event.end_date)
-        : new Date(start.getTime() + 60 * 60 * 1000); // default 1 hour
-    if (isNaN(endValue.getTime())) return { start: null, end: null };
+  const endValue = event.end_date
+    ? new Date(event.end_date)
+    : new Date(start.getTime() + 60 * 60 * 1000); // default 1 hour
+  if (isNaN(endValue.getTime())) return { start: null, end: null };
 
-    // Clamp end to be at least equal to start (Google Calendar rejects
-    // events where end < start).
-    if (endValue.getTime() < start.getTime()) {
-        return { start, end: start };
-    }
+  // Clamp end to be at least equal to start (Google Calendar rejects
+  // events where end < start).
+  if (endValue.getTime() < start.getTime()) {
+    return { start, end: start };
+  }
 
-    return { start, end: endValue };
+  return { start, end: endValue };
 }
 
 /**
@@ -172,7 +185,7 @@ function resolveDates(event: CalendarEvent): ResolvedDates {
  * .ics DTSTART/DTEND properties when using UTC.
  */
 function formatUtcCompact(date: Date): string {
-    return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
 }
 
 /**
@@ -181,10 +194,10 @@ function formatUtcCompact(date: Date): string {
  * so the description reads naturally.
  */
 function buildDescriptionWithLink(event: CalendarEvent): string {
-    const baseDescription = (event.description ?? "").trim();
-    if (!event.eventUrl) return baseDescription;
-    const linkLine = `\n\nView on CampusConnect: ${event.eventUrl}`;
-    return baseDescription ? baseDescription + linkLine : linkLine.trim();
+  const baseDescription = (event.description ?? "").trim();
+  if (!event.eventUrl) return baseDescription;
+  const linkLine = `\n\nView on CampusConnect: ${event.eventUrl}`;
+  return baseDescription ? baseDescription + linkLine : linkLine.trim();
 }
 
 /**
@@ -195,11 +208,11 @@ function buildDescriptionWithLink(event: CalendarEvent): string {
  *   - Newline → \n (literal backslash-n)
  */
 function escapeIcsText(text: string): string {
-    return text
-        .replace(/\\/g, "\\\\")
-        .replace(/;/g, "\\;")
-        .replace(/,/g, "\\,")
-        .replace(/\r?\n/g, "\\n");
+  return text
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\r?\n/g, "\\n");
 }
 
 /**
@@ -207,11 +220,13 @@ function escapeIcsText(text: string): string {
  * e.g. "Tech Symposium 2026!!!" → "tech-symposium-2026"
  */
 function slugify(text: string): string {
-    return text
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9\s-]/g, "")
-        .replace(/\s+/g, "-")
-        .replace(/-+/g, "-")
-        .slice(0, 60) || "event";
+  return (
+    text
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .slice(0, 60) || "event"
+  );
 }

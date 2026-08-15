@@ -9,7 +9,11 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import { Sparkles, Calendar, MapPin, Loader2, Check } from "lucide-react";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Check from "lucide-react/dist/esm/icons/check";
 import { toast } from "sonner";
 
 interface RecommendedEvent {
@@ -105,7 +109,8 @@ export default function RecommendedCarousel({
             Personalize Your Event Feed
           </h2>
           <p className="text-sm font-mono text-gray-800 leading-relaxed mb-6">
-            Select your interest keywords to seed your semantic matching profile. Supabase pgvector will suggest matching events in real-time.
+            Select your interest keywords to seed your semantic matching profile. Supabase pgvector
+            will suggest matching events in real-time.
           </p>
 
           <div className="flex flex-wrap gap-2.5 mb-6">

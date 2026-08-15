@@ -2,7 +2,9 @@ import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import { useMutation } from "@/hooks/useReactQueryReplacement";
-import { Plus, X, BarChart3 } from "lucide-react";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import X from "lucide-react/dist/esm/icons/x";
+import BarChart3 from "lucide-react/dist/esm/icons/bar-chart-3";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 

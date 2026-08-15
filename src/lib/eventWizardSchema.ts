@@ -14,14 +14,8 @@ export const basicsStepSchema = z.object({
     .string()
     .min(20, "Please provide a more detailed description (at least 20 characters)")
     .max(5000, "Description is too long (max 5000 characters)"),
-  category: z
-    .string()
-    .min(1, "Please select a category")
-    .max(50, "Category is too long"),
-  tags: z
-    .array(z.string().min(1).max(30))
-    .max(10, "Maximum 10 tags allowed")
-    .default([]),
+  category: z.string().min(1, "Please select a category").max(50, "Category is too long"),
+  tags: z.array(z.string().min(1).max(30)).max(10, "Maximum 10 tags allowed").default([]),
 });
 export type BasicsStepData = z.infer<typeof basicsStepSchema>;
 
@@ -32,16 +26,11 @@ export type BasicsStepData = z.infer<typeof basicsStepSchema>;
 export const dateLocationStepBaseSchema = z.object({
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
-  location: z
-    .string()
-    .min(3, "Location is required")
-    .max(200, "Location is too long"),
+  location: z.string().min(3, "Location is required").max(200, "Location is too long"),
   isVirtual: z.boolean().default(false),
-  meetingUrl: z
-    .string()
-    .url("Please enter a valid meeting URL")
-    .optional()
-    .or(z.literal("")),
+  meetingUrl: z.string().url("Please enter a valid meeting URL").optional().or(z.literal("")),
+  isOutdoor: z.boolean().default(false),
+  backupIndoorVenue: z.string().optional(),
   capacity: z
     .number()
     .int("Capacity must be a whole number")
@@ -50,22 +39,28 @@ export const dateLocationStepBaseSchema = z.object({
 });
 
 export const dateLocationStepSchema = dateLocationStepBaseSchema
-  .refine((data) => {
-    const start = new Date(data.startDate);
-    const end = new Date(data.endDate);
-    return end > start;
-  }, {
-    message: "End date must be after start date",
-    path: ["endDate"],
-  })
-  .refine((data) => {
-    // If the event is virtual, a meeting URL is required.
-    if (data.isVirtual && !data.meetingUrl) return false;
-    return true;
-  }, {
-    message: "Virtual events require a meeting URL",
-    path: ["meetingUrl"],
-  });
+  .refine(
+    (data) => {
+      const start = new Date(data.startDate);
+      const end = new Date(data.endDate);
+      return end > start;
+    },
+    {
+      message: "End date must be after start date",
+      path: ["endDate"],
+    },
+  )
+  .refine(
+    (data) => {
+      // If the event is virtual, a meeting URL is required.
+      if (data.isVirtual && !data.meetingUrl) return false;
+      return true;
+    },
+    {
+      message: "Virtual events require a meeting URL",
+      path: ["meetingUrl"],
+    },
+  );
 export type DateLocationStepData = z.infer<typeof dateLocationStepSchema>;
 
 /**
@@ -78,10 +73,7 @@ export const ticketTierSchema = z.object({
     .string()
     .min(2, "Tier name must be at least 2 characters")
     .max(50, "Tier name is too long"),
-  price: z
-    .number()
-    .min(0, "Price cannot be negative")
-    .max(99999, "Price exceeds maximum limit"),
+  price: z.number().min(0, "Price cannot be negative").max(99999, "Price exceeds maximum limit"),
   capacity: z
     .number()
     .int("Capacity must be a whole number")
@@ -96,40 +88,47 @@ export type TicketTier = z.infer<typeof ticketTierSchema>;
 
 export const ticketingStepBaseSchema = z.object({
   isPaid: z.boolean().default(false),
-  tickets: z
-    .array(ticketTierSchema)
-    .max(20, "Maximum 20 ticket tiers allowed")
-    .default([]),
+  isResumeRequired: z.boolean().default(false),
+  tickets: z.array(ticketTierSchema).max(20, "Maximum 20 ticket tiers allowed").default([]),
 });
 
 export const ticketingStepSchema = ticketingStepBaseSchema
-  .refine((data) => {
-    // Paid events must have at least one ticket tier.
-    if (data.isPaid && data.tickets.length === 0) return false;
-    return true;
-  }, {
-    message: "Paid events must have at least one ticket tier",
-    path: ["tickets"],
-  })
-  .refine((data) => {
-    // Tier names must be unique (case-insensitive).
-    if (data.tickets.length === 0) return true;
-    const names = data.tickets.map((t) => t.name.trim().toLowerCase());
-    return new Set(names).size === names.length;
-  }, {
-    message: "Ticket tier names must be unique",
-    path: ["tickets"],
-  })
-  .refine((data) => {
-    // Early bird tiers must have an end date.
-    for (const t of data.tickets) {
-      if (t.isEarlyBird && !t.earlyBirdEndDate) return false;
-    }
-    return true;
-  }, {
-    message: "Early bird tiers require an end date",
-    path: ["tickets"],
-  });
+  .refine(
+    (data) => {
+      // Paid events must have at least one ticket tier.
+      if (data.isPaid && data.tickets.length === 0) return false;
+      return true;
+    },
+    {
+      message: "Paid events must have at least one ticket tier",
+      path: ["tickets"],
+    },
+  )
+  .refine(
+    (data) => {
+      // Tier names must be unique (case-insensitive).
+      if (data.tickets.length === 0) return true;
+      const names = data.tickets.map((t) => t.name.trim().toLowerCase());
+      return new Set(names).size === names.length;
+    },
+    {
+      message: "Ticket tier names must be unique",
+      path: ["tickets"],
+    },
+  )
+  .refine(
+    (data) => {
+      // Early bird tiers must have an end date.
+      for (const t of data.tickets) {
+        if (t.isEarlyBird && !t.earlyBirdEndDate) return false;
+      }
+      return true;
+    },
+    {
+      message: "Early bird tiers require an end date",
+      path: ["tickets"],
+    },
+  );
 export type TicketingStepData = z.infer<typeof ticketingStepSchema>;
 
 /**
@@ -174,9 +173,12 @@ export const eventWizardMasterSchema = z
     location: dateLocationStepBaseSchema.shape.location,
     isVirtual: dateLocationStepBaseSchema.shape.isVirtual,
     meetingUrl: dateLocationStepBaseSchema.shape.meetingUrl,
+    isOutdoor: dateLocationStepBaseSchema.shape.isOutdoor,
+    backupIndoorVenue: dateLocationStepBaseSchema.shape.backupIndoorVenue,
     capacity: dateLocationStepBaseSchema.shape.capacity,
     // Ticketing
     isPaid: ticketingStepBaseSchema.shape.isPaid,
+    isResumeRequired: ticketingStepBaseSchema.shape.isResumeRequired,
     tickets: ticketingStepBaseSchema.shape.tickets,
     // Customizations
     coverImageUrl: customizationsStepSchema.shape.coverImageUrl,
@@ -186,39 +188,51 @@ export const eventWizardMasterSchema = z
     sendReminderEmails: customizationsStepSchema.shape.sendReminderEmails,
   })
   // Cross-field refinement: end date > start date.
-  .refine((data) => {
-    const start = new Date(data.startDate);
-    const end = new Date(data.endDate);
-    return end > start;
-  }, {
-    message: "End date must be after start date",
-    path: ["endDate"],
-  })
+  .refine(
+    (data) => {
+      const start = new Date(data.startDate);
+      const end = new Date(data.endDate);
+      return end > start;
+    },
+    {
+      message: "End date must be after start date",
+      path: ["endDate"],
+    },
+  )
   // Cross-field refinement: virtual events require a meeting URL.
-  .refine((data) => {
-    if (data.isVirtual && !data.meetingUrl) return false;
-    return true;
-  }, {
-    message: "Virtual events require a meeting URL",
-    path: ["meetingUrl"],
-  })
+  .refine(
+    (data) => {
+      if (data.isVirtual && !data.meetingUrl) return false;
+      return true;
+    },
+    {
+      message: "Virtual events require a meeting URL",
+      path: ["meetingUrl"],
+    },
+  )
   // Cross-field refinement: paid events need at least one ticket tier.
-  .refine((data) => {
-    if (data.isPaid && data.tickets.length === 0) return false;
-    return true;
-  }, {
-    message: "Paid events must have at least one ticket tier",
-    path: ["tickets"],
-  })
+  .refine(
+    (data) => {
+      if (data.isPaid && data.tickets.length === 0) return false;
+      return true;
+    },
+    {
+      message: "Paid events must have at least one ticket tier",
+      path: ["tickets"],
+    },
+  )
   // Cross-field refinement: unique ticket tier names.
-  .refine((data) => {
-    if (data.tickets.length === 0) return true;
-    const names = data.tickets.map((t) => t.name.trim().toLowerCase());
-    return new Set(names).size === names.length;
-  }, {
-    message: "Ticket tier names must be unique",
-    path: ["tickets"],
-  });
+  .refine(
+    (data) => {
+      if (data.tickets.length === 0) return true;
+      const names = data.tickets.map((t) => t.name.trim().toLowerCase());
+      return new Set(names).size === names.length;
+    },
+    {
+      message: "Ticket tier names must be unique",
+      path: ["tickets"],
+    },
+  );
 
 export type EventWizardFormData = z.infer<typeof eventWizardMasterSchema>;
 
@@ -250,8 +264,11 @@ export const DEFAULT_EVENT_WIZARD_DATA: EventWizardFormData = {
   location: "",
   isVirtual: false,
   meetingUrl: "",
+  isOutdoor: false,
+  backupIndoorVenue: "",
   capacity: 50,
   isPaid: false,
+  isResumeRequired: false,
   tickets: [],
   coverImageUrl: "",
   bannerColor: "#6366f1",

@@ -16,7 +16,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Filter, X, SlidersHorizontal } from "lucide-react";
+import Filter from "lucide-react/dist/esm/icons/filter";
+import X from "lucide-react/dist/esm/icons/x";
+import SlidersHorizontal from "lucide-react/dist/esm/icons/sliders-horizontal";
 import { createClient } from "@/lib/supabase/client";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 
@@ -59,9 +61,7 @@ export function EventFilterFields({ filters, setFilters }: EventFiltersProps) {
   return (
     <div className="space-y-6 font-mono text-black">
       <div>
-        <label className="text-xs font-bold uppercase tracking-wider block mb-2">
-          Date Range
-        </label>
+        <label className="text-xs font-bold uppercase tracking-wider block mb-2">Date Range</label>
         <Select
           value={filters.dateRange}
           onValueChange={(val: "all" | "this-week" | "next-month") =>
@@ -80,9 +80,7 @@ export function EventFilterFields({ filters, setFilters }: EventFiltersProps) {
       </div>
 
       <div>
-        <label className="text-xs font-bold uppercase tracking-wider block mb-2">
-          Categories
-        </label>
+        <label className="text-xs font-bold uppercase tracking-wider block mb-2">Categories</label>
         <div className="flex flex-col gap-3">
           {availableCategories.map((category) => (
             <div key={category.id} className="flex items-center space-x-2">

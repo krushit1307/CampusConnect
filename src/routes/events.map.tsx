@@ -1,7 +1,12 @@
 import { useState, lazy, Suspense } from "react";
 import { SiteShell } from "@/components/site/SiteShell";
 import { MapSkeleton } from "@/components/ui/MapSkeleton";
-import { Map, List, X, ThumbsDown, RefreshCw, MoreVertical } from "lucide-react";
+import Map from "lucide-react/dist/esm/icons/map";
+import List from "lucide-react/dist/esm/icons/list";
+import X from "lucide-react/dist/esm/icons/x";
+import ThumbsDown from "lucide-react/dist/esm/icons/thumbs-down";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import MoreVertical from "lucide-react/dist/esm/icons/more-vertical";
 
 const CampusMap = lazy(() =>
   import("@/components/CampusMap/CampusMap").then((m) => ({ default: m.CampusMap })),

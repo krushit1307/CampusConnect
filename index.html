@@ -4,30 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- 
-      OPTIMIZATION: Resource Hints for Critical External Domains
-      Force the browser to establish DNS, TCP, and TLS connections to critical 
-      external APIs the millisecond the HTML arrives, cutting out the ~300ms 
-      handshake delay during the initial page load.
+    <!--
+      Performance: keep third-party analytics/tracking off the critical path.
+      The deferred loader waits for window.load and browser idle time before
+      fetching GTM, Facebook Pixel, and Hotjar.
     -->
-    <!-- Supabase API: Preconnect with CORS support -->
-    <!-- The crossOrigin attribute is CRITICAL here. If the domain serves API 
-         requests that require CORS, we must include it. Otherwise, the browser 
-         opens a standard connection, throws it away when it realizes it needs 
-         a CORS connection, and opens a brand new one, defeating the purpose. -->
     <link rel="preconnect" href="https://api.supabase.co" crossorigin="anonymous" />
-    <!-- Fallback for older browsers that don't support preconnect -->
     <link rel="dns-prefetch" href="https://api.supabase.co" />
-
-    <!-- AWS S3 Image Storage: Preconnect for fast image loading -->
     <link rel="preconnect" href="https://s3.amazonaws.com" crossorigin="anonymous" />
     <link rel="dns-prefetch" href="https://s3.amazonaws.com" />
-
-    <!-- Unsplash (used for mock/placeholder images in the app) -->
     <link rel="preconnect" href="https://images.unsplash.com" crossorigin="anonymous" />
     <link rel="dns-prefetch" href="https://images.unsplash.com" />
-
-    <!-- Google Fonts (If used for typography fallback) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
@@ -51,25 +38,15 @@
       type="font/woff2"
       crossorigin="anonymous"
     />
+
     <title>CampusConnect</title>
+
+    <!-- Critical, tiny initialization only. Heavy third-party downloads are deferred. -->
     <script src="/partytown-init.js"></script>
     <script src="/theme-init.js"></script>
-    <!-- Google Tag Manager -->
-    <script type="text/partytown" src="/js/gtm.js"></script>
-    <!-- End Google Tag Manager -->
-
-    <!-- Facebook Pixel Code -->
-    <script type="text/partytown" src="/js/fb-pixel.js"></script>
-    <!-- End Facebook Pixel Code -->
-
-    <!-- Hotjar Tracking Code -->
-    <script type="text/partytown" src="/js/hotjar.js"></script>
-    <!-- End Hotjar Tracking Code -->
-    <!-- Register custom service worker early in head for faster interception -->
+    <script src="/defer-third-party.js"></script>
 
     <style>
-      /* This is intentionally kept outside the React bundle so it is visible
-         while the application's JavaScript is downloading. */
       #app-loading {
         display: grid;
         min-height: 100vh;
@@ -119,7 +96,6 @@
       }
     </style>
   </head>
-
   <body>
     <div id="root">
       <div id="app-loading" role="status" aria-label="Loading CampusConnect">
@@ -131,7 +107,6 @@
           xmlns="http://www.w3.org/2000/svg"
         >
           <title>CampusConnect</title>
-          <!-- Each dash length is the exact length of its line or path. -->
           <path
             class="app-loading__stroke"
             style="--loader-path-length: 222.279px"
@@ -175,8 +150,8 @@
         </svg>
       </div>
     </div>
+
     <script type="module" src="/src/main.tsx"></script>
-    <!-- Redundant SW registration at end of body as fallback/standard practice -->
     <script src="/sw-register.js"></script>
   </body>
 </html>

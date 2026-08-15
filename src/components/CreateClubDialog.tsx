@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useMutation } from "@/hooks/useReactQueryReplacement";
-import { Plus } from "lucide-react";
+import Plus from "lucide-react/dist/esm/icons/plus";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 

@@ -1,6 +1,8 @@
 import React, { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { Building, Calendar, MessageSquare } from "lucide-react";
+import Building from "lucide-react/dist/esm/icons/building";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import MessageSquare from "lucide-react/dist/esm/icons/message-square";
 import { Link } from "react-router-dom";
 
 export interface TimelineItem {
@@ -57,10 +59,21 @@ export const HistoryTimeline: React.FC<HistoryTimelineProps> = ({ items }) => {
   };
 
   return (
-    <div ref={containerRef} className="relative w-full max-w-4xl mx-auto py-12 px-4 overflow-hidden">
+    <div
+      ref={containerRef}
+      className="relative w-full max-w-4xl mx-auto py-12 px-4 overflow-hidden"
+    >
       <div className="absolute top-0 bottom-0 left-[28px] md:left-1/2 -translate-x-1/2 w-2 h-full pointer-events-none z-0">
         <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 8 100" fill="none">
-          <line x1="4" y1="0" x2="4" y2="100" stroke="#E5E7EB" strokeWidth="4" strokeLinecap="round" />
+          <line
+            x1="4"
+            y1="0"
+            x2="4"
+            y2="100"
+            stroke="#E5E7EB"
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
           <motion.line
             x1="4"
             y1="0"
@@ -107,8 +120,10 @@ export const HistoryTimeline: React.FC<HistoryTimelineProps> = ({ items }) => {
                 transition={{ duration: 0.4, ease: "easeOut" }}
               >
                 <div className="neu-border bg-white p-6 relative neu-shadow transition-transform hover:-translate-y-1">
-                  <div className={`absolute top-0 right-0 h-4 w-4 border-b-2 border-l-2 border-black ${getBadgeColor(item.type)}`} />
-                  
+                  <div
+                    className={`absolute top-0 right-0 h-4 w-4 border-b-2 border-l-2 border-black ${getBadgeColor(item.type)}`}
+                  />
+
                   <div className="flex items-center justify-between gap-4 mb-2">
                     <span className="font-mono text-xs text-gray-500 font-bold">
                       {new Date(item.date).toLocaleDateString("en-US", {
@@ -117,7 +132,9 @@ export const HistoryTimeline: React.FC<HistoryTimelineProps> = ({ items }) => {
                         year: "numeric",
                       })}
                     </span>
-                    <span className={`font-mono text-[10px] font-black uppercase px-2 py-0.5 border border-black ${getBadgeColor(item.type)}`}>
+                    <span
+                      className={`font-mono text-[10px] font-black uppercase px-2 py-0.5 border border-black ${getBadgeColor(item.type)}`}
+                    >
                       {item.type.replace("_", " ")}
                     </span>
                   </div>
@@ -135,7 +152,9 @@ export const HistoryTimeline: React.FC<HistoryTimelineProps> = ({ items }) => {
                     className="inline-flex items-center gap-1 font-mono text-xs font-bold underline hover:no-underline text-black group"
                   >
                     View Details
-                    <span className="transform group-hover:translate-x-1 transition-transform inline-block">→</span>
+                    <span className="transform group-hover:translate-x-1 transition-transform inline-block">
+                      →
+                    </span>
                   </Link>
                 </div>
               </motion.div>

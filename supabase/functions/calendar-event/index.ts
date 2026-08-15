@@ -21,13 +21,15 @@ function escapeICalText(text: string): string {
 }
 
 function slugify(text: string): string {
-    return text
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9\s-]/g, "")
-        .replace(/\s+/g, "-")
-        .replace(/-+/g, "-")
-        .slice(0, 60) || "event";
+  return (
+    text
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .slice(0, 60) || "event"
+  );
 }
 
 serve(async (req) => {
@@ -61,7 +63,9 @@ serve(async (req) => {
     // Fetch event info
     const { data: event, error: eventError } = await supabase
       .from("events")
-      .select("id, title, description, start_date, end_date, event_date, location, created_at, updated_at")
+      .select(
+        "id, title, description, start_date, end_date, event_date, location, created_at, updated_at",
+      )
       .eq("id", eventId)
       .is("deleted_at", null)
       .single();
@@ -76,11 +80,11 @@ serve(async (req) => {
       return new Response("Event does not have a valid start date", { status: 400 });
     }
     const startDate = new Date(startDateStr);
-    
+
     let endDate = event.end_date
       ? new Date(event.end_date)
       : new Date(startDate.getTime() + 60 * 60 * 1000); // Default to 1 hour after start
-    
+
     if (endDate.getTime() < startDate.getTime()) {
       endDate = startDate;
     }
@@ -93,7 +97,7 @@ serve(async (req) => {
 
     const frontendUrl = Deno.env.get("FRONTEND_URL") || "https://campusconnect.app";
     const eventUrl = `${frontendUrl}/events/${event.id}`;
-    
+
     let description = (event.description ?? "").trim();
     description += `\n\nView on CampusConnect: ${eventUrl}`;
 

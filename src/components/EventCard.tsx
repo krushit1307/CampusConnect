@@ -7,7 +7,9 @@ import {
 } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { useState } from "react";
-import { Calendar, Share2, Link as LinkIcon, Bookmark } from "lucide-react";
+import { MapPin, Calendar, Clock, Link as LinkIcon, Share2, Bookmark, Play } from "lucide-react";
+import { useAudioStore } from "@/store/audioStore";
+import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { TicketDialog } from "@/components/ui/ticket-modal";
 import { Button } from "@/components/ui/button";
@@ -180,6 +182,30 @@ export function EventCard({
   const [ticketOpen, setTicketOpen] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
 
+  const { playTrack } = useAudioStore();
+  const supabase = createClient();
+
+  const handlePlayRecording = async () => {
+    if (!event.audio_recording_url) return;
+    try {
+      const { data, error } = await supabase.storage
+        .from("event_audio")
+        .createSignedUrl(event.audio_recording_url, 7200);
+
+      if (error) throw error;
+
+      playTrack({
+        url: data.signedUrl,
+        eventId: event.id,
+        title: event.title,
+        clubName: club?.name,
+        clubLogo: club?.logo_url,
+      });
+    } catch (err: any) {
+      toast.error("Could not play recording.");
+    }
+  };
+
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -254,16 +280,13 @@ export function EventCard({
     <div className="group">
       <article
         id={`event-${event.id}`}
- fix/offline-banner-accessibility
-        className={`neu-border p-5 relative ${colors[index % colors.length]} transition-all duration-300 ease-out group-hover:scale-[1.02] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-ink)]`}
-
-        onMouseEnter={preloadEvent.onMouseEnter}
-        onMouseLeave={preloadEvent.onMouseLeave}
         className={`neu-border p-5 relative ${
           active
             ? "bg-blue-100 border-4 border-blue-600 ring-2 ring-blue-600"
             : colors[index % colors.length]
- main
+        } transition-all duration-300 ease-out group-hover:scale-[1.02] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-ink)]`}
+        onMouseEnter={preloadEvent.onMouseEnter}
+        onMouseLeave={preloadEvent.onMouseLeave}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col">
@@ -283,12 +306,19 @@ export function EventCard({
               </span>
             )}
           </div>
-        </div>
-        <div className="mt-5">
-          <div>
-            <p className="font-mono text-xs font-bold uppercase text-black">Date &amp; Time</p>
-            <p className="mt-1 text-sm text-red-900">{formatEventDateRange(event)}</p>
+ feature/2986-event-audio-player
+ feature/2986-event-audio-player
+ feature/2986-event-audio-player
 
+ feature/3010-membership-bundles
+ feature/3010-membership-bundles
+ main
+
+ feature/3014-referral-leaderboard
+ main
+
+
+ main
           <div className="flex gap-2 relative z-10">
             <TooltipProvider>
               <Tooltip>
@@ -333,7 +363,6 @@ export function EventCard({
             </TooltipProvider>
           </div>
         </div>
-      </div>
         <p className="mt-3 font-mono text-xs font-bold uppercase text-black">Event</p>
         <Link to={`/events/${event.id}`} className="group">
           <h2 className="mt-1 text-2xl font-black group-hover:underline text-violet-900">
@@ -425,6 +454,16 @@ export function EventCard({
               className="neu-border neu-press bg-white hover:bg-cream h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 text-black"
             >
               View Ticket
+            </Button>
+          )}
+          {event.audio_recording_url && (
+            <Button
+              type="button"
+              onClick={handlePlayRecording}
+              className="neu-border neu-press bg-blue-600 hover:bg-blue-700 h-9 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 text-white flex items-center gap-2"
+            >
+              <Play className="w-4 h-4 fill-current" />
+              Listen Recording
             </Button>
           )}
         </div>

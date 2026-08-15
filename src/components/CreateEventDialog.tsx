@@ -2,17 +2,19 @@ import { useState, useEffect, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 import { useMutation, useQuery } from "@/hooks/useReactQueryReplacement";
+import { checkEventConflicts, EventConflict } from "@/lib/events/checkEventConflicts";
+import { useNavigate } from "react-router-dom";
 import { useUndoableState } from "@/hooks/useUndoableState";
-import {
-  Plus,
-  MapPin,
-  CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
-  Check,
-  X,
-  WifiOff,
-} from "lucide-react";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import CalendarIcon from "lucide-react/dist/esm/icons/calendar";
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import Check from "lucide-react/dist/esm/icons/check";
+import MessageSquare from "lucide-react/dist/esm/icons/message-square";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import X from "lucide-react/dist/esm/icons/x";
+import WifiOff from "lucide-react/dist/esm/icons/wifi-off";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import type { DateRange } from "react-day-picker";
@@ -33,6 +35,7 @@ import {
   DEFAULT_EVENT_TAG_OPTIONS,
   type EventFormValues,
 } from "@/lib/eventUtils";
+import { EventLogisticsService } from "@/services/eventLogisticsService";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { queueOfflineEvent } from "@/lib/offlineSync";
 import { Button } from "@/components/ui/button";
@@ -64,8 +67,8 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 import { FlyerUploader } from "@/components/FlyerUploader";
 import type { ParsedFlyer } from "@/lib/parser";
 import { MultiSelect } from "@/components/MultiSelect";
@@ -100,11 +103,19 @@ const defaultValues: LocalEventFormValues = {
   title: "",
   description: "",
   category: "",
+  venue_id: "",
   location: "",
   latitude: null,
   longitude: null,
   geofencingEnabled: false,
   geofenceRadiusMeters: 100,
+  accessibility_features: {
+    has_elevator: false,
+    wheelchair_ramp: false,
+    gender_neutral_restrooms: false,
+    hearing_loop: false,
+    low_sensory_zone: false,
+  },
   startDate: "",
   endDate: "",
   alcoholPresent: false,
@@ -130,6 +141,12 @@ export function CreateEventDialog({
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>(0);
   const [clubId, setClubId] = useState<string | null>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<{ id: string; name: string }[]>([]);
+  const [isSuggestingCategories, setIsSuggestingCategories] = useState(false);
+  const [conflicts, setConflicts] = useState<EventConflict[]>([]);
+  const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
+  const [showConflictWizard, setShowConflictWizard] = useState(false);
+  const navigate = useNavigate();
   const supabase = createClient();
   const isOnline = useOnlineStatus();
 
@@ -172,8 +189,60 @@ export function CreateEventDialog({
     mode: "onBlur",
   });
 
+  const { data: venues } = useQuery({
+    queryKey: ["venues"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("venues").select("*").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const watchedLocation = form.watch("location");
+  const watchedTitle = form.watch("title");
+  const watchedDescription = form.watch("description");
+  const watchedVenueId = form.watch("venue_id");
   const control = form.control as never;
 
+  useEffect(() => {
+    const title = String(watchedTitle || "").trim();
+    const description = String(watchedDescription || "").trim();
+
+    if (!title && !description) {
+      setAiSuggestions([]);
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      setIsSuggestingCategories(true);
+
+      try {
+        const { data, error } = await supabase.functions.invoke("smart-auto-categorize", {
+          body: {
+            title,
+            description,
+            club_id: clubId,
+            suggest_only: true,
+          },
+        });
+
+        if (error) {
+          console.warn("AI category suggestion failed:", error);
+          setAiSuggestions([]);
+          return;
+        }
+
+        setAiSuggestions(data?.categories || []);
+      } catch (error) {
+        console.warn("AI category suggestion failed:", error);
+        setAiSuggestions([]);
+      } finally {
+        setIsSuggestingCategories(false);
+      }
+    }, 800);
+
+    return () => window.clearTimeout(timer);
+  }, [watchedTitle, watchedDescription, clubId]);
   const isUndoingRedoingRef = useRef(false);
   const {
     state: undoableState,
@@ -238,9 +307,6 @@ export function CreateEventDialog({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open, undo, redo]);
 
-  // Watch values via form.watch to keep TypeScript quiet about schema property limits
-  const watchedLocation = form.watch("location");
-  const watchedDescription = form.watch("description");
   const watchedGeofencingEnabled = form.watch("geofencingEnabled");
   const watchedLatitude = form.watch("latitude");
   const watchedLongitude = form.watch("longitude");
@@ -248,7 +314,10 @@ export function CreateEventDialog({
 
   const currentDescription = watchedDescription || "";
 
+  const isCustomVenue = watchedVenueId === "custom";
+
   const showMapPreview =
+    isCustomVenue &&
     watchedLocation &&
     watchedLocation.trim().length > 0 &&
     watchedLocation.trim().toLowerCase() !== "online";
@@ -299,25 +368,36 @@ export function CreateEventDialog({
       const { error } = await supabase.from("events").insert({
         title: values.title.trim(),
         description: values.description.trim(),
-        location: values.location?.trim() || null,
+        venue_id: values.venue_id && values.venue_id !== "custom" ? values.venue_id : null,
+        location: isCustomVenue ? values.location?.trim() || null : null,
+        accessibility_features: isCustomVenue ? values.accessibility_features : null,
         start_date: startDateIso,
         end_date: endDateIso,
         event_date: startDateIso,
         created_by: user.id,
         club_id: myClub.id,
-        alcohol_present: !!values.alcoholPresent,
-        max_attendees: values.maxAttendees ? Number(values.maxAttendees) : null,
-        off_campus_speaker: !!values.offCampusSpeaker,
-        status: "draft", // default status
       });
-
-      if (error) {
-        throw new Error(error.message);
       try {
-        const { error } = await supabase.from("events").insert(payload);
+        const { data: createdData, error } = await supabase
+          .from("events")
+          .insert(payload)
+          .select(
+            "id, event_date, start_date, max_attendees, capacity, has_catering, has_food, tags",
+          )
+          .single();
+
         if (error) {
           throw new Error(error.message);
         }
+
+        if (createdData?.id) {
+          try {
+            await EventLogisticsService.syncAutoGeneratedTasks(createdData.id, createdData);
+          } catch (ruleErr) {
+            console.warn("Failed to sync auto logistics tasks:", ruleErr);
+          }
+        }
+
         return { isOffline: false };
       } catch (err: unknown) {
         const isNetworkError =
@@ -359,8 +439,27 @@ export function CreateEventDialog({
     },
   });
 
-  const onSubmit = (values: EventFormValues) => {
-    createEvent.mutate(values);
+  const onSubmit = async (values: EventFormValues) => {
+    if (showConflictWizard) {
+      createEvent.mutate(values);
+      return;
+    }
+    
+    setIsCheckingConflicts(true);
+    try {
+      const detectedConflicts = await checkEventConflicts(supabase, values);
+      if (detectedConflicts.length > 0) {
+        setConflicts(detectedConflicts);
+        setShowConflictWizard(true);
+      } else {
+        createEvent.mutate(values);
+      }
+    } catch (err) {
+      console.error(err);
+      createEvent.mutate(values);
+    } finally {
+      setIsCheckingConflicts(false);
+    }
   };
 
   const handleDataExtracted = (data: ParsedFlyer) => {
@@ -442,7 +541,7 @@ export function CreateEventDialog({
           </button>
         )}
       </DialogTrigger>
-      <DialogContent className="neu-border neu-shadow bg-cream sm:max-w-md text-black">
+      <DialogContent className="neu-border neu-shadow bg-cream sm:max-w-md text-black max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between gap-2">
             <DialogTitle className="text-black">Create a new event</DialogTitle>
@@ -488,6 +587,43 @@ export function CreateEventDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            
+            {showConflictWizard && conflicts.length > 0 && (
+              <div className="border-2 border-red-500 bg-red-50 p-4 mb-4">
+                <div className="flex items-center gap-2 mb-2 text-red-700 font-bold">
+                  <AlertTriangle size={20} />
+                  <h3>Conflict Detected</h3>
+                </div>
+                <p className="text-sm text-red-900 mb-4">
+                  There are other high-capacity events with overlapping audiences scheduled at the same time. This may affect your attendance.
+                </p>
+                <div className="space-y-3">
+                  {conflicts.map((c) => (
+                    <div key={c.id} className="bg-white border border-red-200 p-3 rounded-md flex justify-between items-center">
+                      <div>
+                        <div className="font-bold text-sm">{c.title}</div>
+                        <div className="text-xs text-gray-500">by {c.club?.name || "a club"}</div>
+                      </div>
+                      {c.club?.created_by && (
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex gap-2"
+                          onClick={() => {
+                            const msg = encodeURIComponent(`⚠️ Coordination: Our upcoming event "${form.watch("title")}" might overlap with "${c.title}". Should we coordinate?`);
+                            navigate(`/messages?userId=${c.club.created_by}&message=${msg}`);
+                          }}
+                        >
+                          <MessageSquare size={14} /> Message President
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             {/* Step 1 — Details */}
             {step === 0 && (
               <>
@@ -527,7 +663,7 @@ export function CreateEventDialog({
                   name="category"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Category</FormLabel>
+                      <FormLabel>Category</FormLabel>{" "}
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
@@ -546,6 +682,58 @@ export function CreateEventDialog({
                     </FormItem>
                   )}
                 />
+                {(isSuggestingCategories || aiSuggestions.length > 0) && (
+                  <div className="rounded-lg border-2 border-dashed border-black/30 bg-yellow-50 p-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <div>
+                        <p className="font-mono text-xs font-bold uppercase text-black">
+                          AI Suggested Tags
+                        </p>
+                        <p className="text-xs text-black/60">
+                          Suggestions are based on the event title and description.
+                        </p>
+                      </div>
+
+                      {isSuggestingCategories && (
+                        <span className="text-xs font-mono font-bold">Analyzing...</span>
+                      )}
+                    </div>
+
+                    {!isSuggestingCategories && aiSuggestions.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {aiSuggestions.map((suggestion) => (
+                          <button
+                            key={suggestion.id}
+                            type="button"
+                            onClick={() => {
+                              const currentTags = form.getValues("tags") || [];
+
+                              form.setValue("category", suggestion.id, {
+                                shouldValidate: true,
+                              });
+
+                              form.setValue(
+                                "tags",
+                                [...new Set([...currentTags, suggestion.name])].slice(0, 10),
+                                { shouldValidate: true },
+                              );
+                            }}
+                            className="rounded-full border-2 border-black bg-white px-3 py-1 text-xs font-bold hover:bg-black hover:text-white"
+                          >
+                            {suggestion.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {!isSuggestingCategories && aiSuggestions.length > 0 && (
+                      <p className="mt-3 text-xs text-black/50">
+                        Click a suggestion to use it. You can still change the category or tags
+                        manually.
+                      </p>
+                    )}
+                  </div>
+                )}
                 <FormField
                   control={control}
                   name="tags"
@@ -642,6 +830,161 @@ export function CreateEventDialog({
                   </div>
                 )}
 
+                <FormField
+                  control={form.control}
+                  name="venue_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-red-800" required>
+                        Venue
+                      </FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl className="text-black">
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a venue" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {venues?.map((v: any) => (
+                            <SelectItem key={v.id} value={v.id}>
+                              {v.name} ({v.capacity} capacity)
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="custom">Custom Location</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {isCustomVenue && (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="location"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-red-800" required>
+                            Custom Location
+                          </FormLabel>
+                          <FormControl className="text-black">
+                            <Input
+                              placeholder='e.g. "Main Auditorium, IIT Bombay" or "Online"'
+                              {...field}
+                            />
+                          </FormControl>
+                          <p className="text-xs text-black/50 mt-1">
+                            Enter a venue name, address, or "Online"
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {watchedLocation?.trim().toLowerCase() !== "online" && (
+                      <div className="border border-black p-3 rounded-md bg-white/50 space-y-2">
+                        <FormLabel className="text-red-800 text-sm font-bold block mb-2">
+                          Accessibility Audit
+                        </FormLabel>
+                        <p className="text-xs text-black/70 mb-2">
+                          Please accurately report the venue's accessibility features.
+                        </p>
+
+                        {[
+                          { id: "has_elevator", label: "Elevator Available" },
+                          { id: "wheelchair_ramp", label: "Wheelchair Ramp Available" },
+                          { id: "gender_neutral_restrooms", label: "Gender-Neutral Restrooms" },
+                          { id: "hearing_loop", label: "Hearing Loop Available" },
+                          { id: "low_sensory_zone", label: "Low-Sensory/Quiet Zone" },
+                        ].map((feature) => (
+                          <FormField
+                            key={feature.id}
+                            control={form.control}
+                            name={`accessibility_features.${feature.id}` as any}
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-0 p-1">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                  />
+                                </FormControl>
+                                <div className="space-y-1 leading-none">
+                                  <FormLabel className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-black">
+                                    {feature.label}
+                                  </FormLabel>
+                                </div>
+                              </FormItem>
+                            )}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {showMapPreview && (
+                      <div className="rounded overflow-hidden border-2 border-black">
+                        <iframe
+                          className="w-full"
+                          height="180"
+                          loading="lazy"
+                          src={`https://maps.google.com/maps?q=${encodeURIComponent(watchedLocation || "")}&output=embed`}
+                          title="Location preview"
+                        />
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(watchedLocation || "")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-1 bg-white py-1.5 font-mono text-xs font-bold underline hover:bg-cream"
+                        >
+                          <MapPin size={12} />
+                          Open in Google Maps ↗
+                        </a>
+                      </div>
+                    )}
+                  </>
+                )}
+                <FormField
+                  control={control}
+                  name="is_outdoor"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-white p-4 shadow-sm">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="font-bold cursor-pointer">Outdoor Event</FormLabel>
+                        <p className="text-xs text-black/50">
+                          Mark this as an outdoor event to enable automated weather alerts.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                {form.watch("is_outdoor") && (
+                  <FormField
+                    control={control}
+                    name="backup_indoor_venue"
+                    render={({ field }) => (
+                      <FormItem className="rounded-md border-2 border-black bg-white p-4">
+                        <FormLabel className="font-bold">Backup Indoor Venue</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g. Student Union Hall"
+                            {...field}
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <p className="mt-1 text-xs text-black/50">
+                          If severe weather is forecasted, you will be prompted to automatically
+                          pivot the event here.
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
                 <FormField
                   control={control}
                   name="geofencingEnabled"
@@ -1039,10 +1382,6 @@ export function CreateEventDialog({
               </FormItem>
             </div>
 
-            <DialogFooter className="pt-2">
-              <Button type="submit" disabled={createEvent.isPending} className="w-full sm:w-auto">
-                {createEvent.isPending ? "Creating..." : "Create event"}
-              </Button>
             <DialogFooter className="pt-2 flex gap-2">
               {step > 0 && (
                 <Button type="button" variant="outline" onClick={handleBack}>
@@ -1054,8 +1393,8 @@ export function CreateEventDialog({
                   Next <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               ) : (
-                <Button type="submit" disabled={createEvent.isPending} className="ml-auto">
-                  {createEvent.isPending ? "Creating..." : "Create event"}
+                <Button type="submit" disabled={createEvent.isPending || isCheckingConflicts} className="ml-auto">
+                  {createEvent.isPending ? "Creating..." : isCheckingConflicts ? "Checking..." : showConflictWizard ? "Publish Anyway" : "Create event"}
                 </Button>
               )}
             </DialogFooter>

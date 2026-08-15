@@ -15,14 +15,10 @@ async function hmacSha256(key: string, message: string): Promise<string> {
     keyData,
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"]
+    ["sign"],
   );
 
-  const signature = await window.crypto.subtle.sign(
-    "HMAC",
-    cryptoKey,
-    messageData
-  );
+  const signature = await window.crypto.subtle.sign("HMAC", cryptoKey, messageData);
 
   return Array.from(new Uint8Array(signature))
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -47,12 +43,15 @@ export async function customFetch(url: string, options: FetchOptions = {}) {
 
   try {
     const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     const token = session?.access_token;
 
     if (token) {
       const timestamp = Date.now().toString();
-      const nonce = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const nonce =
+        Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
       const method = (init.method || "GET").toUpperCase();
 
       const urlObj = new URL(requestUrl, window.location.origin);

@@ -54,10 +54,10 @@ Deno.serve(async (req: Request) => {
   const meiliApiKey = Deno.env.get("MEILI_API_KEY") ?? "";
 
   if (!supabaseUrl || !serviceRoleKey || !meiliHost || !meiliApiKey) {
-    return new Response(
-      JSON.stringify({ error: "Missing env vars" }),
-      { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Missing env vars" }), {
+      status: 500,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
@@ -74,14 +74,14 @@ Deno.serve(async (req: Request) => {
   if (fetchError) {
     return new Response(
       JSON.stringify({ error: "Failed to fetch DLQ rows", detail: fetchError.message }),
-      { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
     );
   }
 
   if (!dlqRows || dlqRows.length === 0) {
     return new Response(
       JSON.stringify({ success: true, retried: 0, message: "No pending DLQ rows" }),
-      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
     );
   }
 
@@ -101,7 +101,7 @@ Deno.serve(async (req: Request) => {
           const response = await fetch(url, {
             method: "POST",
             headers: {
-              "Authorization": `Bearer ${meiliApiKey}`,
+              Authorization: `Bearer ${meiliApiKey}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify([String(recordId)]),
@@ -115,7 +115,7 @@ Deno.serve(async (req: Request) => {
           const response = await fetch(url, {
             method: "POST",
             headers: {
-              "Authorization": `Bearer ${meiliApiKey}`,
+              Authorization: `Bearer ${meiliApiKey}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify([document]),
@@ -173,13 +173,13 @@ Deno.serve(async (req: Request) => {
       failed,
       exhausted,
     }),
-    { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+    { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
   );
 });
 
 function transformRecord(
   table: string,
-  record: Record<string, unknown>
+  record: Record<string, unknown>,
 ): Record<string, unknown> | null {
   switch (table) {
     case "events":
