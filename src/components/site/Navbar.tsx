@@ -20,7 +20,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Menu, X } from "lucide-react";
 
 const links = [
   { to: "/events", label: "Events" },
@@ -33,9 +32,7 @@ const links = [
 
 export function Navbar() {
   const { user, isInitializing } = useAuthHydration();
-  const handleSignOut = () => {
-    // TODO: wire to actual sign out
-  };
+
   const location = useLocation();
   const { t, i18n } = useTranslation();
   const currentPath = location.pathname;

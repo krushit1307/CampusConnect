@@ -133,6 +133,10 @@ self.addEventListener("activate", (event) => {
 // FETCH EVENT: Intercept requests and apply caching strategies
 // =============================================================================
 self.addEventListener("fetch", (event) => {
+  // Bypass caching completely during local development to prevent conflicts with Vite's HMR
+  if (self.location.hostname === "localhost" || self.location.hostname === "127.0.0.1") {
+    return;
+  }
   const { request } = event;
   const url = new URL(request.url);
 
