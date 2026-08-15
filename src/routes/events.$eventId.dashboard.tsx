@@ -11,6 +11,7 @@ import Star from "lucide-react/dist/esm/icons/star";
 import { ChartSkeleton } from "@/components/ui/ChartSkeleton";
 import { EventFinancesSection } from "@/components/analytics/EventFinancesSection";
 import { EventPodcastPanel } from "@/components/audio/EventPodcastPanel";
+import { WaitlistChurnPredictionCard } from "@/components/events/WaitlistChurnPredictionCard";
 
 const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));
 
@@ -215,7 +216,9 @@ export default function EventDashboard() {
             <button
               onClick={async () => {
                 try {
-                  const { data: { user } } = await supabase.auth.getUser();
+                  const {
+                    data: { user },
+                  } = await supabase.auth.getUser();
                   if (!user) throw new Error("Not logged in");
                   toast.loading("Duplicating event...", { id: "duplicate" });
                   const newId = await duplicateEvent(supabase, eventId!, user.id);
@@ -267,6 +270,10 @@ export default function EventDashboard() {
                 </p>
               </div>
             </div>
+          </div>
+
+          <div className="mb-8">
+            <WaitlistChurnPredictionCard eventId={eventId!} />
           </div>
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
