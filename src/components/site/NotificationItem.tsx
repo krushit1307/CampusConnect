@@ -44,7 +44,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     }
   };
 
-  const displayMessage = notification.payload 
+  const displayMessage = notification.payload
     ? t(`notifications.${notification.type}`, notification.payload)
     : notification.message;
 
