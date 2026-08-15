@@ -112,6 +112,7 @@ const MapPage = lazy(() => import("./routes/map"));
 const ForgotPassword = lazy(() => import("./routes/forgot-password"));
 const ResetPassword = lazy(() => import("./routes/reset-password"));
 const Settings = lazy(() => import("./routes/settings"));
+const SettingsData = lazy(() => import("./routes/settings.data"));
 const VerifyEmail = lazy(() => import("./routes/verify-email"));
 const Directory = lazy(() => import("./routes/Directory"));
 const MessagesRoute = lazy(() => import("./routes/messages"));
@@ -305,6 +306,7 @@ const router = createBrowserRouter(
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/settings/data" element={<SettingsData />} />
             <Route path="/recap" element={<Recap />} />
             <Route path="/volunteer-record" element={<VolunteerRecord />} />
             <Route path="/network" element={<NetworkPage />} />
@@ -344,6 +346,7 @@ const router = createBrowserRouter(
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/settings/data" element={<SettingsData />} />
           <Route path="/recap" element={<Recap />} />
           <Route path="/volunteer-record" element={<VolunteerRecord />} />
           <Route path="/network" element={<NetworkPage />} />
@@ -360,7 +363,6 @@ const router = createBrowserRouter(
           {/* Catch-all route for 404 errors */}
           <Route path="*" element={<NotFound />} />
 
- main
         </Route>
 
         <Route path="/gallery" element={<GalleryPage />} />
