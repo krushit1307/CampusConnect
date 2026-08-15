@@ -187,5 +187,13 @@
       "subtitle": "Have questions about CampusConnect? Reach out to our team.",
       "button": "Contact Support"
     }
+  },
+  "notifications": {
+    "EVENT_INVITE": "{{actor}} invited you to {{target}}",
+    "EVENT_CANCELLED": "{{target}} has been cancelled.",
+    "EVENT_REMINDER": "Reminder: {{target}} is starting soon.",
+    "NEW_POST": "{{actor}} posted in {{target}}",
+    "CLUB_INVITE": "{{actor}} invited you to join {{target}}",
+    "NEW_COMMENT": "{{actor}} commented on your post."
   }
 }
