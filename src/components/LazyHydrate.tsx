@@ -32,7 +32,7 @@ export default function LazyHydrate({
           observer.disconnect();
         }
       },
-      { rootMargin, threshold }
+      { rootMargin, threshold },
     );
 
     const currentRef = containerRef.current;

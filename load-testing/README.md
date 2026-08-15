@@ -44,6 +44,38 @@ Based on local testing against a standard Supabase local instance (Docker):
    artillery run load-testing/artillery/supabase-realtime-test.yml
    ```
 
+### Option C: Staging HTTP API suite
+
+The dedicated HTTP suite in `artillery/load-test.yml` tests the Global Feed
+and Events APIs using the required warm-up, spike, and sustained-load phases.
+It is intentionally protected by a hostname allowlist and an explicit staging
+confirmation; do not bypass either check.
+
+1. Confirm PgBouncer (or an equivalent database connection pooler) is enabled
+   for the staging database and that `/api/feed` and `/api/events` are exposed
+   by the staging API.
+2. Install Artillery globally:
+
+   ```bash
+   npm install -g artillery
+   ```
+
+3. Run only against the approved staging host:
+
+   ```bash
+   LOAD_TEST_TARGET="https://staging-api.example.com" \
+   LOAD_TEST_ALLOWED_HOSTS="staging-api.example.com" \
+   LOAD_TEST_CONFIRM_STAGING=YES \
+   npm run load:staging
+   ```
+
+   On PowerShell, set the three environment variables with `$env:` before
+   running `node scripts/run-staging-load-test.mjs`.
+
+The wrapper writes JSON and HTML reports to `artillery/reports/`. The Artillery
+`ensure` thresholds fail the run if p95 exceeds 500 ms or if any HTTP errors
+are recorded. Do not run this suite against production.
+
 ## ⚠️ Important Notes
 
 - Do not run these tests against production environments without prior approval.

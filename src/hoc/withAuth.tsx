@@ -2,7 +2,7 @@ import React, { useEffect, useState, ComponentType } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { Loader2 } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 
 export interface WithAuthProps {
   user: User;
@@ -33,20 +33,26 @@ export function withAuth<P extends object>(
 
     useEffect(() => {
       let isMounted = true;
+      let hasAuthStateChanged = false;
+
+      const isOAuthRedirect =
+        window.location.search.includes("code=") ||
+        window.location.hash.includes("access_token=") ||
+        window.location.hash.includes("error=");
 
       // 1. Initial Session Check
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (!isMounted) return;
 
-        if (!session?.user) {
+        if (session?.user) {
+          setUser(session.user);
+          setIsLoading(false);
+        } else if (!isOAuthRedirect && !hasAuthStateChanged) {
           const targetUrl = `${location.pathname}${location.search}`;
           navigate(`${redirectPath}?redirectTo=${encodeURIComponent(targetUrl)}`, {
             replace: true,
             state: { from: location },
           });
-        } else {
-          setUser(session.user);
-          setIsLoading(false);
         }
       });
 
@@ -55,6 +61,7 @@ export function withAuth<P extends object>(
         data: { subscription },
       } = supabase.auth.onAuthStateChange((_event, session) => {
         if (!isMounted) return;
+        hasAuthStateChanged = true;
 
         if (!session?.user) {
           const targetUrl = `${location.pathname}${location.search}`;

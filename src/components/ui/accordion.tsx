@@ -1,30 +1,71 @@
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
-import { ChevronDown } from "lucide-react";
+import { cva, type VariantProps } from "class-variance-authority";
+import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
 const Accordion = AccordionPrimitive.Root;
 
+const accordionItemVariants = cva("border-b", {
+  variants: {
+    variant: {
+      default: "border-b border-gray-200 dark:border-gray-800",
+      brutalist: "border-b-2 border-black dark:border-cream",
+      card: "border-2 border-black bg-white dark:bg-black p-2 rounded-md my-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]",
+    },
+  },
+  defaultVariants: {
+    variant: "default",
+  },
+});
+
+export interface AccordionItemProps
+  extends
+    React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Item>,
+    VariantProps<typeof accordionItemVariants> {}
+
 const AccordionItem = React.forwardRef<
   React.ElementRef<typeof AccordionPrimitive.Item>,
-  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Item>
->(({ className, ...props }, ref) => (
-  <AccordionPrimitive.Item ref={ref} className={cn("border-b", className)} {...props} />
+  AccordionItemProps
+>(({ className, variant, ...props }, ref) => (
+  <AccordionPrimitive.Item
+    ref={ref}
+    className={cn(accordionItemVariants({ variant }), className)}
+    {...props}
+  />
 ));
 AccordionItem.displayName = "AccordionItem";
 
+const accordionTriggerVariants = cva(
+  "flex flex-1 items-center justify-between py-4 text-sm font-medium cursor-pointer transition-all hover:underline text-left [&[data-state=open]>svg]:rotate-180",
+  {
+    variants: {
+      size: {
+        default: "py-4 text-sm",
+        sm: "py-2 text-xs",
+        lg: "py-5 text-base font-bold",
+      },
+    },
+    defaultVariants: {
+      size: "default",
+    },
+  },
+);
+
+export interface AccordionTriggerProps
+  extends
+    React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Trigger>,
+    VariantProps<typeof accordionTriggerVariants> {}
+
 const AccordionTrigger = React.forwardRef<
   React.ElementRef<typeof AccordionPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
+  AccordionTriggerProps
+>(({ className, children, size, ...props }, ref) => (
   <AccordionPrimitive.Header className="flex">
     <AccordionPrimitive.Trigger
       ref={ref}
-      className={cn(
-        "flex flex-1 items-center justify-between py-4 text-sm font-medium cursor-pointer transition-all hover:underline text-left [&[data-state=open]>svg]:rotate-180",
-        className,
-      )}
+      className={cn(accordionTriggerVariants({ size }), className)}
       {...props}
     >
       {children}
@@ -48,4 +89,11 @@ const AccordionContent = React.forwardRef<
 ));
 AccordionContent.displayName = AccordionPrimitive.Content.displayName;
 
-export { Accordion, AccordionContent, AccordionItem, AccordionTrigger };
+export {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+  accordionItemVariants,
+  accordionTriggerVariants,
+};

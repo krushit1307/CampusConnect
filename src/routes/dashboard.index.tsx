@@ -1,26 +1,34 @@
 import { Link } from "react-router-dom";
-import { useQuery } from "@/hooks/useReactQueryReplacement";
+import { useQuery, useMutation, queryClient } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useRef, useState } from "react";
 import { User } from "@supabase/supabase-js";
-import {
-  Sparkles,
-  Check,
-  X,
-  ArrowRight,
-  User as UserIcon,
-  GraduationCap,
-  FileText,
-  Link2,
-  Calendar,
-  MessageCircle,
-  Users,
-} from "lucide-react";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Check from "lucide-react/dist/esm/icons/check";
+import X from "lucide-react/dist/esm/icons/x";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
+import UserIcon from "lucide-react/dist/esm/icons/user";
+import GraduationCap from "lucide-react/dist/esm/icons/graduation-cap";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import Link2 from "lucide-react/dist/esm/icons/link-2";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
+import Users from "lucide-react/dist/esm/icons/users";
 import TrendingCarousel from "@/components/Clubs/TrendingCarousel";
+import RecommendedCarousel from "@/components/Dashboard/RecommendedCarousel";
 import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
 import LazyHydrate from "@/components/LazyHydrate";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { WidgetErrorFallback } from "@/components/WidgetErrorFallback";
+import { RelativeTime } from "@/components/ui/RelativeTime";
+interface Club {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  member_count?: number;
+}
 
 interface SavedEventDetails {
   id: string;
@@ -50,13 +58,13 @@ interface ActivityPostRow {
 
 interface ActivityRsvpRow {
   id: string;
-  rsvp_at: string;
+  rsvp_at: string | null;
   events: { id: string; title: string } | { id: string; title: string }[] | null;
 }
 
 interface ActivityClubMemberRow {
   id: string;
-  joined_at: string;
+  joined_at: string | null;
   clubs: { name: string } | { name: string }[] | null;
 }
 
@@ -195,7 +203,7 @@ export default function DashboardOverview() {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", user?.id)
+        .eq("id", user!.id)
         .single();
       if (error) throw error;
       return data;
@@ -261,8 +269,8 @@ export default function DashboardOverview() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("club_members")
-        .select(`role, clubs (id, name, slug)`)
-        .eq("user_id", user?.id)
+        .select(`role_id, club_roles (id, title, permissions_level), clubs (id, name, slug)`)
+        .eq("user_id", user!.id)
         .eq("status", "approved");
       if (error) throw error;
       return data || [];
@@ -276,10 +284,27 @@ export default function DashboardOverview() {
       const { data, error } = await supabase
         .from("events")
         .select(`*, clubs (name), event_rsvps!inner (id, user_id)`)
-        .eq("event_rsvps.user_id", user?.id)
+        .eq("event_rsvps.user_id", user!.id)
         .gte("event_date", new Date().toISOString())
         .order("event_date", { ascending: true })
         .limit(3);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const {
+    data: recommendedEvents = [],
+    isLoading: isRecommendedLoading,
+    refetch: refetchRecommended,
+  } = useQuery({
+    queryKey: ["recommendedEvents", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("recommend_events_for_user", {
+        p_user_id: user!.id,
+        p_limit: 10,
+      });
       if (error) throw error;
       return data || [];
     },
@@ -304,8 +329,8 @@ export default function DashboardOverview() {
           )
         `,
         )
-        .eq("user_id", user?.id)
-        .order("saved_at", { ascending: false });
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -319,20 +344,20 @@ export default function DashboardOverview() {
         supabase
           .from("posts")
           .select("id, content, created_at, clubs(name)")
-          .eq("author_id", user?.id)
+          .eq("author_id", user!.id)
           .is("deleted_at", null)
           .order("created_at", { ascending: false })
           .limit(5),
         supabase
           .from("event_rsvps")
           .select("id, rsvp_at, events(id, title)")
-          .eq("user_id", user?.id)
+          .eq("user_id", user!.id)
           .order("rsvp_at", { ascending: false })
           .limit(5),
         supabase
           .from("club_members")
           .select("id, joined_at, clubs(name)")
-          .eq("user_id", user?.id)
+          .eq("user_id", user!.id)
           .eq("status", "approved")
           .order("joined_at", { ascending: false })
           .limit(5),
@@ -354,7 +379,7 @@ export default function DashboardOverview() {
           id: `rsvp-${r.id}`,
           type: "rsvp",
           description: event?.title ? `You RSVP'd to ${event.title}` : "You RSVP'd to an event",
-          created_at: r.rsvp_at,
+          created_at: r.rsvp_at || "",
         };
       });
 
@@ -364,7 +389,7 @@ export default function DashboardOverview() {
           id: `club-${m.id}`,
           type: "club_join",
           description: club?.name ? `You joined ${club.name}` : "You joined a club",
-          created_at: m.joined_at,
+          created_at: m.joined_at || "",
         };
       });
 
@@ -401,7 +426,7 @@ export default function DashboardOverview() {
             onClick={() => {
               setAnimateIn(false);
               setTimeout(() => {
-                setDismissed(true);
+                setWelcomeDismissed(true);
                 localStorage.setItem("cc_welcome_dismissed", "true");
               }, 500); // Wait for transition out
             }}
@@ -510,10 +535,20 @@ export default function DashboardOverview() {
       <AnalyticsLoadProgress isLoading={isAnalyticsLoading} />
 
       <div className="lg:col-span-3">
+        <RecommendedCarousel
+          userId={user?.id || ""}
+          hasInterestVector={!!profile?.interest_vector}
+          events={recommendedEvents}
+          isLoading={isRecommendedLoading}
+          refetch={refetchRecommended}
+        />
+      </div>
+
+      <div className="lg:col-span-3">
         {isTrendingLoading ? (
           <TrendingCarouselSkeleton />
         ) : (
-          <TrendingCarousel clubs={trendingClubs} />
+          <TrendingCarousel clubs={trendingClubs as unknown as Club[]} />
         )}
       </div>
 
@@ -629,7 +664,7 @@ export default function DashboardOverview() {
                       <p className="font-mono text-xs">Active</p>
                     </div>
                     <span className="neu-border bg-lime px-2 py-1 font-mono text-[10px] font-bold uppercase">
-                      {c.role}
+                      {c.club_roles?.title || "Member"}
                     </span>
                   </li>
                 );
@@ -644,6 +679,12 @@ export default function DashboardOverview() {
           </LazyHydrate>
         </Widget>
       </ErrorBoundary>
+
+      <Widget title="Campus Engagement Map" className="lg:col-span-3">
+        <LazyHydrate height="260px">
+          <AttendanceHeatmap userId={user.id} />
+        </LazyHydrate>
+      </Widget>
 
       <ErrorBoundary fallback={<WidgetError title="Recent activity" />}>
         <Widget title="Recent activity" className="lg:col-span-3">
@@ -666,9 +707,7 @@ export default function DashboardOverview() {
                     <Icon className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>
                       {item.description}
-                      <span className="ml-2 text-black/50">
-                        {formatRelativeActivityTime(item.created_at)}
-                      </span>
+                      <RelativeTime date={item.created_at} className="ml-2 text-black/50" />
                     </span>
                   </li>
                 );
@@ -708,14 +747,5 @@ function Widget({
 }
 
 function WidgetError({ title }: { title: string }) {
-  return (
-    <div className="neu-border bg-red-50 p-4 sm:p-6">
-      <div className="mb-4 flex items-center justify-between border-b-2 border-red-200 pb-3">
-        <h2 className="text-xl font-bold">{title}</h2>
-      </div>
-      <p className="font-mono text-sm text-red-600">
-        This widget failed to load. Other sections remain unaffected.
-      </p>
-    </div>
-  );
+  return <WidgetErrorFallback title={title} />;
 }

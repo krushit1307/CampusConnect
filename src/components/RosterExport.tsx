@@ -1,4 +1,4 @@
-import { Download } from "lucide-react";
+import Download from "lucide-react/dist/esm/icons/download";
 import { toast } from "sonner";
 
 interface RosterMember {
@@ -46,12 +46,14 @@ export function RosterExport({ clubName, members }: RosterExportProps) {
 
     try {
       if ("showSaveFilePicker" in window) {
-        const fileHandle = await (window as unknown as Window & {
-          showSaveFilePicker: (opts: {
-            suggestedName: string;
-            types: { description: string; accept: Record<string, string[]> }[];
-          }) => Promise<FileSystemFileHandle>;
-        }).showSaveFilePicker({
+        const fileHandle = await (
+          window as unknown as Window & {
+            showSaveFilePicker: (opts: {
+              suggestedName: string;
+              types: { description: string; accept: Record<string, string[]> }[];
+            }) => Promise<FileSystemFileHandle>;
+          }
+        ).showSaveFilePicker({
           suggestedName,
           types: [
             {

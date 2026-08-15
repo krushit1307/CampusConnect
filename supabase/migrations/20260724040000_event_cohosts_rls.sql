@@ -25,11 +25,8 @@ CREATE POLICY "Event creators and club admins can view cohosts." ON event_cohost
     OR EXISTS (SELECT 1 FROM events WHERE id = event_cohosts.event_id AND created_by = auth.uid())
     OR EXISTS (
       SELECT 1 FROM events e
-      JOIN club_members cm ON cm.club_id = e.club_id
       WHERE e.id = event_cohosts.event_id
-        AND cm.user_id = auth.uid()
-        AND cm.role = 'admin'
-        AND cm.status = 'approved'
+        AND public.is_club_admin(e.club_id, auth.uid())
     )
   );
 
@@ -40,11 +37,8 @@ CREATE POLICY "Event creators and club admins can add cohosts." ON event_cohosts
     EXISTS (SELECT 1 FROM events WHERE id = event_cohosts.event_id AND created_by = auth.uid())
     OR EXISTS (
       SELECT 1 FROM events e
-      JOIN club_members cm ON cm.club_id = e.club_id
       WHERE e.id = event_cohosts.event_id
-        AND cm.user_id = auth.uid()
-        AND cm.role = 'admin'
-        AND cm.status = 'approved'
+        AND public.is_club_admin(e.club_id, auth.uid())
     )
   );
 
@@ -55,11 +49,8 @@ CREATE POLICY "Event creators and club admins can remove cohosts." ON event_coho
     EXISTS (SELECT 1 FROM events WHERE id = event_cohosts.event_id AND created_by = auth.uid())
     OR EXISTS (
       SELECT 1 FROM events e
-      JOIN club_members cm ON cm.club_id = e.club_id
       WHERE e.id = event_cohosts.event_id
-        AND cm.user_id = auth.uid()
-        AND cm.role = 'admin'
-        AND cm.status = 'approved'
+        AND public.is_club_admin(e.club_id, auth.uid())
     )
   );
 
@@ -68,10 +59,7 @@ CREATE POLICY "Event creators and club admins can remove cohosts." ON event_coho
 -- ---------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Club admins can update events." ON events;
 CREATE POLICY "Club admins can update events." ON events FOR UPDATE USING (
-  EXISTS (
-    SELECT 1 FROM club_members
-    WHERE club_id = events.club_id AND user_id = auth.uid() AND role = 'admin' AND status = 'approved'
-  )
+  public.is_club_admin(events.club_id, auth.uid())
   OR EXISTS (SELECT 1 FROM clubs WHERE id = events.club_id AND created_by = auth.uid())
   OR EXISTS (SELECT 1 FROM event_cohosts WHERE event_id = events.id AND user_id = auth.uid())
 );
@@ -83,10 +71,7 @@ CREATE POLICY "Club admins can update events." ON events FOR UPDATE USING (
 -- ---------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Club admins can delete events." ON events;
 CREATE POLICY "Club admins can delete events." ON events FOR DELETE USING (
-  EXISTS (
-    SELECT 1 FROM club_members
-    WHERE club_id = events.club_id AND user_id = auth.uid() AND role = 'admin' AND status = 'approved'
-  )
+  public.is_club_admin(events.club_id, auth.uid())
   OR EXISTS (SELECT 1 FROM clubs WHERE id = events.club_id AND created_by = auth.uid())
   OR EXISTS (SELECT 1 FROM event_cohosts WHERE event_id = events.id AND user_id = auth.uid())
 );

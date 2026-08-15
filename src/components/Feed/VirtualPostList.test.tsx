@@ -14,7 +14,11 @@ describe("Virtualized Social Feed List (#1432)", () => {
 
   it("calculates variable item height estimates based on image attachments", () => {
     const textOnlyPost = { id: "1", content: "Hello world" };
-    const imagePost = { id: "2", content: "Check this out", image_url: "https://example.com/img.jpg" };
+    const imagePost = {
+      id: "2",
+      content: "Check this out",
+      image_url: "https://example.com/img.jpg",
+    };
 
     const estimateSize = (post: { image_url?: string }) => (post.image_url ? 450 : 210);
 

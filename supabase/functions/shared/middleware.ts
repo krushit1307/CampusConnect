@@ -28,23 +28,25 @@ local memberId = ARGV[4]
 
 local clearBefore = now - windowMs
 
--- 1. Remove elements outside the current sliding window
+-- 1. Drop a timestamp into the ZSET
+redis.call('ZADD', key, now, memberId)
+
+-- 2. Remove all timestamps older than the sliding window
 redis.call('ZREMRANGEBYSCORE', key, 0, clearBefore)
 
--- 2. Get current request count in the window
+-- 3. Count the remaining elements
 local requestCount = redis.call('ZCARD', key)
+
+-- 4. Update expiry of the key to keep Redis clean (windowMs in seconds, rounded up + 2s buffer)
+redis.call('EXPIRE', key, math.ceil(windowMs / 1000) + 2)
 
 local allowed = 0
 local remaining = 0
 local retryAfter = 0
 
-if requestCount < limit then
-    -- Allowed! Add current request
-    redis.call('ZADD', key, now, memberId)
-    -- Update expiry of the key to keep Redis clean (windowMs in seconds, rounded up + 2s buffer)
-    redis.call('EXPIRE', key, math.ceil(windowMs / 1000) + 2)
+if requestCount <= limit then
     allowed = 1
-    remaining = limit - (requestCount + 1)
+    remaining = limit - requestCount
 else
     -- Blocked! Get oldest element to calculate retry-after
     local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
@@ -64,6 +66,30 @@ end
 
 return {allowed, remaining, retryAfter}
 `;
+
+/**
+ * Decodes the JWT sub (User ID) from the Authorization header if present.
+ * Uses fast, synchronous base64url decoding to prevent network call overhead.
+ */
+export function getUserIdFromAuthHeader(authHeader: string | null): string | null {
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return null;
+  }
+  const token = authHeader.substring(7);
+  const parts = token.split(".");
+  if (parts.length !== 3) {
+    return null;
+  }
+  try {
+    const payload = parts[1];
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonStr = atob(base64);
+    const data = JSON.parse(jsonStr);
+    return data.sub || null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Checks the rate limit for the incoming request based on the client's IP.
@@ -99,7 +125,12 @@ export async function limitRate(
   const xForwardedFor = req.headers.get("x-forwarded-for");
   const ip = xForwardedFor ? xForwardedFor.split(",")[0].trim() : "127.0.0.1";
 
-  const key = `rate_limit:${functionName}:${ip}`;
+  // Use JWT User ID if available, otherwise fall back to IP address
+  const authHeader = req.headers.get("Authorization");
+  const userId = getUserIdFromAuthHeader(authHeader);
+  const identifier = userId || ip;
+
+  const key = `rate_limit:${functionName}:${identifier}`;
   const now = Date.now();
   const memberId = `${now}:${Math.random().toString(36).substring(2, 9)}`;
 
@@ -146,4 +177,85 @@ export async function limitRate(
     // Fail open: log the error, but allow the request to proceed to not disrupt legitimate traffic
     return null;
   }
+}
+
+async function hmacSha256(key: string, message: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(key);
+  const messageData = encoder.encode(message);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+
+  const signature = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
+
+  return Array.from(new Uint8Array(signature))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+export async function validateSignature(req: Request): Promise<Response | null> {
+  const signature = req.headers.get("X-Request-Signature");
+  const timestamp = req.headers.get("X-Request-Timestamp");
+  const nonce = req.headers.get("X-Request-Nonce");
+
+  if (!signature || !timestamp || !nonce) {
+    return new Response(JSON.stringify({ error: "Missing request signature headers" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+    });
+  }
+
+  // 1. Replay attack time-window check (5 minutes)
+  const requestTime = Number(timestamp);
+  if (isNaN(requestTime) || Math.abs(Date.now() - requestTime) > 300000) {
+    return new Response(JSON.stringify({ error: "Request signature expired" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+    });
+  }
+
+  // 2. Replay attack duplicate nonce check in Redis
+  if (redis) {
+    try {
+      const nonceKey = `nonce:${nonce}`;
+      const exists = await redis.get(nonceKey);
+      if (exists) {
+        return new Response(JSON.stringify({ error: "Replay attack detected" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        });
+      }
+      await redis.set(nonceKey, "1", { ex: 300 });
+    } catch (err) {
+      console.error("[SignatureValidator] Redis nonce check error:", err);
+    }
+  }
+
+  // 3. Recalculate HMAC-SHA256 signature
+  const url = new URL(req.url);
+  const path = url.pathname;
+  const method = req.method.toUpperCase();
+  const bodyText = req.body ? await req.clone().text() : "";
+
+  const authHeader = req.headers.get("Authorization");
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : "";
+  const key = token;
+
+  const message = `${method}:${path}:${timestamp}:${nonce}:${bodyText}`;
+  const calculatedSignature = await hmacSha256(key, message);
+
+  if (signature !== calculatedSignature) {
+    return new Response(JSON.stringify({ error: "Invalid request signature" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+    });
+  }
+
+  return null;
 }

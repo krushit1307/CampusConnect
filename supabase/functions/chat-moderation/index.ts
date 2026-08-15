@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 declare const Deno: any;
 
@@ -14,6 +15,10 @@ serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  // Rate limit: 20 requests/minute (content moderation)
+  const limited = await rateLimiter(req, "chat-moderation", 20, 60);
+  if (limited) return limited;
 
   try {
     const payload = await req.json();
@@ -101,10 +106,12 @@ serve(async (req: Request) => {
       // Get club admins of clubs where sender is a member
       const { data: memberships, error: membershipError } = await supabase
         .from("club_members")
-        .select(`
+        .select(
+          `
           club_id,
           clubs:club_id (created_by)
-        `)
+        `,
+        )
         .eq("user_id", sender_id)
         .eq("status", "approved");
 
@@ -128,9 +135,7 @@ serve(async (req: Request) => {
           link: "/admin/reports",
         }));
 
-        const { error: notifyError } = await supabase
-          .from("notifications")
-          .insert(notifications);
+        const { error: notifyError } = await supabase.from("notifications").insert(notifications);
 
         if (notifyError) {
           console.error("Failed to insert notification alerts:", notifyError);
@@ -145,7 +150,7 @@ serve(async (req: Request) => {
         {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        },
       );
     }
 

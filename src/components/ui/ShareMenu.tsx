@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { Share2, Copy, Check, MessageCircle, Twitter, Linkedin } from "lucide-react";
+import Share2 from "lucide-react/dist/esm/icons/share-2";
+import Copy from "lucide-react/dist/esm/icons/copy";
+import Check from "lucide-react/dist/esm/icons/check";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
+import Twitter from "lucide-react/dist/esm/icons/twitter";
+import Linkedin from "lucide-react/dist/esm/icons/linkedin";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -26,7 +31,9 @@ export function ShareMenu({ url, title, text, children }: ShareMenuProps) {
   const encodedUrl = encodeURIComponent(url);
   const shareText = text || `Check out: ${title}`;
   const encodedShareText = encodeURIComponent(shareText);
-
+const shareUrl = eventId
+  ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/event-share?event_id=${encodeURIComponent(eventId)}`
+  : window.location.href;
   const handleShareClick = async (e: React.MouseEvent) => {
     if (webShare.canShare) {
       e.preventDefault();

@@ -1,18 +1,22 @@
-import { GripVertical } from "lucide-react";
+import GripVertical from "lucide-react/dist/esm/icons/grip-vertical";
 import { useCallback, useState, useRef, useEffect } from "react";
-import { Group, Panel, Separator } from "react-resizable-panels";
+import { Group, Panel, Separator, Layout } from "react-resizable-panels";
 
 import { cn } from "@/lib/utils";
 
-const ResizablePanelGroup = ({
-  className,
-  onLayout,
-  ...props
-}: React.ComponentProps<typeof Group>) => {
+interface ResizablePanelGroupProps {
+  className?: string;
+  onLayout?: (sizes: number[]) => void;
+  children?: React.ReactNode;
+  [key: string]: unknown;
+}
+
+const ResizablePanelGroup = ({ className, onLayout, ...props }: ResizablePanelGroupProps) => {
   const [announcement, setAnnouncement] = useState("");
 
   const handleLayout = useCallback(
-    (sizes: number[]) => {
+    (layout: Layout) => {
+      const sizes = Object.values(layout);
       if (sizes.length > 0) {
         setAnnouncement(`Panels resized: ${sizes.map((s) => `${Math.round(s)}%`).join(", ")}`);
       }
@@ -28,8 +32,8 @@ const ResizablePanelGroup = ({
           "flex h-full w-full data-[panel-group-direction=vertical]:flex-col",
           className,
         )}
-        onLayout={handleLayout}
-        {...props}
+        onLayoutChange={handleLayout}
+        {...(props as unknown as React.ComponentProps<typeof Group>)}
       />
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         {announcement}
@@ -40,13 +44,18 @@ const ResizablePanelGroup = ({
 
 const ResizablePanel = Panel;
 
-const ResizableHandle = ({
-  withHandle,
-  className,
-  ...props
-}: React.ComponentProps<typeof Separator> & {
+interface ResizableHandleProps {
   withHandle?: boolean;
-}) => {
+  className?: string;
+  tabIndex?: number;
+  [key: string]: unknown;
+}
+
+const SeparatorWithTabIndex = Separator as unknown as React.ComponentType<
+  React.ComponentProps<typeof Separator> & { tabIndex?: number }
+>;
+
+const ResizableHandle = ({ withHandle, className, ...props }: ResizableHandleProps) => {
   const handleRef = useRef<HTMLDivElement>(null);
   const [announcement, setAnnouncement] = useState("");
 
@@ -71,7 +80,7 @@ const ResizableHandle = ({
 
   return (
     <>
-      <Separator
+      <SeparatorWithTabIndex
         tabIndex={0}
         aria-label="Drag to resize or use arrow keys"
         className={cn(
@@ -79,14 +88,14 @@ const ResizableHandle = ({
           className,
         )}
         elementRef={handleRef}
-        {...props}
+        {...(props as unknown as React.ComponentProps<typeof Separator>)}
       >
         {withHandle && (
           <div className="z-10 flex h-4 w-3 items-center justify-center rounded-sm border bg-border">
             <GripVertical className="h-2.5 w-2.5" />
           </div>
         )}
-      </Separator>
+      </SeparatorWithTabIndex>
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         {announcement}
       </div>

@@ -1,17 +1,22 @@
-import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
-import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { localizedPath } from "@/lib/i18n";
+import { useScrollDirection } from "@/hooks/useScrollDirection";
 
 import { ThemeToggle } from "../ThemeToggle";
 import { NavbarNotificationDropdown } from "./NavbarNotificationDropdown";
+import { BookmarksPanel } from "@/components/BookmarksPanel";
+import { createClient } from "@/lib/supabase/client";
 
-import { Menu, X } from "lucide-react";
+import Menu from "lucide-react/dist/esm/icons/menu";
+import X from "lucide-react/dist/esm/icons/x";
+import WifiOff from "lucide-react/dist/esm/icons/wifi-off";
+import Bookmark from "lucide-react/dist/esm/icons/bookmark";
+import Search from "lucide-react/dist/esm/icons/search";
 import { useAuthHydration } from "@/hooks/useAuthHydration";
 import { ProfileHeaderSkeleton } from "@/components/ProfileHeaderSkeleton";
+import { openCommandPalette } from "@/lib/commandPalette";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,11 +26,49 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+const links = [
+  { to: "/events", label: "Events" },
+  { to: "/clubs", label: "Clubs" },
+  { to: "/feed", label: "Feed" },
+  { to: "/gallery", label: "Gallery" },
+  { to: "/certificates", label: "Certificates" },
+  { to: "/dashboard", label: "Dashboard" },
+] as const;
+
 export function Navbar() {
   const { user, isInitializing } = useAuthHydration();
   const location = useLocation();
-  const navigate = useNavigate();
   const { t, i18n } = useTranslation();
+  const currentPath = location.pathname;
+  const supabase = createClient();
+
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth");
+  };
+
+  // Hide navbar on scroll down, show instantly on scroll up (mobile only)
+  const { direction, scrollY } = useScrollDirection();
+  // Hide only when scrolled past 50px and actively scrolling down
+  const isNavbarHidden = direction === "down" && scrollY >= 50;
+
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
   const links = [
     {
       to: localizedPath(i18n.language, "/events"),
@@ -66,11 +109,9 @@ export function Navbar() {
     { href: "#faq", label: t("navbar.faq") },
     { href: "#contact", label: t("navbar.contact") },
   ];
-  const currentPath = location.pathname;
-  const supabase = createClient();
 
-  const { onlineUsers } = usePresence(user?.id);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [bookmarksPanelOpen, setBookmarksPanelOpen] = useState(false);
 
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const navRef = useRef<HTMLElement>(null);
@@ -130,19 +171,13 @@ export function Navbar() {
     setMobileMenuOpen(false);
   }, [location.pathname]);
 
-  const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      console.error("Sign out failed:", error.message);
-      return;
-    }
-
-    navigate("/", { replace: true });
-  };
-
   return (
-    <header className="sticky top-0 z-40 border-b-2 border-black bg-white text-black dark:border-cream dark:bg-black dark:text-cream">
+    <header
+      className={`sticky top-0 z-40 border-b-2 border-black bg-white text-black dark:border-cream dark:bg-black dark:text-cream
+        transition-transform duration-200 ease-out
+        ${isNavbarHidden ? "-translate-y-full md:translate-y-0" : "translate-y-0"}`}
+      aria-hidden={isNavbarHidden}
+    >
       <div className="mx-auto flex min-w-0 max-w-7xl items-center justify-between gap-2 px-2 py-3 sm:px-4 md:px-6">
         {/* Logo */}
         <Link
@@ -190,69 +225,95 @@ export function Navbar() {
 
         {/* Actions */}
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-          <div className="flex items-center gap-1 sm:gap-2">
-            <div className="hidden rounded-full border border-black bg-lime px-2 py-1 text-xs font-mono font-bold md:flex dark:border-cream dark:text-black">
-              🟢 {onlineUsers} online
+          {isOffline && (
+            <div
+              data-testid="offline-indicator"
+              className="flex items-center gap-1.5 rounded bg-amber-500 px-2 py-1 font-mono text-xs font-bold text-black"
+            >
+              <WifiOff className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Offline Mode</span>
             </div>
-
-            <ThemeToggle />
-
-            {user && <NavbarNotificationDropdown />}
-            {isInitializing ? (
-                <ProfileHeaderSkeleton />
-              ) : user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label="User menu"
-                    className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-lime font-mono text-xs font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 dark:focus-visible:ring-cream"
-                  >
-                    {user.email?.[0]?.toUpperCase() ?? "U"}
-                  </button>
-                </DropdownMenuTrigger>
-
-                <DropdownMenuContent align="end" className="w-56">
-                  {/* Email */}
-                  <DropdownMenuLabel className="break-all text-xs">{user.email}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-
-                  {/* Dashboard */}
-                  <DropdownMenuItem asChild>
-                    <Link to="/dashboard">Dashboard</Link>
-                  </DropdownMenuItem>
-
-                  {/* Messages */}
-                  <DropdownMenuItem asChild>
-                    <Link to="/messages">Messages</Link>
-                  </DropdownMenuItem>
-
-                  {/* Settings */}
-                  <DropdownMenuItem asChild>
-                    <Link to="/settings">Settings</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-
-                  {/* Sign Out */}
-                  <DropdownMenuItem
-                    onClick={handleSignOut}
-                    className="cursor-pointer text-red-600 focus:text-red-600"
-                  >
-                    Sign Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Link
-                to={localizedPath(i18n.language, "/auth")}
-                id="nav-signin-button"
-                className="neu-border neu-press bg-black px-3 py-1.5 font-mono text-xs font-bold uppercase text-cream hover:bg-cream hover:text-black dark:bg-cream dark:text-black dark:hover:bg-black dark:hover:text-cream"
-                style={{ letterSpacing: "0.08em" }}
-              >
-                {t("navbar.signin")}
-              </Link>
           )}
-          </div>
+
+          <ThemeToggle />
+
+          {user && <NavbarNotificationDropdown />}
+          {user && (
+            <button
+              type="button"
+              aria-label="Open bookmarks"
+              onClick={() => setBookmarksPanelOpen(true)}
+              className="neu-border flex h-8 w-8 items-center justify-center bg-white text-black transition-colors hover:bg-lime dark:bg-black dark:text-cream"
+            >
+              <Bookmark size={16} />
+            </button>
+          )}
+
+          {isInitializing ? (
+            <ProfileHeaderSkeleton />
+          ) : user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="User menu"
+                  className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-lime font-mono text-xs font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 dark:focus-visible:ring-cream"
+                >
+                  {user.email?.[0]?.toUpperCase() ?? "U"}
+                </button>
+              </DropdownMenuTrigger>
+
+              <DropdownMenuContent align="end" className="w-56">
+                {/* Email */}
+                <DropdownMenuLabel className="break-all text-xs">{user.email}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+
+                {/* Dashboard */}
+                <DropdownMenuItem asChild>
+                  <Link to="/dashboard">Dashboard</Link>
+                </DropdownMenuItem>
+
+                {/* Messages */}
+                <DropdownMenuItem asChild>
+                  <Link to="/messages">Messages</Link>
+                </DropdownMenuItem>
+
+                {/* Settings */}
+                <DropdownMenuItem asChild>
+                  <Link to="/settings">Settings</Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+
+                {/* Sign Out */}
+                <DropdownMenuItem
+                  onClick={handleSignOut}
+                  className="cursor-pointer text-red-600 focus:text-red-600"
+                >
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link
+              to="/auth"
+              id="nav-signin-button"
+              className="neu-border neu-press bg-black px-3 py-1.5 font-mono text-xs font-bold uppercase text-cream hover:bg-cream hover:text-black dark:bg-cream dark:text-black dark:hover:bg-black dark:hover:text-cream"
+              style={{ letterSpacing: "0.08em" }}
+            >
+              Sign in
+            </Link>
+          )}
+
+          {/* Global search (Cmd+K) trigger — highly visible on mobile where the
+              keyboard shortcut does not exist */}
+          <button
+            type="button"
+            onClick={openCommandPalette}
+            aria-label="Open global search"
+            className="neu-border flex h-8 w-8 shrink-0 items-center justify-center bg-white p-1 text-black transition-colors hover:bg-lime dark:bg-black dark:text-cream"
+          >
+            <Search size={18} />
+          </button>
 
           {/* Mobile menu toggle button */}
           <button
@@ -266,7 +327,71 @@ export function Navbar() {
             {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
         </div>
+
+        {user && <NavbarNotificationDropdown />}
+        {user && (
+          <button
+            type="button"
+            aria-label="Open bookmarks"
+            onClick={() => setBookmarksPanelOpen(true)}
+            className="neu-border flex h-8 w-8 items-center justify-center bg-white text-black transition-colors hover:bg-lime dark:bg-black dark:text-cream"
+          >
+            <Bookmark size={16} />
+          </button>
+        )}
+        {user ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="User menu"
+                className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-lime font-mono text-xs font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 dark:focus-visible:ring-cream"
+              >
+                {user.email?.[0]?.toUpperCase() ?? "U"}
+              </button>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="break-all text-xs">{user.email}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link to="/dashboard">Dashboard</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/messages">Messages</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/settings">Settings</Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600">
+                Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Link
+            to="/auth"
+            id="nav-signin-button"
+            className="neu-border neu-press bg-black px-3 py-1.5 font-mono text-xs font-bold uppercase text-cream hover:bg-cream hover:text-black dark:bg-cream dark:text-black dark:hover:bg-black dark:hover:text-cream"
+            style={{ letterSpacing: "0.08em" }}
+          >
+            Sign in
+          </Link>
+        )}
       </div>
+
+      <BookmarksPanel
+        open={bookmarksPanelOpen}
+        onOpenChange={setBookmarksPanelOpen}
+        user={user ?? null}
+      />
+
+      <BookmarksPanel
+        open={bookmarksPanelOpen}
+        onOpenChange={setBookmarksPanelOpen}
+        user={user ?? null}
+      />
 
       {/* Mobile Navigation */}
       {mobileMenuOpen && (

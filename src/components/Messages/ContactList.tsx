@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import Search from "lucide-react/dist/esm/icons/search";
 import { useChatStore } from "@/store/useChatStore";
 
 export default function ContactList() {

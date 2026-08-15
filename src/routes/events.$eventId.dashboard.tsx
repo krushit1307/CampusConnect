@@ -3,10 +3,15 @@ import { useParams, useNavigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
+import { duplicateEvent } from "@/lib/events/duplicateEvent";
 import ReactECharts from "echarts-for-react";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Star from "lucide-react/dist/esm/icons/star";
 import { ChartSkeleton } from "@/components/ui/ChartSkeleton";
+import { EventFinancesSection } from "@/components/analytics/EventFinancesSection";
+import { EventPodcastPanel } from "@/components/audio/EventPodcastPanel";
+import { WaitlistChurnPredictionCard } from "@/components/events/WaitlistChurnPredictionCard";
 
 const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));
 
@@ -23,10 +28,25 @@ export default function EventDashboard() {
   } = useQuery({
     queryKey: ["event_analytics", eventId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_event_analytics", { p_event_id: eventId });
+      const { data, error } = await supabase.rpc("get_event_analytics", { p_event_id: eventId! });
       if (error) {
         throw new Error(error.message);
       }
+      return data;
+    },
+    enabled: !!eventId,
+  });
+  const { data: feedbackSummary } = useQuery({
+    queryKey: ["event_feedback_summary", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_event_feedback_summary", {
+        p_event_id: eventId!,
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
       return data;
     },
     enabled: !!eventId,
@@ -38,10 +58,22 @@ export default function EventDashboard() {
       const { data, error } = await supabase
         .from("events")
         .select("title")
-        .eq("id", eventId)
+        .eq("id", eventId!)
         .single();
       if (error) throw error;
       return data;
+    },
+    enabled: !!eventId,
+  });
+
+  const { data: topPromoters = [] } = useQuery({
+    queryKey: ["event_top_promoters", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_event_top_promoters", {
+        p_event_id: eventId!,
+      });
+      if (error) throw error;
+      return data || [];
     },
     enabled: !!eventId,
   });
@@ -73,9 +105,11 @@ export default function EventDashboard() {
   }
 
   // Parse RPC response
-  const rsvpsByDate = analyticsData.rsvps_by_date || [];
-  const attendeesByMajor = analyticsData.attendees_by_major || [];
-  const attendeesByYear = analyticsData.attendees_by_year || [];
+
+  const data = (analyticsData as Record<string, any>) || {};
+  const rsvpsByDate = data.rsvps_by_date || [];
+  const attendeesByMajor = data.attendees_by_major || [];
+  const attendeesByYear = data.attendees_by_year || [];
 
   // ECharts Configurations
   const areaChartOption = {
@@ -190,6 +224,114 @@ export default function EventDashboard() {
             <h1 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
               {eventData?.title ? `${eventData.title} Analytics` : "Event Analytics"}
             </h1>
+            <div className="flex-1" />
+            <button
+              onClick={async () => {
+                try {
+                  const {
+                    data: { user },
+                  } = await supabase.auth.getUser();
+                  if (!user) throw new Error("Not logged in");
+                  toast.loading("Duplicating event...", { id: "duplicate" });
+                  const newId = await duplicateEvent(supabase, eventId!, user.id);
+                  toast.success("Event duplicated as draft!", { id: "duplicate" });
+                  navigate("/events/" + newId);
+                } catch (err: any) {
+                  toast.error(err.message || "Failed to duplicate event", { id: "duplicate" });
+                }
+              }}
+              className="neu-border neu-press bg-yellow-300 text-black px-4 py-2 font-mono text-xs font-bold uppercase hover:-translate-y-1 transition-transform whitespace-nowrap"
+            >
+              Duplicate Event
+            </button>
+          </div>
+          <div className="mb-8 border-2 border-black bg-yellow-100 p-5 shadow-[4px_4px_0_0_#000]">
+            <div className="flex items-center gap-2">
+              <Star size={20} />
+
+              <h2 className="font-display text-xl font-black uppercase">Post-Event Feedback</h2>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="border-2 border-black bg-white p-4">
+                <p className="font-mono text-xs font-bold uppercase">Average Rating</p>
+
+                <p className="mt-2 font-display text-3xl font-black">
+                  {Number(feedbackSummary?.average_rating ?? 0).toFixed(1)}
+                  <span className="ml-1 text-lg">/ 5</span>
+                </p>
+              </div>
+
+              <div className="border-2 border-black bg-white p-4">
+                <p className="font-mono text-xs font-bold uppercase">Responses</p>
+
+                <p className="mt-2 font-display text-3xl font-black">
+                  {feedbackSummary?.response_count ?? 0}
+                </p>
+              </div>
+
+              <div className="border-2 border-black bg-white p-4">
+                <p className="font-mono text-xs font-bold uppercase">Response Rate</p>
+
+                <p className="mt-2 font-display text-3xl font-black">
+                  {Number(feedbackSummary?.response_rate ?? 0).toFixed(1)}%
+                </p>
+
+                <p className="mt-1 font-mono text-[10px] text-black/50">
+                  Based on {feedbackSummary?.attendee_count ?? 0} checked-in attendees
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-8">
+            <WaitlistChurnPredictionCard eventId={eventId!} />
+          </div>
+
+          <div className="mb-8 border-2 border-black bg-purple-100 p-5 shadow-[4px_4px_0_0_#000]">
+            <h2 className="font-display text-xl font-black uppercase mb-4 flex items-center gap-2">
+              🏆 Top Promoters Leaderboard
+            </h2>
+            {topPromoters.length > 0 ? (
+              <div className="border-2 border-black bg-white divide-y-2 divide-black">
+                {topPromoters.map((promoter: any, index: number) => (
+                  <div
+                    key={promoter.referrer_id}
+                    className="flex items-center justify-between p-3 font-mono text-sm"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-lg w-6">#{index + 1}</span>
+                      <div className="h-8 w-8 rounded-full border border-black overflow-hidden bg-gray-100">
+                        {promoter.referrer_avatar_url ? (
+                          <img
+                            src={promoter.referrer_avatar_url}
+                            alt={promoter.referrer_name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center bg-purple-200 text-xs font-bold">
+                            {promoter.referrer_name?.charAt(0) || "P"}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-bold">{promoter.referrer_name}</p>
+                        <p className="text-xs text-gray-500">@{promoter.referrer_handle || "username"}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="neu-border bg-green-200 px-2.5 py-1 text-xs font-bold uppercase">
+                        {promoter.referral_count} {promoter.referral_count === 1 ? "invite" : "invites"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm font-mono text-gray-600 bg-white p-4 border-2 border-black italic">
+                No referrals recorded for this event yet. Encourage attendees to generate referral invite links!
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
@@ -247,6 +389,8 @@ export default function EventDashboard() {
               </Suspense>
             </div>
           </div>
+          <EventFinancesSection eventId={eventId!} />
+          <EventPodcastPanel eventId={eventId!} />
         </div>
       </div>
     </SiteShell>

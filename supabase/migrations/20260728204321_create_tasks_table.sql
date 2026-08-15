@@ -57,14 +57,11 @@ FOR UPDATE USING (
 -- Policy: Club admins can delete tasks
 CREATE POLICY "Club admins can delete tasks" ON tasks
 FOR DELETE USING (
-  EXISTS (
-    SELECT 1 FROM club_members 
-    WHERE club_id = tasks.club_id AND user_id = auth.uid() AND role = 'admin'
-  )
+  public.is_club_admin(tasks.club_id, auth.uid())
 );
 
 -- Trigger to auto-update updated_at timestamp
 CREATE TRIGGER trg_update_tasks_updated_at
   BEFORE UPDATE ON tasks
   FOR EACH ROW
-  EXECUTE FUNCTION update_modified_column();
+  EXECUTE FUNCTION public.update_updated_at_column();

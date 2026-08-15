@@ -67,6 +67,23 @@ describe("ClubAnalyticsDashboard Component", () => {
     ],
   };
 
+  const mockAttendanceStats = {
+    club_id: "test-club-123",
+    event_count: 5,
+    average: 42.5,
+    median: 30,
+  };
+
+  // Resolve each RPC with the payload matching its function name.
+  const setupMockRpc = () => {
+    mockRpc.mockImplementation((fnName: string) => {
+      if (fnName === "get_club_attendance_stats") {
+        return Promise.resolve({ data: mockAttendanceStats, error: null });
+      }
+      return Promise.resolve({ data: mockAnalyticsData, error: null });
+    });
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -80,7 +97,7 @@ describe("ClubAnalyticsDashboard Component", () => {
   });
 
   it("renders summary KPIs and charts after loading data", async () => {
-    mockRpc.mockResolvedValue({ data: mockAnalyticsData, error: null });
+    setupMockRpc();
 
     renderWithClient(<ClubAnalyticsDashboard clubId={mockClubId} />);
 
@@ -91,13 +108,17 @@ describe("ClubAnalyticsDashboard Component", () => {
       expect(screen.getByText("85")).toBeInTheDocument(); // total members
     });
 
+    expect(screen.getByText("42.5")).toBeInTheDocument(); // average attendance (Postgres)
+    expect(screen.getByText("30")).toBeInTheDocument(); // median attendance (Postgres)
+    expect(screen.getByText(/Average Attendance/i)).toBeInTheDocument();
+    expect(screen.getByText(/Median Attendance/i)).toBeInTheDocument();
     expect(screen.getByText(/RSVP & Attendance Trends/i)).toBeInTheDocument();
     expect(screen.getByText(/Discussion Activity/i)).toBeInTheDocument();
     expect(screen.getByText(/Top Events by Page Views/i)).toBeInTheDocument();
   });
 
   it("switches time range filters when buttons are clicked", async () => {
-    mockRpc.mockResolvedValue({ data: mockAnalyticsData, error: null });
+    setupMockRpc();
 
     renderWithClient(<ClubAnalyticsDashboard clubId={mockClubId} />);
 

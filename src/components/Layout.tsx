@@ -1,17 +1,24 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { WebRTCProvider } from "@/components/VideoCall/WebRTCProvider";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ScrollToTop } from "@/components/ScrollToTop";
-import { SpeedDial } from "@/components/SpeedDial";
+import { RadialFAB } from "@/components/RadialFAB";
+import { FloatingChat } from "@/components/FloatingChat";
 import { createClient } from "@/lib/supabase/client";
-import { ThemeProvider } from "@/components/theme-provider";
 import TopProgressBar from "@/components/TopProgressBar";
 import ShortcutsModal from "@/components/ShortcutsModal";
+import { useAnnouncementStream } from "@/hooks/useAnnouncementStream";
+import { SessionExpiryModal } from "@/components/SessionExpiryModal";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
+import { CommandPalette } from "@/components/ui/command-palette";
 import { showAnnouncementToast } from "@/lib/announcements/sse";
+import { SkipToContent } from "@/components/SkipToContent";
+import ImpersonationBanner from "@/components/ImpersonationBanner";
+import { GlobalAudioPlayer } from "@/components/audio/GlobalAudioPlayer";
 
 // Persistent banner shown while the browser has no network connection.
 function OfflineBanner() {
@@ -48,6 +55,14 @@ function OfflineBanner() {
 
 export default function Layout() {
   const location = useLocation();
+  const { i18n } = useTranslation();
+
+  // Keep <html lang="..."> in sync with the active language
+  // Required for accessibility (screen readers), SEO, and browser behaviour
+  useEffect(() => {
+    const lang = i18n.language?.split("-")[0] ?? "en";
+    document.documentElement.lang = lang;
+  }, [i18n.language]);
 
   const [userId, setUserId] = useState<string | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -106,6 +121,9 @@ export default function Layout() {
     }
   }, [location.pathname, userId]);
 
+  // Enable SSE announcement stream for authenticated users only
+  useAnnouncementStream(userId);
+
   // Keyboard shortcut (Shift + /)
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -152,21 +170,68 @@ export default function Layout() {
   }, []);
 
   return (
-    <ThemeProvider>
+    <>
       <TooltipProvider delayDuration={200}>
         <WebRTCProvider>
+          <SkipToContent />
           <OfflineBanner />
           <TopProgressBar />
+          <SessionExpiryModal />
+ feature/2986-event-audio-player
+ feature/2986-event-audio-player
+ feature/2986-event-audio-player
+
+ feature/3010-membership-bundles
+ feature/3010-membership-bundles
+ main
+
+ feature/3014-referral-leaderboard
+ main
+          <ImpersonationBanner />
+          <GlobalAudioPlayer />
+
+ main
 
           <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
           <PWAInstallPrompt />
 
-          <Outlet />
+          <main id="main-content" className="flex-1 w-full h-full min-h-screen">
+            <Outlet />
+          </main>
+
+ feature/2986-event-audio-player
+ feature/2986-event-audio-player
+ feature/2986-event-audio-player
+
+ feature/3010-membership-bundles
+ feature/3010-membership-bundles
+ main
+
+ feature/3014-referral-leaderboard
+ main
+          <Toaster richColors />
+
           <Toaster />
+ main
           <ScrollToTop />
-          <SpeedDial />
+          <RadialFAB />
+          {userId && <FloatingChat />}
+          <CommandPalette />
         </WebRTCProvider>
       </TooltipProvider>
-    </ThemeProvider>
+ feature/2986-event-audio-player
+ feature/2986-event-audio-player
+ feature/2986-event-audio-player
+
+ feature/3010-membership-bundles
+ feature/3010-membership-bundles
+ main
+
+ feature/3014-referral-leaderboard
+ main
+
+      <ImpersonationBanner />
+ main
+    </>
   );
 }

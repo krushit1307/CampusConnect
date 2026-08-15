@@ -1,14 +1,12 @@
 import * as React from "react";
-import { Check, ChevronsUpDown, Search } from "lucide-react";
+import Check from "lucide-react/dist/esm/icons/check";
+import ChevronsUpDown from "lucide-react/dist/esm/icons/chevrons-up-down";
+import Search from "lucide-react/dist/esm/icons/search";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export interface VirtualComboboxOption {
   value: string;
@@ -47,9 +45,7 @@ export function VirtualCombobox({
   const filteredOptions = React.useMemo(() => {
     if (!search) return options;
     const lowerSearch = search.toLowerCase();
-    return options.filter((option) =>
-      option.label.toLowerCase().includes(lowerSearch)
-    );
+    return options.filter((option) => option.label.toLowerCase().includes(lowerSearch));
   }, [options, search]);
 
   const virtualizer = useVirtualizer({
@@ -114,7 +110,7 @@ export function VirtualCombobox({
 
   const selectedOption = React.useMemo(
     () => options.find((opt) => opt.value === value),
-    [options, value]
+    [options, value],
   );
 
   return (
@@ -142,20 +138,15 @@ export function VirtualCombobox({
               ref={inputRef}
               placeholder={searchPlaceholder}
               value={search}
-              onChange={(e: { target: { value: any; }; }) => setSearch(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
               className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
 
           {/* Virtualized List */}
-          <div
-            ref={parentRef}
-            className="max-h-[300px] overflow-auto p-1"
-          >
+          <div ref={parentRef} className="max-h-[300px] overflow-auto p-1">
             {filteredOptions.length === 0 ? (
-              <div className="py-6 text-center text-sm text-muted-foreground">
-                {emptyText}
-              </div>
+              <div className="py-6 text-center text-sm text-muted-foreground">{emptyText}</div>
             ) : (
               <div
                 style={{
@@ -164,7 +155,7 @@ export function VirtualCombobox({
                   position: "relative",
                 }}
               >
-                {virtualizer.getVirtualItems().map((virtualItem: { index: string | number; start: any; }) => {
+                {virtualizer.getVirtualItems().map((virtualItem) => {
                   const option = filteredOptions[virtualItem.index];
                   const isActive = activeIndex === virtualItem.index;
                   const isSelected = value === option.value;
@@ -178,7 +169,7 @@ export function VirtualCombobox({
                         "absolute top-0 left-0 w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
                         isActive && "bg-accent text-accent-foreground",
                         !isActive && isSelected && "bg-accent/50 text-accent-foreground",
-                        "flex gap-2"
+                        "flex gap-2",
                       )}
                       style={{
                         transform: `translateY(${virtualItem.start}px)`,
@@ -190,10 +181,7 @@ export function VirtualCombobox({
                       }}
                     >
                       <Check
-                        className={cn(
-                          "h-4 w-4 shrink-0",
-                          isSelected ? "opacity-100" : "opacity-0"
-                        )}
+                        className={cn("h-4 w-4 shrink-0", isSelected ? "opacity-100" : "opacity-0")}
                       />
                       <div className="flex-1 overflow-hidden">
                         {option.render || <span className="truncate">{option.label}</span>}

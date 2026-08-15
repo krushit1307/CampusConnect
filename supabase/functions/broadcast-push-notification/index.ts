@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
 import webpush from "npm:web-push@3.6.7";
+import { outboundCommunicationLimiter } from "../_shared/rateLimiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,17 +27,33 @@ serve(async (req) => {
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: req.headers.get("Authorization")! } } }
+      { global: { headers: { Authorization: req.headers.get("Authorization")! } } },
     );
 
-    // Get the user calling the function
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseClient.auth.getUser();
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // --- Outbound Communication Rate Limiting ---
+    const ipAddress = req.headers.get("x-forwarded-for") || "unknown-ip";
+    const identifier = user?.id || ipAddress;
+    const { success } = await outboundCommunicationLimiter.limit(identifier);
+
+    if (!success) {
+      console.warn(`[RateLimit] Outbound communication blocked for identifier: ${identifier}`);
+      return new Response(
+        JSON.stringify({ error: "Too Many Requests. Maximum 5 requests per 15 minutes." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    // --------------------------------------------
 
     const { data: profile } = await supabaseClient
       .from("profiles")
@@ -45,10 +62,13 @@ serve(async (req) => {
       .single();
 
     if (profile?.role !== "club_admin") {
-      return new Response(JSON.stringify({ error: "Forbidden: only admins can broadcast messages" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Forbidden: only admins can broadcast messages" }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // Setup web-push
@@ -65,7 +85,7 @@ serve(async (req) => {
     // Get service role client to fetch all subscriptions
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
     const { data: subscriptions, error: subError } = await supabaseAdmin
@@ -78,7 +98,7 @@ serve(async (req) => {
 
     const payload = JSON.stringify({ title, message, url: url || "/" });
     let successCount = 0;
-    
+
     const sendPromises = subscriptions.map(async (sub) => {
       try {
         await webpush.sendNotification(
@@ -89,7 +109,7 @@ serve(async (req) => {
               auth: sub.auth,
             },
           },
-          payload
+          payload,
         );
         successCount++;
       } catch (error: any) {

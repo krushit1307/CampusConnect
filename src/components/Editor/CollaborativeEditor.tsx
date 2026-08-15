@@ -6,19 +6,17 @@ import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
 import * as Y from "yjs";
 import { Awareness } from "y-protocols/awareness";
 import { createClient } from "@/lib/supabase/client";
-import {
-  Bold,
-  Italic,
-  List,
-  ListOrdered,
-  Quote,
-  Undo,
-  Redo,
-  Wifi,
-  WifiOff,
-  RefreshCw,
-  Users,
-} from "lucide-react";
+import Bold from "lucide-react/dist/esm/icons/bold";
+import Italic from "lucide-react/dist/esm/icons/italic";
+import List from "lucide-react/dist/esm/icons/list";
+import ListOrdered from "lucide-react/dist/esm/icons/list-ordered";
+import Quote from "lucide-react/dist/esm/icons/quote";
+import Undo from "lucide-react/dist/esm/icons/undo";
+import Redo from "lucide-react/dist/esm/icons/redo";
+import Wifi from "lucide-react/dist/esm/icons/wifi";
+import WifiOff from "lucide-react/dist/esm/icons/wifi-off";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import Users from "lucide-react/dist/esm/icons/users";
 import type { User, RealtimeChannel } from "@supabase/supabase-js";
 
 class LocalOriginTrackSet extends Set<unknown> {
@@ -389,33 +387,6 @@ export function CollaborativeEditor({ eventId, user, onSave }: CollaborativeEdit
     };
   }, [undoManager]);
 
-  // Setup Keyboard Shortcuts for Undo/Redo
-  useEffect(() => {
-    if (!editor || !editor.view.dom) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl + Z -> Undo
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
-        e.preventDefault();
-        undoManager.undo();
-        editor.commands.focus();
-      }
-      // Cmd/Ctrl + Shift + Z or Cmd/Ctrl + Y -> Redo
-      else if (
-        (e.metaKey || e.ctrlKey) &&
-        ((e.key.toLowerCase() === "z" && e.shiftKey) || e.key.toLowerCase() === "y")
-      ) {
-        e.preventDefault();
-        undoManager.redo();
-        editor.commands.focus();
-      }
-    };
-
-    const editorDOM = editor.view.dom;
-    editorDOM.addEventListener("keydown", handleKeyDown, { capture: true });
-    return () => editorDOM.removeEventListener("keydown", handleKeyDown, { capture: true });
-  }, [editor, undoManager]);
-
   // 4. Setup Tiptap Editor
   const editor = useEditor(
     {
@@ -448,6 +419,33 @@ export function CollaborativeEditor({ eventId, user, onSave }: CollaborativeEdit
     },
     [isLoaded, userProfile],
   );
+
+  // Setup Keyboard Shortcuts for Undo/Redo
+  useEffect(() => {
+    if (!editor || !editor.view.dom) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl + Z -> Undo
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undoManager.undo();
+        editor.commands.focus();
+      }
+      // Cmd/Ctrl + Shift + Z or Cmd/Ctrl + Y -> Redo
+      else if (
+        (e.metaKey || e.ctrlKey) &&
+        ((e.key.toLowerCase() === "z" && e.shiftKey) || e.key.toLowerCase() === "y")
+      ) {
+        e.preventDefault();
+        undoManager.redo();
+        editor.commands.focus();
+      }
+    };
+
+    const editorDOM = editor.view.dom;
+    editorDOM.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () => editorDOM.removeEventListener("keydown", handleKeyDown, { capture: true });
+  }, [editor, undoManager]);
 
   if (!isLoaded || !userProfile) {
     return (

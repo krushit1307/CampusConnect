@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Loader2, ArrowDown } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import ArrowDown from "lucide-react/dist/esm/icons/arrow-down";
 
 interface PullToRefreshProps {
   onRefresh: () => Promise<void> | void;
@@ -7,8 +8,8 @@ interface PullToRefreshProps {
   children: React.ReactNode;
 }
 
-const ACTIVATION_THRESHOLD = 80;
-const MAX_PULL_DISTANCE = 140;
+const ACTIVATION_THRESHOLD = 100;
+const MAX_PULL_DISTANCE = 160;
 const PULL_RESISTANCE = 0.4;
 
 export function PullToRefresh({ onRefresh, isRefreshing, children }: PullToRefreshProps) {

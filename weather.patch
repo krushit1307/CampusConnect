@@ -1,0 +1,243 @@
+diff --git a/src/components/CreateEventDialog.tsx b/src/components/CreateEventDialog.tsx
+index 081ae2bd..8b288a36 100644
+--- a/src/components/CreateEventDialog.tsx
++++ b/src/components/CreateEventDialog.tsx
+@@ -1,11 +1,5 @@
+ /* eslint-disable @typescript-eslint/no-explicit-any */
+-import { useState } from "react";
+-import { zodResolver } from "@hookform/resolvers/zod";
+-import { useForm } from "react-hook-form";
+-import { useMutation, useQuery } from "@/hooks/useReactQueryReplacement";
+-import Plus from "lucide-react/dist/esm/icons/plus";
+-import MapPin from "lucide-react/dist/esm/icons/map-pin";
+-import CalendarIcon from "lucide-react/dist/esm/icons/calendar";
++
+ import { useState, useEffect, useRef } from "react";
+ import { zodResolver } from "@hookform/resolvers/zod";
+ import { useForm, useWatch } from "react-hook-form";
+@@ -71,16 +65,8 @@ import {
+ } from "@/components/ui/select";
+ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+ import { Calendar } from "@/components/ui/calendar";
+-import {
+-  Select,
+-  SelectContent,
+-  SelectItem,
+-  SelectTrigger,
+-  SelectValue,
+-} from "@/components/ui/select";
+ import { Checkbox } from "@/components/ui/checkbox";
+ import { cn } from "@/lib/utils";
+-import { Checkbox } from "@/components/ui/checkbox";
+ import { FlyerUploader } from "@/components/FlyerUploader";
+ import type { ParsedFlyer } from "@/lib/parser";
+ import { MultiSelect } from "@/components/MultiSelect";
+@@ -207,9 +193,7 @@ const [isSuggestingCategories, setIsSuggestingCategories] = useState(false);  co
+     },
+   });
+ 
+-const watchedLocation = form.watch("location");
+ const watchedTitle = form.watch("title");
+-const watchedDescription = form.watch("description");
+ const watchedVenueId = form.watch("venue_id");
+ const control = form.control as never;
+ 
+@@ -900,6 +884,50 @@ useEffect(() => {
+                 )}
+               </>
+             )}
++                
++                <FormField
++                  control={control}
++                  name="is_outdoor"
++                  render={({ field }) => (
++                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-white p-4 shadow-sm">
++                      <FormControl>
++                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
++                      </FormControl>
++                      <div className="space-y-1 leading-none">
++                        <FormLabel className="font-bold cursor-pointer">
++                          Outdoor Event
++                        </FormLabel>
++                        <p className="text-xs text-black/50">
++                          Mark this as an outdoor event to enable automated weather alerts.
++                        </p>
++                      </div>
++                    </FormItem>
++                  )}
++                />
++
++                {form.watch("is_outdoor") && (
++                  <FormField
++                    control={control}
++                    name="backup_indoor_venue"
++                    render={({ field }) => (
++                      <FormItem className="rounded-md border-2 border-black bg-white p-4">
++                        <FormLabel className="font-bold">Backup Indoor Venue</FormLabel>
++                        <FormControl>
++                          <Input
++                            placeholder="e.g. Student Union Hall"
++                            {...field}
++                            value={field.value || ""}
++                          />
++                        </FormControl>
++                        <p className="mt-1 text-xs text-black/50">
++                          If severe weather is forecasted, you will be prompted to automatically pivot the event here.
++                        </p>
++                        <FormMessage />
++                      </FormItem>
++                    )}
++                  />
++                )}
++
+                 <FormField
+                   control={control}
+                   name="geofencingEnabled"
+diff --git a/src/components/EditEventDialog.tsx b/src/components/EditEventDialog.tsx
+index 4000df23..b6a5d8c5 100644
+--- a/src/components/EditEventDialog.tsx
++++ b/src/components/EditEventDialog.tsx
+@@ -92,6 +92,8 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
+       description: event.description || "",
+       category: (event.category_id as string) || "",
+       location: event.location || "",
++      is_outdoor: event.is_outdoor || false,
++      backup_indoor_venue: event.backup_indoor_venue || "",
+       startDate: event.start_date ? new Date(event.start_date).toISOString().slice(0, 16) : "",
+       endDate: event.end_date ? new Date(event.end_date).toISOString().slice(0, 16) : "",
+       tags: event.tags || [],
+@@ -227,6 +229,8 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
+         description: values.description.trim(),
+         category_id: values.category || null,
+         location: values.location?.trim() || null,
++        is_outdoor: values.is_outdoor || false,
++        backup_indoor_venue: values.backup_indoor_venue?.trim() || null,
+         start_date: new Date(values.startDate).toISOString(),
+         end_date: new Date(values.endDate).toISOString(),
+         tags: values.tags || [],
+@@ -385,7 +389,53 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
+                   </FormItem>
+                 )}
+               />
++              <FormField
++                control={control}
++                name="is_outdoor"
++                render={({ field }) => (
++                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
++                    <FormControl>
++                      <input 
++                        type="checkbox" 
++                        checked={field.value} 
++                        onChange={field.onChange} 
++                        className="mt-1"
++                      />
++                    </FormControl>
++                    <div className="space-y-1 leading-none">
++                      <FormLabel className="cursor-pointer font-medium">
++                        Outdoor Event
++                      </FormLabel>
++                      <p className="text-xs text-muted-foreground">
++                        Mark this as an outdoor event to enable automated weather alerts.
++                      </p>
++                    </div>
++                  </FormItem>
++                )}
++              />
+ 
++              {form.watch("is_outdoor") && (
++                <FormField
++                  control={control}
++                  name="backup_indoor_venue"
++                  render={({ field }) => (
++                    <FormItem className="rounded-md border p-4">
++                      <FormLabel>Backup Indoor Venue</FormLabel>
++                      <FormControl>
++                        <Input
++                          placeholder="e.g. Student Union Hall"
++                          {...field}
++                          value={field.value || ""}
++                        />
++                      </FormControl>
++                      <p className="mt-1 text-xs text-muted-foreground">
++                        If severe weather is forecasted, you will be prompted to automatically pivot the event here.
++                      </p>
++                      <FormMessage />
++                    </FormItem>
++                  )}
++                />
++              )}
+               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                 <FormField
+                   control={control}
+diff --git a/src/components/EventCreationWizard/steps/DateLocationStepForm.tsx b/src/components/EventCreationWizard/steps/DateLocationStepForm.tsx
+index 2bb39a11..bfd941c6 100644
+--- a/src/components/EventCreationWizard/steps/DateLocationStepForm.tsx
++++ b/src/components/EventCreationWizard/steps/DateLocationStepForm.tsx
+@@ -87,6 +87,36 @@ export function DateLocationStepForm() {
+         </div>
+       )}
+ 
++      <div className="flex items-center space-x-2">
++        <Checkbox
++          id="isOutdoor"
++          checked={formData.isOutdoor}
++          onCheckedChange={(checked) => updateFormData({ isOutdoor: checked === true })}
++        />
++        <Label htmlFor="isOutdoor" className="cursor-pointer">
++          Outdoor Event
++        </Label>
++      </div>
++
++      {formData.isOutdoor && (
++        <div className="space-y-2">
++          <Label htmlFor="backupIndoorVenue">Backup Indoor Venue</Label>
++          <Input
++            id="backupIndoorVenue"
++            value={formData.backupIndoorVenue ?? ""}
++            onChange={(e) => updateFormData({ backupIndoorVenue: e.target.value })}
++            placeholder="e.g. Student Union Hall"
++            aria-invalid={!!validationErrors.backupIndoorVenue}
++          />
++          <p className="text-xs text-slate-500 dark:text-slate-400">
++            If severe weather is forecasted, you will be prompted to automatically pivot the event here.
++          </p>
++          {validationErrors.backupIndoorVenue && (
++            <p className="text-sm text-red-600 dark:text-red-400">{validationErrors.backupIndoorVenue}</p>
++          )}
++        </div>
++      )}
++
+       <div className="space-y-2">
+         <Label htmlFor="capacity">Capacity *</Label>
+         <Input
+diff --git a/src/lib/eventWizardSchema.ts b/src/lib/eventWizardSchema.ts
+index d3c8c7ad..33b99efe 100644
+--- a/src/lib/eventWizardSchema.ts
++++ b/src/lib/eventWizardSchema.ts
+@@ -29,6 +29,8 @@ export const dateLocationStepBaseSchema = z.object({
+   location: z.string().min(3, "Location is required").max(200, "Location is too long"),
+   isVirtual: z.boolean().default(false),
+   meetingUrl: z.string().url("Please enter a valid meeting URL").optional().or(z.literal("")),
++  isOutdoor: z.boolean().default(false),
++  backupIndoorVenue: z.string().optional(),
+   capacity: z
+     .number()
+     .int("Capacity must be a whole number")
+@@ -171,6 +173,8 @@ export const eventWizardMasterSchema = z
+     location: dateLocationStepBaseSchema.shape.location,
+     isVirtual: dateLocationStepBaseSchema.shape.isVirtual,
+     meetingUrl: dateLocationStepBaseSchema.shape.meetingUrl,
++    isOutdoor: dateLocationStepBaseSchema.shape.isOutdoor,
++    backupIndoorVenue: dateLocationStepBaseSchema.shape.backupIndoorVenue,
+     capacity: dateLocationStepBaseSchema.shape.capacity,
+     // Ticketing
+     isPaid: ticketingStepBaseSchema.shape.isPaid,
+@@ -260,6 +264,8 @@ export const DEFAULT_EVENT_WIZARD_DATA: EventWizardFormData = {
+   location: "",
+   isVirtual: false,
+   meetingUrl: "",
++  isOutdoor: false,
++  backupIndoorVenue: "",
+   capacity: 50,
+   isPaid: false,
+   isResumeRequired: false,

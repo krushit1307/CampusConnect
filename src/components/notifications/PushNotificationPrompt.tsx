@@ -6,13 +6,15 @@
  */
 
 import * as React from "react";
-import { Bell, X, Check } from "lucide-react";
+import Bell from "lucide-react/dist/esm/icons/bell";
+import X from "lucide-react/dist/esm/icons/x";
+import Check from "lucide-react/dist/esm/icons/check";
 import { isPushSupported, subscribeToPushNotifications } from "../../lib/push-notifications";
 
 export const PushNotificationPrompt: React.FC = () => {
-  const [showPrompt, setShowPrompt] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+  const [showPrompt, setShowPrompt] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [status, setStatus] = React.useState<"idle" | "success" | "error">("idle");
 
   React.useEffect(() => {
     // Check if the user has already dismissed the prompt or enabled notifications

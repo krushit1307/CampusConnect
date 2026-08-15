@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { createClient } from "@/lib/supabase/client";
 import { Sparkle } from "@/components/site/Sparkle";
-import { CheckCircle2, AlertCircle, Loader2, ArrowLeft, Mail } from "lucide-react";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Mail from "lucide-react/dist/esm/icons/mail";
 import { toast } from "sonner";
 import { useWebAuthn } from "@/hooks/useWebAuthn";
 
@@ -108,7 +112,9 @@ export default function VerifyEmailPage() {
                   onClick={async () => {
                     try {
                       await registerPasskey("Passkey");
-                      toast.success("Passkey registered successfully! You can now sign in without a password.");
+                      toast.success(
+                        "Passkey registered successfully! You can now sign in without a password.",
+                      );
                     } catch (e) {
                       console.error("Passkey enrollment skipped", e);
                     }
@@ -116,7 +122,9 @@ export default function VerifyEmailPage() {
                   }}
                   className="neu-border neu-press flex w-full flex-col items-center justify-center bg-black py-3 text-cream cursor-pointer"
                 >
-                  <span className="font-mono text-sm font-bold uppercase">Enable FaceID / TouchID</span>
+                  <span className="font-mono text-sm font-bold uppercase">
+                    Enable FaceID / TouchID
+                  </span>
                   <span className="text-xs text-gray-400">Sign in instantly next time</span>
                 </button>
 

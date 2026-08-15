@@ -1,6 +1,28 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://esm.sh/zod@3.24.2";
+import { corsHeaders } from "../_shared/cors.ts";
+import { verifyTurnstile } from "../_shared/turnstile.ts";
 import { loginLimiter } from "../_shared/rateLimiter.ts";
+import { parseJsonBody } from "../_shared/validation.ts";
+
+// Login requests either carry credentials or an account-unlock action.
+// Each branch is validated strictly so stray fields are rejected.
+const loginSchema = z
+  .object({
+    email: z.string().max(255, "email is too long").email("email must be a valid email address"),
+    password: z.string().min(1, "password is required").max(256),
+  })
+  .strict();
+
+const unlockSchema = z
+  .object({
+    action: z.literal("unlock"),
+    email: z.string().max(255, "email is too long").email("email must be a valid email address"),
+    token: z.string().min(1, "token is required"),
+  })
+  .strict();
+const loginProxySchema = z.union([loginSchema, unlockSchema]);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,14 +45,9 @@ serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  const ip =
-    req.headers.get("x-forwarded-for")
-      ?.split(",")[0]
-      .trim() ??
-    "unknown";
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
 
-  const result =
-    await loginLimiter.limit(ip);
+  const result = await loginLimiter.limit(ip);
 
   if (!result.success) {
     return new Response(
@@ -42,14 +59,11 @@ serve(async (req: Request) => {
         headers: {
           ...corsHeaders,
           "Content-Type": "application/json",
-          "Retry-After": String(
-            Math.ceil((result.reset - Date.now()) / 1000)
-          ),
+          "Retry-After": String(Math.ceil((result.reset - Date.now()) / 1000)),
         },
-      }
+      },
     );
   }
-
 
   try {
     const supabaseAdmin = createClient(
@@ -57,10 +71,20 @@ serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    const body = await req.json().catch(() => ({}));
+    const rawText = await req.text();
+    const parsed = await parseJsonBody(
+      loginProxySchema,
+      new Request(req.url, {
+        method: "POST",
+        headers: req.headers,
+        body: rawText.trim() ? rawText : null,
+      }),
+    );
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.data;
 
     // Handle account unlock action
-    if (body?.action === "unlock") {
+    if ("action" in body && body.action === "unlock") {
       const { email, token } = body;
       if (!email || !token) {
         return new Response(JSON.stringify({ error: "Email and token are required" }), {
@@ -122,10 +146,29 @@ serve(async (req: Request) => {
     }
 
     // Standard Login flow
-    const { email, password } = body;
+    const { email, password, captchaToken } = body as {
+      email: string;
+      password: string;
+      captchaToken: string;
+    };
 
     if (!email || !password) {
       return new Response(JSON.stringify({ error: "Email and password are required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!captchaToken) {
+      return new Response(JSON.stringify({ error: "CAPTCHA verification is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const isValidCaptcha = await verifyTurnstile(captchaToken);
+    if (!isValidCaptcha) {
+      return new Response(JSON.stringify({ error: "Invalid or expired CAPTCHA token" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -398,9 +441,24 @@ serve(async (req: Request) => {
       console.error("[login-proxy] Failed to record login history:", insertHistoryError);
     }
 
+    const isProduction =
+      Deno.env.get("ENVIRONMENT") === "production" || Deno.env.get("DENO_ENV") === "production";
+    const cookieFlags = [
+      `sb-access-token=${signInData.session?.access_token}; Path=/`,
+      "HttpOnly",
+      "SameSite=Strict",
+      isProduction ? "Secure" : "",
+    ]
+      .filter(Boolean)
+      .join("; ");
+
     return new Response(JSON.stringify({ session: signInData.session, user: signInData.user }), {
       status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json",
+        "Set-Cookie": cookieFlags,
+      },
     });
   } catch (err) {
     console.error("[login-proxy] Unexpected error:", err);

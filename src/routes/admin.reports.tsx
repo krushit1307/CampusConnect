@@ -3,7 +3,10 @@ import { Navigate, Link } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { ShieldAlert, CheckCircle, XCircle, Trash2 } from "lucide-react";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import XCircle from "lucide-react/dist/esm/icons/x-circle";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 
 const AdminCharts = lazy(() => import("@/components/AdminCharts"));
@@ -235,7 +238,10 @@ export default function AdminReportsPage() {
 
         <div className="max-w-5xl mx-auto px-4 py-8">
           <div className="mb-8">
-            <LazyHydrate height="300px" placeholder={<div className="h-[300px] neu-border bg-white animate-pulse" />}>
+            <LazyHydrate
+              height="300px"
+              placeholder={<div className="h-[300px] neu-border bg-white animate-pulse" />}
+            >
               <Suspense fallback={<div className="h-[300px] neu-border bg-white animate-pulse" />}>
                 <AdminCharts />
               </Suspense>

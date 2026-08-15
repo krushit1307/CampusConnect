@@ -66,6 +66,7 @@ serve(async (req) => {
         "id, title, description, start_date, end_date, event_date, location, created_at, updated_at",
       )
       .eq("club_id", clubId)
+      .is("deleted_at", null)
       .order("start_date", { ascending: true });
 
     if (eventsError) {

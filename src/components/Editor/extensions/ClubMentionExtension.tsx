@@ -1,7 +1,7 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import React from "react";
-import { Building2 } from "lucide-react";
+import Building2 from "lucide-react/dist/esm/icons/building-2";
 
 interface ClubMentionAttributes {
   id: string | null;

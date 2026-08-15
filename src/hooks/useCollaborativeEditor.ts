@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import * as Y from "yjs";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -10,6 +11,11 @@ export interface CollaborationUser {
   name: string;
   color: string;
   avatar_url?: string;
+}
+
+interface AwarenessState {
+  user: CollaborationUser;
+  cursor?: unknown;
 }
 
 // ─── Colour palette for cursors ─────────────────────────────────────────────
@@ -69,6 +75,9 @@ export function useCollaborativeEditor({
   const [activeUsers, setActiveUsers] = useState<CollaborationUser[]>([]);
   const [isReady, setIsReady] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const awarenessMapRef = useRef<Map<string, AwarenessState>>(new Map());
+  const awarenessChangeHandlersRef = useRef<Set<() => void>>(new Set());
 
   // ── Load initial state from Supabase ──
   useEffect(() => {
@@ -92,7 +101,7 @@ export function useCollaborativeEditor({
     loadState();
   }, [noteId]);
 
-  // ── Supabase Realtime channel for Yjs updates and presence ──
+  // ── Supabase Realtime channel for Yjs updates, awareness, and presence ──
   useEffect(() => {
     if (!isReady) return;
 
@@ -100,6 +109,7 @@ export function useCollaborativeEditor({
     const channel = supabase.channel(channelName, {
       config: { presence: { key: currentUser.id } },
     });
+    channelRef.current = channel;
 
     // Presence: track active collaborators
     channel
@@ -117,12 +127,14 @@ export function useCollaborativeEditor({
         setActiveUsers(users);
       })
       .on("presence", { event: "join" }, ({ newPresences }) => {
-        toast.message(`${(newPresences[0] as CollaborationUser)?.name ?? "Someone"} joined`, {
+        const p = newPresences[0] as unknown as CollaborationUser | undefined;
+        toast.message(`${p?.name ?? "Someone"} joined`, {
           duration: 2000,
         });
       })
       .on("presence", { event: "leave" }, ({ leftPresences }) => {
-        toast.message(`${(leftPresences[0] as CollaborationUser)?.name ?? "Someone"} left`, {
+        const p = leftPresences[0] as unknown as CollaborationUser | undefined;
+        toast.message(`${p?.name ?? "Someone"} left`, {
           duration: 2000,
         });
       });
@@ -137,6 +149,25 @@ export function useCollaborativeEditor({
           Y.applyUpdate(ydocRef.current, base64ToUint8(payload.update));
         } catch (err) {
           console.error("[CollabNotes] Failed to apply peer update:", err);
+        }
+      },
+    );
+
+    // Broadcast: receive awareness state from peers
+    channel.on(
+      "broadcast",
+      { event: "yjs-awareness" },
+      ({ payload }: { payload: { userStates: string } }) => {
+        try {
+          const parsed: Record<string, AwarenessState> = JSON.parse(payload.userStates);
+          for (const [userId, state] of Object.entries(parsed)) {
+            if (userId !== currentUser.id) {
+              awarenessMapRef.current.set(userId, state);
+            }
+          }
+          awarenessChangeHandlersRef.current.forEach((fn) => fn());
+        } catch (err) {
+          console.error("[CollabNotes] Failed to apply awareness update:", err);
         }
       },
     );
@@ -166,8 +197,49 @@ export function useCollaborativeEditor({
     return () => {
       ydocRef.current.off("update", onUpdate);
       channel.unsubscribe();
+      channelRef.current = null;
     };
   }, [isReady, noteId, currentUser]);
+
+  const lastSnapshotTimeRef = useRef<number>(Date.now());
+
+  // ── Auto-snapshot helper ──
+  const maybeCreateAutoSnapshot = useCallback(
+    async (state: string, text: string) => {
+      const now = Date.now();
+      // Auto-snapshot every 5 minutes if document text exists
+      if (now - lastSnapshotTimeRef.current > 300_000 && text.trim().length > 0) {
+        lastSnapshotTimeRef.current = now;
+        try {
+          const { data: note } = await supabase
+            .from("club_meeting_notes")
+            .select("title")
+            .eq("id", noteId)
+            .single();
+
+          const { count } = await supabase
+            .from("club_meeting_note_versions")
+            .select("id", { count: "exact", head: true })
+            .eq("note_id", noteId);
+
+          const versionNum = (count || 0) + 1;
+
+          await supabase.from("club_meeting_note_versions").insert({
+            note_id: noteId,
+            version_number: versionNum,
+            title: note?.title || "Meeting Note",
+            content_text: text,
+            yjs_state: state,
+            summary: `Auto-snapshot v${versionNum}`,
+            created_by: currentUser.id,
+          });
+        } catch {
+          // Ignore background auto-snapshot error
+        }
+      }
+    },
+    [noteId, currentUser.id],
+  );
 
   // ── Persist to Supabase DB (debounced, 2s) ──
   const persistState = useCallback(async () => {
@@ -181,8 +253,12 @@ export function useCollaborativeEditor({
       .eq("id", noteId);
 
     onSaveStatus?.(error ? "unsaved" : "saved");
-    if (error) console.error("[CollabNotes] Persist error:", error);
-  }, [noteId, onSaveStatus]);
+    if (!error) {
+      void maybeCreateAutoSnapshot(state, text);
+    } else {
+      console.error("[CollabNotes] Persist error:", error);
+    }
+  }, [noteId, onSaveStatus, maybeCreateAutoSnapshot]);
 
   // Schedule autosave whenever the Yjs doc changes
   useEffect(() => {
@@ -201,5 +277,34 @@ export function useCollaborativeEditor({
     };
   }, [isReady, persistState, onSaveStatus]);
 
-  return { ydoc: ydocRef.current, activeUsers, isReady };
+  // ── Broadcast local awareness state ──
+  const broadcastAwareness = useCallback(
+    (awarenessState: AwarenessState) => {
+      awarenessMapRef.current.set(currentUser.id, awarenessState);
+      if (channelRef.current) {
+        const payload: Record<string, AwarenessState> = {};
+        for (const [uid, state] of awarenessMapRef.current) {
+          if (uid !== currentUser.id) {
+            payload[uid] = state;
+          }
+        }
+        payload[currentUser.id] = awarenessState;
+        channelRef.current.send({
+          type: "broadcast",
+          event: "yjs-awareness",
+          payload: { userStates: JSON.stringify(payload) },
+        });
+      }
+    },
+    [currentUser],
+  );
+
+  return {
+    ydoc: ydocRef.current,
+    activeUsers,
+    isReady,
+    awarenessMapRef,
+    awarenessChangeHandlersRef,
+    broadcastAwareness,
+  };
 }

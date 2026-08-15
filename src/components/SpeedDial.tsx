@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Calendar, FileText, MessageCircle } from "lucide-react";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
 
 interface Action {
   label: string;
@@ -60,7 +63,7 @@ export function SpeedDial() {
       opacity: 1,
       y: 0,
       scale: 1,
-      transition: { delay: i * 0.05, type: "spring", stiffness: 300, damping: 25 },
+      transition: { delay: i * 0.05, type: "spring" as const, stiffness: 300, damping: 25 },
     }),
     exit: { opacity: 0, y: 20, scale: 0.8, transition: { duration: 0.15 } },
   };

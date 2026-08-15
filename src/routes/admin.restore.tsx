@@ -3,7 +3,10 @@ import { Navigate, Link } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { ShieldAlert, RefreshCw, Trash2, ArrowLeft } from "lucide-react";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 
 interface Profile {
@@ -74,10 +77,12 @@ export default function AdminRestorePage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("posts")
-        .select(`
+        .select(
+          `
           id, content, created_at, deleted_at,
           profiles:author_id (id, first_name, last_name, handle)
-        `)
+        `,
+        )
         .not("deleted_at", "is", null)
         .order("deleted_at", { ascending: false });
 
@@ -97,10 +102,12 @@ export default function AdminRestorePage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("comments")
-        .select(`
+        .select(
+          `
           id, content, created_at, deleted_at,
           profiles:author_id (id, first_name, last_name, handle)
-        `)
+        `,
+        )
         .not("deleted_at", "is", null)
         .order("deleted_at", { ascending: false });
 
@@ -113,17 +120,14 @@ export default function AdminRestorePage() {
   // Restore post mutation
   const restorePostMutation = useMutation({
     mutationFn: async (postId: string) => {
-      const { error } = await supabase
-        .from("posts")
-        .update({ deleted_at: null })
-        .eq("id", postId);
+      const { error } = await supabase.from("posts").update({ deleted_at: null }).eq("id", postId);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Post restored successfully!");
       refetchPosts();
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err.message || "Failed to restore post.");
     },
   });
@@ -141,7 +145,7 @@ export default function AdminRestorePage() {
       toast.success("Comment restored successfully!");
       refetchComments();
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err.message || "Failed to restore comment.");
     },
   });
@@ -211,7 +215,9 @@ export default function AdminRestorePage() {
             <button
               onClick={() => setActiveTab("posts")}
               className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase transition-all ${
-                activeTab === "posts" ? "bg-black text-white" : "bg-white text-black hover:bg-gray-50"
+                activeTab === "posts"
+                  ? "bg-black text-white"
+                  : "bg-white text-black hover:bg-gray-50"
               }`}
             >
               Deleted Posts ({deletedPosts.length})
@@ -219,7 +225,9 @@ export default function AdminRestorePage() {
             <button
               onClick={() => setActiveTab("comments")}
               className={`neu-border px-4 py-2 font-mono text-xs font-bold uppercase transition-all ${
-                activeTab === "comments" ? "bg-black text-white" : "bg-white text-black hover:bg-gray-50"
+                activeTab === "comments"
+                  ? "bg-black text-white"
+                  : "bg-white text-black hover:bg-gray-50"
               }`}
             >
               Deleted Comments ({deletedComments.length})
@@ -243,16 +251,22 @@ export default function AdminRestorePage() {
           <div className="space-y-4">
             {activeItems.map((item) => {
               const profile = Array.isArray(item.profiles) ? item.profiles[0] : item.profiles;
-              const authorName = profile ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() : "Unknown User";
+              const authorName = profile
+                ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim()
+                : "Unknown User";
               const authorHandle = profile?.handle ? `@${profile.handle}` : "";
 
               return (
-                <div key={item.id} className="neu-border bg-white p-6 space-y-4 text-black shadow-[4px_4px_0_0_#000] transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_#000]">
+                <div
+                  key={item.id}
+                  className="neu-border bg-white p-6 space-y-4 text-black shadow-[4px_4px_0_0_#000] transition-all hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_#000]"
+                >
                   {/* Top Bar */}
                   <div className="flex flex-wrap items-center justify-between gap-4 border-b border-black pb-2">
                     <div>
                       <span className="font-mono text-xs text-gray-500">
-                        Author: <span className="font-bold text-black">{authorName}</span> {authorHandle}
+                        Author: <span className="font-bold text-black">{authorName}</span>{" "}
+                        {authorHandle}
                       </span>
                     </div>
                     <span className="font-mono text-xs text-gray-500">
@@ -262,7 +276,9 @@ export default function AdminRestorePage() {
 
                   {/* Body Content */}
                   <div>
-                    <p className="font-mono text-xs font-bold text-gray-400 uppercase">Content Preview</p>
+                    <p className="font-mono text-xs font-bold text-gray-400 uppercase">
+                      Content Preview
+                    </p>
                     <div className="bg-gray-50 p-4 font-mono text-sm border-l-2 border-black mt-2 text-black whitespace-pre-wrap max-w-full overflow-hidden break-words">
                       {item.content}
                     </div>
@@ -275,7 +291,14 @@ export default function AdminRestorePage() {
                       disabled={restorePostMutation.isPending || restoreCommentMutation.isPending}
                       className="neu-border bg-lime hover:bg-lime/90 px-4 py-2 font-mono text-xs font-bold uppercase flex items-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 text-black shadow-[2px_2px_0_0_#000]"
                     >
-                      <RefreshCw size={14} className={restorePostMutation.isPending || restoreCommentMutation.isPending ? "animate-spin" : ""} />
+                      <RefreshCw
+                        size={14}
+                        className={
+                          restorePostMutation.isPending || restoreCommentMutation.isPending
+                            ? "animate-spin"
+                            : ""
+                        }
+                      />
                       Restore Item
                     </button>
                   </div>

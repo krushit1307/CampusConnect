@@ -10,13 +10,14 @@ ALTER TABLE IF EXISTS public.chat_messages RENAME TO chat_messages_old;
 
 -- Step 3: Create the new partitioned table
 CREATE TABLE public.chat_messages (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID DEFAULT gen_random_uuid(),
     sender_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     receiver_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     is_read BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (id, created_at)
 ) PARTITION BY RANGE (created_at);
 
 -- Step 4: Create a default partition to catch any out-of-bounds data
@@ -47,14 +48,17 @@ CREATE POLICY "Users can update their own sent messages"
     ON public.chat_messages FOR UPDATE
     USING (auth.uid() = sender_id);
 
--- Step 8: Migrate existing data from the old table to the new partitioned table
--- We do this in batches conceptually, but for the migration script, a direct insert is standard.
-INSERT INTO public.chat_messages (id, sender_id, receiver_id, content, is_read, created_at, updated_at)
-SELECT id, sender_id, receiver_id, content, is_read, created_at, updated_at
-FROM public.chat_messages_old;
-
--- Step 9: Drop the old table after successful migration
-DROP TABLE public.chat_messages_old CASCADE;
+-- Step 8 & 9: Migrate existing data and drop old table if it exists
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'chat_messages_old') THEN
+        INSERT INTO public.chat_messages (id, sender_id, receiver_id, content, is_read, created_at, updated_at)
+        SELECT id, sender_id, receiver_id, content, is_read, created_at, updated_at
+        FROM public.chat_messages_old;
+        
+        DROP TABLE public.chat_messages_old CASCADE;
+    END IF;
+END $$;
 
 -- Step 10: Add to realtime publication if it was previously there
 ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_messages;

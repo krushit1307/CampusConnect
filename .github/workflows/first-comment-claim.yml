@@ -1,0 +1,54 @@
+name: First Comment Claim
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+
+jobs:
+  inform_claim:
+    runs-on: ubuntu-latest
+    if: ${{ !github.event.issue.pull_request }}
+    steps:
+      - name: Inform about claim feature
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          script: |
+            const commenter = context.payload.comment.user.login;
+            const body = context.payload.comment.body;
+
+            // Ignore bots
+            if (commenter.includes('[bot]')) {
+              return;
+            }
+
+            // If the user already used /claim, no need to inform them
+            if (body.startsWith('/claim')) {
+              return;
+            }
+
+            // Fetch comments to see if this is the first human comment
+            const comments = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 50
+            });
+
+            // Filter out bot comments
+            const humanComments = comments.data.filter(c => !c.user.login.includes('[bot]'));
+
+            // Check if the current comment is the first human comment
+            if (humanComments.length > 0 && humanComments[0].id === context.payload.comment.id) {
+              const reply = `@${commenter} Thanks for your interest! We use an automated assignment system. Please reply with the \`/claim\` command to automatically assign this issue to yourself.`;
+              
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: reply
+              });
+            }

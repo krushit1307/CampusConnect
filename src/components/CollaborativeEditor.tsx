@@ -1,9 +1,17 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
-import { useCollaborativeEditor, type CollaborationUser } from "@/hooks/useCollaborativeEditor";
+import {
+  useCollaborativeEditor,
+  type CollaborationUser,
+  uint8ToBase64,
+} from "@/hooks/useCollaborativeEditor";
+import History from "lucide-react/dist/esm/icons/history";
+import { Button } from "@/components/ui/button";
+import { NoteVersionHistoryModal } from "@/components/Notes/NoteVersionHistoryModal";
+import * as Y from "yjs";
 
 // ─── Toolbar ──────────────────────────────────────────────────────────────────
 
@@ -224,13 +232,75 @@ export function CollaborativeEditor({
   readOnly = false,
 }: CollaborativeEditorProps) {
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved">("saved");
+  const awarenessHandlersRef = useRef<Set<() => void>>(new Set());
+  const [, forceRender] = useState(0);
 
-  const { ydoc, activeUsers, isReady } = useCollaborativeEditor({
+  const {
+    ydoc,
+    activeUsers,
+    isReady,
+    awarenessMapRef,
+    awarenessChangeHandlersRef,
+    broadcastAwareness,
+  } = useCollaborativeEditor({
     noteId,
     clubId,
     currentUser,
     onSaveStatus: setSaveStatus,
   });
+
+  // Register/unregister awareness change handler
+  useEffect(() => {
+    const handler = () => {
+      forceRender((n) => n + 1);
+    };
+    awarenessChangeHandlersRef.current.add(handler);
+    return () => {
+      awarenessChangeHandlersRef.current.delete(handler);
+    };
+  }, [awarenessChangeHandlersRef]);
+
+  const awareness = {
+    getLocalState: () => ({
+      user: {
+        name: currentUser.name,
+        color: currentUser.color,
+        avatar: currentUser.avatar_url,
+      },
+    }),
+    setLocalStateField: (_field: string, value: Record<string, unknown>) => {
+      broadcastAwareness({
+        user: currentUser,
+        cursor: value,
+      });
+    },
+    getStates: () => {
+      const states = new Map<
+        number,
+        { user: { name: string; color: string; avatar?: string }; cursor?: unknown }
+      >();
+      let idx = 0;
+      for (const [uid, state] of awarenessMapRef.current) {
+        if (uid !== currentUser.id) {
+          states.set(idx++, {
+            user: {
+              name: state.user.name,
+              color: state.user.color,
+              avatar: state.user.avatar_url,
+            },
+            cursor: state.cursor,
+          });
+        }
+      }
+      return states;
+    },
+    on: (_event: string, handler: () => void) => {
+      awarenessHandlersRef.current.add(handler);
+    },
+    off: (_event: string, handler: () => void) => {
+      awarenessHandlersRef.current.delete(handler);
+    },
+  };
 
   const editor = useEditor(
     {
@@ -238,20 +308,7 @@ export function CollaborativeEditor({
         StarterKit.configure({ history: false }),
         Collaboration.configure({ document: ydoc }),
         CollaborationCursor.configure({
-          provider: {
-            awareness: {
-              getLocalState: () => ({
-                user: {
-                  name: currentUser.name,
-                  color: currentUser.color,
-                  avatar: currentUser.avatar_url,
-                },
-              }),
-              setLocalStateField: () => {},
-              on: () => {},
-              off: () => {},
-            },
-          } as unknown as Parameters<typeof CollaborationCursor.configure>[0]["provider"],
+          provider: { awareness },
           user: { name: currentUser.name, color: currentUser.color },
           render(user: { name?: string; color?: string }) {
             const cursor = document.createElement("span");
@@ -289,16 +346,29 @@ export function CollaborativeEditor({
     );
   }
 
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
   return (
     <div className="flex flex-col border-2 border-black bg-white dark:bg-zinc-900 shadow-[4px_4px_0_0_#000]">
       {/* Header */}
       <div className="flex items-center justify-between border-b-2 border-black px-4 py-2 bg-lime">
-        <h2 className="font-display font-black text-sm uppercase tracking-wide truncate max-w-xs">
+        <h2 className="font-display font-black text-sm uppercase tracking-wide truncate max-w-xs text-black">
           {noteTitle}
         </h2>
         <div className="flex items-center gap-3">
           <PresenceAvatars users={activeUsers} currentUser={currentUser} />
           <SaveIndicator status={saveStatus} />
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setIsHistoryOpen(true)}
+            className="neu-border neu-press h-7 px-2 font-mono text-[11px] font-bold uppercase bg-white text-black hover:bg-cream"
+          >
+            <History className="h-3.5 w-3.5 mr-1 text-black" />
+            History
+          </Button>
         </div>
       </div>
 
@@ -309,6 +379,20 @@ export function CollaborativeEditor({
       <div className="flex-1 overflow-y-auto">
         <EditorContent editor={editor} />
       </div>
+
+      {/* Version History Modal */}
+      <NoteVersionHistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        noteId={noteId}
+        currentTitle={noteTitle}
+        currentContentText={editor?.getText() ?? ""}
+        currentYjsState={uint8ToBase64(Y.encodeStateAsUpdate(ydoc))}
+        isAdmin={!readOnly}
+        onVersionRestored={() => {
+          window.location.reload();
+        }}
+      />
     </div>
   );
 }

@@ -1,20 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
-import { useInfiniteQuery, useMutation, useQueryClient } from "@/hooks/useReactQueryReplacement";
+import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import {
-  Bell,
-  Calendar,
-  Building,
-  Info,
-  MessageSquare,
-  CheckCircle2,
-  Wifi,
-  WifiOff,
-} from "lucide-react";
+import Bell from "lucide-react/dist/esm/icons/bell";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Building from "lucide-react/dist/esm/icons/building";
+import Info from "lucide-react/dist/esm/icons/info";
+import MessageSquare from "lucide-react/dist/esm/icons/message-square";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import Wifi from "lucide-react/dist/esm/icons/wifi";
+import WifiOff from "lucide-react/dist/esm/icons/wifi-off";
 import { toast } from "sonner";
-import { format, isToday, isYesterday, isThisWeek } from "date-fns";
+import format from "date-fns/format";
+import isToday from "date-fns/isToday";
+import isYesterday from "date-fns/isYesterday";
+import isThisWeek from "date-fns/isThisWeek";
 import { SwipeToDismiss } from "@/components/ui/SwipeToDismiss";
 import { useGraphQLSubscription } from "@/hooks/useGraphQLSubscription";
 import {
@@ -23,7 +24,6 @@ import {
 } from "@/components/notifications/NotificationFilterToolbar";
 import { NotificationPreferenceModal } from "@/components/notifications/NotificationPreferenceModal";
 
-/** GraphQL subscription document for real-time notifications. */
 const NOTIFICATION_SUBSCRIPTION = /* GraphQL */ `
   subscription NotificationReceived($userId: ID!) {
     notificationReceived(userId: $userId) {
@@ -35,6 +35,9 @@ const NOTIFICATION_SUBSCRIPTION = /* GraphQL */ `
       link
       isRead
       createdAt
+      recentActors
+      groupCount
+      referenceId
     }
   }
 `;
@@ -49,6 +52,48 @@ interface GQLNotification {
   link: string | null;
   isRead: boolean;
   createdAt: string;
+  metadata?: Record<string, unknown> | null;
+  recentActors?: string[] | null;
+  groupCount?: number | null;
+  referenceId?: string | null;
+}
+
+export function getNotificationLink(
+  type: string,
+  metadata: Record<string, unknown> | null | undefined,
+  fallbackLink?: string | null,
+): string | undefined {
+  if (!metadata || typeof metadata !== "object") {
+    return fallbackLink || undefined;
+  }
+
+  switch (type) {
+    case "event":
+    case "event_rsvp":
+    case "event_invite":
+    case "event_update":
+      if (metadata.event_id) return `/events/${metadata.event_id as string}`;
+      break;
+    case "club":
+    case "club_application_approved":
+    case "club_invite":
+      if (metadata.club_id) return `/clubs/${metadata.club_id as string}`;
+      break;
+    case "mention":
+    case "reply":
+    case "post_like":
+      if (metadata.post_id) {
+        if (metadata.comment_id) {
+          return `/posts/${metadata.post_id as string}#comment-${metadata.comment_id as string}`;
+        }
+        return `/posts/${metadata.post_id as string}`;
+      }
+      break;
+    case "message":
+    case "new_message":
+      return "/messages";
+  }
+  return fallbackLink || undefined;
 }
 
 const NOTIFICATIONS_PER_PAGE = 20;
@@ -73,13 +118,14 @@ export default function NotificationsRoute() {
   const subscriptionOperation = currentUserId
     ? {
         query: NOTIFICATION_SUBSCRIPTION,
-        variables: { userId: currentUserId },
+        variables: { userId: currentUserId } as NotificationReceivedSubscriptionVariables,
       }
     : null;
 
-  const { data: subscriptionPayload, connected: subscriptionConnected } = useGraphQLSubscription<{
-    notificationReceived: GQLNotification;
-  }>(subscriptionOperation, { skip: !currentUserId });
+  const { data: subscriptionPayload, connected: subscriptionConnected } =
+    useGraphQLSubscription<NotificationReceivedSubscription>(subscriptionOperation, {
+      skip: !currentUserId,
+    });
 
   // When a new notification arrives via subscription, prepend it to the
   // TanStack Query cache and show a toast so the user is immediately aware.
@@ -102,6 +148,10 @@ export default function NotificationsRoute() {
       link: notification.link,
       is_read: notification.isRead,
       created_at: notification.createdAt,
+      metadata: notification.metadata ?? null,
+      recent_actors: notification.recentActors ?? [],
+      group_count: notification.groupCount ?? 1,
+      reference_id: notification.referenceId ?? null,
     };
 
     queryClient.setQueryData(
@@ -216,12 +266,84 @@ export default function NotificationsRoute() {
 
   const rawNotifications = data?.pages.flatMap((page) => page.notifications) || [];
 
+  const actorIds = Array.from(
+    new Set(rawNotifications.flatMap((n: any) => n.recent_actors || []).filter(Boolean)),
+  );
+
+  const { data: profilesMap } = useQuery({
+    queryKey: ["profiles-bulk", actorIds],
+    queryFn: async () => {
+      if (actorIds.length === 0) return {};
+      const { data: profiles, error } = await supabase
+        .from("profiles")
+        .select("id, first_name, last_name, handle")
+        .in("id", actorIds);
+      if (error) throw error;
+
+      const map: Record<string, { first_name: string; last_name: string; handle: string }> = {};
+      profiles?.forEach((p) => {
+        map[p.id] = p;
+      });
+      return map;
+    },
+    enabled: actorIds.length > 0,
+  });
+
+  const getDynamicMessage = (n: any) => {
+    if (n.type !== "post_like" || !n.recent_actors || n.recent_actors.length === 0) {
+      return n.message;
+    }
+
+    const names = n.recent_actors
+      .map((id: string) => {
+        const p = profilesMap?.[id];
+        if (p) {
+          return `${p.first_name} ${p.last_name}`.trim();
+        }
+        return null;
+      })
+      .filter(Boolean);
+
+    if (names.length === 0) {
+      return n.message;
+    }
+
+    const count = n.group_count || 1;
+
+    if (count === 1) {
+      return `${names[0]} liked your post.`;
+    }
+
+    if (count === 2) {
+      if (names.length >= 2) {
+        return `${names[0]} and ${names[1]} liked your post.`;
+      } else {
+        return `${names[0]} and 1 other liked your post.`;
+      }
+    }
+
+    // count > 2
+    if (names.length >= 2) {
+      const remaining = count - 2;
+      return `${names[0]}, ${names[1]}, and ${remaining} other${remaining > 1 ? "s" : ""} liked your post.`;
+    } else {
+      const remaining = count - 1;
+      return `${names[0]} and ${remaining} other${remaining > 1 ? "s" : ""} liked your post.`;
+    }
+  };
+
   const allNotifications = rawNotifications.filter((n) => {
     if (activeCategory === "unread" && n.is_read) return false;
-    if (activeCategory === "event" && n.type !== "event") return false;
-    if (activeCategory === "club" && n.type !== "club") return false;
-    if (activeCategory === "reply" && n.type !== "reply") return false;
-    if (activeCategory === "security" && n.type !== "security") return false;
+    if (activeCategory === "event" && !n.type?.startsWith("event")) return false;
+    if (activeCategory === "club" && !n.type?.startsWith("club")) return false;
+    if (
+      activeCategory === "reply" &&
+      n.type !== "reply" &&
+      n.type !== "mention" &&
+      !n.type?.includes("like")
+    )
+      return false;
+    if (activeCategory === "security" && n.type !== "security" && n.type !== "alert") return false;
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -271,10 +393,18 @@ export default function NotificationsRoute() {
   const getIcon = (type: string) => {
     switch (type) {
       case "event":
+      case "event_rsvp":
+      case "event_invite":
+      case "event_update":
         return <Calendar size={16} className="text-blue-600" />;
       case "club":
+      case "club_application_approved":
+      case "club_invite":
         return <Building size={16} className="text-brand-amber-base" />;
       case "reply":
+      case "mention":
+      case "message":
+      case "new_message":
         return <MessageSquare size={16} className="text-green-600" />;
       default:
         return <Info size={16} className="text-gray-600" />;
@@ -350,10 +480,11 @@ export default function NotificationsRoute() {
                   </h2>
                   <div className="space-y-3">
                     {items.map((n, idx) => {
+                      const resolvedLink = getNotificationLink(n.type, n.metadata, n.link);
+                      const Wrapper = (resolvedLink ? Link : "div") as React.ElementType;
+                      const wrapperProps = resolvedLink ? { to: resolvedLink } : {};
                       const isLast =
                         idx === items.length - 1 && label === Object.keys(grouped).pop();
-                      const Wrapper = (n.link ? Link : "div") as React.ElementType;
-                      const wrapperProps = n.link ? { to: n.link } : {};
 
                       return (
                         <SwipeToDismiss
@@ -365,7 +496,7 @@ export default function NotificationsRoute() {
                             {...wrapperProps}
                             ref={isLast ? lastElementRef : undefined}
                             className={`neu-border flex items-start gap-4 p-4 transition-all ${
-                              n.link ? "hover:-translate-y-1 cursor-pointer" : ""
+                              resolvedLink ? "hover:-translate-y-1 cursor-pointer" : ""
                             } ${!n.is_read ? "bg-blue-50" : "bg-white"}`}
                           >
                             <div className="mt-1 flex-shrink-0 bg-white p-2 rounded-full border-2 border-black">
@@ -383,8 +514,32 @@ export default function NotificationsRoute() {
                                 )}
                               </div>
                               <p className="font-mono text-sm text-gray-600 mt-1 line-clamp-2">
-                                {n.message}
+                                {getDynamicMessage(n)}
                               </p>
+                              {n.metadata && typeof n.metadata === "object" && (
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                  {n.metadata.event_id && (
+                                    <span className="px-1.5 py-0.5 font-mono text-[9px] font-bold bg-blue-100 text-blue-700 border border-blue-200 uppercase rounded">
+                                      Event: {String(n.metadata.event_id).slice(0, 8)}...
+                                    </span>
+                                  )}
+                                  {n.metadata.post_id && (
+                                    <span className="px-1.5 py-0.5 font-mono text-[9px] font-bold bg-green-100 text-green-700 border border-green-200 uppercase rounded">
+                                      Post: {String(n.metadata.post_id).slice(0, 8)}...
+                                    </span>
+                                  )}
+                                  {n.metadata.club_id && (
+                                    <span className="px-1.5 py-0.5 font-mono text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-200 uppercase rounded">
+                                      Club: {String(n.metadata.club_id).slice(0, 8)}...
+                                    </span>
+                                  )}
+                                  {n.metadata.comment_id && (
+                                    <span className="px-1.5 py-0.5 font-mono text-[9px] font-bold bg-purple-100 text-purple-700 border border-purple-200 uppercase rounded">
+                                      Comment: {String(n.metadata.comment_id).slice(0, 8)}...
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                               <p className="font-mono text-[10px] text-gray-400 mt-2">
                                 {format(new Date(n.created_at), "MMM d, h:mm a")}
                               </p>

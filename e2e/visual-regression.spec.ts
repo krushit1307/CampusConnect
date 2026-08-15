@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./analytics-fixture";
 
 test.describe("Visual Regression: Auth Pages", () => {
   test("login page full layout", async ({ page }) => {
@@ -63,7 +63,10 @@ test.describe("Visual Regression: Dark Mode", () => {
   test("events page in dark mode", async ({ page }) => {
     await page.goto("/events");
     await page.waitForLoadState("networkidle");
-    const darkModeToggle = page.locator("button").filter({ hasText: /theme|dark|light/i }).first();
+    const darkModeToggle = page
+      .locator("button")
+      .filter({ hasText: /theme|dark|light/i })
+      .first();
     if (await darkModeToggle.isVisible()) {
       await darkModeToggle.click();
       await page.waitForTimeout(500);

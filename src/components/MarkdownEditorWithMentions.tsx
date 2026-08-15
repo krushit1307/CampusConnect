@@ -12,21 +12,22 @@ import remarkGfm from "remark-gfm";
 import "@uiw/react-md-editor/markdown-editor.css";
 import { useTheme } from "@/components/theme-provider";
 import { MentionRenderer } from "@/components/MentionRenderer";
+import { TableBuilderModal } from "@/components/TableBuilderModal";
 import { createClient } from "@/lib/supabase/client";
-import {
-  Bold,
-  Code2,
-  Eye,
-  Heading2,
-  Italic,
-  Link2,
-  List,
-  ListOrdered,
-  MessageSquareText,
-  Pencil,
-  Quote,
-  AtSign,
-} from "lucide-react";
+import { insertMarkdownBlock } from "@/lib/insertMarkdownBlock";
+import Bold from "lucide-react/dist/esm/icons/bold";
+import Code2 from "lucide-react/dist/esm/icons/code-2";
+import Eye from "lucide-react/dist/esm/icons/eye";
+import Heading2 from "lucide-react/dist/esm/icons/heading-2";
+import Italic from "lucide-react/dist/esm/icons/italic";
+import Link2 from "lucide-react/dist/esm/icons/link-2";
+import List from "lucide-react/dist/esm/icons/list";
+import ListOrdered from "lucide-react/dist/esm/icons/list-ordered";
+import MessageSquareText from "lucide-react/dist/esm/icons/message-square-text";
+import Pencil from "lucide-react/dist/esm/icons/pencil";
+import Quote from "lucide-react/dist/esm/icons/quote";
+import AtSign from "lucide-react/dist/esm/icons/at-sign";
+import TableIcon from "lucide-react/dist/esm/icons/table";
 
 interface Profile {
   id: string;
@@ -99,6 +100,7 @@ export const MarkdownEditorWithMentions = forwardRef<
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const suggestionsRef = useRef<HTMLDivElement>(null);
     const [mode, setMode] = useState<"write" | "preview">("write");
+    const [isTableBuilderOpen, setIsTableBuilderOpen] = useState(false);
 
     const { theme } = useTheme();
     const [colorMode, setColorMode] = useState<"light" | "dark">("light");
@@ -295,6 +297,24 @@ export const MarkdownEditorWithMentions = forwardRef<
       });
     };
 
+    const insertTableMarkdown = (markdown: string) => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+
+      const { nextValue, cursorPosition } = insertMarkdownBlock(
+        value,
+        textarea.selectionStart,
+        textarea.selectionEnd,
+        markdown,
+      );
+      onChange(nextValue);
+
+      requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.setSelectionRange(cursorPosition, cursorPosition);
+      });
+    };
+
     // Close suggestions when clicking outside
     useEffect(() => {
       const handleClickOutside = (e: MouseEvent) => {
@@ -323,137 +343,154 @@ export const MarkdownEditorWithMentions = forwardRef<
     }, [selectedIndex, showSuggestions]);
 
     return (
-      <div
-        className="neu-border relative bg-white dark:bg-black"
-        aria-label="Markdown editor"
-        data-color-mode={colorMode}
-      >
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-black bg-sky p-2">
-          <div className="flex flex-wrap gap-1" role="toolbar" aria-label="Markdown formatting">
-            {toolbarActions.map((action) => {
-              const Icon = action.icon;
-              return (
-                <button
-                  key={action.label}
-                  type="button"
-                  onClick={() => applyMarkdown(action)}
-                  className="neu-border bg-white p-2 transition hover:-translate-y-0.5 hover:bg-lime focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
-                  aria-label={action.label}
-                  title={action.label}
-                >
-                  <Icon size={16} strokeWidth={2.5} aria-hidden="true" />
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              onClick={insertMention}
-              className="neu-border bg-white p-2 transition hover:-translate-y-0.5 hover:bg-peach focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
-              aria-label="Mention user"
-              title="Mention user (@)"
-            >
-              <AtSign size={16} strokeWidth={2.5} aria-hidden="true" />
-            </button>
-          </div>
-
-          <div className="flex" aria-label="Editor mode">
-            <button
-              type="button"
-              onClick={() => setMode("write")}
-              className={`neu-border flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase ${
-                mode === "write" ? "bg-black text-cream" : "bg-white"
-              }`}
-              aria-pressed={mode === "write"}
-            >
-              <Pencil size={14} aria-hidden="true" /> Write
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("preview")}
-              className={`neu-border -ml-0.5 flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase ${
-                mode === "preview" ? "bg-black text-cream" : "bg-white"
-              }`}
-              aria-pressed={mode === "preview"}
-            >
-              <Eye size={14} aria-hidden="true" /> Preview
-            </button>
-          </div>
-        </div>
-
-        {mode === "write" ? (
-          <div className="relative">
-            <textarea
-              ref={textareaRef}
-              id={id}
-              value={value}
-              onChange={(e) => handleTextChange(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={placeholder}
-              rows={rows}
-              className={`${minHeightClass} w-full resize-y bg-white dark:bg-black p-4 font-mono text-sm outline-none placeholder:text-gray-500 focus:bg-cream/40 dark:focus:bg-gray-900 dark:text-cream`}
-              aria-label="Content in Markdown"
-            />
-
-            {showSuggestions && suggestions.length > 0 && (
-              <div
-                ref={suggestionsRef}
-                className="neu-border absolute left-4 top-full z-50 mt-1 max-h-60 w-64 overflow-y-auto bg-white shadow-lg"
-                role="listbox"
-                aria-label="Mention suggestions"
-              >
-                {suggestions.map((profile, index) => (
+      <>
+        <div
+          className="neu-border relative bg-white dark:bg-black"
+          aria-label="Markdown editor"
+          data-color-mode={colorMode}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-black bg-sky p-2">
+            <div className="flex flex-wrap gap-1" role="toolbar" aria-label="Markdown formatting">
+              {toolbarActions.map((action) => {
+                const Icon = action.icon;
+                return (
                   <button
-                    key={profile.id}
+                    key={action.label}
                     type="button"
-                    data-index={index}
-                    onClick={() => selectMention(profile)}
-                    className={`flex w-full items-center gap-2 border-b border-black p-3 text-left transition-colors hover:bg-lime ${
-                      index === selectedIndex ? "bg-cream" : ""
-                    }`}
-                    role="option"
-                    aria-selected={index === selectedIndex}
+                    onClick={() => applyMarkdown(action)}
+                    className="neu-border bg-white p-2 transition hover:-translate-y-0.5 hover:bg-lime focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                    aria-label={action.label}
+                    title={action.label}
                   >
-                    <div className="flex-1">
-                      <div className="font-mono text-sm font-bold">{profile.full_name}</div>
-                      <div className="font-mono text-xs text-gray-600">@{profile.handle}</div>
-                    </div>
+                    <Icon size={16} strokeWidth={2.5} aria-hidden="true" />
                   </button>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className={`${minHeightClass} bg-white dark:bg-black p-4`} aria-live="polite">
-            {value.trim() ? (
-              <div className="markdown-content font-mono text-sm leading-relaxed">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    p: ({ children }) => (
-                      <p>
-                        <MentionRenderer content={String(children)} />
-                      </p>
-                    ),
-                  }}
-                >
-                  {value}
-                </ReactMarkdown>
-              </div>
-            ) : (
-              <div className="flex min-h-36 flex-col items-center justify-center gap-2 text-center text-gray-500">
-                <MessageSquareText size={32} aria-hidden="true" />
-                <p className="font-mono text-sm text-gray-800 dark:text-cream">
-                  Your Markdown preview will appear here.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
+                );
+              })}
+              <button
+                type="button"
+                onClick={insertMention}
+                className="neu-border bg-white p-2 transition hover:-translate-y-0.5 hover:bg-peach focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                aria-label="Mention user"
+                title="Mention user (@)"
+              >
+                <AtSign size={16} strokeWidth={2.5} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsTableBuilderOpen(true)}
+                className="neu-border bg-white p-2 transition hover:-translate-y-0.5 hover:bg-lime focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                aria-label="Insert table"
+                title="Insert table"
+              >
+                <TableIcon size={16} strokeWidth={2.5} aria-hidden="true" />
+              </button>
+            </div>
 
-        <div className="border-t-2 border-black bg-cream dark:bg-gray-800 dark:text-cream px-4 py-2 font-mono text-[10px] uppercase">
-          Raw Markdown is saved. Mention users with @username
+            <div className="flex" aria-label="Editor mode">
+              <button
+                type="button"
+                onClick={() => setMode("write")}
+                className={`neu-border flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase ${
+                  mode === "write" ? "bg-black text-cream" : "bg-white"
+                }`}
+                aria-pressed={mode === "write"}
+              >
+                <Pencil size={14} aria-hidden="true" /> Write
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("preview")}
+                className={`neu-border -ml-0.5 flex items-center gap-1 px-3 py-2 font-mono text-[10px] font-bold uppercase ${
+                  mode === "preview" ? "bg-black text-cream" : "bg-white"
+                }`}
+                aria-pressed={mode === "preview"}
+              >
+                <Eye size={14} aria-hidden="true" /> Preview
+              </button>
+            </div>
+          </div>
+
+          {mode === "write" ? (
+            <div className="relative">
+              <textarea
+                ref={textareaRef}
+                id={id}
+                value={value}
+                onChange={(e) => handleTextChange(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={placeholder}
+                rows={rows}
+                className={`${minHeightClass} w-full resize-y bg-white dark:bg-black p-4 font-mono text-sm outline-none placeholder:text-gray-500 focus:bg-cream/40 dark:focus:bg-gray-900 dark:text-cream`}
+                aria-label="Content in Markdown"
+              />
+
+              {showSuggestions && suggestions.length > 0 && (
+                <div
+                  ref={suggestionsRef}
+                  className="neu-border absolute left-4 top-full z-50 mt-1 max-h-60 w-64 overflow-y-auto bg-white shadow-lg"
+                  role="listbox"
+                  aria-label="Mention suggestions"
+                >
+                  {suggestions.map((profile, index) => (
+                    <button
+                      key={profile.id}
+                      type="button"
+                      data-index={index}
+                      onClick={() => selectMention(profile)}
+                      className={`flex w-full items-center gap-2 border-b border-black p-3 text-left transition-colors hover:bg-lime ${
+                        index === selectedIndex ? "bg-cream" : ""
+                      }`}
+                      role="option"
+                      aria-selected={index === selectedIndex}
+                    >
+                      <div className="flex-1">
+                        <div className="font-mono text-sm font-bold">{profile.full_name}</div>
+                        <div className="font-mono text-xs text-gray-600">@{profile.handle}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className={`${minHeightClass} bg-white dark:bg-black p-4`} aria-live="polite">
+              {value.trim() ? (
+                <div className="markdown-content font-mono text-sm leading-relaxed">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      p: ({ children }) => (
+                        <p>
+                          <MentionRenderer content={String(children)} />
+                        </p>
+                      ),
+                    }}
+                  >
+                    {value}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                <div className="flex min-h-36 flex-col items-center justify-center gap-2 text-center text-gray-500">
+                  <MessageSquareText size={32} aria-hidden="true" />
+                  <p className="font-mono text-sm text-gray-800 dark:text-cream">
+                    Your Markdown preview will appear here.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="border-t-2 border-black bg-cream dark:bg-gray-800 dark:text-cream px-4 py-2 font-mono text-[10px] uppercase">
+            Raw Markdown is saved. Mention users with @username
+          </div>
         </div>
-      </div>
+
+        <TableBuilderModal
+          isOpen={isTableBuilderOpen}
+          onClose={() => setIsTableBuilderOpen(false)}
+          onInsert={insertTableMarkdown}
+        />
+      </>
     );
   },
 );

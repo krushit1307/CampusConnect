@@ -12,7 +12,7 @@ export function calculateAspectRatioFit(
   srcWidth: number,
   srcHeight: number,
   maxWidth: number,
-  maxHeight: number
+  maxHeight: number,
 ): { width: number; height: number } {
   if (srcWidth <= maxWidth && srcHeight <= maxHeight) {
     return { width: srcWidth, height: srcHeight };
@@ -32,14 +32,9 @@ export function calculateAspectRatioFit(
  */
 export async function compressImage(
   file: File | Blob,
-  options: ImageCompressionOptions = {}
+  options: ImageCompressionOptions = {},
 ): Promise<File> {
-  const {
-    maxWidth = 1920,
-    maxHeight = 1080,
-    quality = 0.8,
-    mimeType = "image/webp",
-  } = options;
+  const { maxWidth = 1920, maxHeight = 1080, quality = 0.8, mimeType = "image/webp" } = options;
 
   // Non-image files pass through unchanged
   if (file.type && !file.type.startsWith("image/")) {
@@ -57,7 +52,7 @@ export async function compressImage(
         img.naturalWidth || img.width,
         img.naturalHeight || img.height,
         maxWidth,
-        maxHeight
+        maxHeight,
       );
 
       const canvas = document.createElement("canvas");
@@ -92,7 +87,7 @@ export async function compressImage(
           resolve(compressedFile);
         },
         mimeType,
-        quality
+        quality,
       );
     };
 

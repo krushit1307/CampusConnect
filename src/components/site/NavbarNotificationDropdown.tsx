@@ -1,11 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Bell, BellOff, Loader2, Search, X } from "lucide-react";
+import Bell from "lucide-react/dist/esm/icons/bell";
+import BellOff from "lucide-react/dist/esm/icons/bell-off";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Search from "lucide-react/dist/esm/icons/search";
+import X from "lucide-react/dist/esm/icons/x";
 import { Input } from "@/components/ui/input";
 import { Link } from "react-router-dom";
 import NotificationItem from "./NotificationItem";
 import { createClient } from "@/lib/supabase/client";
+import { getNotificationLink } from "@/lib/notificationUtils";
 
-interface Notification {
+export interface Notification {
   id: string;
   type: string;
   title: string;
@@ -14,6 +19,7 @@ interface Notification {
   isRead: boolean;
   link?: string;
   createdAt: string;
+  metadata?: Record<string, unknown> | null;
 }
 
 function formatRelativeTime(dateString: string): string {
@@ -89,6 +95,7 @@ export const NavbarNotificationDropdown: React.FC = () => {
           message: string;
           is_read: boolean;
           link?: string;
+          metadata?: Record<string, unknown> | null;
           created_at: string;
         }[]
       ).map((n) => ({
@@ -98,7 +105,8 @@ export const NavbarNotificationDropdown: React.FC = () => {
         message: n.message,
         timestamp: formatRelativeTime(n.created_at),
         isRead: n.is_read,
-        link: n.link,
+        link: getNotificationLink(n.type, n.metadata, n.link),
+        metadata: n.metadata,
         createdAt: n.created_at,
       }));
 
@@ -119,7 +127,7 @@ export const NavbarNotificationDropdown: React.FC = () => {
         message: m.message,
         timestamp: formatRelativeTime(m.created_at),
         isRead: m.is_read,
-        link: m.link,
+        link: getNotificationLink("mention", null, m.link),
         createdAt: m.created_at,
       }));
 
@@ -156,6 +164,24 @@ export const NavbarNotificationDropdown: React.FC = () => {
       }
     } catch (err) {
       console.error("Failed to mark as read:", err);
+    }
+  };
+
+  const handleDeleteNotification = async (id: string) => {
+    if (!userId) return;
+    const isMention = mentions.some((m) => m.id === id);
+
+    try {
+      if (isMention) {
+        setMentions((prev) => prev.filter((m) => m.id !== id));
+      } else {
+        await supabase.from("notifications").delete().eq("id", id);
+        setNotifications((prev) => prev.filter((n) => n.id !== id));
+      }
+      toast.success("Notification deleted");
+    } catch (err) {
+      console.error("Failed to delete notification:", err);
+      toast.error("Failed to delete notification");
     }
   };
 
