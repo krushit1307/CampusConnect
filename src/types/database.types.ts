@@ -2134,6 +2134,12 @@ export type Database = {
         };
         Returns: Json;
       };
+      global_search: {
+        Args: {
+          p_query: string;
+        };
+        Returns: Json;
+      };
       get_system_counts: {
         Args: Record<string, unknown>;
         Returns: Json;

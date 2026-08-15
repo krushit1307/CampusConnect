@@ -6,8 +6,13 @@ import * as matchers from "@testing-library/jest-dom/matchers";
 import { MemoryRouter } from "react-router-dom";
 import { CommandPalette } from "./command-palette";
 import { CommandPaletteProvider, useCommand } from "@/components/CommandPaletteProvider";
+import { useCommandPaletteSearch } from "@/hooks/useCommandPaletteSearch";
 
 expect.extend(matchers);
+
+vi.mock("@/hooks/useCommandPaletteSearch", () => ({
+  useCommandPaletteSearch: vi.fn(() => ({ results: [], isLoading: false })),
+}));
 
 function DemoPage() {
   useCommand({
@@ -132,5 +137,37 @@ describe("CommandPalette", () => {
 
     fireEvent.keyDown(window, { key: "k", metaKey: true });
     expect(screen.queryByText("Delete Event")).not.toBeInTheDocument();
+  });
+
+  it("opens when the open-command-palette custom event is dispatched", () => {
+    renderWithProvider(<CommandPalette />);
+
+    expect(screen.queryByPlaceholderText(/type a command or search/i)).not.toBeInTheDocument();
+    window.dispatchEvent(new CustomEvent("open-command-palette"));
+    expect(screen.getByPlaceholderText(/type a command or search/i)).toBeInTheDocument();
+  });
+
+  it("renders categorized result groups for events, clubs, and users", () => {
+    vi.mocked(useCommandPaletteSearch).mockReturnValue({
+      results: [
+        { id: "e1", type: "event", label: "Tech Fest", sublabel: "Event", path: "/events/e1" },
+        { id: "c1", type: "club", label: "Coding Club", sublabel: "Club", path: "/clubs/c1" },
+        { id: "p1", type: "person", label: "Jane Doe", sublabel: "User", path: "/profile/jane" },
+      ],
+      isLoading: false,
+    });
+
+    renderWithProvider(<CommandPalette />);
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    fireEvent.change(screen.getByPlaceholderText(/type a command or search/i), {
+      target: { value: "tech" },
+    });
+
+    expect(screen.getByText("Events")).toBeInTheDocument();
+    expect(screen.getByText("Clubs")).toBeInTheDocument();
+    expect(screen.getByText("Users")).toBeInTheDocument();
+    expect(screen.getByText("Tech Fest")).toBeInTheDocument();
+    expect(screen.getByText("Coding Club")).toBeInTheDocument();
+    expect(screen.getByText("Jane Doe")).toBeInTheDocument();
   });
 });

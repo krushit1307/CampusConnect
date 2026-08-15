@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { useDebounce } from "@/hooks/use-debounce";
-import { searchService } from "@/services/searchService";
+import { searchService, type GlobalSearchResult } from "@/services/searchService";
+
 export type CommandSearchResultType = "club" | "event" | "person";
 
 export interface CommandSearchResult {
@@ -34,35 +35,60 @@ function parseQuery(raw: string): { scope: CommandSearchResultType | null; term:
   return { scope: null, term: trimmed };
 }
 
+/** Builds the result record used by the palette from a global_search row. */
+function toResult(row: GlobalSearchResult): CommandSearchResult | null {
+  switch (row.entity_type) {
+    case "event":
+      return {
+        id: row.id,
+        type: "event",
+        label: row.label,
+        sublabel: "Event",
+        path: `/events/${row.short_id ?? row.id}`,
+      };
+    case "club":
+      if (!row.slug) return null;
+      return {
+        id: row.id,
+        type: "club",
+        label: row.label,
+        sublabel: "Club",
+        path: `/clubs/${row.slug}`,
+      };
+    case "profile":
+      if (!row.handle) return null;
+      return {
+        id: row.id,
+        type: "person",
+        label: row.label,
+        sublabel: "User",
+        path: `/profile/${row.handle}`,
+      };
+    default:
+      return null;
+  }
+}
+
 /**
- * Debounced search across clubs, events, and people for the Cmd+K palette.
- * Supports `events:`, `clubs:`, and `users:` prefixes to scope the search
- * to a single table.
+ * Debounced global search across clubs, events, and profiles for the Cmd+K
+ * palette. Supports `events:`, `clubs:`, and `users:` prefixes to scope the
+ * search to a single table. Debounce is 300ms to avoid spamming the database
+ * while typing rapidly.
  */
-export function useCommandPaletteSearch(
-  query: string,
-  categoryFilter: string | null = null,
-  dateFilter: "this_week" | null = null,
-) {
-  const debouncedQuery = useDebounce(query, 200);
+export function useCommandPaletteSearch(query: string) {
+  const { scope, term } = parseQuery(query);
+  const debouncedTerm = useDebounce(term, 300);
 
   const { data = [], isLoading } = useQuery({
-    queryKey: ["command-palette-search", debouncedQuery, categoryFilter, dateFilter],
-    enabled: Boolean(debouncedQuery.trim()),
+    queryKey: ["global-search", scope, debouncedTerm],
+    enabled: Boolean(debouncedTerm.trim()),
     queryFn: async () => {
-      const results = await searchService.searchEvents({
-        query: debouncedQuery,
-        categoryFilter,
-        dateFilter,
-      });
+      const rows = await searchService.globalSearch(debouncedTerm);
 
-      return results.map((event: { id: string; title: string }) => ({
-        id: event.id,
-        type: "event" as const,
-        label: event.title,
-        sublabel: "Event",
-        path: `/events/${event.id}`,
-      }));
+      return rows
+        .map(toResult)
+        .filter((r): r is CommandSearchResult => r !== null)
+        .filter((r) => (scope ? r.type === scope : true));
     },
   });
 

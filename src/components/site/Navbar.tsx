@@ -13,8 +13,10 @@ import Menu from "lucide-react/dist/esm/icons/menu";
 import X from "lucide-react/dist/esm/icons/x";
 import WifiOff from "lucide-react/dist/esm/icons/wifi-off";
 import Bookmark from "lucide-react/dist/esm/icons/bookmark";
+import Search from "lucide-react/dist/esm/icons/search";
 import { useAuthHydration } from "@/hooks/useAuthHydration";
 import { ProfileHeaderSkeleton } from "@/components/ProfileHeaderSkeleton";
+import { openCommandPalette } from "@/lib/commandPalette";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -301,6 +303,17 @@ export function Navbar() {
               Sign in
             </Link>
           )}
+
+          {/* Global search (Cmd+K) trigger — highly visible on mobile where the
+              keyboard shortcut does not exist */}
+          <button
+            type="button"
+            onClick={openCommandPalette}
+            aria-label="Open global search"
+            className="neu-border flex h-8 w-8 shrink-0 items-center justify-center bg-white p-1 text-black transition-colors hover:bg-lime dark:bg-black dark:text-cream"
+          >
+            <Search size={18} />
+          </button>
 
           {/* Mobile menu toggle button */}
           <button
