@@ -9,6 +9,7 @@ import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
 import { useState, useEffect, lazy, Suspense, useMemo, useRef } from "react";
 import { TableOfContents } from "@/components/events/TableOfContents";
 import { NotFound } from "@/components/NotFound";
+import { AttendeeVenueMap } from "@/components/events/AttendeeVenueMap";
 import LazyHydrate from "@/components/LazyHydrate";
 import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
@@ -580,6 +581,44 @@ export default function EventDetailsPage() {
     },
   });
 
+  const { data: venueMapData } = useQuery({
+    queryKey: ["eventVenueMap", event?.id],
+    enabled: !!event?.id,
+    queryFn: async () => {
+      if (!event?.id || event.id.startsWith("mock-")) return { map: null, nodes: [] };
+
+      const { data: mapData, error: mapError } = await supabase
+        .from("venue_maps")
+        .select("id, background_image_url")
+        .eq("event_id", event.id)
+        .maybeSingle();
+
+      if (mapError) throw mapError;
+      if (!mapData) return { map: null, nodes: [] };
+
+      const { data: nodesData, error: nodesError } = await supabase
+        .from("map_nodes")
+        .select("id, entity_name, type, x_coord, y_coord, width, height, rotation")
+        .eq("map_id", mapData.id);
+
+      if (nodesError) throw nodesError;
+
+      return {
+        map: mapData,
+        nodes: (nodesData || []).map((node) => ({
+          id: node.id,
+          entity_name: node.entity_name,
+          type: node.type as "table" | "stage" | "boundary" | "booth",
+          x_coord: Number(node.x_coord),
+          y_coord: Number(node.y_coord),
+          width: Number(node.width),
+          height: Number(node.height),
+          rotation: node.rotation,
+        })),
+      };
+    },
+  });
+
   interface EventSignature {
     id: string;
     event_id: string;
@@ -602,6 +641,8 @@ export default function EventDetailsPage() {
       return (data || []) as EventSignature[];
     },
     enabled: !!eventId,
+  });
+
   // Extract headings from HTML description for TOC
   const tocItems = useMemo(() => {
     if (!event?.description) return [];
@@ -801,7 +842,7 @@ export default function EventDetailsPage() {
       });
 
       if (error) throw error;
-      
+
       // Ensure we have a Blob
       return data instanceof Blob ? data : new Blob([data], { type: "text/csv" });
     },
@@ -1730,50 +1771,16 @@ export default function EventDetailsPage() {
             </div>
           </div>
 
-          {/* Read-only map layout for attendees */}
-          {event.map_layout && Array.isArray(event.map_layout) && event.map_layout.length > 0 && (
+          {/* Interactive venue map layout for attendees */}
+          {venueMapData && venueMapData.nodes && venueMapData.nodes.length > 0 && (
             <div className="mt-10 border-t-2 border-black pt-8">
               <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900 mb-4">
                 Floor Plan / Venue Layout
               </h2>
-              <div
-                className="relative border-4 border-black bg-white shadow-[4px_4px_0_0_#000] overflow-hidden mx-auto max-w-full"
-                style={{
-                  width: "100%",
-                  height: "400px",
-                  backgroundImage: "radial-gradient(#000 6%, transparent 7%)",
-                  backgroundSize: "20px 20px",
-                }}
-              >
-                <div className="absolute inset-0 overflow-auto p-4" style={{ minWidth: "800px", minHeight: "600px" }}>
-                  {event.map_layout.map((element: any) => {
-                    const colors = {
-                      table: "bg-amber-100",
-                      stage: "bg-indigo-100",
-                      boundary: "bg-red-50",
-                      booth: "bg-emerald-100",
-                    };
-                    return (
-                      <div
-                        key={element.id}
-                        style={{
-                          position: "absolute",
-                          left: `${element.x}px`,
-                          top: `${element.y}px`,
-                          width: `${element.width}px`,
-                          height: `${element.height}px`,
-                          transform: `rotate(${element.rotation || 0}deg)`,
-                          zIndex: element.zIndex || 10,
-                        }}
-                        className={`border-2 border-black flex flex-col items-center justify-center p-1 text-center shadow-[1px_1px_0_0_#000] text-[9px] font-mono uppercase font-bold leading-none ${colors[element.type as "table"] || "bg-white"}`}
-                      >
-                        <span>{element.label}</span>
-                        <span className="opacity-75 text-[7px] mt-0.5">{element.type}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              <AttendeeVenueMap
+                nodes={venueMapData.nodes}
+                backgroundImageUrl={venueMapData.map?.background_image_url}
+              />
             </div>
           )}
 
@@ -1923,45 +1930,51 @@ export default function EventDetailsPage() {
               )}
             </div>
 
-          {event.is_high_risk && (
-            <div className="mt-8 border-2 border-black bg-yellow-50 p-6 font-mono text-sm">
-              <h2 className="text-xl font-bold uppercase tracking-tight text-black mb-3">
-                Co-Signer Approvals
-              </h2>
-              <p className="text-xs text-gray-700 mb-4">
-                This is a high-risk event. It will be published once all required stakeholders sign
-                off.
-              </p>
-              <div className="space-y-3">
-                {signatures.map((sig) => (
-                  <div
-                    key={sig.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-black/20 pb-2"
-                  >
-                    <div>
-                      <span className="font-bold text-black">{sig.signer_role}</span>:{" "}
-                      {sig.signer_name} ({sig.signer_email})
-                    </div>
-                    <div className="mt-1 sm:mt-0 flex items-center gap-3">
-                      {sig.signed_at ? (
-                        <span className="bg-green-100 text-green-800 border border-green-800 px-2 py-0.5 font-bold uppercase text-xs">
-                          Signed ✓
-                        </span>
-                      ) : (
-                        <>
-                          <span className="bg-red-100 text-red-800 border border-red-800 px-2 py-0.5 font-bold uppercase text-xs">
-                            Pending
+            {event.is_high_risk && (
+              <div className="mt-8 border-2 border-black bg-yellow-50 p-6 font-mono text-sm">
+                <h2 className="text-xl font-bold uppercase tracking-tight text-black mb-3">
+                  Co-Signer Approvals
+                </h2>
+                <p className="text-xs text-gray-700 mb-4">
+                  This is a high-risk event. It will be published once all required stakeholders
+                  sign off.
+                </p>
+                <div className="space-y-3">
+                  {signatures.map((sig) => (
+                    <div
+                      key={sig.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-black/20 pb-2"
+                    >
+                      <div>
+                        <span className="font-bold text-black">{sig.signer_role}</span>:{" "}
+                        {sig.signer_name} ({sig.signer_email})
+                      </div>
+                      <div className="mt-1 sm:mt-0 flex items-center gap-3">
+                        {sig.signed_at ? (
+                          <span className="bg-green-100 text-green-800 border border-green-800 px-2 py-0.5 font-bold uppercase text-xs">
+                            Signed ✓
                           </span>
-                          <a
-                            href={`${getSupabaseUrl()}/functions/v1/co-signer-approval?token=${sig.signature_token}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="bg-white hover:bg-cream border border-black px-2 py-0.5 text-xs font-bold uppercase underline"
-                          >
-                            Approval Link ↗
-                          </a>
-                        </>
-                      )}
+                        ) : (
+                          <>
+                            <span className="bg-red-100 text-red-800 border border-red-800 px-2 py-0.5 font-bold uppercase text-xs">
+                              Pending
+                            </span>
+                            <a
+                              href={`${getSupabaseUrl()}/functions/v1/co-signer-approval?token=${sig.signature_token}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="bg-white hover:bg-cream border border-black px-2 py-0.5 text-xs font-bold uppercase underline"
+                            >
+                              Approval Link ↗
+                            </a>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {/* Optimistic UI & Progress for Uploading Files */}
             {uploadingFiles.length > 0 && (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 mb-6">
@@ -2037,10 +2050,6 @@ export default function EventDetailsPage() {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* Social Share Buttons */}
             )}
           </div>
 
