@@ -341,6 +341,7 @@ GRANT EXECUTE ON FUNCTION get_club_analytics(UUID, TEXT) TO authenticated;
 --   switched to event_metrics before this DROP runs.
 -- -----------------------------------------------------------------------------
 DROP INDEX IF EXISTS public.idx_events_views;
+DROP MATERIALIZED VIEW IF EXISTS public.trending_events CASCADE;
 
 ALTER TABLE public.events
     DROP COLUMN IF EXISTS views;

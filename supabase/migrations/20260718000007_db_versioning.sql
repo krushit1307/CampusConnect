@@ -57,6 +57,8 @@ with check (true);
 -- Supabase stores migrations as version + name, while this repo compares
 -- against the filename form: <version>_<name>.sql.
 do $$
+declare
+  has_inserted_at boolean;
 begin
   if exists (
     select 1
@@ -64,17 +66,41 @@ begin
     where table_schema = 'supabase_migrations'
       and table_name = 'schema_migrations'
   ) then
-    insert into public.db_versions (migration_name, executed_at)
-    select
-      case
-        when coalesce(name, '') = '' then version || '.sql'
-        else version || '_' || name || '.sql'
-      end as migration_name,
-      coalesce(inserted_at, now()) as executed_at
-    from supabase_migrations.schema_migrations
-    on conflict (migration_name) do update
-      set executed_at = excluded.executed_at,
-          updated_at = now();
+    select exists (
+      select 1
+      from information_schema.columns
+      where table_schema = 'supabase_migrations'
+        and table_name = 'schema_migrations'
+        and column_name = 'inserted_at'
+    ) into has_inserted_at;
+
+    if has_inserted_at then
+      execute '
+        insert into public.db_versions (migration_name, executed_at)
+        select
+          case
+            when coalesce(name, '''') = '''' then version || ''.sql''
+            else version || ''_'' || name || ''.sql''
+          end as migration_name,
+          coalesce(inserted_at, now()) as executed_at
+        from supabase_migrations.schema_migrations
+        on conflict (migration_name) do update
+          set executed_at = excluded.executed_at,
+              updated_at = now();
+      ';
+    else
+      insert into public.db_versions (migration_name, executed_at)
+      select
+        case
+          when coalesce(name, '') = '' then version || '.sql'
+          else version || '_' || name || '.sql'
+        end as migration_name,
+        now() as executed_at
+      from supabase_migrations.schema_migrations
+      on conflict (migration_name) do update
+        set executed_at = excluded.executed_at,
+            updated_at = now();
+    end if;
   end if;
 end;
 $$;

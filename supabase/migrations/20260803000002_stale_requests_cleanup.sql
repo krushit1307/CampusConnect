@@ -5,8 +5,8 @@ CREATE EXTENSION IF NOT EXISTS pg_cron;
 DO $$
 BEGIN
   PERFORM cron.unschedule('cleanup-stale-club-requests');
-EXCEPTION WHEN undefined_table THEN
-  -- pg_cron not fully initialized or schema missing, ignore
+EXCEPTION WHEN OTHERS THEN
+  -- pg_cron not fully initialized, or job doesn't exist, ignore
 END $$;
 
 -- Schedule the cleanup to run daily at midnight

@@ -242,7 +242,6 @@ export const PresenceProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [user, supabase]);
 
   const value = useMemo(() => ({ onlineUsers, presenceMap }), [onlineUsers, presenceMap]);
-
   return React.createElement(PresenceContext.Provider, { value }, children);
 };
 

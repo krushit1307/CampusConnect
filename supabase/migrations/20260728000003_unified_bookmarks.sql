@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS bookmarks (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id    UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   event_id   UUID REFERENCES events(id) ON DELETE CASCADE,
-  post_id    UUID REFERENCES posts(id) ON DELETE CASCADE,
+  post_id    UUID,
   club_id    UUID REFERENCES clubs(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   -- exactly one FK must be set

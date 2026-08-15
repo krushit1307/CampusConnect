@@ -4,7 +4,9 @@ import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { useIdleTimeout } from "@/hooks/useIdleTimeout";
-import { Joyride } from "react-joyride";
+import * as JoyrideModule from "react-joyride";
+const JoyrideComponent =
+  (JoyrideModule as any).default || (JoyrideModule as any).Joyride || JoyrideModule;
 import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
 import { BugReportWidget } from "@/components/BugReportWidget";

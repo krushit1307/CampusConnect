@@ -13,11 +13,6 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS set_timestamp_users ON users;
-CREATE TRIGGER set_timestamp_users
-BEFORE UPDATE ON users
-FOR EACH ROW
-EXECUTE FUNCTION trigger_set_timestamp();
 
 DROP TRIGGER IF EXISTS set_timestamp_profiles ON profiles;
 CREATE TRIGGER set_timestamp_profiles

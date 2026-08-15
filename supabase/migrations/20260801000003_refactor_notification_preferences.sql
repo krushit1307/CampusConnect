@@ -2,6 +2,7 @@
 -- Description: Refactor JSONB notification_preferences column to strict relational table
 
 -- 1. Create the new user_preferences table
+DROP TABLE IF EXISTS public.user_preferences CASCADE;
 CREATE TABLE IF NOT EXISTS public.user_preferences (
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE PRIMARY KEY,
   email_alerts BOOLEAN NOT NULL DEFAULT true,

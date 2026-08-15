@@ -50,8 +50,9 @@ LEFT JOIN (
         cm_admins.club_id,
         STRING_AGG(au.email, ', ' ORDER BY au.email) AS admin_emails
     FROM public.club_members cm_admins
+    JOIN public.club_roles cr ON cr.id = cm_admins.role_id
     JOIN auth.users au ON au.id = cm_admins.user_id
-    WHERE cm_admins.role = 'admin' AND cm_admins.status = 'approved'
+    WHERE cr.title = 'admin' AND cm_admins.status = 'approved'
     GROUP BY cm_admins.club_id
 ) a
     ON a.club_id = c.id

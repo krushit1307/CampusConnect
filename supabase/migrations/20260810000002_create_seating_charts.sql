@@ -49,21 +49,15 @@ ON public.seating_charts FOR ALL
 USING (
     EXISTS (
         SELECT 1 FROM public.events e
-        JOIN public.club_members cm ON e.club_id = cm.club_id
         WHERE e.id = seating_charts.event_id
-        AND cm.user_id = auth.uid()
-        AND cm.role = 'admin'
-        AND cm.status = 'approved'
+        AND public.is_club_admin(e.club_id, auth.uid())
     )
 )
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM public.events e
-        JOIN public.club_members cm ON e.club_id = cm.club_id
         WHERE e.id = seating_charts.event_id
-        AND cm.user_id = auth.uid()
-        AND cm.role = 'admin'
-        AND cm.status = 'approved'
+        AND public.is_club_admin(e.club_id, auth.uid())
     )
 );
 

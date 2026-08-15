@@ -189,7 +189,11 @@ GRANT EXECUTE ON FUNCTION public.precompute_yearly_recaps(INT) TO service_role;
 -- 5. Schedule pg_cron precompute job mid-December (December 15th at midnight)
 DO $$
 BEGIN
-    PERFORM extensions.cron.schedule('precompute-yearly-recaps', '0 0 15 12 *', 'SELECT public.precompute_yearly_recaps(EXTRACT(YEAR FROM NOW())::INT);');
-EXCEPTION
-    WHEN duplicate_object THEN NULL;
+    BEGIN
+        PERFORM cron.unschedule('precompute-yearly-recaps');
+    EXCEPTION WHEN OTHERS THEN
+        -- Ignore if job does not exist
+    END;
+
+    PERFORM cron.schedule('precompute-yearly-recaps', '0 0 15 12 *', 'SELECT public.precompute_yearly_recaps(EXTRACT(YEAR FROM NOW())::INT);');
 END $$;

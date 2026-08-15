@@ -28,9 +28,7 @@ CREATE POLICY "Admins can view webhook deliveries" ON webhook_deliveries
     USING (
         EXISTS (
             SELECT 1 FROM webhooks
-            JOIN club_members ON club_members.club_id = webhooks.club_id
             WHERE webhooks.id = webhook_deliveries.webhook_id
-            AND club_members.user_id = auth.uid()
-            AND club_members.role IN ('admin', 'owner')
+            AND public.is_club_admin(webhooks.club_id, auth.uid())
         )
     );

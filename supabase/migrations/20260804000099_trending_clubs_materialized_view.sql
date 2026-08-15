@@ -10,8 +10,8 @@ SELECT
     c.id, 
     c.name, 
     c.description, 
-    c.image_url, 
-    c.member_count,
+    c.logo_url AS image_url, 
+    (SELECT COUNT(*) FROM public.club_members WHERE club_id = c.id AND status = 'approved') AS member_count,
     COUNT(r.id) AS score
 FROM public.clubs c
 LEFT JOIN public.events e ON e.club_id = c.id

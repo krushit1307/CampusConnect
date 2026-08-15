@@ -17,7 +17,7 @@ CREATE TABLE public.posts (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ NULL,
-    pinned BOOLEAN NOT NULL DEFAULT FALSE,
+    is_pinned BOOLEAN NOT NULL DEFAULT FALSE,
     like_count INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (id, created_at)
 ) PARTITION BY RANGE (created_at);
@@ -82,8 +82,8 @@ $$;
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'posts_old') THEN
-        INSERT INTO public.posts (id, club_id, author_id, content, created_at, updated_at, deleted_at, pinned, like_count)
-        SELECT id, club_id, author_id, content, created_at, updated_at, deleted_at, pinned, like_count
+        INSERT INTO public.posts (id, club_id, author_id, content, created_at, updated_at, deleted_at, is_pinned, like_count)
+        SELECT id, club_id, author_id, content, created_at, updated_at, deleted_at, is_pinned, like_count
         FROM public.posts_old;
     END IF;
 END;

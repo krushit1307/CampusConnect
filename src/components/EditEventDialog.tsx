@@ -92,6 +92,8 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
       description: event.description || "",
       category: (event.category_id as string) || "",
       location: event.location || "",
+      is_outdoor: event.is_outdoor || false,
+      backup_indoor_venue: event.backup_indoor_venue || "",
       startDate: event.start_date ? new Date(event.start_date).toISOString().slice(0, 16) : "",
       endDate: event.end_date ? new Date(event.end_date).toISOString().slice(0, 16) : "",
       tags: event.tags || [],
@@ -227,6 +229,8 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
         description: values.description.trim(),
         category_id: values.category || null,
         location: values.location?.trim() || null,
+        is_outdoor: values.is_outdoor || false,
+        backup_indoor_venue: values.backup_indoor_venue?.trim() || null,
         start_date: new Date(values.startDate).toISOString(),
         end_date: new Date(values.endDate).toISOString(),
         tags: values.tags || [],
@@ -385,7 +389,52 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                   </FormItem>
                 )}
               />
+              <FormField
+                control={control}
+                name="is_outdoor"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
+                    <FormControl>
+                      <input
+                        type="checkbox"
+                        checked={field.value}
+                        onChange={field.onChange}
+                        className="mt-1"
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel className="cursor-pointer font-medium">Outdoor Event</FormLabel>
+                      <p className="text-xs text-muted-foreground">
+                        Mark this as an outdoor event to enable automated weather alerts.
+                      </p>
+                    </div>
+                  </FormItem>
+                )}
+              />
 
+              {form.watch("is_outdoor") && (
+                <FormField
+                  control={control}
+                  name="backup_indoor_venue"
+                  render={({ field }) => (
+                    <FormItem className="rounded-md border p-4">
+                      <FormLabel>Backup Indoor Venue</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g. Student Union Hall"
+                          {...field}
+                          value={field.value || ""}
+                        />
+                      </FormControl>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        If severe weather is forecasted, you will be prompted to automatically pivot
+                        the event here.
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField
                   control={control}

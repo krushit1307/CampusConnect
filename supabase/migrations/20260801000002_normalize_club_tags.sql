@@ -25,12 +25,7 @@ CREATE POLICY "Club tag labels can be created by authenticated users" ON public.
 ALTER TABLE public.club_tags ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Club tags are viewable by everyone" ON public.club_tags FOR SELECT USING (true);
 CREATE POLICY "Club admins can manage their club's tags" ON public.club_tags FOR ALL USING (
-    EXISTS (
-        SELECT 1 FROM public.club_members
-        WHERE club_id = club_tags.club_id
-        AND user_id = auth.uid()
-        AND role = 'admin'
-    )
+    public.is_club_admin(club_tags.club_id, auth.uid())
 );
 
 GRANT SELECT ON public.club_tag_labels TO anon, authenticated;

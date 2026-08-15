@@ -6,7 +6,7 @@
 CREATE OR REPLACE FUNCTION public.get_event_popularity_score(
     p_event_id UUID,
     p_event_date TIMESTAMPTZ,
-    p_rsvp_count INTEGER,
+    p_rsvp_count BIGINT,
     p_views INTEGER
 )
 RETURNS NUMERIC
@@ -99,7 +99,7 @@ AS $$
 $$;
 
 -- Step 3: Grant execution permissions
-GRANT EXECUTE ON FUNCTION public.get_event_popularity_score(UUID, TIMESTAMPTZ, INTEGER, INTEGER) TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION public.get_event_popularity_score(UUID, TIMESTAMPTZ, BIGINT, INTEGER) TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION public.get_trending_events(INTEGER, INTEGER) TO authenticated, anon;
 
 COMMENT ON FUNCTION public.get_event_popularity_score IS 'Calculates a unified popularity score for an event based on RSVPs, views, and recency.';

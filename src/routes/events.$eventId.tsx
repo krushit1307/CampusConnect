@@ -3,12 +3,15 @@ import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
+import { queueRsvpSubmission } from "@/lib/events/offlineRsvpSync";
+import { useOfflineRsvpSync } from "@/hooks/useOfflineRsvpSync";
 import { createClient } from "@/lib/supabase/client";
 import { incrementEventViews } from "@/lib/supabase/events";
 import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
 import { useState, useEffect, lazy, Suspense, useMemo, useRef } from "react";
 import { TableOfContents } from "@/components/events/TableOfContents";
 import { NotFound } from "@/components/NotFound";
+import { AttendeeVenueMap } from "@/components/events/AttendeeVenueMap";
 import LazyHydrate from "@/components/LazyHydrate";
 import { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
@@ -119,7 +122,8 @@ import {
 import DynamicQRCode from "@/components/events/DynamicQRCode";
 import { isCaptchaConfigured, shouldRequireCaptcha } from "@/lib/captcha";
 import { EditEventDialog } from "@/components/EditEventDialog";
-import { DynamicEventPoster } from "@/components/events/DynamicEventPoster";import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import { DynamicEventPoster } from "@/components/events/DynamicEventPoster";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
 import { ActivePoll } from "@/components/polls/ActivePoll";
 import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
@@ -606,6 +610,55 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
     },
   });
 
+  const { data: venueMapData } = useQuery({
+    queryKey: ["eventVenueMap", event?.id],
+    enabled: !!event?.id,
+    queryFn: async () => {
+      if (!event?.id || event.id.startsWith("mock-")) return { map: null, nodes: [] };
+
+      const { data: mapData, error: mapError } = await supabase
+        .from("venue_maps")
+        .select("id, background_image_url")
+        .eq("event_id", event.id)
+        .maybeSingle();
+
+      if (mapError) throw mapError;
+      if (!mapData) return { map: null, nodes: [] };
+
+      const { data: nodesData, error: nodesError } = await supabase
+        .from("map_nodes")
+        .select("id, entity_name, type, x_coord, y_coord, width, height, rotation")
+        .eq("map_id", mapData.id);
+
+      if (nodesError) throw nodesError;
+
+      return {
+        map: mapData,
+        nodes: (nodesData || []).map((node) => ({
+          id: node.id,
+          entity_name: node.entity_name,
+          type: node.type as "table" | "stage" | "boundary" | "booth",
+          x_coord: Number(node.x_coord),
+          y_coord: Number(node.y_coord),
+          width: Number(node.width),
+          height: Number(node.height),
+          rotation: node.rotation,
+        })),
+      };
+    },
+  });
+
+  interface EventSignature {
+    id: string;
+    event_id: string;
+    signer_role: string;
+    signer_name: string;
+    signer_email: string;
+    signature_token: string;
+    signed_at: string | null;
+    ip_address: string | null;
+  }
+
   const { data: overrides } = useQuery({
     queryKey: ["venue_overrides", event?.venue_id],
     queryFn: async () => {
@@ -713,7 +766,6 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
     },
     enabled: !!user?.id && !!eventId && isOnWaitlist,
   });
-
   // Extract headings from HTML description for TOC
   const tocItems = useMemo(() => {
     if (!event?.description) return [];
@@ -833,13 +885,38 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
         data: { session },
       } = await supabase.auth.getSession();
 
-      const { error } = await supabase.functions.invoke("toggle-rsvp", {
-        body: { eventId, hasRsvpd, captchaToken, accommodationsRequested },
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
-          "Idempotency-Key": idempotencyKey,
-        },
-      });
+      let funcError = null;
+      try {
+        const { error } = await supabase.functions.invoke("toggle-rsvp", {
+          body: { eventId, hasRsvpd, captchaToken, accommodationsRequested },
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+            "Idempotency-Key": idempotencyKey,
+          },
+        });
+        funcError = error;
+      } catch (err: any) {
+        if (
+          !navigator.onLine ||
+          err.message.includes("fetch") ||
+          err.message.includes("network") ||
+          err.message.includes("Failed to fetch")
+        ) {
+          await queueRsvpSubmission({
+            eventId,
+            hasRsvpd,
+            captchaToken,
+            accommodationsRequested,
+            idempotencyKey,
+            queuedAt: Date.now(),
+          });
+          // Throw a specific error to show offline toast
+          throw new Error("OFFLINE_SAVED");
+        } else {
+          throw err;
+        }
+      }
+      if (funcError) throw funcError;
 
       if (error) throw error;
       clearRsvpIdempotencyKey(eventId);
@@ -880,7 +957,12 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
       }
 
       const err = error as Record<string, unknown>;
-      if (
+      if (err?.message === "OFFLINE_SAVED" || error?.message === "OFFLINE_SAVED") {
+        toast.success(
+          "You're offline. Your RSVP is saved and will sync automatically when you reconnect.",
+          { duration: 5000 },
+        );
+      } else if (
         (typeof err?.message === "string" && err.message.includes("Rate limit")) ||
         (typeof err?.details === "string" && err.details.includes("Rate limit")) ||
         (typeof err?.context === "string" && err.context.includes("Rate limit")) ||
@@ -1224,12 +1306,11 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
     Array.isArray(rawFeedbacks) ? (rawFeedbacks as { user_id: string }[]) : undefined,
     user?.id,
   );
-const eventUrl =
-  typeof window !== "undefined"
-    ? window.location.href
-    : `${import.meta.env.VITE_SITE_URL ?? ""}/events/${event.short_id ?? event.id}`;
+  const eventUrl =
+    typeof window !== "undefined"
+      ? window.location.href
+      : `${import.meta.env.VITE_SITE_URL ?? ""}/events/${event.short_id ?? event.id}`;
 
- feature/ghost-mode-2878
   const ogTags = buildOpenGraphTags({
     title: event.title,
     description: event.description,
@@ -1241,22 +1322,6 @@ const eventUrl =
   });
 
   const rawWaitlist = adminWaitlist || [];
-
- HEAD
-
-const ogTags = buildOpenGraphTags({
-  title: event.title,
-  description: event.description,
-  bannerUrl: event.banner_url,
-  eventDate: event.event_date,
-  location: event.location,
-  url: eventUrl,
-  eventId: event.id,
-});
- origin/main
-  // We calculate waitlist info earlier in useMemo now
-  const rawWaitlist = (event as Record<string, unknown>).event_waitlist;
- main
 
   const club = event.clubs ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
   const coordsCheck = event.location
@@ -1413,1665 +1478,1676 @@ const ogTags = buildOpenGraphTags({
     maxAttendees > 0 &&
     attendeeCount >= maxAttendees;
 
-return (
-  <>
-    <Helmet>
-      <title>{ogTags.ogTitle}</title>
+  return (
+    <>
+      <Helmet>
+        <title>{ogTags.ogTitle}</title>
 
-      <meta name="description" content={ogTags.ogDescription} />
+        <meta name="description" content={ogTags.ogDescription} />
 
-      <meta property="og:type" content="website" />
-      <meta property="og:title" content={ogTags.ogTitle} />
-      <meta property="og:description" content={ogTags.ogDescription} />
-      <meta property="og:url" content={ogTags.ogUrl} />
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content={ogTags.ogTitle} />
+        <meta property="og:description" content={ogTags.ogDescription} />
+        <meta property="og:url" content={ogTags.ogUrl} />
 
-      {ogTags.ogImage && (
-        <>
-          <meta property="og:image" content={ogTags.ogImage} />
-          <meta property="og:image:width" content="1200" />
-          <meta property="og:image:height" content="630" />
-          <meta property="og:image:type" content="image/png" />
-        </>
-      )}
-
-      {ogTags.eventStartTime && (
-        <meta
-          property="event:start_time"
-          content={ogTags.eventStartTime}
-        />
-      )}
-
-      <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:title" content={ogTags.ogTitle} />
-      <meta name="twitter:description" content={ogTags.ogDescription} />
-
-      {ogTags.ogImage && (
-        <meta name="twitter:image" content={ogTags.ogImage} />
-      )}
-    </Helmet>
-
-    <SiteShell>      {/* Breadcrumb nav */}
-      <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6" aria-label="Breadcrumb">
-        <div className="mx-auto max-w-4xl">
-          {/* Mobile: simple back link */}
-          <Link
-            to="/events"
-            className="inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider hover:underline sm:hidden"
-          >
-            <ArrowLeft size={14} /> Events
-          </Link>
-          {/* sm+: full breadcrumb */}
-          <Breadcrumb className="hidden sm:block">
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link to="/" className="font-mono text-xs font-bold uppercase">
-                    Home
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link to="/events" className="font-mono text-xs font-bold uppercase">
-                    Events
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage className="font-mono text-xs font-bold uppercase">
-                  {event.title}
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section className="relative w-full overflow-hidden border-b-2 border-black bg-peach/30">
-        {event.banner_url ? (
-          <div className="absolute inset-0">
-            <EventHeroBanner
-              bannerUrl={event.banner_url}
-              blurhash={(event as { blurhash?: string | null }).blurhash}
-              title={event.title}
-            />
-            <div className="absolute inset-0 bg-black/50" />
-          </div>
-        ) : (
-          <div className="absolute inset-0 bg-linear-to-br from-peach via-pink-200 to-lime/40" />
+        {ogTags.ogImage && (
+          <>
+            <meta property="og:image" content={ogTags.ogImage} />
+            <meta property="og:image:width" content="1200" />
+            <meta property="og:image:height" content="630" />
+            <meta property="og:image:type" content="image/png" />
+          </>
         )}
 
-        <div className="relative mx-auto flex min-h-[50vh] max-w-4xl flex-col justify-end px-4 py-16 md:min-h-[60vh] md:px-6 md:py-24">
-          <div className="mb-4">
-            <span className="neu-border inline-block bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider text-black">
-              Event Details
-            </span>
-          </div>
+        {ogTags.eventStartTime && (
+          <meta property="event:start_time" content={ogTags.eventStartTime} />
+        )}
 
-          <div className="flex items-center gap-3">
-            <h1
-              className={`text-4xl font-black tracking-tight md:text-6xl ${event.banner_url ? "text-white" : "text-black"}`}
-            >
-              {event.title}
-            </h1>
-            <ShareMenu url={shareUrl} title={event.title} />
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={handleCopyEventId}
-                    variant="outline"
-                    size="icon"
-                    className="neu-border rounded-2xl h-8 w-8 shrink-0 bg-black text-white transition-all duration-300 hover:scale-105 active:scale-95"
-                    aria-label="Copy Event ID"
-                  >
-                    {idCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Copy Event ID</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={ogTags.ogTitle} />
+        <meta name="twitter:description" content={ogTags.ogDescription} />
 
-          {club && (
-            <p
-              className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"}`}
+        {ogTags.ogImage && <meta name="twitter:image" content={ogTags.ogImage} />}
+      </Helmet>
+
+      <SiteShell>
+        {" "}
+        {/* Breadcrumb nav */}
+        <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6" aria-label="Breadcrumb">
+          <div className="mx-auto max-w-4xl">
+            {/* Mobile: simple back link */}
+            <Link
+              to="/events"
+              className="inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider hover:underline sm:hidden"
             >
-              Organized by:{" "}
-              <Link to={`/clubs/${club.slug}`} className="underline hover:opacity-80">
-                {club.name}
-              </Link>
-            </p>
+              <ArrowLeft size={14} /> Events
+            </Link>
+            {/* sm+: full breadcrumb */}
+            <Breadcrumb className="hidden sm:block">
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link to="/" className="font-mono text-xs font-bold uppercase">
+                      Home
+                    </Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link to="/events" className="font-mono text-xs font-bold uppercase">
+                      Events
+                    </Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage className="font-mono text-xs font-bold uppercase">
+                    {event.title}
+                  </BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          </div>
+        </nav>
+        {/* Hero Section */}
+        <section className="relative w-full overflow-hidden border-b-2 border-black bg-peach/30">
+          {event.banner_url ? (
+            <div className="absolute inset-0">
+              <EventHeroBanner
+                bannerUrl={event.banner_url}
+                blurhash={(event as { blurhash?: string | null }).blurhash}
+                title={event.title}
+              />
+              <div className="absolute inset-0 bg-black/50" />
+            </div>
+          ) : (
+            <div className="absolute inset-0 bg-linear-to-br from-peach via-pink-200 to-lime/40" />
           )}
 
-          {!club && event.profiles && (
-            <div
-              className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"} flex items-center gap-4`}
-            >
-              <span>Organized by: {(event.profiles as { full_name: string }).full_name}</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  import("@/lib/vcardUtils").then(({ downloadVCard }) => {
-                    downloadVCard(event.profiles as { full_name: string; email: string });
-                  });
-                }}
-                className="neu-border h-8 bg-white/20 hover:bg-white/40 text-xs px-3"
-              >
-                <Download className="mr-2 h-3 w-3" />
-                Download Contact (vCard)
-              </Button>
-            </div>
-          )}
-
-          <div
-            className={`mt-8 flex flex-wrap gap-4 font-mono text-sm font-bold sm:gap-8 ${event.banner_url ? "text-white" : "text-black"}`}
-          >
-            <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              <span>{formatEventDateRange(event)}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <MapPin className="h-5 w-5" />
-              <span>{event.location || "TBA"}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              <span>{attendeeCount} RSVP&apos;d</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Eye className="h-5 w-5" />
-              <span>
-                {(
-                  ((event as any).event_metrics as { views: number } | null)?.views ?? 0
-                ).toLocaleString()}{" "}
-                views
+          <div className="relative mx-auto flex min-h-[50vh] max-w-4xl flex-col justify-end px-4 py-16 md:min-h-[60vh] md:px-6 md:py-24">
+            <div className="mb-4">
+              <span className="neu-border inline-block bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider text-black">
+                Event Details
               </span>
             </div>
-          </div>
 
-          <div className="mt-6 max-w-md">
-            <EventCapacityGauge
-              eventId={event.id}
-              initialCapacity={attendeeCount}
-              maxAttendees={maxAttendees || null}
-              showDetails={true}
-            />
-          </div>
+            <div className="flex items-center gap-3">
+              <h1
+                className={`text-4xl font-black tracking-tight md:text-6xl ${event.banner_url ? "text-white" : "text-black"}`}
+              >
+                {event.title}
+              </h1>
+              <ShareMenu url={shareUrl} title={event.title} />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={handleCopyEventId}
+                      variant="outline"
+                      size="icon"
+                      className="neu-border rounded-2xl h-8 w-8 shrink-0 bg-black text-white transition-all duration-300 hover:scale-105 active:scale-95"
+                      aria-label="Copy Event ID"
+                    >
+                      {idCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Copy Event ID</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
 
-          {hasRsvpd && myRsvpId && !isCheckedIn && !hasEnded && (
+            {club && (
+              <p
+                className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"}`}
+              >
+                Organized by:{" "}
+                <Link to={`/clubs/${club.slug}`} className="underline hover:opacity-80">
+                  {club.name}
+                </Link>
+              </p>
+            )}
+
+            {!club && event.profiles && (
+              <div
+                className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"} flex items-center gap-4`}
+              >
+                <span>Organized by: {(event.profiles as { full_name: string }).full_name}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    import("@/lib/vcardUtils").then(({ downloadVCard }) => {
+                      downloadVCard(event.profiles as { full_name: string; email: string });
+                    });
+                  }}
+                  className="neu-border h-8 bg-white/20 hover:bg-white/40 text-xs px-3"
+                >
+                  <Download className="mr-2 h-3 w-3" />
+                  Download Contact (vCard)
+                </Button>
+              </div>
+            )}
+
+            <div
+              className={`mt-8 flex flex-wrap gap-4 font-mono text-sm font-bold sm:gap-8 ${event.banner_url ? "text-white" : "text-black"}`}
+            >
+              <div className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                <span>{formatEventDateRange(event)}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                <span>{event.location || "TBA"}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                <span>{attendeeCount} RSVP&apos;d</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                <span>
+                  {(
+                    ((event as any).event_metrics as { views: number } | null)?.views ?? 0
+                  ).toLocaleString()}{" "}
+                  views
+                </span>
+              </div>
+            </div>
+
             <div className="mt-6 max-w-md">
-              <GeofencedCheckInButton
-                rsvpId={myRsvpId}
-                geofencingEnabled={Boolean((event as any).geofencing_enabled)}
-                onCheckedIn={() => refetch()}
+              <EventCapacityGauge
+                eventId={event.id}
+                initialCapacity={attendeeCount}
+                maxAttendees={maxAttendees || null}
+                showDetails={true}
               />
             </div>
-          )}
 
-          <div className="mt-8 hidden items-center gap-4 md:flex">
-            {hasRsvpd ? (
-              <Button
-                onClick={handleRsvpClick}
-                disabled={toggleRsvp.isPending}
-                variant="secondary"
-                size="lg"
-              >
-                {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
-              </Button>
-            ) : isAtCapacity ? (
-              <div className="flex flex-col gap-1">
-                <Button
-                  onClick={() => {
-                    if (!user) {
-                      toast.error("Please log in to join the waitlist");
-                      return;
-                    }
-                    if (!emailVerified) {
-                      toast.error("Please verify your email to join the waitlist");
-                      return;
-                    }
-                    toggleWaitlist.mutate({ isOnWaitlist });
-                  }}
-                  disabled={toggleWaitlist.isPending}
-                  variant={isOnWaitlist ? "secondary" : "primary"}
-                  size="lg"
-                >
-                  {toggleWaitlist.isPending
-                    ? "Updating..."
-                    : isOnWaitlist
-                      ? "On Waitlist ✓"
-                      : "Join Waitlist"}
-                </Button>
-                {isOnWaitlist && (
-                  <div className="mt-4 flex flex-col items-center gap-2 rounded bg-amber-50 p-4 border-2 border-amber-300">
-                    <p className="font-mono text-sm font-bold text-amber-900">
-                      Priority Score: {waitlistScore?.total_score || "..."}
-                    </p>
-                    <p className="text-center text-xs text-amber-800/80 max-w-xs leading-relaxed">
-                      Your position is determined by:
-                      <br />
-                      • Time on waitlist
-                      <br />
-                      • Club membership
-                      <br />
-                      • Attendance streak
-                      <br />• Graduation status
-                    </p>
-
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-2 text-xs border-amber-400 text-amber-900 hover:bg-amber-100 font-bold tracking-tight"
-                        >
-                          View Score Breakdown
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-md border-4 border-black shadow-[8px_8px_0_0_#000]">
-                        <DialogHeader>
-                          <DialogTitle className="font-display uppercase text-2xl tracking-tight text-black">
-                            Priority Score Breakdown
-                          </DialogTitle>
-                          <DialogDescription className="font-mono text-gray-600">
-                            How your waitlist priority is calculated.
-                          </DialogDescription>
-                        </DialogHeader>
-                        {waitlistScore ? (
-                          <div className="flex flex-col gap-3 font-mono text-sm my-4 text-black">
-                            <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
-                              <span>Time on waitlist ({waitlistScore.waitlist_hours}h)</span>
-                              <span className="font-bold text-blue-600">
-                                +{waitlistScore.time_score}
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
-                              <span>Active club member</span>
-                              <span className="font-bold text-lime-600">
-                                +{waitlistScore.membership_score}
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
-                              <span>Attendance streak</span>
-                              <span className="font-bold text-orange-600">
-                                +{waitlistScore.streak_score}
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center border-b-2 border-black pb-2">
-                              <span>Graduating senior</span>
-                              <span className="font-bold text-purple-600">
-                                +{waitlistScore.senior_score}
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center pt-2 text-lg font-black uppercase">
-                              <span>Total Score</span>
-                              <span>{waitlistScore.total_score}</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="p-4 text-center font-mono text-gray-500">
-                            Loading score...
-                          </div>
-                        )}
-                        <DialogFooter className="sm:justify-start">
-                          <Button
-                            variant="outline"
-                            className="w-full font-bold uppercase border-2 border-black shadow-[4px_4px_0_0_#000]"
-                          >
-                            Close
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                )}
+            {hasRsvpd && myRsvpId && !isCheckedIn && !hasEnded && (
+              <div className="mt-6 max-w-md">
+                <GeofencedCheckInButton
+                  rsvpId={myRsvpId}
+                  geofencingEnabled={Boolean((event as any).geofencing_enabled)}
+                  onCheckedIn={() => refetch()}
+                />
               </div>
-            ) : (
-              <div className="flex flex-col gap-1">
+            )}
+
+            <div className="mt-8 hidden items-center gap-4 md:flex">
+              {hasRsvpd ? (
                 <Button
                   onClick={handleRsvpClick}
                   disabled={toggleRsvp.isPending}
-                  variant="primary"
+                  variant="secondary"
                   size="lg"
                 >
-                  {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
+                  {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
                 </Button>
-                {captchaEnabled && (
-                  <div className="flex flex-col gap-2">
-                    <span
-                      className={`font-mono text-xs font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
-                    >
-                      Verification required before RSVP
-                    </span>
-                    <CaptchaWidget
-                      siteKey={captchaSiteKey}
-                      provider={captchaProvider}
-                      onToken={(token) => setCaptchaToken(token)}
-                      onError={() => setCaptchaToken(undefined)}
-                      onExpire={() => setCaptchaToken(undefined)}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-            <span
-              className={`font-mono text-sm font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
-            >
-              {attendeeCount} {maxAttendees ? `/ ${maxAttendees}` : ""} people going
-              {isAtCapacity && !hasRsvpd && " (At Capacity)"}
-            </span>
-          </div>
-        </div>
-      </section>
-
-      {/* Details Container */}
-      <section className="bg-cream px-4 py-12 md:px-6">
-        <div className="mx-auto max-w-4xl neu-border bg-white p-6 md:p-8">
-          {/* Action buttons (Copy Link / Add to Calendar) */}
-          <div className="flex flex-wrap items-center gap-4 border-b-2 border-black pb-8">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
+              ) : isAtCapacity ? (
+                <div className="flex flex-col gap-1">
                   <Button
-                    onClick={handleCopyLink}
+                    onClick={() => {
+                      if (!user) {
+                        toast.error("Please log in to join the waitlist");
+                        return;
+                      }
+                      if (!emailVerified) {
+                        toast.error("Please verify your email to join the waitlist");
+                        return;
+                      }
+                      toggleWaitlist.mutate({ isOnWaitlist });
+                    }}
+                    disabled={toggleWaitlist.isPending}
+                    variant={isOnWaitlist ? "secondary" : "primary"}
+                    size="lg"
+                  >
+                    {toggleWaitlist.isPending
+                      ? "Updating..."
+                      : isOnWaitlist
+                        ? "On Waitlist ✓"
+                        : "Join Waitlist"}
+                  </Button>
+                  {isOnWaitlist && (
+                    <div className="mt-4 flex flex-col items-center gap-2 rounded bg-amber-50 p-4 border-2 border-amber-300">
+                      <p className="font-mono text-sm font-bold text-amber-900">
+                        Priority Score: {waitlistScore?.total_score || "..."}
+                      </p>
+                      <p className="text-center text-xs text-amber-800/80 max-w-xs leading-relaxed">
+                        Your position is determined by:
+                        <br />
+                        • Time on waitlist
+                        <br />
+                        • Club membership
+                        <br />
+                        • Attendance streak
+                        <br />• Graduation status
+                      </p>
+
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2 text-xs border-amber-400 text-amber-900 hover:bg-amber-100 font-bold tracking-tight"
+                          >
+                            View Score Breakdown
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md border-4 border-black shadow-[8px_8px_0_0_#000]">
+                          <DialogHeader>
+                            <DialogTitle className="font-display uppercase text-2xl tracking-tight text-black">
+                              Priority Score Breakdown
+                            </DialogTitle>
+                            <DialogDescription className="font-mono text-gray-600">
+                              How your waitlist priority is calculated.
+                            </DialogDescription>
+                          </DialogHeader>
+                          {waitlistScore ? (
+                            <div className="flex flex-col gap-3 font-mono text-sm my-4 text-black">
+                              <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
+                                <span>Time on waitlist ({waitlistScore.waitlist_hours}h)</span>
+                                <span className="font-bold text-blue-600">
+                                  +{waitlistScore.time_score}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
+                                <span>Active club member</span>
+                                <span className="font-bold text-lime-600">
+                                  +{waitlistScore.membership_score}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
+                                <span>Attendance streak</span>
+                                <span className="font-bold text-orange-600">
+                                  +{waitlistScore.streak_score}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center border-b-2 border-black pb-2">
+                                <span>Graduating senior</span>
+                                <span className="font-bold text-purple-600">
+                                  +{waitlistScore.senior_score}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center pt-2 text-lg font-black uppercase">
+                                <span>Total Score</span>
+                                <span>{waitlistScore.total_score}</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="p-4 text-center font-mono text-gray-500">
+                              Loading score...
+                            </div>
+                          )}
+                          <DialogFooter className="sm:justify-start">
+                            <Button
+                              variant="outline"
+                              className="w-full font-bold uppercase border-2 border-black shadow-[4px_4px_0_0_#000]"
+                            >
+                              Close
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  <Button
+                    onClick={handleRsvpClick}
+                    disabled={toggleRsvp.isPending}
+                    variant="primary"
+                    size="lg"
+                  >
+                    {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
+                  </Button>
+                  {captchaEnabled && (
+                    <div className="flex flex-col gap-2">
+                      <span
+                        className={`font-mono text-xs font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
+                      >
+                        Verification required before RSVP
+                      </span>
+                      <CaptchaWidget
+                        siteKey={captchaSiteKey}
+                        provider={captchaProvider}
+                        onToken={(token) => setCaptchaToken(token)}
+                        onError={() => setCaptchaToken(undefined)}
+                        onExpire={() => setCaptchaToken(undefined)}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+              <span
+                className={`font-mono text-sm font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
+              >
+                {attendeeCount} {maxAttendees ? `/ ${maxAttendees}` : ""} people going
+                {isAtCapacity && !hasRsvpd && " (At Capacity)"}
+              </span>
+            </div>
+          </div>
+        </section>
+        {/* Details Container */}
+        <section className="bg-cream px-4 py-12 md:px-6">
+          <div className="mx-auto max-w-4xl neu-border bg-white p-6 md:p-8">
+            {/* Action buttons (Copy Link / Add to Calendar) */}
+            <div className="flex flex-wrap items-center gap-4 border-b-2 border-black pb-8">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={handleCopyLink}
+                      variant="outline"
+                      className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                    >
+                      {copied ? (
+                        <Check className="mr-2 h-4 w-4" />
+                      ) : (
+                        <LinkIcon className="mr-2 h-4 w-4" />
+                      )}
+                      {copied ? "Copied" : "Copy Link"}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Copy Event Link</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              {/* Download Ticket — visible to confirmed attendees of upcoming/ongoing events */}
+              {hasRsvpd && !hasEnded && (
+                <Button
+                  onClick={() => downloadTicket(event)}
+                  disabled={isTicketGenerating}
+                  variant="outline"
+                  className="neu-border neu-press h-12 bg-lime px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-60"
+                >
+                  <Ticket className="mr-2 h-4 w-4" />
+                  {isTicketGenerating ? "Generating…" : "Download Ticket"}
+                </Button>
+              )}
+
+              {isOrganizer && (
+                <>
+                  <Button
+                    onClick={() => exportCsv.mutate()}
+                    disabled={exportCsv.isPending}
                     variant="outline"
                     className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
                   >
-                    {copied ? (
-                      <Check className="mr-2 h-4 w-4" />
-                    ) : (
-                      <LinkIcon className="mr-2 h-4 w-4" />
-                    )}
-                    {copied ? "Copied" : "Copy Link"}
+                    <Download className="mr-2 h-4 w-4" />
+                    {exportCsv.isPending ? "Exporting..." : "Export CSV"}
                   </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Copy Event Link</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            {/* Download Ticket — visible to confirmed attendees of upcoming/ongoing events */}
-            {hasRsvpd && !hasEnded && (
-              <Button
-                onClick={() => downloadTicket(event)}
-                disabled={isTicketGenerating}
-                variant="outline"
-                className="neu-border neu-press h-12 bg-lime px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-60"
-              >
-                <Ticket className="mr-2 h-4 w-4" />
-                {isTicketGenerating ? "Generating…" : "Download Ticket"}
-              </Button>
-            )}
-
-            {isOrganizer && (
-              <>
-                <Button
-                  onClick={() => exportCsv.mutate()}
-                  disabled={exportCsv.isPending}
-                  variant="outline"
-                  className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  {exportCsv.isPending ? "Exporting..." : "Export CSV"}
-                </Button>
-                <CreatePollDialog eventId={eventId} user={user!} onPollCreated={() => refetch()} />
-<EditEventDialog event={event} user={user} onSuccess={() => refetch()} />
-<DynamicEventPoster
-  event={{
-    id: event.id,
-    title: event.title,
-    event_date: event.event_date,
-    start_date: event.start_date,
-    end_date: event.end_date,
-    location: event.location,
-  }}
-  club={club}
-  eventUrl={shareUrl}
-/>
-<Link
-  to={`/events/${eventId}/builder`}                  className="neu-border neu-press flex h-12 items-center justify-center bg-sky px-5 font-mono text-sm font-bold uppercase tracking-wider text-black transition-all duration-300 hover:scale-105 active:scale-95"
-                >
-                  Layout Builder
-                </Link>
-              </>
-            )}
-
-            <AddToCalendarDropdown
-              event={{
-                id: eventId,
-                title: event.title,
-                description: event.description || "",
-                event_date: event.event_date || "",
-                start_date: event.start_date,
-                end_date: event.end_date,
-                location: event.location || "",
-                eventUrl: typeof window !== "undefined" ? window.location.href : undefined,
-              }}
-              variant="outline"
-            />
-
-            {user && !isOrganizer && (
-              <Button
-                onClick={() => setIsReportDialogOpen(true)}
-                variant="outline"
-                className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
-              >
-                <Flag className="h-4 w-4" />
-                Report Event
-              </Button>
-            )}
-
-            {isCheckedIn && hasEnded && (
-              <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
-                <DialogTrigger asChild>
-                  <Button
-                    disabled={hasSubmittedFeedback}
-                    variant="primary"
-                    className="neu-border neu-press h-12 px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                  <CreatePollDialog
+                    eventId={eventId}
+                    user={user!}
+                    onPollCreated={() => refetch()}
+                  />
+                  <EditEventDialog event={event} user={user} onSuccess={() => refetch()} />
+                  <DynamicEventPoster
+                    event={{
+                      id: event.id,
+                      title: event.title,
+                      event_date: event.event_date,
+                      start_date: event.start_date,
+                      end_date: event.end_date,
+                      location: event.location,
+                    }}
+                    club={club}
+                    eventUrl={shareUrl}
+                  />
+                  <Link
+                    to={`/events/${eventId}/builder`}
+                    className="neu-border neu-press flex h-12 items-center justify-center bg-sky px-5 font-mono text-sm font-bold uppercase tracking-wider text-black transition-all duration-300 hover:scale-105 active:scale-95"
                   >
-                    <Star className="mr-2 h-4 w-4" />
-                    {hasSubmittedFeedback ? "Feedback Submitted \u2713" : "Submit Feedback"}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md neu-border">
-                  <DialogHeader>
-                    <DialogTitle className="font-display font-bold uppercase text-xl text-blue-900">
-                      Event Feedback
-                    </DialogTitle>
-                    <DialogDescription className="font-mono text-sm">
-                      How was {event.title}? Share your experience!
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="flex flex-col gap-6 py-4">
-                    <div className="flex flex-col items-center gap-3">
-                      <Label className="font-mono font-bold">Rating</Label>
-                      <div className="flex items-center gap-2">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <button
-                            key={star}
-                            type="button"
-                            onClick={() => setFeedbackRating(star)}
-                            aria-label={`Rate ${star} out of 5 stars`}
-                            aria-pressed={feedbackRating === star}
-                            className="transition-transform hover:scale-110 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
-                          >
-                            <Star
-                              className={`h-8 w-8 ${feedbackRating >= star ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
-                            />
-                          </button>
-                        ))}
+                    Layout Builder
+                  </Link>
+                </>
+              )}
+
+              <AddToCalendarDropdown
+                event={{
+                  id: eventId,
+                  title: event.title,
+                  description: event.description || "",
+                  event_date: event.event_date || "",
+                  start_date: event.start_date,
+                  end_date: event.end_date,
+                  location: event.location || "",
+                  eventUrl: typeof window !== "undefined" ? window.location.href : undefined,
+                }}
+                variant="outline"
+              />
+
+              {user && !isOrganizer && (
+                <Button
+                  onClick={() => setIsReportDialogOpen(true)}
+                  variant="outline"
+                  className="neu-border neu-press h-12 bg-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2"
+                >
+                  <Flag className="h-4 w-4" />
+                  Report Event
+                </Button>
+              )}
+
+              {isCheckedIn && hasEnded && (
+                <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      disabled={hasSubmittedFeedback}
+                      variant="primary"
+                      className="neu-border neu-press h-12 px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                    >
+                      <Star className="mr-2 h-4 w-4" />
+                      {hasSubmittedFeedback ? "Feedback Submitted \u2713" : "Submit Feedback"}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md neu-border">
+                    <DialogHeader>
+                      <DialogTitle className="font-display font-bold uppercase text-xl text-blue-900">
+                        Event Feedback
+                      </DialogTitle>
+                      <DialogDescription className="font-mono text-sm">
+                        How was {event.title}? Share your experience!
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-6 py-4">
+                      <div className="flex flex-col items-center gap-3">
+                        <Label className="font-mono font-bold">Rating</Label>
+                        <div className="flex items-center gap-2">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              type="button"
+                              onClick={() => setFeedbackRating(star)}
+                              aria-label={`Rate ${star} out of 5 stars`}
+                              aria-pressed={feedbackRating === star}
+                              className="transition-transform hover:scale-110 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                            >
+                              <Star
+                                className={`h-8 w-8 ${feedbackRating >= star ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor="comment" className="font-mono font-bold">
+                          Comment (Optional)
+                        </Label>
+                        <Textarea
+                          id="comment"
+                          placeholder="Tell us what you liked or what could be improved..."
+                          className="neu-border font-mono text-sm min-h-25"
+                          value={feedbackComment}
+                          onChange={(e) => setFeedbackComment(e.target.value)}
+                        />
                       </div>
                     </div>
-                    <div className="flex flex-col gap-2">
-                      <Label htmlFor="comment" className="font-mono font-bold">
-                        Comment (Optional)
-                      </Label>
-                      <Textarea
-                        id="comment"
-                        placeholder="Tell us what you liked or what could be improved..."
-                        className="neu-border font-mono text-sm min-h-25"
-                        value={feedbackComment}
-                        onChange={(e) => setFeedbackComment(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      onClick={() => submitFeedback.mutate()}
-                      disabled={submitFeedback.isPending || feedbackRating === 0}
-                      variant="primary"
-                      className="font-mono font-bold uppercase w-full sm:w-auto"
-                    >
-                      {submitFeedback.isPending ? "Submitting..." : "Submit Feedback"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                    <DialogFooter>
+                      <Button
+                        onClick={() => submitFeedback.mutate()}
+                        disabled={submitFeedback.isPending || feedbackRating === 0}
+                        variant="primary"
+                        className="font-mono font-bold uppercase w-full sm:w-auto"
+                      >
+                        {submitFeedback.isPending ? "Submitting..." : "Submit Feedback"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
+
+              {hasRsvpd && (
+                <>
+                  <button
+                    onClick={handleAddToAppleWallet}
+                    disabled={isWalletDownloading}
+                    className="neu-border flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50"
+                  >
+                    <CreditCard aria-hidden="true" size={14} strokeWidth={3} />
+                    {isWalletDownloading ? "Adding..." : "Add to Apple Wallet"}
+                  </button>
+                  <button
+                    onClick={handleAddToGoogleWallet}
+                    className="neu-border flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                  >
+                    <CreditCard aria-hidden="true" size={14} strokeWidth={3} />
+                    Add to Google Wallet
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Predictive Turnout (Visible to Organizer / Admins) */}
+            {isOrganizer && (
+              <div className="mt-8">
+                <PredictiveTurnout
+                  rsvpCount={attendeeCount}
+                  latitude={(event as Record<string, unknown>).latitude as number | null}
+                  longitude={(event as Record<string, unknown>).longitude as number | null}
+                  location={event.location || ""}
+                  clubName={club?.name || ""}
+                />
+              </div>
             )}
 
-            {hasRsvpd && (
-              <>
-                <button
-                  onClick={handleAddToAppleWallet}
-                  disabled={isWalletDownloading}
-                  className="neu-border flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50"
-                >
-                  <CreditCard aria-hidden="true" size={14} strokeWidth={3} />
-                  {isWalletDownloading ? "Adding..." : "Add to Apple Wallet"}
-                </button>
-                <button
-                  onClick={handleAddToGoogleWallet}
-                  className="neu-border flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
-                >
-                  <CreditCard aria-hidden="true" size={14} strokeWidth={3} />
-                  Add to Google Wallet
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Predictive Turnout (Visible to Organizer / Admins) */}
-          {isOrganizer && (
+            {/* Active Poll */}
             <div className="mt-8">
-              <PredictiveTurnout
-                rsvpCount={attendeeCount}
-                latitude={(event as Record<string, unknown>).latitude as number | null}
-                longitude={(event as Record<string, unknown>).longitude as number | null}
-                location={event.location || ""}
-                clubName={club?.name || ""}
+              <ActivePoll eventId={eventId} userId={user?.id} />
+            </div>
+
+            {/* Live Q&A */}
+            <div className="mt-8">
+              <LiveQA eventId={eventId} userId={user?.id} isOrganizer={isOrganizer} />
+            </div>
+
+            {/* Transportation / Carpool Matching (Issue #2877) */}
+            <div className="mt-8">
+              <CarpoolMatchingSection eventId={eventId} user={user} />
+            </div>
+
+            {/* Live Chat (Issue #2741) */}
+            <div className="mt-8">
+              <EventLiveChat eventId={eventId} user={user} />
+            </div>
+
+            {/* Public Guest List */}
+            <div className="mt-8">
+              <EventGuestList eventId={eventId} />
+            </div>
+
+            {/* Secure File Drop for Competitions (Issue #3006) */}
+            <div className="mt-8">
+              <EventSubmissions
+                eventId={eventId}
+                submissionDeadline={(event as any).submission_deadline}
+                userRsvp={!!userRsvp}
+                isOrganizer={isOrganizer}
               />
             </div>
-          )}
-
-          {/* Active Poll */}
-          <div className="mt-8">
-            <ActivePoll eventId={eventId} userId={user?.id} />
-          </div>
-
-          {/* Live Q&A */}
-          <div className="mt-8">
-            <LiveQA eventId={eventId} userId={user?.id} isOrganizer={isOrganizer} />
-          </div>
-
-          {/* Transportation / Carpool Matching (Issue #2877) */}
-          <div className="mt-8">
-            <CarpoolMatchingSection eventId={eventId} user={user} />
-          </div>
-
-          {/* Live Chat (Issue #2741) */}
-          <div className="mt-8">
-            <EventLiveChat eventId={eventId} user={user} />
-          </div>
-
-          {/* Public Guest List */}
-          <div className="mt-8">
-            <EventGuestList eventId={eventId} />
-          </div>
-
-          {/* Secure File Drop for Competitions (Issue #3006) */}
-          <div className="mt-8">
-            <EventSubmissions
-              eventId={eventId}
-              submissionDeadline={(event as any).submission_deadline}
-              userRsvp={!!userRsvp}
-              isOrganizer={isOrganizer}
-            />
-          </div>
-          {/* Description */}
-          <div className="mt-8">
-            <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
-              About the Event
-            </h2>
-            <div className="flex flex-col gap-8 lg:flex-row">
-              <main className="flex-1 min-w-0">
-                {event.description ? (
-                  <EventDescriptionTranslation eventId={event.id} description={event.description} />
-                ) : (
-                  <p className="mt-4 font-mono text-sm italic text-black/40">
-                    No description provided for this event.
-                  </p>
-                )}
-              </main>
-              <aside className="lg:w-64 shrink-0">
-                <TableOfContents items={tocItems} />
-              </aside>
-            </div>
-          </div>
-
-          <EventSeatingManager eventId={event.id} isOrganizer={isOrganizer} />
-
-          <InteractiveSeatingChart eventId={event.id} user={user} />
-
-          {/* Map Embed */}
-          {/* Read-only map layout for attendees */}
-          {event.map_layout && Array.isArray(event.map_layout) && event.map_layout.length > 0 && (
-            <div className="mt-10 border-t-2 border-black pt-8">
-              <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900 mb-4">
-                Floor Plan / Venue Layout
-              </h2>
-              <div
-                className="relative border-4 border-black bg-white shadow-[4px_4px_0_0_#000] overflow-hidden mx-auto max-w-full"
-                style={{
-                  width: "100%",
-                  height: "400px",
-                  backgroundImage: "radial-gradient(#000 6%, transparent 7%)",
-                  backgroundSize: "20px 20px",
-                }}
-              >
-                <div
-                  className="absolute inset-0 overflow-auto p-4"
-                  style={{ minWidth: "800px", minHeight: "600px" }}
-                >
-                  {event.map_layout.map((element: any) => {
-                    const colors = {
-                      table: "bg-amber-100",
-                      stage: "bg-indigo-100",
-                      boundary: "bg-red-50",
-                      booth: "bg-emerald-100",
-                    };
-                    return (
-                      <div
-                        key={element.id}
-                        style={{
-                          position: "absolute",
-                          left: `${element.x}px`,
-                          top: `${element.y}px`,
-                          width: `${element.width}px`,
-                          height: `${element.height}px`,
-                          transform: `rotate(${element.rotation || 0}deg)`,
-                          zIndex: element.zIndex || 10,
-                        }}
-                        className={`border-2 border-black flex flex-col items-center justify-center p-1 text-center shadow-[1px_1px_0_0_#000] text-[9px] font-mono uppercase font-bold leading-none ${colors[element.type as "table"] || "bg-white"}`}
-                      >
-                        <span>{element.label}</span>
-                        <span className="opacity-75 text-[7px] mt-0.5">{element.type}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* FAQ Section */}
-          {Array.isArray((event as Record<string, unknown>).faqs) &&
-            ((event as Record<string, unknown>).faqs as { question: string; answer: string }[])
-              .length > 0 && (
-              <div className="mt-8">
-                <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
-                  Frequently Asked Questions
-                </h2>
-                <Accordion type="single" collapsible className="mt-4 space-y-2">
-                  {(
-                    (event as Record<string, unknown>).faqs as {
-                      question: string;
-                      answer: string;
-                    }[]
-                  ).map((faq, index) => (
-                    <AccordionItem
-                      key={index}
-                      value={`faq-${index}`}
-                      className="neu-border bg-white"
-                    >
-                      <AccordionTrigger className="px-4 font-mono text-sm font-bold text-black hover:no-underline">
-                        <div className="flex items-center gap-2 text-left">
-                          <HelpCircle className="h-4 w-4 shrink-0 text-blue-900" />
-                          {faq.question}
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="px-4 pb-4 font-mono text-sm text-black/70">
-                        {faq.answer}
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </div>
-            )}
-
-          {/* Interactive Map */}
-          {event.location && event.location.toLowerCase() !== "online" && (
+            {/* Description */}
             <div className="mt-8">
               <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
-                Location
+                About the Event
               </h2>
-              {coordsCheck.isCoordinates &&
-              coordsCheck.isValid &&
-              coordsCheck.lat != null &&
-              coordsCheck.lng != null ? (
-                <>
-                  <LazyHydrate
-                    height="300px"
-                    placeholder={<MapSkeleton className="mt-4 h-[300px] w-full" />}
-                  >
-                    <Suspense fallback={<MapSkeleton className="mt-4 h-[300px] w-full" />}>
-                      <EventMap
-                        lat={coordsCheck.lat}
-                        lng={coordsCheck.lng}
-                        locationName={event.location}
-                      />
-                    </Suspense>
-                  </LazyHydrate>
-                  <a
-                    href={buildGoogleMapsSearchUrl(event.location)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-block font-mono text-xs font-bold underline text-blue-500"
-                  >
-                    Open in Google Maps ↗
-                  </a>
-                </>
-              ) : coordsCheck.isCoordinates && !coordsCheck.isValid ? (
-                <div className="neu-border mt-4 flex items-start gap-4 bg-peach/20 p-5">
-                  <div className="shrink-0 rounded-none border-2 border-black bg-white p-2 text-destructive">
-                    <MapPinOff className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h3 className="mb-1 font-display text-lg font-bold text-black">
-                      Unable to load map preview
-                    </h3>
-                    <p className="mb-3 font-mono text-xs leading-relaxed text-gray-700">
-                      The coordinates provided (<code>{event.location}</code>) are invalid. Latitude
-                      must be between -90 and 90, and Longitude between -180 and 180.
+              <div className="flex flex-col gap-8 lg:flex-row">
+                <main className="flex-1 min-w-0">
+                  {event.description ? (
+                    <EventDescriptionTranslation
+                      eventId={event.id}
+                      description={event.description}
+                    />
+                  ) : (
+                    <p className="mt-4 font-mono text-sm italic text-black/40">
+                      No description provided for this event.
                     </p>
+                  )}
+                </main>
+                <aside className="lg:w-64 shrink-0">
+                  <TableOfContents items={tocItems} />
+                </aside>
+              </div>
+            </div>
+
+            <EventSeatingManager eventId={event.id} isOrganizer={isOrganizer} />
+
+            <InteractiveSeatingChart eventId={event.id} user={user} />
+
+            {/* Interactive venue map layout for attendees */}
+            {venueMapData && venueMapData.nodes && venueMapData.nodes.length > 0 ? (
+              <div className="mt-10 border-t-2 border-black pt-8">
+                <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900 mb-4">
+                  Floor Plan / Venue Layout
+                </h2>
+                <AttendeeVenueMap
+                  nodes={venueMapData.nodes}
+                  backgroundImageUrl={venueMapData.map?.background_image_url}
+                />
+              </div>
+            ) : event.map_layout &&
+              Array.isArray(event.map_layout) &&
+              event.map_layout.length > 0 ? (
+              <div className="mt-10 border-t-2 border-black pt-8">
+                <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900 mb-4">
+                  Floor Plan / Venue Layout
+                </h2>
+                <div
+                  className="relative border-4 border-black bg-white shadow-[4px_4px_0_0_#000] overflow-hidden mx-auto max-w-full"
+                  style={{
+                    width: "100%",
+                    height: "400px",
+                    backgroundImage: "radial-gradient(#000 6%, transparent 7%)",
+                    backgroundSize: "20px 20px",
+                  }}
+                >
+                  <div
+                    className="absolute inset-0 overflow-auto p-4"
+                    style={{ minWidth: "800px", minHeight: "600px" }}
+                  >
+                    {event.map_layout.map((element: any) => {
+                      const colors = {
+                        table: "bg-amber-100",
+                        stage: "bg-indigo-100",
+                        boundary: "bg-red-50",
+                        booth: "bg-emerald-100",
+                      };
+                      return (
+                        <div
+                          key={element.id}
+                          style={{
+                            position: "absolute",
+                            left: `${element.x}px`,
+                            top: `${element.y}px`,
+                            width: `${element.width}px`,
+                            height: `${element.height}px`,
+                            transform: `rotate(${element.rotation || 0}deg)`,
+                            zIndex: element.zIndex || 10,
+                          }}
+                          className={`border-2 border-black flex flex-col items-center justify-center p-1 text-center shadow-[1px_1px_0_0_#000] text-[9px] font-mono uppercase font-bold leading-none ${colors[element.type as "table"] || "bg-white"}`}
+                        >
+                          <span>{element.label}</span>
+                          <span className="opacity-75 text-[7px] mt-0.5">{element.type}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {/* FAQ Section */}
+            {Array.isArray((event as Record<string, unknown>).faqs) &&
+              ((event as Record<string, unknown>).faqs as { question: string; answer: string }[])
+                .length > 0 && (
+                <div className="mt-8">
+                  <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
+                    Frequently Asked Questions
+                  </h2>
+                  <Accordion type="single" collapsible className="mt-4 space-y-2">
+                    {(
+                      (event as Record<string, unknown>).faqs as {
+                        question: string;
+                        answer: string;
+                      }[]
+                    ).map((faq, index) => (
+                      <AccordionItem
+                        key={index}
+                        value={`faq-${index}`}
+                        className="neu-border bg-white"
+                      >
+                        <AccordionTrigger className="px-4 font-mono text-sm font-bold text-black hover:no-underline">
+                          <div className="flex items-center gap-2 text-left">
+                            <HelpCircle className="h-4 w-4 shrink-0 text-blue-900" />
+                            {faq.question}
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-4 pb-4 font-mono text-sm text-black/70">
+                          {faq.answer}
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                </div>
+              )}
+
+            {/* Interactive Map */}
+            {event.location && event.location.toLowerCase() !== "online" && (
+              <div className="mt-8">
+                <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
+                  Location
+                </h2>
+                {coordsCheck.isCoordinates &&
+                coordsCheck.isValid &&
+                coordsCheck.lat != null &&
+                coordsCheck.lng != null ? (
+                  <>
+                    <LazyHydrate
+                      height="300px"
+                      placeholder={<MapSkeleton className="mt-4 h-[300px] w-full" />}
+                    >
+                      <Suspense fallback={<MapSkeleton className="mt-4 h-[300px] w-full" />}>
+                        <EventMap
+                          lat={coordsCheck.lat}
+                          lng={coordsCheck.lng}
+                          locationName={event.location}
+                        />
+                      </Suspense>
+                    </LazyHydrate>
                     <a
                       href={buildGoogleMapsSearchUrl(event.location)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 font-mono text-xs font-bold underline hover:no-underline text-black"
+                      className="mt-2 inline-block font-mono text-xs font-bold underline text-blue-500"
                     >
-                      Search location on Google Maps anyway ↗
+                      Open in Google Maps ↗
                     </a>
+                  </>
+                ) : coordsCheck.isCoordinates && !coordsCheck.isValid ? (
+                  <div className="neu-border mt-4 flex items-start gap-4 bg-peach/20 p-5">
+                    <div className="shrink-0 rounded-none border-2 border-black bg-white p-2 text-destructive">
+                      <MapPinOff className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h3 className="mb-1 font-display text-lg font-bold text-black">
+                        Unable to load map preview
+                      </h3>
+                      <p className="mb-3 font-mono text-xs leading-relaxed text-gray-700">
+                        The coordinates provided (<code>{event.location}</code>) are invalid.
+                        Latitude must be between -90 and 90, and Longitude between -180 and 180.
+                      </p>
+                      <a
+                        href={buildGoogleMapsSearchUrl(event.location)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-mono text-xs font-bold underline hover:no-underline text-black"
+                      >
+                        Search location on Google Maps anyway ↗
+                      </a>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <a
-                  href={buildGoogleMapsSearchUrl(event.location)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="neu-border mt-4 inline-flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
-                >
-                  <MapPin className="h-4 w-4" />
-                  Open &quot;{event.location}&quot; in Google Maps ↗
-                </a>
-              )}
-            </div>
-          )}
-
-          {/* Event Feedback (Only if ended and user RSVP'd) */}
-          {user &&
-            hasRsvpd &&
-            event.end_date &&
-            new Date(event.end_date).getTime() < Date.now() && (
-              <div className="mt-10">
-                <EventFeedbackForm eventId={event.id} user={user} />
+                ) : (
+                  <a
+                    href={buildGoogleMapsSearchUrl(event.location)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="neu-border mt-4 inline-flex items-center gap-2 bg-white px-5 py-3 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                  >
+                    <MapPin className="h-4 w-4" />
+                    Open &quot;{event.location}&quot; in Google Maps ↗
+                  </a>
+                )}
               </div>
             )}
 
-          {/* Event Gallery */}
-          <div className="mt-8 border-t-2 border-black pt-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-              <div>
-                <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
-                  Event Gallery
-                </h2>
-                <p className="font-mono text-xs text-black/60 mt-1">
-                  Photos shared from this event
-                </p>
-              </div>
-              {isOrganizer && (
-                <div>
-                  <input
-                    type="file"
-                    id="bulk-gallery-upload"
-                    multiple
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    className="hidden"
-                  />
-                  <Button
-                    onClick={() => document.getElementById("bulk-gallery-upload")?.click()}
-                    variant="outline"
-                    className="neu-border neu-press h-12 bg-lime text-black px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
-                  >
-                    📸 Upload Photos
-                  </Button>
+            {/* Event Feedback (Only if ended and user RSVP'd) */}
+            {user &&
+              hasRsvpd &&
+              event.end_date &&
+              new Date(event.end_date).getTime() < Date.now() && (
+                <div className="mt-10">
+                  <EventFeedbackForm eventId={event.id} user={user} />
                 </div>
               )}
-            </div>
 
-          {/* Accessibility Features */}
-          {(event.venues?.accessibility_features || event.accessibility_features) && (
-            <div className="mt-8">
-              <div className="flex items-center justify-between border-b-2 border-black pb-2 mb-4">
-                <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
-                  Accessibility
-                </h2>
-                <div className="flex items-center gap-2">
-                  <ReportAccessibilityIssueDialog
-                    eventId={event.id}
-                    venueId={event.venue_id}
-                    user={user}
-                  />
-                  {isOrganizer && event.venue_id && (
-                    <ManageAccessibilityOverridesDialog venueId={event.venue_id} user={user} />
-                  )}
+            {/* Event Gallery */}
+            <div className="mt-8 border-t-2 border-black pt-8">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <div>
+                  <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
+                    Event Gallery
+                  </h2>
+                  <p className="font-mono text-xs text-black/60 mt-1">
+                    Photos shared from this event
+                  </p>
                 </div>
-              </div>
-              <AccessibilityBadges
-                features={event.venues?.accessibility_features || event.accessibility_features}
-                overrides={overrides || []}
-              />
-            </div>
-          )}
-
-          {/* Social Share Buttons */}
-            {event.is_high_risk && (
-              <div className="mt-8 border-2 border-black bg-yellow-50 p-6 font-mono text-sm">
-                <h2 className="text-xl font-bold uppercase tracking-tight text-black mb-3">
-                  Co-Signer Approvals
-                </h2>
-                <p className="text-xs text-gray-700 mb-4">
-                  This is a high-risk event. It will be published once all required stakeholders
-                  sign off.
-                </p>
-                <div className="space-y-3">
-                  {signatures.map((sig) => (
-                    <div
-                      key={sig.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-black/20 pb-2"
+                {isOrganizer && (
+                  <div>
+                    <input
+                      type="file"
+                      id="bulk-gallery-upload"
+                      multiple
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
+                    <Button
+                      onClick={() => document.getElementById("bulk-gallery-upload")?.click()}
+                      variant="outline"
+                      className="neu-border neu-press h-12 bg-lime text-black px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
                     >
-                      <div>
-                        <span className="font-bold text-black">{sig.signer_role}</span>:{" "}
-                        {sig.signer_name} ({sig.signer_email})
-                      </div>
-                      <div className="mt-1 sm:mt-0 flex items-center gap-3">
-                        {sig.signed_at ? (
-                          <span className="bg-green-100 text-green-800 border border-green-800 px-2 py-0.5 font-bold uppercase text-xs">
-                            Signed ✓
-                          </span>
-                        ) : (
-                          <>
-                            <span className="bg-red-100 text-red-800 border border-red-800 px-2 py-0.5 font-bold uppercase text-xs">
-                              Pending
+                      📸 Upload Photos
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Accessibility Features */}
+              {(event.venues?.accessibility_features || event.accessibility_features) && (
+                <div className="mt-8">
+                  <div className="flex items-center justify-between border-b-2 border-black pb-2 mb-4">
+                    <h2 className="font-display text-xl font-bold uppercase tracking-tight text-blue-900">
+                      Accessibility
+                    </h2>
+                    <div className="flex items-center gap-2">
+                      <ReportAccessibilityIssueDialog
+                        eventId={event.id}
+                        venueId={event.venue_id}
+                        user={user}
+                      />
+                      {isOrganizer && event.venue_id && (
+                        <ManageAccessibilityOverridesDialog venueId={event.venue_id} user={user} />
+                      )}
+                    </div>
+                  </div>
+                  <AccessibilityBadges
+                    features={event.venues?.accessibility_features || event.accessibility_features}
+                    overrides={overrides || []}
+                  />
+                </div>
+              )}
+              {event.is_high_risk && (
+                <div className="mt-8 border-2 border-black bg-yellow-50 p-6 font-mono text-sm">
+                  <h2 className="text-xl font-bold uppercase tracking-tight text-black mb-3">
+                    Co-Signer Approvals
+                  </h2>
+                  <p className="text-xs text-gray-700 mb-4">
+                    This is a high-risk event. It will be published once all required stakeholders
+                    sign off.
+                  </p>
+                  <div className="space-y-3">
+                    {signatures.map((sig) => (
+                      <div
+                        key={sig.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-black/20 pb-2"
+                      >
+                        <div>
+                          <span className="font-bold text-black">{sig.signer_role}</span>:{" "}
+                          {sig.signer_name} ({sig.signer_email})
+                        </div>
+                        <div className="mt-1 sm:mt-0 flex items-center gap-3">
+                          {sig.signed_at ? (
+                            <span className="bg-green-100 text-green-800 border border-green-800 px-2 py-0.5 font-bold uppercase text-xs">
+                              Signed ✓
                             </span>
-                            <a
-                              href={`${getSupabaseUrl()}/functions/v1/co-signer-approval?token=${sig.signature_token}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="bg-white hover:bg-cream border border-black px-2 py-0.5 text-xs font-bold uppercase underline"
-                            >
-                              Approval Link ↗
-                            </a>
-                          </>
+                          ) : (
+                            <>
+                              <span className="bg-red-100 text-red-800 border border-red-800 px-2 py-0.5 font-bold uppercase text-xs">
+                                Pending
+                              </span>
+                              <a
+                                href={`${getSupabaseUrl()}/functions/v1/co-signer-approval?token=${sig.signature_token}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-white hover:bg-cream border border-black px-2 py-0.5 text-xs font-bold uppercase underline"
+                              >
+                                Approval Link ↗
+                              </a>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Optimistic UI & Progress for Uploading Files */}
+              {uploadingFiles.length > 0 && (
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 mb-6">
+                  {uploadingFiles.map((file) => (
+                    <div
+                      key={file.id}
+                      className="relative neu-border bg-white p-2 flex flex-col justify-between"
+                    >
+                      <div className="aspect-square w-full overflow-hidden bg-cream relative">
+                        <img
+                          src={file.objectUrl}
+                          alt="Uploading..."
+                          className="h-full w-full object-cover opacity-60"
+                        />
+                        {file.status === "uploading" && (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/45 p-2">
+                            <span className="font-mono text-xs font-bold text-white mb-2">
+                              {file.progress}%
+                            </span>
+                            <div className="w-full bg-white/30 h-2 rounded-full overflow-hidden">
+                              <div
+                                className="bg-lime h-full transition-all duration-200"
+                                style={{ width: `${file.progress}%` }}
+                              />
+                            </div>
+                          </div>
                         )}
+                        {file.status === "success" && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-lime/80 text-black font-display font-black text-sm uppercase">
+                            Uploaded ✓
+                          </div>
+                        )}
+                        {file.status === "error" && (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-500/90 text-white p-2">
+                            <span className="font-display font-black text-xs uppercase text-center">
+                              Failed
+                            </span>
+                            <span className="font-mono text-[9px] text-center mt-1 truncate w-full">
+                              {file.errorMsg}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="font-mono text-[10px] text-black/70 truncate mt-2">
+                        {file.name}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Gallery Images List */}
+              {galleryPhotos.length === 0 && uploadingFiles.length === 0 ? (
+                <div className="neu-border bg-cream p-8 text-center font-mono text-sm text-black/50 italic">
+                  No photos uploaded yet for this event.
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                  {galleryPhotos.map((url: string, idx: number) => (
+                    <div
+                      key={url}
+                      className="neu-border bg-white p-2 hover:scale-[1.02] transition-transform duration-300 group cursor-zoom-in"
+                      onClick={() => {
+                        setLightboxSrc(url);
+                      }}
+                    >
+                      <div className="aspect-square w-full overflow-hidden bg-cream">
+                        <img
+                          src={url}
+                          alt={`Event gallery photo ${idx + 1}`}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-            {/* Optimistic UI & Progress for Uploading Files */}
-            {uploadingFiles.length > 0 && (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 mb-6">
-                {uploadingFiles.map((file) => (
-                  <div
-                    key={file.id}
-                    className="relative neu-border bg-white p-2 flex flex-col justify-between"
-                  >
-                    <div className="aspect-square w-full overflow-hidden bg-cream relative">
-                      <img
-                        src={file.objectUrl}
-                        alt="Uploading..."
-                        className="h-full w-full object-cover opacity-60"
-                      />
-                      {file.status === "uploading" && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/45 p-2">
-                          <span className="font-mono text-xs font-bold text-white mb-2">
-                            {file.progress}%
-                          </span>
-                          <div className="w-full bg-white/30 h-2 rounded-full overflow-hidden">
-                            <div
-                              className="bg-lime h-full transition-all duration-200"
-                              style={{ width: `${file.progress}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                      {file.status === "success" && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-lime/80 text-black font-display font-black text-sm uppercase">
-                          Uploaded ✓
-                        </div>
-                      )}
-                      {file.status === "error" && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-500/90 text-white p-2">
-                          <span className="font-display font-black text-xs uppercase text-center">
-                            Failed
-                          </span>
-                          <span className="font-mono text-[9px] text-center mt-1 truncate w-full">
-                            {file.errorMsg}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <p className="font-mono text-[10px] text-black/70 truncate mt-2">{file.name}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Gallery Images List */}
-            {galleryPhotos.length === 0 && uploadingFiles.length === 0 ? (
-              <div className="neu-border bg-cream p-8 text-center font-mono text-sm text-black/50 italic">
-                No photos uploaded yet for this event.
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-                {galleryPhotos.map((url: string, idx: number) => (
-                  <div
-                    key={url}
-                    className="neu-border bg-white p-2 hover:scale-[1.02] transition-transform duration-300 group cursor-zoom-in"
-                    onClick={() => {
-                      setLightboxSrc(url);
-                    }}
-                  >
-                    <div className="aspect-square w-full overflow-hidden bg-cream">
-                      <img
-                        src={url}
-                        alt={`Event gallery photo ${idx + 1}`}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Social Share */}
-          <div className="mt-10 border-t-2 border-black pt-6">
-            <h3 className="font-mono text-xs font-bold uppercase text-blue-900">
-              Share with Friends
-            </h3>
-            <div className="mt-4">
-              <ShareMenu
-                url={shareUrl}
-                title={event.title}
-                text={`Check out this event: ${event.title}`}
-              />
-            </div>
-          </div>
-
-          <EventFaqSection eventId={event.id} isOrganizer={isOrganizer} userId={user?.id} />
-          {/* Kanban Board for Organizer */}
-          {isOrganizer && (
-            <div className="mt-12 border-t-4 border-black pt-10">
-              <h2 className="font-display text-2xl font-black uppercase tracking-tight text-black mb-6">
-                Attendee Manager
-              </h2>
-              <div className="mb-8 rounded-2xl border-4 border-black bg-white p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-display text-xl font-black uppercase tracking-tight text-black">
-                      QR Check-in
-                    </h3>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Verify a signed ticket from the camera or an uploaded image to mark the
-                      attendee as checked in.
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-5">
-                  <SteganographicQRScanner
-                    onVerificationSuccess={(payload) => {
-                      checkInRsvp.mutate({ rsvpId: payload.rsvpId });
-                    }}
-                  />
-                </div>
-              </div>
-              <DragDropContext onDragEnd={onDragEnd}>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {/* Waitlisted Column */}
-                  <div className="flex flex-col border-4 border-black bg-amber-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                    <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
-                      <span className="flex items-center gap-2">
-                        <Clock size={18} className="text-amber-600" /> Waitlisted
-                      </span>
-                      <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
-                        {columns.waitlisted.length}
-                      </span>
-                    </h3>
-                    <Droppable droppableId="waitlisted">
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                          className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
-                            snapshot.isDraggingOver ? "bg-amber-100/50" : ""
-                          }`}
-                        >
-                          {columns.waitlisted.map((card, index) => (
-                            <Draggable key={card.id} draggableId={card.id} index={index}>
-                              {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
-                                    snapshot.isDragging
-                                      ? "rotate-2 scale-105 z-50 bg-amber-50/90"
-                                      : ""
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    {card.avatarUrl ? (
-                                      <img
-                                        src={card.avatarUrl}
-                                        alt={card.name}
-                                        className="h-10 w-10 border-2 border-black object-cover rounded-none"
-                                      />
-                                    ) : (
-                                      <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
-                                        {card.name.substring(0, 2)}
-                                      </div>
-                                    )}
-                                    <div className="min-w-0">
-                                      <p className="truncate font-mono text-sm font-bold text-black">
-                                        {card.name}
-                                      </p>
-                                      <p className="font-mono text-[9px] text-black/60 uppercase">
-                                        {card.rsvpId ? "Requested" : "Waitlist"}
-                                      </p>
-                                      {card.hasAccommodation && card.rsvpId && (
-                                        <div className="mt-1 flex flex-col gap-0.5">
-                                          <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
-                                            🔴 Accessibility accommodation requested
-                                          </span>
-                                          <button
-                                            type="button"
-                                            className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
-                                            onClick={() => handleViewAccommodation(card.rsvpId!)}
-                                          >
-                                            [Decrypt / View]
-                                          </button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="flex gap-1 ml-2">
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            size="icon"
-                                            variant="outline"
-                                            className="h-7 w-7 border border-black rounded-none bg-emerald-50 hover:bg-emerald-200"
-                                            onClick={() =>
-                                              updateRsvpStatus.mutate({
-                                                userId: card.userId,
-                                                rsvpId: card.rsvpId,
-                                                newStatus: "approved",
-                                              })
-                                            }
-                                          >
-                                            <CheckCircle size={14} className="text-emerald-700" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Approve RSVP</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            size="icon"
-                                            variant="outline"
-                                            className="h-7 w-7 border border-black rounded-none bg-rose-50 hover:bg-rose-200"
-                                            onClick={() =>
-                                              updateRsvpStatus.mutate({
-                                                userId: card.userId,
-                                                rsvpId: card.rsvpId,
-                                                newStatus: "rejected",
-                                              })
-                                            }
-                                          >
-                                            <X size={14} className="text-rose-700" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Reject RSVP</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  </div>
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
-                        </div>
-                      )}
-                    </Droppable>
-                  </div>
-
-                  {/* Approved Column */}
-                  <div className="flex flex-col border-4 border-black bg-emerald-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                    <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
-                      <span className="flex items-center gap-2">
-                        <CheckCircle size={18} className="text-emerald-600" /> Approved
-                      </span>
-                      <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
-                        {columns.approved.length}
-                      </span>
-                    </h3>
-                    <Droppable droppableId="approved">
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                          className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
-                            snapshot.isDraggingOver ? "bg-emerald-100/50" : ""
-                          }`}
-                        >
-                          {columns.approved.map((card, index) => (
-                            <Draggable key={card.id} draggableId={card.id} index={index}>
-                              {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
-                                    snapshot.isDragging
-                                      ? "rotate-2 scale-105 z-50 bg-emerald-50/90"
-                                      : ""
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    {card.avatarUrl ? (
-                                      <img
-                                        src={card.avatarUrl}
-                                        alt={card.name}
-                                        className="h-10 w-10 border-2 border-black object-cover rounded-none"
-                                      />
-                                    ) : (
-                                      <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
-                                        {card.name.substring(0, 2)}
-                                      </div>
-                                    )}
-                                    <div className="min-w-0">
-                                      <p className="truncate font-mono text-sm font-bold text-black">
-                                        {card.name}
-                                      </p>
-                                      <p className="font-mono text-[9px] text-black/60 uppercase">
-                                        Approved
-                                      </p>
-                                      {card.hasAccommodation && card.rsvpId && (
-                                        <div className="mt-1 flex flex-col gap-0.5">
-                                          <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
-                                            🔴 Accessibility accommodation requested
-                                          </span>
-                                          <button
-                                            type="button"
-                                            className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
-                                            onClick={() => handleViewAccommodation(card.rsvpId!)}
-                                          >
-                                            [Decrypt / View]
-                                          </button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="flex gap-1 ml-2">
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            size="icon"
-                                            variant="outline"
-                                            className="h-7 w-7 border border-black rounded-none bg-amber-50 hover:bg-amber-200"
-                                            onClick={() =>
-                                              updateRsvpStatus.mutate({
-                                                userId: card.userId,
-                                                rsvpId: card.rsvpId,
-                                                newStatus: "waitlisted",
-                                              })
-                                            }
-                                          >
-                                            <Clock size={14} className="text-amber-700" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Move to Waitlist</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            size="icon"
-                                            variant="outline"
-                                            className="h-7 w-7 border border-black rounded-none bg-rose-50 hover:bg-rose-200"
-                                            onClick={() =>
-                                              updateRsvpStatus.mutate({
-                                                userId: card.userId,
-                                                rsvpId: card.rsvpId,
-                                                newStatus: "rejected",
-                                              })
-                                            }
-                                          >
-                                            <X size={14} className="text-rose-700" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Reject RSVP</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  </div>
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
-                        </div>
-                      )}
-                    </Droppable>
-                  </div>
-
-                  {/* Rejected Column */}
-                  <div className="flex flex-col border-4 border-black bg-rose-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                    <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
-                      <span className="flex items-center gap-2">
-                        <X size={18} className="text-rose-600" /> Rejected
-                      </span>
-                      <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
-                        {columns.rejected.length}
-                      </span>
-                    </h3>
-                    <Droppable droppableId="rejected">
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                          className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
-                            snapshot.isDraggingOver ? "bg-rose-100/50" : ""
-                          }`}
-                        >
-                          {columns.rejected.map((card, index) => (
-                            <Draggable key={card.id} draggableId={card.id} index={index}>
-                              {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
-                                    snapshot.isDragging
-                                      ? "rotate-2 scale-105 z-50 bg-rose-50/90"
-                                      : ""
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    {card.avatarUrl ? (
-                                      <img
-                                        src={card.avatarUrl}
-                                        alt={card.name}
-                                        className="h-10 w-10 border-2 border-black object-cover rounded-none"
-                                      />
-                                    ) : (
-                                      <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
-                                        {card.name.substring(0, 2)}
-                                      </div>
-                                    )}
-                                    <div className="min-w-0">
-                                      <p className="truncate font-mono text-sm font-bold text-black">
-                                        {card.name}
-                                      </p>
-                                      <p className="font-mono text-[9px] text-black/60 uppercase">
-                                        Rejected
-                                      </p>
-                                      {card.hasAccommodation && card.rsvpId && (
-                                        <div className="mt-1 flex flex-col gap-0.5">
-                                          <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
-                                            🔴 Accessibility accommodation requested
-                                          </span>
-                                          <button
-                                            type="button"
-                                            className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
-                                            onClick={() => handleViewAccommodation(card.rsvpId!)}
-                                          >
-                                            [Decrypt / View]
-                                          </button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="flex gap-1 ml-2">
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            size="icon"
-                                            variant="outline"
-                                            className="h-7 w-7 border border-black rounded-none bg-amber-50 hover:bg-amber-200"
-                                            onClick={() =>
-                                              updateRsvpStatus.mutate({
-                                                userId: card.userId,
-                                                rsvpId: card.rsvpId,
-                                                newStatus: "waitlisted",
-                                              })
-                                            }
-                                          >
-                                            <Clock size={14} className="text-amber-700" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Move to Waitlist</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            size="icon"
-                                            variant="outline"
-                                            className="h-7 w-7 border border-black rounded-none bg-emerald-50 hover:bg-emerald-200"
-                                            onClick={() =>
-                                              updateRsvpStatus.mutate({
-                                                userId: card.userId,
-                                                rsvpId: card.rsvpId,
-                                                newStatus: "approved",
-                                              })
-                                            }
-                                          >
-                                            <CheckCircle size={14} className="text-emerald-700" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Approve RSVP</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  </div>
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
-                        </div>
-                      )}
-                    </Droppable>
-                  </div>
-                </div>
-              </DragDropContext>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Sticky Mobile RSVP Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between border-t-2 border-black bg-white p-4 pb-6 shadow-lg md:hidden">
-        <div className="flex flex-col">
-          <span className="font-mono text-xs font-bold uppercase text-black/60">
-            {attendeeCount} {maxAttendees ? `/ ${maxAttendees}` : ""} going
-          </span>
-          {isOnWaitlist && waitlistPosition > 0 && (
-            <span className="font-mono text-[10px] font-bold text-amber-700">
-              Waitlist position: #{waitlistPosition}
-            </span>
-          )}
-        </div>
-        {hasRsvpd ? (
-          <Button onClick={handleRsvpClick} disabled={toggleRsvp.isPending} variant="secondary">
-            {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
-          </Button>
-        ) : isAtCapacity ? (
-          <Button
-            onClick={() => {
-              if (!user) {
-                toast.error("Please log in to join waitlist");
-                return;
-              }
-              toggleWaitlist.mutate({ isOnWaitlist });
-            }}
-            disabled={toggleWaitlist.isPending}
-            variant={isOnWaitlist ? "secondary" : "primary"}
-          >
-            {toggleWaitlist.isPending
-              ? "Updating..."
-              : isOnWaitlist
-                ? "On Waitlist ✓"
-                : "Join Waitlist"}
-          </Button>
-        ) : (
-          <Button onClick={handleRsvpClick} disabled={toggleRsvp.isPending} variant="primary">
-            {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
-          </Button>
-        )}
-      </div>
-
-      {/* RSVP Cancel Confirmation Modal */}
-      <ConfirmModal
-        open={confirmOpen}
-        title="Cancel RSVP"
-        description="Are you sure you want to cancel your RSVP for this event? Your spot will be released."
-        onConfirm={handleConfirmCancel}
-        onCancel={() => setConfirmOpen(false)}
-      />
-
-      {/* RSVP Accessibility Accommodations Modal */}
-      <Dialog
-        open={rsvpDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            // Reset states when closed
-            setNeedAccommodations(false);
-            setAccommodationsText("");
-            setValidationError("");
-          }
-          setRsvpDialogOpen(open);
-        }}
-      >
-        <DialogContent variant="brutalist" className="max-w-md font-mono">
-          <DialogHeader className="border-b-2 border-black pb-4">
-            <DialogTitle className="text-xl font-bold uppercase tracking-tight">
-              RSVP Options
-            </DialogTitle>
-            <DialogDescription className="text-xs text-black/60 font-mono">
-              Configure your attendance preferences for {event.title}.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="flex items-center gap-3">
-              <input
-                id="req-accommodations-checkbox"
-                type="checkbox"
-                checked={needAccommodations}
-                disabled={toggleRsvp.isPending}
-                onChange={(e) => {
-                  setNeedAccommodations(e.target.checked);
-                  if (!e.target.checked) {
-                    setAccommodationsText("");
-                    setValidationError("");
-                  }
-                }}
-                className="h-4 w-4 rounded-none border-2 border-black accent-black cursor-pointer"
-              />
-              <Label
-                htmlFor="req-accommodations-checkbox"
-                className="font-mono text-sm font-bold uppercase tracking-wide cursor-pointer select-none"
-              >
-                I require accessibility accommodations
-              </Label>
+              )}
             </div>
 
-            {needAccommodations && (
-              <div className="space-y-2 animate-in fade-in duration-200">
-                <Label
-                  htmlFor="accommodations-text"
-                  className="font-mono text-xs font-black uppercase text-black/60"
-                >
-                  Describe requested accommodations <span className="text-red-700">*</span>
-                </Label>
-                <Textarea
-                  id="accommodations-text"
-                  placeholder="Please describe the accommodation(s) you need to participate in this event (e.g., sign language interpretation, wheelchair access, closed captioning, etc.)."
-                  value={accommodationsText}
-                  disabled={toggleRsvp.isPending}
-                  onChange={(e) => {
-                    setAccommodationsText(e.target.value);
-                    if (validationError) setValidationError("");
-                  }}
-                  className="neu-border min-h-[100px] border-2 border-black bg-white p-3 font-mono text-xs focus:ring-lime placeholder:text-neutral-500"
-                  maxLength={1000}
+            {/* Social Share */}
+            <div className="mt-10 border-t-2 border-black pt-6">
+              <h3 className="font-mono text-xs font-bold uppercase text-blue-900">
+                Share with Friends
+              </h3>
+              <div className="mt-4">
+                <ShareMenu
+                  url={shareUrl}
+                  title={event.title}
+                  text={`Check out this event: ${event.title}`}
                 />
-                <div className="flex items-center justify-between text-[10px] font-bold text-black/50">
-                  <span className={validationError ? "text-red-600 animate-pulse" : ""}>
-                    {validationError || "Description is required"}
-                  </span>
-                  <span>{accommodationsText.length} / 1000 characters</span>
-                </div>
+              </div>
+            </div>
 
-                <div className="bg-blue-50 border-2 border-blue-900 p-3 text-left">
-                  <p className="font-mono text-[11px] leading-relaxed text-blue-900">
-                    🔒 <span className="font-bold">Privacy Notice:</span> This information is kept
-                    private and will only be decrypted for authorized reviewers (the Club President
-                    and event organizers) for event planning. It will not be exposed to the public.
-                  </p>
-                </div>
-
-                {isAfterDeadline && (
-                  <div className="bg-amber-50 border-2 border-amber-600 p-3 text-left flex items-start gap-2">
-                    <span className="text-lg">⚠️</span>
-                    <p className="font-mono text-[11px] leading-relaxed text-amber-955">
-                      This accommodation request is being submitted after the accommodation
-                      deadline. The university may not be able to guarantee that the requested
-                      accommodation can be arranged.
-                    </p>
+            <EventFaqSection eventId={event.id} isOrganizer={isOrganizer} userId={user?.id} />
+            {/* Kanban Board for Organizer */}
+            {isOrganizer && (
+              <div className="mt-12 border-t-4 border-black pt-10">
+                <h2 className="font-display text-2xl font-black uppercase tracking-tight text-black mb-6">
+                  Attendee Manager
+                </h2>
+                <div className="mb-8 rounded-2xl border-4 border-black bg-white p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-display text-xl font-black uppercase tracking-tight text-black">
+                        QR Check-in
+                      </h3>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Verify a signed ticket from the camera or an uploaded image to mark the
+                        attendee as checked in.
+                      </p>
+                    </div>
                   </div>
-                )}
+                  <div className="mt-5">
+                    <SteganographicQRScanner
+                      onVerificationSuccess={(payload) => {
+                        checkInRsvp.mutate({ rsvpId: payload.rsvpId });
+                      }}
+                    />
+                  </div>
+                </div>
+                <DragDropContext onDragEnd={onDragEnd}>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Waitlisted Column */}
+                    <div className="flex flex-col border-4 border-black bg-amber-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                      <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                          <Clock size={18} className="text-amber-600" /> Waitlisted
+                        </span>
+                        <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
+                          {columns.waitlisted.length}
+                        </span>
+                      </h3>
+                      <Droppable droppableId="waitlisted">
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
+                              snapshot.isDraggingOver ? "bg-amber-100/50" : ""
+                            }`}
+                          >
+                            {columns.waitlisted.map((card, index) => (
+                              <Draggable key={card.id} draggableId={card.id} index={index}>
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
+                                      snapshot.isDragging
+                                        ? "rotate-2 scale-105 z-50 bg-amber-50/90"
+                                        : ""
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      {card.avatarUrl ? (
+                                        <img
+                                          src={card.avatarUrl}
+                                          alt={card.name}
+                                          className="h-10 w-10 border-2 border-black object-cover rounded-none"
+                                        />
+                                      ) : (
+                                        <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
+                                          {card.name.substring(0, 2)}
+                                        </div>
+                                      )}
+                                      <div className="min-w-0">
+                                        <p className="truncate font-mono text-sm font-bold text-black">
+                                          {card.name}
+                                        </p>
+                                        <p className="font-mono text-[9px] text-black/60 uppercase">
+                                          {card.rsvpId ? "Requested" : "Waitlist"}
+                                        </p>
+                                        {card.hasAccommodation && card.rsvpId && (
+                                          <div className="mt-1 flex flex-col gap-0.5">
+                                            <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
+                                              🔴 Accessibility accommodation requested
+                                            </span>
+                                            <button
+                                              type="button"
+                                              className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
+                                              onClick={() => handleViewAccommodation(card.rsvpId!)}
+                                            >
+                                              [Decrypt / View]
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-1 ml-2">
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              size="icon"
+                                              variant="outline"
+                                              className="h-7 w-7 border border-black rounded-none bg-emerald-50 hover:bg-emerald-200"
+                                              onClick={() =>
+                                                updateRsvpStatus.mutate({
+                                                  userId: card.userId,
+                                                  rsvpId: card.rsvpId,
+                                                  newStatus: "approved",
+                                                })
+                                              }
+                                            >
+                                              <CheckCircle size={14} className="text-emerald-700" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Approve RSVP</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              size="icon"
+                                              variant="outline"
+                                              className="h-7 w-7 border border-black rounded-none bg-rose-50 hover:bg-rose-200"
+                                              onClick={() =>
+                                                updateRsvpStatus.mutate({
+                                                  userId: card.userId,
+                                                  rsvpId: card.rsvpId,
+                                                  newStatus: "rejected",
+                                                })
+                                              }
+                                            >
+                                              <X size={14} className="text-rose-700" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Reject RSVP</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    </div>
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </div>
+
+                    {/* Approved Column */}
+                    <div className="flex flex-col border-4 border-black bg-emerald-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                      <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                          <CheckCircle size={18} className="text-emerald-600" /> Approved
+                        </span>
+                        <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
+                          {columns.approved.length}
+                        </span>
+                      </h3>
+                      <Droppable droppableId="approved">
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
+                              snapshot.isDraggingOver ? "bg-emerald-100/50" : ""
+                            }`}
+                          >
+                            {columns.approved.map((card, index) => (
+                              <Draggable key={card.id} draggableId={card.id} index={index}>
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
+                                      snapshot.isDragging
+                                        ? "rotate-2 scale-105 z-50 bg-emerald-50/90"
+                                        : ""
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      {card.avatarUrl ? (
+                                        <img
+                                          src={card.avatarUrl}
+                                          alt={card.name}
+                                          className="h-10 w-10 border-2 border-black object-cover rounded-none"
+                                        />
+                                      ) : (
+                                        <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
+                                          {card.name.substring(0, 2)}
+                                        </div>
+                                      )}
+                                      <div className="min-w-0">
+                                        <p className="truncate font-mono text-sm font-bold text-black">
+                                          {card.name}
+                                        </p>
+                                        <p className="font-mono text-[9px] text-black/60 uppercase">
+                                          Approved
+                                        </p>
+                                        {card.hasAccommodation && card.rsvpId && (
+                                          <div className="mt-1 flex flex-col gap-0.5">
+                                            <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
+                                              🔴 Accessibility accommodation requested
+                                            </span>
+                                            <button
+                                              type="button"
+                                              className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
+                                              onClick={() => handleViewAccommodation(card.rsvpId!)}
+                                            >
+                                              [Decrypt / View]
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-1 ml-2">
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              size="icon"
+                                              variant="outline"
+                                              className="h-7 w-7 border border-black rounded-none bg-amber-50 hover:bg-amber-200"
+                                              onClick={() =>
+                                                updateRsvpStatus.mutate({
+                                                  userId: card.userId,
+                                                  rsvpId: card.rsvpId,
+                                                  newStatus: "waitlisted",
+                                                })
+                                              }
+                                            >
+                                              <Clock size={14} className="text-amber-700" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Move to Waitlist</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              size="icon"
+                                              variant="outline"
+                                              className="h-7 w-7 border border-black rounded-none bg-rose-50 hover:bg-rose-200"
+                                              onClick={() =>
+                                                updateRsvpStatus.mutate({
+                                                  userId: card.userId,
+                                                  rsvpId: card.rsvpId,
+                                                  newStatus: "rejected",
+                                                })
+                                              }
+                                            >
+                                              <X size={14} className="text-rose-700" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Reject RSVP</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    </div>
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </div>
+
+                    {/* Rejected Column */}
+                    <div className="flex flex-col border-4 border-black bg-rose-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                      <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                          <X size={18} className="text-rose-600" /> Rejected
+                        </span>
+                        <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
+                          {columns.rejected.length}
+                        </span>
+                      </h3>
+                      <Droppable droppableId="rejected">
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
+                              snapshot.isDraggingOver ? "bg-rose-100/50" : ""
+                            }`}
+                          >
+                            {columns.rejected.map((card, index) => (
+                              <Draggable key={card.id} draggableId={card.id} index={index}>
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
+                                      snapshot.isDragging
+                                        ? "rotate-2 scale-105 z-50 bg-rose-50/90"
+                                        : ""
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      {card.avatarUrl ? (
+                                        <img
+                                          src={card.avatarUrl}
+                                          alt={card.name}
+                                          className="h-10 w-10 border-2 border-black object-cover rounded-none"
+                                        />
+                                      ) : (
+                                        <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
+                                          {card.name.substring(0, 2)}
+                                        </div>
+                                      )}
+                                      <div className="min-w-0">
+                                        <p className="truncate font-mono text-sm font-bold text-black">
+                                          {card.name}
+                                        </p>
+                                        <p className="font-mono text-[9px] text-black/60 uppercase">
+                                          Rejected
+                                        </p>
+                                        {card.hasAccommodation && card.rsvpId && (
+                                          <div className="mt-1 flex flex-col gap-0.5">
+                                            <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
+                                              🔴 Accessibility accommodation requested
+                                            </span>
+                                            <button
+                                              type="button"
+                                              className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
+                                              onClick={() => handleViewAccommodation(card.rsvpId!)}
+                                            >
+                                              [Decrypt / View]
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-1 ml-2">
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              size="icon"
+                                              variant="outline"
+                                              className="h-7 w-7 border border-black rounded-none bg-amber-50 hover:bg-amber-200"
+                                              onClick={() =>
+                                                updateRsvpStatus.mutate({
+                                                  userId: card.userId,
+                                                  rsvpId: card.rsvpId,
+                                                  newStatus: "waitlisted",
+                                                })
+                                              }
+                                            >
+                                              <Clock size={14} className="text-amber-700" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Move to Waitlist</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              size="icon"
+                                              variant="outline"
+                                              className="h-7 w-7 border border-black rounded-none bg-emerald-50 hover:bg-emerald-200"
+                                              onClick={() =>
+                                                updateRsvpStatus.mutate({
+                                                  userId: card.userId,
+                                                  rsvpId: card.rsvpId,
+                                                  newStatus: "approved",
+                                                })
+                                              }
+                                            >
+                                              <CheckCircle size={14} className="text-emerald-700" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Approve RSVP</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    </div>
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </div>
+                  </div>
+                </DragDropContext>
               </div>
             )}
           </div>
-
-          <DialogFooter className="border-t-2 border-black pt-4 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setNeedAccommodations(false);
-                setAccommodationsText("");
-                setValidationError("");
-                setRsvpDialogOpen(false);
-              }}
-              disabled={toggleRsvp.isPending}
-              className="neu-border font-mono text-xs font-bold uppercase"
-            >
-              Cancel
+        </section>
+        {/* Sticky Mobile RSVP Bar */}
+        <div className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between border-t-2 border-black bg-white p-4 pb-6 shadow-lg md:hidden">
+          <div className="flex flex-col">
+            <span className="font-mono text-xs font-bold uppercase text-black/60">
+              {attendeeCount} {maxAttendees ? `/ ${maxAttendees}` : ""} going
+            </span>
+            {isOnWaitlist && waitlistPosition > 0 && (
+              <span className="font-mono text-[10px] font-bold text-amber-700">
+                Waitlist position: #{waitlistPosition}
+              </span>
+            )}
+          </div>
+          {hasRsvpd ? (
+            <Button onClick={handleRsvpClick} disabled={toggleRsvp.isPending} variant="secondary">
+              {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
             </Button>
+          ) : isAtCapacity ? (
             <Button
-              variant="primary"
               onClick={() => {
-                if (needAccommodations) {
-                  if (!accommodationsText.trim()) {
-                    setValidationError("Accommodation description is required when requested.");
-                    return;
-                  }
-                  if (accommodationsText.length > 1000) {
-                    setValidationError("Limit exceeded. Maximum 1000 characters.");
-                    return;
-                  }
+                if (!user) {
+                  toast.error("Please log in to join waitlist");
+                  return;
                 }
-
-                toggleRsvp.mutate({
-                  eventId: event.id,
-                  hasRsvpd: false,
-                  captchaToken,
-                  accommodationsRequested: needAccommodations ? accommodationsText : null,
-                });
+                toggleWaitlist.mutate({ isOnWaitlist });
               }}
-              disabled={toggleRsvp.isPending}
-              className="neu-border font-mono text-xs font-bold uppercase"
+              disabled={toggleWaitlist.isPending}
+              variant={isOnWaitlist ? "secondary" : "primary"}
             >
-              {toggleRsvp.isPending ? "Submitting..." : "Confirm RSVP"}
+              {toggleWaitlist.isPending
+                ? "Updating..."
+                : isOnWaitlist
+                  ? "On Waitlist ✓"
+                  : "Join Waitlist"}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <ReportDialog
-        isOpen={isReportDialogOpen}
-        onClose={() => setIsReportDialogOpen(false)}
-        targetType="event"
-        targetId={event.id}
-      />
-
-      {/* Decrypted Accommodations Dialog */}
-      <Dialog open={isDecryptedModalOpen} onOpenChange={setIsDecryptedModalOpen}>
-        <DialogContent className="max-w-md border-4 border-black bg-white p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none">
-          <DialogHeader>
-            <DialogTitle className="font-mono text-xl font-black uppercase text-black">
-              Decrypted Accommodation Request
-            </DialogTitle>
-          </DialogHeader>
-          <div className="mt-4 font-mono text-sm leading-6">
-            {isDecrypting ? (
-              <div className="flex flex-col items-center justify-center py-6 gap-3">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-lime border-t-black" />
-                <p className="text-xs font-bold uppercase text-black/60">
-                  Decrypting request securely...
-                </p>
-              </div>
-            ) : decryptError ? (
-              <div className="border-2 border-red-650 bg-red-50 p-4 text-red-700">
-                <p className="font-bold uppercase text-xs">Access Denied / Error</p>
-                <p className="mt-1 text-xs">{decryptError}</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="border-2 border-black bg-lime/10 p-4">
-                  <p className="font-bold uppercase text-xs text-black/60">
-                    Accommodation Description:
-                  </p>
-                  <p className="mt-2 whitespace-pre-wrap text-black font-semibold bg-white p-3 border border-black">
-                    {decryptedText}
-                  </p>
-                </div>
-                <div className="border border-black bg-neutral-50 p-3 text-[10px] text-neutral-600">
-                  <p className="font-bold uppercase">🔒 SECURITY AUDIT COMPLIANT</p>
-                  <p className="mt-1">
-                    Your access to this sensitive information has been logged to the permanent audit
-                    trail. Do not duplicate or export this private data.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="mt-6 flex justify-end">
-            <Button
-              className="neu-press border-2 border-black bg-lime px-4 py-2 font-mono text-xs font-bold uppercase rounded-none text-black hover:bg-lime/90"
-              onClick={() => setIsDecryptedModalOpen(false)}
-            >
-              Close
+          ) : (
+            <Button onClick={handleRsvpClick} disabled={toggleRsvp.isPending} variant="primary">
+              {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
             </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-      {lightboxSrc && (
-        <div
-          role="button"
-          tabIndex={0}
-          aria-label="Close enlarged image"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 cursor-zoom-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-          onClick={() => setLightboxSrc(null)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " " || e.key === "Escape") {
-              e.preventDefault();
-              setLightboxSrc(null);
+          )}
+        </div>
+        {/* RSVP Cancel Confirmation Modal */}
+        <ConfirmModal
+          open={confirmOpen}
+          title="Cancel RSVP"
+          description="Are you sure you want to cancel your RSVP for this event? Your spot will be released."
+          onConfirm={handleConfirmCancel}
+          onCancel={() => setConfirmOpen(false)}
+        />
+        {/* RSVP Accessibility Accommodations Modal */}
+        <Dialog
+          open={rsvpDialogOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              // Reset states when closed
+              setNeedAccommodations(false);
+              setAccommodationsText("");
+              setValidationError("");
             }
+            setRsvpDialogOpen(open);
           }}
         >
-          <img
-            src={lightboxSrc}
-            alt="Enlarged gallery photo"
-            className="max-h-full max-w-full object-contain neu-border border-white"
-          />
-        </div>
-      )}
-    </SiteShell>
+          <DialogContent variant="brutalist" className="max-w-md font-mono">
+            <DialogHeader className="border-b-2 border-black pb-4">
+              <DialogTitle className="text-xl font-bold uppercase tracking-tight">
+                RSVP Options
+              </DialogTitle>
+              <DialogDescription className="text-xs text-black/60 font-mono">
+                Configure your attendance preferences for {event.title}.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="flex items-center gap-3">
+                <input
+                  id="req-accommodations-checkbox"
+                  type="checkbox"
+                  checked={needAccommodations}
+                  disabled={toggleRsvp.isPending}
+                  onChange={(e) => {
+                    setNeedAccommodations(e.target.checked);
+                    if (!e.target.checked) {
+                      setAccommodationsText("");
+                      setValidationError("");
+                    }
+                  }}
+                  className="h-4 w-4 rounded-none border-2 border-black accent-black cursor-pointer"
+                />
+                <Label
+                  htmlFor="req-accommodations-checkbox"
+                  className="font-mono text-sm font-bold uppercase tracking-wide cursor-pointer select-none"
+                >
+                  I require accessibility accommodations
+                </Label>
+              </div>
+
+              {needAccommodations && (
+                <div className="space-y-2 animate-in fade-in duration-200">
+                  <Label
+                    htmlFor="accommodations-text"
+                    className="font-mono text-xs font-black uppercase text-black/60"
+                  >
+                    Describe requested accommodations <span className="text-red-700">*</span>
+                  </Label>
+                  <Textarea
+                    id="accommodations-text"
+                    placeholder="Please describe the accommodation(s) you need to participate in this event (e.g., sign language interpretation, wheelchair access, closed captioning, etc.)."
+                    value={accommodationsText}
+                    disabled={toggleRsvp.isPending}
+                    onChange={(e) => {
+                      setAccommodationsText(e.target.value);
+                      if (validationError) setValidationError("");
+                    }}
+                    className="neu-border min-h-[100px] border-2 border-black bg-white p-3 font-mono text-xs focus:ring-lime placeholder:text-neutral-500"
+                    maxLength={1000}
+                  />
+                  <div className="flex items-center justify-between text-[10px] font-bold text-black/50">
+                    <span className={validationError ? "text-red-600 animate-pulse" : ""}>
+                      {validationError || "Description is required"}
+                    </span>
+                    <span>{accommodationsText.length} / 1000 characters</span>
+                  </div>
+
+                  <div className="bg-blue-50 border-2 border-blue-900 p-3 text-left">
+                    <p className="font-mono text-[11px] leading-relaxed text-blue-900">
+                      🔒 <span className="font-bold">Privacy Notice:</span> This information is kept
+                      private and will only be decrypted for authorized reviewers (the Club
+                      President and event organizers) for event planning. It will not be exposed to
+                      the public.
+                    </p>
+                  </div>
+
+                  {isAfterDeadline && (
+                    <div className="bg-amber-50 border-2 border-amber-600 p-3 text-left flex items-start gap-2">
+                      <span className="text-lg">⚠️</span>
+                      <p className="font-mono text-[11px] leading-relaxed text-amber-955">
+                        This accommodation request is being submitted after the accommodation
+                        deadline. The university may not be able to guarantee that the requested
+                        accommodation can be arranged.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <DialogFooter className="border-t-2 border-black pt-4 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setNeedAccommodations(false);
+                  setAccommodationsText("");
+                  setValidationError("");
+                  setRsvpDialogOpen(false);
+                }}
+                disabled={toggleRsvp.isPending}
+                className="neu-border font-mono text-xs font-bold uppercase"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  if (needAccommodations) {
+                    if (!accommodationsText.trim()) {
+                      setValidationError("Accommodation description is required when requested.");
+                      return;
+                    }
+                    if (accommodationsText.length > 1000) {
+                      setValidationError("Limit exceeded. Maximum 1000 characters.");
+                      return;
+                    }
+                  }
+
+                  toggleRsvp.mutate({
+                    eventId: event.id,
+                    hasRsvpd: false,
+                    captchaToken,
+                    accommodationsRequested: needAccommodations ? accommodationsText : null,
+                  });
+                }}
+                disabled={toggleRsvp.isPending}
+                className="neu-border font-mono text-xs font-bold uppercase"
+              >
+                {toggleRsvp.isPending ? "Submitting..." : "Confirm RSVP"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <ReportDialog
+          isOpen={isReportDialogOpen}
+          onClose={() => setIsReportDialogOpen(false)}
+          targetType="event"
+          targetId={event.id}
+        />
+        {/* Decrypted Accommodations Dialog */}
+        <Dialog open={isDecryptedModalOpen} onOpenChange={setIsDecryptedModalOpen}>
+          <DialogContent className="max-w-md border-4 border-black bg-white p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none">
+            <DialogHeader>
+              <DialogTitle className="font-mono text-xl font-black uppercase text-black">
+                Decrypted Accommodation Request
+              </DialogTitle>
+            </DialogHeader>
+            <div className="mt-4 font-mono text-sm leading-6">
+              {isDecrypting ? (
+                <div className="flex flex-col items-center justify-center py-6 gap-3">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-lime border-t-black" />
+                  <p className="text-xs font-bold uppercase text-black/60">
+                    Decrypting request securely...
+                  </p>
+                </div>
+              ) : decryptError ? (
+                <div className="border-2 border-red-650 bg-red-50 p-4 text-red-700">
+                  <p className="font-bold uppercase text-xs">Access Denied / Error</p>
+                  <p className="mt-1 text-xs">{decryptError}</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="border-2 border-black bg-lime/10 p-4">
+                    <p className="font-bold uppercase text-xs text-black/60">
+                      Accommodation Description:
+                    </p>
+                    <p className="mt-2 whitespace-pre-wrap text-black font-semibold bg-white p-3 border border-black">
+                      {decryptedText}
+                    </p>
+                  </div>
+                  <div className="border border-black bg-neutral-50 p-3 text-[10px] text-neutral-600">
+                    <p className="font-bold uppercase">🔒 SECURITY AUDIT COMPLIANT</p>
+                    <p className="mt-1">
+                      Your access to this sensitive information has been logged to the permanent
+                      audit trail. Do not duplicate or export this private data.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="mt-6 flex justify-end">
+              <Button
+                className="neu-press border-2 border-black bg-lime px-4 py-2 font-mono text-xs font-bold uppercase rounded-none text-black hover:bg-lime/90"
+                onClick={() => setIsDecryptedModalOpen(false)}
+              >
+                Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+        {lightboxSrc && (
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Close enlarged image"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 cursor-zoom-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            onClick={() => setLightboxSrc(null)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " " || e.key === "Escape") {
+                e.preventDefault();
+                setLightboxSrc(null);
+              }
+            }}
+          >
+            <img
+              src={lightboxSrc}
+              alt="Enlarged gallery photo"
+              className="max-h-full max-w-full object-contain neu-border border-white"
+            />
+          </div>
+        )}
+      </SiteShell>
     </>
   );
 }

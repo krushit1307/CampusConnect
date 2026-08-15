@@ -1,41 +1,86 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import CampusMapBuilder from "./events.$eventId.map-builder";
 import { useMapBuilderStore } from "@/stores/mapBuilderStore";
+import { ThemeProvider } from "@/components/theme-provider";
 
 // Mock Supabase client
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          single: () =>
+vi.mock("@/lib/supabase/client", () => {
+  const mockFrom = (table: string) => {
+    if (table === "events") {
+      return {
+        select: () => ({
+          eq: () => ({
+            single: () =>
+              Promise.resolve({
+                data: { title: "Engineering Career Fair" },
+                error: null,
+              }),
+          }),
+        }),
+      };
+    }
+    if (table === "venue_maps") {
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () =>
+              Promise.resolve({
+                data: { id: "map-123", background_image_url: null },
+                error: null,
+              }),
+          }),
+        }),
+      };
+    }
+    if (table === "map_nodes") {
+      return {
+        select: () => ({
+          eq: () =>
             Promise.resolve({
-              data: {
-                title: "Engineering Career Fair",
-                map_layout: [
-                  {
-                    id: "table-1",
-                    type: "table",
-                    x: 40,
-                    y: 80,
-                    width: 80,
-                    height: 60,
-                    rotation: 0,
-                    label: "TABLE #1",
-                  },
-                ],
-              },
+              data: [
+                {
+                  id: "table-1",
+                  entity_name: "TABLE #1",
+                  type: "table",
+                  x_coord: 5,
+                  y_coord: 13.333333333333334,
+                  width: 10,
+                  height: 10,
+                  rotation: 0,
+                },
+              ],
               error: null,
             }),
+        }),
+      };
+    }
+    return {
+      select: () => ({
+        eq: () => ({
+          single: () => Promise.resolve({ data: null, error: null }),
+          maybeSingle: () => Promise.resolve({ data: null, error: null }),
         }),
       }),
       update: () => ({
         eq: () => Promise.resolve({ error: null }),
       }),
+    };
+  };
+
+  return {
+    createClient: () => ({
+      from: mockFrom,
     }),
-  }),
+  };
+});
+
+// Mock SiteShell to avoid rendering Navbar, Footers, and other complex layout hooks in layout unit tests
+vi.mock("@/components/site/SiteShell", () => ({
+  SiteShell: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="mock-site-shell">{children}</div>
+  ),
 }));
 
 describe("CampusMapBuilder Component", () => {
@@ -91,19 +136,28 @@ describe("CampusMapBuilder Component", () => {
       </MemoryRouter>,
     );
 
-    const tableElement = await screen.findByText("TABLE #1");
+    const tableElement = await screen.findByTestId("canvas-element-table-1");
     expect(tableElement).toBeInTheDocument();
 
-    // Select the table element
-    fireEvent.click(tableElement);
+    // Select the table element with act to flush Zustand/React updates
+    await act(async () => {
+      fireEvent.click(tableElement);
+    });
 
     // Tools for active item should display
-    expect(screen.getByText("Selection Tools")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/Selection Tools/i)).toBeInTheDocument();
+    });
     const deleteButton = screen.getByRole("button", { name: /Delete/i });
     expect(deleteButton).toBeInTheDocument();
 
     // Delete item
-    fireEvent.click(deleteButton);
-    expect(screen.queryByText("TABLE #1")).not.toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(deleteButton);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText("TABLE #1")).not.toBeInTheDocument();
+    });
   });
 });

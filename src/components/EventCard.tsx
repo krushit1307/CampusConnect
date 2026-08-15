@@ -306,8 +306,13 @@ export function EventCard({
               </span>
             )}
           </div>
+ feature/2986-event-audio-player
+ feature/2986-event-audio-player
+ feature/2986-event-audio-player
+
  feature/3010-membership-bundles
  feature/3010-membership-bundles
+ main
 
  feature/3014-referral-leaderboard
  main

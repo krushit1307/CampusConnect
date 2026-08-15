@@ -47,12 +47,7 @@ CREATE POLICY "Jobs are viewable by everyone"
 CREATE POLICY "Jobs are manageable by club admins"
   ON public.club_jobs FOR INSERT
   WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.club_members
-      WHERE club_id = club_jobs.club_id
-        AND user_id = auth.uid()
-        AND role IN ('admin', 'owner')
-    )
+    public.is_club_admin(club_jobs.club_id, auth.uid())
     OR EXISTS (
       SELECT 1 FROM public.profiles
       WHERE id = auth.uid() AND role = 'system_admin'
@@ -62,12 +57,7 @@ CREATE POLICY "Jobs are manageable by club admins"
 CREATE POLICY "Jobs updatable by club admins"
   ON public.club_jobs FOR UPDATE
   USING (
-    EXISTS (
-      SELECT 1 FROM public.club_members
-      WHERE club_id = club_jobs.club_id
-        AND user_id = auth.uid()
-        AND role IN ('admin', 'owner')
-    )
+    public.is_club_admin(club_jobs.club_id, auth.uid())
     OR EXISTS (
       SELECT 1 FROM public.profiles
       WHERE id = auth.uid() AND role = 'system_admin'
@@ -77,12 +67,7 @@ CREATE POLICY "Jobs updatable by club admins"
 CREATE POLICY "Jobs deletable by club admins"
   ON public.club_jobs FOR DELETE
   USING (
-    EXISTS (
-      SELECT 1 FROM public.club_members
-      WHERE club_id = club_jobs.club_id
-        AND user_id = auth.uid()
-        AND role IN ('admin', 'owner')
-    )
+    public.is_club_admin(club_jobs.club_id, auth.uid())
     OR EXISTS (
       SELECT 1 FROM public.profiles
       WHERE id = auth.uid() AND role = 'system_admin'
@@ -96,10 +81,8 @@ CREATE POLICY "Applications viewable by job poster and applicant"
     user_id = auth.uid()
     OR EXISTS (
       SELECT 1 FROM public.club_jobs j
-      JOIN public.club_members cm ON cm.club_id = j.club_id
       WHERE j.id = club_job_applications.job_id
-        AND cm.user_id = auth.uid()
-        AND cm.role IN ('admin', 'owner')
+        AND public.is_club_admin(j.club_id, auth.uid())
     )
     OR EXISTS (
       SELECT 1 FROM public.profiles
@@ -122,10 +105,8 @@ CREATE POLICY "Applications updatable by club admins"
   USING (
     EXISTS (
       SELECT 1 FROM public.club_jobs j
-      JOIN public.club_members cm ON cm.club_id = j.club_id
       WHERE j.id = club_job_applications.job_id
-        AND cm.user_id = auth.uid()
-        AND cm.role IN ('admin', 'owner')
+        AND public.is_club_admin(j.club_id, auth.uid())
     )
     OR EXISTS (
       SELECT 1 FROM public.profiles
@@ -188,7 +169,7 @@ AS $$
   SELECT
     a.id,
     a.user_id,
-    COALESCE(p.full_name, 'Unknown') AS user_name,
+    COALESCE(p.first_name || ' ' || p.last_name, 'Unknown') AS user_name,
     p.avatar_url AS user_avatar,
     p.handle AS user_handle,
     a.status,

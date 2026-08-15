@@ -54,8 +54,7 @@ CREATE POLICY "Club admins can delete event tasks" ON event_tasks
 FOR DELETE USING (
   EXISTS (
     SELECT 1 FROM events e
-    JOIN club_members cm ON cm.club_id = e.club_id
-    WHERE e.id = event_tasks.event_id AND cm.user_id = auth.uid() AND cm.role = 'admin'
+    WHERE e.id = event_tasks.event_id AND public.is_club_admin(e.club_id, auth.uid())
   )
 );
 
@@ -63,4 +62,4 @@ FOR DELETE USING (
 CREATE TRIGGER trg_update_event_tasks_updated_at
   BEFORE UPDATE ON event_tasks
   FOR EACH ROW
-  EXECUTE FUNCTION update_modified_column();
+  EXECUTE FUNCTION public.update_updated_at_column();

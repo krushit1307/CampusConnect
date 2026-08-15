@@ -143,7 +143,11 @@ GRANT EXECUTE ON FUNCTION public.dispatch_delayed_notifications() TO service_rol
 -- 5. Schedule the cron job to run every 15 minutes
 DO $$
 BEGIN
-    PERFORM extensions.cron.schedule('dispatch-delayed-notifications', '*/15 * * * *', 'SELECT public.dispatch_delayed_notifications();');
-EXCEPTION
-    WHEN duplicate_object THEN NULL;
+    BEGIN
+        PERFORM cron.unschedule('dispatch-delayed-notifications');
+    EXCEPTION WHEN OTHERS THEN
+        -- Ignore if job does not exist
+    END;
+
+    PERFORM cron.schedule('dispatch-delayed-notifications', '*/15 * * * *', 'SELECT public.dispatch_delayed_notifications();');
 END $$;

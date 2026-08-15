@@ -32,6 +32,8 @@ export type Database = {
           promo_video_url: string | null;
           primary_color: string | null;
           secondary_color: string | null;
+          constitution_url: string | null;
+          bylaws_version: number;
           created_at: string;
           updated_at: string;
         };
@@ -63,6 +65,8 @@ export type Database = {
           promo_video_url?: string | null;
           primary_color?: string | null;
           secondary_color?: string | null;
+          constitution_url?: string | null;
+          bylaws_version?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -94,8 +98,49 @@ export type Database = {
           promo_video_url?: string | null;
           primary_color?: string | null;
           secondary_color?: string | null;
+          constitution_url?: string | null;
+          bylaws_version?: number;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      club_roles: {
+        Row: {
+          id: string;
+          club_id: string;
+          title: string;
+          permissions_level: number;
+          is_singular: boolean;
+          created_at: string;
+          signed_bylaws_at: string | null;
+          signature_hash: string | null;
+          bylaws_version_signed: number | null;
+          signed_ip: string | null;
+        };
+        Insert: {
+          id?: string;
+          club_id: string;
+          title: string;
+          permissions_level?: number;
+          is_singular?: boolean;
+          created_at?: string;
+          signed_bylaws_at?: string | null;
+          signature_hash?: string | null;
+          bylaws_version_signed?: number | null;
+          signed_ip?: string | null;
+        };
+        Update: {
+          id?: string;
+          club_id?: string;
+          title?: string;
+          permissions_level?: number;
+          is_singular?: boolean;
+          created_at?: string;
+          signed_bylaws_at?: string | null;
+          signature_hash?: string | null;
+          bylaws_version_signed?: number | null;
+          signed_ip?: string | null;
         };
         Relationships: [];
       };
@@ -1031,7 +1076,14 @@ export type Database = {
           status: "pending" | "approved" | "rejected";
           joined_at: string | null;
           removed_at: string | null;
-          termination_reason: "term_completed" | "resigned" | "impeached" | "removed" | "role_changed" | string | null;
+          termination_reason:
+            | "term_completed"
+            | "resigned"
+            | "impeached"
+            | "removed"
+            | "role_changed"
+            | string
+            | null;
           created_at: string;
         };
         Insert: {
@@ -1042,7 +1094,14 @@ export type Database = {
           status?: "pending" | "approved" | "rejected";
           joined_at?: string | null;
           removed_at?: string | null;
-          termination_reason?: "term_completed" | "resigned" | "impeached" | "removed" | "role_changed" | string | null;
+          termination_reason?:
+            | "term_completed"
+            | "resigned"
+            | "impeached"
+            | "removed"
+            | "role_changed"
+            | string
+            | null;
           created_at?: string;
         };
         Update: {
@@ -1053,7 +1112,14 @@ export type Database = {
           status?: "pending" | "approved" | "rejected";
           joined_at?: string | null;
           removed_at?: string | null;
-          termination_reason?: "term_completed" | "resigned" | "impeached" | "removed" | "role_changed" | string | null;
+          termination_reason?:
+            | "term_completed"
+            | "resigned"
+            | "impeached"
+            | "removed"
+            | "role_changed"
+            | string
+            | null;
           created_at?: string;
         };
         Relationships: [

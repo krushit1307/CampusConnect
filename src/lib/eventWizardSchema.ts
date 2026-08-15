@@ -29,6 +29,8 @@ export const dateLocationStepBaseSchema = z.object({
   location: z.string().min(3, "Location is required").max(200, "Location is too long"),
   isVirtual: z.boolean().default(false),
   meetingUrl: z.string().url("Please enter a valid meeting URL").optional().or(z.literal("")),
+  isOutdoor: z.boolean().default(false),
+  backupIndoorVenue: z.string().optional(),
   capacity: z
     .number()
     .int("Capacity must be a whole number")
@@ -171,6 +173,8 @@ export const eventWizardMasterSchema = z
     location: dateLocationStepBaseSchema.shape.location,
     isVirtual: dateLocationStepBaseSchema.shape.isVirtual,
     meetingUrl: dateLocationStepBaseSchema.shape.meetingUrl,
+    isOutdoor: dateLocationStepBaseSchema.shape.isOutdoor,
+    backupIndoorVenue: dateLocationStepBaseSchema.shape.backupIndoorVenue,
     capacity: dateLocationStepBaseSchema.shape.capacity,
     // Ticketing
     isPaid: ticketingStepBaseSchema.shape.isPaid,
@@ -260,6 +264,8 @@ export const DEFAULT_EVENT_WIZARD_DATA: EventWizardFormData = {
   location: "",
   isVirtual: false,
   meetingUrl: "",
+  isOutdoor: false,
+  backupIndoorVenue: "",
   capacity: 50,
   isPaid: false,
   isResumeRequired: false,

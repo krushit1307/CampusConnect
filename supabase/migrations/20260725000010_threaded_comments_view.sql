@@ -71,7 +71,7 @@ SELECT
   ct.depth,
   ct.path,
   ct.path_str,
-  p.full_name AS author_name,
+  (p.first_name || ' ' || p.last_name) AS author_name,
   p.avatar_url AS author_avatar_url,
   p.handle AS author_handle,
   p.role AS author_role
