@@ -83,12 +83,12 @@ BEGIN
     PERFORM cron.schedule(
       'trending_events_decay_hourly',
       '0 * * * *',
-      $$
+      $_$
         SELECT net.http_post(
           url := current_setting('app.settings.edge_function_base_url', true) || '/trending-decay',
           headers := '{"Content-Type": "application/json"}'::jsonb
         );
-      $$
+      $_$
     );
   ELSE
     RAISE NOTICE 'pg_cron extension not active; skipping cron schedule.';

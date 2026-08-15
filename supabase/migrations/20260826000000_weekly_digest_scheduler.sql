@@ -44,7 +44,13 @@ GRANT EXECUTE ON FUNCTION public.get_weekly_digest_events() TO service_role;
 -- 2. Schedule pg_cron weekly trigger every Sunday at 9:00 AM
 DO $$
 BEGIN
-    PERFORM extensions.cron.schedule('weekly-digest-scheduler', '0 9 * * 0', $$
+    BEGIN
+        PERFORM cron.unschedule('weekly-digest-scheduler');
+    EXCEPTION WHEN OTHERS THEN
+        -- Ignore if job does not exist
+    END;
+
+    PERFORM cron.schedule('weekly-digest-scheduler', '0 9 * * 0', $_$
     SELECT net.http_post(
         'http://localhost:54321/functions/v1/weekly-digest',
         '{}'::jsonb,
@@ -54,7 +60,5 @@ BEGIN
             'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'service_role_key' LIMIT 1)
         )
     );
-    $$);
-EXCEPTION
-    WHEN duplicate_object THEN NULL;
+    $_$);
 END $$;

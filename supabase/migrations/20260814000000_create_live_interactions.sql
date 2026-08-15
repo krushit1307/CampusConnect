@@ -42,5 +42,23 @@ CREATE POLICY "Attendees can view event polls" ON event_polls FOR SELECT USING (
 CREATE POLICY "Attendees can view poll responses" ON event_poll_responses FOR SELECT USING (true);
 
 -- Enable Supabase Realtime Replication
-ALTER PUBLICATION supabase_realtime ADD TABLE event_questions;
-ALTER PUBLICATION supabase_realtime ADD TABLE event_polls;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' 
+      AND schemaname = 'public' 
+      AND tablename = 'event_questions'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE event_questions;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' 
+      AND schemaname = 'public' 
+      AND tablename = 'event_polls'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE event_polls;
+  END IF;
+END $$;

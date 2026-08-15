@@ -7,6 +7,15 @@ CREATE TYPE member_role AS ENUM ('member', 'admin');
 CREATE TYPE join_status AS ENUM ('pending', 'approved');
 CREATE TYPE club_visibility AS ENUM ('public', 'private');
 
+-- 1.5 Create utility functions
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS trigger AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- 2. Create tables
 CREATE TABLE profiles (
   id UUID REFERENCES auth.users(id) PRIMARY KEY,
@@ -908,13 +917,7 @@ FOR EACH ROW
 WHEN (OLD.entity_type = 'post')
 EXECUTE FUNCTION public.update_post_like_count();
 
-CREATE OR REPLACE FUNCTION public.update_updated_at_column()
-RETURNS trigger AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+
 
 CREATE TRIGGER set_updated_at_profiles
 BEFORE UPDATE ON profiles

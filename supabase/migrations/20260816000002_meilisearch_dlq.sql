@@ -80,7 +80,7 @@ BEGIN
     );
 
     -- Fire and forget — pg_net is asynchronous.
-    PERFORM extensions.net.http_post(
+    PERFORM net.http_post(
         url := v_webhook_url,
         headers := jsonb_build_object(
             'Content-Type', 'application/json',

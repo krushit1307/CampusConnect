@@ -55,7 +55,7 @@ BEGIN
     PERFORM cron.schedule(
       'cleanup-soft-deleted-events',
       '0 0 * * *', -- Run daily at midnight
-      $$SELECT public.cleanup_soft_deleted_events();$$
+      $_$SELECT public.cleanup_soft_deleted_events();$_$
     );
   END IF;
 END

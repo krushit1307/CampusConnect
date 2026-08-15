@@ -26,8 +26,7 @@ with check (
     from club_members
     where club_members.club_id::text = (storage.foldername(name))[1]
       and club_members.user_id = auth.uid()
-      and club_members.role = 'admin'
-      and club_members.status = 'approved'
+      and public.is_club_admin(club_members.club_id, auth.uid())
   )
 );
 
@@ -42,8 +41,7 @@ using (
     from club_members
     where club_members.club_id::text = (storage.foldername(name))[1]
       and club_members.user_id = auth.uid()
-      and club_members.role = 'admin'
-      and club_members.status = 'approved'
+      and public.is_club_admin(club_members.club_id, auth.uid())
   )
 );
 
@@ -58,7 +56,6 @@ using (
     from club_members
     where club_members.club_id::text = (storage.foldername(name))[1]
       and club_members.user_id = auth.uid()
-      and club_members.role = 'admin'
-      and club_members.status = 'approved'
+      and public.is_club_admin(club_members.club_id, auth.uid())
   )
 );

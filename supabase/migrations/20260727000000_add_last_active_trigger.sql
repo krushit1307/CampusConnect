@@ -41,4 +41,3 @@ DROP TRIGGER IF EXISTS trg_update_last_active_on_event_rsvps ON public.event_rsv
 CREATE TRIGGER trg_update_last_active_on_event_rsvps
 AFTER INSERT OR UPDATE ON public.event_rsvps
 FOR EACH ROW EXECUTE FUNCTION public.update_last_active();
-FOR EACH ROW EXECUTE FUNCTION public.update_last_active();

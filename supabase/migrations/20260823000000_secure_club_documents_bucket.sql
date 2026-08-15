@@ -12,6 +12,6 @@ USING (
         SELECT 1 FROM club_members cm
         WHERE cm.user_id = auth.uid()
           AND cm.club_id::text = (storage.foldername(name))[1]
-          AND cm.status = 'ACTIVE'
+          AND cm.status = 'approved'
     )
 );

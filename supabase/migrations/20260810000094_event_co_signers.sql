@@ -5,6 +5,7 @@ ADD COLUMN IF NOT EXISTS alcohol_present BOOLEAN DEFAULT FALSE,
 ADD COLUMN IF NOT EXISTS off_campus_speaker BOOLEAN DEFAULT FALSE;
 
 -- Update club_analytics_view to include the new columns
+DROP VIEW IF EXISTS public.club_analytics_view CASCADE;
 CREATE OR REPLACE VIEW public.club_analytics_view AS
 SELECT 
     e.id,

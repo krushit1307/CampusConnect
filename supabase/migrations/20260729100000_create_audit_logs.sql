@@ -4,7 +4,8 @@
 -- PURPOSE: Tamper-proof historical log of all critical database mutations.
 -- =============================================================================
 
--- 1. Create the audit_logs table
+DROP TABLE IF EXISTS public.audit_logs CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     table_name TEXT NOT NULL,
@@ -27,7 +28,7 @@ CREATE POLICY "Audit logs are viewable by admins"
     USING (
         EXISTS (
             SELECT 1 FROM public.profiles
-            WHERE profiles.id = auth.uid() AND profiles.role IN ('club_admin', 'admin')
+            WHERE profiles.id = auth.uid() AND profiles.role IN ('club_admin', 'system_admin')
         )
     );
 
@@ -72,14 +73,17 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 4. Attach triggers to critical tables
+DROP TRIGGER IF EXISTS audit_events_trigger ON public.events;
 CREATE TRIGGER audit_events_trigger
 AFTER INSERT OR UPDATE OR DELETE ON public.events
 FOR EACH ROW EXECUTE FUNCTION public.log_audit_event();
 
+DROP TRIGGER IF EXISTS audit_clubs_trigger ON public.clubs;
 CREATE TRIGGER audit_clubs_trigger
 AFTER INSERT OR UPDATE OR DELETE ON public.clubs
 FOR EACH ROW EXECUTE FUNCTION public.log_audit_event();
 
+DROP TRIGGER IF EXISTS audit_club_members_trigger ON public.club_members;
 CREATE TRIGGER audit_club_members_trigger
 AFTER INSERT OR UPDATE OR DELETE ON public.club_members
 FOR EACH ROW EXECUTE FUNCTION public.log_audit_event();

@@ -10,10 +10,20 @@
 -- Enable pgcrypto for UUID generation if not already enabled
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+-- Clean up obsolete audit triggers and function from old branch migrations
+DROP TRIGGER IF EXISTS tr_audit_events ON public.events;
+DROP TRIGGER IF EXISTS audit_events_trigger ON public.events;
+DROP TRIGGER IF EXISTS tr_audit_clubs ON public.clubs;
+DROP TRIGGER IF EXISTS audit_clubs_trigger ON public.clubs;
+DROP TRIGGER IF EXISTS tr_audit_club_members ON public.club_members;
+DROP TRIGGER IF EXISTS audit_club_members_trigger ON public.club_members;
+DROP FUNCTION IF EXISTS public.log_audit_event() CASCADE;
+
 -- Create the main audit_logs table
 -- We use PARTITION BY RANGE on timestamp to allow easy archival/deletion of old logs
+DROP TABLE IF EXISTS public.audit_logs CASCADE;
 CREATE TABLE IF NOT EXISTS public.audit_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID DEFAULT gen_random_uuid(),
     table_name TEXT NOT NULL,
     record_id TEXT NOT NULL,
     action TEXT NOT NULL CHECK (action IN ('INSERT', 'UPDATE', 'DELETE')),
@@ -22,7 +32,8 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
     actor_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     ip_address INET,
     user_agent TEXT,
-    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (id, timestamp)
 ) PARTITION BY RANGE (timestamp);
 
 -- Create initial partitions (Current month and next month)
@@ -93,9 +104,9 @@ BEGIN
     ) VALUES (
         TG_TABLE_NAME,
         COALESCE(
-            CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NEW.id END,
+            CASE WHEN TG_OP = 'DELETE' THEN OLD.id::TEXT ELSE NEW.id::TEXT END,
             'UNKNOWN'
-        )::TEXT,
+        ),
         TG_OP,
         old_json,
         new_json,
@@ -147,8 +158,7 @@ USING (
     EXISTS (
         SELECT 1 FROM public.club_members cm
         JOIN public.events e ON cm.club_id = e.club_id
-        WHERE cm.user_id = auth.uid() 
-        AND cm.role = 'admin'
+        WHERE public.is_club_admin(cm.club_id, auth.uid()) 
         AND (
             (audit_logs.table_name = 'events' AND e.id = audit_logs.record_id::uuid) OR
             (audit_logs.table_name = 'club_members' AND cm.club_id = (SELECT club_id FROM public.club_members WHERE id = audit_logs.record_id::uuid))

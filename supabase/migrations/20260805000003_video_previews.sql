@@ -14,7 +14,7 @@ COMMENT ON COLUMN public.events.preview_url IS 'URL to the 3-second looping .web
 
 -- Add background_jobs table for BullMQ queue simulation if Redis is not available
 CREATE TABLE IF NOT EXISTS public.background_jobs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     queue_name TEXT NOT NULL,
     payload JSONB NOT NULL,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),

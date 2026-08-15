@@ -25,7 +25,7 @@ BEGIN
         FROM public.search_clubs(p_search) c
         WHERE 
             (c.deleted_at IS NULL) AND
-            (p_category IS NULL OR c.category ILIKE p_category) AND
+            (p_category IS NULL OR EXISTS (SELECT 1 FROM public.club_categories cc WHERE cc.id = c.category_id AND cc.name ILIKE p_category)) AND
             (
                 p_tags IS NULL OR array_length(p_tags, 1) IS NULL OR
                 p_tags <@ (
@@ -41,7 +41,7 @@ BEGIN
         FROM public.clubs c
         WHERE 
             (c.deleted_at IS NULL) AND
-            (p_category IS NULL OR c.category ILIKE p_category) AND
+            (p_category IS NULL OR EXISTS (SELECT 1 FROM public.club_categories cc WHERE cc.id = c.category_id AND cc.name ILIKE p_category)) AND
             (
                 p_tags IS NULL OR array_length(p_tags, 1) IS NULL OR
                 p_tags <@ (

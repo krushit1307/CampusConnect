@@ -96,7 +96,11 @@ BEGIN
         FROM pg_extension
         WHERE extname = 'pg_cron'
     ) THEN
-        PERFORM cron.unschedule('refresh_trending_events');
+        BEGIN
+            PERFORM cron.unschedule('refresh_trending_events');
+        EXCEPTION WHEN OTHERS THEN
+            -- Ignore if job does not exist
+        END;
 
         PERFORM cron.schedule(
             'refresh_trending_events',

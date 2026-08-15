@@ -1,4 +1,5 @@
 -- Create push_subscriptions table
+DROP TABLE IF EXISTS public.push_subscriptions CASCADE;
 CREATE TABLE public.push_subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,

@@ -2,6 +2,8 @@
 -- Description: Creates a table to store Web Push Notification subscriptions for users,
 -- allowing the backend to target specific devices with direct message alerts.
 
+DROP TABLE IF EXISTS public.push_subscriptions CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.push_subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,

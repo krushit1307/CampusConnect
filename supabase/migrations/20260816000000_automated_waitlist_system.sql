@@ -290,9 +290,7 @@ BEGIN
     RETURN jsonb_build_object(
         'success', true,
         'was_attending', v_was_attending,
-        'message', v_was_attending
-            ? 'RSVP cancelled. Next waitlisted user will be promoted.'
-            : 'Waitlist entry removed.'
+        'message', CASE WHEN v_was_attending THEN 'RSVP cancelled. Next waitlisted user will be promoted.' ELSE 'Waitlist entry removed.' END
     );
 END;
  $$;
@@ -378,7 +376,7 @@ BEGIN
             -- pg_net is loaded in the `extensions` schema. The
             -- SECURITY DEFINER + SET search_path=public above means
             -- we have to qualify the call explicitly.
-            PERFORM extensions.net.http_post(
+            PERFORM net.http_post(
                 url := v_webhook_url,
                 headers := jsonb_build_object(
                     'Content-Type', 'application/json',
@@ -463,7 +461,7 @@ BEGIN
                 'http://localhost:54321/functions/v1/waitlist-promotion-email'
             );
 
-            PERFORM extensions.net.http_post(
+            PERFORM net.http_post(
                 url := v_webhook_url,
                 headers := jsonb_build_object(
                     'Content-Type', 'application/json',

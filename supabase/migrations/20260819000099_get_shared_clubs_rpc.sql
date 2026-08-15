@@ -21,10 +21,11 @@ AS $$
     c.slug,
     c.logo_url,
     c.description,
-    c.category
+    cc.name AS category
   FROM public.club_members cm1
   INNER JOIN public.club_members cm2 ON cm1.club_id = cm2.club_id
   INNER JOIN public.clubs c ON c.id = cm1.club_id
+  LEFT JOIN public.club_categories cc ON cc.id = c.category_id
   WHERE cm1.user_id = user_a
     AND cm2.user_id = user_b
     AND cm1.status = 'approved'

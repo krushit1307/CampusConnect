@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS public.mentions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE,
+    post_id UUID,
     comment_id UUID REFERENCES public.comments(id) ON DELETE CASCADE,
     is_read BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -96,8 +96,8 @@ AS $$
       ELSE 'Mentioned in Post'
     END AS title,
     CASE 
-      WHEN m.comment_id IS NOT NULL THEN COALESCE(p_author.full_name, 'Someone') || ' mentioned you in a comment.'
-      ELSE COALESCE(p_author.full_name, 'Someone') || ' mentioned you in a post.'
+      WHEN m.comment_id IS NOT NULL THEN COALESCE(p_author.first_name || ' ' || p_author.last_name, 'Someone') || ' mentioned you in a comment.'
+      ELSE COALESCE(p_author.first_name || ' ' || p_author.last_name, 'Someone') || ' mentioned you in a post.'
     END AS message,
     CASE 
       WHEN m.comment_id IS NOT NULL THEN '/feed'
