@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { createClient } from "@/lib/supabase/client";
 import type { User, RealtimeChannel } from "@supabase/supabase-js";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
@@ -52,6 +53,9 @@ interface Message {
 }
 
 export default function ChatBox() {
+  const [searchParams] = useSearchParams();
+  const initialUserId = searchParams.get("userId");
+  const initialMessage = searchParams.get("message");
   const supabase = createClient();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);

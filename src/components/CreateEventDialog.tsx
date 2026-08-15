@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 import { useMutation, useQuery } from "@/hooks/useReactQueryReplacement";
+import { checkEventConflicts, EventConflict } from "@/lib/events/checkEventConflicts";
+import { useNavigate } from "react-router-dom";
 import { useUndoableState } from "@/hooks/useUndoableState";
 import Plus from "lucide-react/dist/esm/icons/plus";
 import MapPin from "lucide-react/dist/esm/icons/map-pin";
@@ -9,6 +11,8 @@ import CalendarIcon from "lucide-react/dist/esm/icons/calendar";
 import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
 import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
 import Check from "lucide-react/dist/esm/icons/check";
+import MessageSquare from "lucide-react/dist/esm/icons/message-square";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
 import X from "lucide-react/dist/esm/icons/x";
 import WifiOff from "lucide-react/dist/esm/icons/wifi-off";
 import { toast } from "sonner";
@@ -139,6 +143,10 @@ export function CreateEventDialog({
   const [clubId, setClubId] = useState<string | null>(null);
   const [aiSuggestions, setAiSuggestions] = useState<{ id: string; name: string }[]>([]);
   const [isSuggestingCategories, setIsSuggestingCategories] = useState(false);
+  const [conflicts, setConflicts] = useState<EventConflict[]>([]);
+  const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
+  const [showConflictWizard, setShowConflictWizard] = useState(false);
+  const navigate = useNavigate();
   const supabase = createClient();
   const isOnline = useOnlineStatus();
 
@@ -431,8 +439,27 @@ export function CreateEventDialog({
     },
   });
 
-  const onSubmit = (values: EventFormValues) => {
-    createEvent.mutate(values);
+  const onSubmit = async (values: EventFormValues) => {
+    if (showConflictWizard) {
+      createEvent.mutate(values);
+      return;
+    }
+    
+    setIsCheckingConflicts(true);
+    try {
+      const detectedConflicts = await checkEventConflicts(supabase, values);
+      if (detectedConflicts.length > 0) {
+        setConflicts(detectedConflicts);
+        setShowConflictWizard(true);
+      } else {
+        createEvent.mutate(values);
+      }
+    } catch (err) {
+      console.error(err);
+      createEvent.mutate(values);
+    } finally {
+      setIsCheckingConflicts(false);
+    }
   };
 
   const handleDataExtracted = (data: ParsedFlyer) => {
@@ -560,6 +587,43 @@ export function CreateEventDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            
+            {showConflictWizard && conflicts.length > 0 && (
+              <div className="border-2 border-red-500 bg-red-50 p-4 mb-4">
+                <div className="flex items-center gap-2 mb-2 text-red-700 font-bold">
+                  <AlertTriangle size={20} />
+                  <h3>Conflict Detected</h3>
+                </div>
+                <p className="text-sm text-red-900 mb-4">
+                  There are other high-capacity events with overlapping audiences scheduled at the same time. This may affect your attendance.
+                </p>
+                <div className="space-y-3">
+                  {conflicts.map((c) => (
+                    <div key={c.id} className="bg-white border border-red-200 p-3 rounded-md flex justify-between items-center">
+                      <div>
+                        <div className="font-bold text-sm">{c.title}</div>
+                        <div className="text-xs text-gray-500">by {c.club?.name || "a club"}</div>
+                      </div>
+                      {c.club?.created_by && (
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex gap-2"
+                          onClick={() => {
+                            const msg = encodeURIComponent(`⚠️ Coordination: Our upcoming event "${form.watch("title")}" might overlap with "${c.title}". Should we coordinate?`);
+                            navigate(`/messages?userId=${c.club.created_by}&message=${msg}`);
+                          }}
+                        >
+                          <MessageSquare size={14} /> Message President
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             {/* Step 1 — Details */}
             {step === 0 && (
               <>
@@ -1288,8 +1352,8 @@ export function CreateEventDialog({
                   Next <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               ) : (
-                <Button type="submit" disabled={createEvent.isPending} className="ml-auto">
-                  {createEvent.isPending ? "Creating..." : "Create event"}
+                <Button type="submit" disabled={createEvent.isPending || isCheckingConflicts} className="ml-auto">
+                  {createEvent.isPending ? "Creating..." : isCheckingConflicts ? "Checking..." : showConflictWizard ? "Publish Anyway" : "Create event"}
                 </Button>
               )}
             </DialogFooter>
