@@ -98,6 +98,7 @@ import EventFeedbackForm from "@/components/EventFeedbackForm";
 import { EventPhotoGallery } from "@/components/EventPhotoGallery";
 import { EventMap } from "@/components/EventMap";
 import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
+import { TournamentBracket } from "@/components/events/TournamentBracket";
 import {
   buildKanbanColumns,
   buildRsvpStatus,
@@ -1901,6 +1902,11 @@ export default function EventDetailsPage() {
             </div>
           </div>
         </section>
+
+        <section className="bg-cream px-4 py-8 md:px-6">
+          <TournamentBracket />
+        </section>
+
         {/* Details Container */}
         <section className="bg-cream px-4 py-12 md:px-6">
           <div className="mx-auto max-w-4xl neu-border bg-white p-6 md:p-8">
