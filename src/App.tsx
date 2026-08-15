@@ -129,7 +129,9 @@ const Leaderboard = lazy(() =>
   import("./components/Leaderboard").then((m) => ({ default: m.Leaderboard })),
 );
 const Recap = lazy(() => import("./routes/recap"));
-const NetworkPage = lazy(() => import("./routes/network"));
+const NetworkPage = lazy(() => import("@/pages/NetworkPage"));
+const ReviveClubPage = lazy(() => import("@/pages/ReviveClub"));
+const AdminRevivalRequestsPage = lazy(() => import("@/pages/Admin/AdminRevivalRequests"));
 const MfaChallenge = lazy(() => import("./routes/mfa-challenge"));
 const VolunteerRecord = lazy(() => import("./routes/volunteer-record"));
 
@@ -141,11 +143,8 @@ const TourManager = lazy(() => import("./routes/tours.manage"));
 const TourMode = lazy(() => import("./routes/tours.$tourId"));
 const BundleCheckoutRoute = lazy(() => import("./pages/BundleCheckoutPage"));
 const BundleDetailsRoute = lazy(() => import("./pages/BundleDetailsPage"));
- feature/3010-membership-bundles
-
 const ReferralDashboardRoute = lazy(() => import("./pages/ReferralDashboard"));
 const ReferralLeaderboardRoute = lazy(() => import("./pages/ReferralLeaderboard"));
- main
 // ---------------------------------------------------------------------------
 // Animated Outlet Wrapper for Framer Motion transitions with Skeleton Fallback
 // ---------------------------------------------------------------------------
@@ -195,15 +194,13 @@ const router = createBrowserRouter(
             <Route path=":slug/articles" element={<ClubArticlesRoute />} />
             <Route path=":slug/articles/:articleId" element={<ClubArticleDetailsRoute />} />
             <Route path=":slug/vault" element={<ClubVaultRoute />} />
+            <Route path=":slug/revive" element={<ReviveClubPage />} />
           </Route>
           <Route path="/print/charter/:slug" element={<PrintableCharter />} />
           <Route path="/bundles/:bundleId" element={<BundleDetailsRoute />} />
           <Route path="/bundles/:bundleId/checkout" element={<BundleCheckoutRoute />} />
- feature/3010-membership-bundles
-
           <Route path="/referrals/dashboard" element={<ReferralDashboardRoute />} />
           <Route path="/referrals/leaderboard" element={<ReferralLeaderboardRoute />} />
- main
           <Route path="/dashboard" element={<Dashboard />}>
             <Route index element={<DashboardOverview />} />
             <Route path="rsvps" element={<DashboardRsvps />} />
@@ -260,12 +257,10 @@ const router = createBrowserRouter(
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/recap" element={<Recap />} />
- feature/2974-volunteer-hours-ledger
           <Route path="/volunteer-record" element={<VolunteerRecord />} />
-
           <Route path="/network" element={<NetworkPage />} />
- main
           <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
+          <Route path="/admin/clubs/revival-requests" element={<AdminRevivalRequestsPage />} />
           <Route path="/admin/analytics" element={<AnalyticsAdmin />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/messages" element={<MessagesRoute />} />
