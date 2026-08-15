@@ -18,6 +18,7 @@ import {
   BarChart3,
   AlertTriangle,
   Mail,
+  ArrowRightLeft,
 } from "lucide-react";
 import { NewsletterAnalyticsPanel } from "@/components/Clubs/NewsletterAnalyticsPanel";
 import { NewsletterEditor } from "@/components/Editor/NewsletterEditor";
@@ -36,6 +37,7 @@ import { ClubAnalyticsDashboard } from "@/components/clubs/ClubAnalyticsDashboar
 import { PermissionsGrid } from "@/components/Clubs/PermissionsGrid";
 import ClubRenewalWizard from "@/components/ClubRenewalWizard";
 import { ClubFinancesTab } from "@/components/Clubs/ClubFinancesTab";
+import { HandoverChecklist } from "@/components/club/HandoverChecklist";
 import DollarSign from "lucide-react/dist/esm/icons/dollar-sign";
 import {
   AlertDialog,
@@ -46,7 +48,6 @@ import {
   AlertDialogFooter,
 } from "@/components/ui/alert-dialog";
 
-// ⚠️ Adjust if your Supabase Storage bucket for club banners has a different name
 const BUCKET_NAME = "club-banners";
 
 interface ServerClub {
@@ -61,7 +62,7 @@ interface ServerClub {
   primary_color: string | null;
   secondary_color: string | null;
   version: number;
-  status: string; // <-- Added status to interface
+  status: string;
 }
 
 export default function ClubManageRoute() {
@@ -74,6 +75,7 @@ export default function ClubManageRoute() {
     | "settings"
     | "members"
     | "permissions"
+    | "transition"
     | "events"
     | "newsletters"
     | "logistics"
@@ -81,6 +83,7 @@ export default function ClubManageRoute() {
     | "trash"
     | "analytics"
     | "milestones"
+    | "finances"
   >("settings");
   const [selectedLogisticsEventId, setSelectedLogisticsEventId] = useState<string>("");
 
@@ -135,7 +138,7 @@ export default function ClubManageRoute() {
           id, name, slug, status, description, banner_url, logo_url, visibility, github_repo_url, social_links, social_links_order, promo_video_url, version,
           club_members (id, role, status, user_id, joined_at, can_edit_events, can_manage_finance, can_remove_members, can_post_news, can_manage_permissions, profiles (full_name, avatar_url, handle)),
           events (id, title, event_date, max_attendees, event_rsvps(id))
-        `, // <-- Added status to query above
+        `,
         )
         .eq("slug", slug)
         .single();
@@ -452,9 +455,6 @@ export default function ClubManageRoute() {
     );
   }
 
-  // -------------------------------------------------------------
-  // NEW LOGIC: SHOW WIZARD IF CLUB STATUS IS PENDING_RENEWAL
-  // -------------------------------------------------------------
   if (club.status === "pending_renewal") {
     return (
       <SiteShell>
@@ -465,7 +465,6 @@ export default function ClubManageRoute() {
     );
   }
 
-  // Otherwise, show the normal manage dashboard
   return (
     <SiteShell>
       <div className="bg-cream min-h-screen">
@@ -517,6 +516,16 @@ export default function ClubManageRoute() {
                 }`}
               >
                 <ShieldCheck size={18} /> Permissions
+              </button>
+              <button
+                onClick={() => setActiveTab("transition")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "transition"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <ArrowRightLeft size={18} /> Handover Protocol
               </button>
               <button
                 onClick={() => setActiveTab("events")}
@@ -595,6 +604,12 @@ export default function ClubManageRoute() {
           </aside>
 
           <main className="flex-1">
+            {activeTab === "transition" && (
+              <div className="space-y-6">
+                <HandoverChecklist clubId={club.id} />
+              </div>
+            )}
+
             {activeTab === "settings" && (
               <div className="neu-border bg-white p-6 space-y-6">
                 <h2 className="font-display text-2xl font-bold border-b-2 border-black pb-2">
@@ -722,6 +737,13 @@ export default function ClubManageRoute() {
                   </button>
                 </form>
 
+                <div className="border-t-2 border-black pt-6">
+                  <h3 className="font-display text-xl font-bold mb-4">
+                    Executive Transition Handover
+                  </h3>
+                  <HandoverChecklist clubId={club.id} />
+                </div>
+
                 <div className="neu-border border-red-500 bg-red-50/30 p-6 space-y-4 mt-8">
                   <h3 className="font-display text-xl font-bold text-red-600 flex items-center gap-2">
                     <AlertTriangle size={20} className="text-red-600" /> Danger Zone
@@ -757,29 +779,6 @@ export default function ClubManageRoute() {
 
             {activeTab === "members" &&
               (() => {
-                const rosterMembers = (club?.club_members || []).map(
-                  (m: {
-                    id: string;
-                    role: string;
-                    status: string;
-                    user_id: string;
-                    joined_at: string | null;
-                    profiles: unknown;
-                  }) => {
-                    const profile = Array.isArray(m.profiles)
-                      ? m.profiles[0]
-                      : (m.profiles as { full_name: string; handle: string });
-                    return {
-                      id: m.id,
-                      full_name: profile?.full_name || null,
-                      handle: profile?.handle || null,
-                      role: m.role,
-                      status: m.status,
-                      joined_at: m.joined_at || null,
-                    };
-                  },
-                );
-
                 return (
                   <div className="neu-border bg-white p-6 space-y-6">
                     <h2 className="font-display text-2xl font-bold border-b-2 border-black pb-2">
@@ -904,43 +903,6 @@ export default function ClubManageRoute() {
                     )
                   )}
                 </div>
-              </div>
-            )}
-
-            {activeTab === "logistics" && (
-              <div className="space-y-6">
-                {club.events && club.events.length > 0 ? (
-                  <>
-                    <div className="flex items-center gap-3 neu-border p-4 bg-white dark:bg-zinc-900 font-mono text-xs">
-                      <span className="font-bold uppercase">Select Event:</span>
-                      <select
-                        value={selectedLogisticsEventId || club.events[0]?.id || ""}
-                        onChange={(e) => setSelectedLogisticsEventId(e.target.value)}
-                        className="p-2 neu-border bg-white dark:bg-zinc-800 text-black dark:text-white font-bold"
-                      >
-                        {club.events.map((e: { id: string; title: string }) => (
-                          <option key={e.id} value={e.id}>
-                            {e.title}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <EventLogisticsChecklist
-                      eventId={selectedLogisticsEventId || club.events[0]?.id || ""}
-                      clubId={club.id}
-                      eventData={club.events.find(
-                        (e: { id: string }) =>
-                          e.id === (selectedLogisticsEventId || club.events[0]?.id),
-                      )}
-                    />
-                  </>
-                ) : (
-                  <div className="neu-border p-8 bg-white text-center font-mono text-xs text-gray-500">
-                    No active events found for this club. Create an event to start managing
-                    logistics tasks.
-                  </div>
-                )}
               </div>
             )}
 
