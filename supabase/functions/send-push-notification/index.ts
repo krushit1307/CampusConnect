@@ -40,7 +40,7 @@ serve(async (req: Request) => {
     webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
 
     const body = await req.json().catch(() => ({}));
-    const { user_id, title, message, url, sender_name } = body;
+    const { user_id, title, message, url, sender_name, type, payload: customPayload } = body;
 
     let targetSubscriptions: any[] = [];
 
@@ -108,9 +108,11 @@ serve(async (req: Request) => {
       });
     }
 
-    const payload = JSON.stringify({
+    const pushPayload = JSON.stringify({
       title: title || (sender_name ? `New message from ${sender_name}` : "CampusConnect"),
       body: message,
+      type: type,
+      payload: customPayload,
       icon: "/favicon.png",
       data: { url: url || "/messages" },
       tag: user_id ? "campusconnect-dm" : "campusconnect-broadcast",
@@ -123,7 +125,7 @@ serve(async (req: Request) => {
       };
 
       try {
-        await webpush.sendNotification(pushSubscription as any, payload);
+        await webpush.sendNotification(pushSubscription as any, pushPayload);
         return { success: true, endpoint: sub.endpoint };
       } catch (err: any) {
         if (err.statusCode === 410 || err.statusCode === 404) {

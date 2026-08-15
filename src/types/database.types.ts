@@ -1383,7 +1383,8 @@ export type Database = {
           actor_id: string | null;
           type: string;
           title: string;
-          message: string;
+          message?: string | null;
+          payload?: Record<string, any> | null;
           link: string | null;
           link_url: string | null;
 
@@ -1398,7 +1399,8 @@ export type Database = {
           actor_id?: string | null;
           type: string;
           title: string;
-          message: string;
+          message?: string | null;
+          payload?: Record<string, any> | null;
           link?: string | null;
           link_url?: string | null;
 
@@ -1413,7 +1415,8 @@ export type Database = {
           actor_id?: string | null;
           type?: string;
           title?: string;
-          message?: string;
+          message?: string | null;
+          payload?: Record<string, any> | null;
           link?: string | null;
           link_url?: string | null;
 

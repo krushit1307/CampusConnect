@@ -187,5 +187,13 @@
       "subtitle": "对 CampusConnect 有疑问？联系我们的团队。",
       "button": "联系支持"
     }
+  },
+  "notifications": {
+    "EVENT_INVITE": "{{actor}} 邀请您参加 {{target}}",
+    "EVENT_CANCELLED": "{{target}} 已被取消。",
+    "EVENT_REMINDER": "提醒：{{target}} 即将开始。",
+    "NEW_POST": "{{actor}} 在 {{target}} 中发布了新帖子",
+    "CLUB_INVITE": "{{actor}} 邀请您加入 {{target}}",
+    "NEW_COMMENT": "{{actor}} 评论了您的帖子。"
   }
 }
