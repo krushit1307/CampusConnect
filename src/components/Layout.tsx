@@ -178,6 +178,10 @@ export default function Layout() {
           <TopProgressBar />
           <SessionExpiryModal />
  feature/2986-event-audio-player
+ feature/2986-event-audio-player
+
+ feature/3014-referral-leaderboard
+ main
           <ImpersonationBanner />
           <GlobalAudioPlayer />
 
@@ -191,6 +195,10 @@ export default function Layout() {
           </main>
 
  feature/2986-event-audio-player
+ feature/2986-event-audio-player
+
+ feature/3014-referral-leaderboard
+ main
           <Toaster richColors />
 
           <Toaster />
@@ -202,6 +210,10 @@ export default function Layout() {
         </WebRTCProvider>
       </TooltipProvider>
  feature/2986-event-audio-player
+ feature/2986-event-audio-player
+
+ feature/3014-referral-leaderboard
+ main
 
       <ImpersonationBanner />
  main

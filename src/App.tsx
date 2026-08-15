@@ -131,6 +131,7 @@ const Leaderboard = lazy(() =>
 const Recap = lazy(() => import("./routes/recap"));
 const NetworkPage = lazy(() => import("./routes/network"));
 const MfaChallenge = lazy(() => import("./routes/mfa-challenge"));
+const VolunteerRecord = lazy(() => import("./routes/volunteer-record"));
 
 const EventsLayout = lazy(() => import("./pages/Events/EventsLayout"));
 const LazyEventsIndex = lazy(() => import("./pages/Events/EventsList"));
@@ -138,6 +139,10 @@ const LazyEventDetails = lazy(() => import("./pages/Events/EventDetail"));
 const EmptyState = lazy(() => import("./pages/Events/EmptyState"));
 const TourManager = lazy(() => import("./routes/tours.manage"));
 const TourMode = lazy(() => import("./routes/tours.$tourId"));
+const BundleCheckoutRoute = lazy(() => import("./pages/BundleCheckoutPage"));
+const BundleDetailsRoute = lazy(() => import("./pages/BundleDetailsPage"));
+const ReferralDashboardRoute = lazy(() => import("./pages/ReferralDashboard"));
+const ReferralLeaderboardRoute = lazy(() => import("./pages/ReferralLeaderboard"));
 // ---------------------------------------------------------------------------
 // Animated Outlet Wrapper for Framer Motion transitions with Skeleton Fallback
 // ---------------------------------------------------------------------------
@@ -189,6 +194,10 @@ const router = createBrowserRouter(
             <Route path=":slug/vault" element={<ClubVaultRoute />} />
           </Route>
           <Route path="/print/charter/:slug" element={<PrintableCharter />} />
+          <Route path="/bundles/:bundleId" element={<BundleDetailsRoute />} />
+          <Route path="/bundles/:bundleId/checkout" element={<BundleCheckoutRoute />} />
+          <Route path="/referrals/dashboard" element={<ReferralDashboardRoute />} />
+          <Route path="/referrals/leaderboard" element={<ReferralLeaderboardRoute />} />
           <Route path="/dashboard" element={<Dashboard />}>
             <Route index element={<DashboardOverview />} />
             <Route path="rsvps" element={<DashboardRsvps />} />
@@ -245,7 +254,11 @@ const router = createBrowserRouter(
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/recap" element={<Recap />} />
+ feature/2974-volunteer-hours-ledger
+          <Route path="/volunteer-record" element={<VolunteerRecord />} />
+
           <Route path="/network" element={<NetworkPage />} />
+ main
           <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
           <Route path="/admin/analytics" element={<AnalyticsAdmin />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
@@ -400,6 +413,7 @@ export default function App() {
 
                 <BreadcrumbProvider>
                   <MotionConfig reducedMotion="user">
+                    <PushDeepLinkListener router={router} />
                     <RouterProvider router={router} />
                   </MotionConfig>
                 </BreadcrumbProvider>

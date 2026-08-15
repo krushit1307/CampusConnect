@@ -1,10 +1,26 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   detectPiiInText,
   cosineSimilarity,
   generateItemEmbedding,
   reportFoundItem,
+  reportLostItem,
 } from "./lostAndFound";
+
+// Mock Supabase client to avoid database connections during unit tests
+const mockInsert = vi.fn();
+
+vi.mock("./supabase/client", () => ({
+  createClient: () => ({
+    from: () => ({
+      insert: mockInsert,
+    }),
+  }),
+}));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("Digital Lost and Found Image Similarity Search (#2747)", () => {
   describe("PII Screening", () => {
@@ -53,4 +69,63 @@ describe("Digital Lost and Found Image Similarity Search (#2747)", () => {
       expect(simDiff).toBeLessThan(1.0);
     });
   });
+
+  describe("Matching Metadata Propagation (#3249)", () => {
+    const itemPayload = {
+      title: "AirPods Pro",
+      description: "Lost my white AirPods Pro case.",
+      category: "Electronics",
+      location_found: "Gala Main Hall",
+      event_id: "00000000-0000-0000-0000-0000000000e1",
+      lat: 40.7128,
+      lng: -74.0060,
+    };
+
+    it("reportFoundItem correctly propagates 'found' type and metadata", async () => {
+      mockInsert.mockReturnValue({
+        select: () => ({
+          single: () => Promise.resolve({ data: { id: "mock-id", type: "found", ...itemPayload }, error: null }),
+        }),
+      });
+
+      const res = await reportFoundItem(itemPayload);
+      expect(res.success).toBe(true);
+      expect(res.data?.type).toBe("found");
+      expect(res.data?.event_id).toBe(itemPayload.event_id);
+      expect(res.data?.lat).toBe(itemPayload.lat);
+      expect(res.data?.lng).toBe(itemPayload.lng);
+      expect(mockInsert).toHaveBeenCalledWith([
+        expect.objectContaining({
+          type: "found",
+          event_id: itemPayload.event_id,
+          lat: itemPayload.lat,
+          lng: itemPayload.lng,
+        }),
+      ]);
+    });
+
+    it("reportLostItem correctly propagates 'lost' type and metadata", async () => {
+      mockInsert.mockReturnValue({
+        select: () => ({
+          single: () => Promise.resolve({ data: { id: "mock-id", type: "lost", ...itemPayload }, error: null }),
+        }),
+      });
+
+      const res = await reportLostItem(itemPayload);
+      expect(res.success).toBe(true);
+      expect(res.data?.type).toBe("lost");
+      expect(res.data?.event_id).toBe(itemPayload.event_id);
+      expect(res.data?.lat).toBe(itemPayload.lat);
+      expect(res.data?.lng).toBe(itemPayload.lng);
+      expect(mockInsert).toHaveBeenCalledWith([
+        expect.objectContaining({
+          type: "lost",
+          event_id: itemPayload.event_id,
+          lat: itemPayload.lat,
+          lng: itemPayload.lng,
+        }),
+      ]);
+    });
+  });
 });
+
