@@ -52,3 +52,69 @@ Deno.test("getUserIdFromAuthHeader - returns null for malformed or missing heade
   assertEquals(getUserIdFromAuthHeader("Bearer malformed.token"), null);
   assertEquals(getUserIdFromAuthHeader("Basic abc"), null);
 });
+
+async function testHmacSha256(key: string, message: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(key);
+  const messageData = encoder.encode(message);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+
+  const signature = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
+
+  return Array.from(new Uint8Array(signature))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+Deno.test("validateSignature - rejects requests missing signature headers", async () => {
+  const req = new Request("https://example.com/api/test", { method: "POST" });
+  const response = await validateSignature(req);
+  assertEquals(response?.status, 400);
+});
+
+Deno.test("validateSignature - rejects requests with expired timestamps", async () => {
+  const expiredTime = (Date.now() - 360000).toString(); // 6 minutes ago
+  const req = new Request("https://example.com/api/test", {
+    method: "POST",
+    headers: {
+      "X-Request-Signature": "dummy",
+      "X-Request-Timestamp": expiredTime,
+      "X-Request-Nonce": "nonce-123",
+    },
+  });
+  const response = await validateSignature(req);
+  assertEquals(response?.status, 401);
+});
+
+Deno.test("validateSignature - validates correct signature successfully", async () => {
+  const method = "POST";
+  const path = "/api/test";
+  const timestamp = Date.now().toString();
+  const nonce = "unique-nonce-123";
+  const bodyText = JSON.stringify({ hello: "world" });
+  const token = "my-secret-jwt-token";
+
+  const message = `${method}:${path}:${timestamp}:${nonce}:${bodyText}`;
+  const signature = await testHmacSha256(token, message);
+
+  const req = new Request(`https://example.com${path}`, {
+    method,
+    body: bodyText,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "X-Request-Signature": signature,
+      "X-Request-Timestamp": timestamp,
+      "X-Request-Nonce": nonce,
+    },
+  });
+
+  const response = await validateSignature(req);
+  assertEquals(response, null);
+});

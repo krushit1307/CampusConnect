@@ -4,7 +4,9 @@ import { useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import Timeline, { TimelineMilestone } from "../components/clubs/Timeline";
 import { supabase } from "../lib/supabase";
-import { Loader2, History, AlertCircle } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import History from "lucide-react/dist/esm/icons/history";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
 
 /**
  * Mock data structure for club history milestones.

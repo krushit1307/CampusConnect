@@ -11,7 +11,7 @@ ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;
 -- Sync is_admin for profiles where role is admin or system_admin
 UPDATE public.profiles
 SET is_admin = TRUE
-WHERE (role IN ('admin', 'system_admin', 'club_admin') OR role LIKE '%admin%') AND (is_admin IS FALSE OR is_admin IS NULL);
+WHERE (role::text IN ('admin', 'system_admin', 'club_admin') OR role::text LIKE '%admin%') AND (is_admin IS FALSE OR is_admin IS NULL);
 
 -- 2. Create content_reports table
 CREATE TABLE IF NOT EXISTS public.content_reports (

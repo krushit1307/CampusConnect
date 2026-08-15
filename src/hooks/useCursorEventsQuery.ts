@@ -1,53 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 
-export interface ProfileNode {
-  id: string;
-  full_name: string | null;
-  handle: string | null;
-  role?: string | null;
-}
-
-export interface ClubNode {
-  id: string;
-  name: string;
-}
-
-export interface EventNode {
-  id: string;
-  club_id: string;
-  title: string;
-  description?: string | null;
-  banner_url?: string | null;
-  event_date?: string | null;
-  start_date?: string | null;
-  end_date?: string | null;
-  location?: string | null;
-  created_by?: string | null;
-  created_at: string;
-  updated_at?: string;
-  is_private?: boolean;
-  club?: ClubNode | null;
-  organizer?: ProfileNode | null;
-}
-
-export interface EventEdge {
-  cursor: string;
-  node: EventNode;
-}
-
-export interface PageInfo {
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-  startCursor: string | null;
-  endCursor: string | null;
-}
-
-export interface EventConnection {
-  edges: EventEdge[];
-  nodes: EventNode[];
-  pageInfo: PageInfo;
-  totalCount: number;
-}
+import { GetEventsConnectionQuery, GetEventsConnectionQueryVariables } from "@/generated/graphql";
 
 export const EVENTS_CONNECTION_QUERY = /* GraphQL */ `
   query GetEventsConnection($first: Int, $after: String) {
@@ -101,18 +54,16 @@ export { fetchGraphQL } from "@/lib/graphql-client";
  */
 export function useCursorEventsQuery(first: number = 10) {
   return useInfiniteQuery<
-    { events: EventConnection },
+    GetEventsConnectionQuery,
     Error,
-    { pages: Array<{ events: EventConnection }>; pageParams: Array<string | undefined> },
+    { pages: Array<GetEventsConnectionQuery>; pageParams: Array<string | undefined> },
     unknown[],
     string | undefined
   >({
     queryKey: ["eventsConnection", first],
     queryFn: async ({ pageParam }) => {
-      return fetchGraphQL<{ events: EventConnection }, { first: number; after?: string }>(
-        EVENTS_CONNECTION_QUERY,
-        { first, after: pageParam },
-      );
+      const variables: GetEventsConnectionQueryVariables = { first, after: pageParam };
+      return fetchGraphQL<GetEventsConnectionQuery>(EVENTS_CONNECTION_QUERY, variables);
     },
     initialPageParam: undefined,
     getNextPageParam: (lastPage) => {

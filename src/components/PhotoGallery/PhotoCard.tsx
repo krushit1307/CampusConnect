@@ -2,7 +2,11 @@
 import React, { useState } from "react";
 import { GalleryPhoto } from "../../types/gallery";
 import { cn } from "../../lib/utils";
-import { Heart, MessageCircle, Share2, MapPin, Camera } from "lucide-react";
+import Heart from "lucide-react/dist/esm/icons/heart";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
+import Share2 from "lucide-react/dist/esm/icons/share-2";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Camera from "lucide-react/dist/esm/icons/camera";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Badge } from "../ui/badge";
 

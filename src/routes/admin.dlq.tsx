@@ -4,17 +4,15 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { withAuth, WithAuthProps } from "@/hoc/withAuth";
-import {
-  Mail,
-  RefreshCw,
-  AlertTriangle,
-  Eye,
-  EyeOff,
-  Clock,
-  ArrowLeft,
-  Trash2,
-  ShieldAlert,
-} from "lucide-react";
+import Mail from "lucide-react/dist/esm/icons/mail";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import Eye from "lucide-react/dist/esm/icons/eye";
+import EyeOff from "lucide-react/dist/esm/icons/eye-off";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
 
 interface DqPayload {
   to: string;

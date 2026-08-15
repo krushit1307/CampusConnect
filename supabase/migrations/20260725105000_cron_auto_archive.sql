@@ -27,8 +27,8 @@ LEFT JOIN event_rsvps r ON e.id = r.event_id
 GROUP BY e.id;
 GRANT SELECT ON club_analytics_view TO authenticated, anon;
 
--- Enable pg_cron (Note: in Supabase this is typically enabled in the extensions schema)
-CREATE EXTENSION IF NOT EXISTS pg_cron SCHEMA extensions;
+-- Enable pg_cron
+CREATE EXTENSION IF NOT EXISTS pg_cron;
 
 -- Create the function
 CREATE OR REPLACE FUNCTION public.archive_old_events()
@@ -45,7 +45,7 @@ $$ LANGUAGE plpgsql;
 -- Use DO block to safely schedule without erroring if already exists
 DO $$
 BEGIN
-    PERFORM extensions.cron.schedule('archive-old-events', '0 0 * * *', 'SELECT public.archive_old_events()');
+    PERFORM cron.schedule('archive-old-events', '0 0 * * *', 'SELECT public.archive_old_events()');
 EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;

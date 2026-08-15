@@ -3,7 +3,7 @@ import React, { Suspense, useState, useEffect } from "react";
 import { useDotLottiePlayer } from "../../hooks/useDotLottiePlayer";
 import { cn } from "../../lib/utils";
 import { Skeleton } from "./skeleton";
-import { AlertCircle } from "lucide-react";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
 
 /**
  * Supported animation types in the application.

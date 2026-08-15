@@ -22,46 +22,26 @@ ALTER TABLE webhooks ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can view webhooks for their clubs" ON webhooks
     FOR SELECT
     USING (
-        EXISTS (
-            SELECT 1 FROM club_members
-            WHERE club_members.club_id = webhooks.club_id
-            AND club_members.user_id = auth.uid()
-            AND club_members.role IN ('admin', 'owner')
-        )
+        public.is_club_admin(webhooks.club_id, auth.uid())
     );
 
 -- Admins can insert webhooks for their clubs
 CREATE POLICY "Admins can insert webhooks for their clubs" ON webhooks
     FOR INSERT
     WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM club_members
-            WHERE club_members.club_id = webhooks.club_id
-            AND club_members.user_id = auth.uid()
-            AND club_members.role IN ('admin', 'owner')
-        )
+        public.is_club_admin(webhooks.club_id, auth.uid())
     );
 
 -- Admins can update webhooks for their clubs
 CREATE POLICY "Admins can update webhooks for their clubs" ON webhooks
     FOR UPDATE
     USING (
-        EXISTS (
-            SELECT 1 FROM club_members
-            WHERE club_members.club_id = webhooks.club_id
-            AND club_members.user_id = auth.uid()
-            AND club_members.role IN ('admin', 'owner')
-        )
+        public.is_club_admin(webhooks.club_id, auth.uid())
     );
 
 -- Admins can delete webhooks for their clubs
 CREATE POLICY "Admins can delete webhooks for their clubs" ON webhooks
     FOR DELETE
     USING (
-        EXISTS (
-            SELECT 1 FROM club_members
-            WHERE club_members.club_id = webhooks.club_id
-            AND club_members.user_id = auth.uid()
-            AND club_members.role IN ('admin', 'owner')
-        )
+        public.is_club_admin(webhooks.club_id, auth.uid())
     );

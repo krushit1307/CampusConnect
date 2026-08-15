@@ -9,12 +9,17 @@ import { createClient } from "@/lib/supabase/client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import { parse } from "@/lib/markdown";
 import type { MarkdownNodeChild, HeadingNode } from "@/lib/markdown";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
-import { ArrowLeft, Github, Loader2, CheckCircle, Flag, Bookmark } from "lucide-react";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Github from "lucide-react/dist/esm/icons/github";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import Flag from "lucide-react/dist/esm/icons/flag";
+import Bookmark from "lucide-react/dist/esm/icons/bookmark";
 import { ReportDialog } from "@/components/ReportDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { VideoPlayer } from "@/components/VideoPlayer";
@@ -42,8 +47,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { CollaborativeEditor } from "@/components/notes/CollaborativeEditor";
 import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
+import { getClubThemeVars } from "@/lib/clubTheming";
 import { ClubHeader } from "@/components/Clubs/ClubHeader";
 import { ClubJobsSection } from "@/components/Clubs/ClubJobsSection";
+import { CrowdfundingCampaignSection } from "@/components/Clubs/Crowdfunding/CrowdfundingCampaignSection";
 import { FlipCard } from "@/components/ui/FlipCard";
 import { useSearchParams } from "react-router-dom";
 
@@ -114,6 +121,27 @@ function extractText(children: React.ReactNode): string {
   }
   return "";
 }
+
+// Render headings with slugified `id`s so the Table of Contents links
+// (which point at `#${slugify(text)}`) can scroll to them. Depth matches the
+// TOC's `depth <= 3` filter; deeper headings get no anchor.
+const mdComponents: Components = {
+  h1: ({ children, ...props }) => (
+    <h1 id={slugify(extractText(children))} {...props}>
+      {children}
+    </h1>
+  ),
+  h2: ({ children, ...props }) => (
+    <h2 id={slugify(extractText(children))} {...props}>
+      {children}
+    </h2>
+  ),
+  h3: ({ children, ...props }) => (
+    <h3 id={slugify(extractText(children))} {...props}>
+      {children}
+    </h3>
+  ),
+};
 
 function extractAstText(children: MarkdownNodeChild[]): string {
   return children
@@ -198,7 +226,6 @@ export default function ClubProfile() {
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
   const [isClubBookmarked, setIsClubBookmarked] = useState(false);
   const [bookmarkPending, setBookmarkPending] = useState(false);
-  const { setLabel } = useBreadcrumbs();
   const [searchParams] = useSearchParams();
 
   const isPrintMode = searchParams.get("print") === "1";
@@ -216,11 +243,7 @@ export default function ClubProfile() {
   }
 
   const [latestJob, setLatestJob] = useState<BulkEmailJob | null>(null);
-
-  const [isClubBookmarked, setIsClubBookmarked] = useState(false);
-  const [bookmarkPending, setBookmarkPending] = useState(false);
-  const [joinSuccess, setJoinSuccess] = useState(false);
-  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [targetAudience, setTargetAudience] = useState<"all" | "alumni" | "students">("all");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null));
@@ -236,16 +259,26 @@ export default function ClubProfile() {
     enabled: Boolean(slug),
   });
 
-  // Check if this club is already bookmarked
   const {
-    data: club,
-    isLoading,
-    error,
-    refetch,
+    data: milestones,
+    isLoading: isLoadingMilestones,
+    error: milestonesError,
   } = useQuery({
-    ...createClubProfileQueryOptions(supabase, slug ?? ""),
-    enabled: Boolean(slug),
-  } as any) as { data: any; isLoading: boolean; error: any; refetch: any };
+    queryKey: ["club_milestones", slug],
+    queryFn: async () => {
+      if (!slug) return [];
+      const { data, error } = await supabase
+        .from("club_milestones")
+        .select("*")
+        .eq("club_id", club?.id ?? "")
+        .order("year", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: Boolean(slug && club),
+    staleTime: 1000 * 60 * 5,
+  });
 
   useEffect(() => {
     if (!user || !club) return;
@@ -381,7 +414,7 @@ export default function ClubProfile() {
     mutationFn: async () => {
       if (!club) throw new Error("Club not loaded");
       const { data, error } = await supabase.functions.invoke("send-newsletter", {
-        body: { clubId: club.id },
+        body: { clubId: club.id, targetAudience },
       });
       if (error) throw error;
       return data;
@@ -436,6 +469,10 @@ export default function ClubProfile() {
       .filter((h) => h.id);
   }, [club?.description]);
 
+  const handleTocClick = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+    e.preventDefault();
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  };
   if (isLoading) return <ClubProfileSkeleton />;
   if (error || !club) return <NotFound />;
 
@@ -444,10 +481,8 @@ export default function ClubProfile() {
     : [];
   const memberList = members.map((m: ClubMember) => {
     const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
-    const clubRole = m.club_roles as { title: string } | null;
     return {
       name: profile?.full_name || "Unknown User",
-      role: clubRole?.title || "Member",
       handle: profile?.handle || "",
       role: m.role as "admin" | "member" | "organizer" | "alumni",
       avatarUrl: profile?.avatar_url || null,
@@ -468,6 +503,7 @@ export default function ClubProfile() {
   const events = Array.isArray(club.events) ? club.events : [];
 
   const clubName = club.name || "Club";
+  const themeVars = getClubThemeVars(club.primary_color, club.secondary_color);
   const clubDescription = (
     club.description
       ? club.description.replace(/[#*_`>[\]()~-]/g, "").trim()
@@ -526,7 +562,7 @@ export default function ClubProfile() {
       return (
         <button
           disabled
-          className={`neu-border inline-flex items-center gap-2 bg-lime font-mono font-bold uppercase tracking-wider transition-all duration-300 ${sizeClasses}`}
+          className={`neu-border inline-flex items-center gap-2 bg-[var(--theme-secondary)] text-[var(--theme-secondary-foreground)] font-mono font-bold uppercase tracking-wider transition-all duration-300 ${sizeClasses}`}
         >
           <CheckCircle className="h-3.5 w-3.5" />
           Member ✓
@@ -542,7 +578,7 @@ export default function ClubProfile() {
               if (!user) return void toast.error("Please sign in first");
               setIsJoinDialogOpen(true);
             }}
-            className={`neu-border neu-press inline-flex items-center gap-2 bg-black font-mono font-bold uppercase tracking-wider text-cream transition-all duration-300 ${sizeClasses}`}
+            className={`neu-border neu-press inline-flex items-center gap-2 bg-[var(--theme-secondary)] text-[var(--theme-secondary-foreground)] font-mono font-bold uppercase tracking-wider transition-all duration-300 ${sizeClasses}`}
           >
             Join Club
           </button>
@@ -566,7 +602,7 @@ export default function ClubProfile() {
                 joinMutation.mutate();
               }}
               disabled={joinMutation.isPending}
-              className="neu-border bg-black text-cream hover:bg-cream hover:text-black rounded-none font-mono text-xs font-bold uppercase disabled:opacity-50 inline-flex items-center gap-2"
+              className="neu-border bg-[var(--theme-secondary)] text-[var(--theme-secondary-foreground)] hover:bg-black hover:text-cream rounded-none font-mono text-xs font-bold uppercase disabled:opacity-50 inline-flex items-center gap-2"
             >
               {joinMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
               {joinMutation.isPending ? "Submitting..." : "Confirm"}
@@ -617,6 +653,7 @@ export default function ClubProfile() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.3, ease: "easeInOut" }}
+                style={themeVars}
               >
                 {/* Sticky header: shrinks the massive banner/logo away and pins the
                   club name + Join button to the top as the user scrolls the feed. */}
@@ -747,58 +784,52 @@ export default function ClubProfile() {
                         <p className="font-mono text-xs text-black mt-1 mb-3">
                           Meet the team running {clubName} — hover or tap a card to flip it over.
                         </p>
-                        <ul className="space-y-1">
-                          {headings.map((h) => (
-                            <li key={h.id} style={{ paddingLeft: (h.depth - 1) * 16 }}>
-                              <a
-                                href={`#${h.id}`}
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  document.getElementById(h.id)?.scrollIntoView({ behavior: "smooth" });
-                                }}
-                                className="text-blue-900 underline hover:text-black"
-                              >
-                                {h.text}
-                              </a>
+                        <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                          {officers.map((m) => (
+                            <li key={m.userId} className="h-44">
+                              <FlipCard
+                                className="h-full w-full"
+                                ariaLabel={`${m.name}'s bio`}
+                                front={
+                                  <div className="neu-border bg-white h-full w-full flex flex-col items-center justify-center gap-2 p-3 text-center">
+                                    <Avatar className="h-16 w-16 border-2 border-black rounded-full">
+                                      <AvatarImage
+                                        src={m.avatarUrl || undefined}
+                                        alt={m.name}
+                                        className="rounded-full"
+                                      />
+                                      <AvatarFallback className="rounded-full bg-brand-blue-light text-black font-bold">
+                                        {getInitials(m.name)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div className="min-w-0">
+                                      <p
+                                        className="font-mono text-sm font-bold truncate"
+                                        title={m.name}
+                                      >
+                                        {m.name}
+                                      </p>
+                                      <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-black/70">
+                                        Officer
+                                      </p>
+                                    </div>
+                                  </div>
+                                }
+                                back={
+                                  <div className="neu-border bg-lime h-full w-full overflow-y-auto p-4">
+                                    <p className="font-mono text-sm font-bold mb-2">{m.name}</p>
+                                    <p className="font-mono text-xs leading-relaxed text-gray-800">
+                                      {m.bio ||
+                                        `${m.name} is one of ${clubName}'s officers and helps keep this club running.`}
+                                    </p>
+                                  </div>
+                                }
+                              />
                             </li>
                           ))}
                         </ul>
-                      </nav>
-                    )}
-                    <ReactMarkdown>
-                      {club.description || ""}
-                    </ReactMarkdown>
-                  </div>
-
-                  {club.promo_video_url && (
-                    <div className="mt-8 max-w-2xl">
-                      <h3 className="font-display text-xl font-bold text-indigo-900 uppercase tracking-tight">
-                        Featured Club Promo
-                      </h3>
-                      <div className="neu-border bg-black aspect-video mt-4 overflow-hidden">
-                        <LazyHydrate height="360px">
-                          <VideoPlayer src={club.promo_video_url} title="Club Promo" />
-                        </LazyHydrate>
-                      </div>{" "}
-                    </div>
-                  )}
-
-                  {user && membership && membership.status === "approved" && (
-                    <div className="mt-12 max-w-2xl">
-                      <h3 className="font-display text-xl font-bold text-indigo-900 uppercase tracking-tight mb-4">
-                        Collaborative Group Notes
-                      </h3>
-                      <div className="neu-border bg-white p-6">
-                        <CollaborativeEditor
-                          groupId={club.id}
-                          user={{
-                            id: user.id,
-                            name: user.user_metadata?.full_name || user.email || "Member",
-                          }}
-                        />
                       </div>
-                    </div>
-                  )}
+                    )}
 
                     {/* Members section below the description */}
                     <div className="mt-8 max-w-2xl">
@@ -897,122 +928,24 @@ export default function ClubProfile() {
                                         <p className="font-bold truncate" title={m.name}>
                                           {m.name}
                                         </p>
-                                      </Link>
-                                    ) : (
-                                      <p className="font-bold truncate" title={m.name}>
-                                        {m.name}
-                                      </p>
-                                    )}
-                                  </div>
-                                  <RoleBadge role={m.role} />
-                                </li>
-                              ))}
-                            </ul>
-                            {filteredMembers.length > 10 && (
-                              <button
-                                onClick={() => setIsExpanded(!isExpanded)}
-                                className="neu-border neu-press mt-4 bg-cream px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-black hover:text-cream transition-colors"
-                              >
-                                {isExpanded ? "View less" : "View all"}
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  <div className="mt-6 flex flex-wrap gap-3">
-                    <button
-                      onClick={handleClubBookmark}
-                      disabled={bookmarkPending}
-                      className="neu-border neu-press inline-flex items-center gap-2 bg-white px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-lime disabled:opacity-50"
-                    >
-                      <Bookmark
-                        className="h-3.5 w-3.5"
-                        fill={isClubBookmarked ? "black" : "none"}
-                      />
-                      {isClubBookmarked ? "Bookmarked" : "Bookmark"}
-                    </button>
-                    <button
-                      onClick={() => toast.info("Follow feature coming soon!")}
-                      className="neu-border neu-press bg-cream px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider"
-                    >
-                      Follow
-                    </button>
-                    <button
-                      onClick={() => setIsReportDialogOpen(true)}
-                      className="neu-border neu-press bg-white hover:bg-peach px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5"
-                    >
-                      <Flag size={12} />
-                      Report
-                    </button>
-                    {club.github_repo_url && (
-                      <a
-                        href={club.github_repo_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="neu-border neu-press inline-flex items-center gap-2 bg-white px-5 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-lime/20"
-                      >
-                        <Github className="h-4 w-4" />
-                        GitHub Repo
-                      </a>
-                    )}
-                  </div>
-
-                  {isAdmin && (
-                    <div className="neu-border mt-8 border-2 border-black bg-white p-6 dark:bg-zinc-900 dark:border-cream">
-                      <h3 className="font-display text-xl font-bold uppercase tracking-tight text-indigo-900 dark:text-indigo-400">
-                        Club Newsletter Dispatcher
-                      </h3>
-                      <p className="mt-2 font-mono text-xs text-gray-600 dark:text-gray-400">
-                        Send a bulk announcement/newsletter to all {memberList.length} members. This
-                        will be processed asynchronously in the background to prevent server
-                        timeouts.
-                      </p>
-
-                      <div className="mt-6 flex flex-wrap items-center gap-4">
-                        <button
-                          onClick={() => sendNewsletterMutation.mutate()}
-                          disabled={sendNewsletterMutation.isPending}
-                          className="neu-border neu-press bg-lime px-6 py-2.5 font-mono text-xs font-bold uppercase tracking-wider text-black disabled:opacity-50"
-                        >
-                          {sendNewsletterMutation.isPending ? "Queuing..." : "Send Newsletter Now"}
-                        </button>
-
-                        {latestJob && (
-                          <div className="flex flex-col gap-1 border-l-2 border-black pl-4 font-mono text-xs dark:border-cream">
-                            <div>
-                              Status:{" "}
-                              <span
-                                className={`font-bold uppercase ${
-                                  latestJob.status === "completed"
-                                    ? "text-emerald-600"
-                                    : latestJob.status === "failed"
-                                      ? "text-rose-600"
-                                      : "text-amber-500 animate-pulse"
-                                }`}
-                              >
-                                {latestJob.status}
-                              </span>
-                            </div>
-                            {latestJob.total_count > 0 && (
-                              <div>
-                                Progress:{" "}
-                                <span className="font-bold">
-                                  {latestJob.processed_count} / {latestJob.total_count}
-                                </span>{" "}
-                                emails sent
-                              </div>
-                            )}
-                            {latestJob.error_message && (
-                              <div className="text-rose-600 text-[10px]">
-                                Error: {latestJob.error_message}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                                      )}
+                                    </div>
+                                    <RoleBadge role={m.role} />
+                                  </li>
+                                ))}
+                              </ul>
+                              {filteredMembers.length > 10 && (
+                                <button
+                                  onClick={() => setIsExpanded(!isExpanded)}
+                                  className="neu-border neu-press mt-4 bg-cream px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider hover:bg-black hover:text-cream transition-colors"
+                                >
+                                  {isExpanded ? "View less" : "View all"}
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </>
+                      )}
                     </div>
 
                     <div className="mt-6 flex flex-wrap gap-3">
@@ -1053,6 +986,8 @@ export default function ClubProfile() {
                       )}
                     </div>
 
+                    <CrowdfundingCampaignSection clubId={club.id} />
+
                     {isAdmin && (
                       <div className="neu-border mt-8 border-2 border-black bg-white p-6 dark:bg-zinc-900 dark:border-cream">
                         <h3 className="font-display text-xl font-bold uppercase tracking-tight text-indigo-900 dark:text-indigo-400">
@@ -1063,6 +998,19 @@ export default function ClubProfile() {
                           This will be processed asynchronously in the background to prevent server
                           timeouts.
                         </p>
+
+                        <div className="mt-4 space-y-2 max-w-xs">
+                          <label className="eyebrow font-bold text-black dark:text-cream">Target Audience</label>
+                          <select
+                            value={targetAudience}
+                            onChange={(e) => setTargetAudience(e.target.value as any)}
+                            className="neu-border border-2 border-black bg-white text-black w-full p-2 font-mono text-xs outline-none dark:bg-zinc-800 dark:text-white"
+                          >
+                            <option value="all">All Members</option>
+                            <option value="students">Student Members Only</option>
+                            <option value="alumni">Alumni Members Only</option>
+                          </select>
+                        </div>
 
                         <div className="mt-6 flex flex-wrap items-center gap-4">
                           <button
@@ -1116,7 +1064,7 @@ export default function ClubProfile() {
                 <section className="px-4 py-12 md:px-6">
                   <div className="mx-auto max-w-6xl">
                     <div className="neu-border bg-white p-6">
-                      <h2 className="mb-4 border-b-2 border-black pb-3 text-xl font-bold text-black">
+                      <h2 className="mb-4 border-b-2 border-[var(--theme-primary)] pb-3 text-xl font-bold text-[var(--theme-primary)]">
                         Upcoming events
                       </h2>
                       {events.length === 0 ? (

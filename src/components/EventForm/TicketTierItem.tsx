@@ -1,21 +1,21 @@
 // src/components/EventForm/TicketTierItem.tsx
 import React from "react";
-import { Control, UseFormRegister, FieldErrors } from "react-hook-form";
-import { EventFormData, TicketTier } from "../../lib/eventFormSchema";
+import { useFormContext } from "react-hook-form";
+import { EventFormData } from "../../lib/eventFormSchema";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
-import { Trash2, GripVertical, DollarSign, Users, Tag } from "lucide-react";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import GripVertical from "lucide-react/dist/esm/icons/grip-vertical";
+import DollarSign from "lucide-react/dist/esm/icons/dollar-sign";
+import Users from "lucide-react/dist/esm/icons/users";
+import Tag from "lucide-react/dist/esm/icons/tag";
 import { cn } from "../../lib/utils";
-import format from "date-fns/format";
 
 interface TicketTierItemProps {
   index: number;
-  tier: TicketTier;
-  register: UseFormRegister<EventFormData>;
-  errors: FieldErrors<EventFormData>;
   onRemove: (index: number) => void;
   isDragging?: boolean;
   dragHandleProps?: Record<string, unknown>;
@@ -23,18 +23,31 @@ interface TicketTierItemProps {
 
 /**
  * Represents a single row in the dynamic ticket tiers array.
- * Contains inputs for Name, Price, Capacity, and Early Bird toggles.
+ * Uses `useFormContext()` directly to access registration, state, and error handling without prop-drilling.
  */
 export const TicketTierItem: React.FC<TicketTierItemProps> = ({
   index,
-  tier,
-  register,
-  errors,
   onRemove,
   isDragging,
   dragHandleProps,
 }) => {
-  const tierErrors = errors.tickets?.[index] as Record<string, { message?: string }>;
+  const {
+    register,
+    watch,
+    setValue,
+    formState: { errors },
+  } = useFormContext<EventFormData>();
+
+  const tier = watch(`tickets.${index}`) || {
+    name: "",
+    price: 0,
+    capacity: 100,
+    description: "",
+    isEarlyBird: false,
+    isActive: true,
+  };
+
+  const tierErrors = errors.tickets?.[index] as Record<string, { message?: string }> | undefined;
 
   return (
     <div
@@ -124,10 +137,9 @@ export const TicketTierItem: React.FC<TicketTierItemProps> = ({
         <div className="flex items-center gap-3 sm:col-span-2 pt-5">
           <Switch
             id={`early-bird-${index}`}
-            checked={tier.isEarlyBird}
+            checked={Boolean(tier.isEarlyBird)}
             onCheckedChange={(checked) => {
-              // Note: In a real implementation, this would trigger setValue from useFormContext
-              // For brevity, we assume the parent handles the state update or it's uncontrolled here
+              setValue(`tickets.${index}.isEarlyBird`, checked, { shouldValidate: true });
             }}
           />
           <Label htmlFor={`early-bird-${index}`} className="text-sm cursor-pointer">

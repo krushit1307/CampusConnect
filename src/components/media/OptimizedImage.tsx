@@ -34,51 +34,23 @@ export function OptimizedImage({
   ...imageProps
 }: OptimizedImageProps) {
   const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   const isPublic = useMemo(() => isSupabasePublicImage(src), [src]);
 
-  const avifSrc = useMemo(
+  const lqipSrc = useMemo(
     () =>
       isPublic
-        ? getOptimizedImageUrl(src, { width, height, quality, resize: "cover", format: "avif" })
-        : undefined,
-    [isPublic, src, width, height, quality],
-  );
-
-  const avifSrcSet = useMemo(
-    () =>
-      isPublic && responsiveWidths
-        ? buildResponsiveImageSrcSet(src, responsiveWidths, {
-            height,
-            quality,
-            resize: "cover",
-            format: "avif",
-          })
-        : undefined,
-    [isPublic, src, responsiveWidths, height, quality],
-  );
-
-  const webpSrc = useMemo(
-    () =>
-      isPublic
-        ? getOptimizedImageUrl(src, { width, height, quality, resize: "cover", format: "webp" })
-        : undefined,
-    [isPublic, src, width, height, quality],
-  );
-
-  const webpSrcSet = useMemo(
-    () =>
-      isPublic && responsiveWidths
-        ? buildResponsiveImageSrcSet(src, responsiveWidths, {
-            height,
-            quality,
+        ? getOptimizedImageUrl(src, {
+            width: 20,
+            height: Math.round(20 * (height / width)),
+            quality: 20,
             resize: "cover",
             format: "webp",
           })
         : undefined,
-    [isPublic, src, responsiveWidths, height, quality],
+    [isPublic, src, width, height],
   );
-
   const fallbackSrc = useMemo(
     () => getOptimizedImageUrl(src, { width, height, quality, resize: "cover" }),
     [src, width, height, quality],
@@ -92,63 +64,89 @@ export function OptimizedImage({
     [src, responsiveWidths, height, quality],
   );
 
-  // Guards the sink below: only ever render src values on an explicit scheme
-  // allowlist (http/https/blob/data:image). Anything else — including a
-  // hypothetically crafted javascript:/data:text/html string — falls back
-  // instead of ever reaching the <img> element.
   const isSrcSafe = useMemo(() => isSafeImageSrc(fallbackSrc), [fallbackSrc]);
 
   if (failed || !isSrcSafe) return <>{fallback}</>;
 
+  const wrapperClass = `${imageProps.className || ""} relative overflow-hidden inline-block`.trim();
+
+  const cleanImageProps = { ...imageProps };
+  delete cleanImageProps.className;
+  delete cleanImageProps.style;
+
+  const contentStyle = {
+    transition: "opacity 0.5s ease-in-out",
+    opacity: loaded ? 1 : 0,
+    width: "100%",
+    height: "100%",
+    display: "block",
+  };
+
+  const lqipStyle = {
+    position: "absolute" as const,
+    inset: 0,
+    width: "100%",
+    height: "100%",
+    objectFit: "cover" as const,
+    filter: "blur(10px)",
+    transform: "scale(1.1)",
+    transition: "opacity 0.5s ease-in-out",
+    opacity: loaded ? 0 : 1,
+    pointerEvents: "none" as const,
+  };
+
+  const handleLoad = () => {
+    setLoaded(true);
+  };
+
   if (isPublic) {
     return (
-      <picture>
-        <source
-          type="image/avif"
-          srcSet={avifSrcSet || avifSrc}
-          sizes={avifSrcSet ? sizes : undefined}
-        />
-        <source
-          type="image/webp"
-          srcSet={webpSrcSet || webpSrc}
-          sizes={webpSrcSet ? sizes : undefined}
-        />
-        <img
-          {...imageProps}
-          src={fallbackSrc}
-          srcSet={fallbackSrcSet}
-          sizes={fallbackSrcSet ? sizes : undefined}
-          alt={alt}
-          width={width}
-          height={height}
-          loading={priority ? "eager" : "lazy"}
-          decoding="async"
-          fetchPriority={priority ? "high" : "auto"}
-          onError={(event) => {
-            setFailed(true);
-            onError?.(event);
-          }}
-        />
-      </picture>
+      <div className={wrapperClass} style={{ ...imageProps.style, width, height }}>
+        {lqipSrc && <img src={lqipSrc} alt="" aria-hidden="true" style={lqipStyle} />}
+        <picture style={contentStyle}>
+          <img
+            {...cleanImageProps}
+            src={fallbackSrc}
+            srcSet={fallbackSrcSet}
+            sizes={fallbackSrcSet ? sizes : undefined}
+            alt={alt}
+            width={width}
+            height={height}
+            loading={priority ? "eager" : "lazy"}
+            decoding="async"
+            fetchPriority={priority ? "high" : "auto"}
+            onLoad={handleLoad}
+            onError={(event) => {
+              setFailed(true);
+              onError?.(event);
+            }}
+            style={{ width: "100%", height: "100%", display: "block" }}
+          />
+        </picture>
+      </div>
     );
   }
-
   return (
-    <img
-      {...imageProps}
-      src={fallbackSrc}
-      srcSet={fallbackSrcSet}
-      sizes={fallbackSrcSet ? sizes : undefined}
-      alt={alt}
-      width={width}
-      height={height}
-      loading={priority ? "eager" : "lazy"}
-      decoding="async"
-      fetchPriority={priority ? "high" : "auto"}
-      onError={(event) => {
-        setFailed(true);
-        onError?.(event);
-      }}
-    />
+    <div className={wrapperClass} style={{ ...imageProps.style, width, height }}>
+      {lqipSrc && <img src={lqipSrc} alt="" aria-hidden="true" style={lqipStyle} />}
+      <img
+        {...cleanImageProps}
+        src={fallbackSrc}
+        srcSet={fallbackSrcSet}
+        sizes={fallbackSrcSet ? sizes : undefined}
+        alt={alt}
+        width={width}
+        height={height}
+        loading={priority ? "eager" : "lazy"}
+        decoding="async"
+        fetchPriority={priority ? "high" : "auto"}
+        onLoad={handleLoad}
+        onError={(event) => {
+          setFailed(true);
+          onError?.(event);
+        }}
+        style={contentStyle}
+      />
+    </div>
   );
 }

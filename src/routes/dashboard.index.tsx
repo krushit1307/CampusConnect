@@ -1,26 +1,27 @@
 import { Link } from "react-router-dom";
-import { useQuery } from "@/hooks/useReactQueryReplacement";
+import { useQuery, useMutation, queryClient } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useRef, useState } from "react";
 import { User } from "@supabase/supabase-js";
-import {
-  Sparkles,
-  Check,
-  X,
-  ArrowRight,
-  User as UserIcon,
-  GraduationCap,
-  FileText,
-  Link2,
-  Calendar,
-  MessageCircle,
-  Users,
-} from "lucide-react";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Check from "lucide-react/dist/esm/icons/check";
+import X from "lucide-react/dist/esm/icons/x";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
+import UserIcon from "lucide-react/dist/esm/icons/user";
+import GraduationCap from "lucide-react/dist/esm/icons/graduation-cap";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import Link2 from "lucide-react/dist/esm/icons/link-2";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
+import Users from "lucide-react/dist/esm/icons/users";
 import TrendingCarousel from "@/components/Clubs/TrendingCarousel";
+import RecommendedCarousel from "@/components/Dashboard/RecommendedCarousel";
 import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
 import LazyHydrate from "@/components/LazyHydrate";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { WidgetErrorFallback } from "@/components/WidgetErrorFallback";
+import { RelativeTime } from "@/components/ui/RelativeTime";
 interface Club {
   id: string;
   name: string;
@@ -293,6 +294,23 @@ export default function DashboardOverview() {
     enabled: !!user?.id,
   });
 
+  const {
+    data: recommendedEvents = [],
+    isLoading: isRecommendedLoading,
+    refetch: refetchRecommended,
+  } = useQuery({
+    queryKey: ["recommendedEvents", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("recommend_events_for_user", {
+        p_user_id: user!.id,
+        p_limit: 10,
+      });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
   const { data: savedEvents = [], isLoading: isSavedLoading } = useQuery({
     queryKey: ["savedEvents", user?.id],
     queryFn: async () => {
@@ -517,6 +535,16 @@ export default function DashboardOverview() {
       <AnalyticsLoadProgress isLoading={isAnalyticsLoading} />
 
       <div className="lg:col-span-3">
+        <RecommendedCarousel
+          userId={user?.id || ""}
+          hasInterestVector={!!profile?.interest_vector}
+          events={recommendedEvents}
+          isLoading={isRecommendedLoading}
+          refetch={refetchRecommended}
+        />
+      </div>
+
+      <div className="lg:col-span-3">
         {isTrendingLoading ? (
           <TrendingCarouselSkeleton />
         ) : (
@@ -679,9 +707,7 @@ export default function DashboardOverview() {
                     <Icon className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>
                       {item.description}
-                      <span className="ml-2 text-black/50">
-                        {formatRelativeActivityTime(item.created_at)}
-                      </span>
+                      <RelativeTime date={item.created_at} className="ml-2 text-black/50" />
                     </span>
                   </li>
                 );
@@ -721,14 +747,5 @@ function Widget({
 }
 
 function WidgetError({ title }: { title: string }) {
-  return (
-    <div className="neu-border bg-red-50 p-4 sm:p-6">
-      <div className="mb-4 flex items-center justify-between border-b-2 border-red-200 pb-3">
-        <h2 className="text-xl font-bold">{title}</h2>
-      </div>
-      <p className="font-mono text-sm text-red-600">
-        This widget failed to load. Other sections remain unaffected.
-      </p>
-    </div>
-  );
+  return <WidgetErrorFallback title={title} />;
 }

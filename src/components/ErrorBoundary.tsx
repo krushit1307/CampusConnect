@@ -5,6 +5,22 @@ import { trace, SpanStatusCode } from "@opentelemetry/api";
 import React from "react";
 import { NotFoundPage } from "./NotFoundPage";
 
+const SENSITIVE_PATTERN =
+  /(password|token|secret|key|auth|credential|bearer|session)([\s"':=]+)([^\s,;}]+)/gi;
+
+function sanitizeErrorMsg(msg: string): string {
+  if (typeof msg !== "string") return String(msg);
+  return msg.replace(SENSITIVE_PATTERN, "$1$2[REDACTED]");
+}
+
+function sanitizeError(error: Error): Error {
+  if (!error) return error;
+  const sanitized = new Error(sanitizeErrorMsg(error.message));
+  sanitized.name = error.name;
+  sanitized.stack = error.stack ? sanitizeErrorMsg(error.stack) : undefined;
+  return sanitized;
+}
+
 const MAX_SOFT_RETRIES = 2;
 
 interface ErrorFallbackProps {
@@ -143,7 +159,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("ErrorBoundary caught an error:", error, errorInfo.componentStack);
+    const safeError = sanitizeError(error);
+    console.error("ErrorBoundary caught an error:", safeError, errorInfo.componentStack);
 
     try {
       const tracer = trace.getTracer("campusconnect-frontend");
@@ -152,8 +169,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
           "component.stack": errorInfo.componentStack ?? "",
         },
       });
-      span.recordException(error);
-      span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+      span.recordException(safeError);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: safeError.message });
       span.end();
     } catch {
       // Don't let telemetry errors crash the app
@@ -226,10 +243,12 @@ function reportRouteError(error: unknown) {
     const tracer = trace.getTracer("campusconnect-frontend");
     const span = tracer.startSpan("react.route_error");
     if (error instanceof Error) {
-      span.recordException(error);
-      span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+      const safeError = sanitizeError(error);
+      span.recordException(safeError);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: safeError.message });
     } else {
-      span.setStatus({ code: SpanStatusCode.ERROR, message: String(error) });
+      const safeMessage = sanitizeErrorMsg(String(error));
+      span.setStatus({ code: SpanStatusCode.ERROR, message: safeMessage });
     }
     span.end();
   } catch {

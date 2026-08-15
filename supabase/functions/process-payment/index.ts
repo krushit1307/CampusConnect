@@ -6,6 +6,7 @@
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,6 +19,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  const limited = await rateLimiter(req, "process-payment", 10, 60);
+  if (limited) return limited;
 
   try {
     const idempotencyKey = req.headers.get("Idempotency-Key");
@@ -89,6 +93,52 @@ serve(async (req) => {
 
     // 3. Execute the actual payment logic (e.g., Stripe API call)
     // TODO: Replace with actual Stripe integration
+    // If we were using Stripe, it would look like this:
+    /*
+    const baseAmountCents = body.amount;
+    let donationAmountCents = 0;
+    
+    if (body.includeCharityDonation) {
+       const nextDollar = Math.ceil(baseAmountCents / 100) * 100;
+       if (nextDollar > baseAmountCents) {
+          donationAmountCents = nextDollar - baseAmountCents;
+       } else {
+          donationAmountCents = 100; // Round up by an extra dollar if already whole
+       }
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: { name: 'Event Ticket' },
+            unit_amount: baseAmountCents,
+          },
+          quantity: 1,
+        },
+        ...(body.includeCharityDonation ? [{
+          price_data: {
+            currency: 'usd',
+            product_data: { name: 'Charity Donation' },
+            unit_amount: donationAmountCents,
+          },
+          quantity: 1,
+        }] : []),
+      ],
+      mode: 'payment',
+      success_url: `${req.headers.get("origin")}/events/${body.eventId}/success`,
+      cancel_url: `${req.headers.get("origin")}/events/${body.eventId}/cancel`,
+      metadata: {
+        rsvp_id: body.rsvpId,
+        user_id: body.userId,
+        event_id: body.eventId,
+        include_charity_donation: body.includeCharityDonation ? 'true' : 'false',
+      }
+    });
+    */
+
     const paymentResult = await simulateStripePayment(body);
 
     const successPayload = {
@@ -131,9 +181,26 @@ serve(async (req) => {
  */
 async function simulateStripePayment(body: any) {
   await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate network delay
+
+  const baseAmountCents = body.amount;
+  let donationAmountCents = 0;
+  let totalAmountCents = baseAmountCents;
+
+  if (body.includeCharityDonation) {
+    const nextDollar = Math.ceil(baseAmountCents / 100) * 100;
+    if (nextDollar > baseAmountCents) {
+      donationAmountCents = nextDollar - baseAmountCents;
+    } else {
+      donationAmountCents = 100; // Round up by an extra dollar if already whole
+    }
+    totalAmountCents += donationAmountCents;
+  }
+
   return {
     transactionId: `txn_${Math.random().toString(36).substring(2, 15)}`,
-    amount: body.amount,
+    amount: totalAmountCents,
     currency: "usd",
+    donationIncluded: !!body.includeCharityDonation,
+    donationAmount: donationAmountCents,
   };
 }

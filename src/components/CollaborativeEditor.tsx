@@ -3,8 +3,12 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
-import { useCollaborativeEditor, type CollaborationUser, uint8ToBase64 } from "@/hooks/useCollaborativeEditor";
-import { History } from "lucide-react";
+import {
+  useCollaborativeEditor,
+  type CollaborationUser,
+  uint8ToBase64,
+} from "@/hooks/useCollaborativeEditor";
+import History from "lucide-react/dist/esm/icons/history";
 import { Button } from "@/components/ui/button";
 import { NoteVersionHistoryModal } from "@/components/Notes/NoteVersionHistoryModal";
 import * as Y from "yjs";

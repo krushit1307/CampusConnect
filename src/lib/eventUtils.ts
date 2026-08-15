@@ -25,9 +25,20 @@ export const DEFAULT_EVENT_TAGS = [
   "Academic",
 ];
 
-export const DEFAULT_EVENT_TAG_OPTIONS = DEFAULT_EVENT_TAGS.map(tag => ({ value: tag, label: tag }));
+export const DEFAULT_EVENT_TAG_OPTIONS = DEFAULT_EVENT_TAGS.map((tag) => ({
+  value: tag,
+  label: tag,
+}));
 
 export const TITLE_MAX_LENGTH = 100;
+
+export const accessibilityFeaturesSchema = z.object({
+  has_elevator: z.boolean(),
+  wheelchair_ramp: z.boolean(),
+  gender_neutral_restrooms: z.boolean(),
+  hearing_loop: z.boolean(),
+  low_sensory_zone: z.boolean(),
+});
 
 export const eventFormSchema = z
   .object({
@@ -37,8 +48,21 @@ export const eventFormSchema = z
       .min(1, "Title is required.")
       .max(TITLE_MAX_LENGTH, `Title must be ${TITLE_MAX_LENGTH} characters or fewer.`),
     description: z.string().trim().min(1, "Description is required."),
-    category: z.string().trim().min(1, "Category is required."),
+    venue_id: z.string().optional(),
     location: z.string().trim().optional(),
+    accessibility_features: accessibilityFeaturesSchema.optional(),
+    category: z.string().trim().optional().default(""),
+    location: z.string().trim().optional(),
+    latitude: z.number().min(-90).max(90).optional().nullable(),
+    longitude: z.number().min(-180).max(180).optional().nullable(),
+    geofencingEnabled: z.boolean().optional().default(false),
+    geofenceRadiusMeters: z.coerce
+      .number()
+      .int()
+      .min(10, "Radius must be at least 10 meters.")
+      .max(5000, "Radius must be 5000 meters or less.")
+      .optional()
+      .default(100),
     startDate: z.string().min(1, "Start date is required."),
     endDate: z.string().min(1, "End date is required."),
     banner: z.union([z.literal(""), z.string().url("Must be a valid URL")]).optional(),
@@ -63,6 +87,22 @@ export const eventFormSchema = z
   .refine((data) => new Date(data.endDate) > new Date(data.startDate), {
     message: "End date must be after the start date.",
     path: ["endDate"],
+  })
+  .refine(
+    (data) => {
+      if (data.venue_id) return true;
+      const isOnline = data.location?.trim().toLowerCase() === "online";
+      if (isOnline || !data.location?.trim()) return true;
+      return data.accessibility_features !== undefined;
+    },
+    {
+      message: "Custom venues require an accessibility audit.",
+      path: ["accessibility_features"],
+    },
+  )
+  .refine((data) => !data.geofencingEnabled || (data.latitude != null && data.longitude != null), {
+    message: "Drop a pin on the map to set the check-in geofence location.",
+    path: ["latitude"],
   });
 
 export type EventFormValues = z.infer<typeof eventFormSchema>;
@@ -164,6 +204,10 @@ export function eventFormToDbPayload(
     description: values.description.trim(),
     category_id: values.category || null,
     location: values.location?.trim() || null,
+    latitude: values.latitude ?? null,
+    longitude: values.longitude ?? null,
+    geofencing_enabled: values.geofencingEnabled || false,
+    geofence_radius_meters: values.geofenceRadiusMeters || 100,
     start_date: startDateIso,
     end_date: endDateIso,
     event_date: startDateIso,

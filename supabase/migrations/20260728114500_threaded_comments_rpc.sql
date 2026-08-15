@@ -57,7 +57,7 @@ AS $$
     ct.id,
     ct.post_id,
     ct.author_id,
-    p.full_name AS author_name,
+    (p.first_name || ' ' || p.last_name) AS author_name,
     ct.content,
     ct.parent_comment_id,
     ct.created_at,

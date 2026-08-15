@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { computeWordDiff, computeLineDiff } from "@/lib/diffUtils";
-import { Layers, Columns, PlusCircle, MinusCircle } from "lucide-react";
+import Layers from "lucide-react/dist/esm/icons/layers";
+import Columns from "lucide-react/dist/esm/icons/columns";
+import PlusCircle from "lucide-react/dist/esm/icons/plus-circle";
+import MinusCircle from "lucide-react/dist/esm/icons/minus-circle";
 import { Button } from "@/components/ui/button";
 
 interface NoteDiffViewerProps {
@@ -20,9 +23,7 @@ export const NoteDiffViewer: React.FC<NoteDiffViewerProps> = ({
   const [granularity, setGranularity] = useState<"word" | "line">("word");
 
   const diffResult =
-    granularity === "word"
-      ? computeWordDiff(oldText, newText)
-      : computeLineDiff(oldText, newText);
+    granularity === "word" ? computeWordDiff(oldText, newText) : computeLineDiff(oldText, newText);
 
   return (
     <div className="space-y-4">
@@ -76,7 +77,9 @@ export const NoteDiffViewer: React.FC<NoteDiffViewerProps> = ({
               size="sm"
               onClick={() => setGranularity("word")}
               className={`h-7 px-2 font-mono text-[11px] uppercase ${
-                granularity === "word" ? "bg-lime text-black font-bold" : "text-black dark:text-white"
+                granularity === "word"
+                  ? "bg-lime text-black font-bold"
+                  : "text-black dark:text-white"
               }`}
             >
               Words
@@ -87,7 +90,9 @@ export const NoteDiffViewer: React.FC<NoteDiffViewerProps> = ({
               size="sm"
               onClick={() => setGranularity("line")}
               className={`h-7 px-2 font-mono text-[11px] uppercase ${
-                granularity === "line" ? "bg-lime text-black font-bold" : "text-black dark:text-white"
+                granularity === "line"
+                  ? "bg-lime text-black font-bold"
+                  : "text-black dark:text-white"
               }`}
             >
               Lines

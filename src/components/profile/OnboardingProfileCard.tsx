@@ -4,7 +4,13 @@ import {
   calculateProfileCompleteness,
   ProfileCompletenessData,
 } from "./ProgressRing";
-import { User, Check, Camera, FileText, GraduationCap, Heart, Sparkles } from "lucide-react";
+import User from "lucide-react/dist/esm/icons/user";
+import Check from "lucide-react/dist/esm/icons/check";
+import Camera from "lucide-react/dist/esm/icons/camera";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import GraduationCap from "lucide-react/dist/esm/icons/graduation-cap";
+import Heart from "lucide-react/dist/esm/icons/heart";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 import { Button } from "@/components/ui/button";
 
 export interface OnboardingProfileCardProps {

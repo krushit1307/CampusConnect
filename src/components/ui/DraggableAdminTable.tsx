@@ -23,7 +23,11 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, SlidersHorizontal, ArrowUp, ArrowDown, X } from "lucide-react";
+import GripVertical from "lucide-react/dist/esm/icons/grip-vertical";
+import SlidersHorizontal from "lucide-react/dist/esm/icons/sliders-horizontal";
+import ArrowUp from "lucide-react/dist/esm/icons/arrow-up";
+import ArrowDown from "lucide-react/dist/esm/icons/arrow-down";
+import X from "lucide-react/dist/esm/icons/x";
 
 export interface DraggableAdminTableProps<TData> {
   tableId: string;
@@ -192,6 +196,28 @@ export function DraggableAdminTable<TData>({
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
+          accessibility={{
+            announcements: {
+              onDragStart({ active }) {
+                return `Column ${active.id} selected.`;
+              },
+              onDragOver({ active, over }) {
+                if (over) {
+                  return `Column ${active.id} moved over column ${over.id}.`;
+                }
+                return `Column ${active.id} is no longer over a droppable area.`;
+              },
+              onDragEnd({ active, over }) {
+                if (over) {
+                  return `Column ${active.id} was dropped over column ${over.id}.`;
+                }
+                return `Column ${active.id} was dropped.`;
+              },
+              onDragCancel({ active }) {
+                return `Dragging was cancelled. Column ${active.id} was dropped.`;
+              },
+            },
+          }}
         >
           <table className="w-full font-mono text-sm" aria-label={ariaLabel}>
             <thead>

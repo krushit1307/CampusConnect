@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Eye, EyeOff } from "lucide-react";
+import Eye from "lucide-react/dist/esm/icons/eye";
+import EyeOff from "lucide-react/dist/esm/icons/eye-off";
 import { cn } from "@/lib/utils";
 
 export interface PasswordInputProps extends React.ComponentProps<"input"> {

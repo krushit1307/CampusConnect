@@ -7,7 +7,10 @@ import "leaflet.heat";
 import { createClient } from "@/lib/supabase/client";
 import { parseCoordinates, formatEventDateRange } from "@/lib/eventUtils";
 import { formatStandardDate } from "@/utils/dateUtils";
-import { MapPin, Calendar, Search, RefreshCw } from "lucide-react";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Search from "lucide-react/dist/esm/icons/search";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
 
 // Campus center default (Delhi campus or customizable)
 const DEFAULT_MAP_CENTER: [number, number] = [28.7041, 77.1025];
@@ -69,9 +72,7 @@ function HeatmapLayer({ points }: { points: [number, number, number][] }) {
       layerRef.current = null;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (points.length > 0 && (L as any).heatLayer) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       layerRef.current = (L as any)
         .heatLayer(points, {
           radius: 25,
@@ -101,21 +102,31 @@ export function CampusEventMap({
 }: CampusEventMapProps) {
   const supabase = useMemo(() => createClient(), []);
   const [events, setEvents] = useState<MapEventItem[]>(initialEvents || []);
-  const [loading, setLoading] = useState<boolean>(!initialEvents);
+  const [geoJsonFeatures, setGeoJsonFeatures] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [currentCenter, setCurrentCenter] = useState<[number, number]>(initialCenter);
-  const [viewMode, setViewMode] = useState<"pins" | "heatmap">(
-    initialEvents && initialEvents.length > 500 ? "heatmap" : "pins",
-  );
+  const [viewMode, setViewMode] = useState<"pins" | "heatmap">("heatmap");
+  const [selectedHour, setSelectedHour] = useState<number>(new Date().getHours());
 
-  // Fetch upcoming events from Supabase if not provided via props
+  // Fetch upcoming events and GeoJSON heatmap points from Supabase Edge Function
   const fetchUpcomingEvents = useCallback(async () => {
-    if (initialEvents && initialEvents.length > 0) return;
-
+    setLoading(true);
+    setError(null);
     try {
+      // 1. Invoke the Edge Function to get live event heatmap points
+      const { data: heatmapData, error: heatmapError } =
+        await supabase.functions.invoke("live-event-heatmap");
+      if (heatmapError) throw heatmapError;
+
+      if (heatmapData && heatmapData.features) {
+        setGeoJsonFeatures(heatmapData.features);
+      }
+
+      // 2. Fetch standard events list for standard pins view
       const nowIso = new Date().toISOString();
-      const { data, error: fetchError } = await supabase
+      const { data: eventsData, error: fetchError } = await supabase
         .from("events")
         .select(
           `
@@ -137,13 +148,10 @@ export function CampusEventMap({
         .order("created_at", { ascending: false })
         .limit(100);
 
-      if (fetchError) {
-        throw new Error(fetchError.message);
-      }
+      if (fetchError) throw fetchError;
 
-      if (data) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const formatted: MapEventItem[] = data.map((item: any) => ({
+      if (eventsData) {
+        const formatted: MapEventItem[] = eventsData.map((item: any) => ({
           id: item.id,
           title: item.title,
           description: item.description,
@@ -163,9 +171,6 @@ export function CampusEventMap({
                 : 0,
         }));
         setEvents(formatted);
-        if (formatted.length > 500 && !initialEvents) {
-          setViewMode("heatmap");
-        }
       }
     } catch (err) {
       console.error("Failed to fetch events for campus map:", err);
@@ -173,16 +178,16 @@ export function CampusEventMap({
     } finally {
       setLoading(false);
     }
-  }, [initialEvents, supabase]);
+  }, [supabase]);
 
   const hasFetchedRef = useRef(false);
 
   useEffect(() => {
-    if (!initialEvents && !hasFetchedRef.current) {
+    if (!hasFetchedRef.current) {
       hasFetchedRef.current = true;
       fetchUpcomingEvents();
     }
-  }, [initialEvents, fetchUpcomingEvents]);
+  }, [fetchUpcomingEvents]);
 
   // Process events and map each event to valid coordinates
   const mappedEvents = useMemo(() => {
@@ -222,14 +227,27 @@ export function CampusEventMap({
     );
   }, [mappedEvents, searchTerm]);
 
+  // Filter and map heatmap points dynamically based on the selected hour (Time Slider)
   const heatPoints = useMemo(() => {
-    const maxRsvps = Math.max(1, ...filteredEvents.map((e) => e.rsvp_count || 0));
-    return filteredEvents.map((event) => {
-      const weight = (event.rsvp_count || 0) / maxRsvps;
-      const finalWeight = Math.max(0.1, weight);
-      return [event.coords[0], event.coords[1], finalWeight] as [number, number, number];
-    });
-  }, [filteredEvents]);
+    // Construct selected target datetime for today at selectedHour
+    const targetTime = new Date();
+    targetTime.setHours(selectedHour, 0, 0, 0);
+
+    return geoJsonFeatures
+      .filter((f) => {
+        const start = new Date(f.properties.start_date);
+        const end = new Date(f.properties.end_date);
+        return start <= targetTime && end >= targetTime;
+      })
+      .map(
+        (f) =>
+          [f.geometry.coordinates[1], f.geometry.coordinates[0], f.properties.intensity] as [
+            number,
+            number,
+            number,
+          ],
+      );
+  }, [geoJsonFeatures, selectedHour]);
 
   // Helper for displaying dates nicely in popup
   const getEventDateText = (event: MapEventItem): string => {
@@ -294,12 +312,48 @@ export function CampusEventMap({
         </div>
       )}
 
+      {/* Predictive Time Slider (Visible in Heatmap Mode) */}
+      {viewMode === "heatmap" && (
+        <div className="z-[1000] mb-3 border-2 border-black bg-white p-3.5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+          <div className="flex flex-col gap-2.5">
+            <div className="flex items-center justify-between font-mono text-xs font-bold uppercase">
+              <span>⏰ Dynamic Activity Scrubber (Today)</span>
+              <span className="bg-lime border-2 border-black px-2.5 py-0.5 font-bold shadow-[1px_1px_0_0_#000]">
+                {selectedHour === 0
+                  ? "12:00 AM"
+                  : selectedHour === 12
+                    ? "12:00 PM"
+                    : selectedHour > 12
+                      ? `${selectedHour - 12}:00 PM`
+                      : `${selectedHour}:00 AM`}
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="23"
+              value={selectedHour}
+              onChange={(e) => setSelectedHour(parseInt(e.target.value))}
+              className="w-full accent-black h-2.5 bg-cream border border-black cursor-pointer appearance-none"
+            />
+            <div className="flex justify-between font-mono text-[9px] font-bold text-gray-500">
+              <span>12 AM</span>
+              <span>6 AM</span>
+              <span>12 PM</span>
+              <span>6 PM</span>
+              <span>11 PM</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Map Display Container */}
       <div className="relative min-h-[450px] w-full flex-1 overflow-hidden border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
         <MapContainer
           center={currentCenter}
           zoom={initialZoom}
           scrollWheelZoom={true}
+          preferCanvas={true}
           className="h-full w-full min-h-[450px]"
         >
           <TileLayer

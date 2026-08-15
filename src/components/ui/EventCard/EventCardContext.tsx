@@ -150,7 +150,7 @@ export function EventCardProvider({
     } else {
       toast.error("Failed to copy link.");
     }
-  };
+  }, [copyToClipboard]);
 
   const handleShare = useCallback(async () => {
     const shareUrl = `${window.location.origin}${window.location.pathname}#event-${event.id}`;

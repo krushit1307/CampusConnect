@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import Stripe from "https://esm.sh/stripe@14.16.0?target=deno";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 const stripeSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET") || Deno.env.get("WEBHOOK_SECRET") || "";
 
@@ -18,6 +19,9 @@ Deno.serve(async (req) => {
       },
     });
   }
+
+  const limited = await rateLimiter(req, "payment-webhook", 30, 60);
+  if (limited) return limited;
 
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
@@ -96,6 +100,54 @@ Deno.serve(async (req) => {
     // 5. Check completed status and update event_rsvps table status to 'PAID'
     if (stripeEvent.type === "checkout.session.completed") {
       const session = stripeEvent.data.object;
+
+      // 5a. Crowdfunding campaign donation
+      if (session.metadata?.type === "campaign_donation") {
+        const campaignId = session.metadata?.campaign_id;
+        if (!campaignId) {
+          console.warn("[Webhook Ingestion] Missing metadata campaign_id parameter.");
+          return new Response("Missing campaign_id metadata parameter", { status: 400 });
+        }
+
+        const isAnonymous = session.metadata?.is_anonymous === "true";
+        const amountCents = session.amount_total ?? 0;
+
+        // Insert as 'succeeded' directly — the campaign_donation_delta trigger
+        // increments crowdfunding_campaigns.current_amount_cents automatically.
+        const { error: insertDonationError } = await supabase
+          .from("campaign_donations")
+          .insert({
+            campaign_id: campaignId,
+            donor_id: session.metadata?.donor_id || null,
+            display_name: isAnonymous ? null : session.metadata?.display_name || null,
+            is_anonymous: isAnonymous,
+            amount_cents: amountCents,
+            currency: session.currency ?? "usd",
+            stripe_checkout_session_id: session.id,
+            stripe_payment_intent_id:
+              typeof session.payment_intent === "string" ? session.payment_intent : null,
+            status: "succeeded",
+          });
+
+        if (insertDonationError) {
+          console.error(
+            `[DB Error] Failed to record donation for campaign ${campaignId}:`,
+            insertDonationError,
+          );
+          return new Response("Failed to record campaign donation", { status: 500 });
+        }
+
+        console.log(
+          `[Webhook Ingestion] Recorded $${(amountCents / 100).toFixed(2)} donation to campaign ${campaignId}.`,
+        );
+
+        return new Response(JSON.stringify({ status: "success", eventId }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      // 5b. Event ticket RSVP
       const rsvpId = session.metadata?.rsvp_id;
 
       if (!rsvpId) {
@@ -114,6 +166,102 @@ Deno.serve(async (req) => {
       }
 
       console.log(`[Webhook Ingestion] Successfully set RSVP ${rsvpId} status to PAID.`);
+
+      // 6. Handle Micro-Donation splitting (Issue #2876)
+      if (
+        session.metadata?.include_charity_donation === "true" ||
+        session.metadata?.include_charity_donation === true
+      ) {
+        console.log(
+          `[Webhook Ingestion] Detected Charity Donation. Fetching line items for Session ${session.id}...`,
+        );
+
+        try {
+          const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
+          const charityItem = lineItems.data.find(
+            (item: any) =>
+              item.description?.toLowerCase().includes("charity") ||
+              item.price?.product_data?.name?.toLowerCase().includes("charity"),
+          );
+
+          if (charityItem) {
+            const donationAmount = charityItem.amount_total;
+            const { error: charityError } = await supabase.from("charity_ledger").insert({
+              user_id: session.metadata.user_id || null, // Assuming you passed user_id in metadata
+              event_id: session.metadata.event_id || null, // Assuming you passed event_id in metadata
+              stripe_session_id: session.id,
+              donation_amount_cents: donationAmount,
+            });
+
+            if (charityError) {
+              console.error("[DB Error] Failed to insert into charity_ledger:", charityError);
+              // Consider whether to fail the whole webhook or just log it
+            } else {
+              console.log(
+                `[Webhook Ingestion] Successfully recorded $${(donationAmount / 100).toFixed(2)} to charity_ledger.`,
+              );
+            }
+          } else {
+            console.warn(
+              `[Webhook Ingestion] include_charity_donation flag was true, but no Charity line item found for session ${session.id}`,
+            );
+          }
+        } catch (err: any) {
+          console.error(
+            `[Stripe API Error] Failed to fetch line items for session ${session.id}:`,
+            err.message,
+          );
+        }
+      }
+    }
+
+    // 6. Refunds / disputes on a donation charge must decrement current_amount_cents
+    // so the progress bar stays mathematically accurate. We resolve the donation
+    // row by payment_intent_id (present on both charge.refunded and
+    // charge.dispute.created payloads) rather than trusting client-supplied state.
+    if (stripeEvent.type === "charge.refunded" || stripeEvent.type === "charge.dispute.created") {
+      // Both a Stripe Charge (charge.refunded) and a Stripe Dispute
+      // (charge.dispute.created) payload carry a payment_intent field.
+      const eventObject = stripeEvent.data.object as { payment_intent?: string | null };
+      const paymentIntentId = eventObject.payment_intent;
+
+      if (!paymentIntentId) {
+        console.warn("[Webhook Ingestion] Refund/dispute event missing payment_intent.");
+        return new Response(JSON.stringify({ status: "ignored", eventId }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      const newStatus = stripeEvent.type === "charge.dispute.created" ? "disputed" : "refunded";
+
+      const { data: donation, error: findError } = await supabase
+        .from("campaign_donations")
+        .select("id, status")
+        .eq("stripe_payment_intent_id", paymentIntentId)
+        .maybeSingle();
+
+      if (findError) {
+        console.error("[DB Error] Failed to look up donation for refund/dispute:", findError);
+        return new Response("Database lookup error", { status: 500 });
+      }
+
+      if (donation) {
+        const { error: updateDonationError } = await supabase
+          .from("campaign_donations")
+          .update({ status: newStatus, updated_at: new Date().toISOString() })
+          .eq("id", donation.id);
+
+        if (updateDonationError) {
+          console.error(
+            `[DB Error] Failed to mark donation ${donation.id} as ${newStatus}:`,
+            updateDonationError,
+          );
+          return new Response("Failed to update donation status", { status: 500 });
+        }
+
+        console.log(`[Webhook Ingestion] Donation ${donation.id} marked as ${newStatus}.`);
+      }
     }
 
     return new Response(JSON.stringify({ status: "success", eventId }), {

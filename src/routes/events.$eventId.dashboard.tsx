@@ -3,10 +3,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
+import { duplicateEvent } from "@/lib/events/duplicateEvent";
 import ReactECharts from "echarts-for-react";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Star from "lucide-react/dist/esm/icons/star";
 import { ChartSkeleton } from "@/components/ui/ChartSkeleton";
+import { EventFinancesSection } from "@/components/analytics/EventFinancesSection";
+import { EventPodcastPanel } from "@/components/audio/EventPodcastPanel";
 
 const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));
 
@@ -27,6 +31,21 @@ export default function EventDashboard() {
       if (error) {
         throw new Error(error.message);
       }
+      return data;
+    },
+    enabled: !!eventId,
+  });
+  const { data: feedbackSummary } = useQuery({
+    queryKey: ["event_feedback_summary", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_event_feedback_summary", {
+        p_event_id: eventId!,
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
       return data;
     },
     enabled: !!eventId,
@@ -73,7 +92,7 @@ export default function EventDashboard() {
   }
 
   // Parse RPC response
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const data = (analyticsData as Record<string, any>) || {};
   const rsvpsByDate = data.rsvps_by_date || [];
   const attendeesByMajor = data.attendees_by_major || [];
@@ -192,6 +211,62 @@ export default function EventDashboard() {
             <h1 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
               {eventData?.title ? `${eventData.title} Analytics` : "Event Analytics"}
             </h1>
+            <div className="flex-1" />
+            <button
+              onClick={async () => {
+                try {
+                  const { data: { user } } = await supabase.auth.getUser();
+                  if (!user) throw new Error("Not logged in");
+                  toast.loading("Duplicating event...", { id: "duplicate" });
+                  const newId = await duplicateEvent(supabase, eventId!, user.id);
+                  toast.success("Event duplicated as draft!", { id: "duplicate" });
+                  navigate("/events/" + newId);
+                } catch (err: any) {
+                  toast.error(err.message || "Failed to duplicate event", { id: "duplicate" });
+                }
+              }}
+              className="neu-border neu-press bg-yellow-300 text-black px-4 py-2 font-mono text-xs font-bold uppercase hover:-translate-y-1 transition-transform whitespace-nowrap"
+            >
+              Duplicate Event
+            </button>
+          </div>
+          <div className="mb-8 border-2 border-black bg-yellow-100 p-5 shadow-[4px_4px_0_0_#000]">
+            <div className="flex items-center gap-2">
+              <Star size={20} />
+
+              <h2 className="font-display text-xl font-black uppercase">Post-Event Feedback</h2>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="border-2 border-black bg-white p-4">
+                <p className="font-mono text-xs font-bold uppercase">Average Rating</p>
+
+                <p className="mt-2 font-display text-3xl font-black">
+                  {Number(feedbackSummary?.average_rating ?? 0).toFixed(1)}
+                  <span className="ml-1 text-lg">/ 5</span>
+                </p>
+              </div>
+
+              <div className="border-2 border-black bg-white p-4">
+                <p className="font-mono text-xs font-bold uppercase">Responses</p>
+
+                <p className="mt-2 font-display text-3xl font-black">
+                  {feedbackSummary?.response_count ?? 0}
+                </p>
+              </div>
+
+              <div className="border-2 border-black bg-white p-4">
+                <p className="font-mono text-xs font-bold uppercase">Response Rate</p>
+
+                <p className="mt-2 font-display text-3xl font-black">
+                  {Number(feedbackSummary?.response_rate ?? 0).toFixed(1)}%
+                </p>
+
+                <p className="mt-1 font-mono text-[10px] text-black/50">
+                  Based on {feedbackSummary?.attendee_count ?? 0} checked-in attendees
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
@@ -249,6 +324,8 @@ export default function EventDashboard() {
               </Suspense>
             </div>
           </div>
+          <EventFinancesSection eventId={eventId!} />
+          <EventPodcastPanel eventId={eventId!} />
         </div>
       </div>
     </SiteShell>

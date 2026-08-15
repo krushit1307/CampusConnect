@@ -7,11 +7,15 @@ import {
   type ColumnDef,
   type Row,
 } from "@tanstack/react-table";
-import { CheckCircle, ShieldCheck, XCircle } from "lucide-react";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import XCircle from "lucide-react/dist/esm/icons/x-circle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MemberContextMenu } from "./MemberContextMenu";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { EmptyState } from "@/components/EmptyState";
+
+import { GenerateLeadershipCertButton } from "./GenerateLeadershipCertButton";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -22,6 +26,11 @@ export interface ClubMemberRow {
   role: string;
   status: string;
   user_id: string;
+  club_id?: string;
+  joined_at?: string | null;
+  created_at?: string;
+  removed_at?: string | null;
+  termination_reason?: string | null;
   fullName: string;
   handle: string;
   avatarUrl: string | null;
@@ -38,6 +47,11 @@ interface RawClubMember {
   role: string;
   status: string;
   user_id: string;
+  club_id?: string;
+  joined_at?: string | null;
+  created_at?: string;
+  removed_at?: string | null;
+  termination_reason?: string | null;
   profiles: RawProfile | RawProfile[] | null;
 }
 
@@ -70,6 +84,11 @@ function normalizeMember(m: RawClubMember): ClubMemberRow {
     role: m.role,
     status: m.status,
     user_id: m.user_id,
+    club_id: m.club_id,
+    joined_at: m.joined_at,
+    created_at: m.created_at,
+    removed_at: m.removed_at,
+    termination_reason: m.termination_reason,
     fullName: profile?.full_name || "Unknown User",
     handle: profile?.handle || "",
     avatarUrl: profile?.avatar_url || null,
@@ -174,20 +193,36 @@ function MemberActions({
     );
   }
 
-  if (member.status === "approved" && member.user_id !== currentUserId) {
+  if (member.status === "approved") {
     return (
       <div className="flex items-center gap-2">
-        <select
-          value={member.role}
-          disabled={isMutating}
-          onChange={(e) => onToggleRole(member.id, e.target.value)}
-          className="neu-border bg-white px-2 py-1 font-mono text-xs font-bold uppercase cursor-pointer disabled:opacity-50"
-          aria-label={`Change role for ${member.fullName}`}
-        >
-          <option value="member">Member</option>
-          <option value="moderator">Moderator</option>
-          <option value="admin">Admin</option>
-        </select>
+        {member.user_id !== currentUserId && (
+          <select
+            value={member.role}
+            disabled={isMutating}
+            onChange={(e) => onToggleRole(member.id, e.target.value)}
+            className="neu-border bg-white px-2 py-1 font-mono text-xs font-bold uppercase cursor-pointer disabled:opacity-50"
+            aria-label={`Change role for ${member.fullName}`}
+          >
+            <option value="member">Member</option>
+            <option value="moderator">Moderator</option>
+            <option value="admin">Admin</option>
+          </select>
+        )}
+        {member.club_id && (
+          <GenerateLeadershipCertButton
+            memberId={member.id}
+            userId={member.user_id}
+            clubId={member.club_id}
+            memberName={member.fullName}
+            roleTitle={member.role}
+            joinedAt={member.joined_at}
+            createdAt={member.created_at}
+            removedAt={member.removed_at}
+            terminationReason={member.termination_reason}
+            buttonVariant="compact"
+          />
+        )}
       </div>
     );
   }

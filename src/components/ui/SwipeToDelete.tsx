@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { motion, useMotionValue, useAnimation, PanInfo } from "framer-motion";
-import { Trash2 } from "lucide-react";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
 
 interface SwipeToDeleteProps {
   children: React.ReactNode;

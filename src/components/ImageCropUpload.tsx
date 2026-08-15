@@ -1,6 +1,7 @@
 import { useState, useRef, type DragEvent, type ChangeEvent } from "react";
 import Cropper from "react-easy-crop";
-import { Loader2, UploadCloud } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import UploadCloud from "lucide-react/dist/esm/icons/upload-cloud";
 import { toast } from "sonner";
 
 import { createClient } from "@/lib/supabase/client";
@@ -117,7 +118,7 @@ export function ImageCropUpload({
         setCrop({ x: 0, y: 0 });
         setZoom(1);
       },
-      { orientation: true, canvas: true }
+      { orientation: true, canvas: true },
     );
   }
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {

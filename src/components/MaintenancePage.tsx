@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, Mail, RefreshCw } from "lucide-react";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import Mail from "lucide-react/dist/esm/icons/mail";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
 import "./MaintenancePage.css";
 
 export interface MaintenancePageProps {
