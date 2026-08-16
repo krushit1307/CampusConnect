@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useQuery, useMutation, queryClient } from "@/hooks/useReactQueryReplacement";
+import { useQuery, queryClient } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useRef, useState } from "react";
 import { User } from "@supabase/supabase-js";
@@ -16,12 +16,14 @@ import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
 import Users from "lucide-react/dist/esm/icons/users";
 import TrendingCarousel from "@/components/Clubs/TrendingCarousel";
 import RecommendedCarousel from "@/components/Dashboard/RecommendedCarousel";
+import SuggestedEventsCarousel from "@/components/SuggestedEventsCarousel"; // <-- NEW IMPORT
 import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
 import LazyHydrate from "@/components/LazyHydrate";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { WidgetErrorFallback } from "@/components/WidgetErrorFallback";
 import { RelativeTime } from "@/components/ui/RelativeTime";
+
 interface Club {
   id: string;
   name: string;
@@ -90,26 +92,10 @@ function formatRelativeActivityTime(dateString: string): string {
   return rtf.format(diffDays, "day");
 }
 
-// How long to wait before showing the progress bar at all. Queries that
-// resolve faster than this never trigger it — the widgets' own skeletons
-// (WidgetListSkeleton / TrendingCarouselSkeleton) cover that case instead.
 const PROGRESS_REVEAL_DELAY_MS = 250;
-// Simulated progress never crosses this ceiling on its own — the analytics
-// queries (backed by club_analytics_mat_view and friends) don't report real
-// byte-level progress, so we ease toward "almost done" and only jump to 100%
-// once the data has actually arrived.
 const PROGRESS_SOFT_CEILING = 90;
 const PROGRESS_TICK_MS = 200;
 
-/**
- * Page-load progress indicator for the dashboard's analytics-backed widgets
- * (trending clubs, your clubs, upcoming/saved events, recent activity — all
- * of which read from materialized/aggregated views that can be slow on a
- * cold cache). Shows a neubrutalist percentage bar once loading has taken
- * long enough to be noticeable, and snaps to 100% + fades out once real data
- * has arrived. If the underlying queries resolve immediately, this never
- * renders at all — the widgets' individual skeletons handle that case.
- */
 function AnalyticsLoadProgress({ isLoading }: { isLoading: boolean }) {
   const [visible, setVisible] = useState(false);
   const [percent, setPercent] = useState(0);
@@ -134,7 +120,6 @@ function AnalyticsLoadProgress({ isLoading }: { isLoading: boolean }) {
           setPercent((p) => {
             if (p >= PROGRESS_SOFT_CEILING) return p;
             const remaining = PROGRESS_SOFT_CEILING - p;
-            // Ease-out: bigger steps early, smaller as we approach the ceiling.
             const increment = Math.max(0.75, remaining * 0.12);
             return Math.min(PROGRESS_SOFT_CEILING, p + increment);
           });
@@ -402,9 +387,6 @@ export default function DashboardOverview() {
 
   const colors = ["bg-lime", "bg-sky", "bg-peach"];
 
-  // Combined loading state for every analytics-backed widget below (trending
-  // clubs, your clubs, upcoming/saved events, recent activity). Profile isn't
-  // included since it's a single-row lookup, not one of the slow views.
   const isAnalyticsLoading =
     isTrendingLoading || isClubsLoading || isUpcomingLoading || isSavedLoading || isActivityLoading;
 
@@ -418,7 +400,6 @@ export default function DashboardOverview() {
             animateIn ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-4 scale-95"
           } lg:col-span-3 neu-border bg-lavender p-6 md:p-8 relative neu-shadow mb-2 overflow-hidden`}
         >
-          {/* Absolute decorative pattern or circles in background */}
           <div className="absolute -top-12 -right-12 w-40 h-40 bg-peach rounded-full border-4 border-black opacity-30 pointer-events-none" />
           <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-lime rounded-full border-4 border-black opacity-30 pointer-events-none" />
 
@@ -428,7 +409,7 @@ export default function DashboardOverview() {
               setTimeout(() => {
                 setWelcomeDismissed(true);
                 localStorage.setItem("cc_welcome_dismissed", "true");
-              }, 500); // Wait for transition out
+              }, 500);
             }}
             className="absolute top-4 right-4 neu-border bg-white hover:bg-peach p-2 transition-colors cursor-pointer group"
             aria-label="Dismiss banner"
@@ -451,7 +432,6 @@ export default function DashboardOverview() {
               </p>
             </div>
 
-            {/* Progress Gauge */}
             <div className="shrink-0 flex flex-col items-center justify-center bg-white neu-border neu-shadow-sm p-4 w-full md:w-48 text-center">
               <span className="font-mono text-xs uppercase font-bold text-gray-600">
                 Setup Progress
@@ -462,7 +442,6 @@ export default function DashboardOverview() {
               <span className="font-mono text-sm text-gray-500 dark:text-gray-300">
                 {completedCount} of {steps.length} completed
               </span>
-              {/* Small progress bar */}
               <div className="w-full bg-cream border-2 border-black h-3 mt-3 overflow-hidden rounded-none relative">
                 <div
                   className="bg-lime h-full border-r-2 border-black transition-all duration-500 ease-out"
@@ -472,7 +451,6 @@ export default function DashboardOverview() {
             </div>
           </div>
 
-          {/* Checklist steps */}
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 relative z-10">
             {steps.map((step) => {
               const Icon =
@@ -533,6 +511,11 @@ export default function DashboardOverview() {
       )}
 
       <AnalyticsLoadProgress isLoading={isAnalyticsLoading} />
+
+      {/* NEW COMPONENT PLACED HERE */}
+      <div className="lg:col-span-3">
+        <SuggestedEventsCarousel />
+      </div>
 
       <div className="lg:col-span-3">
         <RecommendedCarousel
@@ -679,12 +662,6 @@ export default function DashboardOverview() {
           </LazyHydrate>
         </Widget>
       </ErrorBoundary>
-
-      <Widget title="Campus Engagement Map" className="lg:col-span-3">
-        <LazyHydrate height="260px">
-          <AttendanceHeatmap userId={user.id} />
-        </LazyHydrate>
-      </Widget>
 
       <ErrorBoundary fallback={<WidgetError title="Recent activity" />}>
         <Widget title="Recent activity" className="lg:col-span-3">
