@@ -1,0 +1,19 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model DocumentAuditEntry {
+  id              String   @id @default(uuid())
+  documentHash    String   @unique
+  signature       String
+  userId          String
+  documentType    String   // e.g. "TICKET", "CERTIFICATE"
+  verifiedCount   Int      @default(0)
+  lastVerifiedAt  DateTime?
+  createdAt       DateTime @default(now())
+}
