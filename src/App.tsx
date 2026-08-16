@@ -123,6 +123,7 @@ const AdminUsersPage = lazy(() => import("./routes/admin.users"));
 const AdminRestorePage = lazy(() => import("./routes/admin.restore"));
 const AdminDlqPage = lazy(() => import("./routes/admin.dlq"));
 const AdminEmergencyBroadcast = lazy(() => import("./routes/admin.emergency-broadcast"));const AdminBadgesPage = lazy(() => import("./routes/admin.badges"));const NotFound = lazy(() => import("./routes/NotFound"));
+const AdminBadgesPage = lazy(() => import("./routes/admin.badges"));const NotFound = lazy(() => import("./routes/NotFound"));
 const ChallengeArena = lazy(() => import("./routes/challenge"));
 const EventDashboard = lazy(() => import("./routes/events.$eventId.dashboard"));
 const EventGantt = lazy(() => import("./routes/events.$eventId.gantt"));
@@ -319,6 +320,7 @@ const router = createBrowserRouter(
             <Route path="/admin/restore" element={<AdminRestorePage />} />
 <Route path="/admin/dlq" element={<AdminDlqPage />} />
 <Route path="/admin/emergency-broadcast" element={<AdminEmergencyBroadcast />} />            <Route path="/admin/badges" element={<AdminBadgesPage />} />            <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
+            <Route path="/admin/badges" element={<AdminBadgesPage />} />            <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
             {/* Catch-all route for 404 errors */}
             <Route path="*" element={<NotFound />} />
           </Route>
