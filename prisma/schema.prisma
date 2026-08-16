@@ -1,0 +1,41 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum RefundState {
+  INITIATED
+  PROCESSING
+  REFUNDED
+  FAILED
+  RECONCILED
+}
+
+model RefundTransaction {
+  id            String      @id @default(uuid())
+  eventId       String
+  userId        String
+  transactionId String      @unique
+  provider      String      // e.g., "stripe", "razorpay"
+  amount        Float
+  status        RefundState @default(INITIATED)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  auditLogs     RefundAuditLog[]
+}
+
+model RefundAuditLog {
+  id            String   @id @default(uuid())
+  refundId      String
+  previousState String?
+  newState      String
+  action        String   // "TRIGGERED_REFUND", "WEBHOOK_RECEIVED"
+  createdAt     DateTime @default(now())
+
+  refund        RefundTransaction @relation(fields: [refundId], references: [id])
+}
