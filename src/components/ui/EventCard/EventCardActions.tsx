@@ -123,12 +123,12 @@ export function EventCardActions() {
       </div>
 
       <div className="mt-4">
-        <ShareMenu
+<ShareMenu
           url={typeof window !== "undefined" ? window.location.href : ""}
           title={event.title}
           text={`Check out this event: ${event.title}`}
-        />
-      </div>
+          eventId={event.id}
+        />      </div>
 
       <ConfirmModal
         open={confirmOpen}

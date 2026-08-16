@@ -20,25 +20,26 @@ interface ShareMenuProps {
   url: string;
   title: string;
   text?: string;
+  eventId?: string;
   children?: React.ReactNode;
 }
 
-export function ShareMenu({ url, title, text, children }: ShareMenuProps) {
+export function ShareMenu({ url, title, text, eventId, children }: ShareMenuProps) {
   const [open, setOpen] = useState(false);
   const webShare = useWebShare();
   const [localCopied, setLocalCopied] = useState(false);
 
-  const encodedUrl = encodeURIComponent(url);
+  // Share the OG-friendly URL when we have an eventId, so links unfurl
+  // correctly (rich preview card) in iMessage, WhatsApp, Discord, and Slack.
+  const shareUrl = eventId
+    ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/event-share?event=${encodeURIComponent(eventId)}`
+    : url;
+  const encodedUrl = encodeURIComponent(shareUrl);
   const shareText = text || `Check out: ${title}`;
-  const encodedShareText = encodeURIComponent(shareText);
-const shareUrl = eventId
-  ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/event-share?event_id=${encodeURIComponent(eventId)}`
-  : window.location.href;
-  const handleShareClick = async (e: React.MouseEvent) => {
+  const encodedShareText = encodeURIComponent(shareText);  const handleShareClick = async (e: React.MouseEvent) => {
     if (webShare.canShare) {
       e.preventDefault();
-      const result = await webShare.share({ title, text: shareText, url });
-      switch (result.kind) {
+const result = await webShare.share({ title, text: shareText, url: shareUrl });      switch (result.kind) {
         case "success":
           toast.success("Shared successfully!");
           break;
@@ -53,9 +54,8 @@ const shareUrl = eventId
     }
   };
 
-  const handleCopyLink = async () => {
-    const ok = await webShare.copyToClipboard(url);
-    if (ok) {
+const handleCopyLink = async () => {
+    const ok = await webShare.copyToClipboard(shareUrl);    if (ok) {
       setLocalCopied(true);
       toast.success("Link copied!");
       setTimeout(() => setLocalCopied(false), 2000);

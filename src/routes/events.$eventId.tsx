@@ -1649,8 +1649,7 @@ export default function EventDetailsPage() {
               >
                 {event.title}
               </h1>
-              <ShareMenu url={shareUrl} title={event.title} />
-              <TooltipProvider>
+<ShareMenu url={shareUrl} title={event.title} eventId={event.id} />              <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -2538,12 +2537,12 @@ export default function EventDetailsPage() {
                   Share with Friends
                 </h3>
                 <div className="mt-4">
-                  <ShareMenu
-                    url={shareUrl}
-                    title={event.title}
-                    text={`Check out this event: ${event.title}`}
-                  />
-                </div>
+<ShareMenu
+                url={shareUrl}
+                title={event.title}
+                text={`Check out this event: ${event.title}`}
+                eventId={event.id}
+              />                </div>
               </div>
 
               <div className="border-t border-black/10 pt-4">
