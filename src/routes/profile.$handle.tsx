@@ -18,7 +18,7 @@ import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
 import { UserProfileSkeleton } from "@/components/UserProfileSkeleton";
 import { HistoryTimeline, TimelineItem } from "@/components/profile/HistoryTimeline";
 import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
-import { ProgressRing } from "@/components/profile/ProgressRing";
+import { ProfileBadgeGallery } from "@/components/gamification/ProfileBadgeGallery";import { ProgressRing } from "@/components/profile/ProgressRing";
 import { useState, useEffect } from "react";
 import { SharedClubsSection } from "@/components/profile/SharedClubsSection";
 import { getSharedClubs } from "@/lib/sharedClubs";
@@ -474,11 +474,13 @@ export default function Profile() {
             )}
           </div>
 
-          {/* Attendance Heatmap Section */}
+{/* Attendance Heatmap Section */}
           <div className="space-y-6">
             <AttendanceHeatmap userId={profile.id} />
           </div>
 
+          {/* Custom Interactive Badges Section */}
+          <ProfileBadgeGallery userId={profile.id} />
           {/* Activity History Section */}
           <div className="space-y-6">
             <div className="flex items-center gap-2 border-b-2 border-black pb-2 text-xl font-bold font-display">
