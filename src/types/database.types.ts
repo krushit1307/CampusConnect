@@ -144,6 +144,79 @@ export type Database = {
         };
         Relationships: [];
       };
+      merch_items: {
+        Row: {
+          id: string;
+          club_id: string;
+          name: string;
+          description: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          club_id: string;
+          name: string;
+          description?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          club_id?: string;
+          name?: string;
+          description?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "merch_items_club_id_fkey";
+            columns: ["club_id"];
+            isOneToOne: false;
+            referencedRelation: "clubs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      merch_variants: {
+        Row: {
+          id: string;
+          merch_item_id: string;
+          name: string;
+          stock: number;
+          price: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          merch_item_id: string;
+          name: string;
+          stock?: number;
+          price?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          merch_item_id?: string;
+          name?: string;
+          stock?: number;
+          price?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "merch_variants_merch_item_id_fkey";
+            columns: ["merch_item_id"];
+            isOneToOne: false;
+            referencedRelation: "merch_items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       club_tags: {
         Row: {
           id: string;
@@ -432,6 +505,29 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      event_announcements: {
+        Row: {
+          id: string;
+          event_id: string;
+          message: string;
+          priority: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          message: string;
+          priority?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          message?: string;
+          priority?: string;
+          created_at?: string;
+        };
       };
       events: {
         Row: {
@@ -1383,7 +1479,8 @@ export type Database = {
           actor_id: string | null;
           type: string;
           title: string;
-          message: string;
+          message?: string | null;
+          payload?: Record<string, any> | null;
           link: string | null;
           link_url: string | null;
 
@@ -1398,7 +1495,8 @@ export type Database = {
           actor_id?: string | null;
           type: string;
           title: string;
-          message: string;
+          message?: string | null;
+          payload?: Record<string, any> | null;
           link?: string | null;
           link_url?: string | null;
 
@@ -1413,7 +1511,8 @@ export type Database = {
           actor_id?: string | null;
           type?: string;
           title?: string;
-          message?: string;
+          message?: string | null;
+          payload?: Record<string, any> | null;
           link?: string | null;
           link_url?: string | null;
 
@@ -1812,6 +1911,41 @@ export type Database = {
           created_at?: string;
         };
         Relationships: [];
+      };
+      user_availability: {
+        Row: {
+          user_id: string;
+          day_of_week: number;
+          slot_index: number;
+          is_available: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          day_of_week: number;
+          slot_index: number;
+          is_available?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          day_of_week?: number;
+          slot_index?: number;
+          is_available?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_availability_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       push_subscriptions: {
         Row: {

@@ -1,0 +1,145 @@
+import React, { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { useIdempotentPayment } from "@/hooks/useIdempotentPayment";
+import { Database } from "@/types/database.types";
+import { formatCurrency } from "@/lib/ticketing/discountCalculator";
+import { Loader2, ShoppingBag } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+
+type MerchItem = Database["public"]["Tables"]["merch_items"]["Row"];
+type MerchVariant = Database["public"]["Tables"]["merch_variants"]["Row"];
+
+interface MerchItemWithVariants extends MerchItem {
+  variants: MerchVariant[];
+}
+
+export function MerchStore({ clubId }: { clubId: string }) {
+  const [items, setItems] = useState<MerchItemWithVariants[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { processPayment, isProcessing } = useIdempotentPayment();
+
+  useEffect(() => {
+    fetchMerch();
+  }, [clubId]);
+
+  const fetchMerch = async () => {
+    setLoading(true);
+    const { data: itemsData, error: itemsError } = await supabase
+      .from("merch_items")
+      .select(
+        `
+        *,
+        variants:merch_variants(*)
+      `,
+      )
+      .eq("club_id", clubId);
+
+    if (itemsError) {
+      toast.error("Failed to load merchandise.");
+    } else {
+      setItems(itemsData || []);
+    }
+    setLoading(false);
+  };
+
+  const handleBuy = async (variant: MerchVariant) => {
+    try {
+      await processPayment({
+        quantity: 1,
+        amount: variant.price,
+        merchVariantId: variant.id,
+        merchQuantity: 1,
+      });
+      // Refresh inventory
+      fetchMerch();
+    } catch (err) {
+      // Errors are handled by the hook
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+        <ShoppingBag className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white">Store is Empty</h3>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">
+          This club hasn't added any merchandise yet.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      {items.map((item) => (
+        <div
+          key={item.id}
+          className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden"
+        >
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{item.name}</h2>
+            {item.description && (
+              <p className="mt-2 text-gray-600 dark:text-gray-300">{item.description}</p>
+            )}
+          </div>
+          <div className="p-6 bg-gray-50 dark:bg-gray-900/50">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
+              Available Options
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {item.variants.map((variant) => (
+                <div
+                  key={variant.id}
+                  className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex justify-between items-start">
+                      <h4 className="font-bold text-gray-900 dark:text-white text-lg">
+                        {variant.name}
+                      </h4>
+                      {variant.stock === 0 ? (
+                        <Badge variant="destructive">Out of Stock</Badge>
+                      ) : variant.stock < 5 ? (
+                        <Badge variant="outline" className="text-amber-600 border-amber-600">
+                          Low Stock
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <p className="text-xl font-bold text-indigo-600 mt-2">
+                      {formatCurrency(variant.price)}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      {variant.stock} left
+                    </p>
+                  </div>
+                  <Button
+                    className="mt-4 w-full"
+                    onClick={() => handleBuy(variant)}
+                    disabled={variant.stock === 0 || isProcessing}
+                  >
+                    {isProcessing ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <ShoppingBag className="w-4 h-4 mr-2" />
+                    )}
+                    Buy Now
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}

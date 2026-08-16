@@ -330,12 +330,12 @@ export function EventCard({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <ShareMenu
+<ShareMenu
                     url={shareUrl}
                     title={event.title}
                     text={`Check out this event: ${event.title}`}
-                  >
-                    <button
+                    eventId={event.id}
+                  >                    <button
                       type="button"
                       aria-label="Share event link"
                       className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black"

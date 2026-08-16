@@ -33,14 +33,48 @@ self.addEventListener("push", (event) => {
     payload.target_route || payload.data?.target_route || payload.data?.url || payload.url,
   );
 
+  let title = payload.title || "CampusConnect";
+  let body = payload.body || payload.message || "You have a new notification.";
+
+  // Dynamic Push Notification Payload Formatter (Fallback for OS background notifications)
+  if (payload.type && payload.payload) {
+    const data = payload.payload;
+    switch (payload.type) {
+      case "EVENT_INVITE":
+        title = "Event Invite";
+        body = `${data.actor || "Someone"} invited you to ${data.target || "an event"}`;
+        break;
+      case "EVENT_CANCELLED":
+        title = "Event Cancelled";
+        body = `${data.target || "An event"} has been cancelled.`;
+        break;
+      case "EVENT_REMINDER":
+        title = "Event Reminder";
+        body = `Reminder: ${data.target || "An event"} is starting soon.`;
+        break;
+      case "NEW_POST":
+        title = "New Post";
+        body = `${data.actor || "Someone"} posted in ${data.target || "a club"}`;
+        break;
+      case "CLUB_INVITE":
+        title = "Club Invite";
+        body = `${data.actor || "Someone"} invited you to join ${data.target || "a club"}`;
+        break;
+      case "NEW_COMMENT":
+        title = "New Comment";
+        body = `${data.actor || "Someone"} commented on your post.`;
+        break;
+    }
+  }
+
   const options = {
-    body: payload.body || payload.message || "You have a new notification.",
+    body: body,
     icon: payload.icon || "/icon-192x192.png",
     badge: payload.badge || "/icon-192x192.png",
     data: { target_route: targetRoute },
     tag: payload.tag || "campusconnect-notification",
   };
-  event.waitUntil(self.registration.showNotification(payload.title || "CampusConnect", options));
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 /**

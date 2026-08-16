@@ -18,6 +18,7 @@ import WifiOff from "lucide-react/dist/esm/icons/wifi-off";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import type { DateRange } from "react-day-picker";
+import { legacyRoleToLevel } from "@/lib/clubPermissions";
 
 import format from "date-fns/format";
 import { createClient } from "@/lib/supabase/client";
@@ -177,14 +178,18 @@ export function CreateEventDialog({
     if (!user) return;
     supabase
       .from("club_members")
-      .select("club_id")
+      .select("club_id, club_roles (permissions_level)")
       .eq("user_id", user.id)
-      .eq("role", "admin")
       .eq("status", "approved")
-      .limit(1)
-      .single()
       .then(({ data }) => {
-        if (data) setClubId(data.club_id);
+        const adminClubs = (data ?? []).filter((m: Record<string, unknown>) => {
+          const cr = m["club_roles"] as
+            { permissions_level?: number }[] | { permissions_level?: number } | null;
+          const level = Array.isArray(cr) ? cr[0]?.permissions_level : cr?.permissions_level;
+          const legacyRole = m["role"] as string | undefined;
+          return (level ?? legacyRoleToLevel(legacyRole)) >= 40;
+        });
+        if (adminClubs.length > 0) setClubId(adminClubs[0].club_id as string);
       });
   }, [user]);
 

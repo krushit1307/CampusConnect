@@ -175,9 +175,6 @@ export default function Landing() {
   const { data: featuredEvents, isLoading: isLoadingEvents } = useQuery({
     queryKey: ["featured-events"],
     queryFn: async () => {
-      // The magazine grid (issue #1852) ranks cards by popularity_score so
-      // we ask the DB to do that ordering for us. is_featured is surfaced as
-      // a tie-breaker; see sortFeaturedEvents() in <FeaturedEvents />.
       const { data, error } = await supabase
         .from("events")
         .select(
@@ -226,8 +223,6 @@ export default function Landing() {
 
   const shouldDisableParallax = prefersReducedMotion || isMobile;
 
-  // Map scrollYProgress to Y translations for multi-layer parallax
-  // Background: 0.2x speed, Midground: 0.5x, Foreground: 0.8x
   const bgLayerYRaw = useTransform(scrollYProgress, [0, 1], [0, 40]);
   const midLayerYRaw = useTransform(scrollYProgress, [0, 1], [0, 100]);
   const fgLayerYRaw = useTransform(scrollYProgress, [0, 1], [0, 160]);
@@ -238,7 +233,6 @@ export default function Landing() {
 
   const heroTextYRaw = useTransform(scrollYProgress, [0, 1], [0, -60]);
 
-  // Fallbacks for disabled parallax (0 translations)
   const yBgLayer = shouldDisableParallax ? 0 : bgLayerYRaw;
   const yMidLayer = shouldDisableParallax ? 0 : midLayerYRaw;
   const yFgLayer = shouldDisableParallax ? 0 : fgLayerYRaw;
@@ -256,17 +250,13 @@ export default function Landing() {
 
   return (
     <SiteShell>
-      {/* ANNOUNCEMENT MARQUEE — scrolls above the hero, homepage only */}
       <Marquee>{t("home.marquee")}</Marquee>
 
-      {/* HERO — Multi-layered parallax with 3 SVG depth layers */}
       <section className="relative h-96 w-full overflow-hidden md:h-[500px]">
-        {/* Parallax image layers: Background (0.2x), Midground (0.5x), Foreground (0.8x) */}
         <HeroBackground y={yBgLayer} />
         <HeroMidground y={yMidLayer} />
         <HeroForeground y={yFgLayer} />
 
-        {/* Floating community icons (visible only on desktop for parallax depth) */}
         <motion.div
           style={{ y: yFloat1 }}
           className="absolute left-[8%] top-[30%] z-10 hidden md:flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/20 text-[#f5c66b] shadow-lg opacity-75 pointer-events-none"
@@ -286,7 +276,6 @@ export default function Landing() {
           <GraduationCap size={24} />
         </motion.div>
 
-        {/* Ambient Overlay for text contrast */}
         <div className="absolute inset-0 bg-gradient-to-br from-brand-blue-dark/70 via-brand-blue-dark/55 to-brand-blue-muted/45 z-[3] pointer-events-none" />
 
         <motion.div
@@ -349,7 +338,6 @@ export default function Landing() {
         </motion.div>
       </section>
 
-      {/* FEATURED EVENTS — Magazine layout */}
       <section className="bg-cream px-4 py-20 md:px-6 md:py-28 border-t-2 border-black">
         <div className="mx-auto max-w-7xl">
           <ScrollReveal>
@@ -385,7 +373,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* FEATURED FEATURES — 4-card grid (PR 207) */}
       <section
         id="features"
         className="bg-lime px-4 py-20 md:px-6 md:py-32 border-3 border-black scroll-mt-24"
@@ -441,7 +428,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ABOUT THE PLATFORM (from main, restyled) */}
       <section className="bg-blue-300 border-t-2 border-gray-200 px-4 py-20 md:px-6">
         <div className="mx-auto max-w-6xl">
           <SectionEyebrow>{t("home.about.eyebrow")}</SectionEyebrow>
@@ -480,7 +466,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* KEY STATS (PR 207 + main core benefits combined) */}
       <section className="bg-red-500 px-4 py-20 md:px-6 md:py-28">
         <div className="mx-auto max-w-6xl">
           <div className="grid gap-8 md:grid-cols-4">
@@ -503,7 +488,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* CORE CAPABILITIES (PR 207) & HOW IT WORKS (main) */}
       <section className="border-y-2 border-gray-200 bg-teal-600 px-4 py-20 md:px-6 md:py-28">
         <div className="mx-auto max-w-6xl grid md:grid-cols-2 gap-12">
           <div>
@@ -569,7 +553,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* HOW IT WORKS — Testimonial (PR 207) */}
       <section className="border-b-2 border-gray-200 bg-amber-200 px-4 py-16 md:px-6">
         <div className="mx-auto max-w-4xl text-center">
           <p className="mb-4 font-mono text-lg uppercase tracking-widest text-amber-800 font-bold">
@@ -584,7 +567,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* THE LANDSCAPE (main) */}
       <section className="bg-violet-400 border-b-2 border-gray-200 px-4 py-20 md:px-6">
         <div className="mx-auto max-w-6xl">
           <SectionEyebrow>{t("home.landscape.eyebrow")}</SectionEyebrow>
@@ -612,7 +594,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* DEEP DIVE & TECH STACK (main) */}
       <section className="bg-amber-500 px-4 py-20 md:px-6">
         <div className="mx-auto grid max-w-6xl gap-12 md:grid-cols-2">
           <div>
@@ -689,7 +670,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* FEATURE HIGHLIGHT (main) */}
       <section className="bg-green-300 border-t-2 border-gray-200 px-4 py-20 md:px-6">
         <div className="mx-auto max-w-6xl">
           <SectionEyebrow>{t("home.integrations.eyebrow")}</SectionEyebrow>
@@ -714,7 +694,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* FAQ SECTION */}
       <section
         id="faq"
         className="bg-teal-100 border-t-2 border-gray-200 px-4 py-20 md:px-6 scroll-mt-24"
@@ -785,7 +764,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* CTA SECTION (PR 207) */}
       <section className="bg-gradient-to-r from-brand-blue-dark to-brand-blue-alt px-4 py-20 text-center text-white md:px-6 md:py-28">
         <ScrollReveal>
           <div className="mx-auto max-w-2xl">
@@ -802,7 +780,6 @@ export default function Landing() {
           </div>
         </ScrollReveal>
       </section>
-      {/* CONTACT SECTION */}
       <section
         id="contact"
         className="bg-white border-t-2 border-gray-200 px-4 py-20 md:px-6 scroll-mt-24"

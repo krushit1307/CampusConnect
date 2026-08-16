@@ -11,7 +11,8 @@ import LogOut from "lucide-react/dist/esm/icons/log-out";
 import Users from "lucide-react/dist/esm/icons/users";
 import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 import { toast } from "sonner";
-
+import ClosedCaption from "lucide-react/dist/esm/icons/closed-caption";
+import { CaptionsOverlay } from "@/components/audio/CaptionsOverlay";
 interface PeerConnectionState {
   peerId: string;
   userName: string;
@@ -31,6 +32,12 @@ export default function StudyRoom() {
   const [isVideoDisabled, setIsVideoDisabled] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isRoomFull, setIsRoomFull] = useState(false);
+  const [captionsEnabled, setCaptionsEnabled] = useState(false);
+  const [isRelayingCaptions, setIsRelayingCaptions] = useState(false);
+
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const transcriptSocketRef = useRef<WebSocket | null>(null);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
@@ -102,8 +109,8 @@ export default function StudyRoom() {
       }
       peersRef.current.forEach((pc) => pc.close());
       peersRef.current.clear();
-      if (channelRef.current) {
-        channelRef.current.unsubscribe();
+      if (transcriptSocketRef.current) {
+        transcriptSocketRef.current.close();
       }
     };
   }, [userId, roomId]);
@@ -124,6 +131,18 @@ export default function StudyRoom() {
       .on("presence", { event: "sync" }, () => {
         const presenceState = channel.presenceState();
         const activePeers = Object.keys(presenceState);
+
+        // Check if captions are enabled globally
+        const anyCaptions = activePeers.some((p) => {
+          const info = presenceState[p]?.[0] as any;
+          return info?.captionsEnabled;
+        });
+
+        if (anyCaptions !== captionsEnabled && !captionsEnabled) {
+          // just UI state update if another peer turned it on
+          // actually let's keep local captionsEnabled state separate from global,
+          // local captionsEnabled means "I want to see captions".
+        }
 
         // Room Size hard limit (5 participants)
         if (activePeers.length > 5 && !activePeers.includes(userId!)) {
@@ -185,6 +204,7 @@ export default function StudyRoom() {
         await channel.track({
           peerId: userId,
           userName: userName,
+          captionsEnabled: captionsEnabled,
         });
       }
     });
@@ -370,6 +390,138 @@ export default function StudyRoom() {
     setIsScreenSharing(false);
   };
 
+  const toggleCaptions = async () => {
+    const nextState = !captionsEnabled;
+    setCaptionsEnabled(nextState);
+    if (channelRef.current) {
+      channelRef.current.track({
+        peerId: userId,
+        userName,
+        captionsEnabled: nextState,
+      });
+    }
+
+    if (nextState && !isRelayingCaptions && localStream) {
+      // Check if someone else is already relaying by looking at presence,
+      // but for simplicity in mesh, the host or the first person to turn it on starts the relay.
+      const presenceState = channelRef.current?.presenceState() || {};
+      const relayers = Object.values(presenceState)
+        .flatMap((p: any) => p)
+        .filter((p: any) => p.isRelayingCaptions);
+
+      if (relayers.length === 0) {
+        startTranscriptRelay();
+      }
+    } else if (!nextState && isRelayingCaptions) {
+      // Check if others still want captions
+      const presenceState = channelRef.current?.presenceState() || {};
+      const othersWantCaptions = Object.keys(presenceState).some((pId) => {
+        if (pId === userId) return false;
+        const info = presenceState[pId]?.[0] as any;
+        return info?.captionsEnabled;
+      });
+
+      if (!othersWantCaptions) {
+        stopTranscriptRelay();
+      }
+    }
+  };
+
+  const startTranscriptRelay = () => {
+    if (!localStream) return;
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const actx = new AudioContextClass();
+      audioContextRef.current = actx;
+      const dest = actx.createMediaStreamDestination();
+
+      // Mix local audio
+      if (localStream.getAudioTracks().length > 0) {
+        const localSource = actx.createMediaStreamSource(localStream);
+        localSource.connect(dest);
+      }
+
+      // Mix remote peers
+      peersRef.current.forEach((pc) => {
+        const receivers = pc.getReceivers();
+        const audioReceiver = receivers.find((r) => r.track.kind === "audio");
+        if (audioReceiver && audioReceiver.track) {
+          const stream = new MediaStream([audioReceiver.track]);
+          const remoteSource = actx.createMediaStreamSource(stream);
+          remoteSource.connect(dest);
+        }
+      });
+
+      // Connect to Edge Function WebSocket
+      const wsUrl = `${import.meta.env.VITE_SUPABASE_URL.replace(/^http/, "ws")}/functions/v1/live-transcript-relay?eventId=${roomId}&userId=${userId}`;
+      const ws = new WebSocket(wsUrl, ["bearer", import.meta.env.VITE_SUPABASE_ANON_KEY]);
+      transcriptSocketRef.current = ws;
+
+      ws.onopen = () => {
+        setIsRelayingCaptions(true);
+        if (channelRef.current) {
+          channelRef.current.track({
+            peerId: userId,
+            userName,
+            captionsEnabled: true,
+            isRelayingCaptions: true,
+          });
+        }
+
+        // Start recording
+        const mr = new MediaRecorder(dest.stream, { mimeType: "audio/webm" });
+        mediaRecorderRef.current = mr;
+        mr.ondataavailable = (e) => {
+          if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
+            ws.send(e.data);
+          }
+        };
+        mr.start(250); // send chunks every 250ms
+      };
+
+      ws.onmessage = (e) => {
+        // Broadcast the JSON received from Edge Function (Deepgram output) to everyone
+        if (channelRef.current) {
+          channelRef.current.send({
+            type: "broadcast",
+            event: "transcript",
+            payload: JSON.parse(e.data),
+          });
+        }
+      };
+
+      ws.onclose = () => {
+        setIsRelayingCaptions(false);
+      };
+    } catch (e) {
+      console.error("Failed to start transcript relay:", e);
+    }
+  };
+
+  const stopTranscriptRelay = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
+    }
+    if (transcriptSocketRef.current) {
+      transcriptSocketRef.current.close();
+      transcriptSocketRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    setIsRelayingCaptions(false);
+    if (channelRef.current) {
+      channelRef.current.track({
+        peerId: userId,
+        userName,
+        captionsEnabled: false,
+        isRelayingCaptions: false,
+      });
+    }
+  };
+
   if (isRoomFull) {
     return (
       <div className="flex h-[80vh] flex-col items-center justify-center text-center p-6">
@@ -458,6 +610,8 @@ export default function StudyRoom() {
         ))}
       </div>
 
+      <CaptionsOverlay eventId={roomId!} enabled={captionsEnabled} />
+
       {/* Control panel bar */}
       <div className="neu-border bg-white p-4 shadow-[4px_4px_0_0_#000] sticky bottom-4 left-0 right-0 flex justify-center items-center gap-4 flex-wrap z-50">
         <button
@@ -488,6 +642,16 @@ export default function StudyRoom() {
           title={isScreenSharing ? "Stop Sharing Screen" : "Share Screen"}
         >
           {isScreenSharing ? <MonitorOff className="h-5 w-5" /> : <MonitorUp className="h-5 w-5" />}
+        </button>
+
+        <button
+          onClick={toggleCaptions}
+          className={`neu-border p-3 transition-colors ${
+            captionsEnabled ? "bg-black text-white" : "bg-white hover:bg-sky/20"
+          }`}
+          title={captionsEnabled ? "Disable Captions" : "Enable Captions"}
+        >
+          <ClosedCaption className="h-5 w-5" />
         </button>
 
         <button

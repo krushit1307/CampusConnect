@@ -11,6 +11,7 @@ import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
 import { BugReportWidget } from "@/components/BugReportWidget";
 import { AutoBreadcrumbs } from "@/components/ui/AutoBreadcrumbs";
+import { LiveAnnouncer } from "@/components/events/LiveAnnouncer";
 
 export function SiteShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
@@ -153,6 +154,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
           } as any
         }
       />
+      <LiveAnnouncer />
       <Navbar />
       {isEmailUnverified && (
         <div

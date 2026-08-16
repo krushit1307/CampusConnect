@@ -1,15 +1,16 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { roleTitleForLevel } from "@/lib/clubPermissions";
 
-type Role = "admin" | "organizer" | "member" | "alumni";
-
-const variantMap: Record<Role, string> = {
+const variantMap: Record<string, string> = {
   admin: "bg-peach border-black text-black",
   organizer: "bg-lavender border-black text-black",
   member: "bg-sky border-black text-black",
   alumni: "bg-lime border-black text-black",
+  Treasurer: "bg-yellow-200 border-black text-black",
+  Secretary: "bg-brand-violet-base text-black border-black",
 };
 
-const labelMap: Record<Role, string> = {
+const labelMap: Record<string, string> = {
   admin: "Admin",
   organizer: "Organizer",
   member: "Member",
@@ -18,17 +19,25 @@ const labelMap: Record<Role, string> = {
 
 // Short, plain-language explanation of what each role can actually do.
 // Shown in the hover tooltip so people don't have to guess what a badge means.
-const descriptionMap: Record<Role, string> = {
+const descriptionMap: Record<string, string> = {
   admin: "Full edits — can manage members, events, and club settings.",
   organizer: "Event manager — can create and edit events for this club.",
   member: "Read-only — can view club info, members, and events.",
   alumni: "Read-only — former active member of this club.",
 };
 
-export function RoleBadge({ role }: { role: Role }) {
-  const styles = variantMap[role] ?? variantMap.member;
-  const label = labelMap[role] ?? role;
-  const description = descriptionMap[role] ?? descriptionMap.member;
+export function RoleBadge({
+  role,
+  permissionsLevel,
+}: {
+  role?: string;
+  permissionsLevel?: number;
+}) {
+  const label = role ? (labelMap[role] ?? role) : roleTitleForLevel(permissionsLevel ?? 10);
+  const styles = variantMap[role ?? ""] ?? "bg-sky border-black text-black";
+  const description =
+    descriptionMap[role ?? ""] ??
+    `Holds ${permissionsLevel ?? 10} authority level — see role permissions for capabilities.`;
 
   return (
     <TooltipProvider delayDuration={150}>

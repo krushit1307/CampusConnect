@@ -78,11 +78,37 @@ serve(async (req) => {
       .single();
     exportData.user_preferences = preferences || {};
 
-    // 3. Compress data
+    // 3. Collect and compress data
     const jsonStr = JSON.stringify(exportData, null, 2);
-    const zipped = zipSync({
+    const zippedFiles: Record<string, Uint8Array> = {
       "export.json": strToU8(jsonStr),
-    });
+    };
+
+    try {
+      // Download avatar
+      const { data: avatarData } = await supabase.storage.from("avatars").download(`${userId}.png`);
+      if (avatarData) {
+        zippedFiles[`media/avatars/avatar.png`] = new Uint8Array(await avatarData.arrayBuffer());
+      }
+
+      // Download user buckets
+      const userBuckets = ["documents", "photos", "resumes", "covers", "face-indexing"];
+      for (const bucket of userBuckets) {
+        const { data: files } = await supabase.storage.from(bucket).list(userId);
+        if (files && files.length > 0) {
+          for (const file of files) {
+            const { data: fileData } = await supabase.storage.from(bucket).download(`${userId}/${file.name}`);
+            if (fileData) {
+              zippedFiles[`media/${bucket}/${file.name}`] = new Uint8Array(await fileData.arrayBuffer());
+            }
+          }
+        }
+      }
+    } catch (mediaError) {
+      console.warn("Failed to fetch some media files during export:", mediaError);
+    }
+
+    const zipped = zipSync(zippedFiles);
 
     // 4. Upload to storage
     const storagePath = `${userId}/${job.id}/export.zip`;

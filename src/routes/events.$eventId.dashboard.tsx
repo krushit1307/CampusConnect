@@ -12,7 +12,11 @@ import { ChartSkeleton } from "@/components/ui/ChartSkeleton";
 import { EventFinancesSection } from "@/components/analytics/EventFinancesSection";
 import { EventPodcastPanel } from "@/components/audio/EventPodcastPanel";
 import { WaitlistChurnPredictionCard } from "@/components/events/WaitlistChurnPredictionCard";
+ feat/poll-results-export
 import { EventPollsExportSection } from "@/components/polls/EventPollsExportSection";
+
+import { EventAnnouncerBroadcast } from "@/components/events/EventAnnouncerBroadcast";
+ main
 
 const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));
 
@@ -341,6 +345,10 @@ export default function EventDashboard() {
                 invite links!
               </p>
             )}
+          </div>
+
+          <div className="mb-8">
+            <EventAnnouncerBroadcast eventId={eventId!} />
           </div>
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">

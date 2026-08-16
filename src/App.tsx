@@ -27,7 +27,7 @@ import { RouteSkeleton } from "./components/RouteSkeleton";
 import { BreadcrumbProvider } from "@/components/BreadcrumbsContext";
 import AriaAnnouncer from "@/components/accessibility/AriaAnnouncer";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
-import { LoginRecoveryModal } from "@/components/auth/LoginRecoveryModal";
+import { EmergencyBroadcastOverlay } from "@/components/EmergencyBroadcastOverlay";import { LoginRecoveryModal } from "@/components/auth/LoginRecoveryModal";
 import { MfaChallengeGuard } from "@/components/auth/MfaChallengeGuard";
 import { ComplianceCheckGuard } from "@/components/auth/ComplianceCheckGuard";
 import UnsubscribeRoute from "./routes/unsubscribe";
@@ -112,6 +112,7 @@ const MapPage = lazy(() => import("./routes/map"));
 const ForgotPassword = lazy(() => import("./routes/forgot-password"));
 const ResetPassword = lazy(() => import("./routes/reset-password"));
 const Settings = lazy(() => import("./routes/settings"));
+const SettingsData = lazy(() => import("./routes/settings.data"));
 const VerifyEmail = lazy(() => import("./routes/verify-email"));
 const Directory = lazy(() => import("./routes/Directory"));
 const MessagesRoute = lazy(() => import("./routes/messages"));
@@ -121,7 +122,8 @@ const AdminReportsPage = lazy(() => import("./routes/admin.reports"));
 const AdminUsersPage = lazy(() => import("./routes/admin.users"));
 const AdminRestorePage = lazy(() => import("./routes/admin.restore"));
 const AdminDlqPage = lazy(() => import("./routes/admin.dlq"));
-const NotFound = lazy(() => import("./routes/NotFound"));
+const AdminEmergencyBroadcast = lazy(() => import("./routes/admin.emergency-broadcast"));const AdminBadgesPage = lazy(() => import("./routes/admin.badges"));const NotFound = lazy(() => import("./routes/NotFound"));
+const AdminBadgesPage = lazy(() => import("./routes/admin.badges"));const NotFound = lazy(() => import("./routes/NotFound"));
 const ChallengeArena = lazy(() => import("./routes/challenge"));
 const EventDashboard = lazy(() => import("./routes/events.$eventId.dashboard"));
 const EventGantt = lazy(() => import("./routes/events.$eventId.gantt"));
@@ -305,6 +307,7 @@ const router = createBrowserRouter(
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/settings/data" element={<SettingsData />} />
             <Route path="/recap" element={<Recap />} />
             <Route path="/volunteer-record" element={<VolunteerRecord />} />
             <Route path="/network" element={<NetworkPage />} />
@@ -315,8 +318,9 @@ const router = createBrowserRouter(
             <Route path="/admin/reports" element={<AdminReportsPage />} />
             <Route path="/admin/users" element={<AdminUsersPage />} />
             <Route path="/admin/restore" element={<AdminRestorePage />} />
-            <Route path="/admin/dlq" element={<AdminDlqPage />} />
-            <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
+<Route path="/admin/dlq" element={<AdminDlqPage />} />
+<Route path="/admin/emergency-broadcast" element={<AdminEmergencyBroadcast />} />            <Route path="/admin/badges" element={<AdminBadgesPage />} />            <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
+            <Route path="/admin/badges" element={<AdminBadgesPage />} />            <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
             {/* Catch-all route for 404 errors */}
             <Route path="*" element={<NotFound />} />
           </Route>
@@ -344,6 +348,7 @@ const router = createBrowserRouter(
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/settings/data" element={<SettingsData />} />
           <Route path="/recap" element={<Recap />} />
           <Route path="/volunteer-record" element={<VolunteerRecord />} />
           <Route path="/network" element={<NetworkPage />} />
@@ -360,7 +365,6 @@ const router = createBrowserRouter(
           {/* Catch-all route for 404 errors */}
           <Route path="*" element={<NotFound />} />
 
- main
         </Route>
 
         <Route path="/gallery" element={<GalleryPage />} />
@@ -495,9 +499,9 @@ export default function App() {
             */}
             <LazyMotion features={loadDomAnimation} strict={import.meta.env.DEV}>
               <CommandPaletteProvider>
-                <OfflineIndicator />
-                <LoginRecoveryModal />
-                {/* Floating Dark Mode Toggle */}
+<OfflineIndicator />
+<EmergencyBroadcastOverlay />
+<LoginRecoveryModal />                {/* Floating Dark Mode Toggle */}
                 <div className="fixed bottom-4 right-4 z-[9999]">
                   <ThemeToggle />
                 </div>

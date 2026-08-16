@@ -98,6 +98,7 @@ import EventFeedbackForm from "@/components/EventFeedbackForm";
 import { EventPhotoGallery } from "@/components/EventPhotoGallery";
 import { EventMap } from "@/components/EventMap";
 import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
+import { TournamentBracket } from "@/components/events/TournamentBracket";
 import {
   buildKanbanColumns,
   buildRsvpStatus,
@@ -1648,8 +1649,7 @@ export default function EventDetailsPage() {
               >
                 {event.title}
               </h1>
-              <ShareMenu url={shareUrl} title={event.title} />
-              <TooltipProvider>
+<ShareMenu url={shareUrl} title={event.title} eventId={event.id} />              <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -1901,6 +1901,11 @@ export default function EventDetailsPage() {
             </div>
           </div>
         </section>
+
+        <section className="bg-cream px-4 py-8 md:px-6">
+          <TournamentBracket />
+        </section>
+
         {/* Details Container */}
         <section className="bg-cream px-4 py-12 md:px-6">
           <div className="mx-auto max-w-4xl neu-border bg-white p-6 md:p-8">
@@ -2532,12 +2537,12 @@ export default function EventDetailsPage() {
                   Share with Friends
                 </h3>
                 <div className="mt-4">
-                  <ShareMenu
-                    url={shareUrl}
-                    title={event.title}
-                    text={`Check out this event: ${event.title}`}
-                  />
-                </div>
+<ShareMenu
+                url={shareUrl}
+                title={event.title}
+                text={`Check out this event: ${event.title}`}
+                eventId={event.id}
+              />                </div>
               </div>
 
               <div className="border-t border-black/10 pt-4">

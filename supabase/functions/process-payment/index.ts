@@ -91,7 +91,26 @@ serve(async (req) => {
       throw new Error("Failed to register idempotency key");
     }
 
-    // 3. Execute the actual payment logic (e.g., Stripe API call)
+    // 3. Optional: Merch Inventory Check
+    let stockReserved = false;
+    if (body.merchVariantId && body.merchQuantity) {
+      const { error: reserveError } = await supabaseClient.rpc("decrement_merch_stock", {
+        p_variant_id: body.merchVariantId,
+        p_quantity: body.merchQuantity,
+      });
+
+      if (reserveError) {
+        // Rollback idempotency state or just leave it
+        await supabaseClient.from("idempotency_keys").delete().eq("key", idempotencyKey);
+        return new Response(JSON.stringify({ error: "Out of Stock" }), {
+          status: 409,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      stockReserved = true;
+    }
+
+    // 4. Execute the actual payment logic (e.g., Stripe API call)
     // TODO: Replace with actual Stripe integration
     // If we were using Stripe, it would look like this:
     /*
@@ -116,7 +135,7 @@ serve(async (req) => {
             product_data: { name: 'Event Ticket' },
             unit_amount: baseAmountCents,
           },
-          quantity: 1,
+          quantity: body.merchQuantity || 1,
         },
         ...(body.includeCharityDonation ? [{
           price_data: {
@@ -139,7 +158,19 @@ serve(async (req) => {
     });
     */
 
-    const paymentResult = await simulateStripePayment(body);
+    let paymentResult;
+    try {
+      paymentResult = await simulateStripePayment(body);
+    } catch (paymentErr: any) {
+      // Payment failed! If we reserved stock, roll it back.
+      if (stockReserved) {
+        await supabaseClient.rpc("release_merch_stock", {
+          p_variant_id: body.merchVariantId,
+          p_quantity: body.merchQuantity,
+        });
+      }
+      throw paymentErr;
+    }
 
     const successPayload = {
       success: true,
@@ -147,7 +178,7 @@ serve(async (req) => {
       message: "Payment successful",
     };
 
-    // 4. Update the record to "completed" and cache the response
+    // 5. Update the record to "completed" and cache the response
     await supabaseClient
       .from("idempotency_keys")
       .update({
