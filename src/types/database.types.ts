@@ -1813,6 +1813,41 @@ export type Database = {
         };
         Relationships: [];
       };
+      user_availability: {
+        Row: {
+          user_id: string;
+          day_of_week: number;
+          slot_index: number;
+          is_available: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          day_of_week: number;
+          slot_index: number;
+          is_available?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          day_of_week?: number;
+          slot_index?: number;
+          is_available?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_availability_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       push_subscriptions: {
         Row: {
           id: string;

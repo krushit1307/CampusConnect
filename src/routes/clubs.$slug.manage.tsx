@@ -374,6 +374,12 @@ export default function ClubManageRoute() {
                 <Calendar size={18} /> Events
               </button>
               <button
+                onClick={() => navigate(`/clubs/${slug}/scheduler`)}
+                className="neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all bg-lime text-black hover:-translate-y-1 hover:shadow-lg"
+              >
+                <Calendar size={18} /> Smart Scheduler
+              </button>
+              <button
                 onClick={() => setActiveTab("analytics")}
                 className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
                   activeTab === "analytics"
