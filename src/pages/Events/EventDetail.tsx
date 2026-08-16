@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Calendar from "lucide-react/dist/esm/icons/calendar";
 import MapPin from "lucide-react/dist/esm/icons/map-pin";
 import { useParams } from "react-router-dom";
@@ -9,6 +9,9 @@ import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { EventSocialProofToasts } from "@/components/events/EventSocialProofToasts";
 import { useBannerColor } from "@/hooks/useBannerColor";
 import { EventFeedbackSurvey } from "@/components/events/EventFeedbackSurvey";
+import VolunteerShifts from "@/components/VolunteerShifts"; // <-- NEW IMPORT
+import { User } from "@supabase/supabase-js";
+
 interface EventDetailRecord {
   id: string;
   title: string;
@@ -21,7 +24,18 @@ interface EventDetailRecord {
 
 export default function EventDetail() {
   const { eventId } = useParams();
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
+  const [user, setUser] = useState<User | null>(null);
+
+  // Get the logged in user so we can pass their ID to the VolunteerShifts component
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUser(user);
+      }
+    });
+  }, [supabase]);
+
   const { data: event, isLoading } = useQuery<EventDetailRecord | null>({
     queryKey: ["event-detail", eventId],
     enabled: Boolean(eventId),
@@ -90,7 +104,15 @@ export default function EventDetail() {
           )}
         </div>
         {event.description && <p className="whitespace-pre-wrap leading-7">{event.description}</p>}
+
+        {/* NEW VOLUNTEER SHIFTS WIDGET */}
+        {user && event.id && (
+          <div className="pt-6">
+            <VolunteerShifts eventId={event.id} userId={user.id} />
+          </div>
+        )}
       </div>
+
       <EventFeedbackSurvey eventId={event.id} />
       <EventSocialProofToasts eventId={event.id} />
     </article>
