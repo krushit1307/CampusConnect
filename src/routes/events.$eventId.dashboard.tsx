@@ -12,6 +12,7 @@ import { ChartSkeleton } from "@/components/ui/ChartSkeleton";
 import { EventFinancesSection } from "@/components/analytics/EventFinancesSection";
 import { EventPodcastPanel } from "@/components/audio/EventPodcastPanel";
 import { WaitlistChurnPredictionCard } from "@/components/events/WaitlistChurnPredictionCard";
+import { EventAnnouncerBroadcast } from "@/components/events/EventAnnouncerBroadcast";
 
 const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));
 
@@ -316,12 +317,15 @@ export default function EventDashboard() {
                       </div>
                       <div>
                         <p className="font-bold">{promoter.referrer_name}</p>
-                        <p className="text-xs text-gray-500">@{promoter.referrer_handle || "username"}</p>
+                        <p className="text-xs text-gray-500">
+                          @{promoter.referrer_handle || "username"}
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <span className="neu-border bg-green-200 px-2.5 py-1 text-xs font-bold uppercase">
-                        {promoter.referral_count} {promoter.referral_count === 1 ? "invite" : "invites"}
+                        {promoter.referral_count}{" "}
+                        {promoter.referral_count === 1 ? "invite" : "invites"}
                       </span>
                     </div>
                   </div>
@@ -329,9 +333,14 @@ export default function EventDashboard() {
               </div>
             ) : (
               <p className="text-sm font-mono text-gray-600 bg-white p-4 border-2 border-black italic">
-                No referrals recorded for this event yet. Encourage attendees to generate referral invite links!
+                No referrals recorded for this event yet. Encourage attendees to generate referral
+                invite links!
               </p>
             )}
+          </div>
+
+          <div className="mb-8">
+            <EventAnnouncerBroadcast eventId={eventId!} />
           </div>
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">

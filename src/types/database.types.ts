@@ -433,6 +433,29 @@ export type Database = {
           },
         ];
       };
+      event_announcements: {
+        Row: {
+          id: string;
+          event_id: string;
+          message: string;
+          priority: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          message: string;
+          priority?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          message?: string;
+          priority?: string;
+          created_at?: string;
+        };
+      };
       events: {
         Row: {
           id: string;
