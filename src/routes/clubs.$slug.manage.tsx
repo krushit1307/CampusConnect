@@ -14,6 +14,7 @@ import {
   CheckCircle,
   Download,
   BarChart2,
+  ShoppingBag,
 } from "lucide-react";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
@@ -22,6 +23,7 @@ import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { ClubMembersTable } from "@/components/Clubs/ClubMembersTable";
 import { ClubRolesManager } from "@/components/Clubs/ClubRolesManager";
 import { ClubAnalyticsDashboard } from "@/components/Clubs/ClubAnalyticsDashboard";
+import { ManageMerch } from "@/components/Clubs/Merchandise/ManageMerch";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -57,7 +59,7 @@ export default function ClubManageRoute() {
   const [user, setUser] = useState<User | null>(null);
   const initialTab = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState<
-    "settings" | "members" | "roles" | "events" | "analytics"
+    "settings" | "members" | "roles" | "events" | "analytics" | "merchandise"
   >(
     initialTab === "analytics"
       ? "analytics"
@@ -67,7 +69,9 @@ export default function ClubManageRoute() {
           ? "roles"
           : initialTab === "events"
             ? "events"
-            : "settings",
+            : initialTab === "merchandise"
+              ? "merchandise"
+              : "settings",
   );
 
   // Form State
@@ -393,6 +397,16 @@ export default function ClubManageRoute() {
               >
                 <ShieldCheck size={18} /> Roles
               </button>
+              <button
+                onClick={() => setActiveTab("merchandise")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "merchandise"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <ShoppingBag size={18} /> Merchandise
+              </button>
             </nav>
           </aside>
 
@@ -640,6 +654,7 @@ export default function ClubManageRoute() {
               </div>
             )}
             {activeTab === "analytics" && <ClubAnalyticsDashboard clubId={club.id} />}
+            {activeTab === "merchandise" && <ManageMerch clubId={club.id} />}
           </main>
         </div>
       </div>

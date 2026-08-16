@@ -144,6 +144,79 @@ export type Database = {
         };
         Relationships: [];
       };
+      merch_items: {
+        Row: {
+          id: string;
+          club_id: string;
+          name: string;
+          description: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          club_id: string;
+          name: string;
+          description?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          club_id?: string;
+          name?: string;
+          description?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "merch_items_club_id_fkey";
+            columns: ["club_id"];
+            isOneToOne: false;
+            referencedRelation: "clubs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      merch_variants: {
+        Row: {
+          id: string;
+          merch_item_id: string;
+          name: string;
+          stock: number;
+          price: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          merch_item_id: string;
+          name: string;
+          stock?: number;
+          price?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          merch_item_id?: string;
+          name?: string;
+          stock?: number;
+          price?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "merch_variants_merch_item_id_fkey";
+            columns: ["merch_item_id"];
+            isOneToOne: false;
+            referencedRelation: "merch_items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       club_tags: {
         Row: {
           id: string;

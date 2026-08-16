@@ -20,6 +20,7 @@ import { VideoPlayer } from "@/components/VideoPlayer";
 import { AudioReactiveBackground } from "@/components/media/AudioReactiveBackground";
 import LazyHydrate from "@/components/LazyHydrate";
 import { NotFoundPage as NotFound } from "@/components/NotFoundPage";
+import { MerchStore } from "@/components/Clubs/Merchandise/MerchStore";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -726,6 +727,16 @@ export default function ClubProfile() {
             </div>
           </div>
         </section>
+
+        <section className="px-4 py-12 md:px-6 bg-gray-50 border-t-2 border-black">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-3xl font-display font-bold text-black">Merchandise Store</h2>
+            </div>
+            <MerchStore clubId={club.id} />
+          </div>
+        </section>
+
         <ReportDialog
           isOpen={isReportDialogOpen}
           onClose={() => setIsReportDialogOpen(false)}
