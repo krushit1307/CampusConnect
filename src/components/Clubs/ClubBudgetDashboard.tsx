@@ -10,6 +10,7 @@ import Clock from "lucide-react/dist/esm/icons/clock";
 import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
 import XCircle from "lucide-react/dist/esm/icons/x-circle";
 import { toast } from "sonner";
+import { AssetRegisterPanel } from "@/components/Clubs/AssetRegisterPanel";
 
 interface ClubBudgetDashboardProps {
   clubId: string;
@@ -327,6 +328,9 @@ export function ClubBudgetDashboard({ clubId }: ClubBudgetDashboardProps) {
           </div>
         )}
       </div>
+
+      {/* Capital kit: book values, replacement timeline and the funding gap. */}
+      <AssetRegisterPanel clubId={clubId} />
     </div>
   );
 }
