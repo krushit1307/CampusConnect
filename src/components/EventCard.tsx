@@ -4,6 +4,7 @@ import {
   getCountdown,
   getGoogleCalendarUrl,
   getIcsContent,
+  isEventLive,
 } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { useState } from "react";
@@ -17,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { EventRSVPButton } from "@/components/EventRSVPButton";
 import { usePreloadEvent } from "@/hooks/usePreloadEvent";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
+import { LiveNowBadge } from "@/components/events/LiveNowBadge";
 import { ShareMenu } from "@/components/ui/ShareMenu";
 import { EventRsvpCancelDialog } from "@/components/events/EventRsvpCancelDialog";
 import { getEventTldr } from "@/lib/eventSummary";
@@ -30,6 +32,7 @@ interface Event {
   event_date: string | null;
   start_date?: string | null;
   end_date?: string | null;
+  event_status?: string | null;
   location: string | null;
   banner_url?: string | null;
   created_at?: string | null;
@@ -179,6 +182,7 @@ export function EventCard({
     location: event.location,
   });
   const countdown = event.event_date ? getCountdown(event.event_date) : "TBA";
+  const isLive = isEventLive(event);
 
   const [ticketOpen, setTicketOpen] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
@@ -297,14 +301,20 @@ export function EventCard({
                 : "TBA"}
             </p>
 
-            {event.event_date && (
-              <span
-                className={`mt-2 inline-flex min-h-[24px] items-center rounded-full px-2 py-1 text-[11px] font-bold ${
-                  countdown === "Ended" ? "bg-gray-100 text-gray-600" : "bg-peach text-orange-700"
-                }`}
-              >
-                {countdown}
-              </span>
+            {isLive ? (
+              <LiveNowBadge className="mt-2">Live Now</LiveNowBadge>
+            ) : (
+              event.event_date && (
+                <span
+                  className={`mt-2 inline-flex min-h-[24px] items-center rounded-full px-2 py-1 text-[11px] font-bold ${
+                    countdown === "Ended"
+                      ? "bg-gray-100 text-gray-600"
+                      : "bg-peach text-orange-700"
+                  }`}
+                >
+                  {countdown}
+                </span>
+              )
             )}
           </div>
           <div className="flex gap-2 relative z-10">

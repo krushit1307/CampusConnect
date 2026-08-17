@@ -10,6 +10,7 @@
 import React from 'react';
 import { useNextEventWidget } from '../../hooks/useNextEventWidget';
 import { generateEventDeepLink } from '../../lib/pwa/widgetBridge';
+import { LiveNowBadge } from '../events/LiveNowBadge';
 
 export const EventCountdownWidget: React.FC = () => {
     const { event, countdown, isLoading, error, isEmpty, emptyMessage } = useNextEventWidget();
@@ -81,9 +82,8 @@ export const EventCountdownWidget: React.FC = () => {
 
                 {/* Live Badge */}
                 {countdown.isLive && (
-                    <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 bg-red-600 text-white text-xs font-bold rounded-full shadow-lg">
-                        <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
-                        LIVE NOW
+                    <div className="absolute top-3 left-3">
+                        <LiveNowBadge>LIVE NOW</LiveNowBadge>
                     </div>
                 )}
             </div>

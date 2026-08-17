@@ -78,6 +78,32 @@ export function getCountdown(dateStr: string): string {
   return `In ${months} month${months > 1 ? "s" : ""}`;
 }
 
+export function isEventLive(event: {
+  event_date?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  event_status?: string | null;
+}): boolean {
+  const now = Date.now();
+  const startStr = event.start_date || event.event_date;
+  const endStr = event.end_date;
+
+  if (event.event_status === "ongoing") {
+    return true;
+  }
+
+  if (!startStr) return false;
+
+  const startTime = new Date(startStr).getTime();
+  if (isNaN(startTime)) return false;
+
+  const defaultEndMs = startTime + 2 * 60 * 60 * 1000;
+  const endTime = endStr ? new Date(endStr).getTime() : defaultEndMs;
+  const effectiveEndMs = isNaN(endTime) ? defaultEndMs : endTime;
+
+  return now >= startTime && now <= effectiveEndMs;
+}
+
 /**
  * Formats a date string into a UTC date-only format.
  *

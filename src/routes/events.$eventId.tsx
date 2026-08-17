@@ -134,6 +134,8 @@ import { CaptchaWidget } from "@/components/CaptchaWidget";
 import { Blurhash } from "react-blurhash";
 import { isValidBlurhash, DEFAULT_FALLBACK_BLURHASH } from "@/lib/blurhashUtils";
 import { EventDescriptionTranslation } from "@/components/events/EventDescriptionTranslation";
+import { LiveNowBadge } from "@/components/events/LiveNowBadge";
+import { isEventLive } from "@/lib/utils";
 
 /**
  * Hero banner for the event detail page.
@@ -1549,6 +1551,8 @@ export default function EventDetailsPage() {
     maxAttendees > 0 &&
     attendeeCount >= maxAttendees;
 
+  const isLive = isEventLive(event);
+
   return (
     <>
       <Helmet>
@@ -1637,10 +1641,11 @@ export default function EventDetailsPage() {
           )}
 
           <div className="relative mx-auto flex min-h-[50vh] max-w-4xl flex-col justify-end px-4 py-16 md:min-h-[60vh] md:px-6 md:py-24">
-            <div className="mb-4">
+            <div className="mb-4 flex flex-wrap items-center gap-3">
               <span className="neu-border inline-block bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider text-black">
                 Event Details
               </span>
+              {isLive && <LiveNowBadge>Live Now</LiveNowBadge>}
             </div>
 
             <div className="flex items-center gap-3">
