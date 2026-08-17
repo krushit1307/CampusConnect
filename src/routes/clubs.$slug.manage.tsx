@@ -17,6 +17,7 @@ import {
   ShoppingBag,
   Key,
   Code,
+  Gavel,
 } from "lucide-react";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
@@ -26,6 +27,7 @@ import { ClubMembersTable } from "@/components/Clubs/ClubMembersTable";
 import { ClubRolesManager } from "@/components/Clubs/ClubRolesManager";
 import { ClubAnalyticsDashboard } from "@/components/Clubs/ClubAnalyticsDashboard";
 import { ManageMerch } from "@/components/Clubs/Merchandise/ManageMerch";
+import { QuorumPanel } from "@/components/Clubs/QuorumPanel";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -61,11 +63,20 @@ export default function ClubManageRoute() {
   const [user, setUser] = useState<User | null>(null);
   const initialTab = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState<
-    "settings" | "members" | "roles" | "events" | "analytics" | "merchandise" | "developer"
+    | "settings"
+    | "members"
+    | "roles"
+    | "events"
+    | "analytics"
+    | "meetings"
+    | "merchandise"
+    | "developer"
   >(
     initialTab === "analytics"
       ? "analytics"
-      : initialTab === "members"
+      : initialTab === "meetings"
+        ? "meetings"
+        : initialTab === "members"
         ? "members"
         : initialTab === "roles"
           ? "roles"
@@ -513,6 +524,16 @@ export default function ClubManageRoute() {
                 <ShieldCheck size={18} /> Roles
               </button>
               <button
+                onClick={() => setActiveTab("meetings")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "meetings"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <Gavel size={18} /> Meetings
+              </button>
+              <button
                 onClick={() => setActiveTab("merchandise")}
                 className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
                   activeTab === "merchandise"
@@ -821,6 +842,7 @@ export default function ClubManageRoute() {
               </div>
             )}
             {activeTab === "analytics" && <ClubAnalyticsDashboard clubId={club.id} />}
+            {activeTab === "meetings" && <QuorumPanel clubId={club.id} />}
             {activeTab === "merchandise" && <ManageMerch clubId={club.id} />}
             {activeTab === "developer" && (
               <div className="neu-border bg-white p-6 space-y-6">
