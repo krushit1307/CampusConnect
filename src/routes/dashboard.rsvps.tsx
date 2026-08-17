@@ -11,6 +11,7 @@ import { EventCardSkeleton } from "@/components/EventCardSkeleton";
 import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { toast } from "sonner";
 import { useTicketDownload } from "@/hooks/useTicketDownload";
+import { TicketTransferDialog } from "@/components/tickets/TicketTransferDialog";
 
 export default function DashboardRsvps() {
   const [supabase] = useState(() => createClient());
@@ -19,6 +20,12 @@ export default function DashboardRsvps() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const { downloadTicket, isGenerating: isTicketGenerating, generatingEventId } = useTicketDownload();
+  // Event whose ticket is currently being transferred, if any.
+  const [transferringEvent, setTransferringEvent] = useState<{
+    id: string;
+    title: string;
+    startsAt: string;
+  } | null>(null);
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
@@ -262,6 +269,21 @@ export default function DashboardRsvps() {
                   }}
                   isBookmarkPending={false}
                 />
+                {/* Transfer Ticket — price capped and rate limited by the resale guard */}
+                {activeTab === "upcoming" && user && (
+                  <button
+                    onClick={() =>
+                      setTransferringEvent({
+                        id: e.id,
+                        title: e.title,
+                        startsAt: e.event_date ?? new Date().toISOString(),
+                      })
+                    }
+                    className="neu-border flex w-full items-center justify-center gap-2 bg-white px-4 py-2.5 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-[1.02] active:scale-95"
+                  >
+                    <Ticket size={14} /> Transfer Ticket
+                  </button>
+                )}
                 {/* Download Ticket — shown for all upcoming RSVP'd events */}
                 {activeTab === "upcoming" && (
                   <button
@@ -280,6 +302,17 @@ export default function DashboardRsvps() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {transferringEvent && user && (
+        <TicketTransferDialog
+          eventId={transferringEvent.id}
+          eventTitle={transferringEvent.title}
+          eventStartsAt={transferringEvent.startsAt}
+          ticketId={transferringEvent.id}
+          sellerId={user.id}
+          onClose={() => setTransferringEvent(null)}
+        />
+      )}
     </div>
   );
 }
