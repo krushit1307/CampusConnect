@@ -16,6 +16,8 @@ import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
 import { ArrowLeft, Github, Loader2, CheckCircle, Flag } from "lucide-react";
 import { ReportDialog } from "@/components/ReportDialog";
 import { EmptyState } from "@/components/EmptyState";
+import { ConstitutionManager } from "@/components/Clubs/ConstitutionManager";
+import { Skeleton } from "@/components/ui/skeleton";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { AudioReactiveBackground } from "@/components/media/AudioReactiveBackground";
 import LazyHydrate from "@/components/LazyHydrate";
@@ -462,6 +464,15 @@ export default function ClubProfile() {
                 </nav>
               )}
               <ReactMarkdown components={mdComponents}>{club.description || ""}</ReactMarkdown>
+            </div>
+
+            <div className="mt-8 max-w-2xl">
+              <ConstitutionManager
+                clubId={club.id}
+                isOrganizer={can("club.manage")}
+                currentVersion={club.bylaws_version || 0}
+                currentFileUrl={club.constitution_url || undefined}
+              />
             </div>
 
             {club.promo_video_url && (

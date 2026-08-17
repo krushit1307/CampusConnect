@@ -3,6 +3,32 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
+      club_documents: {
+        Row: {
+          id: string;
+          club_id: string;
+          file_url: string;
+          version_number: number;
+          uploaded_by: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          club_id: string;
+          file_url: string;
+          version_number: number;
+          uploaded_by: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          club_id?: string;
+          file_url?: string;
+          version_number?: number;
+          uploaded_by?: string;
+          created_at?: string;
+        };
+      };
       clubs: {
         Row: {
           id: string;
