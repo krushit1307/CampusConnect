@@ -42,30 +42,36 @@ serve(async (req) => {
         if (!user) throw new Error("Unauthorized");
 
         // 2. Parse Request
-        const { tierId, quantity } = await req.json();
-        if (!tierId || !quantity || quantity < 1) {
-            throw new Error("Invalid tier ID or quantity");
+        const { eventId, quantity } = await req.json();
+        if (!eventId || !quantity || quantity < 1) {
+            throw new Error("Invalid event ID or quantity");
         }
 
-        // 3. Fetch Ticket Tier & Validate Capacity
-        const { data: tier, error: tierError } = await supabase
-            .from("ticket_tiers")
-            .select("*, events(event_id, title, club_id)")
-            .eq("id", tierId)
-            .single();
-
-        if (tierError || !tier) throw new Error("Ticket tier not found");
-
-        // Lock the row to check capacity safely (prevents overselling)
-        const { data: lockedTier, error: lockError } = await supabase.rpc('get_and_lock_tier_capacity', {
-            p_tier_id: tierId
+        // 3. Fetch Active Ticket Tier & Validate Capacity
+        const { data: activeTiers, error: tierError } = await supabase.rpc('get_active_ticket_tier', {
+            p_event_id: eventId
         });
 
-        // Fallback if RPC doesn't exist, just check remaining_capacity
-        const remainingCapacity = lockedTier?.remaining_capacity ?? tier.remaining_capacity;
+        if (tierError || !activeTiers || activeTiers.length === 0) {
+            throw new Error("No ticket tier is currently available");
+        }
+
+        const tier = activeTiers[0];
+
+        const { data: event, error: eventError } = await supabase
+            .from("events")
+            .select("title")
+            .eq("id", eventId)
+            .single();
+
+        if (eventError || !event) {
+            throw new Error("Event not found");
+        }
+
+        const remainingCapacity = tier.capacity !== null ? tier.capacity - tier.sold_count : Infinity;
 
         if (quantity > remainingCapacity) {
-            throw new Error(`Only ${remainingCapacity} tickets remaining. Cannot apply group discount for this quantity.`);
+            throw new Error(`Only ${remainingCapacity} tickets remaining for the current tier.`);
         }
 
         // 4. Calculate Discount
@@ -91,7 +97,7 @@ serve(async (req) => {
                 price_data: {
                     currency: "usd",
                     product_data: {
-                        name: `${tier.events.title} - ${tier.name}`,
+                        name: `${event.title} - ${tier.name}`,
                         description: `${quantity} ticket(s)`,
                     },
                     unit_amount: basePriceCents,
@@ -119,14 +125,14 @@ serve(async (req) => {
             payment_method_types: ["card"],
             line_items: lineItems,
             mode: "payment",
-            success_url: `${req.headers.get("origin")}/events/${tier.events.event_id}/tickets/success?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${req.headers.get("origin")}/events/${tier.events.event_id}/tickets`,
+            success_url: `${req.headers.get("origin")}/events/${eventId}/tickets/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${req.headers.get("origin")}/events/${eventId}/tickets`,
             metadata: {
                 user_id: user.id,
-                tier_id: tierId,
+                tier_id: tier.id,
                 quantity: quantity.toString(),
                 discount_applied: applicableDiscount.toString(),
-                event_id: tier.events.event_id
+                event_id: eventId
             },
             // Enforce "All or Nothing" refund policy for group purchases
             payment_intent_data: {

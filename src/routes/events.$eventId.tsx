@@ -134,6 +134,7 @@ import { CaptchaWidget } from "@/components/CaptchaWidget";
 import { Blurhash } from "react-blurhash";
 import { isValidBlurhash, DEFAULT_FALLBACK_BLURHASH } from "@/lib/blurhashUtils";
 import { EventDescriptionTranslation } from "@/components/events/EventDescriptionTranslation";
+import { TicketPricingTimeline } from "@/components/events/TicketPricingTimeline";
 
 /**
  * Hero banner for the event detail page.
@@ -1734,6 +1735,10 @@ export default function EventDetailsPage() {
                 maxAttendees={maxAttendees || null}
                 showDetails={true}
               />
+            </div>
+            
+            <div className="mt-6 max-w-md">
+              <TicketPricingTimeline eventId={event.id} />
             </div>
 
             {hasRsvpd && myRsvpId && !isCheckedIn && !hasEnded && (

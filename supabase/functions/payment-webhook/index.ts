@@ -150,22 +150,40 @@ Deno.serve(async (req) => {
       // 5b. Event ticket RSVP
       const rsvpId = session.metadata?.rsvp_id;
 
-      if (!rsvpId) {
-        console.warn("[Webhook Ingestion] Missing metadata rsvp_id parameter.");
-        return new Response("Missing rsvp_id metadata parameter", { status: 400 });
+      if (rsvpId) {
+        const { error: updateRsvpError } = await supabase
+          .from("event_rsvps")
+          .update({ status: "PAID" })
+          .eq("id", rsvpId);
+
+        if (updateRsvpError) {
+          console.error(`[DB Error] Failed to update RSVP ${rsvpId} to PAID:`, updateRsvpError);
+          return new Response("Failed to update RSVP status", { status: 500 });
+        }
+        console.log(`[Webhook Ingestion] Successfully set RSVP ${rsvpId} status to PAID.`);
+      } else if (session.metadata?.tier_id && session.metadata?.event_id && session.metadata?.user_id) {
+        // Dynamic Pricing Tiers (Issue #3293)
+        // Record the purchased ticket tier and price
+        const { error: insertRsvpError } = await supabase
+          .from("event_rsvps")
+          .insert({
+             event_id: session.metadata.event_id,
+             user_id: session.metadata.user_id,
+             status: "PAID",
+             ticket_tier_id: session.metadata.tier_id,
+             paid_amount_cents: session.amount_total ?? 0,
+             payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
+          });
+
+        if (insertRsvpError) {
+          console.error(`[DB Error] Failed to insert RSVP for dynamic tier:`, insertRsvpError);
+          return new Response("Failed to insert RSVP", { status: 500 });
+        }
+        console.log(`[Webhook Ingestion] Successfully recorded RSVP for tier ${session.metadata.tier_id}.`);
+      } else {
+        console.warn("[Webhook Ingestion] Missing rsvp_id or tier_id metadata parameter.");
+        return new Response("Missing rsvp_id or tier_id metadata parameter", { status: 400 });
       }
-
-      const { error: updateRsvpError } = await supabase
-        .from("event_rsvps")
-        .update({ status: "PAID" })
-        .eq("id", rsvpId);
-
-      if (updateRsvpError) {
-        console.error(`[DB Error] Failed to update RSVP ${rsvpId} to PAID:`, updateRsvpError);
-        return new Response("Failed to update RSVP status", { status: 500 });
-      }
-
-      console.log(`[Webhook Ingestion] Successfully set RSVP ${rsvpId} status to PAID.`);
 
       // 6. Handle Micro-Donation splitting (Issue #2876)
       if (
