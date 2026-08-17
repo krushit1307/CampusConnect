@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/form";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { AutoTaggingSettings } from "@/components/AutoTaggingSettings";
+import { useTheme } from "@/components/theme-provider";
 
 const FONT_SIZE_KEY = "campusconnect-font-size";
 
@@ -98,6 +99,10 @@ export default function SettingsPage() {
   const [borderThickness, setBorderThickness] = useState(4);
   const [borderRadius, setBorderRadius] = useState(8);
   const [isThemeDrawerOpen, setIsThemeDrawerOpen] = useState(false);
+  const [timezone, setTimezone] = useState("UTC");
+  const [quietHoursStart, setQuietHoursStart] = useState("22:00");
+  const [quietHoursEnd, setQuietHoursEnd] = useState("07:00");
+  const [isSavingPrefs, setIsSavingPrefs] = useState(false);
   const { fontSize, increment, decrement, reset } = useFontSize();
 
   // --- Skills tags state ---
@@ -127,6 +132,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
+      console.log("SETTINGS_GET_USER_RESOLVED:", user);
       if (!user) {
         navigate("/auth", { replace: true });
       } else {
@@ -152,20 +158,21 @@ export default function SettingsPage() {
     }
   }, [navigate, supabase]);
 
-  const {
-    data: profile,
-    isLoading: isProfileLoading,
-    refetch,
-  } = useQuery({
+  const profileQuery = useQuery({
     queryKey: ["profile", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user?.id)
-        .single();
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user?.id)
+          .single();
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error("PROFILE_QUERY_ERROR:", err);
+        throw err;
+      }
     },
     enabled: !!user?.id,
   });
@@ -190,12 +197,69 @@ export default function SettingsPage() {
     enabled: !!user?.id,
   });
 
+  const profile = profileQuery.data;
+  const isProfileLoading = profileQuery.isLoading;
+  const refetch = profileQuery.refetch;
+
+  const { data: userPrefs, refetch: refetchPrefs } = useQuery({
+    queryKey: ["user_preferences", user?.id],
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase
+          .from("user_preferences")
+          .select("*")
+          .eq("user_id", user?.id)
+          .maybeSingle();
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error("PREFS_QUERY_ERROR:", err);
+        throw err;
+      }
+    },
+    enabled: !!user?.id,
+  });
+
   useEffect(() => {
     if (privateDetails) {
       setBirthDate(privateDetails.birth_date || "");
       setShareBirthday(privateDetails.share_birthday || false);
     }
   }, [privateDetails]);
+
+  useEffect(() => {
+    if (userPrefs) {
+      setTimezone(userPrefs.timezone || "UTC");
+      if (userPrefs.quiet_hours_start) {
+        setQuietHoursStart(userPrefs.quiet_hours_start.substring(0, 5));
+      }
+      if (userPrefs.quiet_hours_end) {
+        setQuietHoursEnd(userPrefs.quiet_hours_end.substring(0, 5));
+      }
+    }
+  }, [userPrefs]);
+
+  const handleSavePrefs = async () => {
+    if (!user) return;
+    setIsSavingPrefs(true);
+    try {
+      const { error } = await supabase.from("user_preferences").upsert({
+        user_id: user.id,
+        timezone,
+        quiet_hours_start: quietHoursStart ? `${quietHoursStart}:00` : null,
+        quiet_hours_end: quietHoursEnd ? `${quietHoursEnd}:00` : null,
+      });
+
+      if (error) throw error;
+      toast.success("Notification preferences saved successfully.");
+      refetchPrefs();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save preferences.");
+    } finally {
+      setIsSavingPrefs(false);
+    }
+  };
 
   interface UserBadge {
     id: string;
@@ -590,6 +654,14 @@ export default function SettingsPage() {
 
   const pStats = profile as Record<string, any> | null;
 
+  console.log("PROFILE_QUERY_STATE:", {
+    status: profileQuery.status,
+    fetchStatus: profileQuery.fetchStatus,
+    isLoading: isProfileLoading,
+    data: profile,
+    error: profileQuery.error,
+  });
+
   if (isProfileLoading && !profile) {
     return (
       <SiteShell>
@@ -645,6 +717,8 @@ export default function SettingsPage() {
           {/* ------------------------------- */}
           <Panel title="Profile">
             <AvatarUpload name={currentFullName || "User"} avatarTheme={currentAvatarTheme} />
+
+            <BannerUpload />
 
             <AvatarThemePicker
               selected={currentAvatarTheme}
@@ -1020,6 +1094,60 @@ export default function SettingsPage() {
             <Toggle label="Email me about upcoming RSVPs" defaultChecked />
             <Toggle label="Weekly digest of club activity" defaultChecked />
             <Toggle label="New certificates" />
+
+            <div className="mt-6 border-t-2 border-black pt-6 space-y-4 text-black">
+              <h3 className="font-bold uppercase text-black">Quiet Hours & Timezone</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="timezone" className="font-mono text-xs font-bold uppercase">
+                    Timezone
+                  </label>
+                  <select
+                    id="timezone"
+                    value={timezone}
+                    onChange={(e) => setTimezone(e.target.value)}
+                    className="w-full border-2 border-black bg-white px-3 py-2 font-mono text-sm outline-none focus:bg-lime/20"
+                  >
+                    <option value="UTC">UTC</option>
+                    <option value="America/New_York">America/New_York</option>
+                    <option value="Asia/Kolkata">Asia/Kolkata</option>
+                    <option value="Europe/London">Europe/London</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="quiet-start" className="font-mono text-xs font-bold uppercase">
+                    Quiet Start
+                  </label>
+                  <input
+                    id="quiet-start"
+                    type="time"
+                    value={quietHoursStart}
+                    onChange={(e) => setQuietHoursStart(e.target.value)}
+                    className="w-full border-2 border-black bg-white px-3 py-2 font-mono text-sm outline-none focus:bg-lime/20"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="quiet-end" className="font-mono text-xs font-bold uppercase">
+                    Quiet End
+                  </label>
+                  <input
+                    id="quiet-end"
+                    type="time"
+                    value={quietHoursEnd}
+                    onChange={(e) => setQuietHoursEnd(e.target.value)}
+                    className="w-full border-2 border-black bg-white px-3 py-2 font-mono text-sm outline-none focus:bg-lime/20"
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleSavePrefs}
+                disabled={isSavingPrefs}
+                className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-cream disabled:opacity-50"
+              >
+                {isSavingPrefs ? "Saving..." : "Save Notification Preferences"}
+              </button>
+            </div>
           </Panel>
 
           <Panel title="Auto-Tagging (Facial Recognition)">
@@ -1463,6 +1591,142 @@ function AvatarUpload({ name, avatarTheme }: { name: string; avatarTheme?: Avata
     </div>
   );
 }
+function BannerUpload() {
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
+  const [preview, setPreview] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
+  const [removing, setRemoving] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadBanner() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("banner_url")
+        .eq("id", user.id)
+        .single();
+
+      if (isMounted && !error && data?.banner_url) {
+        setPreview(data.banner_url);
+        setImageError(false);
+      }
+    }
+
+    loadBanner();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [supabase]);
+
+  async function handleUploaded(url: string) {
+    setPreview(url);
+    setImageError(false);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({ banner_url: url })
+      .eq("id", user.id);
+
+    if (updateError) {
+      console.error(updateError);
+      toast.error("Failed to save profile banner.");
+    }
+  }
+
+  async function handleRemove() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    setRemoving(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ banner_url: null })
+        .eq("id", user.id);
+      if (error) throw error;
+      setPreview(null);
+      setImageError(false);
+      toast.success("Banner removed.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to remove banner.");
+    } finally {
+      setRemoving(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4 border-b-2 border-black pb-6">
+      <div>
+        <p className="eyebrow font-bold text-black">Profile banner</p>
+        <p className="font-mono text-xs text-muted-foreground">
+          A wide header image shown behind your avatar. Cropped to 3:1 and compressed automatically
+          before upload.
+        </p>
+      </div>
+
+      {preview && !imageError && (
+        <div className="relative w-full overflow-hidden border-2 border-black">
+          <OptimizedImage
+            src={preview}
+            alt="Profile banner preview"
+            className="w-full"
+            width={1500}
+            height={500}
+            quality={80}
+            responsiveWidths={[600, 1200, 1500]}
+            sizes="(max-width: 768px) 100vw, 896px"
+            onError={() => setImageError(true)}
+            fallback={<div className="h-32 w-full bg-gray-200" aria-hidden="true" />}
+          />
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex-1 min-w-[240px]">
+          <ImageCropUpload
+            aspect={3}
+            bucket="profile-banners"
+            value={preview ?? undefined}
+            onUploaded={handleUploaded}
+            accept="image/jpeg,image/png,image/webp"
+            maxSizeBytes={5 * 1024 * 1024}
+            maxWidth={1500}
+            label="profile banner"
+            hint="JPG, PNG or WEBP · Max 5 MB · Wide 3:1 images look best"
+          />
+        </div>
+
+        {preview && !imageError && (
+          <button
+            type="button"
+            onClick={handleRemove}
+            disabled={removing}
+            className="neu-border bg-red-100 px-4 py-2 font-mono text-xs font-bold uppercase text-red-700 hover:bg-red-200 disabled:opacity-50"
+          >
+            {removing ? "Removing..." : "Remove banner"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ThemeToggle({
   theme,
   setTheme,
