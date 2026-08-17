@@ -330,6 +330,7 @@ export type Database = {
           linkedin_url: string | null;
           role: "student" | "admin" | "faculty" | "owner" | "system_admin";
           skills: string[] | null;
+          course_codes: string[];
           notification_preferences: Json | null;
           is_banned: boolean;
           strike_count: number;
@@ -351,6 +352,7 @@ export type Database = {
           linkedin_url?: string | null;
           role?: "student" | "admin" | "faculty" | "owner" | "system_admin";
           skills?: string[] | null;
+          course_codes?: string[];
           notification_preferences?: Json | null;
           is_banned?: boolean;
           strike_count?: number;
@@ -372,12 +374,52 @@ export type Database = {
           linkedin_url?: string | null;
           role?: "student" | "admin" | "faculty" | "owner" | "system_admin";
           skills?: string[] | null;
+          course_codes?: string[];
           notification_preferences?: Json | null;
           is_banned?: boolean;
           strike_count?: number;
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
+      };
+      micro_events: {
+        Row: {
+          id: string;
+          user_id: string;
+          course_code: string;
+          location: string;
+          max_capacity: number;
+          created_at: string;
+          expires_at: string;
+          archived_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          course_code: string;
+          location: string;
+          max_capacity?: number;
+          created_at?: string;
+          expires_at?: string;
+          archived_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          course_code?: string;
+          location?: string;
+          max_capacity?: number;
+          created_at?: string;
+          expires_at?: string;
+          archived_at?: string | null;
+        };
+        Relationships: [];
+      };
+      micro_event_participants: {
+        Row: { micro_event_id: string; user_id: string; joined_at: string };
+        Insert: { micro_event_id: string; user_id: string; joined_at?: string };
+        Update: { micro_event_id?: string; user_id?: string; joined_at?: string };
         Relationships: [];
       };
       user_preferences: {
@@ -2226,6 +2268,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      create_micro_event: {
+        Args: { p_course_code: string; p_location: string; p_max_capacity?: number };
+        Returns: Json;
+      };
+      join_micro_event: { Args: { p_micro_event_id: string }; Returns: undefined };
+      leave_micro_event: { Args: { p_micro_event_id: string }; Returns: undefined };
+      archive_micro_event: { Args: { p_micro_event_id: string }; Returns: undefined };
+      get_matching_micro_events: { Args: Record<string, never>; Returns: Json };
       get_event_analytics: {
         Args: {
           p_event_id: string;
