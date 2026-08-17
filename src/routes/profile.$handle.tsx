@@ -18,7 +18,9 @@ import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
 import { UserProfileSkeleton } from "@/components/UserProfileSkeleton";
 import { HistoryTimeline, TimelineItem } from "@/components/profile/HistoryTimeline";
 import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
-import { ProfileBadgeGallery } from "@/components/gamification/ProfileBadgeGallery";import { ProgressRing } from "@/components/profile/ProgressRing";
+import { ProfileBadgeGallery } from "@/components/gamification/ProfileBadgeGallery";
+import { ProfileGamificationStats } from "@/components/gamification/ProfileGamificationStats";
+import { ProgressRing } from "@/components/profile/ProgressRing";
 import { useState, useEffect } from "react";
 import { SharedClubsSection } from "@/components/profile/SharedClubsSection";
 import { getSharedClubs } from "@/lib/sharedClubs";
@@ -298,7 +300,7 @@ export default function Profile() {
                 ))}
               </div>
             )}
-            
+
             {currentUser && currentUser.id !== profile.id && (
               <div className="pt-4 flex justify-center md:justify-start">
                 <button
@@ -474,12 +476,13 @@ export default function Profile() {
             )}
           </div>
 
-{/* Attendance Heatmap Section */}
+          {/* Attendance Heatmap Section */}
           <div className="space-y-6">
             <AttendanceHeatmap userId={profile.id} />
           </div>
 
           {/* Custom Interactive Badges Section */}
+          <ProfileGamificationStats userId={profile.id} isOwnProfile={!isViewingOtherProfile} />
           <ProfileBadgeGallery userId={profile.id} />
           {/* Activity History Section */}
           <div className="space-y-6">
@@ -494,10 +497,10 @@ export default function Profile() {
 
       {isReporting && profile && (
         <ReportDialog
-          targetType="profile" 
-          targetId={profile.id} 
+          targetType="profile"
+          targetId={profile.id}
           isOpen={isReporting}
-          onClose={() => setIsReporting(false)} 
+          onClose={() => setIsReporting(false)}
         />
       )}
     </SiteShell>
