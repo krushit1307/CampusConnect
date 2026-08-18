@@ -136,6 +136,7 @@ import { isValidBlurhash, DEFAULT_FALLBACK_BLURHASH } from "@/lib/blurhashUtils"
 import { EventDescriptionTranslation } from "@/components/events/EventDescriptionTranslation";
 import { LiveNowBadge } from "@/components/events/LiveNowBadge";
 import { isEventLive } from "@/lib/utils";
+import { LiveGPSBusTracker } from "@/components/events/LiveGPSBusTracker";
 
 /**
  * Hero banner for the event detail page.
@@ -2127,6 +2128,14 @@ export default function EventDetailsPage() {
             </div>
 
             {/* Transportation / Carpool Matching (Issue #2877) */}
+            <div className="mt-8">
+              <LiveGPSBusTracker
+                eventId={eventId}
+                isCaptain={isOrganizer}
+                eventTitle={event.title}
+              />
+            </div>
+
             <div className="mt-8">
               <CarpoolMatchingSection eventId={eventId} user={user} />
             </div>
