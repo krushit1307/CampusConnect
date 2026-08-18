@@ -8,6 +8,7 @@
 
 import React from "react";
 import { Sponsor, SponsorTier, useEventSponsors } from "../../hooks/useEventSponsors";
+import { SponsorLogoFallback } from "./SponsorLogoFallback";
 
 interface SponsorGridProps {
   eventId: string;
@@ -162,16 +163,13 @@ const SponsorCard: React.FC<SponsorCardProps> = ({
     >
       {/* Logo Container with fixed aspect ratio and object-contain */}
       <div className={`w-full ${heightClass} flex items-center justify-center overflow-hidden`}>
-        <img
+        <SponsorLogoFallback
+          name={sponsor.name}
           src={sponsor.logo_url}
           alt={`${sponsor.name} logo`}
-          className="max-w-full max-h-full object-contain transition-all duration-300 group-hover:grayscale-0 grayscale"
-          // Start with slight grayscale for premium aesthetic, remove on hover
+          className="h-full w-full"
+          imageClassName="max-h-full max-w-full object-contain transition-all duration-300 group-hover:grayscale-0 grayscale"
           style={{ filter: "grayscale(20%)" }}
-          onError={(e) => {
-            // Fallback if image fails to load
-            (e.target as HTMLImageElement).style.display = "none";
-          }}
         />
       </div>
 
