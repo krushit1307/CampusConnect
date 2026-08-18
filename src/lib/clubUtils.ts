@@ -37,6 +37,7 @@ export const clubFormSchema = z.object({
   // The deepest category id chosen via the cascading category selector
   // (e.g. "Robotics", not "Academic" or "Engineering").
   category_id: z.string().uuid("Please choose a category.").nullable().optional(),
+  tags: z.array(z.string()).default([]).optional(),
 });
 
 export type ClubFormValues = z.infer<typeof clubFormSchema>;
