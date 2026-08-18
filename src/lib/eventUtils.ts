@@ -89,6 +89,7 @@ export const eventFormSchema = z
       .optional()
       .default([]),
     tags: z.array(z.string()).optional().default([]),
+    ratingMetrics: z.array(z.string().trim()).optional().default([]),
   })
   .refine((data) => new Date(data.endDate) > new Date(data.startDate), {
     message: "End date must be after the start date.",
@@ -221,6 +222,7 @@ export function eventFormToDbPayload(
     club_id: clubId,
     requires_approval: values.requiresApproval || false,
     tags: values.tags || [],
+    rating_metrics: values.ratingMetrics || [],
   };
 }
 

@@ -95,6 +95,7 @@ import { AccessibilityBadges } from "@/components/events/AccessibilityBadges";
 import { ReportAccessibilityIssueDialog } from "@/components/events/ReportAccessibilityIssueDialog";
 import { ManageAccessibilityOverridesDialog } from "@/components/events/ManageAccessibilityOverridesDialog";
 import EventFeedbackForm from "@/components/EventFeedbackForm";
+import EventMetricRatingForm from "@/components/events/EventMetricRatingForm";
 import { EventPhotoGallery } from "@/components/EventPhotoGallery";
 import { EventMap } from "@/components/EventMap";
 import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
@@ -545,6 +546,7 @@ export default function EventDetailsPage() {
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by, venue_id, accessibility_features,
           is_high_risk, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash,
           latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline,
+          rating_metrics,
           profiles (full_name, email),
           clubs (name, slug, logo_url, primary_color, secondary_color),
           event_rsvps (id, user_id, checked_in, status),
@@ -2358,7 +2360,12 @@ export default function EventDetailsPage() {
               hasRsvpd &&
               event.end_date &&
               new Date(event.end_date).getTime() < Date.now() && (
-                <div className="mt-10">
+                <div className="mt-10 space-y-8">
+                  <EventMetricRatingForm
+                    eventId={event.id}
+                    user={user}
+                    metrics={(event as Record<string, unknown>).rating_metrics as string[] | undefined}
+                  />
                   <EventFeedbackForm eventId={event.id} user={user} />
                 </div>
               )}

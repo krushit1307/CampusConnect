@@ -10,6 +10,7 @@ import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
 import Star from "lucide-react/dist/esm/icons/star";
 import { ChartSkeleton } from "@/components/ui/ChartSkeleton";
 import { EventFinancesSection } from "@/components/analytics/EventFinancesSection";
+import { EventMetricRadarChart } from "@/components/analytics/EventMetricRadarChart";
 import { EventPodcastPanel } from "@/components/audio/EventPodcastPanel";
 import { WaitlistChurnPredictionCard } from "@/components/events/WaitlistChurnPredictionCard";
  feat/poll-results-export
@@ -519,6 +520,11 @@ function EventLiveSupportPanel({ eventId }: { eventId: string }) {
                   Based on {feedbackSummary?.attendee_count ?? 0} checked-in attendees
                 </p>
               </div>
+            </div>
+
+            <div className="mt-6 border-2 border-black bg-white p-4">
+              <p className="font-mono text-xs font-bold uppercase mb-2">Rating Dimensions</p>
+              <EventMetricRadarChart eventId={eventId!} />
             </div>
           </div>
 
