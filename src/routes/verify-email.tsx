@@ -2,8 +2,13 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { createClient } from "@/lib/supabase/client";
 import { Sparkle } from "@/components/site/Sparkle";
-import { CheckCircle2, AlertCircle, Loader2, ArrowLeft, Mail } from "lucide-react";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Mail from "lucide-react/dist/esm/icons/mail";
 import { toast } from "sonner";
+import { useWebAuthn } from "@/hooks/useWebAuthn";
 
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
@@ -12,6 +17,7 @@ export default function VerifyEmailPage() {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const supabase = createClient();
+  const { registerPasskey } = useWebAuthn();
 
   const token = searchParams.get("token") || searchParams.get("token_hash");
   const type = searchParams.get("type") || "signup";
@@ -100,13 +106,36 @@ export default function VerifyEmailPage() {
                 CampusConnect.
               </p>
 
-              <button
-                type="button"
-                onClick={() => navigate("/dashboard", { replace: true })}
-                className="neu-border neu-press w-full bg-black py-3 font-mono text-sm font-bold uppercase text-cream cursor-pointer"
-              >
-                Go to Dashboard &rarr;
-              </button>
+              <div className="flex w-full flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await registerPasskey("Passkey");
+                      toast.success(
+                        "Passkey registered successfully! You can now sign in without a password.",
+                      );
+                    } catch (e) {
+                      console.error("Passkey enrollment skipped", e);
+                    }
+                    navigate("/dashboard", { replace: true });
+                  }}
+                  className="neu-border neu-press flex w-full flex-col items-center justify-center bg-black py-3 text-cream cursor-pointer"
+                >
+                  <span className="font-mono text-sm font-bold uppercase">
+                    Enable FaceID / TouchID
+                  </span>
+                  <span className="text-xs text-gray-400">Sign in instantly next time</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigate("/dashboard", { replace: true })}
+                  className="font-mono text-xs font-bold text-gray-500 underline underline-offset-2 hover:text-black cursor-pointer"
+                >
+                  Skip and go to Dashboard &rarr;
+                </button>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col items-center text-center py-4">

@@ -1,93 +1,139 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { setTheme as setGlobalTheme } from "@/store/globalState";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  type ReactNode,
+  type MouseEvent,
+} from "react";
+import {
+  useThemeStore,
+  type Theme,
+  applyThemeToDom,
+  THEME_STORAGE_KEY,
+} from "../store/useThemeStore";
+import { createClient } from "../lib/supabase/client";
 
-export type Theme = "light" | "dark" | "system";
+export type { Theme };
 
 type ThemeContextValue = {
   theme: Theme;
-  toggleTheme: () => void;
+  toggleTheme: (event?: MouseEvent<HTMLElement> | React.MouseEvent<HTMLElement>) => void;
   setTheme: (theme: Theme) => void;
 };
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-const STORAGE_KEY = "campusconnect-theme";
-
-function getStoredTheme(): Theme | null {
-  if (typeof window === "undefined") return null;
-
-  const stored = window.localStorage.getItem(STORAGE_KEY);
-  return stored === "light" || stored === "dark" || stored === "system" ? stored : null;
-}
-
-function getPreferredTheme(): Theme {
-  if (typeof window === "undefined") return "light";
-
-  if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-    return "dark";
-  }
-
-  return "light";
-}
-
-function applyTheme(theme: Theme) {
-  if (typeof document === "undefined") return;
-
-  const isDark =
-    theme === "dark" ||
-    (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-
-  document.documentElement.classList.toggle("dark", isDark);
-  document.documentElement.style.colorScheme = isDark ? "dark" : "light";
-}
-
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => getStoredTheme() ?? getPreferredTheme());
+  const { theme, setTheme, initThemeSync, cleanupRealtime } = useThemeStore();
 
+  // Listen for Supabase session changes to initialize user preference sync
   useEffect(() => {
-    const initialTheme = getStoredTheme() ?? getPreferredTheme();
-    setThemeState(initialTheme);
-    applyTheme(initialTheme);
-    setGlobalTheme(initialTheme);
-  }, []);
+    let mounted = true;
+    const supabase = createClient();
 
+    // Check active session on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (mounted && session?.user?.id) {
+        initThemeSync(session.user.id);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user?.id) {
+        initThemeSync(session.user.id);
+      } else {
+        initThemeSync(null);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+      cleanupRealtime();
+    };
+  }, [initThemeSync, cleanupRealtime]);
+
+  // Handle system theme changes when theme is set to 'system'
   useEffect(() => {
-    applyTheme(theme);
-    window.localStorage.setItem(STORAGE_KEY, theme);
-    setGlobalTheme(theme);
+    applyThemeToDom(theme);
 
-    if (theme === "system") {
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      const handleChange = () => applyTheme("system");
+    if (theme === "system" && typeof window !== "undefined") {
+      const colorSchemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      const contrastQuery = window.matchMedia("(prefers-contrast: more)");
+      const handleChange = () => applyThemeToDom("system");
 
-      mediaQuery.addEventListener("change", handleChange);
-      return () => mediaQuery.removeEventListener("change", handleChange);
+      colorSchemeQuery.addEventListener("change", handleChange);
+      contrastQuery.addEventListener("change", handleChange);
+      return () => {
+        colorSchemeQuery.removeEventListener("change", handleChange);
+        contrastQuery.removeEventListener("change", handleChange);
+      };
     }
   }, [theme]);
 
-  // Sync theme changes across browser tabs/windows
-  useEffect(() => {
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === STORAGE_KEY && event.newValue) {
-        const newTheme = event.newValue as Theme;
-        if (newTheme === "light" || newTheme === "dark" || newTheme === "system") {
-          setThemeState(newTheme);
-        }
-      }
+  const toggleTheme = (event?: MouseEvent<HTMLElement> | React.MouseEvent<HTMLElement>) => {
+    const nextTheme: Theme =
+      theme === "light"
+        ? "dark"
+        : theme === "dark"
+          ? "high-contrast"
+          : theme === "high-contrast"
+            ? "system"
+            : "light";
+
+    const isSupported = typeof document !== "undefined" && "startViewTransition" in document;
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (!isSupported || prefersReducedMotion || !event) {
+      setTheme(nextTheme);
+      return;
+    }
+
+    const x = event.clientX;
+    const y = event.clientY;
+
+    const endRadius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y),
+    );
+
+    const doc = document as Document & {
+      startViewTransition: (callback: () => void) => { ready: Promise<void> };
     };
 
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
+    const transition = doc.startViewTransition(() => {
+      setTheme(nextTheme);
+      applyThemeToDom(nextTheme);
+    });
+
+    transition.ready.then(() => {
+      document.documentElement.animate(
+        [
+          { clipPath: `circle(0px at ${x}px ${y}px)` },
+          { clipPath: `circle(${endRadius}px at ${x}px ${y}px)` },
+        ],
+        {
+          duration: 500,
+          easing: "ease-in-out",
+          pseudoElement: "::view-transition-new(root)",
+        },
+      );
+    });
+  };
 
   const value = useMemo(
     () => ({
       theme,
-      toggleTheme: () => setThemeState((current) => (current === "dark" ? "light" : "dark")),
-      setTheme: (nextTheme: Theme) => setThemeState(nextTheme),
+      toggleTheme,
+      setTheme: (nextTheme: Theme) => setTheme(nextTheme),
     }),
-    [theme],
+    [theme, setTheme],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
@@ -144,6 +145,12 @@ function SingleEventMarker({ event, onClick }: { event: EventData; onClick: () =
               {event.end_date && ` - ${formatDate(event.end_date)}`}
             </div>
           )}
+          <Link
+            to={`/events/${event.id}`}
+            className="mt-3 inline-block font-mono text-xs font-bold underline"
+          >
+            View Event Details →
+          </Link>
         </div>
       </Popup>
     </CircleMarker>

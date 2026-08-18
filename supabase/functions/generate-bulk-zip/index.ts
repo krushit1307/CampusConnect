@@ -1,6 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://esm.sh/zod@3.24.2";
 import { downloadZip, InputFile } from "https://esm.sh/client-zip@2.4.4";
+import { parseJsonBody } from "../_shared/validation.ts";
+
+const bulkZipSchema = z
+  .object({
+    eventId: z.string().uuid("eventId must be a valid UUID"),
+  })
+  .strict();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,13 +53,9 @@ serve(async (req) => {
     }
 
     // Parse request body for eventId
-    const { eventId } = await req.json();
-    if (!eventId) {
-      return new Response(JSON.stringify({ error: "Missing eventId" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const parsed = await parseJsonBody(bulkZipSchema, req);
+    if (!parsed.ok) return parsed.response;
+    const { eventId } = parsed.data;
 
     // Fetch the event info to get the event name for the zip filename
     const { data: event, error: eventError } = await supabase
@@ -69,9 +73,7 @@ serve(async (req) => {
 
     // List all files in the event's gallery folder
     const bucketName = "event-gallery";
-    const { data: files, error: listError } = await supabase.storage
-      .from(bucketName)
-      .list(eventId);
+    const { data: files, error: listError } = await supabase.storage.from(bucketName).list(eventId);
 
     if (listError) {
       throw listError;
@@ -79,17 +81,14 @@ serve(async (req) => {
 
     // Filter out directories, placeholders, or empty files if any
     const filteredFiles = (files ?? []).filter(
-      (file) => file.name !== ".emptyFolderPlaceholder" && file.metadata !== null
+      (file) => file.name !== ".emptyFolderPlaceholder" && file.metadata !== null,
     );
 
     if (filteredFiles.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "No gallery photos found for this event." }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return new Response(JSON.stringify({ error: "No gallery photos found for this event." }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Generator function to fetch file streams sequentially on-demand
@@ -97,7 +96,7 @@ serve(async (req) => {
       for (const file of filteredFiles) {
         // Authenticated download endpoint
         const fileUrl = `${supabaseUrl}/storage/v1/object/authenticated/${bucketName}/${eventId}/${file.name}`;
-        
+
         const res = await fetch(fileUrl, {
           headers: {
             Authorization: `Bearer ${supabaseServiceKey}`,
@@ -140,7 +139,7 @@ serve(async (req) => {
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,
-      }
+      },
     );
   }
 });

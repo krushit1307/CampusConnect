@@ -1,6 +1,8 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { differenceInDays, isToday, isTomorrow } from "date-fns";
+import differenceInDays from "date-fns/differenceInDays";
+import isToday from "date-fns/isToday";
+import isTomorrow from "date-fns/isTomorrow";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -74,6 +76,32 @@ export function getCountdown(dateStr: string): string {
   const months = Math.floor(days / 30);
 
   return `In ${months} month${months > 1 ? "s" : ""}`;
+}
+
+export function isEventLive(event: {
+  event_date?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  event_status?: string | null;
+}): boolean {
+  const now = Date.now();
+  const startStr = event.start_date || event.event_date;
+  const endStr = event.end_date;
+
+  if (event.event_status === "ongoing") {
+    return true;
+  }
+
+  if (!startStr) return false;
+
+  const startTime = new Date(startStr).getTime();
+  if (isNaN(startTime)) return false;
+
+  const defaultEndMs = startTime + 2 * 60 * 60 * 1000;
+  const endTime = endStr ? new Date(endStr).getTime() : defaultEndMs;
+  const effectiveEndMs = isNaN(endTime) ? defaultEndMs : endTime;
+
+  return now >= startTime && now <= effectiveEndMs;
 }
 
 /**

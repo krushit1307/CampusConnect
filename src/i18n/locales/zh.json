@@ -1,0 +1,199 @@
+{
+  "navbar": {
+    "events": "活动",
+    "clubs": "社团",
+    "feed": "动态",
+    "directory": "目录",
+    "challenge": "挑战",
+    "certificates": "证书",
+    "dashboard": "仪表盘",
+    "messages": "消息",
+    "signin": "登录",
+    "features": "功能",
+    "faq": "常见问题",
+    "contact": "联系我们"
+  },
+  "footer": {
+    "tagline": "每个社团。每个活动。为学生社区打造的简洁操作系统。",
+    "license": "开源 · MIT 许可证",
+    "navigate": "导航",
+    "community": "社区",
+    "copyright": "© {{year}} CampusConnect. 由社区构建。",
+    "privacy": "隐私政策",
+    "terms": "服务条款",
+    "version": "ECSoC 2026 · v0.1",
+    "language": "语言"
+  },
+  "language_switcher": {
+    "label": "语言",
+    "en": "English",
+    "es": "Español",
+    "zh": "中文"
+  },
+  "home": {
+    "marquee": "🎓 欢迎来到 CampusConnect — 学生社区的社团、活动与证书平台 ✦ 报名参加即将到来的活动 ✦ 加入社团 ✦ 获取认证证书 ✦",
+    "hero_variant_b": {
+      "eyebrow": "释放你的潜力",
+      "title": "提升你的校园生活",
+      "subtitle": "发现顶级学生社团，参加工作坊，获取证书，为未来做好准备。",
+      "cta_primary": "加入 CampusConnect",
+      "cta_secondary": "查看即将到来的活动"
+    },
+    "hero_variant_a": {
+      "eyebrow": "学生社区平台",
+      "title": "CampusConnect",
+      "subtitle": "社团、活动与证书。一个为学生社区打造的开源操作系统。",
+      "cta_primary": "立即开始",
+      "cta_secondary": "探索活动"
+    },
+    "featured_events": {
+      "eyebrow": "即将到来",
+      "title": "精选活动",
+      "view_all": "查看所有活动"
+    },
+    "features": {
+      "title": "精选功能",
+      "subtitle": "管理学生社团和社区活动所需的一切，全在一个平台。",
+      "club_management": {
+        "title": "社团管理",
+        "desc": "创建页面、管理名单、组织社团——无需混乱的电子表格。"
+      },
+      "event_planning": {
+        "title": "活动策划",
+        "desc": "报名、签到、反馈表和活动后报告，一个流程搞定。"
+      },
+      "digital_interaction": {
+        "title": "数字互动",
+        "desc": "交互式注册、实时更新和无缝成员参与。"
+      },
+      "certificates": {
+        "title": "证书与证明",
+        "desc": "为任何工作坊或活动自动生成签名证书和可携带档案。"
+      }
+    },
+    "about": {
+      "eyebrow": "关于平台",
+      "title": "为学生社区的实际运作方式而生。",
+      "card_01_title": "社团优先",
+      "card_01_desc": "每个社团都有主页、成员名单和活动日历——不再有 Google Docs 的繁琐。",
+      "card_02_title": "活动高效落地",
+      "card_02_desc": "报名、签到、反馈和活动后报告一体化。不再有信息丢失在 Instagram 私信中。",
+      "card_03_title": "工作证明",
+      "card_03_desc": "为黑客马拉松、工作坊和志愿者小时自动颁发证书和可携带成员档案。"
+    },
+    "stats": {
+      "events_run": "举办活动",
+      "active_clubs": "活跃社团",
+      "members_onboarded": "注册成员",
+      "open_source": "开源"
+    },
+    "capabilities": {
+      "eyebrow": "你所需的一切",
+      "title": "创建社团。发布活动。颁发证书。",
+      "subtitle": "CampusConnect 将社团需要管理的工具——表单、电子表格、聊天、海报、邮件——整合到一个工作流程中。",
+      "list_1": "60 秒内创建社团页面",
+      "list_2": "发布带有自动报名和日历同步的活动",
+      "list_3": "用 QR 扫描在门口为成员签到",
+      "list_4": "自动生成签名 PDF 证书",
+      "list_5": "在共享动态中发布更新",
+      "list_6": "随时将数据导出为 CSV",
+      "pain_1_title": "交接地狱",
+      "pain_1_desc": "每年社团领导层更替，一半的知识消失在个人 Notion 中。",
+      "pain_2_title": "数据锁在私信里",
+      "pain_2_desc": "考勤在 WhatsApp 群，报名在表单，反馈无处可寻。从未整合。",
+      "pain_3_title": "没有证明，没有信任",
+      "pain_3_desc": "成员做了真实工作，却没有可验证的内容向招聘者展示。"
+    },
+    "testimonial": {
+      "eyebrow": "为什么学生喜爱 CampusConnect",
+      "quote": "\"这个平台彻底改变了我们管理科技社团的方式。不再有分散的电子表格或遗漏的更新。一切都在一个地方，成员们真的参与进来了。\"",
+      "attribution": "- 校园社团领袖"
+    },
+    "landscape": {
+      "eyebrow": "竞争格局",
+      "title": "CampusConnect 的定位。",
+      "vs_forms_title": "对比 Google Forms + Sheets",
+      "vs_forms_desc": "适合单个活动，但跨越一年、多个社团和交接后就会崩溃。",
+      "vs_discord_title": "对比 Discord / WhatsApp",
+      "vs_discord_desc": "聊天很棒，但不适合作为成员或出勤的真相来源。",
+      "vs_eventbrite_title": "对比 Eventbrite / Luma",
+      "vs_eventbrite_desc": "适合大众，但不了解学期、社团或学生验证。",
+      "vs_portals_title": "对比定制校园门户",
+      "vs_portals_desc": "局限于单个校园，无互操作性，没有开源社区推动改进。"
+    },
+    "hosting": {
+      "eyebrow": "两种管理社团的方式",
+      "title": "托管或自托管，功能完全相同。",
+      "cloud_eyebrow": "推荐",
+      "cloud_title": "云端",
+      "cloud_desc": "托管服务、校园邮箱 SSO、零 DevOps。",
+      "selfhost_eyebrow": "自己搭建",
+      "selfhost_title": "自托管",
+      "selfhost_desc": "Docker Compose 启动。拥有数据库，拥有数据。",
+      "tech_eyebrow": "技术内幕",
+      "tech_title": "经过验证的可靠技术。",
+      "tech_layer": "层级",
+      "tech_choice": "选择"
+    },
+    "integrations": {
+      "eyebrow": "集成与工具",
+      "title": "与你已使用的工具无缝集成。",
+      "gcal_title": "Google 日历",
+      "gcal_desc": "随处同步。iCal 订阅。",
+      "discord_title": "Discord + Slack",
+      "discord_desc": "自动发布公告。",
+      "github_title": "GitHub",
+      "github_desc": "将黑客马拉松链接到档案。",
+      "zapier_title": "Zapier",
+      "zapier_desc": "每个操作都触发 Webhook。"
+    },
+    "faq": {
+      "eyebrow": "常见问题",
+      "title": "解答你的疑问。",
+      "categories": {
+        "all": "全部",
+        "general": "一般",
+        "clubs": "社团",
+        "events": "活动",
+        "security": "安全"
+      },
+      "items": {
+        "q1": "CampusConnect 是什么？",
+        "a1": "CampusConnect 是一个统一的开源平台，旨在简化学生社团管理、活动策划和数字签到。",
+        "q2": "CampusConnect 免费吗？",
+        "a2": "是的！CampusConnect 100% 开源且对学生社区免费。你可以自己托管或使用托管云版本。",
+        "q3": "如何创建新社团？",
+        "a3": "注册学生可以从社团目录请求创建新社团。经系统管理员批准后，即可开始定制页面。",
+        "q4": "如何管理社团成员？",
+        "a4": "社团管理员可以批准加入请求、分配角色并直接从社团设置中查看完整成员档案。",
+        "q5": "如何报名参加活动？",
+        "a5": "只需浏览活跃活动动态，选择感兴趣的活动，然后点击\"RSVP\"按钮即可。",
+        "q6": "签到系统是如何工作的？",
+        "a6": "报名后会生成带有 QR 码的定制票据。社团组织者可以在门口用任何手机扫描你的 QR 码完成签到。",
+        "q7": "我的学生数据安全吗？",
+        "a7": "绝对安全。CampusConnect 采用 Supabase 认证和严格的行级安全 (RLS) 数据库策略保护用户和管理员数据。",
+        "q8": "谁可以查看我的个人资料？",
+        "a8": "只有你的已验证学生社区的授权成员才能查看你的个人资料页面。你可以随时在设置中自定义偏好。"
+      }
+    },
+    "cta": {
+      "title": "准备好开始了吗？",
+      "subtitle": "几秒钟内启动你的社团页面，像专业人士一样管理活动。",
+      "button": "立即创建你的社团"
+    },
+    "contact": {
+      "eyebrow": "联系我们",
+      "title": "与我们取得联系。",
+      "subtitle": "对 CampusConnect 有疑问？联系我们的团队。",
+      "button": "联系支持"
+    }
+  },
+  "notifications": {
+    "EVENT_INVITE": "{{actor}} 邀请您参加 {{target}}",
+    "EVENT_CANCELLED": "{{target}} 已被取消。",
+    "EVENT_REMINDER": "提醒：{{target}} 即将开始。",
+    "NEW_POST": "{{actor}} 在 {{target}} 中发布了新帖子",
+    "CLUB_INVITE": "{{actor}} 邀请您加入 {{target}}",
+    "NEW_COMMENT": "{{actor}} 评论了您的帖子。"
+  }
+}

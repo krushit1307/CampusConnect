@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { parse } from "https://deno.land/std@0.168.0/encoding/csv.ts";
 import { verifyAuth } from "../shared/auth-middleware.ts";
+import { outboundCommunicationLimiter } from "../_shared/rateLimiter.ts";
+
 // ---------------------------------------------------------------------------
 // CORS headers – allow the Supabase dashboard and any campus frontend
 // ---------------------------------------------------------------------------
@@ -41,9 +43,9 @@ function parseEmailsFromCsv(csvText: string): string[] {
 
   if (rows.length === 0) return [];
 
-  // Enforce a row-count limit to avoid excessive memory usage
-  if (rows.length > 1000) {
-    throw new Error("CSV file exceeds maximum limit of 1000 rows.");
+  // Enforce a strict batch size limit of 50 to prevent abuse and adhere to rate limits
+  if (rows.length > 50) {
+    throw new Error("Batching Exception: maximum 50 emails per request allowed.");
   }
 
   const emails: string[] = [];
@@ -134,6 +136,20 @@ serve(async (req: Request) => {
       },
     });
   }
+
+  // --- Outbound Communication Rate Limiting ---
+  const ipAddress = req.headers.get("x-forwarded-for") || "unknown-ip";
+  const identifier = user?.id || ipAddress;
+  const { success } = await outboundCommunicationLimiter.limit(identifier);
+
+  if (!success) {
+    console.warn(`[RateLimit] Outbound communication blocked for identifier: ${identifier}`);
+    return new Response(
+      JSON.stringify({ error: "Too Many Requests. Maximum 5 requests per 15 minutes." }),
+      { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+  // --------------------------------------------
 
   // -------------------------------------------------------------------------
   // 2. Parse multipart form-data

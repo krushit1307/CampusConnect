@@ -36,7 +36,10 @@ ON CONFLICT (name) DO UPDATE SET
     parent_role_id = EXCLUDED.parent_role_id;
 
 -- Reset sequence to avoid manual insert key conflicts
-SELECT setval('public.roles_id_seq', (SELECT MAX(id) FROM public.roles));
+SELECT setval(
+    'public.roles_id_seq',
+    COALESCE((SELECT MAX(id) FROM public.roles), 1)
+);
 
 -- Seeding Permissions mapping
 -- Member permissions
@@ -57,7 +60,12 @@ ON CONFLICT DO NOTHING;
 -- Club President permissions
 INSERT INTO public.role_permissions (role_id, permission) VALUES
     (3, 'clubs.update'),
-    (3, 'members.manage')
+    (3, 'members.manage'),
+    (3, 'clubs.create'),
+    (3, 'posts.update'),
+    (3, 'posts.delete'),
+    (3, 'comments.update'),
+    (3, 'comments.delete')
 ON CONFLICT DO NOTHING;
 
 -- University Admin permissions
@@ -83,9 +91,13 @@ BEGIN
   RETURN EXISTS (
     WITH RECURSIVE role_hierarchy AS (
         -- Base Case: Start with the direct roles assigned to the user
-        SELECT role_id, parent_role_id
-        FROM public.user_roles
-        WHERE user_roles.user_id = has_permission.user_id
+        SELECT
+            r.id AS role_id,
+            r.parent_role_id
+        FROM public.user_roles ur
+        JOIN public.roles r
+           ON r.id = ur.role_id
+        WHERE ur.user_id = has_permission.user_id
 
         UNION ALL
 
@@ -119,7 +131,9 @@ CREATE POLICY "Public can view user roles" ON public.user_roles FOR SELECT USING
 -- Manage tables via University Admin permissions
 CREATE POLICY "Admins can manage user roles" ON public.user_roles FOR ALL USING (public.has_permission(auth.uid(), 'roles.manage'));
 CREATE POLICY "Admins can manage roles" ON public.roles FOR ALL USING (public.has_permission(auth.uid(), 'roles.manage'));
-CREATE POLICY "Admins can manage role permissions" ON public.role_permissions FOR ALL USING (public.has_permission(auth.uid(), 'roles.manage'));
+CREATE POLICY "Admins can manage role permissions" ON public.role_permissions FOR ALL USING (
+  public.has_permission(auth.uid(), 'roles.manage')
+);
 
 -- 5. Update RLS policies for Events, Posts, and Clubs to use the hierarchical permissions check
 

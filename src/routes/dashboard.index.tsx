@@ -1,23 +1,36 @@
 import { Link } from "react-router-dom";
-import { useQuery } from "@/hooks/useReactQueryReplacement";
+import { useQuery, queryClient } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useRef, useState } from "react";
 import { User } from "@supabase/supabase-js";
-import {
-  Sparkles,
-  Check,
-  X,
-  ArrowRight,
-  User as UserIcon,
-  GraduationCap,
-  FileText,
-  Link2,
-  Calendar,
-  MessageCircle,
-  Users,
-} from "lucide-react";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Check from "lucide-react/dist/esm/icons/check";
+import X from "lucide-react/dist/esm/icons/x";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
+import UserIcon from "lucide-react/dist/esm/icons/user";
+import GraduationCap from "lucide-react/dist/esm/icons/graduation-cap";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import Link2 from "lucide-react/dist/esm/icons/link-2";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
+import Users from "lucide-react/dist/esm/icons/users";
 import TrendingCarousel from "@/components/Clubs/TrendingCarousel";
+import RecommendedCarousel from "@/components/Dashboard/RecommendedCarousel";
+import SuggestedEventsCarousel from "@/components/SuggestedEventsCarousel"; // <-- NEW IMPORT
 import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/DashboardWidgetSkeleton";
+import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
+import LazyHydrate from "@/components/LazyHydrate";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { WidgetErrorFallback } from "@/components/WidgetErrorFallback";
+import { RelativeTime } from "@/components/ui/RelativeTime";
+
+interface Club {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  member_count?: number;
+}
 
 interface SavedEventDetails {
   id: string;
@@ -47,13 +60,13 @@ interface ActivityPostRow {
 
 interface ActivityRsvpRow {
   id: string;
-  created_at: string;
+  rsvp_at: string | null;
   events: { id: string; title: string } | { id: string; title: string }[] | null;
 }
 
 interface ActivityClubMemberRow {
   id: string;
-  created_at: string;
+  joined_at: string | null;
   clubs: { name: string } | { name: string }[] | null;
 }
 
@@ -79,26 +92,10 @@ function formatRelativeActivityTime(dateString: string): string {
   return rtf.format(diffDays, "day");
 }
 
-// How long to wait before showing the progress bar at all. Queries that
-// resolve faster than this never trigger it — the widgets' own skeletons
-// (WidgetListSkeleton / TrendingCarouselSkeleton) cover that case instead.
 const PROGRESS_REVEAL_DELAY_MS = 250;
-// Simulated progress never crosses this ceiling on its own — the analytics
-// queries (backed by club_analytics_mat_view and friends) don't report real
-// byte-level progress, so we ease toward "almost done" and only jump to 100%
-// once the data has actually arrived.
 const PROGRESS_SOFT_CEILING = 90;
 const PROGRESS_TICK_MS = 200;
 
-/**
- * Page-load progress indicator for the dashboard's analytics-backed widgets
- * (trending clubs, your clubs, upcoming/saved events, recent activity — all
- * of which read from materialized/aggregated views that can be slow on a
- * cold cache). Shows a neubrutalist percentage bar once loading has taken
- * long enough to be noticeable, and snaps to 100% + fades out once real data
- * has arrived. If the underlying queries resolve immediately, this never
- * renders at all — the widgets' individual skeletons handle that case.
- */
 function AnalyticsLoadProgress({ isLoading }: { isLoading: boolean }) {
   const [visible, setVisible] = useState(false);
   const [percent, setPercent] = useState(0);
@@ -123,7 +120,6 @@ function AnalyticsLoadProgress({ isLoading }: { isLoading: boolean }) {
           setPercent((p) => {
             if (p >= PROGRESS_SOFT_CEILING) return p;
             const remaining = PROGRESS_SOFT_CEILING - p;
-            // Ease-out: bigger steps early, smaller as we approach the ceiling.
             const increment = Math.max(0.75, remaining * 0.12);
             return Math.min(PROGRESS_SOFT_CEILING, p + increment);
           });
@@ -168,9 +164,15 @@ function AnalyticsLoadProgress({ isLoading }: { isLoading: boolean }) {
   );
 }
 
+import { useDashboardStore } from "@/store/useDashboardStore";
+
 export default function DashboardOverview() {
   const [supabase] = useState(() => createClient());
   const [user, setUser] = useState<User | null>(null);
+
+  const welcomeDismissed = useDashboardStore((state) => state.welcomeDismissed);
+  const setWelcomeDismissed = useDashboardStore((state) => state.setWelcomeDismissed);
+  const dismissed = welcomeDismissed;
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -186,16 +188,12 @@ export default function DashboardOverview() {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", user?.id)
+        .eq("id", user!.id)
         .single();
       if (error) throw error;
       return data;
     },
     enabled: !!user?.id,
-  });
-
-  const [dismissed, setDismissed] = useState(() => {
-    return localStorage.getItem("cc_welcome_dismissed") === "true";
   });
 
   const [animateIn, setAnimateIn] = useState(false);
@@ -206,7 +204,7 @@ export default function DashboardOverview() {
       const { data, error } = await supabase
         .from("clubs")
         .select("*")
-        .order("member_count", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(5);
       if (error) throw error;
       return data || [];
@@ -256,15 +254,8 @@ export default function DashboardOverview() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("club_members")
-        .select(
-          `
-          role,
-          clubs (
-            id, name, slug
-          )
-        `,
-        )
-        .eq("user_id", user?.id)
+        .select(`role_id, club_roles (id, title, permissions_level), clubs (id, name, slug)`)
+        .eq("user_id", user!.id)
         .eq("status", "approved");
       if (error) throw error;
       return data || [];
@@ -277,19 +268,28 @@ export default function DashboardOverview() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
-        .select(
-          `
-          *,
-          clubs (name),
-          event_rsvps!inner (
-            id, user_id
-          )
-        `,
-        )
-        .eq("event_rsvps.user_id", user?.id)
+        .select(`*, clubs (name), event_rsvps!inner (id, user_id)`)
+        .eq("event_rsvps.user_id", user!.id)
         .gte("event_date", new Date().toISOString())
         .order("event_date", { ascending: true })
         .limit(3);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const {
+    data: recommendedEvents = [],
+    isLoading: isRecommendedLoading,
+    refetch: refetchRecommended,
+  } = useQuery({
+    queryKey: ["recommendedEvents", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("recommend_events_for_user", {
+        p_user_id: user!.id,
+        p_limit: 10,
+      });
       if (error) throw error;
       return data || [];
     },
@@ -314,8 +314,8 @@ export default function DashboardOverview() {
           )
         `,
         )
-        .eq("user_id", user?.id)
-        .order("saved_at", { ascending: false });
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -329,22 +329,22 @@ export default function DashboardOverview() {
         supabase
           .from("posts")
           .select("id, content, created_at, clubs(name)")
-          .eq("author_id", user?.id)
+          .eq("author_id", user!.id)
           .is("deleted_at", null)
           .order("created_at", { ascending: false })
           .limit(5),
         supabase
           .from("event_rsvps")
-          .select("id, created_at, events(id, title)")
-          .eq("user_id", user?.id)
-          .order("created_at", { ascending: false })
+          .select("id, rsvp_at, events(id, title)")
+          .eq("user_id", user!.id)
+          .order("rsvp_at", { ascending: false })
           .limit(5),
         supabase
           .from("club_members")
-          .select("id, created_at, clubs(name)")
-          .eq("user_id", user?.id)
+          .select("id, joined_at, clubs(name)")
+          .eq("user_id", user!.id)
           .eq("status", "approved")
-          .order("created_at", { ascending: false })
+          .order("joined_at", { ascending: false })
           .limit(5),
       ]);
 
@@ -364,7 +364,7 @@ export default function DashboardOverview() {
           id: `rsvp-${r.id}`,
           type: "rsvp",
           description: event?.title ? `You RSVP'd to ${event.title}` : "You RSVP'd to an event",
-          created_at: r.created_at,
+          created_at: r.rsvp_at || "",
         };
       });
 
@@ -374,7 +374,7 @@ export default function DashboardOverview() {
           id: `club-${m.id}`,
           type: "club_join",
           description: club?.name ? `You joined ${club.name}` : "You joined a club",
-          created_at: m.created_at,
+          created_at: m.joined_at || "",
         };
       });
 
@@ -387,9 +387,6 @@ export default function DashboardOverview() {
 
   const colors = ["bg-lime", "bg-sky", "bg-peach"];
 
-  // Combined loading state for every analytics-backed widget below (trending
-  // clubs, your clubs, upcoming/saved events, recent activity). Profile isn't
-  // included since it's a single-row lookup, not one of the slow views.
   const isAnalyticsLoading =
     isTrendingLoading || isClubsLoading || isUpcomingLoading || isSavedLoading || isActivityLoading;
 
@@ -403,7 +400,6 @@ export default function DashboardOverview() {
             animateIn ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-4 scale-95"
           } lg:col-span-3 neu-border bg-lavender p-6 md:p-8 relative neu-shadow mb-2 overflow-hidden`}
         >
-          {/* Absolute decorative pattern or circles in background */}
           <div className="absolute -top-12 -right-12 w-40 h-40 bg-peach rounded-full border-4 border-black opacity-30 pointer-events-none" />
           <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-lime rounded-full border-4 border-black opacity-30 pointer-events-none" />
 
@@ -411,9 +407,9 @@ export default function DashboardOverview() {
             onClick={() => {
               setAnimateIn(false);
               setTimeout(() => {
-                setDismissed(true);
+                setWelcomeDismissed(true);
                 localStorage.setItem("cc_welcome_dismissed", "true");
-              }, 500); // Wait for transition out
+              }, 500);
             }}
             className="absolute top-4 right-4 neu-border bg-white hover:bg-peach p-2 transition-colors cursor-pointer group"
             aria-label="Dismiss banner"
@@ -436,7 +432,6 @@ export default function DashboardOverview() {
               </p>
             </div>
 
-            {/* Progress Gauge */}
             <div className="shrink-0 flex flex-col items-center justify-center bg-white neu-border neu-shadow-sm p-4 w-full md:w-48 text-center">
               <span className="font-mono text-xs uppercase font-bold text-gray-600">
                 Setup Progress
@@ -447,7 +442,6 @@ export default function DashboardOverview() {
               <span className="font-mono text-sm text-gray-500 dark:text-gray-300">
                 {completedCount} of {steps.length} completed
               </span>
-              {/* Small progress bar */}
               <div className="w-full bg-cream border-2 border-black h-3 mt-3 overflow-hidden rounded-none relative">
                 <div
                   className="bg-lime h-full border-r-2 border-black transition-all duration-500 ease-out"
@@ -457,7 +451,6 @@ export default function DashboardOverview() {
             </div>
           </div>
 
-          {/* Checklist steps */}
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 relative z-10">
             {steps.map((step) => {
               const Icon =
@@ -519,160 +512,187 @@ export default function DashboardOverview() {
 
       <AnalyticsLoadProgress isLoading={isAnalyticsLoading} />
 
+      {/* NEW COMPONENT PLACED HERE */}
+      <div className="lg:col-span-3">
+        <SuggestedEventsCarousel />
+      </div>
+
+      <div className="lg:col-span-3">
+        <RecommendedCarousel
+          userId={user?.id || ""}
+          hasInterestVector={!!profile?.interest_vector}
+          events={recommendedEvents}
+          isLoading={isRecommendedLoading}
+          refetch={refetchRecommended}
+        />
+      </div>
+
       <div className="lg:col-span-3">
         {isTrendingLoading ? (
           <TrendingCarouselSkeleton />
         ) : (
-          <TrendingCarousel clubs={trendingClubs} />
+          <TrendingCarousel clubs={trendingClubs as unknown as Club[]} />
         )}
       </div>
 
-      <Widget title="Upcoming events" cta={{ label: "All events", to: "/events" }}>
-        {isUpcomingLoading ? (
-          <WidgetListSkeleton rows={3} />
-        ) : upcomingEvents.length === 0 ? (
-          <p className="py-4 font-mono text-sm text-gray-500 dark:text-gray-300">
-            No upcoming events yet.
-          </p>
-        ) : (
-          <ul className="space-y-3">
-            {upcomingEvents.map((r, i) => {
-              const e = r;
-              const c = Array.isArray(r.clubs) ? r.clubs[0] : r.clubs;
-              return (
-                <li key={r.id}>
-                  <Link
-                    to={`/events/${e.id}`}
-                    className="neu-border group flex items-center gap-4 bg-white p-3 shadow-[2px_2px_0_0_#000] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.015] hover:shadow-[6px_6px_0_0_#000]"
-                  >
-                    <div
-                      className={`neu-border ${colors[i % colors.length]} shrink-0 px-3 py-2 text-center font-mono text-xs font-bold transition-transform duration-300 group-hover:scale-105`}
+      <ErrorBoundary fallback={<WidgetError title="Upcoming events" />}>
+        <Widget title="Upcoming events" cta={{ label: "All events", to: "/events" }}>
+          {isUpcomingLoading ? (
+            <WidgetListSkeleton rows={3} />
+          ) : upcomingEvents.length === 0 ? (
+            <p className="py-4 font-mono text-sm text-gray-500 dark:text-gray-300">
+              No upcoming events yet.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {upcomingEvents.map((r, i) => {
+                const e = r;
+                const c = Array.isArray(r.clubs) ? r.clubs[0] : r.clubs;
+                return (
+                  <li key={r.id}>
+                    <Link
+                      to={`/events/${e.id}`}
+                      className="neu-border group flex items-center gap-4 bg-white p-3 shadow-[2px_2px_0_0_#000] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.015] hover:shadow-[6px_6px_0_0_#000]"
                     >
-                      {e?.event_date
-                        ? new Date(e.event_date)
-                            .toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                            .toUpperCase()
-                        : "TBA"}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-display text-lg font-bold">{e?.title}</p>
-                      <p className="font-mono text-xs">{c?.name}</p>
-                    </div>
-                    <span className="neu-border shrink-0 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors duration-300 group-hover:bg-lime">
-                      RSVP'd
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Widget>
+                      <div
+                        className={`neu-border ${colors[i % colors.length]} shrink-0 px-3 py-2 text-center font-mono text-xs font-bold transition-transform duration-300 group-hover:scale-105`}
+                      >
+                        {e?.event_date
+                          ? new Date(e.event_date)
+                              .toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                              .toUpperCase()
+                          : "TBA"}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-display text-lg font-bold">{e?.title}</p>
+                        <p className="font-mono text-xs">{c?.name}</p>
+                      </div>
+                      <span className="neu-border shrink-0 bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors duration-300 group-hover:bg-lime">
+                        RSVP'd
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Widget>
+      </ErrorBoundary>
 
-      <Widget title="Saved events" cta={{ label: "Explore", to: "/events" }}>
-        {isSavedLoading ? (
-          <WidgetListSkeleton rows={3} />
-        ) : savedEvents.length === 0 ? (
-          <p className="py-4 font-mono text-sm text-gray-500 dark:text-gray-300">
-            No saved events yet.
-          </p>
-        ) : (
-          <ul className="space-y-3">
-            {savedEvents.map((item: DashboardSavedEvent, i) => {
-              const rawEvent = item.events;
-              if (!rawEvent) return null;
-              const e = Array.isArray(rawEvent) ? rawEvent[0] : rawEvent;
-              if (!e) return null;
-              const c = Array.isArray(e.clubs) ? e.clubs[0] : e.clubs;
-              return (
-                <li key={item.id}>
-                  <Link
-                    to={`/events/${e.id}`}
-                    className="neu-border group flex items-center gap-4 bg-white p-3 shadow-[2px_2px_0_0_#000] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.015] hover:shadow-[6px_6px_0_0_#000]"
-                  >
-                    <div
-                      className={`neu-border ${colors[i % colors.length]} shrink-0 px-3 py-2 text-center font-mono text-xs font-bold transition-transform duration-300 group-hover:scale-105`}
+      <ErrorBoundary fallback={<WidgetError title="Saved events" />}>
+        <Widget title="Saved events" cta={{ label: "Explore", to: "/events" }}>
+          {isSavedLoading ? (
+            <WidgetListSkeleton rows={3} />
+          ) : savedEvents.length === 0 ? (
+            <p className="py-4 font-mono text-sm text-gray-500 dark:text-gray-300">
+              No saved events yet.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {savedEvents.map((item: DashboardSavedEvent, i) => {
+                const rawEvent = item.events;
+                if (!rawEvent) return null;
+                const e = Array.isArray(rawEvent) ? rawEvent[0] : rawEvent;
+                if (!e) return null;
+                const c = Array.isArray(e.clubs) ? e.clubs[0] : e.clubs;
+                return (
+                  <li key={item.id}>
+                    <Link
+                      to={`/events/${e.id}`}
+                      className="neu-border group flex items-center gap-4 bg-white p-3 shadow-[2px_2px_0_0_#000] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.015] hover:shadow-[6px_6px_0_0_#000]"
                     >
-                      {e?.event_date
-                        ? new Date(e.event_date)
-                            .toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                            .toUpperCase()
-                        : "TBA"}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-display text-lg font-bold">{e?.title}</p>
-                      <p className="font-mono text-xs">{c?.name}</p>
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Widget>
+                      <div
+                        className={`neu-border ${colors[i % colors.length]} shrink-0 px-3 py-2 text-center font-mono text-xs font-bold transition-transform duration-300 group-hover:scale-105`}
+                      >
+                        {e?.event_date
+                          ? new Date(e.event_date)
+                              .toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                              .toUpperCase()
+                          : "TBA"}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-display text-lg font-bold">{e?.title}</p>
+                        <p className="font-mono text-xs">{c?.name}</p>
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Widget>
+      </ErrorBoundary>
 
-      <Widget title="Your clubs" cta={{ label: "Directory", to: "/clubs" }}>
-        {isClubsLoading ? (
-          <WidgetListSkeleton rows={3} />
-        ) : userClubs.length === 0 ? (
-          <p className="font-mono text-sm text-gray-500 dark:text-gray-300">
-            You haven't joined any clubs yet.
-          </p>
-        ) : (
-          <ul className="space-y-3">
-            {userClubs.map((c) => {
-              const club = Array.isArray(c.clubs) ? c.clubs[0] : c.clubs;
-              return (
-                <li
-                  key={club?.id}
-                  className="neu-border flex items-center justify-between bg-cream p-3"
-                >
-                  <div>
-                    <p className="font-display font-bold">
-                      <Link to={`/clubs/${club?.slug || ""}`}>{club?.name}</Link>
-                    </p>
-                    <p className="font-mono text-xs">Active</p>
-                  </div>
-                  <span className="neu-border bg-lime px-2 py-1 font-mono text-[10px] font-bold uppercase">
-                    {c.role}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Widget>
-
-      <Widget title="Recent activity" className="lg:col-span-3">
-        {isActivityLoading ? (
-          <WidgetListSkeleton rows={4} />
-        ) : recentActivity.length === 0 ? (
-          <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
-            <li className="flex items-start gap-2">
-              <span className="mt-2 inline-block h-2 w-2 shrink-0 bg-black" />
-              No recent activity yet.
-            </li>
-          </ul>
-        ) : (
-          <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
-            {recentActivity.map((item) => {
-              const Icon =
-                item.type === "rsvp" ? Calendar : item.type === "post" ? MessageCircle : Users;
-              return (
-                <li key={item.id} className="flex items-start gap-2">
-                  <Icon className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>
-                    {item.description}
-                    <span className="ml-2 text-black/50">
-                      {formatRelativeActivityTime(item.created_at)}
+      <ErrorBoundary fallback={<WidgetError title="Your clubs" />}>
+        <Widget title="Your clubs" cta={{ label: "Directory", to: "/clubs" }}>
+          {isClubsLoading ? (
+            <WidgetListSkeleton rows={3} />
+          ) : userClubs.length === 0 ? (
+            <p className="font-mono text-sm text-gray-500 dark:text-gray-300">
+              You haven't joined any clubs yet.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {userClubs.map((c) => {
+                const club = Array.isArray(c.clubs) ? c.clubs[0] : c.clubs;
+                return (
+                  <li
+                    key={club?.id}
+                    className="neu-border flex items-center justify-between bg-cream p-3"
+                  >
+                    <div>
+                      <p className="font-display font-bold">
+                        <Link to={`/clubs/${club?.slug || ""}`}>{club?.name}</Link>
+                      </p>
+                      <p className="font-mono text-xs">Active</p>
+                    </div>
+                    <span className="neu-border bg-lime px-2 py-1 font-mono text-[10px] font-bold uppercase">
+                      {c.club_roles?.title || "Member"}
                     </span>
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Widget>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Widget>
+
+        <Widget title="Campus Engagement Map" className="lg:col-span-3">
+          <LazyHydrate height="260px">
+            <AttendanceHeatmap userId={user.id} />
+          </LazyHydrate>
+        </Widget>
+      </ErrorBoundary>
+
+      <ErrorBoundary fallback={<WidgetError title="Recent activity" />}>
+        <Widget title="Recent activity" className="lg:col-span-3">
+          {isActivityLoading ? (
+            <WidgetListSkeleton rows={4} />
+          ) : recentActivity.length === 0 ? (
+            <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
+              <li className="flex items-start gap-2">
+                <span className="mt-2 inline-block h-2 w-2 shrink-0 bg-black" />
+                No recent activity yet.
+              </li>
+            </ul>
+          ) : (
+            <ul className="grid gap-3 font-mono text-sm md:grid-cols-2">
+              {recentActivity.map((item) => {
+                const Icon =
+                  item.type === "rsvp" ? Calendar : item.type === "post" ? MessageCircle : Users;
+                return (
+                  <li key={item.id} className="flex items-start gap-2">
+                    <Icon className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                      {item.description}
+                      <RelativeTime date={item.created_at} className="ml-2 text-black/50" />
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Widget>
+      </ErrorBoundary>
     </div>
   );
 }
@@ -701,4 +721,8 @@ function Widget({
       {children}
     </div>
   );
+}
+
+function WidgetError({ title }: { title: string }) {
+  return <WidgetErrorFallback title={title} />;
 }

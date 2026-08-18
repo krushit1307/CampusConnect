@@ -1,15 +1,49 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
-import { useMutation } from "@/hooks/useReactQueryReplacement";
-import { Plus, MapPin, CalendarIcon, Check, X } from "lucide-react";
+import { useMutation, useQuery } from "@/hooks/useReactQueryReplacement";
+import { checkEventConflicts, EventConflict } from "@/lib/events/checkEventConflicts";
+import { useNavigate } from "react-router-dom";
+import { useUndoableState } from "@/hooks/useUndoableState";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import CalendarIcon from "lucide-react/dist/esm/icons/calendar";
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import Check from "lucide-react/dist/esm/icons/check";
+import MessageSquare from "lucide-react/dist/esm/icons/message-square";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import X from "lucide-react/dist/esm/icons/x";
+import WifiOff from "lucide-react/dist/esm/icons/wifi-off";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
-import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
+import { legacyRoleToLevel } from "@/lib/clubPermissions";
 
+import format from "date-fns/format";
 import { createClient } from "@/lib/supabase/client";
-import { eventFormSchema, TITLE_MAX_LENGTH, type EventFormValues } from "@/lib/eventUtils";
+import {
+  eventFormSchema,
+  TITLE_MAX_LENGTH,
+  hasDraftContent,
+  eventFormToDbPayload,
+  parseFlyerDate,
+  applyDateRangeSelection,
+  updateTimeInDate,
+  addFaq,
+  removeFaq,
+  updateFaq,
+  DEFAULT_EVENT_TAG_OPTIONS,
+  type EventFormValues,
+} from "@/lib/eventUtils";
+import { EventLogisticsService } from "@/services/eventLogisticsService";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import {
+  calendarEventTypeLabel,
+  findCampusCalendarConflicts,
+  type CampusCalendarEvent,
+} from "@/lib/campusCalendar";
+import { queueOfflineEvent } from "@/lib/offlineSync";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,55 +64,78 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-
 import { FlyerUploader } from "@/components/FlyerUploader";
 import type { ParsedFlyer } from "@/lib/parser";
-
-import { TagMultiSelect } from "@/components/ui/TagMultiSelect";
+import { MultiSelect } from "@/components/MultiSelect";
+import { ImageCropUpload } from "@/components/ImageCropUpload";
+import {
+  GeofenceMapPicker,
+  MIN_GEOFENCE_RADIUS_METERS,
+  DEFAULT_GEOFENCE_RADIUS_METERS,
+} from "@/components/GeofenceMapPicker";
 
 const STEPS = [
-  { label: "Details" },
-  { label: "Logistics" },
-  { label: "Media & Ticketing" },
+  { label: "Details", fields: ["title", "description"] as const },
+  { label: "Logistics", fields: ["location", "latitude", "startDate", "endDate"] as const },
+  { label: "Media", fields: [] as const },
+  { label: "Review", fields: [] as const },
 ] as const;
 
-type Step = 0 | 1 | 2;
-const STEP_FIELDS: Record<Step, (keyof EventFormValues)[]> = {
-  0: ["title", "description", "tags"],
-  1: ["startDate", "endDate", "location"],
-  2: ["banner", "capacity", "faqs"],
-};
+const STEP_FIELDS = STEPS.map((s) => s.fields as unknown as (keyof EventFormValues)[]);
 
-const defaultValues: EventFormValues = {
+type Step = 0 | 1 | 2 | 3;
+
+// Define an extended interface locally to handle the extra location field safely
+interface LocalEventFormValues extends EventFormValues {
+  location?: string;
+  alcoholPresent?: boolean;
+  maxAttendees?: number;
+  offCampusSpeaker?: boolean;
+  requiresApproval?: boolean;
+}
+
+const defaultValues: LocalEventFormValues = {
   title: "",
   description: "",
+  category: "",
+  venue_id: "",
   location: "",
+  latitude: null,
+  longitude: null,
+  geofencingEnabled: false,
+  geofenceRadiusMeters: 100,
+  accessibility_features: {
+    has_elevator: false,
+    wheelchair_ramp: false,
+    gender_neutral_restrooms: false,
+    hearing_loop: false,
+    low_sensory_zone: false,
+  },
   startDate: "",
   endDate: "",
-  banner: "",
-  capacity: "",
-  faqs: [],
-  tags: [],
+  alcoholPresent: false,
+  maxAttendees: undefined,
+  offCampusSpeaker: false,
+  requiresApproval: false,
   isPrivate: false,
+  tags: [],
+  faqs: [],
+  ratingMetrics: [],
 };
 
 const DRAFT_KEY = "event_draft";
 const DRAFT_AUTOSAVE_INTERVAL_MS = 5000;
-
-// Only worth saving/restoring a draft if the user actually typed something.
-function hasDraftContent(values: EventFormValues): boolean {
-  return Boolean(
-    values.title?.trim() ||
-    values.description?.trim() ||
-    values.location?.trim() ||
-    values.startDate ||
-    values.endDate ||
-    (values.faqs && values.faqs.length > 0),
-  );
-}
 
 export function CreateEventDialog({
   user,
@@ -90,16 +147,188 @@ export function CreateEventDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>(0);
+  const [clubId, setClubId] = useState<string | null>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<{ id: string; name: string }[]>([]);
+  const [isSuggestingCategories, setIsSuggestingCategories] = useState(false);
+  const [conflicts, setConflicts] = useState<EventConflict[]>([]);
+  const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
+  const [showConflictWizard, setShowConflictWizard] = useState(false);
+  const navigate = useNavigate();
   const supabase = createClient();
+  const isOnline = useOnlineStatus();
 
-  const form = useForm<EventFormValues>({
+  // Issue #2082: Strip time to block past dates properly without timezone bugs
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ["eventCategories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_categories")
+        .select("id, name")
+        .order("display_order", { ascending: true })
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data as { id: string; name: string }[];
+    },
+    staleTime: 1000 * 60 * 30,
+  });
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("club_members")
+      .select("club_id, club_roles (permissions_level)")
+      .eq("user_id", user.id)
+      .eq("status", "approved")
+      .then(({ data }) => {
+        const adminClubs = (data ?? []).filter((m: Record<string, unknown>) => {
+          const cr = m["club_roles"] as
+            { permissions_level?: number }[] | { permissions_level?: number } | null;
+          const level = Array.isArray(cr) ? cr[0]?.permissions_level : cr?.permissions_level;
+          const legacyRole = m["role"] as string | undefined;
+          return (level ?? legacyRoleToLevel(legacyRole)) >= 40;
+        });
+        if (adminClubs.length > 0) setClubId(adminClubs[0].club_id as string);
+      });
+  }, [user]);
+
+  const form = useForm<any>({
     resolver: zodResolver(eventFormSchema),
     defaultValues,
     mode: "onBlur",
   });
 
-  const watchedLocation = useWatch({ control: form.control, name: "location" });
+  const { data: venues } = useQuery({
+    queryKey: ["venues"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("venues").select("*").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const watchedLocation = form.watch("location");
+  const watchedTitle = form.watch("title");
+  const watchedDescription = form.watch("description");
+  const watchedVenueId = form.watch("venue_id");
+  const control = form.control as never;
+
+  useEffect(() => {
+    const title = String(watchedTitle || "").trim();
+    const description = String(watchedDescription || "").trim();
+
+    if (!title && !description) {
+      setAiSuggestions([]);
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      setIsSuggestingCategories(true);
+
+      try {
+        const { data, error } = await supabase.functions.invoke("smart-auto-categorize", {
+          body: {
+            title,
+            description,
+            club_id: clubId,
+            suggest_only: true,
+          },
+        });
+
+        if (error) {
+          console.warn("AI category suggestion failed:", error);
+          setAiSuggestions([]);
+          return;
+        }
+
+        setAiSuggestions(data?.categories || []);
+      } catch (error) {
+        console.warn("AI category suggestion failed:", error);
+        setAiSuggestions([]);
+      } finally {
+        setIsSuggestingCategories(false);
+      }
+    }, 800);
+
+    return () => window.clearTimeout(timer);
+  }, [watchedTitle, watchedDescription, clubId]);
+  const isUndoingRedoingRef = useRef(false);
+  const {
+    state: undoableState,
+    set: setUndoableState,
+    undo,
+    redo,
+    resetState,
+  } = useUndoableState(defaultValues, 1000);
+
+  const watchedValues = form.watch();
+
+  // Reset/initialize undoable state when the modal opens/closes
+  useEffect(() => {
+    if (open) {
+      resetState(form.getValues());
+    }
+  }, [open, resetState, form]);
+
+  // Sync form inputs to the undoable state history
+  useEffect(() => {
+    if (isUndoingRedoingRef.current) {
+      isUndoingRedoingRef.current = false;
+      return;
+    }
+    setUndoableState(watchedValues);
+  }, [watchedValues, setUndoableState]);
+
+  // Sync undoableState back to form values
+  useEffect(() => {
+    const currentFormValues = form.getValues();
+    if (JSON.stringify(currentFormValues) !== JSON.stringify(undoableState)) {
+      isUndoingRedoingRef.current = true;
+      form.reset(undoableState);
+    }
+  }, [undoableState, form]);
+
+  // Add Ctrl+Z and Ctrl+Y keydown shortcut listener
+  useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isCtrl = e.ctrlKey || e.metaKey;
+      if (isCtrl) {
+        if (e.key.toLowerCase() === "z") {
+          e.preventDefault();
+          if (e.shiftKey) {
+            redo();
+            toast.success("Redo action performed");
+          } else {
+            undo();
+            toast.success("Undo action performed");
+          }
+        } else if (e.key.toLowerCase() === "y") {
+          e.preventDefault();
+          redo();
+          toast.success("Redo action performed");
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, undo, redo]);
+
+  const watchedGeofencingEnabled = form.watch("geofencingEnabled");
+  const watchedLatitude = form.watch("latitude");
+  const watchedLongitude = form.watch("longitude");
+  const watchedGeofenceRadius = form.watch("geofenceRadiusMeters");
+
+  const currentDescription = watchedDescription || "";
+
+  const isCustomVenue = watchedVenueId === "custom";
+
   const showMapPreview =
+    isCustomVenue &&
     watchedLocation &&
     watchedLocation.trim().length > 0 &&
     watchedLocation.trim().toLowerCase() !== "online";
@@ -136,32 +365,75 @@ export function CreateEventDialog({
         throw new Error("You must be logged in to create an event.");
       }
 
+      const payload = eventFormToDbPayload(values, user.id, clubId);
+
+      // If user is currently offline, queue in IndexedDB & Background Sync immediately
+      if (!navigator.onLine) {
+        await queueOfflineEvent(payload);
+        return { isOffline: true };
+      }
+
       const startDateIso = new Date(values.startDate).toISOString();
       const endDateIso = new Date(values.endDate).toISOString();
 
       const { error } = await supabase.from("events").insert({
         title: values.title.trim(),
         description: values.description.trim(),
-        location: values.location?.trim() || null,
+        venue_id: values.venue_id && values.venue_id !== "custom" ? values.venue_id : null,
+        location: isCustomVenue ? values.location?.trim() || null : null,
+        accessibility_features: isCustomVenue ? values.accessibility_features : null,
         start_date: startDateIso,
         end_date: endDateIso,
-        // Kept in sync with start_date so existing views that still
-        // read event_date (e.g. EventCard, event ordering) keep working.
         event_date: startDateIso,
         created_by: user.id,
-        banner: values.banner?.trim() || null,
-        capacity: values.capacity || null,
-        is_private: values.isPrivate ?? false,
-        faqs: values.faqs && values.faqs.length > 0 ? values.faqs : [],
-        tags: values.tags && values.tags.length > 0 ? values.tags : [],
+        club_id: myClub.id,
       });
+      try {
+        const { data: createdData, error } = await supabase
+          .from("events")
+          .insert(payload)
+          .select(
+            "id, event_date, start_date, max_attendees, capacity, has_catering, has_food, tags",
+          )
+          .single();
 
-      if (error) {
-        throw new Error(error.message);
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        if (createdData?.id) {
+          try {
+            await EventLogisticsService.syncAutoGeneratedTasks(createdData.id, createdData);
+          } catch (ruleErr) {
+            console.warn("Failed to sync auto logistics tasks:", ruleErr);
+          }
+        }
+
+        return { isOffline: false };
+      } catch (err: unknown) {
+        const isNetworkError =
+          !navigator.onLine ||
+          (err instanceof Error &&
+            (err.message.includes("Failed to fetch") ||
+              err.message.includes("NetworkError") ||
+              err.message.includes("network")));
+
+        if (isNetworkError) {
+          await queueOfflineEvent(payload);
+          return { isOffline: true };
+        }
+        throw err;
       }
     },
-    onSuccess: () => {
-      toast.success("Event created!");
+    onSuccess: (data) => {
+      if (data?.isOffline) {
+        toast.info(
+          "Event saved offline! It will sync automatically when connectivity is restored.",
+          { duration: 6000 },
+        );
+      } else {
+        toast.success("Event created!");
+      }
       window.dispatchEvent(new Event("refetchEvents"));
       try {
         window.localStorage.removeItem(DRAFT_KEY);
@@ -169,7 +441,7 @@ export function CreateEventDialog({
         console.error("[CreateEventDialog] Failed to clear saved draft:", e);
       }
       form.reset(defaultValues);
-      setStep(0);
+      resetState(defaultValues);
       setOpen(false);
     },
     onError: (error: Error) => {
@@ -178,28 +450,65 @@ export function CreateEventDialog({
     },
   });
 
-  const onSubmit = (values: EventFormValues) => {
-    createEvent.mutate(values);
+  const onSubmit = async (values: EventFormValues) => {
+    if (showConflictWizard) {
+      createEvent.mutate(values);
+      return;
+    }
+    
+    setIsCheckingConflicts(true);
+    try {
+      const detectedConflicts = await checkEventConflicts(supabase, values);
+      if (detectedConflicts.length > 0) {
+        setConflicts(detectedConflicts);
+        setShowConflictWizard(true);
+      } else {
+        createEvent.mutate(values);
+      }
+    } catch (err) {
+      console.error(err);
+      createEvent.mutate(values);
+    } finally {
+      setIsCheckingConflicts(false);
+    }
   };
 
   const handleDataExtracted = (data: ParsedFlyer) => {
     if (data.title) form.setValue("title", data.title, { shouldValidate: true });
     if (data.description) form.setValue("description", data.description, { shouldValidate: true });
     if (data.date) {
-      try {
-        const d = new Date(data.date);
-        if (!isNaN(d.getTime())) {
-          form.setValue("startDate", `${format(d, "yyyy-MM-dd")}T12:00`, { shouldValidate: true });
-          form.setValue("endDate", `${format(d, "yyyy-MM-dd")}T14:00`, { shouldValidate: true });
-        }
-      } catch (e) {
-        console.error("Failed to parse date from flyer", e);
+      const parsed = parseFlyerDate(data.date);
+      if (parsed) {
+        form.setValue("startDate", parsed.startDate, { shouldValidate: true });
+        form.setValue("endDate", parsed.endDate, { shouldValidate: true });
       }
     }
   };
 
   const startDateStr = form.watch("startDate");
   const endDateStr = form.watch("endDate");
+
+  const { data: campusCalendarEvents = [] } = useQuery({
+    queryKey: ["campusCalendarEvents", startDateStr, endDateStr],
+    queryFn: async (): Promise<CampusCalendarEvent[]> => {
+      const { data, error } = await supabase
+        .from("campus_calendar_events")
+        .select("id, title, start_date, end_date, type")
+        .lte("start_date", endDateStr)
+        .gte("end_date", startDateStr)
+        .order("start_date", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as CampusCalendarEvent[];
+    },
+    enabled: open && step === 1 && Boolean(startDateStr && endDateStr),
+    staleTime: 1000 * 60 * 15,
+  });
+
+  const campusCalendarConflicts = findCampusCalendarConflicts(
+    campusCalendarEvents,
+    startDateStr,
+    endDateStr,
+  );
 
   const parsedStart = startDateStr ? new Date(startDateStr) : undefined;
   const parsedEnd = endDateStr ? new Date(endDateStr) : undefined;
@@ -212,29 +521,9 @@ export function CreateEventDialog({
     : undefined;
 
   const handleSelect = (range: DateRange | undefined) => {
-    if (!range) {
-      form.setValue("startDate", "", { shouldValidate: true });
-      form.setValue("endDate", "", { shouldValidate: true });
-      return;
-    }
-
-    if (range.from) {
-      const existingStartTime =
-        startDateStr && startDateStr.includes("T") ? startDateStr.split("T")[1] : "00:00";
-      form.setValue("startDate", `${format(range.from, "yyyy-MM-dd")}T${existingStartTime}`, {
-        shouldValidate: true,
-      });
-    }
-
-    if (range.to) {
-      const existingEndTime =
-        endDateStr && endDateStr.includes("T") ? endDateStr.split("T")[1] : "23:59";
-      form.setValue("endDate", `${format(range.to, "yyyy-MM-dd")}T${existingEndTime}`, {
-        shouldValidate: true,
-      });
-    } else {
-      form.setValue("endDate", "", { shouldValidate: true });
-    }
+    const { startDate, endDate } = applyDateRangeSelection(range, startDateStr, endDateStr);
+    form.setValue("startDate", startDate, { shouldValidate: true });
+    form.setValue("endDate", endDate, { shouldValidate: true });
   };
 
   return (
@@ -285,9 +574,17 @@ export function CreateEventDialog({
           </button>
         )}
       </DialogTrigger>
-      <DialogContent className="neu-border neu-shadow bg-cream sm:max-w-md text-black">
+      <DialogContent className="neu-border neu-shadow bg-cream sm:max-w-md text-black max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-black">Create a new event</DialogTitle>
+          <div className="flex items-center justify-between gap-2">
+            <DialogTitle className="text-black">Create a new event</DialogTitle>
+            {!isOnline && (
+              <div className="neu-border flex items-center gap-1.5 bg-amber-200 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-black">
+                <WifiOff className="h-3 w-3 shrink-0" />
+                <span>Offline Mode</span>
+              </div>
+            )}
+          </div>
           <DialogDescription className="text-black/60">
             Step {step + 1} of {STEPS.length} — {STEPS[step].label}
           </DialogDescription>
@@ -323,12 +620,49 @@ export function CreateEventDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            
+            {showConflictWizard && conflicts.length > 0 && (
+              <div className="border-2 border-red-500 bg-red-50 p-4 mb-4">
+                <div className="flex items-center gap-2 mb-2 text-red-700 font-bold">
+                  <AlertTriangle size={20} />
+                  <h3>Conflict Detected</h3>
+                </div>
+                <p className="text-sm text-red-900 mb-4">
+                  There are other high-capacity events with overlapping audiences scheduled at the same time. This may affect your attendance.
+                </p>
+                <div className="space-y-3">
+                  {conflicts.map((c) => (
+                    <div key={c.id} className="bg-white border border-red-200 p-3 rounded-md flex justify-between items-center">
+                      <div>
+                        <div className="font-bold text-sm">{c.title}</div>
+                        <div className="text-xs text-gray-500">by {c.club?.name || "a club"}</div>
+                      </div>
+                      {c.club?.created_by && (
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex gap-2"
+                          onClick={() => {
+                            const msg = encodeURIComponent(`⚠️ Coordination: Our upcoming event "${form.watch("title")}" might overlap with "${c.title}". Should we coordinate?`);
+                            navigate(`/messages?userId=${c.club.created_by}&message=${msg}`);
+                          }}
+                        >
+                          <MessageSquare size={14} /> Message President
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             {/* Step 1 — Details */}
             {step === 0 && (
               <>
                 <FlyerUploader onDataExtracted={handleDataExtracted} />
                 <FormField
-                  control={form.control}
+                  control={control}
                   name="title"
                   render={({ field }) => (
                     <FormItem>
@@ -345,7 +679,7 @@ export function CreateEventDialog({
                   )}
                 />
                 <FormField
-                  control={form.control}
+                  control={control}
                   name="description"
                   render={({ field }) => (
                     <FormItem>
@@ -358,7 +692,83 @@ export function CreateEventDialog({
                   )}
                 />
                 <FormField
-                  control={form.control}
+                  control={control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>{" "}
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {(isSuggestingCategories || aiSuggestions.length > 0) && (
+                  <div className="rounded-lg border-2 border-dashed border-black/30 bg-yellow-50 p-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <div>
+                        <p className="font-mono text-xs font-bold uppercase text-black">
+                          AI Suggested Tags
+                        </p>
+                        <p className="text-xs text-black/60">
+                          Suggestions are based on the event title and description.
+                        </p>
+                      </div>
+
+                      {isSuggestingCategories && (
+                        <span className="text-xs font-mono font-bold">Analyzing...</span>
+                      )}
+                    </div>
+
+                    {!isSuggestingCategories && aiSuggestions.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {aiSuggestions.map((suggestion) => (
+                          <button
+                            key={suggestion.id}
+                            type="button"
+                            onClick={() => {
+                              const currentTags = form.getValues("tags") || [];
+
+                              form.setValue("category", suggestion.id, {
+                                shouldValidate: true,
+                              });
+
+                              form.setValue(
+                                "tags",
+                                [...new Set([...currentTags, suggestion.name])].slice(0, 10),
+                                { shouldValidate: true },
+                              );
+                            }}
+                            className="rounded-full border-2 border-black bg-white px-3 py-1 text-xs font-bold hover:bg-black hover:text-white"
+                          >
+                            {suggestion.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {!isSuggestingCategories && aiSuggestions.length > 0 && (
+                      <p className="mt-3 text-xs text-black/50">
+                        Click a suggestion to use it. You can still change the category or tags
+                        manually.
+                      </p>
+                    )}
+                  </div>
+                )}
+                <FormField
+                  control={control}
                   name="tags"
                   render={({ field }) => (
                     <FormItem>
@@ -366,10 +776,15 @@ export function CreateEventDialog({
                         Event Tags
                       </FormLabel>
                       <FormControl>
-                        <TagMultiSelect
-                          value={field.value || []}
-                          onChange={field.onChange}
+                        <MultiSelect
+                          value={(field.value || []).map((tag: string) => ({
+                            value: tag,
+                            label: tag,
+                          }))}
+                          onChange={(tags) => field.onChange(tags.map((t) => t.value))}
+                          options={DEFAULT_EVENT_TAG_OPTIONS}
                           placeholder="Select or type event tags (e.g. #Tech, #Career)..."
+                          allowCustom={true}
                         />
                       </FormControl>
                       <FormMessage />
@@ -377,7 +792,7 @@ export function CreateEventDialog({
                   )}
                 />
                 <FormField
-                  control={form.control}
+                  control={control}
                   name="isPrivate"
                   render={({ field }) => (
                     <FormItem className="neu-border flex items-center justify-between bg-white p-3 shadow-none">
@@ -407,7 +822,7 @@ export function CreateEventDialog({
             {step === 1 && (
               <>
                 <FormField
-                  control={form.control}
+                  control={control}
                   name="location"
                   render={({ field }) => (
                     <FormItem>
@@ -448,6 +863,232 @@ export function CreateEventDialog({
                   </div>
                 )}
 
+                <FormField
+                  control={form.control}
+                  name="venue_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-red-800" required>
+                        Venue
+                      </FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl className="text-black">
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a venue" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {venues?.map((v: any) => (
+                            <SelectItem key={v.id} value={v.id}>
+                              {v.name} ({v.capacity} capacity)
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="custom">Custom Location</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {isCustomVenue && (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="location"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-red-800" required>
+                            Custom Location
+                          </FormLabel>
+                          <FormControl className="text-black">
+                            <Input
+                              placeholder='e.g. "Main Auditorium, IIT Bombay" or "Online"'
+                              {...field}
+                            />
+                          </FormControl>
+                          <p className="text-xs text-black/50 mt-1">
+                            Enter a venue name, address, or "Online"
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {watchedLocation?.trim().toLowerCase() !== "online" && (
+                      <div className="border border-black p-3 rounded-md bg-white/50 space-y-2">
+                        <FormLabel className="text-red-800 text-sm font-bold block mb-2">
+                          Accessibility Audit
+                        </FormLabel>
+                        <p className="text-xs text-black/70 mb-2">
+                          Please accurately report the venue's accessibility features.
+                        </p>
+
+                        {[
+                          { id: "has_elevator", label: "Elevator Available" },
+                          { id: "wheelchair_ramp", label: "Wheelchair Ramp Available" },
+                          { id: "gender_neutral_restrooms", label: "Gender-Neutral Restrooms" },
+                          { id: "hearing_loop", label: "Hearing Loop Available" },
+                          { id: "low_sensory_zone", label: "Low-Sensory/Quiet Zone" },
+                        ].map((feature) => (
+                          <FormField
+                            key={feature.id}
+                            control={form.control}
+                            name={`accessibility_features.${feature.id}` as any}
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-0 p-1">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                  />
+                                </FormControl>
+                                <div className="space-y-1 leading-none">
+                                  <FormLabel className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-black">
+                                    {feature.label}
+                                  </FormLabel>
+                                </div>
+                              </FormItem>
+                            )}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {showMapPreview && (
+                      <div className="rounded overflow-hidden border-2 border-black">
+                        <iframe
+                          className="w-full"
+                          height="180"
+                          loading="lazy"
+                          src={`https://maps.google.com/maps?q=${encodeURIComponent(watchedLocation || "")}&output=embed`}
+                          title="Location preview"
+                        />
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(watchedLocation || "")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-1 bg-white py-1.5 font-mono text-xs font-bold underline hover:bg-cream"
+                        >
+                          <MapPin size={12} />
+                          Open in Google Maps ↗
+                        </a>
+                      </div>
+                    )}
+                  </>
+                )}
+                <FormField
+                  control={control}
+                  name="is_outdoor"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-white p-4 shadow-sm">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="font-bold cursor-pointer">Outdoor Event</FormLabel>
+                        <p className="text-xs text-black/50">
+                          Mark this as an outdoor event to enable automated weather alerts.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                {form.watch("is_outdoor") && (
+                  <FormField
+                    control={control}
+                    name="backup_indoor_venue"
+                    render={({ field }) => (
+                      <FormItem className="rounded-md border-2 border-black bg-white p-4">
+                        <FormLabel className="font-bold">Backup Indoor Venue</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g. Student Union Hall"
+                            {...field}
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <p className="mt-1 text-xs text-black/50">
+                          If severe weather is forecasted, you will be prompted to automatically
+                          pivot the event here.
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+                <FormField
+                  control={control}
+                  name="geofencingEnabled"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-white p-4 shadow-sm">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="font-bold cursor-pointer">
+                          Require Geofenced Check-in
+                        </FormLabel>
+                        <p className="text-xs text-black/50">
+                          Attendees must be physically near the venue (verified via GPS) to check
+                          themselves in. Turn this off for indoor venues with poor GPS reception —
+                          you can still check attendees in manually at the door.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                {watchedGeofencingEnabled && (
+                  <div className="space-y-3 rounded-md border-2 border-black bg-white p-4">
+                    <GeofenceMapPicker
+                      latitude={watchedLatitude}
+                      longitude={watchedLongitude}
+                      radiusMeters={watchedGeofenceRadius || DEFAULT_GEOFENCE_RADIUS_METERS}
+                      onChange={({ latitude, longitude }) => {
+                        form.setValue("latitude", latitude, { shouldValidate: true });
+                        form.setValue("longitude", longitude, { shouldValidate: true });
+                      }}
+                    />
+                    {(form.formState.errors as Record<string, { message?: string }>)?.latitude && (
+                      <p className="text-red-500 text-xs" aria-live="polite">
+                        {
+                          (form.formState.errors as Record<string, { message?: string }>).latitude
+                            ?.message
+                        }
+                      </p>
+                    )}
+
+                    <FormField
+                      control={control}
+                      name="geofenceRadiusMeters"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Check-in Radius: {field.value || 100} meters</FormLabel>
+                          <FormControl>
+                            <input
+                              type="range"
+                              min={MIN_GEOFENCE_RADIUS_METERS}
+                              max={1000}
+                              step={10}
+                              value={field.value || DEFAULT_GEOFENCE_RADIUS_METERS}
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                              className="w-full accent-teal-500"
+                            />
+                          </FormControl>
+                          <p className="mt-1 text-xs text-black/50">
+                            How close (in meters) attendees must be to the pin to check in. 50–100m
+                            works well for a single building; use a larger radius for outdoor venues
+                            like a quad or stadium.
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+
                 <div className="flex flex-col gap-1">
                   <label className="eyebrow font-bold text-sm">
                     Event Date Range <span className="text-destructive">*</span>
@@ -484,18 +1125,46 @@ export function CreateEventDialog({
                         selected={dateRange}
                         onSelect={handleSelect}
                         numberOfMonths={2}
+                        disabled={{ before: today }}
+                        modifiersClassNames={{
+                          selected: "bg-blue-600 text-white font-bold",
+                          range_start: "rounded-l-md bg-blue-600 text-white",
+                          range_end: "rounded-r-md bg-blue-600 text-white",
+                          range_middle: "bg-blue-100 text-blue-900 rounded-none",
+                        }}
                       />
                     </PopoverContent>
                   </Popover>
-                  {form.formState.errors.startDate && (
+                  {typeof form.formState.errors.startDate?.message === "string" && (
                     <p className="text-sm font-medium text-destructive">
                       {form.formState.errors.startDate.message}
                     </p>
                   )}
-                  {form.formState.errors.endDate && (
+                  {typeof form.formState.errors.endDate?.message === "string" && (
                     <p className="text-sm font-medium text-destructive">
                       {form.formState.errors.endDate.message}
                     </p>
+                  )}
+                  {campusCalendarConflicts.length > 0 && (
+                    <div
+                      role="status"
+                      className="neu-border flex gap-3 bg-amber-200 p-3 text-sm text-black"
+                    >
+                      <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+                      <div className="space-y-1">
+                        <p className="font-bold">Academic calendar conflict</p>
+                        {campusCalendarConflicts.map((conflict) => (
+                          <p key={conflict.id}>
+                            Warning: This date falls during <strong>{conflict.title}</strong>.
+                            Expected attendance may be impacted. (
+                            {calendarEventTypeLabel(conflict.type)})
+                          </p>
+                        ))}
+                        <p className="text-xs font-semibold">
+                          You can still create this event; this warning is advisory only.
+                        </p>
+                      </div>
+                    </div>
                   )}
                 </div>
 
@@ -510,8 +1179,9 @@ export function CreateEventDialog({
                       onChange={(e) => {
                         const time = e.target.value;
                         if (!startDateStr) return;
-                        const datePart = startDateStr.split("T")[0];
-                        form.setValue("startDate", `${datePart}T${time}`, { shouldValidate: true });
+                        form.setValue("startDate", updateTimeInDate(startDateStr, time), {
+                          shouldValidate: true,
+                        });
                       }}
                       disabled={!startDateStr}
                     />
@@ -526,8 +1196,9 @@ export function CreateEventDialog({
                       onChange={(e) => {
                         const time = e.target.value;
                         if (!endDateStr) return;
-                        const datePart = endDateStr.split("T")[0];
-                        form.setValue("endDate", `${datePart}T${time}`, { shouldValidate: true });
+                        form.setValue("endDate", updateTimeInDate(endDateStr, time), {
+                          shouldValidate: true,
+                        });
                       }}
                       disabled={!endDateStr}
                     />
@@ -540,24 +1211,33 @@ export function CreateEventDialog({
             {step === 2 && (
               <div className="space-y-6">
                 <FormField
-                  control={form.control}
+                  control={control}
                   name="banner"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Banner Image URL</FormLabel>
+                      <FormLabel>Banner Image</FormLabel>
+                      <ImageCropUpload
+                        aspect={16 / 9}
+                        bucket="event-banners"
+                        value={field.value || undefined}
+                        onUploaded={(url) => field.onChange(url, { shouldValidate: true })}
+                        hint="JPEG, PNG or WEBP · Max 5 MB · 16:9 crop"
+                      />
+                      <p className="mt-1 text-xs text-black/50">Or paste a URL directly:</p>
                       <FormControl>
-                        <Input placeholder="https://example.com/banner.png" {...field} />
+                        <Input
+                          placeholder="https://example.com/banner.png"
+                          {...field}
+                          value={field.value ?? ""}
+                        />
                       </FormControl>
-                      <p className="mt-1 text-xs text-black/50">
-                        Paste a link to a banner image (optional)
-                      </p>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
                 <FormField
-                  control={form.control}
+                  control={control}
                   name="capacity"
                   render={({ field }) => (
                     <FormItem>
@@ -576,7 +1256,7 @@ export function CreateEventDialog({
                 <p className="font-mono text-xs font-bold text-black/50 uppercase">
                   Add frequently asked questions (optional)
                 </p>
-                {form.watch("faqs")?.map((_faq, index) => (
+                {form.watch("faqs")?.map((_faq: unknown, index: number) => (
                   <div key={index} className="neu-border space-y-2 bg-white p-3">
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-xs font-bold text-black/40">
@@ -586,10 +1266,7 @@ export function CreateEventDialog({
                         type="button"
                         onClick={() => {
                           const current = form.getValues("faqs") || [];
-                          form.setValue(
-                            "faqs",
-                            current.filter((_: unknown, i: number) => i !== index),
-                          );
+                          form.setValue("faqs", removeFaq(current, index));
                         }}
                         className="text-destructive hover:text-destructive/80"
                       >
@@ -601,9 +1278,10 @@ export function CreateEventDialog({
                       value={form.watch(`faqs.${index}.question`) || ""}
                       onChange={(e) => {
                         const current = form.getValues("faqs") || [];
-                        const updated = [...current];
-                        updated[index] = { ...updated[index], question: e.target.value };
-                        form.setValue("faqs", updated);
+                        form.setValue(
+                          "faqs",
+                          updateFaq(current, index, "question", e.target.value),
+                        );
                       }}
                       className="font-mono text-sm"
                     />
@@ -612,9 +1290,7 @@ export function CreateEventDialog({
                       value={form.watch(`faqs.${index}.answer`) || ""}
                       onChange={(e) => {
                         const current = form.getValues("faqs") || [];
-                        const updated = [...current];
-                        updated[index] = { ...updated[index], answer: e.target.value };
-                        form.setValue("faqs", updated);
+                        form.setValue("faqs", updateFaq(current, index, "answer", e.target.value));
                       }}
                       rows={2}
                       className="font-mono text-sm"
@@ -626,36 +1302,209 @@ export function CreateEventDialog({
                   variant="outline"
                   onClick={() => {
                     const current = form.getValues("faqs") || [];
-                    form.setValue("faqs", [...current, { question: "", answer: "" }]);
+                    form.setValue("faqs", addFaq(current));
                   }}
                   className="w-full border-dashed font-mono text-xs font-bold"
                 >
                   <Plus className="mr-1 h-3 w-3" /> Add Question
                 </Button>
+
+                <p className="font-mono text-xs font-bold text-black/50 uppercase">
+                  Post-event rating dimensions (optional)
+                </p>
+                {form.watch("ratingMetrics")?.map((metric: string, index: number) => (
+                  <div key={index} className="neu-border flex items-center gap-2 bg-white p-3">
+                    <Input
+                      placeholder="e.g. Food Quality"
+                      value={metric}
+                      onChange={(e) => {
+                        const current = form.getValues("ratingMetrics") || [];
+                        const next = [...current];
+                        next[index] = e.target.value;
+                        form.setValue("ratingMetrics", next);
+                      }}
+                      className="font-mono text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = form.getValues("ratingMetrics") || [];
+                        form.setValue(
+                          "ratingMetrics",
+                          current.filter((_, i) => i !== index),
+                        );
+                      }}
+                      className="text-destructive hover:text-destructive/80"
+                      aria-label={`Remove rating dimension ${metric || index + 1}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const current = form.getValues("ratingMetrics") || [];
+                    form.setValue("ratingMetrics", [...current, ""]);
+                  }}
+                  className="w-full border-dashed font-mono text-xs font-bold"
+                >
+                  <Plus className="mr-1 h-3 w-3" /> Add Rating Dimension
+                </Button>
+                <p className="text-xs text-black/50">
+                  After the event, attendees rate these categories on a 0-100 slider. Leave empty
+                  to use the default dimensions.
+                </p>
               </div>
             )}
 
-            <DialogFooter className="flex gap-2 pt-2">
+            {/* Step 4 — Review (confirm) */}
+            {step === 3 && (
+              <>
+                <div className="neu-border space-y-3 bg-white p-4 font-mono text-sm">
+                  <p className="font-bold uppercase text-black/50 text-xs">Review your event</p>
+                  <div>
+                    <p className="text-xs text-black/40">Title</p>
+                    <p className="font-bold">{form.getValues("title")}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-black/40">Description</p>
+                    <p className="text-black/80">{form.getValues("description")}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-black/40">Category</p>
+                    <p className="font-bold">
+                      {categories.find((c) => c.id === form.getValues("category"))?.name || "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-black/40">Location</p>
+                    <p>{form.getValues("location") || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-black/40">Geofenced Check-in</p>
+                    <p className="font-bold">
+                      {watchedGeofencingEnabled
+                        ? `On — ${form.getValues("geofenceRadiusMeters") || 100}m radius`
+                        : "Off — manual/QR check-in only"}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-xs text-black/40">Start</p>
+                      <p>{startDateStr ? format(parsedStart!, "MMM dd, y HH:mm") : "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-black/40">End</p>
+                      <p>{endDateStr ? format(parsedEnd!, "MMM dd, y HH:mm") : "—"}</p>
+                    </div>
+                  </div>
+                  {form.getValues("faqs") && form.getValues("faqs").length > 0 && (
+                    <div>
+                      <p className="text-xs text-black/40">FAQs</p>
+                      <p className="font-bold">{form.getValues("faqs").length} question(s)</p>
+                    </div>
+                  )}
+                  {form.getValues("ratingMetrics") && form.getValues("ratingMetrics").length > 0 && (
+                    <div>
+                      <p className="text-xs text-black/40">Rating Dimensions</p>
+                      <p className="font-bold">
+                        {form.getValues("ratingMetrics").join(", ")}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <FormField
+                  control={control}
+                  name="requiresApproval"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-white p-4 shadow-sm">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="font-bold cursor-pointer">
+                          Requires Manual Approval
+                        </FormLabel>
+                        <p className="text-xs text-black/50">
+                          Organizers must manually approve attendee RSVPs.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
+
+            <div className="border-t-2 border-dashed border-black pt-4 mt-4 space-y-4">
+              <p className="font-mono text-xs font-bold uppercase text-black">
+                Risk & Attendance Details
+              </p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-black p-3 bg-white">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-sm font-bold">Alcohol Present</FormLabel>
+                  </div>
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      className="h-5 w-5 border-2 border-black"
+                      checked={form.watch("alcoholPresent") || false}
+                      onChange={(e) => form.setValue("alcoholPresent", e.target.checked)}
+                    />
+                  </FormControl>
+                </FormItem>
+
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-black p-3 bg-white">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-sm font-bold">Off-Campus Speaker</FormLabel>
+                  </div>
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      className="h-5 w-5 border-2 border-black"
+                      checked={form.watch("offCampusSpeaker") || false}
+                      onChange={(e) => form.setValue("offCampusSpeaker", e.target.checked)}
+                    />
+                  </FormControl>
+                </FormItem>
+              </div>
+
+              <FormItem>
+                <FormLabel>Expected Attendance / Capacity</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="e.g. 150"
+                    className="border-2 border-black bg-white"
+                    value={form.watch("maxAttendees") || ""}
+                    onChange={(e) =>
+                      form.setValue(
+                        "maxAttendees",
+                        e.target.value ? Number(e.target.value) : undefined,
+                      )
+                    }
+                  />
+                </FormControl>
+              </FormItem>
+            </div>
+
+            <DialogFooter className="pt-2 flex gap-2">
               {step > 0 && (
-                <Button type="button" variant="outline" onClick={handleBack} className="flex-1">
-                  Back
+                <Button type="button" variant="outline" onClick={handleBack}>
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Back
                 </Button>
               )}
-              {step < 2 ? (
-                <Button
-                  type="button"
-                  onClick={handleNext}
-                  className="flex-1 bg-black text-cream hover:bg-black/80"
-                >
-                  Next →
+              {step < STEPS.length - 1 ? (
+                <Button type="button" onClick={handleNext} className="ml-auto">
+                  Next <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               ) : (
-                <Button
-                  type="submit"
-                  disabled={createEvent.isPending}
-                  className="flex-1 bg-black text-cream hover:bg-black/80"
-                >
-                  {createEvent.isPending ? "Creating..." : "Create event"}
+                <Button type="submit" disabled={createEvent.isPending || isCheckingConflicts} className="ml-auto">
+                  {createEvent.isPending ? "Creating..." : isCheckingConflicts ? "Checking..." : showConflictWizard ? "Publish Anyway" : "Create event"}
                 </Button>
               )}
             </DialogFooter>

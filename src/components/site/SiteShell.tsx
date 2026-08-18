@@ -1,19 +1,38 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
-import { Joyride } from "react-joyride";
+import { useIdleTimeout } from "@/hooks/useIdleTimeout";
+import * as JoyrideModule from "react-joyride";
+const JoyrideComponent =
+  (JoyrideModule as any).default || (JoyrideModule as any).Joyride || JoyrideModule;
 import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const JoyrideComponent = Joyride as any;
+import { BugReportWidget } from "@/components/BugReportWidget";
+import { AutoBreadcrumbs } from "@/components/ui/AutoBreadcrumbs";
+import { LiveAnnouncer } from "@/components/events/LiveAnnouncer";
 
 export function SiteShell({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
   const [supabase] = useState(() => createClient());
   const [user, setUser] = useState<User | null>(null);
   const emailVerified = useEmailVerification();
-  const [hasCompletedTour, setHasCompletedTour] = useState<boolean>(true); // default to true
+  const [hasCompletedTour, setHasCompletedTour] = useState<boolean>(
+    () => localStorage.getItem("hasCompletedTour") === "true",
+  );
+
+  // Automated session inactivity timeout (30 mins default, triggers Supabase signOut)
+  useIdleTimeout({
+    onTimeout: async () => {
+      if (user) {
+        await supabase.auth.signOut();
+        localStorage.clear();
+        sessionStorage.clear();
+        navigate("/login?reason=timeout", { replace: true });
+      }
+    },
+  });
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -29,29 +48,13 @@ export function SiteShell({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, [supabase]);
 
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("profiles")
-      .select("has_completed_tour")
-      .eq("id", user.id)
-      .single()
-      .then(({ data, error }) => {
-        if (!error && data) {
-          setHasCompletedTour(!!data.has_completed_tour);
-        } else if (error) {
-          // If profile or column doesn't exist yet, handle gracefully
-          console.log("Could not load tour status: ", error.message);
-        }
-      });
-  }, [user, supabase]);
-
   const handleJoyrideCallback = (data: Record<string, unknown>) => {
     const { status } = data as { status: string };
     const finishedStatuses: string[] = ["finished", "skipped"];
 
     if (finishedStatuses.includes(status)) {
       setHasCompletedTour(true);
+      localStorage.setItem("hasCompletedTour", "true");
       if (user) {
         supabase
           .from("profiles")
@@ -148,10 +151,10 @@ export function SiteShell({ children }: { children: ReactNode }) {
               fontFamily: "monospace",
               fontWeight: "bold",
             },
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } as any
         }
       />
+      <LiveAnnouncer />
       <Navbar />
       {isEmailUnverified && (
         <div
@@ -162,10 +165,12 @@ export function SiteShell({ children }: { children: ReactNode }) {
           confirmation link.
         </div>
       )}
-      <main id="main-content" tabIndex={-1} className="flex-1">
+      <main id="main-content" tabIndex={-1} className="flex-1 pb-16 md:pb-0">
+        <AutoBreadcrumbs />
         {children}
       </main>
       <Footer />
+      <BugReportWidget />
     </div>
   );
 }

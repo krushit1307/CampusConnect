@@ -6,16 +6,23 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { User } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { parse } from "@/lib/markdown";
 import type { MarkdownNodeChild, HeadingNode } from "@/lib/markdown";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getPresenceBadgeClass, usePresence } from "@/hooks/usePresence";
 import { ArrowLeft, Github, Loader2, CheckCircle, Flag } from "lucide-react";
 import { ReportDialog } from "@/components/ReportDialog";
 import { EmptyState } from "@/components/EmptyState";
+import { ConstitutionManager } from "@/components/Clubs/ConstitutionManager";
+import { Skeleton } from "@/components/ui/skeleton";
 import { VideoPlayer } from "@/components/VideoPlayer";
+import { AudioReactiveBackground } from "@/components/media/AudioReactiveBackground";
+import LazyHydrate from "@/components/LazyHydrate";
+import { NotFoundPage as NotFound } from "@/components/NotFoundPage";
+import { MerchStore } from "@/components/Clubs/Merchandise/MerchStore";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -35,6 +42,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { createClubProfileQueryOptions } from "@/lib/clubProfileQuery";
+import { useClubPermissions } from "@/hooks/useClubPermissions";
 
 interface ClubMemberProfile {
   full_name: string;
@@ -47,6 +56,7 @@ interface ClubMember {
   role: string;
   status: string;
   user_id: string;
+  club_roles?: { title: string; permissions_level: number }[] | null;
   profiles: ClubMemberProfile | ClubMemberProfile[];
 }
 
@@ -60,7 +70,9 @@ interface MemberItem {
   name: string;
   handle: string;
   role: "admin" | "member" | "organizer" | "alumni";
+  permissionsLevel?: number;
   avatarUrl: string | null;
+  userId: string;
 }
 
 // Small building block for the skeleton below. Deliberately a plain div
@@ -167,6 +179,7 @@ export default function ClubProfile() {
   const { slug } = useParams();
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
+  const { presenceMap } = usePresence(user?.id);
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
@@ -215,31 +228,20 @@ export default function ClubProfile() {
   );
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+    supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null));
   }, [supabase]);
 
   const {
     data: club,
     isLoading,
+    isError,
     refetch,
   } = useQuery({
-    queryKey: ["club", slug],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("clubs")
-        .select(
-          `
-          id, name, slug, description, github_repo_url, visibility, promo_video_url,
-          club_members (id, role, status, user_id, profiles (full_name, avatar_url, handle)),
-          events (id, title, event_date)
-        `,
-        )
-        .eq("slug", slug)
-        .eq("status", "approved")
-        .single();
-      return data;
-    },
+    ...createClubProfileQueryOptions(supabase, slug ?? ""),
+    enabled: Boolean(slug),
   });
+
+  const { can, isMember } = useClubPermissions(club?.id as string | undefined, user?.id);
 
   const joinMutation = useMutation({
     mutationFn: async () => {
@@ -299,6 +301,7 @@ export default function ClubProfile() {
   }, [club?.description]);
 
   if (isLoading) return <ClubProfileSkeleton />;
+  if (isError || !club) return <NotFound />;
   if (!club)
     return (
       <SiteShell>
@@ -311,11 +314,14 @@ export default function ClubProfile() {
     : [];
   const memberList = members.map((m: ClubMember) => {
     const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
+    const dynamicRole = Array.isArray(m.club_roles) ? m.club_roles[0] : m.club_roles;
     return {
       name: profile?.full_name || "Unknown User",
       handle: profile?.handle || "",
-      role: m.role as "admin" | "member" | "organizer" | "alumni",
+      role: (dynamicRole?.title ?? m.role) as "admin" | "member" | "organizer" | "alumni",
+      permissionsLevel: dynamicRole?.permissions_level,
       avatarUrl: profile?.avatar_url || null,
+      userId: m.user_id,
     };
   });
 
@@ -359,7 +365,15 @@ export default function ClubProfile() {
       </Helmet>
 
       <SiteShell>
-        <section className="border-b-2 border-black px-4 py-14 md:px-6">
+        {/* Audio Reactive WebGL Hero Background */}
+        <section className="relative border-b-2 border-black px-4 py-8 md:px-6 bg-slate-950 overflow-hidden">
+          <div className="mx-auto max-w-6xl relative z-10">
+            <AudioReactiveBackground
+              className="h-64 md:h-80 mb-6 border-2 border-black rounded-lg shadow-xl"
+              defaultPreset="neonPulse"
+              interactive={true}
+            />
+          </div>
           <div className="mx-auto max-w-6xl">
             {/* Breadcrumb — full on sm+, back-link only on mobile */}
             <Link
@@ -398,14 +412,32 @@ export default function ClubProfile() {
               <h1 className="mt-2 text-5xl font-bold text-brand-blue-dark md:text-7xl">
                 {club.name}
               </h1>
-              {membership?.role === "admin" && (
-                <Link
-                  to={`/clubs/${club.slug}/manage`}
-                  className="neu-border neu-press bg-brand-yellow-base mt-4 sm:mt-2 px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0"
-                >
-                  Manage Club
-                </Link>
-              )}
+              <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-2">
+                {membership && (
+                  <Link
+                    to={`/clubs/${club.slug}/tasks`}
+                    className="neu-border neu-press bg-brand-blue-base text-white px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
+                  >
+                    Tasks
+                  </Link>
+                )}
+                {membership && (
+                  <Link
+                    to={`/clubs/${club.slug}/notes`}
+                    className="neu-border neu-press bg-lime px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
+                  >
+                    Meeting Notes
+                  </Link>
+                )}
+                {can("club.manage") && (
+                  <Link
+                    to={`/clubs/${club.slug}/manage`}
+                    className="neu-border neu-press bg-brand-yellow-base px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
+                  >
+                    Manage Club
+                  </Link>
+                )}
+              </div>
             </div>
             <div className="markdown-content mt-4 max-w-2xl font-mono text-sm md:text-base leading-relaxed border-b-2 border-black pb-6">
               {headings.length > 1 && (
@@ -434,13 +466,24 @@ export default function ClubProfile() {
               <ReactMarkdown components={mdComponents}>{club.description || ""}</ReactMarkdown>
             </div>
 
+            <div className="mt-8 max-w-2xl">
+              <ConstitutionManager
+                clubId={club.id}
+                isOrganizer={can("club.manage")}
+                currentVersion={club.bylaws_version || 0}
+                currentFileUrl={club.constitution_url || undefined}
+              />
+            </div>
+
             {club.promo_video_url && (
               <div className="mt-8 max-w-2xl">
                 <h3 className="font-display text-xl font-bold text-indigo-900 uppercase tracking-tight">
                   Featured Club Promo
                 </h3>
                 <div className="neu-border bg-black aspect-video mt-4 overflow-hidden">
-                  <VideoPlayer src={club.promo_video_url} title="Club Promo" />
+                  <LazyHydrate height="360px">
+                    <VideoPlayer src={club.promo_video_url} title="Club Promo" />
+                  </LazyHydrate>
                 </div>{" "}
               </div>
             )}
@@ -470,12 +513,7 @@ export default function ClubProfile() {
                     />
                   </div>
                   {filteredMembers.length === 0 ? (
-                    <EmptyState
-                      size="sm"
-                      bordered={false}
-                      illustration="no-results"
-                      title="No members match your search."
-                    />
+                    <EmptyState illustration="no-results" title="No members match your search." />
                   ) : (
                     <>
                       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -485,7 +523,10 @@ export default function ClubProfile() {
                             className="neu-border bg-white flex items-center gap-3 p-3 font-mono text-sm"
                           >
                             {m.handle ? (
-                              <Link to={`/profile/${m.handle}`} className="h-10 w-10 shrink-0">
+                              <Link
+                                to={`/profile/${m.handle}`}
+                                className="relative h-10 w-10 shrink-0"
+                              >
                                 <Avatar className="h-10 w-10 border-2 border-black rounded-full transition-transform hover:scale-105">
                                   <AvatarImage
                                     src={m.avatarUrl || undefined}
@@ -496,18 +537,36 @@ export default function ClubProfile() {
                                     {getInitials(m.name)}
                                   </AvatarFallback>
                                 </Avatar>
+                                <span className="absolute bottom-0 right-0 rounded-full border-2 border-white bg-white p-0.5">
+                                  <span
+                                    className={getPresenceBadgeClass(
+                                      presenceMap[m.userId]?.status ?? "offline",
+                                    )}
+                                    aria-hidden="true"
+                                  />
+                                </span>
                               </Link>
                             ) : (
-                              <Avatar className="h-10 w-10 border-2 border-black rounded-full">
-                                <AvatarImage
-                                  src={m.avatarUrl || undefined}
-                                  alt={m.name}
-                                  className="rounded-full"
-                                />
-                                <AvatarFallback className="rounded-full bg-brand-blue-light text-black font-bold">
-                                  {getInitials(m.name)}
-                                </AvatarFallback>
-                              </Avatar>
+                              <div className="relative h-10 w-10 shrink-0">
+                                <Avatar className="h-10 w-10 border-2 border-black rounded-full">
+                                  <AvatarImage
+                                    src={m.avatarUrl || undefined}
+                                    alt={m.name}
+                                    className="rounded-full"
+                                  />
+                                  <AvatarFallback className="rounded-full bg-brand-blue-light text-black font-bold">
+                                    {getInitials(m.name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="absolute bottom-0 right-0 rounded-full border-2 border-white bg-white p-0.5">
+                                  <span
+                                    className={getPresenceBadgeClass(
+                                      presenceMap[m.userId]?.status ?? "offline",
+                                    )}
+                                    aria-hidden="true"
+                                  />
+                                </span>
+                              </div>
                             )}
                             <div className="flex-1 min-w-0">
                               {m.handle ? (
@@ -530,7 +589,7 @@ export default function ClubProfile() {
                                 </p>
                               )}
                             </div>
-                            <RoleBadge role={m.role} />
+                            <RoleBadge role={m.role} permissionsLevel={m.permissionsLevel} />
                           </li>
                         ))}
                       </ul>
@@ -605,7 +664,7 @@ export default function ClubProfile() {
                         Cancel
                       </AlertDialogCancel>
                       <AlertDialogAction
-                        onClick={(e) => {
+                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                           e.preventDefault();
                           joinMutation.mutate();
                         }}
@@ -656,7 +715,6 @@ export default function ClubProfile() {
               </h2>
               {events.length === 0 ? (
                 <EmptyState
-                  bordered={false}
                   illustration="no-events"
                   title="No upcoming events."
                   description="Check back soon — this club hasn't scheduled anything yet."
@@ -680,6 +738,16 @@ export default function ClubProfile() {
             </div>
           </div>
         </section>
+
+        <section className="px-4 py-12 md:px-6 bg-gray-50 border-t-2 border-black">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-3xl font-display font-bold text-black">Merchandise Store</h2>
+            </div>
+            <MerchStore clubId={club.id} />
+          </div>
+        </section>
+
         <ReportDialog
           isOpen={isReportDialogOpen}
           onClose={() => setIsReportDialogOpen(false)}

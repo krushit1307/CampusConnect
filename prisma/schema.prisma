@@ -1,0 +1,29 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model CampusTenant {
+  id              String   @id @default(uuid())
+  domain          String   @unique
+  apiEndpoint     String
+  publicKey       String   @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  trustDomains    FederatedTrustDomain[] @relation("TenantTrust")
+}
+
+model FederatedTrustDomain {
+  id              String   @id @default(uuid())
+  tenantId        String
+  trustedDomain   String
+  status          String   @default("ACTIVE") // ACTIVE, REVOKED
+  establishedAt   DateTime @default(now())
+
+  tenant          CampusTenant @relation("TenantTrust", fields: [tenantId], references: [id])
+}

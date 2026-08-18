@@ -1,5 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-
 export type SqlOperator =
   "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "like" | "ilike" | "in" | "is_null" | "is_not_null";
 
@@ -149,30 +147,4 @@ export function buildQuery(options: QueryBuilderOptions): BuiltQuery {
   }
 
   return { sql, params };
-}
-
-/**
- * Executes the generated query via Supabase RPC execute_raw.
- */
-export async function executeQuery<T = unknown>(
-  supabase: SupabaseClient,
-  builtQuery: BuiltQuery,
-): Promise<{ data: T[] | null; error: Error | null }> {
-  try {
-    const { data, error } = await supabase.rpc("execute_raw", {
-      query_text: builtQuery.sql,
-      query_params: builtQuery.params,
-    });
-
-    if (error) {
-      return { data: null, error: new Error(error.message) };
-    }
-
-    return { data: data as T[], error: null };
-  } catch (err) {
-    return {
-      data: null,
-      error: err instanceof Error ? err : new Error("Unknown query execution error"),
-    };
-  }
 }
