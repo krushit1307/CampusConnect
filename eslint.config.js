@@ -3,7 +3,7 @@ try {
   const storybook = await import("eslint-plugin-storybook");
   storybookConfig = storybook.default?.configs?.["flat/recommended"] || {};
 } catch {
-  // storybook optional
+  // storybook plugin optional
 }
 
 import js from "@eslint/js";

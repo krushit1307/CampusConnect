@@ -100,6 +100,7 @@ const ClubArticleDetailsRoute = lazy(() => import("./routes/clubs.$slug.articles
 const ClubVaultRoute = lazy(() => import("./routes/clubs.$slug.vault"));
 const ScavengerHuntsList = lazy(() => import("./routes/scavenger-hunts"));
 const ScavengerHuntGame = lazy(() => import("./routes/scavenger-hunts.$id"));
+const ExploreShowcase = lazy(() => import("./routes/explore"));
 const ClubsLayout = lazy(() => import("./routes/clubs"));
 const ClubDiscoveryQuiz = lazy(() => import("./routes/clubs.fit"));
 const Dashboard = lazy(() => import("./routes/dashboard"));
@@ -137,6 +138,7 @@ const Recap = lazy(() => import("./routes/recap"));
 const NetworkPage = lazy(() => import("@/pages/NetworkPage"));
 const ReviveClubPage = lazy(() => import("@/pages/ReviveClub"));
 const AdminRevivalRequestsPage = lazy(() => import("@/pages/Admin/AdminRevivalRequests"));
+const AdminLeadershipApprovals = lazy(() => import("./routes/admin.leadership-approvals"));
 const MfaChallenge = lazy(() => import("./routes/mfa-challenge"));
 const ComplianceCheck = lazy(() => import("./routes/compliance-check"));
 const VolunteerRecord = lazy(() => import("./routes/volunteer-record"));
@@ -214,6 +216,7 @@ const router = createBrowserRouter(
           <Route path="/referrals/leaderboard" element={<ReferralLeaderboardRoute />} />
           <Route path="/scavenger-hunts" element={<ScavengerHuntsList />} />
           <Route path="/scavenger-hunts/:id" element={<ScavengerHuntGame />} />
+          <Route path="/explore" element={<ExploreShowcase />} />
           <Route path="/dashboard" element={<Dashboard />}>
             <Route index element={<DashboardOverview />} />
             <Route path="rsvps" element={<DashboardRsvps />} />
@@ -365,6 +368,7 @@ const router = createBrowserRouter(
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/restore" element={<AdminRestorePage />} />
           <Route path="/admin/dlq" element={<AdminDlqPage />} />
+          <Route path="/admin/leadership-approvals" element={<AdminLeadershipApprovals />} />
           <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
           {/* Catch-all route for 404 errors */}
           <Route path="*" element={<NotFound />} />

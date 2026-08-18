@@ -95,6 +95,7 @@ import { AccessibilityBadges } from "@/components/events/AccessibilityBadges";
 import { ReportAccessibilityIssueDialog } from "@/components/events/ReportAccessibilityIssueDialog";
 import { ManageAccessibilityOverridesDialog } from "@/components/events/ManageAccessibilityOverridesDialog";
 import EventFeedbackForm from "@/components/EventFeedbackForm";
+import EventMetricRatingForm from "@/components/events/EventMetricRatingForm";
 import { EventPhotoGallery } from "@/components/EventPhotoGallery";
 import { EventMap } from "@/components/EventMap";
 import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
@@ -134,7 +135,13 @@ import { CaptchaWidget } from "@/components/CaptchaWidget";
 import { Blurhash } from "react-blurhash";
 import { isValidBlurhash, DEFAULT_FALLBACK_BLURHASH } from "@/lib/blurhashUtils";
 import { EventDescriptionTranslation } from "@/components/events/EventDescriptionTranslation";
+ feat/3293-dynamic-ticket-pricing
 import { TicketPricingTimeline } from "@/components/events/TicketPricingTimeline";
+
+import { LiveNowBadge } from "@/components/events/LiveNowBadge";
+import { isEventLive } from "@/lib/utils";
+import { LiveGPSBusTracker } from "@/components/events/LiveGPSBusTracker";
+ main
 
 /**
  * Hero banner for the event detail page.
@@ -543,6 +550,7 @@ export default function EventDetailsPage() {
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by, venue_id, accessibility_features,
           is_high_risk, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash,
           latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline,
+          rating_metrics,
           profiles (full_name, email),
           clubs (name, slug, logo_url, primary_color, secondary_color),
           event_rsvps (id, user_id, checked_in, status),
@@ -1550,6 +1558,8 @@ export default function EventDetailsPage() {
     maxAttendees > 0 &&
     attendeeCount >= maxAttendees;
 
+  const isLive = isEventLive(event);
+
   return (
     <>
       <Helmet>
@@ -1638,10 +1648,11 @@ export default function EventDetailsPage() {
           )}
 
           <div className="relative mx-auto flex min-h-[50vh] max-w-4xl flex-col justify-end px-4 py-16 md:min-h-[60vh] md:px-6 md:py-24">
-            <div className="mb-4">
+            <div className="mb-4 flex flex-wrap items-center gap-3">
               <span className="neu-border inline-block bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider text-black">
                 Event Details
               </span>
+              {isLive && <LiveNowBadge>Live Now</LiveNowBadge>}
             </div>
 
             <div className="flex items-center gap-3">
@@ -2128,6 +2139,14 @@ export default function EventDetailsPage() {
 
             {/* Transportation / Carpool Matching (Issue #2877) */}
             <div className="mt-8">
+              <LiveGPSBusTracker
+                eventId={eventId}
+                isCaptain={isOrganizer}
+                eventTitle={event.title}
+              />
+            </div>
+
+            <div className="mt-8">
               <CarpoolMatchingSection eventId={eventId} user={user} />
             </div>
 
@@ -2349,7 +2368,12 @@ export default function EventDetailsPage() {
               hasRsvpd &&
               event.end_date &&
               new Date(event.end_date).getTime() < Date.now() && (
-                <div className="mt-10">
+                <div className="mt-10 space-y-8">
+                  <EventMetricRatingForm
+                    eventId={event.id}
+                    user={user}
+                    metrics={(event as Record<string, unknown>).rating_metrics as string[] | undefined}
+                  />
                   <EventFeedbackForm eventId={event.id} user={user} />
                 </div>
               )}

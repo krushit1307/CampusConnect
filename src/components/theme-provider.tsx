@@ -4,12 +4,18 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
   type ReactNode,
   type MouseEvent,
 } from "react";
+import {
+  useThemeStore,
+  type Theme,
+  applyThemeToDom,
+  THEME_STORAGE_KEY,
+} from "../store/useThemeStore";
+import { createClient } from "../lib/supabase/client";
 
-export type Theme = "light" | "dark" | "system" | "high-contrast";
+export type { Theme };
 
 type ThemeContextValue = {
   theme: Theme;
@@ -19,69 +25,46 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-const STORAGE_KEY = "campusconnect-theme";
-
-function getStoredTheme(): Theme | null {
-  if (typeof window === "undefined") return null;
-
-  const stored = window.localStorage.getItem(STORAGE_KEY);
-  return stored === "light" ||
-    stored === "dark" ||
-    stored === "system" ||
-    stored === "high-contrast"
-    ? stored
-    : null;
-}
-
-function getPreferredTheme(): Theme {
-  if (typeof window === "undefined") return "light";
-
-  if (window.matchMedia("(prefers-contrast: more)").matches) {
-    return "high-contrast";
-  }
-
-  if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-    return "dark";
-  }
-
-  return "light";
-}
-
-function applyTheme(theme: Theme) {
-  if (typeof document === "undefined") return;
-
-  const isHighContrast =
-    theme === "high-contrast" ||
-    (theme === "system" && window.matchMedia("(prefers-contrast: more)").matches);
-
-  const isDark =
-    theme === "dark" ||
-    (theme === "system" &&
-      !isHighContrast &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches);
-
-  document.documentElement.classList.toggle("high-contrast", isHighContrast);
-  document.documentElement.classList.toggle("dark", isDark && !isHighContrast);
-  document.documentElement.style.colorScheme = isHighContrast ? "dark" : isDark ? "dark" : "light";
-}
-
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => getStoredTheme() ?? getPreferredTheme());
+  const { theme, setTheme, initThemeSync, cleanupRealtime } = useThemeStore();
 
+  // Listen for Supabase session changes to initialize user preference sync
   useEffect(() => {
-    const initialTheme = getStoredTheme() ?? getPreferredTheme();
-    setThemeState(initialTheme);
-    applyTheme(initialTheme);
-  }, []);
+    let mounted = true;
+    const supabase = createClient();
 
+    // Check active session on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (mounted && session?.user?.id) {
+        initThemeSync(session.user.id);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user?.id) {
+        initThemeSync(session.user.id);
+      } else {
+        initThemeSync(null);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+      cleanupRealtime();
+    };
+  }, [initThemeSync, cleanupRealtime]);
+
+  // Handle system theme changes when theme is set to 'system'
   useEffect(() => {
-    applyTheme(theme);
-    window.localStorage.setItem(STORAGE_KEY, theme);
+    applyThemeToDom(theme);
 
-    if (theme === "system") {
+    if (theme === "system" && typeof window !== "undefined") {
       const colorSchemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
       const contrastQuery = window.matchMedia("(prefers-contrast: more)");
-      const handleChange = () => applyTheme("system");
+      const handleChange = () => applyThemeToDom("system");
 
       colorSchemeQuery.addEventListener("change", handleChange);
       contrastQuery.addEventListener("change", handleChange);
@@ -93,7 +76,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [theme]);
 
   const toggleTheme = (event?: MouseEvent<HTMLElement> | React.MouseEvent<HTMLElement>) => {
-    const nextTheme =
+    const nextTheme: Theme =
       theme === "light"
         ? "dark"
         : theme === "dark"
@@ -108,7 +91,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     if (!isSupported || prefersReducedMotion || !event) {
-      setThemeState(nextTheme);
+      setTheme(nextTheme);
       return;
     }
 
@@ -125,8 +108,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     };
 
     const transition = doc.startViewTransition(() => {
-      setThemeState(nextTheme);
-      applyTheme(nextTheme);
+      setTheme(nextTheme);
+      applyThemeToDom(nextTheme);
     });
 
     transition.ready.then(() => {
@@ -148,9 +131,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     () => ({
       theme,
       toggleTheme,
-      setTheme: (nextTheme: Theme) => setThemeState(nextTheme),
+      setTheme: (nextTheme: Theme) => setTheme(nextTheme),
     }),
-    [theme],
+    [theme, setTheme],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

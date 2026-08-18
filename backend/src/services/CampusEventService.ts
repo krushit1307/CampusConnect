@@ -2,95 +2,67 @@ import { Router, Request, Response } from 'express';
 
 export interface CampusEventDTO {
   id: string;
-  title: string;
-  organizer: string;
-  category: string;
-  date: string;
-  time: string;
-  location: string;
-  capacity: number;
-  registeredCount: number;
-  price: string;
+  eventTitle: string;
+  organizerClub: string;
+  eventCategory: string;
+  ticketPriceUSD: number;
+  availableTickets: number;
+  totalCapacity: number;
   isRSVPed: boolean;
 }
 
 export class CampusEventService {
   private events: CampusEventDTO[] = [
     {
-      id: 'evt-101',
-      title: 'Annual Campus AI & Machine Learning Hackathon 2026',
-      organizer: 'Computer Science Society',
-      category: 'Hackathon',
-      date: '2026-09-15',
-      time: '09:00 AM - 09:00 PM',
-      location: 'Innovation Hub, Main Auditorium',
-      capacity: 250,
-      registeredCount: 198,
-      price: 'Free',
+      id: 'evt-901',
+      eventTitle: 'Annual Campus Hackathon & AI Showcase 2026',
+      organizerClub: 'ACM Student Chapter',
+      eventCategory: 'Tech & Hackathons',
+      ticketPriceUSD: 0,
+      availableTickets: 85,
+      totalCapacity: 300,
       isRSVPed: false,
     },
     {
-      id: 'evt-102',
-      title: 'Quantum Computing Frontiers & Biophysics Symposium',
-      organizer: 'Department of Physics & Bioengineering',
-      category: 'Symposium',
-      date: '2026-09-20',
-      time: '01:30 PM - 06:00 PM',
-      location: 'Science Complex, Lecture Hall B',
-      capacity: 120,
-      registeredCount: 112,
-      price: 'Free',
+      id: 'evt-902',
+      eventTitle: 'Fall Music Fest & Indie Band Concert',
+      organizerClub: 'Performing Arts Guild',
+      eventCategory: 'Concerts & Music',
+      ticketPriceUSD: 12,
+      availableTickets: 42,
+      totalCapacity: 500,
       isRSVPed: false,
     },
   ];
 
   public getEvents(category?: string): CampusEventDTO[] {
     if (!category || category === 'All') return this.events;
-    return this.events.filter(e => e.category === category);
+    return this.events.filter(e => e.eventCategory === category);
   }
 
-  public rsvpEvent(eventId: string, userId: string): CampusEventDTO | null {
-    const event = this.events.find(e => e.id === eventId);
-    if (!event) return null;
-
-    if (event.registeredCount < event.capacity) {
-      event.registeredCount += 1;
-      event.isRSVPed = true;
-    }
-    return event;
-  }
-
-  public cancelRSVP(eventId: string, userId: string): CampusEventDTO | null {
-    const event = this.events.find(e => e.id === eventId);
-    if (!event) return null;
-
-    if (event.registeredCount > 0) {
-      event.registeredCount -= 1;
-      event.isRSVPed = false;
-    }
-    return event;
+  public rsvpEvent(id: string): { success: boolean; qrCode: string; event: CampusEventDTO } | null {
+    const event = this.events.find(e => e.id === id);
+    if (!event || event.availableTickets <= 0) return null;
+    event.availableTickets -= 1;
+    event.isRSVPed = true;
+    const qrCode = `QR-PASS-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+    return { success: true, qrCode, event };
   }
 }
 
 const eventService = new CampusEventService();
 const eventRouter = Router();
 
-eventRouter.get('/events', (req: Request, res: Response) => {
+eventRouter.get('/events/list', (req: Request, res: Response) => {
   const { category } = req.query;
   const items = eventService.getEvents(category as string);
   res.json({ success: true, data: items });
 });
 
 eventRouter.post('/events/:id/rsvp', (req: Request, res: Response) => {
-  const updated = eventService.rsvpEvent(req.params.id, 'usr-demo');
-  if (!updated) return res.status(404).json({ success: false, error: 'Event not found' });
-  res.json({ success: true, data: updated });
-});
-
-eventRouter.post('/events/:id/cancel-rsvp', (req: Request, res: Response) => {
-  const updated = eventService.cancelRSVP(req.params.id, 'usr-demo');
-  if (!updated) return res.status(404).json({ success: false, error: 'Event not found' });
-  res.json({ success: true, data: updated });
+  const result = eventService.rsvpEvent(req.params.id);
+  if (!result) return res.status(400).json({ success: false, error: 'Event full or invalid' });
+  res.json({ success: true, data: result });
 });
 
 export default eventRouter;

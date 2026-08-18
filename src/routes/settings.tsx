@@ -14,7 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { Switch } from "@/components/ui/switch";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 
 import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
@@ -109,6 +109,9 @@ export default function SettingsPage() {
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState("");
   const skillInputRef = useRef<HTMLInputElement>(null);
+  const [courseCodes, setCourseCodes] = useState<string[]>([]);
+  const [courseCodeInput, setCourseCodeInput] = useState("");
+  const courseCodeInputRef = useRef<HTMLInputElement>(null);
 
   const handleAddSkill = () => {
     const trimmed = skillInput.trim();
@@ -128,6 +131,25 @@ export default function SettingsPage() {
 
   const handleRemoveSkill = (skill: string) => {
     setSkills((prev) => prev.filter((s) => s !== skill));
+  };
+
+  const handleAddCourseCode = () => {
+    const normalized = courseCodeInput.trim().replace(/\s+/g, " ").toUpperCase();
+    if (normalized && !courseCodes.includes(normalized))
+      setCourseCodes((prev) => [...prev, normalized]);
+    setCourseCodeInput("");
+    courseCodeInputRef.current?.focus();
+  };
+
+  const handleCourseCodeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddCourseCode();
+    }
+  };
+
+  const handleRemoveCourseCode = (courseCode: string) => {
+    setCourseCodes((prev) => prev.filter((code) => code !== courseCode));
   };
 
   useEffect(() => {
@@ -180,10 +202,7 @@ export default function SettingsPage() {
   const [birthDate, setBirthDate] = useState("");
   const [shareBirthday, setShareBirthday] = useState(false);
 
-  const {
-    data: privateDetails,
-    refetch: refetchPrivateDetails,
-  } = useQuery({
+  const { data: privateDetails, refetch: refetchPrivateDetails } = useQuery({
     queryKey: ["user_private_details", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -280,7 +299,6 @@ export default function SettingsPage() {
     },
     enabled: !!user?.id,
   });
-
 
   const handleAlumniTransition = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -459,6 +477,11 @@ export default function SettingsPage() {
       if (Array.isArray(profile?.skills)) {
         setSkills(profile.skills as string[]);
       }
+      if (Array.isArray(profile?.course_codes)) {
+        setCourseCodes(
+          (profile.course_codes as string[]).map((courseCode) => courseCode.toUpperCase()),
+        );
+      }
     }
   }, [profile, user, form]);
 
@@ -575,6 +598,11 @@ export default function SettingsPage() {
         linkedin_url: values.linkedinUrl || null,
         phone_number: values.phoneNumber || null,
         skills: dedupedSkills,
+        course_codes: [
+          ...new Set(
+            courseCodes.map((courseCode) => courseCode.trim().toUpperCase()).filter(Boolean),
+          ),
+        ],
       };
 
       const safeData = ProfileUpdateAllowlistSchema.parse(rawPayload);
@@ -997,6 +1025,51 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
+                <div className="space-y-2 border-t-2 border-black pt-5">
+                  <p className="eyebrow font-bold text-black">Courses for study matching</p>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    Add exact course codes to see matching study tables in your Feed.
+                  </p>
+                  {courseCodes.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {courseCodes.map((courseCode) => (
+                        <span
+                          key={courseCode}
+                          className="neu-border inline-flex items-center gap-1 bg-[#bae6fd] px-2.5 py-1 font-mono text-xs font-bold"
+                        >
+                          {courseCode}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCourseCode(courseCode)}
+                            aria-label={`Remove course code ${courseCode}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={courseCodeInputRef}
+                      value={courseCodeInput}
+                      onChange={(e) => setCourseCodeInput(e.target.value)}
+                      onKeyDown={handleCourseCodeKeyDown}
+                      placeholder="e.g. CALC 101"
+                      maxLength={32}
+                      className="flex-1 border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm uppercase outline-none focus:bg-lime/40"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCourseCode}
+                      aria-label="Add course code"
+                      className="neu-border bg-black p-2 text-cream"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
                 <div className="flex justify-end pt-4">
                   <button
                     type="submit"
@@ -1157,9 +1230,11 @@ export default function SettingsPage() {
           <Panel title="Birthday Settings (Privacy Controls)">
             <div className="space-y-4">
               <p className="font-mono text-xs text-muted-foreground">
-                If you opt-in, we will notify your Club Executives 3 days before your birthday, and optionally post a celebratory shoutout to the club forum. Your birthday is kept strictly private otherwise.
+                If you opt-in, we will notify your Club Executives 3 days before your birthday, and
+                optionally post a celebratory shoutout to the club forum. Your birthday is kept
+                strictly private otherwise.
               </p>
-              
+
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label className="eyebrow font-bold text-black">Birth Date</label>
@@ -1174,12 +1249,11 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between gap-4 pt-4 sm:pt-6">
                   <div>
                     <label className="eyebrow font-bold text-black">Opt-In to Share</label>
-                    <p className="font-mono text-xs text-muted-foreground">Share birthday with Club Executives</p>
+                    <p className="font-mono text-xs text-muted-foreground">
+                      Share birthday with Club Executives
+                    </p>
                   </div>
-                  <Switch
-                    checked={shareBirthday}
-                    onCheckedChange={setShareBirthday}
-                  />
+                  <Switch checked={shareBirthday} onCheckedChange={setShareBirthday} />
                 </div>
               </div>
 
@@ -1189,13 +1263,11 @@ export default function SettingsPage() {
                   onClick={async () => {
                     try {
                       if (!user) return;
-                      const { error } = await supabase
-                        .from("user_private_details")
-                        .upsert({
-                          user_id: user.id,
-                          birth_date: birthDate ? birthDate : null,
-                          share_birthday: shareBirthday,
-                        });
+                      const { error } = await supabase.from("user_private_details").upsert({
+                        user_id: user.id,
+                        birth_date: birthDate ? birthDate : null,
+                        share_birthday: shareBirthday,
+                      });
                       if (error) throw error;
                       toast.success("Birthday privacy settings saved!");
                       refetchPrivateDetails();
@@ -1216,7 +1288,8 @@ export default function SettingsPage() {
               <div>
                 <h3 className="font-bold text-black uppercase mb-1">Data Portability & Deletion</h3>
                 <p className="font-mono text-xs text-muted-foreground mb-4">
-                  Manage your data, request exports of your personal information, or permanently delete your account and all associated data.
+                  Manage your data, request exports of your personal information, or permanently
+                  delete your account and all associated data.
                 </p>
                 <Link
                   to="/settings/data"

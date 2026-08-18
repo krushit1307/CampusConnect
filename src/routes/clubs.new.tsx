@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { CascadingCategorySelect } from "@/components/Clubs/CascadingCategorySelect";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { SmartTagSuggester } from "@/components/Clubs/SmartTagSuggester";
 import {
   Form,
   FormField,
@@ -50,6 +51,19 @@ export default function CreateClubWizard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { formData, updateFormData, resetWizard } = useClubWizardStore();
 
+  const defaultValues = useMemo<ClubWizardFormValues>(() => ({
+    name: formData.name || "",
+    slug: formData.slug || "",
+    description: formData.description || "",
+    visibility: formData.visibility || "public",
+    category_id: formData.category_id || null,
+    github_repo_url: formData.github_repo_url || "",
+    logo_url: formData.logo_url || "",
+    social_links: formData.social_links || {},
+    admin_invites: formData.admin_invites || [],
+    tags: formData.tags || [],
+  }), [formData]);
+
   const form = useForm<ClubWizardFormValues>({
     resolver: zodResolver(clubFormSchema) as any,
     defaultValues,
@@ -71,6 +85,7 @@ export default function CreateClubWizard() {
         logo_url: values.logo_url || "",
         social_links: (values.social_links as Record<string, string>) || {},
         admin_invites: values.admin_invites || [],
+        tags: values.tags || [],
       });
     });
     return () => subscription.unsubscribe();
@@ -128,6 +143,7 @@ export default function CreateClubWizard() {
           visibility: values.visibility,
           created_by: user.id,
           status: "pending",
+          tags: values.tags || [],
         })
         .select()
         .single();
@@ -248,6 +264,28 @@ export default function CreateClubWizard() {
                       placeholder="Write about your club's mission, goals, and constitution..."
                       rows={6}
                       minHeightClass="min-h-40"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control as any}
+              name="tags"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <SmartTagSuggester
+                      missionText={form.watch("description") || ""}
+                      selectedTags={field.value || []}
+                      onChange={(tags) =>
+                        form.setValue("tags", tags, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        })
+                      }
                     />
                   </FormControl>
                   <FormMessage />
@@ -597,6 +635,7 @@ function ReviewSummary({ form }: { form: UseFormReturn<ClubWizardFormValues, any
     { label: "Visibility", value: values.visibility },
     { label: "Description", value: values.description },
     { label: "GitHub Repo", value: values.github_repo_url ?? "" },
+    { label: "Search Tags", value: values.tags && values.tags.length > 0 ? values.tags.join(", ") : "" },
   ];
 
   return (

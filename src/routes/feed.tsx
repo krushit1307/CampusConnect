@@ -7,6 +7,7 @@ import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import Calendar from "lucide-react/dist/esm/icons/calendar";
 import MapPin from "lucide-react/dist/esm/icons/map-pin";
 import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import { StudySessionMatchmaker } from "@/components/StudySessionMatchmaker";
 
 export default function Feed() {
   const supabase = createClient();
@@ -87,6 +88,8 @@ export default function Feed() {
         {/* Dynamic Carousels Section */}
         <section className="bg-cream min-h-screen px-4 py-12 md:px-6">
           <div className="mx-auto max-w-5xl space-y-16">
+            <StudySessionMatchmaker />
+
             {/* 3. Render each carousel row dynamically based on Edge Function logic */}
             {config?.carousels?.map((carousel: any, index: number) => {
               const queryResult = carouselQueries[index];

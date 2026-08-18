@@ -131,6 +131,7 @@ const defaultValues: LocalEventFormValues = {
   isPrivate: false,
   tags: [],
   faqs: [],
+  ratingMetrics: [],
 };
 
 const DRAFT_KEY = "event_draft";
@@ -1307,6 +1308,54 @@ export function CreateEventDialog({
                 >
                   <Plus className="mr-1 h-3 w-3" /> Add Question
                 </Button>
+
+                <p className="font-mono text-xs font-bold text-black/50 uppercase">
+                  Post-event rating dimensions (optional)
+                </p>
+                {form.watch("ratingMetrics")?.map((metric: string, index: number) => (
+                  <div key={index} className="neu-border flex items-center gap-2 bg-white p-3">
+                    <Input
+                      placeholder="e.g. Food Quality"
+                      value={metric}
+                      onChange={(e) => {
+                        const current = form.getValues("ratingMetrics") || [];
+                        const next = [...current];
+                        next[index] = e.target.value;
+                        form.setValue("ratingMetrics", next);
+                      }}
+                      className="font-mono text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = form.getValues("ratingMetrics") || [];
+                        form.setValue(
+                          "ratingMetrics",
+                          current.filter((_, i) => i !== index),
+                        );
+                      }}
+                      className="text-destructive hover:text-destructive/80"
+                      aria-label={`Remove rating dimension ${metric || index + 1}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const current = form.getValues("ratingMetrics") || [];
+                    form.setValue("ratingMetrics", [...current, ""]);
+                  }}
+                  className="w-full border-dashed font-mono text-xs font-bold"
+                >
+                  <Plus className="mr-1 h-3 w-3" /> Add Rating Dimension
+                </Button>
+                <p className="text-xs text-black/50">
+                  After the event, attendees rate these categories on a 0-100 slider. Leave empty
+                  to use the default dimensions.
+                </p>
               </div>
             )}
 
@@ -1355,6 +1404,14 @@ export function CreateEventDialog({
                     <div>
                       <p className="text-xs text-black/40">FAQs</p>
                       <p className="font-bold">{form.getValues("faqs").length} question(s)</p>
+                    </div>
+                  )}
+                  {form.getValues("ratingMetrics") && form.getValues("ratingMetrics").length > 0 && (
+                    <div>
+                      <p className="text-xs text-black/40">Rating Dimensions</p>
+                      <p className="font-bold">
+                        {form.getValues("ratingMetrics").join(", ")}
+                      </p>
                     </div>
                   )}
                 </div>

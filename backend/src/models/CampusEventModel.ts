@@ -1,72 +1,52 @@
-export interface EventOrganizerDTO {
-  id: string;
-  name: string;
-  avatarUrl: string;
-  verifiedOrganization: boolean;
-  contactEmail: string;
+export interface TicketPassDTO {
+  passId: string;
+  qrHash: string;
+  attendeeEmail: string;
+  issuedAt: string;
 }
 
-export interface EventTicketingModel {
-  ticketTypeId: string;
-  title: string;
-  price: number;
-  availableQuantity: number;
-  maxPerUser: number;
-}
-
-export class CampusEventDTOModel {
+export class CampusEventModel {
   public id: string;
-  public title: string;
-  public description: string;
-  public organizer: EventOrganizerDTO;
-  public category: 'Hackathon' | 'Symposium' | 'Workshop' | 'Cultural' | 'Sports';
-  public date: string;
-  public timeRange: string;
-  public location: string;
+  public eventTitle: string;
+  public hostOrganization: string;
+  public category: string;
+  public eventScheduleISO: string;
+  public venueName: string;
+  public priceUSD: number;
+  public remainingTickets: number;
   public totalCapacity: number;
-  public tickets: EventTicketingModel[];
+  public issuedPasses: TicketPassDTO[];
+  public isCancelled: boolean;
   public createdAt: string;
 
-  constructor(data: Partial<CampusEventDTOModel>) {
+  constructor(data: Partial<CampusEventModel>) {
     this.id = data.id || `evt_${Math.random().toString(36).substr(2, 9)}`;
-    this.title = data.title || 'Untitled Event';
-    this.description = data.description || '';
-    this.organizer = data.organizer || {
-      id: 'org_default',
-      name: 'Campus Life Board',
-      avatarUrl: '',
-      verifiedOrganization: true,
-      contactEmail: 'events@campus.edu',
-    };
-    this.category = data.category || 'Workshop';
-    this.date = data.date || new Date().toISOString().split('T')[0];
-    this.timeRange = data.timeRange || '10:00 AM - 04:00 PM';
-    this.location = data.location || 'Campus Center';
+    this.eventTitle = data.eventTitle || 'Campus Student Gathering';
+    this.hostOrganization = data.hostOrganization || 'Student Council';
+    this.category = data.category || 'Social & Greek Life';
+    this.eventScheduleISO = data.eventScheduleISO || new Date().toISOString();
+    this.venueName = data.venueName || 'Campus Amphitheater';
+    this.priceUSD = data.priceUSD || 0;
+    this.remainingTickets = data.remainingTickets || 100;
     this.totalCapacity = data.totalCapacity || 100;
-    this.tickets = data.tickets || [
-      {
-        ticketTypeId: 'tkt_standard',
-        title: 'General Admission',
-        price: 0,
-        availableQuantity: this.totalCapacity,
-        maxPerUser: 1,
-      },
-    ];
+    this.issuedPasses = data.issuedPasses || [];
+    this.isCancelled = data.isCancelled ?? false;
     this.createdAt = data.createdAt || new Date().toISOString();
   }
 
   public toJSON() {
     return {
       id: this.id,
-      title: this.title,
-      description: this.description,
-      organizer: this.organizer,
+      eventTitle: this.eventTitle,
+      hostOrganization: this.hostOrganization,
       category: this.category,
-      date: this.date,
-      timeRange: this.timeRange,
-      location: this.location,
+      eventScheduleISO: this.eventScheduleISO,
+      venueName: this.venueName,
+      priceUSD: this.priceUSD,
+      remainingTickets: this.remainingTickets,
       totalCapacity: this.totalCapacity,
-      tickets: this.tickets,
+      issuedPasses: this.issuedPasses,
+      isCancelled: this.isCancelled,
       createdAt: this.createdAt,
     };
   }

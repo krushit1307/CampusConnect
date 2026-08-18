@@ -20,6 +20,8 @@ export function ManageMerch({ clubId }: { clubId: string }) {
   // New Item State
   const [newItemName, setNewItemName] = useState("");
   const [newItemDesc, setNewItemDesc] = useState("");
+  const [fundingGoalCount, setFundingGoalCount] = useState<number>(0);
+  const [campaignEndDate, setCampaignEndDate] = useState("");
 
   // New Variant State
   const [addingVariantTo, setAddingVariantTo] = useState<string | null>(null);
@@ -55,7 +57,14 @@ export function ManageMerch({ clubId }: { clubId: string }) {
     if (!newItemName.trim()) return;
     const { data, error } = await supabase
       .from("merch_items")
-      .insert({ club_id: clubId, name: newItemName, description: newItemDesc })
+      .insert({
+        club_id: clubId,
+        name: newItemName,
+        description: newItemDesc,
+        funding_goal_count: fundingGoalCount > 0 ? fundingGoalCount : null,
+        campaign_end_date: campaignEndDate || null,
+        campaign_status: fundingGoalCount > 0 ? "active" : null,
+      })
       .select()
       .single();
 
@@ -65,6 +74,8 @@ export function ManageMerch({ clubId }: { clubId: string }) {
       toast.success("Item created");
       setNewItemName("");
       setNewItemDesc("");
+      setFundingGoalCount(0);
+      setCampaignEndDate("");
       fetchMerch();
     }
   };
@@ -111,28 +122,56 @@ export function ManageMerch({ clubId }: { clubId: string }) {
         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
           Add New Merchandise
         </h3>
-        <div className="flex gap-4 items-end">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Item Name
-            </label>
-            <Input
-              value={newItemName}
-              onChange={(e) => setNewItemName(e.target.value)}
-              placeholder="e.g. Club Hoodie"
-            />
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Item Name
+              </label>
+              <Input
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
+                placeholder="e.g. Club Hoodie"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Description (Optional)
+              </label>
+              <Input
+                value={newItemDesc}
+                onChange={(e) => setNewItemDesc(e.target.value)}
+                placeholder="e.g. 100% cotton"
+              />
+            </div>
           </div>
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Description (Optional)
-            </label>
-            <Input
-              value={newItemDesc}
-              onChange={(e) => setNewItemDesc(e.target.value)}
-              placeholder="e.g. 100% cotton"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Crowdfunding Goal Count (Optional, e.g. 50 orders)
+              </label>
+              <Input
+                type="number"
+                min={0}
+                value={fundingGoalCount || ""}
+                onChange={(e) => setFundingGoalCount(parseInt(e.target.value) || 0)}
+                placeholder="No goal (direct sale)"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Campaign End Date (Required if Goal is set)
+              </label>
+              <Input
+                type="datetime-local"
+                value={campaignEndDate}
+                onChange={(e) => setCampaignEndDate(e.target.value)}
+              />
+            </div>
           </div>
-          <Button onClick={handleCreateItem}>Add Item</Button>
+          <div className="flex justify-end">
+            <Button onClick={handleCreateItem}>Add Item</Button>
+          </div>
         </div>
       </div>
 
@@ -147,6 +186,19 @@ export function ManageMerch({ clubId }: { clubId: string }) {
               <div>
                 <h4 className="font-bold text-gray-900 dark:text-white">{item.name}</h4>
                 {item.description && <p className="text-sm text-gray-500">{item.description}</p>}
+                {(item as any).funding_goal_count && (item as any).funding_goal_count > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
+                      Goal: {(item as any).funding_goal_count} Orders
+                    </span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                      Ends: {(item as any).campaign_end_date ? new Date((item as any).campaign_end_date).toLocaleDateString() : "N/A"}
+                    </span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 uppercase">
+                      Status: {(item as any).campaign_status}
+                    </span>
+                  </div>
+                )}
               </div>
               <Button
                 variant="ghost"

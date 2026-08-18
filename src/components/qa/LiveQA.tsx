@@ -6,6 +6,7 @@ import Play from "lucide-react/dist/esm/icons/play";
 import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
 import Send from "lucide-react/dist/esm/icons/send";
 import Radio from "lucide-react/dist/esm/icons/radio";
+import ArrowUp from "lucide-react/dist/esm/icons/arrow-up";
 
 type LiveQAProps = {
   eventId: string;
@@ -14,7 +15,7 @@ type LiveQAProps = {
 };
 
 export default function LiveQA({ eventId, userId, isOrganizer }: LiveQAProps) {
-  const { questions, spotlightedQuestion, submitQuestion, markAnswering } = useLiveQA(
+  const { questions, spotlightedQuestion, submitQuestion, markAnswering, toggleUpvote } = useLiveQA(
     eventId,
     userId,
   );
@@ -62,23 +63,37 @@ export default function LiveQA({ eventId, userId, isOrganizer }: LiveQAProps) {
       {/* Spotlighted/Answering Now Question */}
       {spotlightedQuestion && (
         <div className="neu-border bg-lime p-5 text-black flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-2">
+          <div className="space-y-2 flex-grow">
             <span className="inline-flex items-center gap-1.5 bg-black text-cream px-2 py-0.5 font-mono text-[10px] font-bold uppercase animate-pulse">
               <Radio size={12} className="text-red-500 animate-pulse" /> Answering Live
             </span>
             <h4 className="text-lg font-bold font-sans">"{spotlightedQuestion.question}"</h4>
-            <p className="font-mono text-[10px] text-gray-700">
-              Asked by: {spotlightedQuestion.profiles?.full_name || "Anonymous"}
+            <p className="font-mono text-[10px] text-gray-700 flex items-center gap-2">
+              <span>Asked by: {spotlightedQuestion.profiles?.full_name || "Anonymous"}</span>
+              <span className="font-bold">• {spotlightedQuestion.upvotes_count || 0} upvotes</span>
             </p>
           </div>
-          {isOrganizer && (
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => handleStatusChange(spotlightedQuestion.id, "answered")}
-              className="neu-border bg-black text-cream px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-cream hover:text-black transition-colors"
+              onClick={() => toggleUpvote(spotlightedQuestion.id)}
+              className={`p-2 transition-all neu-border ${
+                spotlightedQuestion.has_upvoted
+                  ? "bg-black text-lime"
+                  : "bg-cream text-black hover:bg-black hover:text-cream"
+              } flex items-center gap-1 font-mono text-xs font-bold uppercase`}
             >
-              Done Answering
+              <ArrowUp size={14} className={spotlightedQuestion.has_upvoted ? "stroke-[3px]" : ""} />
+              {spotlightedQuestion.has_upvoted ? "Upvoted" : "Upvote"}
             </button>
-          )}
+            {isOrganizer && (
+              <button
+                onClick={() => handleStatusChange(spotlightedQuestion.id, "answered")}
+                className="neu-border bg-black text-cream px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-cream hover:text-black transition-colors"
+              >
+                Done Answering
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -115,30 +130,50 @@ export default function LiveQA({ eventId, userId, isOrganizer }: LiveQAProps) {
           ) : (
             <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
               {queuedQuestions.map((q) => (
-                <div key={q.id} className="neu-border bg-white p-3 space-y-2">
-                  <p className="font-sans text-sm font-medium">"{q.question}"</p>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-[10px] text-gray-500">
-                      by {q.profiles?.full_name || "Anonymous"}
+                <div key={q.id} className="neu-border bg-white p-3 flex items-start gap-3 justify-between">
+                  <div className="space-y-2 flex-grow min-w-0">
+                    <p className="font-sans text-sm font-medium break-words">"{q.question}"</p>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] text-gray-500">
+                        by {q.profiles?.full_name || "Anonymous"}
+                      </span>
+                      {isOrganizer && (
+                        <div className="flex gap-1.5 ml-2">
+                          <button
+                            onClick={() => handleStatusChange(q.id, "answering_now")}
+                            className="neu-border bg-lime text-black p-1 hover:bg-black hover:text-lime transition-colors"
+                            title="Answer Live"
+                          >
+                            <Play size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleStatusChange(q.id, "answered")}
+                            className="neu-border bg-black text-cream p-1 hover:bg-cream hover:text-black transition-colors"
+                            title="Mark Answered"
+                          >
+                            <CheckCircle size={12} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Upvote Button Column */}
+                  <div className="flex flex-col items-center gap-0.5 min-w-[40px] pt-1">
+                    <button
+                      onClick={() => toggleUpvote(q.id)}
+                      className={`p-1.5 transition-all rounded ${
+                        q.has_upvoted
+                          ? "text-black bg-lime border-2 border-black"
+                          : "text-gray-400 hover:text-black hover:bg-gray-100 border border-transparent"
+                      }`}
+                      aria-label={q.has_upvoted ? "Remove upvote" : "Upvote question"}
+                    >
+                      <ArrowUp size={14} className={q.has_upvoted ? "stroke-[3px]" : ""} />
+                    </button>
+                    <span className="font-mono text-xs font-bold text-black">
+                      {q.upvotes_count || 0}
                     </span>
-                    {isOrganizer && (
-                      <div className="flex gap-1.5">
-                        <button
-                          onClick={() => handleStatusChange(q.id, "answering_now")}
-                          className="neu-border bg-lime text-black p-1 hover:bg-black hover:text-lime transition-colors"
-                          title="Answer Live"
-                        >
-                          <Play size={12} />
-                        </button>
-                        <button
-                          onClick={() => handleStatusChange(q.id, "answered")}
-                          className="neu-border bg-black text-cream p-1 hover:bg-cream hover:text-black transition-colors"
-                          title="Mark Answered"
-                        >
-                          <CheckCircle size={12} />
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}
@@ -159,7 +194,7 @@ export default function LiveQA({ eventId, userId, isOrganizer }: LiveQAProps) {
                 <div key={q.id} className="neu-border bg-white p-3 space-y-1 opacity-70">
                   <p className="font-sans text-sm line-through">"{q.question}"</p>
                   <p className="font-mono text-[10px] text-gray-400">
-                    Asked by {q.profiles?.full_name || "Anonymous"}
+                    Asked by {q.profiles?.full_name || "Anonymous"} • {q.upvotes_count || 0} upvotes
                   </p>
                 </div>
               ))}

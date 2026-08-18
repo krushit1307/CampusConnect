@@ -1,8 +1,8 @@
 // =============================================================================
 // Component: QuestionCard
---Issue: #2898 - Develop a Real - Time 'Live Q&A' Module for Events
---Description: Renders an individual question in the Live Q & A feed.
---Includes the upvote button with micro - animations and moderator actions.
+// Issue: #3272 - Develop a 'Live Interactive Q&A Upvoting' System
+// Description: Renders an individual question in the Live Q & A feed.
+// Includes the upvote button with micro - animations and moderator actions.
 // =============================================================================
 
 import React, { useState } from 'react';
@@ -59,7 +59,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                     </svg>
                 </button>
                 <span className={`text-sm font-bold ${question.has_upvoted ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-gray-300'}`}>
-                    {question.upvotes}
+                    {question.upvotes_count || 0}
                 </span>
             </div>
 
@@ -86,7 +86,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 </div>
 
                 <p className="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap break-words">
-                    {question.content}
+                    {question.question}
                 </p>
 
                 {/* Moderator Actions */}

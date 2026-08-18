@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useIdempotentPayment } from "@/hooks/useIdempotentPayment";
+import { useIdempotentPreorder } from "@/hooks/useIdempotentPreorder";
 import { Database } from "@/types/database.types";
 import { formatCurrency } from "@/lib/ticketing/discountCalculator";
-import { Loader2, ShoppingBag } from "lucide-react";
+import { Loader2, ShoppingBag, Flame, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -18,7 +19,8 @@ interface MerchItemWithVariants extends MerchItem {
 export function MerchStore({ clubId }: { clubId: string }) {
   const [items, setItems] = useState<MerchItemWithVariants[]>([]);
   const [loading, setLoading] = useState(true);
-  const { processPayment, isProcessing } = useIdempotentPayment();
+  const { processPayment, isProcessing: isPaying } = useIdempotentPayment();
+  const { processPreorder, isProcessing: isPreordering } = useIdempotentPreorder();
 
   useEffect(() => {
     fetchMerch();
@@ -31,7 +33,8 @@ export function MerchStore({ clubId }: { clubId: string }) {
       .select(
         `
         *,
-        variants:merch_variants(*)
+        variants:merch_variants(*),
+        preorders:merch_preorders(quantity)
       `,
       )
       .eq("club_id", clubId);
@@ -44,20 +47,50 @@ export function MerchStore({ clubId }: { clubId: string }) {
     setLoading(false);
   };
 
-  const handleBuy = async (variant: MerchVariant) => {
-    try {
-      await processPayment({
-        quantity: 1,
-        amount: variant.price,
-        merchVariantId: variant.id,
-        merchQuantity: 1,
-      });
-      // Refresh inventory
-      fetchMerch();
-    } catch (err) {
-      // Errors are handled by the hook
+  const handleBuy = async (item: MerchItemWithVariants, variant: MerchVariant) => {
+    const isCampaign = (item as any).funding_goal_count && (item as any).funding_goal_count > 0;
+    const isExpired = (item as any).campaign_end_date
+      ? new Date((item as any).campaign_end_date).getTime() <= Date.now()
+      : false;
+
+    if (isCampaign) {
+      if (isExpired) {
+        toast.error("This pre-order campaign has ended.");
+        return;
+      }
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          toast.error("Please log in to back this item!");
+          return;
+        }
+
+        await processPreorder({
+          userId: user.id,
+          merchItemId: item.id,
+          variantId: variant.id,
+          quantity: 1,
+        });
+        fetchMerch();
+      } catch (err) {
+        // Handled by hook
+      }
+    } else {
+      try {
+        await processPayment({
+          quantity: 1,
+          amount: variant.price,
+          merchVariantId: variant.id,
+          merchQuantity: 1,
+        });
+        fetchMerch();
+      } catch (err) {
+        // Handled by hook
+      }
     }
   };
+
+  const isProcessing = isPaying || isPreordering;
 
   if (loading) {
     return (
@@ -81,65 +114,124 @@ export function MerchStore({ clubId }: { clubId: string }) {
 
   return (
     <div className="space-y-8">
-      {items.map((item) => (
-        <div
-          key={item.id}
-          className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden"
-        >
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{item.name}</h2>
-            {item.description && (
-              <p className="mt-2 text-gray-600 dark:text-gray-300">{item.description}</p>
-            )}
-          </div>
-          <div className="p-6 bg-gray-50 dark:bg-gray-900/50">
-            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-              Available Options
-            </h3>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {item.variants.map((variant) => (
-                <div
-                  key={variant.id}
-                  className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex justify-between items-start">
-                      <h4 className="font-bold text-gray-900 dark:text-white text-lg">
-                        {variant.name}
-                      </h4>
-                      {variant.stock === 0 ? (
-                        <Badge variant="destructive">Out of Stock</Badge>
-                      ) : variant.stock < 5 ? (
-                        <Badge variant="outline" className="text-amber-600 border-amber-600">
-                          Low Stock
-                        </Badge>
-                      ) : null}
-                    </div>
-                    <p className="text-xl font-bold text-indigo-600 mt-2">
-                      {formatCurrency(variant.price)}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      {variant.stock} left
-                    </p>
-                  </div>
-                  <Button
-                    className="mt-4 w-full"
-                    onClick={() => handleBuy(variant)}
-                    disabled={variant.stock === 0 || isProcessing}
-                  >
-                    {isProcessing ? (
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    ) : (
-                      <ShoppingBag className="w-4 h-4 mr-2" />
-                    )}
-                    Buy Now
-                  </Button>
+      {items.map((item) => {
+        const isCampaign = (item as any).funding_goal_count && (item as any).funding_goal_count > 0;
+        const isExpired = (item as any).campaign_end_date
+          ? new Date((item as any).campaign_end_date).getTime() <= Date.now()
+          : false;
+
+        return (
+          <div
+            key={item.id}
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden"
+          >
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{item.name}</h2>
+              {item.description && (
+                <p className="mt-2 text-gray-600 dark:text-gray-300">{item.description}</p>
+              )}
+
+              {/* Crowdfunding Campaign Widget */}
+              {isCampaign && (
+                <div className="mt-4 border-2 border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/50 dark:bg-indigo-950/20 p-4 rounded-lg">
+                  {(() => {
+                    const currentOrders = (item as any).preorders?.reduce((acc: number, p: any) => acc + p.quantity, 0) || 0;
+                    const targetGoal = (item as any).funding_goal_count;
+                    const pct = Math.min(100, Math.round((currentOrders / targetGoal) * 100));
+                    const campaignEndDate = (item as any).campaign_end_date;
+                    const timeLeftMs = campaignEndDate ? new Date(campaignEndDate).getTime() - Date.now() : 0;
+                    const daysLeft = Math.max(0, Math.ceil(timeLeftMs / (1000 * 60 * 60 * 24)));
+
+                    return (
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="font-semibold text-indigo-900 dark:text-indigo-300 flex items-center gap-1">
+                            <Flame className="w-4 h-4 text-orange-500 animate-pulse" />
+                            {currentOrders} / {targetGoal} Orders Backed
+                          </span>
+                          <span className="font-mono font-medium text-gray-600 dark:text-gray-400">
+                            {isExpired ? "Campaign Ended" : `${daysLeft} Days Left!`}
+                          </span>
+                        </div>
+                        
+                        {/* Progress Bar Container */}
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 h-3 rounded-full overflow-hidden border border-gray-300 dark:border-gray-600">
+                          <div 
+                            className="bg-indigo-600 h-full transition-all duration-500" 
+                            style={{ width: `${pct}%` }} 
+                          />
+                        </div>
+
+                        {isExpired ? (
+                          <div className="mt-2 text-xs font-semibold">
+                            {currentOrders >= targetGoal ? (
+                              <span className="text-green-600 flex items-center gap-1">
+                                <Sparkles className="w-3.5 h-3.5" /> Crowdfunding Goal Achieved! (Production starts soon)
+                              </span>
+                            ) : (
+                              <span className="text-red-600">Crowdfunding Goal Not Reached. Campaign failed.</span>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                            Cards are only charged if the campaign reaches {targetGoal} backers by the deadline.
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
-              ))}
+              )}
+            </div>
+            <div className="p-6 bg-gray-50 dark:bg-gray-900/50">
+              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
+                Available Options
+              </h3>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {item.variants.map((variant) => (
+                  <div
+                    key={variant.id}
+                    className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-bold text-gray-900 dark:text-white text-lg">
+                          {variant.name}
+                        </h4>
+                        {variant.stock === 0 ? (
+                          <Badge variant="destructive">Out of Stock</Badge>
+                        ) : variant.stock < 5 ? (
+                          <Badge variant="outline" className="text-amber-600 border-amber-600">
+                            Low Stock
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <p className="text-xl font-bold text-indigo-600 mt-2">
+                        {formatCurrency(variant.price)}
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        {variant.stock} left
+                      </p>
+                    </div>
+                    <Button
+                      className="mt-4 w-full"
+                      onClick={() => handleBuy(item, variant)}
+                      disabled={variant.stock === 0 || isProcessing || (isCampaign && isExpired)}
+                    >
+                      {isProcessing ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <ShoppingBag className="w-4 h-4 mr-2" />
+                      )}
+                      {isCampaign ? "Pre-order Item" : "Buy Now"}
+                    </Button>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

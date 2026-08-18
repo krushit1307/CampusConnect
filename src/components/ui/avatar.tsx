@@ -4,13 +4,15 @@ import * as AvatarPrimitive from "@radix-ui/react-avatar";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { generateDeterministicAvatarSvg } from "@/lib/avatarGenerator";
 
 const Avatar = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root> & {
     isOnline?: boolean;
+    seed?: string;
   }
->(({ className, isOnline, ...props }, ref) => {
+>(({ className, isOnline, seed, ...props }, ref) => {
   const avatarContent = (
     <AvatarPrimitive.Root
       ref={ref}
@@ -49,17 +51,38 @@ AvatarImage.displayName = AvatarPrimitive.Image.displayName;
 
 const AvatarFallback = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Fallback>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Fallback>
->(({ className, ...props }, ref) => (
-  <AvatarPrimitive.Fallback
-    ref={ref}
-    className={cn(
-      "flex h-full w-full items-center justify-center rounded-full bg-muted",
-      className,
-    )}
-    {...props}
-  />
-));
+  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Fallback> & {
+    seed?: string;
+  }
+>(({ className, seed, children, ...props }, ref) => {
+  const deterministicAvatar = React.useMemo(() => {
+    if (seed) {
+      return generateDeterministicAvatarSvg(seed);
+    }
+    return null;
+  }, [seed]);
+
+  return (
+    <AvatarPrimitive.Fallback
+      ref={ref}
+      className={cn(
+        "flex h-full w-full items-center justify-center rounded-full bg-muted font-medium text-xs",
+        className
+      )}
+      {...props}
+    >
+      {deterministicAvatar ? (
+        <img
+          src={deterministicAvatar.dataUrl}
+          alt="Generated Avatar"
+          className="w-full h-full object-cover rounded-full"
+        />
+      ) : (
+        children
+      )}
+    </AvatarPrimitive.Fallback>
+  );
+});
 AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName;
 
 export { Avatar, AvatarFallback, AvatarImage };
