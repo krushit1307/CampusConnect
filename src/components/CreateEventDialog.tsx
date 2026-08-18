@@ -37,6 +37,7 @@ import {
   type EventFormValues,
 } from "@/lib/eventUtils";
 import { EventLogisticsService } from "@/services/eventLogisticsService";
+import { getEventSpamErrorMessage, isPendingSpamReview } from "@/lib/eventSpam";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import {
   calendarEventTypeLabel,
@@ -373,27 +374,12 @@ export function CreateEventDialog({
         return { isOffline: true };
       }
 
-      const startDateIso = new Date(values.startDate).toISOString();
-      const endDateIso = new Date(values.endDate).toISOString();
-
-      const { error } = await supabase.from("events").insert({
-        title: values.title.trim(),
-        description: values.description.trim(),
-        venue_id: values.venue_id && values.venue_id !== "custom" ? values.venue_id : null,
-        location: isCustomVenue ? values.location?.trim() || null : null,
-        accessibility_features: isCustomVenue ? values.accessibility_features : null,
-        start_date: startDateIso,
-        end_date: endDateIso,
-        event_date: startDateIso,
-        created_by: user.id,
-        club_id: myClub.id,
-      });
       try {
         const { data: createdData, error } = await supabase
           .from("events")
           .insert(payload)
           .select(
-            "id, event_date, start_date, max_attendees, capacity, has_catering, has_food, tags",
+            "id, status, event_date, start_date, max_attendees, capacity, has_catering, has_food, tags",
           )
           .single();
 
@@ -409,7 +395,10 @@ export function CreateEventDialog({
           }
         }
 
-        return { isOffline: false };
+        return {
+          isOffline: false,
+          isPendingSpamReview: isPendingSpamReview(createdData?.status),
+        };
       } catch (err: unknown) {
         const isNetworkError =
           !navigator.onLine ||
@@ -431,6 +420,10 @@ export function CreateEventDialog({
           "Event saved offline! It will sync automatically when connectivity is restored.",
           { duration: 6000 },
         );
+      } else if (data?.isPendingSpamReview) {
+        toast.info("Event submitted for moderation review. It will stay hidden until approved.", {
+          duration: 7000,
+        });
       } else {
         toast.success("Event created!");
       }
@@ -446,7 +439,8 @@ export function CreateEventDialog({
     },
     onError: (error: Error) => {
       console.error("[CreateEventDialog] Failed to create event:", error);
-      toast.error(error.message || "Couldn't create the event. Please try again.");
+      const message = error.message || "Couldn't create the event. Please try again.";
+      toast.error(getEventSpamErrorMessage(error) ?? message);
     },
   });
 
@@ -455,7 +449,7 @@ export function CreateEventDialog({
       createEvent.mutate(values);
       return;
     }
-    
+
     setIsCheckingConflicts(true);
     try {
       const detectedConflicts = await checkEventConflicts(supabase, values);
@@ -620,7 +614,6 @@ export function CreateEventDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            
             {showConflictWizard && conflicts.length > 0 && (
               <div className="border-2 border-red-500 bg-red-50 p-4 mb-4">
                 <div className="flex items-center gap-2 mb-2 text-red-700 font-bold">
@@ -628,23 +621,29 @@ export function CreateEventDialog({
                   <h3>Conflict Detected</h3>
                 </div>
                 <p className="text-sm text-red-900 mb-4">
-                  There are other high-capacity events with overlapping audiences scheduled at the same time. This may affect your attendance.
+                  There are other high-capacity events with overlapping audiences scheduled at the
+                  same time. This may affect your attendance.
                 </p>
                 <div className="space-y-3">
                   {conflicts.map((c) => (
-                    <div key={c.id} className="bg-white border border-red-200 p-3 rounded-md flex justify-between items-center">
+                    <div
+                      key={c.id}
+                      className="bg-white border border-red-200 p-3 rounded-md flex justify-between items-center"
+                    >
                       <div>
                         <div className="font-bold text-sm">{c.title}</div>
                         <div className="text-xs text-gray-500">by {c.club?.name || "a club"}</div>
                       </div>
                       {c.club?.created_by && (
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="sm" 
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
                           className="flex gap-2"
                           onClick={() => {
-                            const msg = encodeURIComponent(`⚠️ Coordination: Our upcoming event "${form.watch("title")}" might overlap with "${c.title}". Should we coordinate?`);
+                            const msg = encodeURIComponent(
+                              `⚠️ Coordination: Our upcoming event "${form.watch("title")}" might overlap with "${c.title}". Should we coordinate?`,
+                            );
                             navigate(`/messages?userId=${c.club.created_by}&message=${msg}`);
                           }}
                         >
@@ -656,7 +655,7 @@ export function CreateEventDialog({
                 </div>
               </div>
             )}
-            
+
             {/* Step 1 — Details */}
             {step === 0 && (
               <>
@@ -1353,8 +1352,8 @@ export function CreateEventDialog({
                   <Plus className="mr-1 h-3 w-3" /> Add Rating Dimension
                 </Button>
                 <p className="text-xs text-black/50">
-                  After the event, attendees rate these categories on a 0-100 slider. Leave empty
-                  to use the default dimensions.
+                  After the event, attendees rate these categories on a 0-100 slider. Leave empty to
+                  use the default dimensions.
                 </p>
               </div>
             )}
@@ -1406,14 +1405,13 @@ export function CreateEventDialog({
                       <p className="font-bold">{form.getValues("faqs").length} question(s)</p>
                     </div>
                   )}
-                  {form.getValues("ratingMetrics") && form.getValues("ratingMetrics").length > 0 && (
-                    <div>
-                      <p className="text-xs text-black/40">Rating Dimensions</p>
-                      <p className="font-bold">
-                        {form.getValues("ratingMetrics").join(", ")}
-                      </p>
-                    </div>
-                  )}
+                  {form.getValues("ratingMetrics") &&
+                    form.getValues("ratingMetrics").length > 0 && (
+                      <div>
+                        <p className="text-xs text-black/40">Rating Dimensions</p>
+                        <p className="font-bold">{form.getValues("ratingMetrics").join(", ")}</p>
+                      </div>
+                    )}
                 </div>
 
                 <FormField
@@ -1503,8 +1501,18 @@ export function CreateEventDialog({
                   Next <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               ) : (
-                <Button type="submit" disabled={createEvent.isPending || isCheckingConflicts} className="ml-auto">
-                  {createEvent.isPending ? "Creating..." : isCheckingConflicts ? "Checking..." : showConflictWizard ? "Publish Anyway" : "Create event"}
+                <Button
+                  type="submit"
+                  disabled={createEvent.isPending || isCheckingConflicts}
+                  className="ml-auto"
+                >
+                  {createEvent.isPending
+                    ? "Creating..."
+                    : isCheckingConflicts
+                      ? "Checking..."
+                      : showConflictWizard
+                        ? "Publish Anyway"
+                        : "Create event"}
                 </Button>
               )}
             </DialogFooter>

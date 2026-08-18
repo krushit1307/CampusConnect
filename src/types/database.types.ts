@@ -634,7 +634,15 @@ export type Database = {
             | "active"
             | "draft"
             | "expired"
-            | "archived";
+            | "archived"
+            | "pending_spam_review"
+            | "pending_risk_review"
+            | "rejected";
+          spam_similarity: number | null;
+          spam_reason: string | null;
+          spam_original_status: string | null;
+          spam_reviewed_at: string | null;
+          spam_reviewed_by: string | null;
           tags: string[] | null;
           faqs: Json | null;
           blurhash: string | null;
@@ -679,7 +687,15 @@ export type Database = {
             | "active"
             | "draft"
             | "expired"
-            | "archived";
+            | "archived"
+            | "pending_spam_review"
+            | "pending_risk_review"
+            | "rejected";
+          spam_similarity?: number | null;
+          spam_reason?: string | null;
+          spam_original_status?: string | null;
+          spam_reviewed_at?: string | null;
+          spam_reviewed_by?: string | null;
           tags?: string[] | null;
           faqs?: Json | null;
           blurhash?: string | null;
@@ -724,7 +740,15 @@ export type Database = {
             | "active"
             | "draft"
             | "expired"
-            | "archived";
+            | "archived"
+            | "pending_spam_review"
+            | "pending_risk_review"
+            | "rejected";
+          spam_similarity?: number | null;
+          spam_reason?: string | null;
+          spam_original_status?: string | null;
+          spam_reviewed_at?: string | null;
+          spam_reviewed_by?: string | null;
           tags?: string[] | null;
           faqs?: Json | null;
           blurhash?: string | null;
