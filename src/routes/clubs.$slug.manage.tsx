@@ -18,6 +18,7 @@ import {
   Key,
   Code,
   Gavel,
+  DollarSign,
 } from "lucide-react";
 import { PromoVideoUploader } from "@/components/PromoVideoUploader";
 import { ClubManageSkeleton } from "@/components/DashboardWidgetSkeleton";
@@ -28,6 +29,7 @@ import { ClubRolesManager } from "@/components/Clubs/ClubRolesManager";
 import { ClubAnalyticsDashboard } from "@/components/Clubs/ClubAnalyticsDashboard";
 import { ManageMerch } from "@/components/Clubs/Merchandise/ManageMerch";
 import { QuorumPanel } from "@/components/Clubs/QuorumPanel";
+import { FundingRequestBuilder } from "@/components/funding/FundingRequestBuilder";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -70,6 +72,7 @@ export default function ClubManageRoute() {
     | "analytics"
     | "meetings"
     | "merchandise"
+    | "funding"
     | "developer"
   >(
     initialTab === "analytics"
@@ -77,16 +80,18 @@ export default function ClubManageRoute() {
       : initialTab === "meetings"
         ? "meetings"
         : initialTab === "members"
-        ? "members"
-        : initialTab === "roles"
-          ? "roles"
-          : initialTab === "events"
-            ? "events"
-            : initialTab === "merchandise"
-              ? "merchandise"
-              : initialTab === "developer"
-                ? "developer"
-                : "settings",
+          ? "members"
+          : initialTab === "roles"
+            ? "roles"
+            : initialTab === "events"
+              ? "events"
+              : initialTab === "merchandise"
+                ? "merchandise"
+                : initialTab === "funding"
+                  ? "funding"
+                  : initialTab === "developer"
+                    ? "developer"
+                    : "settings",
   );
 
   // Form State
@@ -204,9 +209,9 @@ export default function ClubManageRoute() {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "mock-client-id";
     const redirectUri = `${window.location.origin}/api/google/callback`;
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(
-      redirectUri
+      redirectUri,
     )}&response_type=code&scope=${encodeURIComponent(
-      "https://www.googleapis.com/auth/spreadsheets"
+      "https://www.googleapis.com/auth/spreadsheets",
     )}&access_type=offline&prompt=consent&state=${club.id}`;
     window.location.href = authUrl;
   };
@@ -544,6 +549,16 @@ export default function ClubManageRoute() {
                 <ShoppingBag size={18} /> Merchandise
               </button>
               <button
+                onClick={() => setActiveTab("funding")}
+                className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
+                  activeTab === "funding"
+                    ? "bg-black text-white hover:-translate-y-1"
+                    : "bg-white text-black hover:bg-gray-50"
+                }`}
+              >
+                <DollarSign size={18} /> Funding Requests
+              </button>
+              <button
                 onClick={() => setActiveTab("developer")}
                 className={`neu-border flex items-center gap-3 p-4 font-mono text-sm font-bold uppercase transition-all ${
                   activeTab === "developer"
@@ -694,7 +709,8 @@ export default function ClubManageRoute() {
                     Google Sheets Integration 📊
                   </h3>
                   <p className="text-xs font-mono text-gray-500">
-                    Sync RSVP list data dynamically and in real-time directly to a linked Google Sheet.
+                    Sync RSVP list data dynamically and in real-time directly to a linked Google
+                    Sheet.
                   </p>
 
                   {googleIntegration ? (
@@ -844,12 +860,11 @@ export default function ClubManageRoute() {
             {activeTab === "analytics" && <ClubAnalyticsDashboard clubId={club.id} />}
             {activeTab === "meetings" && <QuorumPanel clubId={club.id} />}
             {activeTab === "merchandise" && <ManageMerch clubId={club.id} />}
+            {activeTab === "funding" && <FundingRequestBuilder clubId={club.id} />}
             {activeTab === "developer" && (
               <div className="neu-border bg-white p-6 space-y-6">
                 <div className="flex items-center justify-between border-b-2 border-black pb-2">
-                  <h2 className="font-display text-2xl font-bold">
-                    Secure API Key Management
-                  </h2>
+                  <h2 className="font-display text-2xl font-bold">Secure API Key Management</h2>
                   <button
                     onClick={() => {
                       setNewKeySecret("");
@@ -863,7 +878,9 @@ export default function ClubManageRoute() {
                 </div>
 
                 <p className="text-sm font-mono text-gray-600">
-                  Allow your developer team or external scripts (like Discord bots) to securely fetch club details and upcoming events. Authenticate request endpoints using Bearer Authorization tokens.
+                  Allow your developer team or external scripts (like Discord bots) to securely
+                  fetch club details and upcoming events. Authenticate request endpoints using
+                  Bearer Authorization tokens.
                 </p>
 
                 {/* API Keys List */}
@@ -949,9 +966,7 @@ export default function ClubManageRoute() {
                     ) : (
                       <div className="space-y-4 my-2">
                         <div className="flex flex-col gap-1.5">
-                          <label className="font-mono text-xs font-bold uppercase">
-                            Key Name
-                          </label>
+                          <label className="font-mono text-xs font-bold uppercase">Key Name</label>
                           <input
                             type="text"
                             placeholder="e.g. Discord Bot Key"

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { ShieldAlert, Check, X, Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { FundingRequestKanban } from "@/components/funding/FundingRequestKanban";
 
 export default function AdminLeadershipApprovals() {
   const supabase = createClient();
@@ -16,7 +17,9 @@ export default function AdminLeadershipApprovals() {
   const { isLoading: isPermLoading } = useQuery({
     queryKey: ["check_system_admin_role"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         setIsAdmin(false);
         return false;
@@ -28,15 +31,20 @@ export default function AdminLeadershipApprovals() {
       }
       setIsAdmin(!!data);
       return !!data;
-    }
+    },
   });
 
-  const { data: transitions = [], isLoading, refetch } = useQuery({
+  const {
+    data: transitions = [],
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["admin_pending_leadership_transitions"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("leadership_transitions")
-        .select(`
+        .select(
+          `
           id,
           role_title,
           effective_date,
@@ -56,7 +64,8 @@ export default function AdminLeadershipApprovals() {
             last_name,
             email
           )
-        `)
+        `,
+        )
         .eq("status", "accepted")
         .eq("su_advisor_approval_status", "pending")
         .order("effective_date", { ascending: true });
@@ -64,7 +73,7 @@ export default function AdminLeadershipApprovals() {
       if (error) throw error;
       return data || [];
     },
-    enabled: isAdmin === true
+    enabled: isAdmin === true,
   });
 
   const approveMutation = useMutation({
@@ -78,7 +87,7 @@ export default function AdminLeadershipApprovals() {
     },
     onError: (err: any) => {
       toast.error(err.message || "Failed to approve transfer.");
-    }
+    },
   });
 
   const rejectMutation = useMutation({
@@ -92,7 +101,7 @@ export default function AdminLeadershipApprovals() {
     },
     onError: (err: any) => {
       toast.error(err.message || "Failed to reject transfer.");
-    }
+    },
   });
 
   if (isPermLoading) {
@@ -113,7 +122,8 @@ export default function AdminLeadershipApprovals() {
             <ShieldAlert className="mx-auto h-12 w-12 text-red-500" />
             <h1 className="mt-4 text-3xl font-bold text-black uppercase">Admin access required</h1>
             <p className="mt-3 font-mono text-sm leading-6 text-gray-700">
-              Only system administrators or Student Union staff advisors can view pending leadership approvals.
+              Only system administrators or Student Union staff advisors can view pending leadership
+              approvals.
             </p>
             <Link
               to="/clubs"
@@ -140,7 +150,8 @@ export default function AdminLeadershipApprovals() {
                 Pending Leadership Changes
               </h1>
               <p className="mt-4 max-w-2xl font-mono text-sm leading-6 text-gray-800">
-                Review and approve high-risk role transfers (e.g. Club Presidency) to prevent unauthorized transfers.
+                Review and approve high-risk role transfers (e.g. Club Presidency) to prevent
+                unauthorized transfers.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -171,8 +182,12 @@ export default function AdminLeadershipApprovals() {
           ) : transitions.length > 0 ? (
             <div className="space-y-6">
               {transitions.map((t: any) => {
-                const outgoingName = `${t.outgoing?.first_name || ""} ${t.outgoing?.last_name || ""}`.trim() || "Outgoing Leader";
-                const incomingName = `${t.incoming?.first_name || ""} ${t.incoming?.last_name || ""}`.trim() || "Nominated Successor";
+                const outgoingName =
+                  `${t.outgoing?.first_name || ""} ${t.outgoing?.last_name || ""}`.trim() ||
+                  "Outgoing Leader";
+                const incomingName =
+                  `${t.incoming?.first_name || ""} ${t.incoming?.last_name || ""}`.trim() ||
+                  "Nominated Successor";
 
                 return (
                   <div
@@ -239,6 +254,12 @@ export default function AdminLeadershipApprovals() {
               </p>
             </div>
           )}
+        </div>
+      </section>
+
+      <section className="bg-cream px-4 py-12 md:px-6 text-black">
+        <div className="mx-auto max-w-7xl">
+          <FundingRequestKanban />
         </div>
       </section>
     </SiteShell>
