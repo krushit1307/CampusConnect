@@ -1,5 +1,7 @@
 import { z } from "zod";
 import format from "date-fns/format";
+import { fromZonedTime } from "date-fns-tz";
+import { getUserTimeZone } from "@/lib/timezone";
 import startOfWeek from "date-fns/startOfWeek";
 import endOfWeek from "date-fns/endOfWeek";
 import addMonths from "date-fns/addMonths";
@@ -133,8 +135,16 @@ export function isPastDate(dateString: string, now: Date = new Date()): boolean 
 /**
  * Formats a pair of ISO date strings into a human-readable event range.
  * e.g. "July 11, 2026 at 10:00 AM – 12:00 PM"
+ *
+ * The viewer's local timezone is used by default so events created from the
+ * date picker display on the exact day the organizer clicked, even across
+ * Daylight Saving boundaries (see issue #1613).
  */
-export function formatEventDateRange(startIso: string, endIso: string, timeZone = "UTC"): string {
+export function formatEventDateRange(
+  startIso: string,
+  endIso: string,
+  timeZone: string = getUserTimeZone(),
+): string {
   const start = new Date(startIso);
   const end = new Date(endIso);
 
@@ -198,13 +208,49 @@ export function hasDraftContent(values: EventFormValues): boolean {
   );
 }
 
+/**
+ * Parses the date picker's local wall-clock string (e.g. `2026-11-05T09:00`) into
+ * an explicit UTC instant without relying on `new Date(...).toISOString()`.
+ *
+ * JS `Date` parsing of timezone-less strings is environment-dependent and can
+ * shift a day around Daylight Saving transitions (see issue #1613). date-fns-tz
+ * resolves the intended wall-clock against the user's actual IANA timezone, so
+ * the serialized timestamp matches the exact day/time the user clicked on the
+ * calendar.
+ */
+export function localDateTimeToUtcIso(
+  localDateTimeStr: string,
+  timeZone: string = getUserTimeZone(),
+): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(
+    localDateTimeStr,
+  );
+
+  if (match) {
+    const [, year, month, day, hour = "0", minute = "0", second = "0"] = match;
+    const wallClock = new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      Number(second),
+    );
+    if (!Number.isNaN(wallClock.getTime())) {
+      return fromZonedTime(wallClock, timeZone).toISOString();
+    }
+  }
+
+  return new Date(localDateTimeStr).toISOString();
+}
+
 export function eventFormToDbPayload(
   values: EventFormValues & { requiresApproval?: boolean },
   userId: string,
   clubId: string | null,
 ) {
-  const startDateIso = new Date(values.startDate).toISOString();
-  const endDateIso = new Date(values.endDate).toISOString();
+  const startDateIso = localDateTimeToUtcIso(values.startDate);
+  const endDateIso = localDateTimeToUtcIso(values.endDate);
 
   return {
     title: values.title.trim(),
