@@ -6,6 +6,7 @@ import { verifyAuth } from "../shared/auth-middleware.ts";
 import { rsvpIpLimiter, rsvpUserLimiter } from "../_shared/rateLimiter.ts";
 import { parseJsonBody } from "../_shared/validation.ts";
 import { verifyCsrf } from "../_shared/csrf.ts";
+import { signTicket } from "../_shared/ticket-crypto.ts";
 
 const toggleRsvpSchema = z
   .object({
@@ -407,6 +408,45 @@ serve(async (req: Request) => {
               const msg = err instanceof Error ? err.message : "Unknown error";
               console.error("Accommodations email notification processing failure:", msg);
             }
+          }
+
+          // Decentralized Ticketing: Sign the ticket
+          try {
+            // 1. Get user's public key from profile
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("public_key")
+              .eq("id", user.id)
+              .single();
+
+            // 2. Get the new ticket (event_rsvps) to get the ticket_id
+            const { data: rsvpData } = await supabase
+              .from("event_rsvps")
+              .select("id, ticket_id, version")
+              .match({ event_id: eventId, user_id: user.id })
+              .single();
+
+            if (profile?.public_key && rsvpData?.ticket_id) {
+              // 3. Sign the ticket
+              const signature = await signTicket(
+                rsvpData.ticket_id,
+                eventId,
+                profile.public_key,
+                rsvpData.version || 1
+              );
+
+              // 4. Update the ticket with public key and signature
+              await supabase
+                .from("event_rsvps")
+                .update({ 
+                  owner_public_key: profile.public_key,
+                  signature: signature
+                })
+                .eq("id", rsvpData.id);
+            }
+          } catch (cryptoErr) {
+            console.error("Failed to cryptographically sign ticket:", cryptoErr);
+            // Non-fatal, ticket is still issued but may not work offline yet
           }
 
           return respond({ success: true, status: data.status, position: data.position }, 200);

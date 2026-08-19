@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import Stripe from "https://esm.sh/stripe@14.16.0?target=deno";
 import { rateLimiter } from "../shared/rateLimiter.ts";
+import { signTicket } from "../_shared/ticket-crypto.ts";
 
 const stripeSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET") || Deno.env.get("WEBHOOK_SECRET") || "";
 
@@ -161,6 +162,42 @@ Deno.serve(async (req) => {
           return new Response("Failed to update RSVP status", { status: 500 });
         }
         console.log(`[Webhook Ingestion] Successfully set RSVP ${rsvpId} status to PAID.`);
+
+        // Decentralized Ticketing: Sign the ticket
+        try {
+          const { data: rsvpData } = await supabase
+            .from("event_rsvps")
+            .select("ticket_id, event_id, user_id, version")
+            .eq("id", rsvpId)
+            .single();
+
+          if (rsvpData?.user_id && rsvpData?.ticket_id) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("public_key")
+              .eq("id", rsvpData.user_id)
+              .single();
+
+            if (profile?.public_key) {
+              const signature = await signTicket(
+                rsvpData.ticket_id,
+                rsvpData.event_id,
+                profile.public_key,
+                rsvpData.version || 1
+              );
+
+              await supabase
+                .from("event_rsvps")
+                .update({
+                  owner_public_key: profile.public_key,
+                  signature: signature
+                })
+                .eq("id", rsvpId);
+            }
+          }
+        } catch (cryptoErr) {
+          console.error("Failed to sign ticket in webhook:", cryptoErr);
+        }
       } else if (session.metadata?.tier_id && session.metadata?.event_id && session.metadata?.user_id) {
         // Dynamic Pricing Tiers (Issue #3293)
         // Record the purchased ticket tier and price
@@ -180,6 +217,43 @@ Deno.serve(async (req) => {
           return new Response("Failed to insert RSVP", { status: 500 });
         }
         console.log(`[Webhook Ingestion] Successfully recorded RSVP for tier ${session.metadata.tier_id}.`);
+
+        // Decentralized Ticketing: Sign the new ticket
+        try {
+          // Get the inserted row to get the ticket_id
+          const { data: rsvpData } = await supabase
+            .from("event_rsvps")
+            .select("id, ticket_id, version")
+            .match({ event_id: session.metadata.event_id, user_id: session.metadata.user_id })
+            .single();
+
+          if (rsvpData?.ticket_id) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("public_key")
+              .eq("id", session.metadata.user_id)
+              .single();
+
+            if (profile?.public_key) {
+              const signature = await signTicket(
+                rsvpData.ticket_id,
+                session.metadata.event_id,
+                profile.public_key,
+                rsvpData.version || 1
+              );
+
+              await supabase
+                .from("event_rsvps")
+                .update({
+                  owner_public_key: profile.public_key,
+                  signature: signature
+                })
+                .eq("id", rsvpData.id);
+            }
+          }
+        } catch (cryptoErr) {
+          console.error("Failed to sign dynamically priced ticket in webhook:", cryptoErr);
+        }
       } else {
         console.warn("[Webhook Ingestion] Missing rsvp_id or tier_id metadata parameter.");
         return new Response("Missing rsvp_id or tier_id metadata parameter", { status: 400 });
