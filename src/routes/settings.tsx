@@ -419,6 +419,7 @@ export default function SettingsPage() {
       linkedinUrl: "",
       phoneNumber: "",
       role: "student",
+      expectedGraduationDate: "",
     },
   });
   const {
@@ -472,6 +473,7 @@ export default function SettingsPage() {
         linkedinUrl: profile?.linkedin_url || "",
         phoneNumber: profile?.phone_number || "",
         role: (profile?.role as any) || "student",
+        expectedGraduationDate: profile?.expected_graduation_date || "",
       });
       // Hydrate skills from profile (text[])
       if (Array.isArray(profile?.skills)) {
@@ -598,6 +600,7 @@ export default function SettingsPage() {
         linkedin_url: values.linkedinUrl || null,
         phone_number: values.phoneNumber || null,
         skills: dedupedSkills,
+        expected_graduation_date: values.expectedGraduationDate || null,
         course_codes: [
           ...new Set(
             courseCodes.map((courseCode) => courseCode.trim().toUpperCase()).filter(Boolean),
@@ -947,6 +950,24 @@ export default function SettingsPage() {
                         <input
                           {...field}
                           placeholder="https://linkedin.com/in/username"
+                          className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                        />
+                      </FormControl>
+                      <FormMessage className="font-mono text-xs text-destructive" />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="expectedGraduationDate"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="eyebrow font-bold text-black">Expected Graduation Date</FormLabel>
+                      <FormControl>
+                        <input
+                          {...field}
+                          type="date"
                           className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
                         />
                       </FormControl>
