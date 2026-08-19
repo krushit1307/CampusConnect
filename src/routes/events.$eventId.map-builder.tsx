@@ -15,6 +15,11 @@ import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { useMapBuilderStore, MapBuilderElement } from "@/stores/mapBuilderStore";
+import {
+  ACCESSIBILITY_NODE_LABELS,
+  isAccessibilityNode,
+  type MapNodeType,
+} from "@/lib/accessibilityMap";
 
 // Snap coordinates helper
 const snapToGrid = (val: number, gridSize: number): number => {
@@ -38,7 +43,7 @@ function PaletteItem({
   defaultWidth,
   defaultHeight,
 }: {
-  type: "table" | "stage" | "boundary" | "booth";
+  type: MapNodeType;
   label: string;
   defaultWidth: number;
   defaultHeight: number;
@@ -97,18 +102,28 @@ function CanvasElement({ element }: { element: MapBuilderElement }) {
     zIndex: isSelected ? 1000 : element.zIndex || 10,
   };
 
-  const colors = {
+  const colors: Record<MapNodeType, string> = {
     table: "bg-amber-100",
     stage: "bg-indigo-100",
     boundary: "bg-red-50",
     booth: "bg-emerald-100",
+    sponsor: "bg-emerald-200",
+    entrance: "bg-blue-100",
+    elevator: "bg-blue-200",
+    ramp: "bg-blue-300",
+    restroom: "bg-cyan-200",
   };
 
-  const borders = {
+  const borders: Record<MapNodeType, string> = {
     table: "border-amber-400",
     stage: "border-indigo-400",
     boundary: "border-red-400 border-dashed",
     booth: "border-emerald-400",
+    sponsor: "border-emerald-600",
+    entrance: "border-blue-700",
+    elevator: "border-blue-800",
+    ramp: "border-blue-900",
+    restroom: "border-cyan-800",
   };
 
   // Custom mouse resize handler
@@ -150,6 +165,7 @@ function CanvasElement({ element }: { element: MapBuilderElement }) {
         e.stopPropagation();
         selectElement(element.id);
       }}
+      aria-label={`${element.label}, ${ACCESSIBILITY_NODE_LABELS[element.type] || element.type}`}
       className={`relative select-none border-2 border-black flex flex-col items-center justify-center p-2 text-center transition-shadow shadow-[2px_2px_0_0_#000] ${
         colors[element.type]
       } ${isSelected ? "ring-2 ring-black" : ""} ${hasOverlap ? "border-dashed border-red-500 bg-red-100/40" : ""}`}
@@ -271,7 +287,9 @@ export default function CampusMapBuilder() {
           // Fetch map nodes
           const { data: nodesData, error: nodesError } = await supabase
             .from("map_nodes")
-            .select("id, entity_name, type, x_coord, y_coord, width, height, rotation")
+            .select(
+              "id, entity_name, type, x_coord, y_coord, width, height, rotation, accessibility_notes",
+            )
             .eq("map_id", mapData.id);
 
           if (nodesError) throw nodesError;
@@ -279,13 +297,14 @@ export default function CampusMapBuilder() {
           // Convert relative percentage coordinates back to absolute pixels for the editor's 800x600 grid
           const loadedElements: MapBuilderElement[] = (nodesData || []).map((node) => ({
             id: node.id,
-            type: node.type as "table" | "stage" | "boundary" | "booth",
+            type: node.type as MapNodeType,
             label: node.entity_name || "",
             x: Math.round((Number(node.x_coord) / 100) * 800),
             y: Math.round((Number(node.y_coord) / 100) * 600),
             width: Math.round((Number(node.width) / 100) * 800),
             height: Math.round((Number(node.height) / 100) * 600),
             rotation: node.rotation,
+            accessibilityNotes: node.accessibility_notes || "",
           }));
 
           setElements(loadedElements);
@@ -378,7 +397,8 @@ export default function CampusMapBuilder() {
       const snappedX = snapToGrid(relativeX, gridSize);
       const snappedY = snapToGrid(relativeY, gridSize);
 
-      const type = active.data.current?.type;
+      const type = active.data.current?.type as MapNodeType | undefined;
+      if (!type) return;
       const width = active.data.current?.defaultWidth || 80;
       const height = active.data.current?.defaultHeight || 60;
 
@@ -394,7 +414,10 @@ export default function CampusMapBuilder() {
         width,
         height,
         rotation: 0,
-        label: `${type.toUpperCase()} #${elements.length + 1}`,
+        label:
+          type === "entrance"
+            ? "MAIN ENTRANCE"
+            : `${ACCESSIBILITY_NODE_LABELS[type as MapNodeType] || type.toUpperCase()} #${elements.length + 1}`,
       };
 
       addElement(newElement);
@@ -480,6 +503,7 @@ export default function CampusMapBuilder() {
           width: (el.width / 800) * 100,
           height: (el.height / 600) * 100,
           rotation: el.rotation,
+          accessibility_notes: el.accessibilityNotes || null,
         }));
 
         const { error: insertNodesError } = await supabase.from("map_nodes").insert(nodesToInsert);
@@ -582,6 +606,39 @@ export default function CampusMapBuilder() {
                       defaultWidth={60}
                       defaultHeight={60}
                     />
+                    <div className="border-t-2 border-black pt-3 font-mono text-[10px] font-black uppercase text-blue-900">
+                      Accessibility layer
+                    </div>
+                    <PaletteItem
+                      type="sponsor"
+                      label="Sponsor Booth"
+                      defaultWidth={80}
+                      defaultHeight={60}
+                    />
+                    <PaletteItem
+                      type="entrance"
+                      label="Main Entrance"
+                      defaultWidth={50}
+                      defaultHeight={50}
+                    />
+                    <PaletteItem
+                      type="elevator"
+                      label="Elevator"
+                      defaultWidth={50}
+                      defaultHeight={50}
+                    />
+                    <PaletteItem
+                      type="ramp"
+                      label="Accessible Ramp"
+                      defaultWidth={80}
+                      defaultHeight={30}
+                    />
+                    <PaletteItem
+                      type="restroom"
+                      label="Accessible Restroom"
+                      defaultWidth={60}
+                      defaultHeight={60}
+                    />
                   </div>
                 </div>
 
@@ -626,6 +683,23 @@ export default function CampusMapBuilder() {
                         <span className="font-bold">Grid Position:</span> {selectedElement.x},{" "}
                         {selectedElement.y}
                       </div>
+                      {isAccessibilityNode(selectedElement.type) && (
+                        <label className="block">
+                          <span className="font-bold">Accessibility notes:</span>
+                          <textarea
+                            value={selectedElement.accessibilityNotes || ""}
+                            onChange={(e) =>
+                              updateElement(selectedElement.id, {
+                                accessibilityNotes: e.target.value,
+                              })
+                            }
+                            rows={3}
+                            maxLength={240}
+                            placeholder="e.g. Use the west entrance; automatic door is 10 feet south."
+                            className="mt-1 w-full border-2 border-black bg-white p-1 text-xs"
+                          />
+                        </label>
+                      )}
                       <div className="flex gap-2 pt-1">
                         <button
                           onClick={handleRotateSelected}

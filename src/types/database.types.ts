@@ -2276,6 +2276,118 @@ export type Database = {
           },
         ];
       };
+      venue_maps: {
+        Row: {
+          id: string;
+          event_id: string;
+          background_image_url: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          background_image_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          background_image_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "venue_maps_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: true;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      map_nodes: {
+        Row: {
+          id: string;
+          map_id: string;
+          entity_name: string | null;
+          type:
+            | "table"
+            | "stage"
+            | "boundary"
+            | "booth"
+            | "sponsor"
+            | "entrance"
+            | "elevator"
+            | "ramp"
+            | "restroom";
+          x_coord: number;
+          y_coord: number;
+          width: number;
+          height: number;
+          rotation: number;
+          accessibility_notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          map_id: string;
+          entity_name?: string | null;
+          type:
+            | "table"
+            | "stage"
+            | "boundary"
+            | "booth"
+            | "sponsor"
+            | "entrance"
+            | "elevator"
+            | "ramp"
+            | "restroom";
+          x_coord: number;
+          y_coord: number;
+          width: number;
+          height: number;
+          rotation?: number;
+          accessibility_notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          map_id?: string;
+          entity_name?: string | null;
+          type?:
+            | "table"
+            | "stage"
+            | "boundary"
+            | "booth"
+            | "sponsor"
+            | "entrance"
+            | "elevator"
+            | "ramp"
+            | "restroom";
+          x_coord?: number;
+          y_coord?: number;
+          width?: number;
+          height?: number;
+          rotation?: number;
+          accessibility_notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "map_nodes_map_id_fkey";
+            columns: ["map_id"];
+            isOneToOne: false;
+            referencedRelation: "venue_maps";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       club_analytics_view: {
@@ -2371,6 +2483,17 @@ export type Database = {
       global_search: {
         Args: {
           p_query: string;
+        };
+        Returns: Json;
+      };
+      submit_venue_wifi_report: {
+        Args: {
+          p_venue_id: string;
+          p_download_speed_mbps: number;
+          p_device_count?: number | null;
+          p_upload_speed_mbps?: number | null;
+          p_latency_ms?: number | null;
+          p_notes?: string | null;
         };
         Returns: Json;
       };
