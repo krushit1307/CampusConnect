@@ -1,14 +1,16 @@
 import { create } from "zustand";
+import type { MapNodeType } from "@/lib/accessibilityMap";
 
 export interface MapBuilderElement {
   id: string;
-  type: "table" | "stage" | "boundary" | "booth";
+  type: MapNodeType;
   x: number;
   y: number;
   width: number;
   height: number;
   rotation: number; // in degrees: 0, 90, 180, 270
   label: string;
+  accessibilityNotes?: string;
   zIndex?: number;
 }
 
