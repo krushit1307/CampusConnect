@@ -163,6 +163,7 @@
     "react-dom": "^19.2.0",
     "react-easy-crop": "^6.2.3",
     "react-helmet-async": "^2.0.5",
+    "react-pageflip": "^2.0.3",
     "react-hook-form": "^7.85.0",
     "react-i18next": "^17.0.11",
     "react-intersection-observer": "^10.1.0",
