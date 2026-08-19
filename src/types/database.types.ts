@@ -2276,6 +2276,99 @@ export type Database = {
           },
         ];
       };
+      venues: {
+        Row: {
+          id: string;
+          name: string;
+          building: string;
+          capacity: number;
+          accessibility_features: Json;
+          avg_wifi_speed_mbps: number | null;
+          max_device_capacity: number | null;
+          wifi_report_count: number;
+          last_wifi_tested_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          building: string;
+          capacity: number;
+          accessibility_features?: Json;
+          avg_wifi_speed_mbps?: number | null;
+          max_device_capacity?: number | null;
+          wifi_report_count?: number;
+          last_wifi_tested_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          building?: string;
+          capacity?: number;
+          accessibility_features?: Json;
+          avg_wifi_speed_mbps?: number | null;
+          max_device_capacity?: number | null;
+          wifi_report_count?: number;
+          last_wifi_tested_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      venue_wifi_reports: {
+        Row: {
+          id: string;
+          venue_id: string;
+          reported_by: string;
+          download_speed_mbps: number;
+          device_count_at_time: number | null;
+          upload_speed_mbps: number | null;
+          latency_ms: number | null;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          venue_id: string;
+          reported_by: string;
+          download_speed_mbps: number;
+          device_count_at_time?: number | null;
+          upload_speed_mbps?: number | null;
+          latency_ms?: number | null;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          venue_id?: string;
+          reported_by?: string;
+          download_speed_mbps?: number;
+          device_count_at_time?: number | null;
+          upload_speed_mbps?: number | null;
+          latency_ms?: number | null;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "venue_wifi_reports_venue_id_fkey";
+            columns: ["venue_id"];
+            isOneToOne: false;
+            referencedRelation: "venues";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "venue_wifi_reports_reported_by_fkey";
+            columns: ["reported_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       club_analytics_view: {
@@ -2371,6 +2464,17 @@ export type Database = {
       global_search: {
         Args: {
           p_query: string;
+        };
+        Returns: Json;
+      };
+      submit_venue_wifi_report: {
+        Args: {
+          p_venue_id: string;
+          p_download_speed_mbps: number;
+          p_device_count?: number | null;
+          p_upload_speed_mbps?: number | null;
+          p_latency_ms?: number | null;
+          p_notes?: string | null;
         };
         Returns: Json;
       };

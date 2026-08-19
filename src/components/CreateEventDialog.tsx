@@ -38,6 +38,7 @@ import {
 } from "@/lib/eventUtils";
 import { EventLogisticsService } from "@/services/eventLogisticsService";
 import { getEventSpamErrorMessage, isPendingSpamReview } from "@/lib/eventSpam";
+import { isTechHeavyEvent, sortVenuesForEvent, type VenueWifiMetrics } from "@/lib/venueWifi";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import {
   calendarEventTypeLabel,
@@ -85,6 +86,7 @@ import {
   MIN_GEOFENCE_RADIUS_METERS,
   DEFAULT_GEOFENCE_RADIUS_METERS,
 } from "@/components/GeofenceMapPicker";
+import { VenueWifiOverlay } from "@/components/venue/VenueWifiOverlay";
 
 const STEPS = [
   { label: "Details", fields: ["title", "description"] as const },
@@ -214,6 +216,21 @@ export function CreateEventDialog({
   const watchedTitle = form.watch("title");
   const watchedDescription = form.watch("description");
   const watchedVenueId = form.watch("venue_id");
+  const watchedTags = form.watch("tags") || [];
+  const watchedCategory = form.watch("category") || "";
+  const watchedMaxAttendees = form.watch("maxAttendees");
+  const isTechHeavy = isTechHeavyEvent(
+    watchedTags,
+    watchedCategory,
+    watchedTitle,
+    watchedDescription,
+  );
+  const selectedVenue = venues?.find((venue: VenueWifiMetrics) => venue.id === watchedVenueId);
+  const orderedVenues = sortVenuesForEvent(
+    (venues ?? []) as VenueWifiMetrics[],
+    isTechHeavy,
+    watchedMaxAttendees,
+  );
   const control = form.control as never;
 
   useEffect(() => {
@@ -877,9 +894,13 @@ export function CreateEventDialog({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {venues?.map((v: any) => (
+                          {orderedVenues.map((v) => (
                             <SelectItem key={v.id} value={v.id}>
-                              {v.name} ({v.capacity} capacity)
+                              {v.name} ({v.capacity} capacity
+                              {isTechHeavy && v.max_device_capacity
+                                ? ` • Wi-Fi ${v.max_device_capacity} devices`
+                                : ""}
+                              )
                             </SelectItem>
                           ))}
                           <SelectItem value="custom">Custom Location</SelectItem>
@@ -889,6 +910,15 @@ export function CreateEventDialog({
                     </FormItem>
                   )}
                 />
+
+                {watchedVenueId && watchedVenueId !== "custom" && (
+                  <VenueWifiOverlay
+                    venue={selectedVenue}
+                    venues={(venues ?? []) as VenueWifiMetrics[]}
+                    techHeavy={isTechHeavy}
+                    attendeeCount={watchedMaxAttendees}
+                  />
+                )}
 
                 {isCustomVenue && (
                   <>
