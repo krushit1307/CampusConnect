@@ -1,8 +1,17 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+/**
+ * Issue #2689 — Migrate Global State from Context API to Zustand.
+ *
+ * This file NO LONGER uses React Context. `useAuthSecurity()` is now a
+ * thin selector wrapper around `useAuthSecurityStore`. The
+ * `AuthSecurityProvider` is kept as a passthrough for backward compat —
+ * it only mounts the Supabase auth listener + SessionManager callbacks.
+ */
+import { useEffect, type ReactNode } from "react";
 import { SessionManager } from "@/lib/SessionManager";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { ensureKeyPair } from "@/lib/crypto/ticketCrypto";
+import { useAuthSecurityStore } from "@/store/useAuthSecurityStore";
 
 interface AuthSecurityContextType {
   isAuthenticated: boolean;
@@ -15,30 +24,82 @@ interface AuthSecurityContextType {
   extendSession: () => void;
 }
 
-const AuthSecurityContext = createContext<AuthSecurityContextType | undefined>(undefined);
+/**
+ * Selector hook — components re-render ONLY when the specific slice they
+ * consume changes. Replaces the previous `useContext(AuthSecurityContext)`.
+ */
+export const useAuthSecurity = (): AuthSecurityContextType => {
+  const isAuthenticated = useAuthSecurityStore((s) => s.isAuthenticated);
+  const token = useAuthSecurityStore((s) => s.token);
+  const isLeaderTab = useAuthSecurityStore((s) => s.isLeaderTab);
+  const mfaVerified = useAuthSecurityStore((s) => s.mfaVerified);
+  const sessionTimeoutWarning = useAuthSecurityStore(
+    (s) => s.sessionTimeoutWarning,
+  );
+  const setAuthenticated = useAuthSecurityStore((s) => s.setAuthenticated);
+  const setIsLeaderTab = useAuthSecurityStore((s) => s.setIsLeaderTab);
+  const setMfaVerified = useAuthSecurityStore((s) => s.setMfaVerified);
+  const setSessionTimeoutWarning = useAuthSecurityStore(
+    (s) => s.setSessionTimeoutWarning,
+  );
+  const clearAuth = useAuthSecurityStore((s) => s.clearAuth);
 
-export const AuthSecurityProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLeaderTab, setIsLeaderTab] = useState<boolean>(false);
-  const [mfaVerified, setMfaVerified] = useState<boolean>(true);
-  const [sessionTimeoutWarning, setSessionTimeoutWarning] = useState<boolean>(false);
+  const triggerLogout = () => {
+    const sessionManager = SessionManager.getInstance();
+    sessionManager.broadcastLogout();
+    const supabase = createClient();
+    supabase.auth.signOut().then(() => {
+      clearAuth();
+      window.location.href = "/auth";
+    });
+  };
 
-  const supabase = createClient();
+  const verifyMfaSession = () => {
+    setMfaVerified(true);
+  };
+
+  const extendSession = () => {
+    setSessionTimeoutWarning(false);
+    toast.success("Session successfully extended!");
+  };
+
+  return {
+    isAuthenticated,
+    token,
+    isLeaderTab,
+    mfaVerified,
+    sessionTimeoutWarning,
+    triggerLogout,
+    verifyMfaSession,
+    extendSession,
+    // Note: `setAuthenticated` / `setIsLeaderTab` are not part of the
+    // public AuthSecurityContextType — they are internal actions used by
+    // <AuthSecurityProvider>. Including them would widen the public API.
+    // We accept the small TS wart below by casting.
+  } as AuthSecurityContextType;
+};
+
+/**
+ * Backward-compat wrapper. No Context. Just mounts the side-effects.
+ */
+export const AuthSecurityProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
+  const setAuthenticated = useAuthSecurityStore((s) => s.setAuthenticated);
+  const setIsLeaderTab = useAuthSecurityStore((s) => s.setIsLeaderTab);
+  const clearAuth = useAuthSecurityStore((s) => s.clearAuth);
 
   useEffect(() => {
     const sessionManager = SessionManager.getInstance();
     setIsLeaderTab(sessionManager.isLeader);
 
     const handleLogout = () => {
-      setIsAuthenticated(false);
-      setToken(null);
+      clearAuth();
       toast.info("Session expired or signed out from another tab.");
     };
 
     const handleTokenUpdate = (newToken: string) => {
-      setToken(newToken);
-      setIsAuthenticated(true);
+      setAuthenticated(newToken);
     };
 
     sessionManager.setCallbacks(handleLogout, handleTokenUpdate);
@@ -60,6 +121,10 @@ export const AuthSecurityProvider: React.FC<{ children: ReactNode }> = ({ childr
         } catch (err) {
           console.error("Failed to setup decentralized ticketing keys:", err);
         }
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setAuthenticated(session.access_token);
       }
     });
 
@@ -84,58 +149,16 @@ export const AuthSecurityProvider: React.FC<{ children: ReactNode }> = ({ childr
         } catch (err) {
           console.error("Failed to setup decentralized ticketing keys:", err);
         }
+        setAuthenticated(session.access_token);
       } else {
-        setIsAuthenticated(false);
-        setToken(null);
+        setAuthenticated(null);
       }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [setAuthenticated, setIsLeaderTab, clearAuth]);
 
-  const triggerLogout = () => {
-    const sessionManager = SessionManager.getInstance();
-    sessionManager.broadcastLogout();
-    supabase.auth.signOut().then(() => {
-      setIsAuthenticated(false);
-      setToken(null);
-      window.location.href = "/auth";
-    });
-  };
-
-  const verifyMfaSession = () => {
-    setMfaVerified(true);
-  };
-
-  const extendSession = () => {
-    setSessionTimeoutWarning(false);
-    toast.success("Session successfully extended!");
-  };
-
-  return (
-    <AuthSecurityContext.Provider
-      value={{
-        isAuthenticated,
-        token,
-        isLeaderTab,
-        mfaVerified,
-        sessionTimeoutWarning,
-        triggerLogout,
-        verifyMfaSession,
-        extendSession,
-      }}
-    >
-      {children}
-    </AuthSecurityContext.Provider>
-  );
-};
-
-export const useAuthSecurity = () => {
-  const context = useContext(AuthSecurityContext);
-  if (!context) {
-    throw new Error("useAuthSecurity must be used within an AuthSecurityProvider");
-  }
-  return context;
+  return <>{children}</>;
 };

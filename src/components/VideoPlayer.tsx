@@ -7,14 +7,28 @@ import VolumeX from "lucide-react/dist/esm/icons/volume-x";
 import Maximize from "lucide-react/dist/esm/icons/maximize";
 import Minimize from "lucide-react/dist/esm/icons/minimize";
 import PictureInPicture2 from "lucide-react/dist/esm/icons/picture-in-picture-2";
+import Languages from "lucide-react/dist/esm/icons/languages";
+
+export interface SubtitleTrack {
+  src: string;
+  srclang: string;
+  label: string;
+  default?: boolean;
+}
 
 interface VideoPlayerProps {
   src: string;
   poster?: string;
   title?: string;
+  subtitleTracks?: SubtitleTrack[];
 }
 
-export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) => {
+export const VideoPlayer: React.FC<VideoPlayerProps> = ({
+  src,
+  poster,
+  title,
+  subtitleTracks = [],
+}) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -27,6 +41,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) 
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isPictureInPicture, setIsPictureInPicture] = useState<boolean>(false);
   const [showControls, setShowControls] = useState<boolean>(true);
+  const [selectedTrack, setSelectedTrack] = useState<string>("off");
+  const [showCcMenu, setShowCcMenu] = useState<boolean>(false);
 
   const isPictureInPictureSupported =
     typeof document !== "undefined" &&
@@ -205,7 +221,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) 
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onEnded={() => setIsPlaying(false)}
-      />
+      >
+        {subtitleTracks.map((track) => (
+          <track
+            key={track.srclang}
+            src={track.src}
+            kind="subtitles"
+            srcLang={track.srclang}
+            label={track.label}
+            default={track.default}
+          />
+        ))}
+      </video>
 
       {/* Center Play Overlay */}
       <div
@@ -305,6 +332,78 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) 
               {formatTime(progress)} / {formatTime(duration)}
             </div>
           </div>
+
+          {/* Subtitles / CC Multi-Language Selector */}
+          {subtitleTracks.length > 0 && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowCcMenu(!showCcMenu)}
+                aria-label="Subtitles and Closed Captions selector"
+                title="Subtitles / CC"
+                className={`p-1 transition-colors rounded focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
+                  selectedTrack !== "off"
+                    ? "text-indigo-400 font-bold"
+                    : "hover:text-indigo-400 text-white"
+                }`}
+              >
+                <Languages className="w-5 h-5" />
+              </button>
+
+              {showCcMenu && (
+                <div className="absolute bottom-8 right-0 bg-black/90 border border-zinc-700 rounded-lg p-2 min-w-[160px] shadow-xl z-30 flex flex-col gap-1 text-xs">
+                  <div className="font-semibold text-gray-400 border-b border-zinc-700 pb-1 mb-1 px-2">
+                    Subtitles / CC
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTrack("off");
+                      setShowCcMenu(false);
+                      if (videoRef.current) {
+                        for (let i = 0; i < videoRef.current.textTracks.length; i++) {
+                          videoRef.current.textTracks[i].mode = "disabled";
+                        }
+                      }
+                    }}
+                    className={`text-left px-2 py-1 rounded hover:bg-zinc-800 transition-colors ${
+                      selectedTrack === "off"
+                        ? "bg-indigo-600 text-white font-bold"
+                        : "text-gray-200"
+                    }`}
+                  >
+                    Off
+                  </button>
+                  {subtitleTracks.map((track) => (
+                    <button
+                      key={track.srclang}
+                      type="button"
+                      onClick={() => {
+                        setSelectedTrack(track.srclang);
+                        setShowCcMenu(false);
+                        if (videoRef.current) {
+                          for (let i = 0; i < videoRef.current.textTracks.length; i++) {
+                            if (videoRef.current.textTracks[i].language === track.srclang) {
+                              videoRef.current.textTracks[i].mode = "showing";
+                            } else {
+                              videoRef.current.textTracks[i].mode = "disabled";
+                            }
+                          }
+                        }
+                      }}
+                      className={`text-left px-2 py-1 rounded hover:bg-zinc-800 transition-colors ${
+                        selectedTrack === track.srclang
+                          ? "bg-indigo-600 text-white font-bold"
+                          : "text-gray-200"
+                      }`}
+                    >
+                      {track.label} ({track.srclang.toUpperCase()})
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Picture-in-Picture Button */}
           {isPictureInPictureSupported && (

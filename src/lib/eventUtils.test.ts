@@ -12,6 +12,7 @@ import {
   parseFlyerDate,
   applyDateRangeSelection,
   updateTimeInDate,
+  localDateTimeToUtcIso,
   addFaq,
   removeFaq,
   updateFaq,
@@ -138,6 +139,8 @@ describe("eventFormSchema", () => {
       accessibility_features: undefined,
     });
     expect(result.success).toBe(true);
+  });
+
   it("has exact Zod error messages for min length constraints", () => {
     const result = eventFormSchema.safeParse({
       title: "",
@@ -224,36 +227,125 @@ describe("isPastDate", () => {
 });
 
 // ---------------------------------------------------------------------------
+// localDateTimeToUtcIso (DST-safe serialization, issue #1613)
+// ---------------------------------------------------------------------------
+describe("localDateTimeToUtcIso", () => {
+  it("converts a local wall-clock to the correct UTC instant", () => {
+    expect(localDateTimeToUtcIso("2026-07-11T10:00", "Asia/Kolkata")).toBe(
+      "2026-07-11T04:30:00.000Z",
+    );
+  });
+
+  it("does not shift a day backwards for winter times", () => {
+    // Berlin CET (UTC+1): picking Nov 5 00:00 must serialize as that exact local day.
+    expect(localDateTimeToUtcIso("2026-11-05T00:00", "Europe/Berlin")).toBe(
+      "2026-11-04T23:00:00.000Z",
+    );
+    const instant = localDateTimeToUtcIso("2026-11-05T00:00", "Europe/Berlin");
+    expect(
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Berlin",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date(instant)),
+    ).toBe("2026-11-05");
+  });
+
+  it("handles the EU fall-back DST transition day (Oct 25, 2026)", () => {
+    expect(localDateTimeToUtcIso("2026-10-25T00:00", "Europe/Berlin")).toBe(
+      "2026-10-24T22:00:00.000Z",
+    );
+    expect(localDateTimeToUtcIso("2026-10-25T09:00", "Europe/Berlin")).toBe(
+      "2026-10-25T08:00:00.000Z",
+    );
+  });
+
+  it("handles the US spring-forward DST transition day (Mar 8, 2026)", () => {
+    expect(localDateTimeToUtcIso("2026-03-08T09:00", "America/New_York")).toBe(
+      "2026-03-08T13:00:00.000Z",
+    );
+  });
+
+  it("resolves DST-skipped local hours deterministically via IANA rules", () => {
+    // Africa/Cairo DST begins at midnight on Apr 24 2026, so the local wall-clock
+    // "00:00" does not exist. Naive `new Date("2026-04-24T00:00").toISOString()`
+    // is engine-dependent; the zone-aware serializer must be stable instead.
+    expect(localDateTimeToUtcIso("2026-04-24T00:00", "Africa/Cairo")).toBe(
+      "2026-04-23T21:00:00.000Z",
+    );
+    expect(localDateTimeToUtcIso("2026-04-24T09:00", "Africa/Cairo")).toBe(
+      "2026-04-24T06:00:00.000Z",
+    );
+  });
+
+  it("defaults to the user's local timezone when none is supplied", () => {
+    const localZone = new Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    expect(localDateTimeToUtcIso("2026-07-11T10:00")).toBe(
+      localDateTimeToUtcIso("2026-07-11T10:00", localZone),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
 // formatEventDateRange
 // ---------------------------------------------------------------------------
 describe("formatEventDateRange", () => {
   it("formats a same-day range correctly", () => {
-    const result = formatEventDateRange("2026-07-11T09:00:00Z", "2026-07-11T11:00:00Z");
+    const result = formatEventDateRange("2026-07-11T09:00:00Z", "2026-07-11T11:00:00Z", "UTC");
     expect(result).toBe("July 11, 2026 at 9:00 AM – 11:00 AM");
   });
 
   it("formats a PM range correctly", () => {
-    const result = formatEventDateRange("2026-12-25T14:00:00Z", "2026-12-25T18:30:00Z");
+    const result = formatEventDateRange("2026-12-25T14:00:00Z", "2026-12-25T18:30:00Z", "UTC");
     expect(result).toBe("December 25, 2026 at 2:00 PM – 6:30 PM");
   });
 
   it("returns empty string for an invalid start date", () => {
-    expect(formatEventDateRange("not-a-date", "2026-07-11T11:00:00Z")).toBe("");
+    expect(formatEventDateRange("not-a-date", "2026-07-11T11:00:00Z", "UTC")).toBe("");
   });
 
   it("returns empty string for an invalid end date", () => {
-    expect(formatEventDateRange("2026-07-11T09:00:00Z", "bad")).toBe("");
+    expect(formatEventDateRange("2026-07-11T09:00:00Z", "bad", "UTC")).toBe("");
   });
 
   it("handles leap-year date Feb 29", () => {
-    const result = formatEventDateRange("2028-02-29T10:00:00Z", "2028-02-29T12:00:00Z");
+    const result = formatEventDateRange("2028-02-29T10:00:00Z", "2028-02-29T12:00:00Z", "UTC");
     expect(result).toBe("February 29, 2028 at 10:00 AM – 12:00 PM");
   });
 
   it("output contains ' at ' separator and ' – ' range separator", () => {
-    const result = formatEventDateRange("2026-07-11T09:00:00Z", "2026-07-11T11:00:00Z");
+    const result = formatEventDateRange("2026-07-11T09:00:00Z", "2026-07-11T11:00:00Z", "UTC");
     expect(result).toContain(" at ");
     expect(result).toContain(" – ");
+  });
+
+  it("displays the organizer's local day in the viewer's timezone (DST-safe)", () => {
+    // An event scheduled Nov 5, 00:00 local in Berlin is stored as Nov 4, 23:00 UTC.
+    // A Berlin viewer must still see it on Nov 5.
+    const result = formatEventDateRange(
+      "2026-11-04T23:00:00.000Z",
+      "2026-11-04T23:30:00.000Z",
+      "Europe/Berlin",
+    );
+    expect(result).toBe("November 5, 2026 at 12:00 AM – 12:30 AM");
+  });
+
+  it("defaults to the user's local timezone instead of UTC", () => {
+    const instant = "2026-11-04T23:00:00.000Z";
+    // Render with the default (viewer's local zone) and explicitly with the local zone.
+    const localZone = new Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    expect(formatEventDateRange(instant, "2026-11-04T23:30:00.000Z")).toBe(
+      formatEventDateRange(instant, "2026-11-04T23:30:00.000Z", localZone),
+    );
+    // The result must reflect the instant in the user's local zone, never fixed UTC.
+    const localDay = new Intl.DateTimeFormat("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+      timeZone: localZone,
+    }).format(new Date(instant));
+    expect(formatEventDateRange(instant, "2026-11-04T23:30:00.000Z")).toContain(localDay);
   });
 });
 

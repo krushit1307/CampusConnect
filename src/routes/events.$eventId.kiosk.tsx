@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { createClient } from "@/lib/supabase/client";
 import { ArrowLeft, CheckCircle, XCircle } from "lucide-react";
 
+import { useKioskTelemetry } from "@/services/kioskTelemetry";
+
 export default function KioskMode() {
   const { eventId } = useParams();
   const navigate = useNavigate();
@@ -12,6 +14,9 @@ export default function KioskMode() {
   const inputBuffer = useRef("");
   const lastKeyTime = useRef(Date.now());
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Broadcast real-time hardware telemetry (battery, charging status, ping) every 60s
+  useKioskTelemetry("Door 4", eventId);
 
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {

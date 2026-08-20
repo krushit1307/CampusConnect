@@ -1,25 +1,33 @@
 import React, { useEffect, useState } from "react";
-import Calendar from "lucide-react/dist/esm/icons/calendar";
 import MapPin from "lucide-react/dist/esm/icons/map-pin";
 import { useParams } from "react-router-dom";
-import { useConfetti } from "../../hooks/useConfetti";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { EventSocialProofToasts } from "@/components/events/EventSocialProofToasts";
 import { useBannerColor } from "@/hooks/useBannerColor";
 import { EventFeedbackSurvey } from "@/components/events/EventFeedbackSurvey";
-import VolunteerShifts from "@/components/VolunteerShifts"; // <-- NEW IMPORT
+import VolunteerShifts from "@/components/VolunteerShifts";
+import { EventDualClockTime } from "@/components/EventDualClockTime";
+import { useEventDualClock } from "@/hooks/useEventDualClock";
+import type { TimezoneAwareEvent } from "@/lib/venueTimezone";
 import { User } from "@supabase/supabase-js";
 
-interface EventDetailRecord {
+interface EventDetailRecord extends TimezoneAwareEvent {
   id: string;
   title: string;
   description: string | null;
   event_date: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  venue_id: string | null;
+  venue_timezone: string | null;
+  latitude: number | null;
+  longitude: number | null;
   location: string | null;
   banner_url: string | null;
   clubs: { name: string } | { name: string }[] | null;
+  venues: { name: string; timezone: string | null } | null;
 }
 
 export default function EventDetail() {
@@ -27,12 +35,9 @@ export default function EventDetail() {
   const [supabase] = useState(() => createClient());
   const [user, setUser] = useState<User | null>(null);
 
-  // Get the logged in user so we can pass their ID to the VolunteerShifts component
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        setUser(user);
-      }
+      if (user) setUser(user);
     });
   }, [supabase]);
 
@@ -43,13 +48,19 @@ export default function EventDetail() {
       if (!eventId) return null;
       const { data, error } = await supabase
         .from("events")
-        .select("id, title, description, event_date, location, banner_url, clubs(name)")
+        .select(
+          "id, title, description, event_date, start_date, end_date, " +
+            "venue_id, venue_timezone, latitude, longitude, location, " +
+            "banner_url, clubs(name), venues(name, timezone)",
+        )
         .eq("id", eventId)
         .maybeSingle();
       if (error) throw error;
       return data as EventDetailRecord | null;
     },
   });
+
+  const { data: dualClock } = useEventDualClock(event ?? null);
 
   if (isLoading) return <SkeletonEventDetails />;
   if (!event) {
@@ -67,10 +78,10 @@ export default function EventDetail() {
 
   const clubName = Array.isArray(event.clubs) ? event.clubs[0]?.name : event.clubs?.name;
   const { gradientStyle } = useBannerColor(event.banner_url);
+  const venueLabel = event.venues?.name || event.location;
 
   return (
     <article className="relative min-h-full bg-white transition-colors duration-700">
-      {/* Dynamic Extracted Banner Background Gradient (#1744) */}
       {event.banner_url && (
         <div
           data-testid="banner-dynamic-gradient"
@@ -89,13 +100,17 @@ export default function EventDetail() {
       <div className="relative z-10 space-y-6 p-6 md:p-8">
         {clubName && <p className="eyebrow font-bold">{clubName}</p>}
         <h1 className="font-display text-4xl font-bold">{event.title}</h1>
-        <div className="flex flex-wrap gap-4 font-mono text-sm text-gray-700">
-          {event.event_date && (
-            <span className="flex items-center gap-2">
-              <Calendar size={18} aria-hidden="true" />
-              {new Date(event.event_date).toLocaleString()}
-            </span>
-          )}
+
+        <div className="flex flex-wrap gap-x-8 gap-y-4 font-mono text-sm text-gray-700">
+          {/* ── NEW: dual-clock time display (Issue #3680) ── */}
+          <div className="min-w-[260px]">
+            <EventDualClockTime
+              data={dualClock}
+              venueLabel={venueLabel}
+              variant="full"
+            />
+          </div>
+
           {event.location && (
             <span className="flex items-center gap-2">
               <MapPin size={18} aria-hidden="true" />
@@ -103,9 +118,11 @@ export default function EventDetail() {
             </span>
           )}
         </div>
-        {event.description && <p className="whitespace-pre-wrap leading-7">{event.description}</p>}
 
-        {/* NEW VOLUNTEER SHIFTS WIDGET */}
+        {event.description && (
+          <p className="whitespace-pre-wrap leading-7">{event.description}</p>
+        )}
+
         {user && event.id && (
           <div className="pt-6">
             <VolunteerShifts eventId={event.id} userId={user.id} />
@@ -118,34 +135,3 @@ export default function EventDetail() {
     </article>
   );
 }
-
-interface RSVPModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  studentName?: string;
-}
-
-export const RSVPSuccessModal: React.FC<RSVPModalProps> = ({ isOpen, onClose, studentName }) => {
-  const { triggerSchoolColorsBurst } = useConfetti();
-
-  useEffect(() => {
-    // Fire the confetti the moment the success modal mounts and opens
-    if (isOpen) {
-      triggerSchoolColorsBurst();
-    }
-  }, [isOpen, triggerSchoolColorsBurst]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        <h2>🎉 Registration Successful!</h2>
-        <p>You're all set for the event. We've sent the ticket details to your email.</p>
-        <button onClick={onClose} className="close-btn">
-          Awesome
-        </button>
-      </div>
-    </div>
-  );
-};

@@ -46,6 +46,74 @@ serve(async (req: Request) => {
 
     // Determine context: Broadcast vs Direct Message
     if (user_id) {
+      const priority = body.priority || "normal";
+      const isEmergency =
+        priority === "emergency" || priority === "urgent" || type === "emergency_broadcast";
+
+      // Check DND Quiet Hours preferences if not an emergency
+      if (!isEmergency) {
+        const { data: prefs } = await supabase
+          .from("user_preferences")
+          .select("dnd_start_time, dnd_end_time, quiet_hours_start, quiet_hours_end, timezone")
+          .eq("user_id", user_id)
+          .maybeSingle();
+
+        const dndStart = prefs?.dnd_start_time || prefs?.quiet_hours_start;
+        const dndEnd = prefs?.dnd_end_time || prefs?.quiet_hours_end;
+        const userTz = prefs?.timezone || "UTC";
+
+        if (dndStart && dndEnd) {
+          const now = new Date();
+          const startParts = dndStart.split(":");
+          const endParts = dndEnd.split(":");
+          const startMin = parseInt(startParts[0], 10) * 60 + parseInt(startParts[1] || "0", 10);
+          const endMin = parseInt(endParts[0], 10) * 60 + parseInt(endParts[1] || "0", 10);
+
+          let currentMin = now.getUTCHours() * 60 + now.getUTCMinutes();
+          try {
+            const fmt = new Intl.DateTimeFormat("en-US", {
+              timeZone: userTz,
+              hour: "numeric",
+              minute: "numeric",
+              hour12: false,
+            });
+            const parts = fmt.formatToParts(now);
+            let h = 0,
+              m = 0;
+            for (const p of parts) {
+              if (p.type === "hour") h = parseInt(p.value, 10) % 24;
+              if (p.type === "minute") m = parseInt(p.value, 10);
+            }
+            currentMin = h * 60 + m;
+          } catch {
+            // Keep UTC fallback
+          }
+
+          const inDND =
+            startMin <= endMin
+              ? currentMin >= startMin && currentMin < endMin
+              : currentMin >= startMin || currentMin < endMin;
+
+          if (inDND) {
+            // Queue in delayed_notifications table for execution at dnd_end_time
+            await supabase.from("delayed_notifications").insert({
+              user_id,
+              type: "push",
+              payload: body,
+            });
+
+            return new Response(
+              JSON.stringify({
+                success: true,
+                delayed: true,
+                message: `User is in Quiet Hours DND (${dndStart} - ${dndEnd}). Notification queued for batch delivery.`,
+              }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+          }
+        }
+      }
+
       // Direct message push
       const { data: subscriptions, error: fetchError } = await supabase
         .from("push_subscriptions")

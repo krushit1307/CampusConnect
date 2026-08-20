@@ -104,6 +104,7 @@ export const profileSchema = z.object({
       if (!val) return true;
       return /^\+?[0-9\s\-()]{10,20}$/.test(val);
     }, "Please enter a valid phone number (minimum 10 digits)."),
+  expectedGraduationDate: z.string().optional().or(z.literal("")),
 });
 
 export type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -223,6 +224,7 @@ export const ProfileUpdateAllowlistSchema = z
     linkedin_url: z.string().trim().nullable().optional(),
     phone_number: z.string().trim().nullable().optional(),
     skills: z.array(z.string()).optional(),
+    expected_graduation_date: z.string().nullable().optional().or(z.literal("")),
   })
   .strict(); // Strips or rejects any unmapped properties
 

@@ -9,12 +9,15 @@
 
 import React, { useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { QRScanner } from "../components/kiosk/QRScanner";
 import { useKioskMode } from "../hooks/useKioskMode";
 import { useWakeLock } from "../hooks/useWakeLock";
+import { useKioskTelemetry } from "../services/kioskTelemetry";
 
 export const KioskMode: React.FC = () => {
   const { eventId } = useParams<{ eventId: string }>();
+
+  // Broadcast hardware telemetry (battery, charging status, ping) every 60s
+  useKioskTelemetry("Door 1", eventId);
 
   const { isFullscreen, enterFullscreen, status, result, processScan, incrementExitGesture } =
     useKioskMode(eventId || "");

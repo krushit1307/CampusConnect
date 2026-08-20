@@ -69,7 +69,8 @@ export interface ClubMember {
   status: "pending" | "approved" | "rejected" | "removed";
   joined_at?: string | null;
   removed_at?: string | null;
-  termination_reason?: "term_completed" | "resigned" | "impeached" | "removed" | "role_changed" | string | null;
+  termination_reason?:
+    "term_completed" | "resigned" | "impeached" | "removed" | "role_changed" | string | null;
   created_at: string;
 }
 
@@ -177,6 +178,22 @@ export interface Certificate {
   issued_at: string;
   /** Timestamp when delivery email was sent */
   email_sent_at?: string | null;
+}
+
+/**
+ * Represents an attendee live DJ song request in `event_song_requests`.
+ */
+export interface EventSongRequest {
+  id: string;
+  event_id: string;
+  user_id: string;
+  song_title: string;
+  artist: string;
+  album_art_url?: string | null;
+  upvotes: number;
+  played: boolean;
+  user_has_upvoted?: boolean;
+  created_at?: string;
 }
 
 /**

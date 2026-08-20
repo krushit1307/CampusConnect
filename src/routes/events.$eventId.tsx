@@ -83,6 +83,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SeatingCanvas } from "@/components/events/SeatingCanvas";
+import { CrowdDensityMeter } from "@/components/events/CrowdDensityMeter";
+import { EventLogisticsChecklist } from "@/components/events/EventLogisticsChecklist";
 import { SponsorManager } from "@/components/events/SponsorManager";
 import { SteganographicQRScanner } from "@/components/events/SteganographicQRScanner";
 import { EventGuestList } from "@/components/events/EventGuestList";
@@ -2115,9 +2117,9 @@ export default function EventDetailsPage() {
               )}
             </div>
 
-            {/* Predictive Turnout (Visible to Organizer / Admins) */}
             {isOrganizer && (
-              <div className="mt-8">
+              <div className="mt-8 space-y-8">
+                <EventLogisticsChecklist eventId={event.id} />
                 <PredictiveTurnout
                   rsvpCount={attendeeCount}
                   latitude={(event as Record<string, unknown>).latitude as number | null}

@@ -10,7 +10,7 @@ import GraduationCap from "lucide-react/dist/esm/icons/graduation-cap";
 import { useExperimentStore } from "@/store/useExperimentStore";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import { FeaturedEvents } from "@/components/home/FeaturedEvents";
+import { HomeEventFeed } from "@/components/home/HomeEventFeed";
 import { HeroBackground } from "@/components/home/HeroBackground";
 import { HeroMidground } from "@/components/home/HeroMidground";
 import { HeroForeground } from "@/components/home/HeroForeground";
@@ -367,7 +367,7 @@ export default function Landing() {
                 ))}
               </div>
             ) : (
-              <FeaturedEvents events={featuredEvents || []} />
+              <HomeEventFeed />
             )}
           </ScrollReveal>
         </div>

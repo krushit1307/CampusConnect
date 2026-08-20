@@ -1,15 +1,23 @@
 import React, { useState, useRef, useEffect } from "react";
-import { ZoomIn, ZoomOut, RotateCcw, Search, MapPin } from "lucide-react";
+import { Accessibility, ZoomIn, ZoomOut, RotateCcw, Search, MapPin } from "lucide-react";
+import {
+  ACCESSIBILITY_NODE_LABELS,
+  createAccessibilityRouteSegments,
+  getAccessibilityNodes,
+  getSpatialDescription,
+  type MapNodeType,
+} from "@/lib/accessibilityMap";
 
 export interface AttendeeMapNode {
   id: string;
   entity_name: string | null;
-  type: "table" | "stage" | "boundary" | "booth";
+  type: MapNodeType;
   x_coord: number;
   y_coord: number;
   width: number;
   height: number;
   rotation: number;
+  accessibility_notes?: string | null;
 }
 
 interface AttendeeVenueMapProps {
@@ -23,17 +31,26 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [scale, setScale] = useState(1);
+  const [isAccessibilityMode, setIsAccessibilityMode] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const accessibilityNodes = getAccessibilityNodes(nodes);
+  const entrance = accessibilityNodes.find((node) => node.type === "entrance");
+  const routeSegments = createAccessibilityRouteSegments(nodes);
 
-  // Colors mapping for different node types
-  const colors = {
+  // Colors mapping for normal mode; Accessibility Mode applies a high-contrast blue layer.
+  const colors: Record<MapNodeType, string> = {
     table: "bg-amber-100 border-amber-400",
     stage: "bg-indigo-100 border-indigo-400",
     boundary: "bg-red-50 border-red-400 border-dashed",
     booth: "bg-emerald-100 border-emerald-400",
+    sponsor: "bg-emerald-100 border-emerald-500",
+    entrance: "bg-blue-100 border-blue-700",
+    elevator: "bg-blue-200 border-blue-800",
+    ramp: "bg-blue-300 border-blue-900",
+    restroom: "bg-cyan-200 border-cyan-800",
   };
 
   // Zoom controls
@@ -126,36 +143,65 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
           />
         </div>
 
-        {/* View Controls */}
-        <div className="flex gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
-            onClick={handleZoomIn}
-            className="flex items-center justify-center p-2 border-2 border-black bg-white shadow-[2px_2px_0_0_#000] hover:bg-cream active:translate-x-0.5 active:translate-y-0.5 transition-transform"
-            title="Zoom In"
+            type="button"
+            aria-pressed={isAccessibilityMode}
+            aria-controls="venue-accessibility-route-guide"
+            onClick={() => setIsAccessibilityMode((enabled) => !enabled)}
+            className={`flex items-center gap-2 border-2 border-black px-3 py-2 font-mono text-xs font-black uppercase shadow-[2px_2px_0_0_#000] transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 ${
+              isAccessibilityMode
+                ? "bg-blue-700 text-white"
+                : "bg-white text-black hover:bg-blue-50"
+            }`}
           >
-            <ZoomIn size={16} />
+            <Accessibility className="h-4 w-4" />
+            Accessibility Mode
           </button>
-          <button
-            onClick={handleZoomOut}
-            className="flex items-center justify-center p-2 border-2 border-black bg-white shadow-[2px_2px_0_0_#000] hover:bg-cream active:translate-x-0.5 active:translate-y-0.5 transition-transform"
-            title="Zoom Out"
-            disabled={scale === 1}
-          >
-            <ZoomOut size={16} />
-          </button>
-          <button
-            onClick={handleReset}
-            className="flex items-center justify-center p-2 border-2 border-black bg-white shadow-[2px_2px_0_0_#000] hover:bg-cream active:translate-x-0.5 active:translate-y-0.5 transition-transform"
-            title="Reset View"
-          >
-            <RotateCcw size={16} />
-          </button>
+
+          {/* View Controls */}
+          <div className="flex gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleZoomIn}
+              aria-label="Zoom in on venue map"
+              className="flex items-center justify-center p-2 border-2 border-black bg-white shadow-[2px_2px_0_0_#000] hover:bg-cream active:translate-x-0.5 active:translate-y-0.5 transition-transform"
+
+              title="Zoom In"
+            >
+              <ZoomIn size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={handleZoomOut}
+              aria-label="Zoom out on venue map"
+              className="flex items-center justify-center p-2 border-2 border-black bg-white shadow-[2px_2px_0_0_#000] hover:bg-cream active:translate-x-0.5 active:translate-y-0.5 transition-transform"
+
+              title="Zoom Out"
+              disabled={scale === 1}
+            >
+              <ZoomOut size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={handleReset}
+              aria-label="Reset map view"
+              className="flex items-center justify-center p-2 border-2 border-black bg-white shadow-[2px_2px_0_0_#000] hover:bg-cream active:translate-x-0.5 active:translate-y-0.5 transition-transform"
+              title="Reset View"
+            >
+              <RotateCcw size={16} />
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Map Container */}
       <div
         ref={containerRef}
+        role="region"
+        aria-label={
+          isAccessibilityMode ? "Venue floorplan with accessibility routes" : "Venue floorplan"
+        }
         onMouseMove={onMouseMove}
         onTouchMove={onTouchMove}
         onMouseUp={handleEnd}
@@ -183,15 +229,45 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
             />
           )}
 
+          {isAccessibilityMode && routeSegments.length > 0 && (
+            <svg
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 z-[5] h-full w-full"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+            >
+              {routeSegments.map((segment) => (
+                <line
+                  key={segment.id}
+                  x1={segment.x1}
+                  y1={segment.y1}
+                  x2={segment.x2}
+                  y2={segment.y2}
+                  vectorEffect="non-scaling-stroke"
+                  stroke="#005fcc"
+                  strokeWidth="0.8"
+                  strokeDasharray="2 1"
+                />
+              ))}
+            </svg>
+          )}
+
           {/* Render nodes dynamically with relative percentages */}
           {nodes.map((node) => {
             const matchesQuery =
               searchQuery.trim() !== "" &&
               node.entity_name?.toLowerCase().includes(searchQuery.toLowerCase());
+            const isAccessibilityInfrastructure = getAccessibilityNodes([node]).length > 0;
+            const spatialDescription = isAccessibilityInfrastructure
+              ? getSpatialDescription(node, entrance)
+              : `${node.entity_name || ACCESSIBILITY_NODE_LABELS[node.type] || node.type} map element.`;
 
             return (
               <div
                 key={node.id}
+                role="img"
+                tabIndex={isAccessibilityMode && isAccessibilityInfrastructure ? 0 : -1}
+                aria-label={spatialDescription}
                 style={{
                   position: "absolute",
                   left: `${node.x_coord}%`,
@@ -199,12 +275,16 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
                   width: `${node.width}%`,
                   height: `${node.height}%`,
                   transform: `rotate(${node.rotation}deg)`,
-                  zIndex: matchesQuery ? 50 : 10,
+                  zIndex: matchesQuery ? 50 : isAccessibilityInfrastructure ? 40 : 10,
                 }}
                 className={`border-2 border-black flex flex-col items-center justify-center p-1 text-center shadow-[1px_1px_0_0_#000] transition-colors duration-200 ${
                   matchesQuery
                     ? "bg-red-500 text-white border-red-700 animate-pulse ring-4 ring-red-400 ring-offset-1"
-                    : colors[node.type] || "bg-white"
+                    : isAccessibilityMode && isAccessibilityInfrastructure
+                      ? "bg-blue-700 text-white border-white ring-2 ring-blue-950"
+                      : isAccessibilityMode
+                        ? "opacity-25 grayscale"
+                        : colors[node.type] || "bg-white"
                 }`}
               >
                 <div className="flex flex-col items-center justify-center w-full h-full overflow-hidden">
@@ -212,7 +292,7 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
                     {node.entity_name || `${node.type.toUpperCase()}`}
                   </span>
                   <span
-                    className={`text-[7px] uppercase font-bold tracking-wider leading-none mt-0.5 ${matchesQuery ? "text-red-100" : "text-gray-500"}`}
+                    className={`text-[7px] uppercase font-bold tracking-wider leading-none mt-0.5 ${matchesQuery || (isAccessibilityMode && isAccessibilityInfrastructure) ? "text-blue-100" : "text-gray-500"}`}
                   >
                     {node.type}
                   </span>
@@ -230,6 +310,54 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
           </div>
         )}
       </div>
+
+      {isAccessibilityMode && (
+        <section
+          id="venue-accessibility-route-guide"
+          aria-live="polite"
+          className="border-2 border-blue-900 bg-blue-50 p-4 text-black shadow-[3px_3px_0_0_#005fcc]"
+        >
+          <h3
+            id="venue-accessibility-route-guide-heading"
+            className="font-display text-lg font-black uppercase text-blue-950"
+          >
+            Accessible route guide
+          </h3>
+          {accessibilityNodes.length === 0 ? (
+            <p className="mt-2 font-mono text-sm">
+              No accessibility infrastructure has been mapped for this floorplan yet.
+            </p>
+          ) : (
+            <>
+              <p className="mt-2 font-mono text-xs leading-5">
+                Blue lines connect the Main Entrance to each mapped accessibility node. Focus a blue
+                node to hear its spatial description.
+              </p>
+              {!entrance && (
+                <p className="mt-2 border-2 border-amber-700 bg-amber-100 p-2 font-mono text-xs font-bold">
+                  Add a Main Entrance in the organizer map builder to enable route descriptions.
+                </p>
+              )}
+              <ul
+                className="mt-3 grid gap-2 sm:grid-cols-2"
+                aria-label="Accessibility infrastructure"
+              >
+                {accessibilityNodes.map((node) => (
+                  <li
+                    key={node.id}
+                    className="border-2 border-blue-900 bg-white p-2 font-mono text-xs"
+                  >
+                    <span className="font-black uppercase">
+                      {node.entity_name || ACCESSIBILITY_NODE_LABELS[node.type]}
+                    </span>
+                    <span className="mt-1 block">{getSpatialDescription(node, entrance)}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+      )}
     </div>
   );
 };

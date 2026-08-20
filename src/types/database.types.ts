@@ -448,6 +448,48 @@ export type Database = {
         Update: { micro_event_id?: string; user_id?: string; joined_at?: string };
         Relationships: [];
       };
+      event_song_requests: {
+        Row: {
+          id: string;
+          event_id: string;
+          user_id: string;
+          song_title: string;
+          artist: string;
+          album_art_url: string | null;
+          upvotes: number;
+          played: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          user_id: string;
+          song_title: string;
+          artist: string;
+          album_art_url?: string | null;
+          upvotes?: number;
+          played?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          user_id?: string;
+          song_title?: string;
+          artist?: string;
+          album_art_url?: string | null;
+          upvotes?: number;
+          played?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      event_song_request_upvotes: {
+        Row: { request_id: string; user_id: string; created_at: string };
+        Insert: { request_id: string; user_id: string; created_at?: string };
+        Update: { request_id?: string; user_id?: string; created_at?: string };
+        Relationships: [];
+      };
       user_preferences: {
         Row: {
           user_id: string;
@@ -455,6 +497,11 @@ export type Database = {
           push_notifications: boolean;
           digest: boolean;
           dark_mode_default: boolean;
+          timezone?: string | null;
+          dnd_start_time?: string | null;
+          dnd_end_time?: string | null;
+          quiet_hours_start?: string | null;
+          quiet_hours_end?: string | null;
           updated_at: string;
         };
         Insert: {
@@ -463,6 +510,11 @@ export type Database = {
           push_notifications?: boolean;
           digest?: boolean;
           dark_mode_default?: boolean;
+          timezone?: string | null;
+          dnd_start_time?: string | null;
+          dnd_end_time?: string | null;
+          quiet_hours_start?: string | null;
+          quiet_hours_end?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -471,6 +523,11 @@ export type Database = {
           push_notifications?: boolean;
           digest?: boolean;
           dark_mode_default?: boolean;
+          timezone?: string | null;
+          dnd_start_time?: string | null;
+          dnd_end_time?: string | null;
+          quiet_hours_start?: string | null;
+          quiet_hours_end?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -2276,6 +2333,211 @@ export type Database = {
           },
         ];
       };
+      venue_maps: {
+        Row: {
+          id: string;
+          event_id: string;
+          background_image_url: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          background_image_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          background_image_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "venue_maps_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: true;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      map_nodes: {
+        Row: {
+          id: string;
+          map_id: string;
+          entity_name: string | null;
+          type:
+            | "table"
+            | "stage"
+            | "boundary"
+            | "booth"
+            | "sponsor"
+            | "entrance"
+            | "elevator"
+            | "ramp"
+            | "restroom";
+          x_coord: number;
+          y_coord: number;
+          width: number;
+          height: number;
+          rotation: number;
+          accessibility_notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          map_id: string;
+          entity_name?: string | null;
+          type:
+            | "table"
+            | "stage"
+            | "boundary"
+            | "booth"
+            | "sponsor"
+            | "entrance"
+            | "elevator"
+            | "ramp"
+            | "restroom";
+          x_coord: number;
+          y_coord: number;
+          width: number;
+          height: number;
+          rotation?: number;
+          accessibility_notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          map_id?: string;
+          entity_name?: string | null;
+          type?:
+            | "table"
+            | "stage"
+            | "boundary"
+            | "booth"
+            | "sponsor"
+            | "entrance"
+            | "elevator"
+            | "ramp"
+            | "restroom";
+          x_coord?: number;
+          y_coord?: number;
+          width?: number;
+          height?: number;
+          rotation?: number;
+          accessibility_notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "map_nodes_map_id_fkey";
+            columns: ["map_id"];
+            isOneToOne: false;
+            referencedRelation: "venue_maps";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      event_sessions: {
+        Row: {
+          id: string;
+          event_id: string;
+          title: string;
+          description: string | null;
+          track: string;
+          location: string | null;
+          starts_at: string;
+          ends_at: string;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          title: string;
+          description?: string | null;
+          track?: string;
+          location?: string | null;
+          starts_at: string;
+          ends_at: string;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          title?: string;
+          description?: string | null;
+          track?: string;
+          location?: string | null;
+          starts_at?: string;
+          ends_at?: string;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_sessions_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "event_sessions_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      event_itinerary_items: {
+        Row: {
+          id: string;
+          user_id: string;
+          session_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          session_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          session_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_itinerary_items_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "event_itinerary_items_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "event_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       club_analytics_view: {
@@ -2371,6 +2633,17 @@ export type Database = {
       global_search: {
         Args: {
           p_query: string;
+        };
+        Returns: Json;
+      };
+      submit_venue_wifi_report: {
+        Args: {
+          p_venue_id: string;
+          p_download_speed_mbps: number;
+          p_device_count?: number | null;
+          p_upload_speed_mbps?: number | null;
+          p_latency_ms?: number | null;
+          p_notes?: string | null;
         };
         Returns: Json;
       };
