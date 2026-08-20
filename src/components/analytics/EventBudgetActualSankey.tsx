@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { AlertTriangle, ArrowDownRight, BarChart3, Loader2 } from "lucide-react";
+import { EventRoadmap } from "@/components/events/EventRoadmap";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -207,77 +208,83 @@ export function EventBudgetActualSankey({ eventId }: EventBudgetActualSankeyProp
   }
 
   return (
-    <section className="neu-border mt-8 bg-white p-6" aria-labelledby="budget-actual-sankey-title">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-black pb-4">
-        <div>
-          <p className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-blue-800">
-            Treasurer insight
-          </p>
-          <h3
-            id="budget-actual-sankey-title"
-            className="mt-1 font-display text-2xl font-black uppercase"
-          >
-            Budget vs actual flow
-          </h3>
-          <p className="mt-2 max-w-2xl font-mono text-xs leading-5 text-gray-600">
-            Trace each approved budget bucket into recorded event spending. Red links mark money
-            spent above the approved bucket.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 text-right font-mono text-xs sm:grid-cols-4">
-          <SummaryMetric label="Approved" value={sankeyData.totals.approved} />
-          <SummaryMetric label="Actual" value={sankeyData.totals.actual} />
-          <SummaryMetric
-            label="Variance"
-            value={sankeyData.totals.variance}
-            tone={sankeyData.totals.variance > 0 ? "danger" : "good"}
-          />
-          <SummaryMetric label="Overrun" value={sankeyData.totals.overrun} tone="danger" />
-        </div>
-      </div>
-
-      <div
-        className="mt-4 h-[360px] w-full"
-        role="img"
-        aria-label="Interactive budget versus actual Sankey diagram"
+    <>
+      <EventRoadmap eventId={eventId} />
+      <section
+        className="neu-border mt-8 bg-white p-6"
+        aria-labelledby="budget-actual-sankey-title"
       >
-        <ResponsiveContainer width="100%" height="100%">
-          <Sankey
-            data={sankeyData}
-            nodePadding={24}
-            nodeWidth={18}
-            linkCurvature={0.5}
-            iterations={32}
-            margin={{ top: 16, right: 120, bottom: 16, left: 120 }}
-            link={<BudgetSankeyLink />}
-          >
-            <Tooltip content={<SankeyTooltip />} />
-          </Sankey>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-4 border-t-2 border-black pt-3 font-mono text-[11px]">
-        <LegendSwatch color="bg-blue-600" label="Approved-to-actual flow" />
-        <LegendSwatch color="bg-red-600" label="Overrun flow" />
-        <LegendSwatch color="bg-gray-300" label="Unspent or unallocated" />
-      </div>
-
-      <div className="mt-4 grid gap-2 md:grid-cols-2" aria-label="Budget flow details">
-        {sankeyData.links
-          .filter((link) => link.overrun)
-          .map((link) => (
-            <div
-              key={`${link.source}-${link.target}`}
-              className="border-2 border-red-700 bg-red-50 p-3 font-mono text-xs"
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-black pb-4">
+          <div>
+            <p className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-blue-800">
+              Treasurer insight
+            </p>
+            <h3
+              id="budget-actual-sankey-title"
+              className="mt-1 font-display text-2xl font-black uppercase"
             >
-              <p className="flex items-center gap-2 font-black uppercase text-red-800">
-                <ArrowDownRight className="h-4 w-4" /> {link.label}
-              </p>
-              <p className="mt-1 text-red-900">Variance: +{formatCurrency(link.variance)}</p>
-            </div>
-          ))}
-      </div>
-    </section>
+              Budget vs actual flow
+            </h3>
+            <p className="mt-2 max-w-2xl font-mono text-xs leading-5 text-gray-600">
+              Trace each approved budget bucket into recorded event spending. Red links mark money
+              spent above the approved bucket.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-right font-mono text-xs sm:grid-cols-4">
+            <SummaryMetric label="Approved" value={sankeyData.totals.approved} />
+            <SummaryMetric label="Actual" value={sankeyData.totals.actual} />
+            <SummaryMetric
+              label="Variance"
+              value={sankeyData.totals.variance}
+              tone={sankeyData.totals.variance > 0 ? "danger" : "good"}
+            />
+            <SummaryMetric label="Overrun" value={sankeyData.totals.overrun} tone="danger" />
+          </div>
+        </div>
+
+        <div
+          className="mt-4 h-[360px] w-full"
+          role="img"
+          aria-label="Interactive budget versus actual Sankey diagram"
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <Sankey
+              data={sankeyData}
+              nodePadding={24}
+              nodeWidth={18}
+              linkCurvature={0.5}
+              iterations={32}
+              margin={{ top: 16, right: 120, bottom: 16, left: 120 }}
+              link={<BudgetSankeyLink />}
+            >
+              <Tooltip content={<SankeyTooltip />} />
+            </Sankey>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-4 border-t-2 border-black pt-3 font-mono text-[11px]">
+          <LegendSwatch color="bg-blue-600" label="Approved-to-actual flow" />
+          <LegendSwatch color="bg-red-600" label="Overrun flow" />
+          <LegendSwatch color="bg-gray-300" label="Unspent or unallocated" />
+        </div>
+
+        <div className="mt-4 grid gap-2 md:grid-cols-2" aria-label="Budget flow details">
+          {sankeyData.links
+            .filter((link) => link.overrun)
+            .map((link) => (
+              <div
+                key={`${link.source}-${link.target}`}
+                className="border-2 border-red-700 bg-red-50 p-3 font-mono text-xs"
+              >
+                <p className="flex items-center gap-2 font-black uppercase text-red-800">
+                  <ArrowDownRight className="h-4 w-4" /> {link.label}
+                </p>
+                <p className="mt-1 text-red-900">Variance: +{formatCurrency(link.variance)}</p>
+              </div>
+            ))}
+        </div>
+      </section>
+    </>
   );
 }
 

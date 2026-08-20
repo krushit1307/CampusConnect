@@ -2445,6 +2445,99 @@ export type Database = {
           },
         ];
       };
+      event_sessions: {
+        Row: {
+          id: string;
+          event_id: string;
+          title: string;
+          description: string | null;
+          track: string;
+          location: string | null;
+          starts_at: string;
+          ends_at: string;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          title: string;
+          description?: string | null;
+          track?: string;
+          location?: string | null;
+          starts_at: string;
+          ends_at: string;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          title?: string;
+          description?: string | null;
+          track?: string;
+          location?: string | null;
+          starts_at?: string;
+          ends_at?: string;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_sessions_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "event_sessions_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      event_itinerary_items: {
+        Row: {
+          id: string;
+          user_id: string;
+          session_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          session_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          session_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_itinerary_items_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "event_itinerary_items_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "event_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       club_analytics_view: {
