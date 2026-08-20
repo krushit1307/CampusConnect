@@ -21,6 +21,7 @@ import CalendarCheck from "lucide-react/dist/esm/icons/calendar-check";
 import Calendar from "lucide-react/dist/esm/icons/calendar";
 import Filter from "lucide-react/dist/esm/icons/filter";
 import BarChart2 from "lucide-react/dist/esm/icons/bar-chart-2";
+import { SponsorshipValueCalculator } from "@/components/sponsorship/SponsorshipValueCalculator";
 import { toast } from "sonner";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -310,6 +311,12 @@ export function ClubAnalyticsDashboard({ clubId }: ClubAnalyticsDashboardProps) 
               </p>
             </div>
           </div>
+
+          <SponsorshipValueCalculator
+            averageAttendance={attendanceQuery.data?.average ?? 0}
+            appImpressions={summary.total_views}
+            targetedAudiencePercent={80}
+          />
 
           {/* ─── Chart 1: RSVP & Attendance Trends (Line Chart) ─── */}
           <div className="border-2 border-black bg-white p-5 shadow-[4px_4px_0_0_#000] dark:bg-zinc-900 dark:border-white space-y-4">
