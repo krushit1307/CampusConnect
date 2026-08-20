@@ -32,7 +32,7 @@ export const DEFAULT_EVENT_TAG_OPTIONS = DEFAULT_EVENT_TAGS.map((tag) => ({
   label: tag,
 }));
 
-export const TITLE_MAX_LENGTH = 100;
+export const TITLE_MAX_LENGTH = 60;
 
 export const accessibilityFeaturesSchema = z.object({
   has_elevator: z.boolean(),
@@ -357,3 +357,4 @@ export function matchesDateFilter(
   }
   return true;
 }
+
