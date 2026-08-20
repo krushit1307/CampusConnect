@@ -10,7 +10,6 @@ import React from "react";
 import "./i18n";
 import ReactDOM from "react-dom/client";
 import { HelmetProvider } from "react-helmet-async";
-import App from "./App";
 import { BrowserRouter } from "react-router-dom";
 import { CrossTabSyncProvider } from "./components/CrossTabSyncProvider";
 import "./styles.css";
@@ -21,6 +20,9 @@ import { initOfflineMutationQueue } from "./lib/offlineMutationQueue";
 import { registerSW } from "virtual:pwa-register";
 import { initializeCsrf } from "./lib/csrf";
 import { PresenceProvider } from "./hooks/usePresence";
+import App from "./App";
+import EventSpeakerRemote from "./pages/Events/EventSpeakerRemote";
+import EventProjectorPage from "./pages/Events/[id]/projector";
 
 // Start custom client-side caching layer with O(1) LRU eviction
 initOfflineCache();
@@ -33,15 +35,38 @@ if ("serviceWorker" in navigator) {
   registerSW({ immediate: true });
 }
 
+function getPresentationRoute(pathname: string) {
+  const remoteMatch = pathname.match(/^\/event\/([^/]+)\/remote\/?$/);
+  if (remoteMatch) return { type: "remote" as const, eventId: decodeURIComponent(remoteMatch[1]) };
+
+  const projectorMatch = pathname.match(/^\/event\/([^/]+)\/projector\/?$/);
+  if (projectorMatch)
+    return { type: "projector" as const, eventId: decodeURIComponent(projectorMatch[1]) };
+
+  return null;
+}
+
+const presentationRoute = getPresentationRoute(window.location.pathname);
+const presentationElement =
+  presentationRoute?.type === "remote" ? (
+    <EventSpeakerRemote eventId={presentationRoute.eventId} />
+  ) : presentationRoute?.type === "projector" ? (
+    <EventProjectorPage eventId={presentationRoute.eventId} />
+  ) : null;
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <HelmetProvider>
-      <BrowserRouter>
-        <CrossTabSyncProvider />
-        <PresenceProvider>
-          <App />
-        </PresenceProvider>
-      </BrowserRouter>
-    </HelmetProvider>
+    {presentationElement ? (
+      presentationElement
+    ) : (
+      <HelmetProvider>
+        <BrowserRouter>
+          <CrossTabSyncProvider />
+          <PresenceProvider>
+            <App />
+          </PresenceProvider>
+        </BrowserRouter>
+      </HelmetProvider>
+    )}
   </React.StrictMode>,
 );

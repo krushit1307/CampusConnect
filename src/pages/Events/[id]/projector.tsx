@@ -1,89 +1,108 @@
-import React, { useEffect, useState } from "react";
-import { useRouter } from "next/router";
-import { supabase } from "@/utils/supabaseClient";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import {
+  clampSlideIndex,
+  isValidLaserPointerPayload,
+  isValidSlideIndex,
+  presentationChannelName,
+} from "@/lib/eventPresentation";
 
-interface MediaItem {
+type MediaItem = {
   id: string;
   media_url: string;
   created_at: string;
-}
+};
 
-export default function ProjectorPage() {
-  const router = useRouter();
-  const { id: eventId } = router.query;
+type LaserPointer = { x: number; y: number; active: boolean };
+
+export default function EventProjectorPage({ eventId }: { eventId: string }) {
+  const supabase = useMemo(() => createClient(), []);
   const [mediaList, setMediaList] = useState<MediaItem[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [laserPointer, setLaserPointer] = useState<LaserPointer>({ x: 0, y: 0, active: false });
+  const [connectionState, setConnectionState] = useState("CONNECTING");
+  const currentIndexRef = useRef(0);
 
   useEffect(() => {
-    if (!eventId) return;
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
 
-    // Fetch initial approved media
-    const fetchInitialMedia = async () => {
+  useEffect(() => {
+    let mounted = true;
+    const fetchSlides = async () => {
       const { data } = await supabase
         .from("event_live_stream_media")
         .select("id, media_url, created_at")
         .eq("event_id", eventId)
         .eq("status", "approved")
-        .order("created_at", { ascending: false })
-        .limit(30);
+        .order("created_at", { ascending: true })
+        .limit(100);
 
-      if (data) setMediaList(data);
+      if (mounted && data) setMediaList(data as MediaItem[]);
     };
 
-    fetchInitialMedia();
+    void fetchSlides();
+    return () => {
+      mounted = false;
+    };
+  }, [eventId, supabase]);
 
-    // Subscribe to real-time additions for approved media
+  useEffect(() => {
     const channel = supabase
-      .channel(`projector:${eventId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "event_live_stream_media",
-          filter: `event_id=eq.${eventId}`,
-        },
-        (payload) => {
-          const newRecord = payload.new as MediaItem & { status: string };
-          if (newRecord.status === "approved") {
-            setMediaList((prev) => [newRecord, ...prev]);
-          }
+      .channel(presentationChannelName(eventId))
+      .on("broadcast", { event: "slide_change" }, ({ payload }) => {
+        if (isValidSlideIndex(payload?.index, mediaList.length)) {
+          setCurrentIndex(payload.index);
         }
-      )
-      .subscribe();
+      })
+      .on("broadcast", { event: "laser_pointer" }, ({ payload }) => {
+        if (isValidLaserPointerPayload(payload)) setLaserPointer(payload);
+      })
+      .on("presence", { event: "sync" }, () => {
+        void channel.send({
+          type: "broadcast",
+          event: "presentation_state",
+          payload: { index: currentIndexRef.current },
+        });
+      })
+      .subscribe((status) => setConnectionState(status.toUpperCase()));
 
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
-  }, [eventId]);
+  }, [eventId, mediaList.length, supabase]);
+
+  const currentSlide = mediaList[currentIndex];
 
   return (
-    <div className="min-h-screen bg-black text-white p-6 overflow-hidden">
-      <header className="mb-6 flex justify-between items-center border-b border-gray-800 pb-4">
-        <h1 className="text-2xl font-black tracking-wider uppercase text-indigo-400">
-          Live Event Photo Stream
-        </h1>
-        <div className="flex items-center space-x-2 text-xs text-green-400">
-          <span className="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
-          <span>LIVE REALTIME FEED</span>
+    <main
+      className="fixed inset-0 overflow-hidden bg-black text-white"
+      aria-label="Event projector"
+    >
+      {currentSlide ? (
+        <img
+          src={currentSlide.media_url}
+          alt={`Presentation slide ${currentIndex + 1}`}
+          className="h-full w-full object-contain"
+        />
+      ) : (
+        <div className="flex h-full items-center justify-center text-2xl font-semibold text-white/70">
+          Waiting for presentation slides…
         </div>
-      </header>
+      )}
 
-      <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 gap-4 space-y-4">
-        {mediaList.map((item, index) => (
-          <div
-            key={item.id}
-            className={`break-inside-avoid rounded-xl overflow-hidden shadow-2xl transition-all duration-700 ease-out transform ${
-              index === 0 ? "scale-105 ring-4 ring-indigo-500 animate-bounce-short" : ""
-            }`}
-          >
-            <img
-              src={item.media_url}
-              alt="Live Concert Upload"
-              className="w-full h-auto object-cover rounded-xl"
-            />
-          </div>
-        ))}
+      <div className="pointer-events-none absolute left-6 top-6 rounded-full bg-black/60 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/70 backdrop-blur">
+        {connectionState} · Slide{" "}
+        {mediaList.length ? `${currentIndex + 1}/${mediaList.length}` : "—"}
       </div>
-    </div>
+
+      {laserPointer.active && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 shadow-[0_0_28px_12px_rgba(239,68,68,0.65)]"
+          style={{ left: `${laserPointer.x * 100}%`, top: `${laserPointer.y * 100}%` }}
+        />
+      )}
+    </main>
   );
 }
