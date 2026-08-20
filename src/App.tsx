@@ -159,6 +159,7 @@ const EquipmentMarketplace = lazy(() => import("./routes/equipment"));
 const MentorshipDashboard = lazy(() => import("./routes/mentorship-dashboard"));
 const ReferralDashboardRoute = lazy(() => import("./pages/ReferralDashboard"));
 const ReferralLeaderboardRoute = lazy(() => import("./pages/ReferralLeaderboard"));
+const AudioTourRoute = lazy(() => import("./routes/audio-tour"));
 // ---------------------------------------------------------------------------
 // Animated Outlet Wrapper for Framer Motion transitions with Skeleton Fallback
 // ---------------------------------------------------------------------------
@@ -198,6 +199,7 @@ const router = createBrowserRouter(
           <Route path="/mfa-challenge" element={<MfaChallenge />} />
           <Route path="/certificates" element={<Certificates />} />
           <Route path="/verify" element={<VerifyCertificate />} />
+          <Route path="/audio-tour" element={<AudioTourRoute />} />
           <Route path="/clubs" element={<ClubsLayout />}>
             <Route index element={<ClubsIndex />} />
 <Route path="fit" element={<ClubDiscoveryQuiz />} />
