@@ -100,6 +100,7 @@ import { ManageAccessibilityOverridesDialog } from "@/components/events/ManageAc
 import EventFeedbackForm from "@/components/EventFeedbackForm";
 import EventMetricRatingForm from "@/components/events/EventMetricRatingForm";
 import { EventPhotoGallery } from "@/components/EventPhotoGallery";
+import SafeEventImage from "@/components/SafeEventImage";
 import { EventMap } from "@/components/EventMap";
 import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
 import { TournamentBracket } from "@/components/events/TournamentBracket";
@@ -425,23 +426,21 @@ export default function EventDetailsPage() {
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
-  const { data: galleryPhotos = [], refetch: refetchGallery } = useQuery<string[]>({
+  const { data: galleryPhotos = [], refetch: refetchGallery } = useQuery<{id: string; image_url: string; is_nsfw: boolean}[]>({
     queryKey: ["eventGallery", eventId],
     queryFn: async () => {
       if (eventId.startsWith("mock-")) return [];
-      const { data, error } = await supabase.storage.from("event-gallery").list(eventId);
+      const { data, error } = await supabase
+        .from("event_gallery")
+        .select("id, image_url, is_nsfw")
+        .eq("event_id", eventId)
+        .order("created_at", { ascending: false });
+
       if (error) {
-        console.error("Failed to list gallery files", error);
+        console.error("Failed to fetch gallery records", error);
         return [];
       }
-      if (!data) return [];
-
-      return data
-        .filter((file) => file.name !== ".emptyFolderPlaceholder")
-        .map((file) => {
-          return supabase.storage.from("event-gallery").getPublicUrl(`${eventId}/${file.name}`).data
-            .publicUrl;
-        });
+      return data || [];
     },
     enabled: !!eventId,
   });
@@ -504,8 +503,17 @@ export default function EventDetailsPage() {
         }, 200);
 
         uploadImageWithSignedUrl("event-gallery", filePath, file)
-          .then(() => {
+          .then(async () => {
             clearInterval(progressInterval);
+            
+            // Insert into event_gallery to trigger moderation
+            const publicUrl = supabase.storage.from("event-gallery").getPublicUrl(filePath).data.publicUrl;
+            await supabase.from("event_gallery").insert({
+              event_id: eventId,
+              club_id: event.club_id,
+              image_url: publicUrl
+            });
+
             setUploadingFiles((prev) =>
               prev.map((item) =>
                 item.id === uploadItem.id ? { ...item, status: "success", progress: 100 } : item,
@@ -2543,20 +2551,24 @@ export default function EventDetailsPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-                  {galleryPhotos.map((url: string, idx: number) => (
+                  {galleryPhotos.map((photo, idx: number) => (
                     <div
-                      key={url}
+                      key={photo.id}
                       className="neu-border bg-white p-2 hover:scale-[1.02] transition-transform duration-300 group cursor-zoom-in"
                       onClick={() => {
-                        setLightboxSrc(url);
+                        if (!photo.is_nsfw) {
+                          setLightboxSrc(photo.image_url);
+                        }
                       }}
                     >
                       <div className="aspect-square w-full overflow-hidden bg-cream">
-                        <img
-                          src={url}
+                        <SafeEventImage
+                          id={photo.id}
+                          src={photo.image_url}
                           alt={`Event gallery photo ${idx + 1}`}
-                          className="h-full w-full object-cover"
-                          loading="lazy"
+                          initialIsNsfw={photo.is_nsfw}
+                          isAdmin={isClubAdmin}
+                          className="h-full w-full"
                         />
                       </div>
                     </div>
