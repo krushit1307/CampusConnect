@@ -4,7 +4,14 @@ import { toast } from "sonner";
 import { useState } from "react";
 import DollarSign from "lucide-react/dist/esm/icons/dollar-sign";
 import Download from "lucide-react/dist/esm/icons/download";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
 import { EventBudgetActualSankey } from "@/components/analytics/EventBudgetActualSankey";
+import {
+  downloadPdf,
+  generateEventRoiPdf,
+  type EventRoiSummary,
+  formatCurrency,
+} from "@/lib/eventRoiReport";
 
 export function EventFinancesSection({ eventId }: { eventId: string }) {
   const supabase = createClient();
@@ -12,99 +19,177 @@ export function EventFinancesSection({ eventId }: { eventId: string }) {
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [splitPercent, setSplitPercent] = useState("50");
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  const { data: eventClubs } = useQuery({
-    queryKey: ["event_sponsors", eventId],
+  const {
+    data: roi,
+    isLoading: roiLoading,
+    isError: roiError,
+  } = useQuery({
+    queryKey: ["event-roi", eventId],
     queryFn: async () => {
-      // In a real app, we'd query event sponsors. Mocking for now based on requirement.
-      const { data, error } = await supabase
-        .from("events")
-        .select("host_club_id")
-        .eq("id", eventId)
-        .single();
+      const { data, error } = await supabase.rpc("calculate_event_roi", {
+        p_event_id: eventId,
+      });
       if (error) throw error;
-      return data;
+      return data as unknown as EventRoiSummary;
     },
     enabled: !!eventId,
   });
 
   const logExpenseMutation = useMutation({
     mutationFn: async () => {
+      const parsedAmount = Number(amount);
+      if (!description.trim() || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+        throw new Error("Enter a valid description and positive amount.");
+      }
+
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error("Not logged in");
 
-      const { data: memberData } = await supabase
+      const { data: memberData, error: memberError } = await supabase
         .from("club_members")
         .select("club_id")
         .eq("user_id", userData.user.id)
         .limit(1)
         .single();
 
-      if (!memberData) throw new Error("Not a club member");
+      if (memberError || !memberData) throw new Error("Not a club member");
 
-      // Create expense
-      const { data: expenseData, error: expenseError } = (await supabase
-        .from("event_expenses" as any)
+      const { data: expenseData, error: expenseError } = await supabase
+        .from("event_expenses" as never)
         .insert({
           event_id: eventId,
           payer_club_id: memberData.club_id,
-          total_amount: parseFloat(amount),
-          description: description,
-        })
+          total_amount: parsedAmount,
+          description: description.trim(),
+        } as never)
         .select()
-        .single()) as { data: any; error: any };
+        .single();
 
       if (expenseError) throw expenseError;
 
-      // Mocking co-host split (in reality, query co-hosts)
-      // Here we just pick a dummy club for demo if none found
-      const owedAmount = (parseFloat(amount) * parseFloat(splitPercent)) / 100;
-
-      const { error: splitError } = await supabase.from("expense_splits" as any).insert({
-        expense_id: expenseData.id,
-        owing_club_id: "00000000-0000-0000-0000-000000000000", // Would be actual co-host ID
-        owed_amount: owedAmount,
-        status: "pending",
-      });
-
-      if (splitError) {
-        console.warn("Could not create split (might be due to dummy UUID), but expense logged.");
+      const split = Math.min(100, Math.max(0, Number(splitPercent) || 0));
+      if (expenseData && split > 0) {
+        await supabase.from("expense_splits" as never).insert({
+          expense_id: (expenseData as { id: string }).id,
+          owing_club_id: memberData.club_id,
+          owed_amount: (parsedAmount * split) / 100,
+          status: "pending",
+        } as never);
       }
     },
     onSuccess: () => {
-      toast.success("Expense logged & Invoice generated!");
+      toast.success("Expense logged successfully.");
       setDescription("");
       setAmount("");
+      queryClient.invalidateQueries({ queryKey: ["event-roi", eventId] });
       queryClient.invalidateQueries({ queryKey: ["event-budget-actual-sankey", eventId] });
     },
-    onError: (err: Error) => toast.error(`Error: ${err.message}`),
+    onError: (err: Error) => toast.error(err.message),
   });
 
-  const generatePDF = () => {
-    // Generate P&L PDF
-    window.print();
+  const refreshRoi = () => {
+    queryClient.invalidateQueries({ queryKey: ["event-roi", eventId] });
+  };
+
+  const generatePdf = async () => {
+    if (!roi) return;
+    setIsGeneratingPdf(true);
+    try {
+      const bytes = await generateEventRoiPdf(roi);
+      const safeTitle = (roi.event_title || "event")
+        .replace(/[^a-z0-9]+/gi, "-")
+        .replace(/^-|-$/g, "")
+        .toLowerCase();
+      downloadPdf(bytes, `${safeTitle || "event"}-p-and-l.pdf`);
+      toast.success("P&L statement downloaded.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to generate PDF.");
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   return (
     <div className="neu-border bg-white p-6 mt-8">
-      <div className="flex justify-between items-center border-b-2 border-black pb-2 mb-4">
-        <h2 className="font-display text-2xl font-bold flex items-center gap-2">
-          <DollarSign /> Finances & Ledger
-        </h2>
-        <button
-          onClick={generatePDF}
-          className="neu-border bg-black text-white px-4 py-2 font-mono text-sm flex items-center gap-2 hover:-translate-y-1 transition-transform"
-        >
-          <Download size={16} /> Download P&L
-        </button>
+      <div className="flex flex-col gap-3 border-b-2 border-black pb-3 mb-5 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 className="font-display text-2xl font-bold flex items-center gap-2">
+            <DollarSign /> Event ROI & P&L
+          </h2>
+          <p className="font-mono text-xs text-black/60 mt-1">
+            Live ticket revenue, Stripe fees, refunds and approved reimbursements.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={refreshRoi}
+            disabled={roiLoading}
+            aria-label="Refresh event ROI"
+            className="neu-border bg-white px-3 py-2 font-mono text-sm flex items-center gap-2 hover:-translate-y-1 transition-transform disabled:opacity-50"
+          >
+            <RefreshCw size={16} /> Refresh
+          </button>
+          <button
+            type="button"
+            onClick={generatePdf}
+            disabled={!roi || isGeneratingPdf}
+            className="neu-border bg-black text-white px-4 py-2 font-mono text-sm flex items-center gap-2 hover:-translate-y-1 transition-transform disabled:opacity-50"
+          >
+            <Download size={16} /> {isGeneratingPdf ? "Generating…" : "Download P&L"}
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {roiLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((item) => (
+            <div key={item} className="h-24 animate-pulse bg-gray-100 neu-border" />
+          ))}
+        </div>
+      ) : roiError || !roi ? (
+        <div className="neu-border bg-red-50 p-5 font-mono text-sm text-red-800">
+          Unable to calculate this event's financial summary. Verify that you are a club treasurer
+          or executive and try again.
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Metric label="Total Revenue" value={formatCurrency(roi.ticket_sales_cents)} />
+            <Metric label="Total Expenses" value={formatCurrency(roi.total_expenses_cents)} />
+            <Metric
+              label="Net Profit"
+              value={formatCurrency(roi.net_profit_cents)}
+              emphasis={roi.net_profit_cents >= 0}
+            />
+            <Metric label="Margin" value={`${roi.margin_percent.toFixed(2)}%`} />
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 md:grid-cols-4 gap-4 font-mono text-xs">
+            <Detail label="Paid tickets" value={String(roi.ticket_count)} />
+            <Detail label="Stripe fees" value={`-${formatCurrency(roi.stripe_fees_cents)}`} />
+            <Detail label="Refunds" value={`-${formatCurrency(roi.refunds_cents)}`} />
+            <Detail label="Net ticket revenue" value={formatCurrency(roi.net_revenue_cents)} />
+          </div>
+
+          <p className="mt-4 font-mono text-[10px] text-black/50">
+            Fee model: {roi.stripe_fee_model}. Reimbursements include approved and paid claims from
+            the event's host club.
+          </p>
+        </>
+      )}
+
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-4 bg-gray-50 p-4 neu-border">
           <h3 className="font-bold text-lg font-mono uppercase">Log Expense</h3>
           <div>
-            <label className="block text-sm font-bold font-mono">Description</label>
+            <label htmlFor="expense-description" className="block text-sm font-bold font-mono">
+              Description
+            </label>
             <input
+              id="expense-description"
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -113,9 +198,14 @@ export function EventFinancesSection({ eventId }: { eventId: string }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-bold font-mono">Total Amount ($)</label>
+            <label htmlFor="expense-amount" className="block text-sm font-bold font-mono">
+              Total Amount ($)
+            </label>
             <input
+              id="expense-amount"
               type="number"
+              min="0.01"
+              step="0.01"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               className="neu-border w-full p-2 mt-1"
@@ -123,9 +213,15 @@ export function EventFinancesSection({ eventId }: { eventId: string }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-bold font-mono">Split to Co-host (%)</label>
+            <label htmlFor="split-percent" className="block text-sm font-bold font-mono">
+              Split to Co-host (%)
+            </label>
             <input
+              id="split-percent"
               type="number"
+              min="0"
+              max="100"
+              step="1"
               value={splitPercent}
               onChange={(e) => setSplitPercent(e.target.value)}
               className="neu-border w-full p-2 mt-1"
@@ -133,28 +229,47 @@ export function EventFinancesSection({ eventId }: { eventId: string }) {
             />
           </div>
           <button
+            type="button"
             onClick={() => logExpenseMutation.mutate()}
-            className="neu-border bg-black text-white w-full py-2 font-bold font-mono uppercase hover:-translate-y-1 transition-transform"
+            disabled={logExpenseMutation.isPending}
+            className="neu-border bg-black text-white w-full py-2 font-bold font-mono uppercase hover:-translate-y-1 transition-transform disabled:opacity-50"
           >
-            Submit Expense
+            {logExpenseMutation.isPending ? "Submitting…" : "Submit Expense"}
           </button>
-        </div>
-
-        <div className="bg-green-50 p-4 neu-border flex flex-col justify-center items-center text-center">
-          <h3 className="font-bold text-lg font-mono uppercase text-green-800">
-            Event P&L Summary
-          </h3>
-          <p className="text-sm mt-2 text-green-700">Ticket Revenue: $4,500.00</p>
-          <p className="text-sm mt-1 text-red-700">Total Expenses: $1,000.00</p>
-          <div className="w-full h-[2px] bg-black my-4"></div>
-          <p className="font-bold text-2xl text-green-900">Net Profit: $3,500.00</p>
-          <p className="text-xs mt-4 text-gray-500 font-mono">
-            * This section will be included in the PDF export.
-          </p>
         </div>
       </div>
 
       <EventBudgetActualSankey eventId={eventId} />
+    </div>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  emphasis = true,
+}: {
+  label: string;
+  value: string;
+  emphasis?: boolean;
+}) {
+  return (
+    <div className="neu-border bg-gray-50 p-4">
+      <p className="font-mono text-[10px] uppercase text-black/50">{label}</p>
+      <p
+        className={`font-display text-2xl font-black mt-1 ${emphasis ? "text-green-800" : "text-red-700"}`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border-2 border-black p-3 bg-white">
+      <p className="text-black/50 uppercase">{label}</p>
+      <p className="font-bold mt-1">{value}</p>
     </div>
   );
 }
