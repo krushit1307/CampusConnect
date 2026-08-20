@@ -104,6 +104,7 @@ const ScavengerHuntGame = lazy(() => import("./routes/scavenger-hunts.$id"));
 const ExploreShowcase = lazy(() => import("./routes/explore"));
 const ClubsLayout = lazy(() => import("./routes/clubs"));
 const ClubDiscoveryQuiz = lazy(() => import("./routes/clubs.fit"));
+const ClubDiscovery = lazy(() => import("./routes/clubs.discovery"));
 const Dashboard = lazy(() => import("./routes/dashboard"));
 const DashboardOverview = lazy(() => import("./routes/dashboard.index"));
 const DashboardRsvps = lazy(() => import("./routes/dashboard.rsvps"));
@@ -201,7 +202,8 @@ const router = createBrowserRouter(
           <Route path="/verify" element={<VerifyCertificate />} />
           <Route path="/clubs" element={<ClubsLayout />}>
             <Route index element={<ClubsIndex />} />
-            <Route path="fit" element={<ClubDiscoveryQuiz />} />
+<Route path="fit" element={<ClubDiscoveryQuiz />} />
+            <Route path="discovery" element={<ClubDiscovery />} />
             <Route path="new" element={<ClubNew />} />
             <Route path=":slug" element={<ClubDetails />} />
             <Route path=":slug/manage" element={<ClubManageRoute />} />
@@ -247,7 +249,8 @@ const router = createBrowserRouter(
             <Route path="/verify" element={<VerifyCertificate />} />
             <Route path="/clubs" element={<ClubsLayout />}>
               <Route index element={<ClubsIndex />} />
-              <Route path="fit" element={<ClubDiscoveryQuiz />} />
+<Route path="fit" element={<ClubDiscoveryQuiz />} />
+            <Route path="discovery" element={<ClubDiscovery />} />
               <Route path="new" element={<ClubNew />} />
               <Route path=":slug" element={<ClubDetails />} />
               <Route path=":slug/manage" element={<ClubManageRoute />} />
