@@ -275,6 +275,32 @@ serve(async (req: Request) => {
 
       return respond({ success: true, status: "cancelled" }, 200);
     } else {
+      // 1.5 Pre-flight Prerequisite Verification
+      const { data: eventData, error: eventErr } = await supabase
+        .from("events")
+        .select("prerequisite_event_id, title")
+        .eq("id", eventId)
+        .single();
+
+      if (eventErr) throw eventErr;
+
+      if (eventData?.prerequisite_event_id) {
+        const { data: prereqRsvp } = await supabase
+          .from("event_rsvps")
+          .select("checked_in")
+          .match({ event_id: eventData.prerequisite_event_id, user_id: user.id })
+          .maybeSingle();
+
+        if (!prereqRsvp || !prereqRsvp.checked_in) {
+          return respond(
+            {
+              error: `You must attend the prerequisite event before registering for this event.`,
+            },
+            403
+          );
+        }
+      }
+
       // 2. highly concurrent checkout flow utilizing PG advisory locks and backoff retry mechanism
       let attempts = 0;
       const maxAttempts = 5;

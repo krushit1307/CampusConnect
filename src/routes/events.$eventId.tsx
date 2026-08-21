@@ -560,7 +560,8 @@ export default function EventDetailsPage() {
           `
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by, venue_id, accessibility_features,
           is_high_risk, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash,
-          latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline,
+          latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline, prerequisite_event_id,
+          prerequisite_event:events!prerequisite_event_id(id, title),
           rating_metrics,
           profiles (full_name, email),
           clubs (name, slug, logo_url, primary_color, secondary_color),
@@ -1784,29 +1785,48 @@ export default function EventDetailsPage() {
                   {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
                 </Button>
               ) : isAtCapacity ? (
-                <div className="flex flex-col gap-1">
-                  <Button
-                    onClick={() => {
-                      if (!user) {
-                        toast.error("Please log in to join the waitlist");
-                        return;
-                      }
-                      if (!emailVerified) {
-                        toast.error("Please verify your email to join the waitlist");
-                        return;
-                      }
-                      toggleWaitlist.mutate({ isOnWaitlist });
-                    }}
-                    disabled={toggleWaitlist.isPending}
-                    variant={isOnWaitlist ? "secondary" : "primary"}
-                    size="lg"
-                  >
-                    {toggleWaitlist.isPending
-                      ? "Updating..."
-                      : isOnWaitlist
-                        ? "On Waitlist ✓"
-                        : "Join Waitlist"}
-                  </Button>
+                <Button
+                  onClick={() => {
+                    if (!user) {
+                      toast.error("Please log in to join waitlist");
+                      return;
+                    }
+                    if (!prereqMet) {
+                      toast.error(`You must attend '${prereqTitle}' before joining waitlist.`);
+                      return;
+                    }
+                    toggleWaitlist.mutate({ isOnWaitlist });
+                  }}
+                  disabled={toggleWaitlist.isPending || !prereqMet}
+                  variant={isOnWaitlist ? "secondary" : "primary"}
+                  size="lg"
+                  title={!prereqMet ? `You must attend '${prereqTitle}' before registering for this event.` : undefined}
+                  className={!prereqMet ? "opacity-50 cursor-not-allowed" : ""}
+                >
+                  {toggleWaitlist.isPending
+                    ? "Updating..."
+                    : isOnWaitlist
+                      ? "On Waitlist ✓"
+                      : "Join Waitlist"}
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => {
+                    if (!prereqMet && !hasRsvpd) {
+                      toast.error(`You must attend '${prereqTitle}' before registering for this event.`);
+                      return;
+                    }
+                    handleRsvpClick();
+                  }}
+                  disabled={toggleRsvp.isPending || !prereqMet}
+                  variant="primary"
+                  size="lg"
+                  title={!prereqMet && !hasRsvpd ? `You must attend '${prereqTitle}' before registering for this event.` : undefined}
+                  className={!prereqMet && !hasRsvpd ? "opacity-50 cursor-not-allowed relative group" : ""}
+                >
+                  {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
+                </Button>
+              )}
                   {isOnWaitlist && (
                     <div className="mt-4 flex flex-col items-center gap-2 rounded bg-amber-50 p-4 border-2 border-amber-300">
                       <p className="font-mono text-sm font-bold text-amber-900">
@@ -1894,10 +1914,18 @@ export default function EventDetailsPage() {
               ) : (
                 <div className="flex flex-col gap-1">
                   <Button
-                    onClick={handleRsvpClick}
-                    disabled={toggleRsvp.isPending}
+                    onClick={() => {
+                      if (!prereqMet && !hasRsvpd) {
+                        toast.error(`You must attend '${prereqTitle}' before registering for this event.`);
+                        return;
+                      }
+                      handleRsvpClick();
+                    }}
+                    disabled={toggleRsvp.isPending || !prereqMet}
                     variant="primary"
                     size="lg"
+                    title={!prereqMet && !hasRsvpd ? `You must attend '${prereqTitle}' before registering for this event.` : undefined}
+                    className={!prereqMet && !hasRsvpd ? "opacity-50 cursor-not-allowed relative group" : ""}
                   >
                     {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
                   </Button>
@@ -3113,10 +3141,16 @@ export default function EventDetailsPage() {
                   toast.error("Please log in to join waitlist");
                   return;
                 }
+                if (!prereqMet) {
+                  toast.error(`You must attend '${prereqTitle}' before joining waitlist.`);
+                  return;
+                }
                 toggleWaitlist.mutate({ isOnWaitlist });
               }}
-              disabled={toggleWaitlist.isPending}
+              disabled={toggleWaitlist.isPending || !prereqMet}
               variant={isOnWaitlist ? "secondary" : "primary"}
+              title={!prereqMet ? `You must attend '${prereqTitle}' before registering for this event.` : undefined}
+              className={!prereqMet ? "opacity-50 cursor-not-allowed" : ""}
             >
               {toggleWaitlist.isPending
                 ? "Updating..."
@@ -3125,7 +3159,19 @@ export default function EventDetailsPage() {
                   : "Join Waitlist"}
             </Button>
           ) : (
-            <Button onClick={handleRsvpClick} disabled={toggleRsvp.isPending} variant="primary">
+            <Button
+              onClick={() => {
+                if (!prereqMet && !hasRsvpd) {
+                  toast.error(`You must attend '${prereqTitle}' before registering for this event.`);
+                  return;
+                }
+                handleRsvpClick();
+              }}
+              disabled={toggleRsvp.isPending || !prereqMet}
+              variant="primary"
+              title={!prereqMet && !hasRsvpd ? `You must attend '${prereqTitle}' before registering for this event.` : undefined}
+              className={!prereqMet && !hasRsvpd ? "opacity-50 cursor-not-allowed" : ""}
+            >
               {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
             </Button>
           )}
