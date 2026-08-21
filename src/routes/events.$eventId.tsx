@@ -92,7 +92,7 @@ import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { ImageWithBlur } from "@/components/ui/ImageWithBlur";
 import { parseCoordinates } from "@/lib/eventUtils";
 import { EventFaqSection } from "@/components/events/EventFaqSection";
-import { AccessibilityBadges } from "@/components/events/AccessibilityBadges";
+import { EventMenuSection } from "@/components/events/EventMenuSection";import { AccessibilityBadges } from "@/components/events/AccessibilityBadges";
 import { ReportAccessibilityIssueDialog } from "@/components/events/ReportAccessibilityIssueDialog";
 import { ManageAccessibilityOverridesDialog } from "@/components/events/ManageAccessibilityOverridesDialog";
 import EventFeedbackForm from "@/components/EventFeedbackForm";
@@ -2713,7 +2713,8 @@ export default function EventDetailsPage() {
               <div className="border-t border-black/10 pt-4">
                 <EventFaqSection eventId={event.id} isOrganizer={isOrganizer} userId={user?.id} />
               </div>
-            {/* Kanban Board for Organizer */}
+
+              <EventMenuSection eventId={event.id} isOrganizer={isOrganizer} />            {/* Kanban Board for Organizer */}
             {isOrganizer && (
               <div className="mt-12 border-t-4 border-black pt-10">
                 <h2 className="font-display text-2xl font-black uppercase tracking-tight text-black mb-6">
