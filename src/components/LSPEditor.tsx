@@ -1,7 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useRef, useState } from "react";
 import { useLSPClient } from "@/hooks/useLSPClient";
-import { Loader2, Radio, AlertCircle, CheckCircle, HelpCircle } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Radio from "lucide-react/dist/esm/icons/radio";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import HelpCircle from "lucide-react/dist/esm/icons/help-circle";
 
 interface LSPEditorProps {
   defaultValue?: string;

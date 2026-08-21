@@ -1,12 +1,14 @@
 import { useState, useRef, type DragEvent, type ChangeEvent } from "react";
 import Cropper from "react-easy-crop";
-import { Loader2, UploadCloud } from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import UploadCloud from "lucide-react/dist/esm/icons/upload-cloud";
 import { toast } from "sonner";
 
-import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
-import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
+import { createClient } from "@/lib/supabase/client";
+import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
 import { getCroppedImg, type Area } from "@/utils/cropImage";
 import { compressImage } from "@/utils/imageCompressor";
+import loadImage from "blueimp-load-image";
 import {
   Dialog,
   DialogContent,
@@ -98,15 +100,27 @@ export function ImageCropUpload({
   function openCropDialog(file: File) {
     if (!validateFile(file)) return;
     setSelectedFile(file);
-    const reader = new FileReader();
-    reader.addEventListener("load", () => {
-      setCropImageSrc(reader.result as string);
-      setCrop({ x: 0, y: 0 });
-      setZoom(1);
-    });
-    reader.readAsDataURL(file);
+    loadImage(
+      file,
+      (canvasOrImg) => {
+        const canvas = canvasOrImg as HTMLCanvasElement;
+        if (canvas && typeof canvas.toDataURL === "function") {
+          const rotatedDataUrl = canvas.toDataURL("image/jpeg");
+          setCropImageSrc(rotatedDataUrl);
+        } else {
+          // Fallback if load-image returned an Image element or failed
+          const reader = new FileReader();
+          reader.addEventListener("load", () => {
+            setCropImageSrc(reader.result as string);
+          });
+          reader.readAsDataURL(file);
+        }
+        setCrop({ x: 0, y: 0 });
+        setZoom(1);
+      },
+      { orientation: true, canvas: true },
+    );
   }
-
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (file) openCropDialog(file);
@@ -148,7 +162,8 @@ export function ImageCropUpload({
   }
 
   // ------------------------------------------------------------------
-  // Supabase Storage upload (reuses uploadFileWithProgress)
+  // Signed-URL upload: request a pre-signed URL from the backend, then PUT
+  // the file straight to Supabase Storage (bypasses our Node.js server).
   // ------------------------------------------------------------------
   async function uploadFile(file: File): Promise<string | undefined> {
     const {
@@ -159,15 +174,6 @@ export function ImageCropUpload({
       return undefined;
     }
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) {
-      toast.error("Session expired. Please sign in again.");
-      return undefined;
-    }
-
-    const supabaseUrl = getSupabaseUrl();
     const compressedFile = await compressImage(file, {
       maxWidth: 1920,
       maxHeight: 1080,
@@ -176,19 +182,13 @@ export function ImageCropUpload({
     const extension = compressedFile.name.split(".").pop()?.toLowerCase() ?? "webp";
     const filePath = `${user.id}/${crypto.randomUUID()}.${extension}`;
 
-    await uploadFileWithProgress(
-      supabaseUrl,
-      session.access_token,
+    const publicUrl = await uploadImageWithSignedUrl(
       bucket,
       filePath,
       compressedFile,
       setUploadProgress,
     );
     setUploadProgress(null);
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from(bucket).getPublicUrl(filePath);
 
     return publicUrl;
   }

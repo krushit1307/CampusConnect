@@ -1,20 +1,15 @@
-import { useCallback, useRef } from "react";
+import { forwardRef, useCallback, useRef } from "react";
 import { Link, type LinkProps } from "react-router-dom";
 
 type HoverLinkProps = LinkProps & {
   prefetch?: () => void | Promise<void>;
 };
 
-export function HoverLink({
-  prefetch,
-  onMouseEnter,
-  onMouseLeave,
-  onTouchStart,
-  onFocus,
-  ...props
-}: HoverLinkProps) {
+export const HoverLink = forwardRef<HTMLAnchorElement, HoverLinkProps>(function HoverLink(
+  { prefetch, onMouseEnter, onMouseLeave, onTouchStart, onFocus, ...props },
+  ref,
+) {
   const hasPrefetchedRef = useRef(false);
-
   const triggerPrefetch = useCallback(() => {
     if (!prefetch || hasPrefetchedRef.current) return;
 
@@ -55,6 +50,7 @@ export function HoverLink({
 
   return (
     <Link
+      ref={ref}
       {...props}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -62,4 +58,4 @@ export function HoverLink({
       onFocus={handleFocus}
     />
   );
-}
+});

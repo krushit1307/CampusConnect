@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { AlertTriangle, Check, RefreshCw } from "lucide-react";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import Check from "lucide-react/dist/esm/icons/check";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
 
 import {
   Dialog,

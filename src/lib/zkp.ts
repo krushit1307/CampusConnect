@@ -1,3 +1,4 @@
+// @ts-expect-error - snarkjs does not ship with official typescript definitions
 import type { Groth16Proof, PublicSignals } from "snarkjs";
 
 export interface VoteProof {
@@ -28,6 +29,7 @@ export async function generateVoteProof(
   const input = { secret, electionId, voteChoice };
 
   try {
+    // @ts-expect-error - snarkjs does not ship with official typescript definitions
     const snarkjs = await import("snarkjs");
     const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, wasmFile, zkeyFile);
     return { proof, publicSignals };

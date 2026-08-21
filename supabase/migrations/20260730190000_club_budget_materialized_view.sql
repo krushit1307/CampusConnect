@@ -74,12 +74,7 @@ CREATE POLICY "Budgets are viewable by club members and admins"
 CREATE POLICY "Budgets are manageable by club admins"
   ON public.budgets FOR INSERT
   WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.club_members
-      WHERE club_id = budgets.club_id
-        AND user_id = auth.uid()
-        AND role IN ('admin', 'owner')
-    )
+    public.is_club_admin(budgets.club_id, auth.uid())
     OR EXISTS (
       SELECT 1 FROM public.profiles
       WHERE id = auth.uid() AND role = 'system_admin'
@@ -89,12 +84,7 @@ CREATE POLICY "Budgets are manageable by club admins"
 CREATE POLICY "Budgets updatable by club admins"
   ON public.budgets FOR UPDATE
   USING (
-    EXISTS (
-      SELECT 1 FROM public.club_members
-      WHERE club_id = budgets.club_id
-        AND user_id = auth.uid()
-        AND role IN ('admin', 'owner')
-    )
+    public.is_club_admin(budgets.club_id, auth.uid())
     OR EXISTS (
       SELECT 1 FROM public.profiles
       WHERE id = auth.uid() AND role = 'system_admin'
@@ -120,12 +110,7 @@ CREATE POLICY "Transactions are viewable by club members and admins"
 CREATE POLICY "Transactions are manageable by club admins"
   ON public.transactions FOR INSERT
   WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.club_members
-      WHERE club_id = transactions.club_id
-        AND user_id = auth.uid()
-        AND role IN ('admin', 'owner')
-    )
+    public.is_club_admin(transactions.club_id, auth.uid())
     OR EXISTS (
       SELECT 1 FROM public.profiles
       WHERE id = auth.uid() AND role = 'system_admin'
@@ -135,12 +120,7 @@ CREATE POLICY "Transactions are manageable by club admins"
 CREATE POLICY "Transactions updatable by club admins"
   ON public.transactions FOR UPDATE
   USING (
-    EXISTS (
-      SELECT 1 FROM public.club_members
-      WHERE club_id = transactions.club_id
-        AND user_id = auth.uid()
-        AND role IN ('admin', 'owner')
-    )
+    public.is_club_admin(transactions.club_id, auth.uid())
     OR EXISTS (
       SELECT 1 FROM public.profiles
       WHERE id = auth.uid() AND role = 'system_admin'

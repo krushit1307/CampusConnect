@@ -1,0 +1,43 @@
+name: Visual Regression Tests
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  visual-tests:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Start dev server in background
+        run: npm run dev &
+
+      - name: Wait for dev server
+        run: npx wait-on http://localhost:5173
+
+      - name: Run Visual Tests
+        run: npx playwright test e2e/visual.spec.ts --project=chromium --update-snapshots
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-visual-diff
+          path: test-results/
+          retention-days: 7

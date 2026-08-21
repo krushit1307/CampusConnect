@@ -1,10 +1,15 @@
-import { format, getDay, parse, startOfWeek } from "date-fns";
-import { enUS } from "date-fns/locale";
+import format from "date-fns/format";
+import getDay from "date-fns/getDay";
+import parse from "date-fns/parse";
+import startOfWeek from "date-fns/startOfWeek";
+import enUS from "date-fns/locale/en-US";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useRef } from "react";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { useState } from "react";
-import { CalendarDays, MapPin } from "lucide-react";
+import CalendarDays from "lucide-react/dist/esm/icons/calendar-days";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import { Calendar, dateFnsLocalizer, View } from "react-big-calendar";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +19,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+import { parseUtcToLocal, formatEventInTimeZone } from "@/lib/timezone";
 
 const locales = {
   "en-US": enUS,
@@ -47,6 +54,7 @@ interface EventItem {
 
 interface EventsCalendarProps {
   events: EventItem[];
+  timeZone?: string;
 }
 
 interface CalendarEvent {
@@ -83,16 +91,18 @@ function getCategoryClass(category: string) {
   }
 }
 
-export default function EventsCalendar({ events }: EventsCalendarProps) {
+export default function EventsCalendar({ events, timeZone }: EventsCalendarProps) {
   const [view, setView] = useState<View>("month");
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
+
   const formattedEvents: CalendarEvent[] = events
     .filter((event) => event.start_date || event.event_date)
     .map((event) => {
-      const start = new Date(event.start_date ?? event.event_date!);
+      const rawStart = event.start_date ?? event.event_date!;
+      const start = parseUtcToLocal(rawStart, timeZone) || new Date(rawStart);
 
       const end = event.end_date
-        ? new Date(event.end_date)
+        ? parseUtcToLocal(event.end_date, timeZone) || new Date(event.end_date)
         : new Date(start.getTime() + 60 * 60 * 1000);
 
       return {
@@ -106,10 +116,12 @@ export default function EventsCalendar({ events }: EventsCalendarProps) {
     });
 
   const selectedStart = selectedEvent
-    ? new Date(selectedEvent.start_date ?? selectedEvent.event_date ?? "")
+    ? parseUtcToLocal(selectedEvent.start_date ?? selectedEvent.event_date, timeZone)
     : null;
 
-  const selectedEnd = selectedEvent?.end_date != null ? new Date(selectedEvent.end_date) : null;
+  const selectedEnd = selectedEvent?.end_date
+    ? parseUtcToLocal(selectedEvent.end_date, timeZone)
+    : null;
 
   return (
     <>
@@ -154,12 +166,12 @@ export default function EventsCalendar({ events }: EventsCalendarProps) {
           style={{ height: "calc(100% - 48px)" }}
           views={["month", "week", "day"]}
           view={view}
-          onView={(newView) => setView(newView)}
-          eventPropGetter={(calendarEvent) => ({
-            className: getCategoryClass(getCategory((calendarEvent as CalendarEvent).resource)),
+          onView={(newView: View) => setView(newView)}
+          eventPropGetter={(calendarEvent: CalendarEvent) => ({
+            className: getCategoryClass(getCategory(calendarEvent.resource)),
           })}
-          onSelectEvent={(calendarEvent) => {
-            setSelectedEvent((calendarEvent as CalendarEvent).resource);
+          onSelectEvent={(calendarEvent: CalendarEvent) => {
+            setSelectedEvent(calendarEvent.resource);
           }}
         />
       </div>

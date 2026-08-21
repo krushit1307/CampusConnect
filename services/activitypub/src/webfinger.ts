@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import type { WebFingerResponse } from "./types";
-import { DOMAIN } from "./index";
+import { DOMAIN } from "./config";
 
 export function handleWebFinger(req: Request, res: Response): void {
   const resource = req.query.resource as string;

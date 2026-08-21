@@ -91,13 +91,7 @@ CREATE POLICY "club_members_read_folders" ON public.club_folders
 CREATE POLICY "club_admins_create_folders" ON public.club_folders
   FOR INSERT
   WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.club_members cm
-      WHERE cm.club_id = club_folders.club_id
-        AND cm.user_id = auth.uid()
-        AND cm.role IN ('admin', 'owner')
-        AND cm.status = 'approved'
-    ) OR EXISTS (
+    public.is_club_admin(club_folders.club_id, auth.uid()) OR EXISTS (
       SELECT 1 FROM public.clubs WHERE id = club_folders.club_id AND created_by = auth.uid()
     )
   );
@@ -106,13 +100,7 @@ CREATE POLICY "club_admins_create_folders" ON public.club_folders
 CREATE POLICY "club_admins_update_folders" ON public.club_folders
   FOR UPDATE
   USING (
-    EXISTS (
-      SELECT 1 FROM public.club_members cm
-      WHERE cm.club_id = club_folders.club_id
-        AND cm.user_id = auth.uid()
-        AND cm.role IN ('admin', 'owner')
-        AND cm.status = 'approved'
-    ) OR EXISTS (
+    public.is_club_admin(club_folders.club_id, auth.uid()) OR EXISTS (
       SELECT 1 FROM public.clubs WHERE id = club_folders.club_id AND created_by = auth.uid()
     )
   );
@@ -121,13 +109,7 @@ CREATE POLICY "club_admins_update_folders" ON public.club_folders
 CREATE POLICY "club_admins_delete_folders" ON public.club_folders
   FOR DELETE
   USING (
-    EXISTS (
-      SELECT 1 FROM public.club_members cm
-      WHERE cm.club_id = club_folders.club_id
-        AND cm.user_id = auth.uid()
-        AND cm.role IN ('admin', 'owner')
-        AND cm.status = 'approved'
-    ) OR EXISTS (
+    public.is_club_admin(club_folders.club_id, auth.uid()) OR EXISTS (
       SELECT 1 FROM public.clubs WHERE id = club_folders.club_id AND created_by = auth.uid()
     )
   );
@@ -143,13 +125,7 @@ CREATE POLICY "club_members_read_documents" ON public.club_documents
 CREATE POLICY "club_admins_create_documents" ON public.club_documents
   FOR INSERT
   WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.club_members cm
-      WHERE cm.club_id = club_documents.club_id
-        AND cm.user_id = auth.uid()
-        AND cm.role IN ('admin', 'owner')
-        AND cm.status = 'approved'
-    ) OR EXISTS (
+    public.is_club_admin(club_documents.club_id, auth.uid()) OR EXISTS (
       SELECT 1 FROM public.clubs WHERE id = club_documents.club_id AND created_by = auth.uid()
     )
   );
@@ -158,13 +134,7 @@ CREATE POLICY "club_admins_create_documents" ON public.club_documents
 CREATE POLICY "club_admins_update_documents" ON public.club_documents
   FOR UPDATE
   USING (
-    EXISTS (
-      SELECT 1 FROM public.club_members cm
-      WHERE cm.club_id = club_documents.club_id
-        AND cm.user_id = auth.uid()
-        AND cm.role IN ('admin', 'owner')
-        AND cm.status = 'approved'
-    ) OR EXISTS (
+    public.is_club_admin(club_documents.club_id, auth.uid()) OR EXISTS (
       SELECT 1 FROM public.clubs WHERE id = club_documents.club_id AND created_by = auth.uid()
     )
   );
@@ -173,13 +143,7 @@ CREATE POLICY "club_admins_update_documents" ON public.club_documents
 CREATE POLICY "club_admins_delete_documents" ON public.club_documents
   FOR DELETE
   USING (
-    EXISTS (
-      SELECT 1 FROM public.club_members cm
-      WHERE cm.club_id = club_documents.club_id
-        AND cm.user_id = auth.uid()
-        AND cm.role IN ('admin', 'owner')
-        AND cm.status = 'approved'
-    ) OR EXISTS (
+    public.is_club_admin(club_documents.club_id, auth.uid()) OR EXISTS (
       SELECT 1 FROM public.clubs WHERE id = club_documents.club_id AND created_by = auth.uid()
     )
   );

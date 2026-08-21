@@ -110,12 +110,19 @@ export const ViewportTooltip: React.FC<ViewportTooltipProps> = ({
 
   useEffect(() => {
     if (isVisible) {
-      calculatePosition();
-      window.addEventListener("scroll", calculatePosition, { passive: true });
-      window.addEventListener("resize", calculatePosition, { passive: true });
+      let rAfId: number | null = null;
+      const scheduledCalculate = () => {
+        if (rAfId !== null) cancelAnimationFrame(rAfId);
+        rAfId = window.requestAnimationFrame(calculatePosition);
+      };
+
+      scheduledCalculate();
+      window.addEventListener("scroll", scheduledCalculate, { passive: true });
+      window.addEventListener("resize", scheduledCalculate, { passive: true });
       return () => {
-        window.removeEventListener("scroll", calculatePosition);
-        window.removeEventListener("resize", calculatePosition);
+        if (rAfId !== null) cancelAnimationFrame(rAfId);
+        window.removeEventListener("scroll", scheduledCalculate);
+        window.removeEventListener("resize", scheduledCalculate);
       };
     }
   }, [isVisible, calculatePosition]);
@@ -137,7 +144,7 @@ export const ViewportTooltip: React.FC<ViewportTooltipProps> = ({
           role="tooltip"
           style={{ top: `${coords.top}px`, left: `${coords.left}px` }}
           className={cn(
-            "fixed z-50 rounded-md border-2 border-black bg-black px-3 py-1.5 font-mono text-xs text-cream shadow-md dark:border-cream dark:bg-cream dark:text-black animate-in fade-in-0 zoom-in-95 pointer-events-none",
+            "fixed z-[80] rounded-md border-2 border-black bg-black px-3 py-1.5 font-mono text-xs text-cream shadow-md dark:border-cream dark:bg-cream dark:text-black animate-in fade-in-0 zoom-in-95 pointer-events-none",
             className,
           )}
         >

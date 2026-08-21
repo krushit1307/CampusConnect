@@ -1,5 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { BarChart3 } from "lucide-react";
+import BarChart3 from "lucide-react/dist/esm/icons/bar-chart-3";
 
 export function ChartSkeleton({ height = "400px" }: { height?: string }) {
   return (

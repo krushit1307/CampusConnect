@@ -60,8 +60,8 @@ ON CONFLICT DO NOTHING;
 -- Club President permissions
 INSERT INTO public.role_permissions (role_id, permission) VALUES
     (3, 'clubs.update'),
-    (3, 'members.manage')
-    (3, 'clubs.create')
+    (3, 'members.manage'),
+    (3, 'clubs.create'),
     (3, 'posts.update'),
     (3, 'posts.delete'),
     (3, 'comments.update'),

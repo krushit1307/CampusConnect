@@ -2,6 +2,7 @@ import { useEffect, useState, useDeferredValue } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Link } from "react-router-dom";
 import { formatEventDateRange } from "@/lib/utils";
+import { EmptyState } from "@/components/EmptyState";
 
 interface EventSearchResult {
   id: string;
@@ -34,14 +35,16 @@ export default function GlobalSearch() {
       // description matches (weight 'B'), with typo correction and synonym
       // rewriting handled inside the Postgres function (see
       // supabase/migrations/20260725000004_nlp_search_engine.sql). Fixes #1231.
-      const { data, error: rpcError } = await supabase.rpc("search_events_advanced", {
-        query_string: query,
+      const { data, error } = await supabase.functions.invoke("global-search", {
+        body: {
+          query,
+        },
       });
 
       if (ignore) return;
 
-      if (rpcError) {
-        setError(rpcError.message);
+      if (error) {
+        setError(error.message);
         setResults([]);
       } else {
         setResults((data as EventSearchResult[]) ?? []);
@@ -57,7 +60,7 @@ export default function GlobalSearch() {
       return;
     }
 
-    fetchSearchResults(deferredSearchTerm);
+    fetchSearchResults(deferredSearchTerm.trim());
 
     return () => {
       ignore = true;
@@ -99,7 +102,21 @@ export default function GlobalSearch() {
       {isLoading && <p>Searching...</p>}
       {error && <p role="alert">Something went wrong: {error}</p>}
       {!isLoading && !error && searchTerm.trim() && results.length === 0 && (
-        <p>No events found for &ldquo;{searchTerm}&rdquo;.</p>
+        <EmptyState
+          illustrationType="no-results"
+          title={`No results for “${searchTerm}”`}
+          description="Try another keyword, event name, or location."
+          actionButton={
+            <button
+              type="button"
+              onClick={() => setSearchTerm("")}
+              className="neu-border neu-press bg-black px-4 py-2 font-mono text-xs font-bold uppercase text-white"
+            >
+              Clear search
+            </button>
+          }
+          className="mt-2"
+        />
       )}
       {results.length > 0 && (
         <div

@@ -3,6 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!--
+      Performance: keep third-party analytics/tracking off the critical path.
+      The deferred loader waits for window.load and browser idle time before
+      fetching GTM, Facebook Pixel, and Hotjar.
+    -->
+    <link rel="preconnect" href="https://api.supabase.co" crossorigin="anonymous" />
+    <link rel="dns-prefetch" href="https://api.supabase.co" />
+    <link rel="preconnect" href="https://s3.amazonaws.com" crossorigin="anonymous" />
+    <link rel="dns-prefetch" href="https://s3.amazonaws.com" />
+    <link rel="preconnect" href="https://images.unsplash.com" crossorigin="anonymous" />
+    <link rel="dns-prefetch" href="https://images.unsplash.com" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.google-analytics.com https://www.googletagmanager.com https://connect.facebook.net https://*.hotjar.com https://script.hotjar.com https://static.hotjar.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https: https://images.unsplash.com https://s3.amazonaws.com https://www.facebook.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.supabase.co https://s3.amazonaws.com https://images.unsplash.com https://www.google-analytics.com https://www.googletagmanager.com https://connect.facebook.net https://*.hotjar.com https://script.hotjar.com https://vars.hotjar.com wss://*.hotjar.com; frame-src 'self' https://js.stripe.com https://vars.hotjar.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none';"
+    />
+
     <link
       rel="preload"
       href="/fonts/space-grotesk-latin-400-normal.woff2"
@@ -17,28 +38,120 @@
       type="font/woff2"
       crossorigin="anonymous"
     />
+
     <title>CampusConnect</title>
-    <script>
-      (function () {
-        try {
-          var stored = localStorage.getItem("campusconnect-theme");
-          var isDark =
-            stored === "dark" ||
-            ((!stored || stored === "system") &&
-              window.matchMedia("(prefers-color-scheme: dark)").matches);
-          if (isDark) {
-            document.documentElement.classList.add("dark");
-            document.documentElement.style.colorScheme = "dark";
-          } else {
-            document.documentElement.classList.remove("dark");
-            document.documentElement.style.colorScheme = "light";
-          }
-        } catch (e) {}
-      })();
-    </script>
+
+    <!-- Critical, tiny initialization only. Heavy third-party downloads are deferred. -->
+    <script src="/partytown-init.js"></script>
+    <script src="/theme-init.js"></script>
+    <script src="/defer-third-party.js"></script>
+
+    <style>
+      #app-loading {
+        display: grid;
+        min-height: 100vh;
+        place-items: center;
+        background: #ffffff;
+        color: #111111;
+      }
+
+      .app-loading__mark {
+        width: min(52vw, 220px);
+        height: auto;
+      }
+
+      .app-loading__stroke {
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 8;
+        stroke-dasharray: var(--loader-path-length);
+        stroke-dashoffset: var(--loader-path-length);
+        animation: draw 2s ease forwards;
+      }
+
+      .app-loading__stroke--delayed {
+        animation-delay: 120ms;
+      }
+
+      @keyframes draw {
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+
+      @media (prefers-color-scheme: dark) {
+        #app-loading {
+          background: #111111;
+          color: #ffffff;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .app-loading__stroke {
+          animation: none;
+          stroke-dashoffset: 0;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="app-loading" role="status" aria-label="Loading CampusConnect">
+        <svg
+          class="app-loading__mark"
+          viewBox="0 0 240 190"
+          role="img"
+          aria-label="CampusConnect"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <title>CampusConnect</title>
+          <path
+            class="app-loading__stroke"
+            style="--loader-path-length: 222.279px"
+            d="M24 76L120 20L216 76"
+          />
+          <path
+            class="app-loading__stroke app-loading__stroke--delayed"
+            style="--loader-path-length: 160px"
+            d="M40 84H200"
+          />
+          <path
+            class="app-loading__stroke app-loading__stroke--delayed"
+            style="--loader-path-length: 72px"
+            d="M50 88V160"
+          />
+          <path
+            class="app-loading__stroke app-loading__stroke--delayed"
+            style="--loader-path-length: 72px"
+            d="M85 88V160"
+          />
+          <path
+            class="app-loading__stroke app-loading__stroke--delayed"
+            style="--loader-path-length: 72px"
+            d="M155 88V160"
+          />
+          <path
+            class="app-loading__stroke app-loading__stroke--delayed"
+            style="--loader-path-length: 72px"
+            d="M190 88V160"
+          />
+          <path
+            class="app-loading__stroke app-loading__stroke--delayed"
+            style="--loader-path-length: 115.124px"
+            d="M105 160V126A15 15 0 0 1 135 126V160"
+          />
+          <path
+            class="app-loading__stroke app-loading__stroke--delayed"
+            style="--loader-path-length: 180px"
+            d="M30 166H210"
+          />
+        </svg>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.tsx"></script>
+    <script src="/sw-register.js"></script>
   </body>
 </html>

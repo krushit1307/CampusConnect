@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Download, Loader2 } from "lucide-react";
+import Download from "lucide-react/dist/esm/icons/download";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { downloadTicketPDF } from "./download";

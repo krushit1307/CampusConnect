@@ -1,5 +1,5 @@
 -- Enable Citus extension
-CREATE EXTENSION IF NOT EXISTS citus;
+-- CREATE EXTENSION IF NOT EXISTS citus;
 
 -- ==========================================
 -- 1. Setup Reference Tables (Lookup / Global tables)
@@ -9,8 +9,8 @@ CREATE EXTENSION IF NOT EXISTS citus;
 ALTER TABLE IF EXISTS public.profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
 
 -- Make profiles and event_categories reference tables (replicated to all nodes)
-SELECT create_reference_table('public.profiles');
-SELECT create_reference_table('public.event_categories');
+-- SELECT create_reference_table('public.profiles');
+-- SELECT create_reference_table('public.event_categories');
 
 
 -- ==========================================
@@ -84,6 +84,7 @@ ALTER TABLE public.saved_events ALTER COLUMN club_id SET NOT NULL;
 ALTER TABLE public.certificates ALTER COLUMN club_id SET NOT NULL;
 
 
+/*
 -- ==========================================
 -- 4. Drop Old Primary Keys, Foreign Keys, and Unique Constraints
 -- ==========================================
@@ -185,26 +186,27 @@ ALTER TABLE public.post_reactions ADD CONSTRAINT post_reactions_post_id_club_id_
 ALTER TABLE public.comments ADD CONSTRAINT comments_post_id_club_id_fkey FOREIGN KEY (post_id, club_id) REFERENCES public.posts (id, club_id) ON DELETE CASCADE;
 ALTER TABLE public.saved_events ADD CONSTRAINT saved_events_event_id_club_id_fkey FOREIGN KEY (event_id, club_id) REFERENCES public.events (id, club_id) ON DELETE CASCADE;
 ALTER TABLE public.certificates ADD CONSTRAINT certificates_event_id_club_id_fkey FOREIGN KEY (event_id, club_id) REFERENCES public.events (id, club_id) ON DELETE CASCADE;
+*/
 
 
 -- ==========================================
--- 7. Distribute all tables across worker shards
+-- 7. Distribute all tables across worker shards (Commented out for standard single-instance Postgres compatibility)
 -- ==========================================
 
-SELECT create_distributed_table('public.clubs', 'id');
-SELECT create_distributed_table('public.club_members', 'club_id');
-SELECT create_distributed_table('public.club_roles', 'club_id');
-SELECT create_distributed_table('public.club_invite_codes', 'club_id');
-SELECT create_distributed_table('public.events', 'club_id');
-SELECT create_distributed_table('public.event_co_hosts', 'club_id');
-SELECT create_distributed_table('public.event_rsvps', 'club_id');
-SELECT create_distributed_table('public.event_waitlist', 'club_id');
-SELECT create_distributed_table('public.posts', 'club_id');
-SELECT create_distributed_table('public.post_likes', 'club_id');
-SELECT create_distributed_table('public.post_reactions', 'club_id');
-SELECT create_distributed_table('public.comments', 'club_id');
-SELECT create_distributed_table('public.saved_events', 'club_id');
-SELECT create_distributed_table('public.certificates', 'club_id');
+-- SELECT create_distributed_table('public.clubs', 'id');
+-- SELECT create_distributed_table('public.club_members', 'club_id');
+-- SELECT create_distributed_table('public.club_roles', 'club_id');
+-- SELECT create_distributed_table('public.club_invite_codes', 'club_id');
+-- SELECT create_distributed_table('public.events', 'club_id');
+-- SELECT create_distributed_table('public.event_co_hosts', 'club_id');
+-- SELECT create_distributed_table('public.event_rsvps', 'club_id');
+-- SELECT create_distributed_table('public.event_waitlist', 'club_id');
+-- SELECT create_distributed_table('public.posts', 'club_id');
+-- SELECT create_distributed_table('public.post_likes', 'club_id');
+-- SELECT create_distributed_table('public.post_reactions', 'club_id');
+-- SELECT create_distributed_table('public.comments', 'club_id');
+-- SELECT create_distributed_table('public.saved_events', 'club_id');
+-- SELECT create_distributed_table('public.certificates', 'club_id');
 
 
 -- ==========================================

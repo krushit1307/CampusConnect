@@ -8,10 +8,13 @@ import { cn } from "@/lib/utils";
 // Track open state via context so AlertDialogContent can drive AnimatePresence
 const AlertDialogOpenContext = React.createContext(false);
 
-const AlertDialog = React.forwardRef<
-  React.ElementRef<typeof AlertDialogPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Root>
->(({ open, defaultOpen, onOpenChange, children, ...props }, _ref) => {
+const AlertDialog = ({
+  open,
+  defaultOpen,
+  onOpenChange,
+  children,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Root>) => {
   const [isOpen, setIsOpen] = React.useState(open ?? defaultOpen ?? false);
 
   React.useEffect(() => {
@@ -38,7 +41,7 @@ const AlertDialog = React.forwardRef<
       </AlertDialogPrimitive.Root>
     </AlertDialogOpenContext.Provider>
   );
-});
+};
 AlertDialog.displayName = "AlertDialog";
 
 const AlertDialogTrigger = AlertDialogPrimitive.Trigger;

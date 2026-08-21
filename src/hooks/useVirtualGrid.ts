@@ -88,25 +88,37 @@ export function useVirtualGrid<T>({
     const el = containerRef.current;
     if (!el) return;
 
+    let rAfId: number | null = null;
+
     const handleScroll = () => {
-      setScrollTop(el.scrollTop);
+      if (rAfId !== null) cancelAnimationFrame(rAfId);
+      rAfId = window.requestAnimationFrame(() => {
+        if (el) setScrollTop(el.scrollTop);
+      });
     };
 
     const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setContainerWidth(entry.contentRect.width);
-        setViewportHeight(entry.contentRect.height);
-      }
+      window.requestAnimationFrame(() => {
+        for (const entry of entries) {
+          setContainerWidth(entry.contentRect.width);
+          setViewportHeight(entry.contentRect.height);
+        }
+      });
     });
 
     observer.observe(el);
     el.addEventListener("scroll", handleScroll, { passive: true });
 
-    setScrollTop(el.scrollTop);
-    setContainerWidth(el.clientWidth);
-    setViewportHeight(el.clientHeight);
+    window.requestAnimationFrame(() => {
+      if (el) {
+        setScrollTop(el.scrollTop);
+        setContainerWidth(el.clientWidth);
+        setViewportHeight(el.clientHeight);
+      }
+    });
 
     return () => {
+      if (rAfId !== null) cancelAnimationFrame(rAfId);
       observer.disconnect();
       el.removeEventListener("scroll", handleScroll);
     };

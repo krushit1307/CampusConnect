@@ -1,14 +1,34 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import * as Slider from "@radix-ui/react-slider";
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize } from "lucide-react";
+import Play from "lucide-react/dist/esm/icons/play";
+import Pause from "lucide-react/dist/esm/icons/pause";
+import Volume2 from "lucide-react/dist/esm/icons/volume-2";
+import VolumeX from "lucide-react/dist/esm/icons/volume-x";
+import Maximize from "lucide-react/dist/esm/icons/maximize";
+import Minimize from "lucide-react/dist/esm/icons/minimize";
+import PictureInPicture2 from "lucide-react/dist/esm/icons/picture-in-picture-2";
+import Languages from "lucide-react/dist/esm/icons/languages";
+
+export interface SubtitleTrack {
+  src: string;
+  srclang: string;
+  label: string;
+  default?: boolean;
+}
 
 interface VideoPlayerProps {
   src: string;
   poster?: string;
   title?: string;
+  subtitleTracks?: SubtitleTrack[];
 }
 
-export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) => {
+export const VideoPlayer: React.FC<VideoPlayerProps> = ({
+  src,
+  poster,
+  title,
+  subtitleTracks = [],
+}) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -19,7 +39,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) 
   const [volume, setVolume] = useState<number>(1);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isPictureInPicture, setIsPictureInPicture] = useState<boolean>(false);
   const [showControls, setShowControls] = useState<boolean>(true);
+  const [selectedTrack, setSelectedTrack] = useState<string>("off");
+  const [showCcMenu, setShowCcMenu] = useState<boolean>(false);
+
+  const isPictureInPictureSupported =
+    typeof document !== "undefined" &&
+    "pictureInPictureEnabled" in document &&
+    document.pictureInPictureEnabled;
 
   // Toggle Play / Pause
   const togglePlay = useCallback(() => {
@@ -90,6 +118,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) 
     }
   };
 
+  // Picture-in-Picture Toggle using native browser API
+  const togglePictureInPicture = useCallback(async () => {
+    if (!videoRef.current || !isPictureInPictureSupported) return;
+
+    try {
+      if (document.pictureInPictureElement === videoRef.current) {
+        await document.exitPictureInPicture();
+      } else {
+        await videoRef.current.requestPictureInPicture();
+      }
+    } catch (error) {
+      console.error("Picture-in-Picture failed:", error);
+    }
+  }, [isPictureInPictureSupported]);
+
   // Time Formatter Utility
   const formatTime = (timeInSeconds: number) => {
     if (isNaN(timeInSeconds)) return "0:00";
@@ -118,6 +161,33 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [togglePlay, handleSeekBy]);
+
+  // Keep isFullscreen state in sync with the browser. Users can exit fullscreen
+  // via the physical ESC key, which bypasses the React onClick logic entirely.
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  // Keep isPictureInPicture state in sync with the native PiP window.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleEnterPictureInPicture = () => setIsPictureInPicture(true);
+    const handleLeavePictureInPicture = () => setIsPictureInPicture(false);
+
+    video.addEventListener("enterpictureinpicture", handleEnterPictureInPicture);
+    video.addEventListener("leavepictureinpicture", handleLeavePictureInPicture);
+    return () => {
+      video.removeEventListener("enterpictureinpicture", handleEnterPictureInPicture);
+      video.removeEventListener("leavepictureinpicture", handleLeavePictureInPicture);
+    };
+  }, []);
 
   return (
     <div
@@ -151,7 +221,35 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) 
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onEnded={() => setIsPlaying(false)}
-      />
+      >
+        {subtitleTracks.map((track) => (
+          <track
+            key={track.srclang}
+            src={track.src}
+            kind="subtitles"
+            srcLang={track.srclang}
+            label={track.label}
+            default={track.default}
+          />
+        ))}
+      </video>
+
+      {/* Center Play Overlay */}
+      <div
+        data-testid="video-center-play-overlay"
+        className={`absolute inset-0 z-10 flex items-center justify-center transition-opacity duration-300 ${
+          isPlaying ? "opacity-0 pointer-events-none" : "opacity-100"
+        }`}
+      >
+        <button
+          type="button"
+          onClick={togglePlay}
+          aria-label="Play video"
+          className="group/center-play rounded-full bg-black/50 p-4 sm:p-6 backdrop-blur-sm transition-transform duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/70"
+        >
+          <Play className="w-12 h-12 sm:w-16 sm:h-16 text-white fill-current drop-shadow-lg" />
+        </button>
+      </div>
 
       {/* Control Overlay Bar */}
       <div
@@ -234,6 +332,95 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, title }) 
               {formatTime(progress)} / {formatTime(duration)}
             </div>
           </div>
+
+          {/* Subtitles / CC Multi-Language Selector */}
+          {subtitleTracks.length > 0 && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowCcMenu(!showCcMenu)}
+                aria-label="Subtitles and Closed Captions selector"
+                title="Subtitles / CC"
+                className={`p-1 transition-colors rounded focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
+                  selectedTrack !== "off"
+                    ? "text-indigo-400 font-bold"
+                    : "hover:text-indigo-400 text-white"
+                }`}
+              >
+                <Languages className="w-5 h-5" />
+              </button>
+
+              {showCcMenu && (
+                <div className="absolute bottom-8 right-0 bg-black/90 border border-zinc-700 rounded-lg p-2 min-w-[160px] shadow-xl z-30 flex flex-col gap-1 text-xs">
+                  <div className="font-semibold text-gray-400 border-b border-zinc-700 pb-1 mb-1 px-2">
+                    Subtitles / CC
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTrack("off");
+                      setShowCcMenu(false);
+                      if (videoRef.current) {
+                        for (let i = 0; i < videoRef.current.textTracks.length; i++) {
+                          videoRef.current.textTracks[i].mode = "disabled";
+                        }
+                      }
+                    }}
+                    className={`text-left px-2 py-1 rounded hover:bg-zinc-800 transition-colors ${
+                      selectedTrack === "off"
+                        ? "bg-indigo-600 text-white font-bold"
+                        : "text-gray-200"
+                    }`}
+                  >
+                    Off
+                  </button>
+                  {subtitleTracks.map((track) => (
+                    <button
+                      key={track.srclang}
+                      type="button"
+                      onClick={() => {
+                        setSelectedTrack(track.srclang);
+                        setShowCcMenu(false);
+                        if (videoRef.current) {
+                          for (let i = 0; i < videoRef.current.textTracks.length; i++) {
+                            if (videoRef.current.textTracks[i].language === track.srclang) {
+                              videoRef.current.textTracks[i].mode = "showing";
+                            } else {
+                              videoRef.current.textTracks[i].mode = "disabled";
+                            }
+                          }
+                        }
+                      }}
+                      className={`text-left px-2 py-1 rounded hover:bg-zinc-800 transition-colors ${
+                        selectedTrack === track.srclang
+                          ? "bg-indigo-600 text-white font-bold"
+                          : "text-gray-200"
+                      }`}
+                    >
+                      {track.label} ({track.srclang.toUpperCase()})
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Picture-in-Picture Button */}
+          {isPictureInPictureSupported && (
+            <button
+              type="button"
+              onClick={togglePictureInPicture}
+              aria-label={
+                isPictureInPicture ? "Exit picture in picture" : "Enter picture in picture"
+              }
+              title="Picture in Picture"
+              className="p-1 hover:text-indigo-400 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 rounded"
+            >
+              <PictureInPicture2
+                className={`w-5 h-5 ${isPictureInPicture ? "text-indigo-400" : ""}`}
+              />
+            </button>
+          )}
 
           {/* Fullscreen Button */}
           <button

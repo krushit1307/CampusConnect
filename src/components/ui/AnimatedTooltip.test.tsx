@@ -10,6 +10,6 @@ describe("AnimatedTooltip Component", () => {
       </AnimatedTooltip>,
     );
 
-    expect(screen.getByText("Hover Me")).toBeInPrimary();
+    expect(screen.getByText("Hover Me")).toBeInTheDocument();
   });
 });

@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
+import { rateLimiter } from "../shared/rateLimiter.ts";
 
 declare const Deno: any;
 
@@ -14,6 +15,9 @@ serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  const limited = await rateLimiter(req, "ai-moderation", 20, 60);
+  if (limited) return limited;
 
   try {
     const payload = await req.json();

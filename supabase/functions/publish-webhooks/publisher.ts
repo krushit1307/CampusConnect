@@ -9,6 +9,7 @@ export async function publishWebhook(
   payload: string,
   deliveryId?: string,
   attempt: number = 1,
+  eventId?: string,
 ) {
   if (!isValidWebhookUrl(webhook.url)) {
     console.error(`Invalid webhook URL: ${webhook.url}`);
@@ -23,6 +24,9 @@ export async function publishWebhook(
   }
 
   const signature = await generateSignature(webhook.secret, payload);
+  const idempotencyKey = deliveryId || `evt_${webhook.id}_${Date.now()}_att${attempt}`;
+  const webhookEventId = eventId || deliveryId || `evt_${webhook.id}_${Date.now()}`;
+
   let statusCode: number | null = null;
   let responseBody: string | null = null;
   let errorMsg: string | null = null;
@@ -37,6 +41,9 @@ export async function publishWebhook(
       headers: {
         "Content-Type": "application/json",
         "X-CampusConnect-Signature": signature,
+        "Idempotency-Key": idempotencyKey,
+        "Webhook-Event-ID": webhookEventId,
+        "X-Webhook-Event-ID": webhookEventId,
       },
       body: payload,
       signal: controller.signal,
@@ -58,6 +65,12 @@ export async function publishWebhook(
   const isRetryable = !success && isRetryableError(statusCode);
   const nextRetryAt = isRetryable ? calculateNextRetry(attempt) : null;
   const status = success ? "success" : nextRetryAt ? "failed" : "permanent_failure";
+
+  if (status === "permanent_failure") {
+    console.warn(
+      `[Dead Letter Queue] Permanent webhook failure for ${webhook.url}. Attempt: ${attempt}, Status Code: ${statusCode}, Error: ${errorMsg}`,
+    );
+  }
 
   await recordDelivery(supabase, {
     id: deliveryId,
@@ -90,8 +103,8 @@ async function recordDelivery(supabase: any, deliveryData: Partial<WebhookDelive
     // Insert new delivery
     await supabase.from("webhook_deliveries").insert({
       webhook_id: deliveryData.webhook_id,
-      event_name: "event.created", // Passed down ideally, hardcoded here for simplicity but should be dynamic
-      payload: {}, // Payload should be passed down and stored
+      event_name: "event.created",
+      payload: {},
       status: deliveryData.status,
       status_code: deliveryData.status_code,
       last_error: deliveryData.last_error,

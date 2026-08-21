@@ -1,5 +1,8 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { List, ChevronDown, AlignLeft, ArrowUpRight } from "lucide-react";
+import List from "lucide-react/dist/esm/icons/list";
+import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
+import AlignLeft from "lucide-react/dist/esm/icons/align-left";
+import ArrowUpRight from "lucide-react/dist/esm/icons/arrow-up-right";
 import { cn } from "@/lib/utils";
 
 export interface HeadingItem {
@@ -110,6 +113,23 @@ export const DocumentScrollSpy: React.FC<DocumentScrollSpyProps> = ({
       observerRef.current?.disconnect();
     };
   }, [headings]);
+
+  // Silently reflect the active section in the URL hash so it can be
+  // copied and shared, without adding browser history entries or
+  // triggering a router re-render (replaceState fires no popstate event).
+  const hasSyncedInitialHash = useRef(false);
+  useEffect(() => {
+    if (!activeId) return;
+    // Skip the first sync so we don't overwrite an incoming shared
+    // link (e.g. `/#rules`) before the browser can jump to it.
+    if (!hasSyncedInitialHash.current) {
+      hasSyncedInitialHash.current = true;
+      return;
+    }
+    if (window.location.hash !== `#${activeId}`) {
+      window.history.replaceState(null, "", `#${activeId}`);
+    }
+  }, [activeId]);
 
   const scrollToHeading = useCallback((id: string) => {
     const element = document.getElementById(id);

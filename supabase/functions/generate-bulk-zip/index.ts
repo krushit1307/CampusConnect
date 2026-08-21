@@ -1,6 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://esm.sh/zod@3.24.2";
 import { downloadZip, InputFile } from "https://esm.sh/client-zip@2.4.4";
+import { parseJsonBody } from "../_shared/validation.ts";
+
+const bulkZipSchema = z
+  .object({
+    eventId: z.string().uuid("eventId must be a valid UUID"),
+  })
+  .strict();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,13 +53,9 @@ serve(async (req) => {
     }
 
     // Parse request body for eventId
-    const { eventId } = await req.json();
-    if (!eventId) {
-      return new Response(JSON.stringify({ error: "Missing eventId" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const parsed = await parseJsonBody(bulkZipSchema, req);
+    if (!parsed.ok) return parsed.response;
+    const { eventId } = parsed.data;
 
     // Fetch the event info to get the event name for the zip filename
     const { data: event, error: eventError } = await supabase

@@ -25,7 +25,7 @@ export function createServer() {
       get(name: string) {
         return getCookie(name);
       },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       set(name: string, value: string, options: any) {
         try {
           setCookie(name, value, options);
@@ -35,7 +35,7 @@ export function createServer() {
           // user sessions.
         }
       },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       remove(name: string, options: any) {
         try {
           setCookie(name, "", { ...options, maxAge: 0 });

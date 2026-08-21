@@ -10,6 +10,25 @@ import {
 } from "../../graphql/resolvers";
 
 vi.mock("../../src/lib/supabase/client", () => {
+  const mockPosts = [
+    {
+      id: "post-1",
+      club_id: "club-1",
+      author_id: "usr-1",
+      content: "Post One Content",
+      created_at: "2026-08-01T10:00:00Z",
+      pinned: false,
+    },
+    {
+      id: "post-2",
+      club_id: "club-1",
+      author_id: "usr-1",
+      content: "Post Two Content",
+      created_at: "2026-07-26T10:00:00Z",
+      pinned: false,
+    },
+  ];
+
   const mockEvents = [
     {
       id: "evt-1",
@@ -43,7 +62,28 @@ vi.mock("../../src/lib/supabase/client", () => {
 
   return {
     createClient: vi.fn().mockImplementation(() => ({
+      channel: vi.fn().mockImplementation(() => ({
+        on: vi.fn().mockReturnThis(),
+        subscribe: vi.fn().mockReturnThis(),
+      })),
       from: vi.fn().mockImplementation((table: string) => {
+        if (table === "posts") {
+          return {
+            select: vi.fn().mockImplementation(() => ({
+              is: vi.fn().mockReturnThis(),
+              or: vi.fn().mockReturnThis(),
+              order: vi.fn().mockReturnThis(),
+              limit: vi.fn().mockImplementation((limitVal: number) => {
+                const sliced = mockPosts.slice(0, limitVal);
+                return Promise.resolve({
+                  data: sliced,
+                  count: mockPosts.length,
+                  error: null,
+                });
+              }),
+            })),
+          };
+        }
         if (table === "events") {
           return {
             select: vi.fn().mockImplementation(() => ({
@@ -61,13 +101,16 @@ vi.mock("../../src/lib/supabase/client", () => {
           };
         }
         if (table === "clubs") {
+          const result = {
+            data: [{ id: "club-1", name: "Robotics Club" }],
+            error: null,
+          };
+          const selectObj = {
+            in: vi.fn().mockResolvedValue(result),
+            then: (resolve: (value: typeof result) => void) => resolve(result),
+          };
           return {
-            select: vi.fn().mockImplementation(() => ({
-              in: vi.fn().mockResolvedValue({
-                data: [{ id: "club-1", name: "Robotics Club" }],
-                error: null,
-              }),
-            })),
+            select: vi.fn().mockReturnValue(selectObj),
           };
         }
         if (table === "profiles") {
@@ -263,23 +306,38 @@ describe("publishNotification helper", () => {
     ).not.toThrow();
   });
 
-  it("maps type 'event_update' correctly via publishNotification", () => {
-    // We publish and verify the helper does not throw for every known type.
-    const types = ["mention", "event_update", "generic_other"];
-    for (const type of types) {
-      expect(() =>
-        publishNotification({
-          id: `notif-${type}`,
-          user_id: "user-abc",
-          type,
-          title: `Test – ${type}`,
-          message: "Test message",
-          link: null,
-          is_read: false,
-          created_at: new Date().toISOString(),
-        }),
-      ).not.toThrow();
-    }
+  it("creates and publishes mention notification cleanly", () => {
+    const notif = publishMentionNotification({
+      mentionedUserId: "user-mention-123",
+      authorName: "Alice",
+      discussionTitle: "AI Project Ideas",
+      link: "/discussions/456",
+    });
+
+    expect(notif.user_id).toBe("user-mention-123");
+    expect(notif.type).toBe("mention");
+    expect(notif.title).toBe("Mentioned in Discussion");
+    expect(notif.message).toContain('Alice mentioned you in "AI Project Ideas"');
+    expect(notif.link).toBe("/discussions/456");
+  });
+
+  it("creates and publishes event update notifications to all attendee IDs", () => {
+    const attendeeUserIds = ["user-1", "user-2", "user-3"];
+    const notifs = publishEventUpdateNotification({
+      eventId: "event-789",
+      eventTitle: "Annual Tech Symposium",
+      updateSummary: "Location updated to Auditorium B",
+      attendeeUserIds,
+    });
+
+    expect(notifs).toHaveLength(3);
+    expect(notifs[0].user_id).toBe("user-1");
+    expect(notifs[1].user_id).toBe("user-2");
+    expect(notifs[2].user_id).toBe("user-3");
+    expect(notifs[0].type).toBe("event_update");
+    expect(notifs[0].title).toBe("Event Updated: Annual Tech Symposium");
+    expect(notifs[0].message).toBe("Location updated to Auditorium B");
+    expect(notifs[0].link).toBe("/events/event-789");
   });
 });
 
@@ -463,5 +521,48 @@ describe("GraphQL clubs Query Cached Resolver", () => {
     const body3 = await res3.json();
     expect(body3.errors).toBeUndefined();
     expect(body3.data.clubs[0].name).toBe("Robotics Club");
+  });
+});
+
+describe("GraphQL posts Keyset Pagination Resolver", () => {
+  it("paginates posts using cursors correctly", async () => {
+    const query = /* GraphQL */ `
+      query GetPosts($first: Int, $after: String) {
+        posts(first: $first, after: $after) {
+          edges {
+            cursor
+            node {
+              id
+              content
+              created_at
+            }
+          }
+          nodes {
+            id
+            content
+          }
+          pageInfo {
+            hasNextPage
+            hasPreviousPage
+            startCursor
+            endCursor
+          }
+          totalCount
+        }
+      }
+    `;
+
+    const res = await yoga.fetch("http://localhost:4000/api/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, variables: { first: 2 } }),
+    });
+
+    const body = await res.json();
+    expect(body.errors).toBeUndefined();
+    expect(body.data.posts.edges).toHaveLength(2);
+    expect(body.data.posts.pageInfo.hasNextPage).toBe(false);
+    expect(body.data.posts.pageInfo.hasPreviousPage).toBe(false);
+    expect(body.data.posts.edges[0].cursor).toBeDefined();
   });
 });

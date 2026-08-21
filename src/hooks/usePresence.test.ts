@@ -3,9 +3,10 @@ import { buildPresenceMap, getPresenceBadgeClass, getPresenceStatus } from "./us
 
 describe("usePresence helpers", () => {
   it("maps presence payloads into a user status index", () => {
+    const now = new Date().toISOString();
     const state = buildPresenceMap({
-      alice: [{ userId: "alice", status: "online", lastSeen: "2026-07-28T10:00:00.000Z" }],
-      bob: [{ userId: "bob", status: "idle", lastSeen: "2026-07-28T10:00:00.000Z" }],
+      alice: [{ userId: "alice", status: "online", lastSeen: now }],
+      bob: [{ userId: "bob", status: "idle", lastSeen: now }],
     });
 
     expect(state.alice.status).toBe("online");

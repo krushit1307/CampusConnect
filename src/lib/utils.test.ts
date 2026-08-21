@@ -6,6 +6,7 @@ import {
   formatEventDateRange,
   getGoogleCalendarUrl,
   getIcsContent,
+  isEventLive,
 } from "./utils";
 
 // ---------------------------------------------------------------------------
@@ -462,5 +463,102 @@ describe("getIcsContent", () => {
   it("uses correct CRLF line endings", () => {
     const ics = getIcsContent(baseEvent);
     expect(ics).toContain("\r\n");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isEventLive
+// ---------------------------------------------------------------------------
+describe("isEventLive", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-23T14:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("returns true when event_status is ongoing", () => {
+    expect(
+      isEventLive({
+        event_status: "ongoing",
+        event_date: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true when now is between start_date and end_date", () => {
+    expect(
+      isEventLive({
+        start_date: "2026-07-23T12:00:00Z",
+        end_date: "2026-07-23T16:00:00Z",
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true when now is exactly at start_date", () => {
+    expect(
+      isEventLive({
+        start_date: "2026-07-23T14:00:00Z",
+        end_date: "2026-07-23T16:00:00Z",
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true when now is exactly at end_date", () => {
+    expect(
+      isEventLive({
+        start_date: "2026-07-23T12:00:00Z",
+        end_date: "2026-07-23T14:00:00Z",
+      }),
+    ).toBe(true);
+  });
+
+  it("uses event_date as fallback when start_date is missing", () => {
+    expect(
+      isEventLive({
+        event_date: "2026-07-23T14:00:00Z",
+      }),
+    ).toBe(true);
+  });
+
+  it("defaults end time to start + 2 hours when end_date is missing", () => {
+    expect(
+      isEventLive({
+        start_date: "2026-07-23T13:00:00Z",
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false when event hasn't started yet", () => {
+    expect(
+      isEventLive({
+        start_date: "2026-07-23T15:00:00Z",
+        end_date: "2026-07-23T17:00:00Z",
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when event has already ended", () => {
+    expect(
+      isEventLive({
+        start_date: "2026-07-23T10:00:00Z",
+        end_date: "2026-07-23T12:00:00Z",
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when no start date or event_date is available", () => {
+    expect(isEventLive({})).toBe(false);
+    expect(isEventLive({ event_date: null, start_date: null })).toBe(false);
+  });
+
+  it("returns false for invalid start date", () => {
+    expect(
+      isEventLive({
+        event_date: "not-a-date",
+      }),
+    ).toBe(false);
   });
 });

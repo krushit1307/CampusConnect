@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useClubJobs } from "@/hooks/useClubJobs";
-import { Briefcase, Send, X, CheckCircle, Clock, AlertCircle, Loader2 } from "lucide-react";
+import Briefcase from "lucide-react/dist/esm/icons/briefcase";
+import Send from "lucide-react/dist/esm/icons/send";
+import X from "lucide-react/dist/esm/icons/x";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import {
   AlertDialog,
   AlertDialogCancel,

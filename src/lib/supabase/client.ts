@@ -12,10 +12,10 @@
  * You usually don't need to change this file unless we are adding new backend services!
  */
 import { createBrowserClient } from "@supabase/ssr";
+import type { Database } from "@/types/database.types";
 
 // Polyfill WebSocket for SSR on older Node.js versions (e.g. Node 20)
 if (typeof window === "undefined" && !globalThis.WebSocket) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (globalThis as any).WebSocket = class {};
 }
 
@@ -111,7 +111,7 @@ export function createClient() {
     throw new Error(`Invalid Supabase URL: "${supabaseUrl}". Please check your .env.local file.`);
   }
 
-  return createBrowserClient(supabaseUrl, supabaseAnonKey);
+  return createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
 }
 
 // Export singleton instance for direct imports

@@ -14,11 +14,21 @@ export declare function getSupabaseUrl(): string;
  * @returns {import("@supabase/supabase-js").SupabaseClient} An initialized browser-safe Supabase client instance.
  * @throws {Error} Throws an error if environment variables are missing or if the Supabase URL format is invalid.
  */
-export declare function createClient(): import("@supabase/supabase-js").SupabaseClient<any, "public", "public", any, any>;
+export declare function createClient(): import("@supabase/supabase-js").SupabaseClient<
+  any,
+  "public",
+  "public",
+  any,
+  any
+>;
 /**
  * Sends a request to join an invite-only club.
  * @param clubId The ID of the club.
  * @param userId The ID of the user requesting to join.
  * @param message Optional message to the club admins.
  */
-export declare function requestClubJoin(clubId: string, userId: string, message?: string | null): Promise<any>;
+export declare function requestClubJoin(
+  clubId: string,
+  userId: string,
+  message?: string | null,
+): Promise<any>;

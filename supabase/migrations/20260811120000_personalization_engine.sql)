@@ -1,0 +1,59 @@
+-- 1. ADD MISSING INFRASTRUCTURE FOR PERSONALIZATION
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS major TEXT;
+ALTER TABLE clubs ADD COLUMN IF NOT EXISTS category TEXT;
+
+CREATE TABLE IF NOT EXISTS buddies (
+    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    buddy_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, buddy_id)
+);
+
+-- 2. RPC: Get events by user's subscriptions
+CREATE OR REPLACE FUNCTION get_events_by_subscriptions(p_user_id UUID)
+RETURNS SETOF events AS $$
+BEGIN
+    RETURN QUERY
+    SELECT e.*
+    FROM events e
+    JOIN clubs c ON e.club_id = c.id
+    JOIN club_members cm ON c.id = cm.club_id
+    WHERE cm.user_id = p_user_id
+      AND cm.status = 'approved'
+      AND e.deleted_at IS NULL
+      AND e.event_date >= NOW()
+    ORDER BY e.event_date ASC;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 3. RPC: Get events matching the user's major
+CREATE OR REPLACE FUNCTION get_events_by_major(p_user_id UUID)
+RETURNS SETOF events AS $$
+BEGIN
+    RETURN QUERY
+    SELECT e.*
+    FROM events e
+    JOIN clubs c ON e.club_id = c.id
+    JOIN profiles p ON p.id = p_user_id
+    WHERE p.major = c.category
+      AND e.deleted_at IS NULL
+      AND e.event_date >= NOW()
+    ORDER BY e.event_date ASC;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 4. RPC: Get events the user's buddies are attending
+CREATE OR REPLACE FUNCTION get_trending_in_network(p_user_id UUID)
+RETURNS SETOF events AS $$
+BEGIN
+    RETURN QUERY
+    SELECT DISTINCT e.*
+    FROM events e
+    JOIN event_rsvps r ON e.id = r.event_id
+    JOIN buddies b ON r.user_id = b.buddy_id
+    WHERE b.user_id = p_user_id
+      AND e.deleted_at IS NULL
+      AND e.event_date >= NOW()
+    ORDER BY e.event_date ASC;
+END;
+$$ LANGUAGE plpgsql;

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { ShareMenu } from "./ShareMenu";
 import { toast } from "sonner";
@@ -28,6 +28,12 @@ vi.mock("@/hooks/useWebShare", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(webShareModule).useWebShare = vi.fn().mockReturnValue({
+    canShare: false,
+    share: mockShare,
+    copyToClipboard: mockCopyToClipboard,
+    copied: false,
+  });
 });
 
 describe("ShareMenu", () => {
@@ -58,35 +64,41 @@ describe("ShareMenu", () => {
     expect(screen.getByText(/linkedin/i)).toBeInTheDocument();
   });
 
-  it("copies link to clipboard when Copy Link is clicked", () => {
+  it("copies link to clipboard when Copy Link is clicked", async () => {
     mockCopyToClipboard.mockResolvedValue(true);
 
     render(<ShareMenu {...defaultProps} />);
     fireEvent.click(screen.getByRole("button", { name: /share test event/i }));
     fireEvent.click(screen.getByText(/copy link/i));
 
-    expect(mockCopyToClipboard).toHaveBeenCalledWith("https://example.com/event/1");
-    expect(toast.success).toHaveBeenCalledWith("Link copied!");
+    await waitFor(() => {
+      expect(mockCopyToClipboard).toHaveBeenCalledWith("https://example.com/event/1");
+      expect(toast.success).toHaveBeenCalledWith("Link copied!");
+    });
   });
 
-  it("shows copied state after copying link", () => {
+  it("shows copied state after copying link", async () => {
     mockCopyToClipboard.mockResolvedValue(true);
 
     render(<ShareMenu {...defaultProps} />);
     fireEvent.click(screen.getByRole("button", { name: /share test event/i }));
     fireEvent.click(screen.getByText(/copy link/i));
 
-    expect(screen.getByText(/link copied/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/link copied/i)).toBeInTheDocument();
+    });
   });
 
-  it("shows error toast when clipboard fails", () => {
+  it("shows error toast when clipboard fails", async () => {
     mockCopyToClipboard.mockResolvedValue(false);
 
     render(<ShareMenu {...defaultProps} />);
     fireEvent.click(screen.getByRole("button", { name: /share test event/i }));
     fireEvent.click(screen.getByText(/copy link/i));
 
-    expect(toast.error).toHaveBeenCalledWith("Failed to copy link.");
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Failed to copy link.");
+    });
   });
 
   it("calls navigator.share when canShare is true", () => {
@@ -123,7 +135,7 @@ describe("ShareMenu", () => {
     });
   });
 
-  it("opens dialog when share returns unavailable", () => {
+  it("opens dialog when share returns unavailable", async () => {
     vi.mocked(webShareModule).useWebShare = vi.fn().mockReturnValue({
       canShare: true,
       share: mockShare.mockResolvedValue({ kind: "unavailable" }),
@@ -134,10 +146,12 @@ describe("ShareMenu", () => {
     render(<ShareMenu {...defaultProps} />);
     fireEvent.click(screen.getByRole("button", { name: /share test event/i }));
 
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
   });
 
-  it("shows error toast and opens dialog when share errors", () => {
+  it("shows error toast and opens dialog when share errors", async () => {
     vi.mocked(webShareModule).useWebShare = vi.fn().mockReturnValue({
       canShare: true,
       share: mockShare.mockResolvedValue({ kind: "error", error: new Error("Share failed") }),
@@ -148,8 +162,10 @@ describe("ShareMenu", () => {
     render(<ShareMenu {...defaultProps} />);
     fireEvent.click(screen.getByRole("button", { name: /share test event/i }));
 
-    expect(toast.error).toHaveBeenCalledWith("Error sharing.");
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Error sharing.");
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
   });
 
   it("whatsapp link includes encoded url and text", () => {

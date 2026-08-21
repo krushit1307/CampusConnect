@@ -78,7 +78,6 @@ export async function queueOfflineEvent(payload: QueuedEventPayload): Promise<st
       try {
         const registration = await navigator.serviceWorker.ready;
         if ("sync" in registration) {
-          // @ts-expect-error - SyncManager types might not be present in standard lib
           await registration.sync.register("sync-offline-events");
           console.log("[OfflineSync] Registered 'sync-offline-events' background sync tag.");
         }

@@ -1,5 +1,7 @@
+import { LazyMotion } from "framer-motion";
 import { DiscoveryCard } from "./DiscoveryCard";
 import { useClubDiscovery, type DiscoveryClub } from "./useClubDiscovery";
+import { loadDomMax } from "@/lib/motionFeatures";
 
 interface DiscoveryCardStackProps {
   /** Current user id; used to exclude clubs they've already joined. */
@@ -78,30 +80,32 @@ export function DiscoveryCardStack({
   // z-index + drag handlers; subsequent cards sit underneath as static
   // peeks.
   return (
-    <div
-      data-testid="discovery-card-stack"
-      role="region"
-      aria-label="Club discovery deck"
-      className="relative mx-auto h-[480px] w-full max-w-sm"
-    >
-      {cards
-        .slice()
-        .reverse()
-        .map((club, reversedIndex) => {
-          const stackIndex = cards.length - 1 - reversedIndex;
-          return (
-            <DiscoveryCard
-              key={club.id}
-              club={club}
-              stackIndex={stackIndex}
-              totalCount={cards.length}
-              isTop={stackIndex === 0}
-              swipeThreshold={swipeThreshold}
-              onDismiss={(direction) => dismiss(club.id, direction)}
-            />
-          );
-        })}
-    </div>
+    <LazyMotion features={loadDomMax} strict={import.meta.env.DEV}>
+      <div
+        data-testid="discovery-card-stack"
+        role="region"
+        aria-label="Club discovery deck"
+        className="relative mx-auto h-[480px] w-full max-w-sm"
+      >
+        {cards
+          .slice()
+          .reverse()
+          .map((club, reversedIndex) => {
+            const stackIndex = cards.length - 1 - reversedIndex;
+            return (
+              <DiscoveryCard
+                key={club.id}
+                club={club}
+                stackIndex={stackIndex}
+                totalCount={cards.length}
+                isTop={stackIndex === 0}
+                swipeThreshold={swipeThreshold}
+                onDismiss={(direction) => dismiss(club.id, direction)}
+              />
+            );
+          })}
+      </div>
+    </LazyMotion>
   );
 }
 

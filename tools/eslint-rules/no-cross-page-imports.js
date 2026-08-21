@@ -61,7 +61,12 @@ export const noCrossPageImports = {
       normalizedFilename.endsWith("/src/router.ts") ||
       normalizedFilename.includes("/src/micro-frontends/");
 
-    if (isAppEntryPoint) {
+    const isTestFile =
+      normalizedFilename.includes(".test.") ||
+      normalizedFilename.includes(".spec.") ||
+      normalizedFilename.includes("/__tests__/");
+
+    if (isAppEntryPoint || isTestFile) {
       return {};
     }
 

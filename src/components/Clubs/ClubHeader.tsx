@@ -20,6 +20,7 @@ interface ClubHeaderProps {
   eyebrow?: ReactNode;
   /** Secondary links (Tasks / Meeting Notes / Manage). Hidden when compact to save space. */
   secondaryActions?: ReactNode;
+  downloadPdfButton?: ReactNode;
   /**
    * Primary action (the Join/Leave button). Rendered as a function so the
    * caller can size it down once the header is compact.
@@ -44,6 +45,7 @@ export function ClubHeader({
   banner,
   eyebrow,
   secondaryActions,
+  downloadPdfButton,
   actions,
   threshold = DEFAULT_THRESHOLD,
 }: ClubHeaderProps) {
@@ -55,21 +57,28 @@ export function ClubHeader({
   const [stickyOffset, setStickyOffset] = useState(NAVBAR_HEIGHT_FALLBACK);
 
   useLayoutEffect(() => {
+    let rAfId: number | null = null;
     const measure = () => {
-      const navbar = document.querySelector("header.sticky");
-      if (navbar) setStickyOffset(navbar.getBoundingClientRect().height);
+      if (rAfId !== null) cancelAnimationFrame(rAfId);
+      rAfId = window.requestAnimationFrame(() => {
+        const navbar = document.querySelector("header.sticky");
+        if (navbar) setStickyOffset(navbar.getBoundingClientRect().height);
+      });
     };
     measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    window.addEventListener("resize", measure, { passive: true });
+    return () => {
+      if (rAfId !== null) cancelAnimationFrame(rAfId);
+      window.removeEventListener("resize", measure);
+    };
   }, []);
 
   return (
     <div
-      className={`sticky z-30 border-b-2 border-black transition-colors duration-300 ease-out ${
+      className={`sticky z-30 border-b-2 transition-colors duration-300 ease-out ${
         isCompact
-          ? "backdrop-blur-md bg-white/80 dark:bg-black/80"
-          : "bg-transparent border-transparent"
+          ? "border-black backdrop-blur-md bg-white/95 dark:bg-black/95 shadow-md"
+          : "bg-white dark:bg-slate-950 border-transparent"
       }`}
       // iOS Safari can report a shrinking/growing viewport as its URL bar
       // collapses on scroll, which makes `top: 0` sticky elements jitter.
@@ -77,22 +86,22 @@ export function ClubHeader({
       // every scroll frame) keeps the header stable through that resize.
       style={{ top: stickyOffset }}
     >
-      {banner && (
-        <div
-          aria-hidden={isCompact}
-          className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-out ${
-            isCompact ? "max-h-0 opacity-0" : "max-h-96 opacity-100"
-          }`}
-        >
-          {banner}
-        </div>
-      )}
-
       <div className="mx-auto max-w-6xl px-4 md:px-6">
+        {banner && (
+          <div
+            aria-hidden={isCompact}
+            className={`overflow-hidden transition-[max-height,opacity,padding] duration-300 ease-out ${
+              isCompact ? "max-h-0 opacity-0 pt-0" : "max-h-[32rem] opacity-100 pt-4 md:pt-6"
+            }`}
+          >
+            {banner}
+          </div>
+        )}
+
         {eyebrow && (
           <div
             className={`overflow-hidden transition-[max-height,opacity] duration-200 ease-out ${
-              isCompact ? "max-h-0 opacity-0" : "max-h-8 opacity-100 pt-4"
+              isCompact ? "max-h-0 opacity-0" : "max-h-12 opacity-100 pt-4"
             }`}
           >
             {eyebrow}
@@ -101,30 +110,37 @@ export function ClubHeader({
 
         <div
           className={`flex gap-4 transition-all duration-300 ease-out ${
-            isCompact ? "flex-row items-center justify-between py-2" : "flex-col items-start py-6"
+            isCompact
+              ? "flex-row items-center justify-between py-2"
+              : "flex-col items-start py-4 md:py-6"
           }`}
         >
           <div
-            className={`flex min-w-0 items-center transition-all duration-300 ease-out ${isCompact ? "gap-3" : "gap-4"}`}
+            className={`flex min-w-0 w-full items-center transition-all duration-300 ease-out ${isCompact ? "gap-3" : "gap-4"}`}
           >
             <div
               aria-hidden="true"
-              className={`neu-border flex shrink-0 items-center justify-center bg-lime font-display font-bold text-black transition-all duration-300 ease-out ${
-                isCompact ? "h-10 w-10 text-xs" : "h-24 w-24 text-2xl md:h-32 md:w-32 md:text-4xl"
+              className={`neu-border flex shrink-0 items-center justify-center bg-[var(--theme-primary)] text-[var(--theme-primary-foreground)] font-display font-bold transition-all duration-300 ease-out ${
+                isCompact ? "h-10 w-10 text-xs" : "h-20 w-20 text-xl md:h-32 md:w-32 md:text-4xl"
               }`}
             >
               {logoInitials}
             </div>
             <h1
               className={`min-w-0 truncate font-bold text-brand-blue-dark transition-all duration-300 ease-out ${
-                isCompact ? "text-lg md:text-xl" : "text-4xl md:text-7xl"
+                isCompact
+                  ? "text-lg md:text-xl"
+                  : "text-3xl md:text-7xl break-words whitespace-normal"
               }`}
             >
               {clubName}
             </h1>
           </div>
 
-          <div className={`flex shrink-0 flex-wrap items-center gap-2 ${isCompact ? "" : "mt-1"}`}>
+          <div
+            className={`flex shrink-0 flex-wrap items-center gap-2 w-full sm:w-auto ${isCompact ? "" : "mt-1"}`}
+          >
+            {downloadPdfButton}
             {actions(isCompact)}
           </div>
         </div>
@@ -132,7 +148,7 @@ export function ClubHeader({
         {secondaryActions && (
           <div
             className={`overflow-hidden transition-[max-height,opacity] duration-200 ease-out ${
-              isCompact ? "max-h-0 opacity-0" : "max-h-20 opacity-100 pb-4"
+              isCompact ? "max-h-0 opacity-0" : "max-h-40 opacity-100 pb-4"
             }`}
           >
             <div className="flex flex-wrap gap-2">{secondaryActions}</div>

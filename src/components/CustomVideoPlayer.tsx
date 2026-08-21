@@ -1,6 +1,11 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import * as Slider from "@radix-ui/react-slider";
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize } from "lucide-react";
+import Play from "lucide-react/dist/esm/icons/play";
+import Pause from "lucide-react/dist/esm/icons/pause";
+import Volume2 from "lucide-react/dist/esm/icons/volume-2";
+import VolumeX from "lucide-react/dist/esm/icons/volume-x";
+import Maximize from "lucide-react/dist/esm/icons/maximize";
+import Minimize from "lucide-react/dist/esm/icons/minimize";
 
 interface CustomVideoPlayerProps {
   src: string;

@@ -1,5 +1,5 @@
 // Fix import.meta.env for tsx
-(global as any).import = {
+(global as { import?: unknown }).import = {
   meta: {
     env: { DEV: true, VITE_SUPABASE_URL: "http://localhost", VITE_SUPABASE_ANON_KEY: "key" },
   },
@@ -9,11 +9,26 @@ import { yoga } from "../graphql/server";
 import { supabase } from "../src/lib/supabase/client";
 
 // Mock supabase functions properly
-supabase.channel = () => ({ on: () => ({ subscribe: () => {} }) }) as any;
+supabase.channel = () =>
+  ({ on: () => ({ subscribe: () => {} }) }) as ReturnType<typeof supabase.channel>;
 supabase.auth.getUser = async (token) => {
-  if (token === "token-user") return { data: { user: { id: "user-123" } } } as any;
-  if (token === "token-admin") return { data: { user: { id: "admin-123" } } } as any;
-  return { data: { user: null } } as any;
+  if (token === "token-user")
+    return { data: { user: { id: "user-123" } } } as ReturnType<
+      typeof supabase.auth.getUser
+    > extends Promise<infer R>
+      ? R
+      : never;
+  if (token === "token-admin")
+    return { data: { user: { id: "admin-123" } } } as ReturnType<
+      typeof supabase.auth.getUser
+    > extends Promise<infer R>
+      ? R
+      : never;
+  return { data: { user: null } } as ReturnType<typeof supabase.auth.getUser> extends Promise<
+    infer R
+  >
+    ? R
+    : never;
 };
 
 const originalFrom = supabase.from.bind(supabase);
@@ -22,14 +37,14 @@ supabase.from = ((table: string) => {
     return {
       select: () => {
         const queryObj = {
-          eq: (field: string, val: string) => ({
+          eq: (_field: string, val: string) => ({
             single: async () => {
               if (val === "user-123") return { data: { role: "USER" }, error: null };
               if (val === "admin-123") return { data: { role: "ADMIN" }, error: null };
               return { data: null, error: null };
             },
           }),
-          then: (resolve: any) =>
+          then: (resolve: (value: unknown) => unknown) =>
             resolve({ data: [{ id: "user-123" }, { id: "admin-123" }], error: null }),
         };
         return queryObj;
@@ -37,7 +52,7 @@ supabase.from = ((table: string) => {
     };
   }
   return originalFrom(table);
-}) as any;
+}) as ReturnType<typeof supabase.from>;
 
 async function runTests() {
   console.log("--- Testing Auth Directive ---");

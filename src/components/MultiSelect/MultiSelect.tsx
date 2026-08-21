@@ -5,6 +5,23 @@ import { MultiSelectContext } from "./hooks";
 import { MultiSelectTrigger } from "./MultiSelectTrigger";
 import { MultiSelectPopover } from "./MultiSelectPopover";
 
+/**
+ * MultiSelect
+ *
+ * A reusable multi-select component built with Radix Popover and Cmdk.
+ *
+ * Features:
+ * - Multiple selection
+ * - Searchable options
+ * - Optional custom value creation (`allowCustom`)
+ * - Keyboard navigation
+ * - Removable pill tags
+ * - Backspace removes the last selected tag when the input is empty
+ *
+ * Used by:
+ * - Event creation
+ * - Event editing
+ */
 export function MultiSelect({
   options,
   value,
@@ -12,6 +29,7 @@ export function MultiSelect({
   placeholder = "Select options...",
   emptyText = "No results found.",
   disabled = false,
+  allowCustom = false,
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
@@ -24,7 +42,7 @@ export function MultiSelect({
   }, [options, selected]);
 
   const addTag = (tag: Tag) => {
-    if (!selected.some((s) => s.value === tag.value)) {
+    if (!selected.some((s) => s.value.toLowerCase() === tag.value.toLowerCase())) {
       onChange([...selected, tag]);
     }
   };
@@ -46,6 +64,7 @@ export function MultiSelect({
     disabled,
     placeholder,
     emptyText,
+    allowCustom,
   };
 
   return (

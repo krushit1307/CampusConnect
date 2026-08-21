@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { format } from "date-fns";
+import { formatTime, formatWeekdayTime } from "@/lib/dateFormatter";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const DAY_START_HOUR = 8; // 8 AM
@@ -63,7 +63,7 @@ export function CampusTimeline({ events }: { events: TimelineEvent[] }) {
           .map((event) => (
             <li key={event.id} className="neu-border bg-white p-3 dark:bg-[#1a1a1a]">
               <p className="font-mono text-xs text-gray-500">
-                {format(event.start, "EEE p")} – {format(event.end, "p")}
+                {formatWeekdayTime(event.start)} – {formatTime(event.end)}
               </p>
               <p className="font-mono text-sm font-bold">{event.title}</p>
               {event.location && (
@@ -97,10 +97,10 @@ export function CampusTimeline({ events }: { events: TimelineEvent[] }) {
                 top: event.lane * LANE_HEIGHT_PX,
                 height: LANE_HEIGHT_PX - 8,
               }}
-              title={`${event.title} (${format(event.start, "p")} - ${format(event.end, "p")})`}
+              title={`${event.title} (${formatTime(event.start)} - ${formatTime(event.end)})`}
             >
               <p className="truncate font-mono text-xs font-bold">{event.title}</p>
-              <p className="truncate font-mono text-[10px]">{format(event.start, "p")}</p>
+              <p className="truncate font-mono text-[10px]">{formatTime(event.start)}</p>
             </div>
           );
         })}

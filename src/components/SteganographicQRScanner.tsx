@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  AlertCircle,
-  Camera,
-  CheckCircle2,
-  QrCode,
-  ScanLine,
-  ShieldAlert,
-  ShieldCheck,
-  Upload,
-} from "lucide-react";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import Camera from "lucide-react/dist/esm/icons/camera";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2";
+import QrCode from "lucide-react/dist/esm/icons/qr-code";
+import ScanLine from "lucide-react/dist/esm/icons/scan-line";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import Upload from "lucide-react/dist/esm/icons/upload";
 
 import {
   extractLSBData,

@@ -3,7 +3,7 @@
 # A string used to distinguish different Supabase projects on the same host. Defaults to the
 # working directory name when running `supabase init`.
 project_id = "CampusConnect"
-
+SITE_URL = "https://your-campusconnect-domain.com"
 [api]
 enabled = true
 # Port to use for the API URL.
@@ -42,9 +42,9 @@ health_timeout = "2m"
 major_version = 17
 
 [db.pooler]
-enabled = false
+enabled = true
 # Port to use for the local connection pooler.
-port = 54329
+port = 6432
 # Specifies when a server connection can be reused by other clients.
 # Configure one of the supported pooler modes: `transaction`, `session`.
 pool_mode = "transaction"
@@ -90,7 +90,9 @@ enabled = true
 # ip_version = "IPv6"
 # The maximum length in bytes of HTTP request headers. (default: 4096)
 # max_header_length = 4096
-
+[functions.event-share]
+enabled = true
+verify_jwt = false
 [studio]
 enabled = true
 # Port to use for Supabase Studio.
@@ -300,8 +302,8 @@ max_enrolled_factors = 10
 
 # Control MFA via App Authenticator (TOTP)
 [auth.mfa.totp]
-enroll_enabled = false
-verify_enabled = false
+enroll_enabled = true
+verify_enabled = true
 
 # Configure MFA via Phone Messaging
 [auth.mfa.phone]
@@ -412,3 +414,26 @@ enabled = false
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+[functions.extract-metadata]
+enabled = true
+verify_jwt = false
+import_map = "./functions/extract-metadata/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/extract-metadata/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/extract-metadata/*.html" ]
+
+[functions.digest-unsubscribe]
+enabled = true
+verify_jwt = false
+
+[functions.webauthn-authenticate]
+enabled = true
+verify_jwt = false
+
+[functions.smart-auto-categorize]
+enabled = true
+verify_jwt = false

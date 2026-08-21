@@ -15,7 +15,7 @@ interface ScrollAwareFabProps {
  * toolbar button remains the only entry point there.
  */
 export function ScrollAwareFab({ children }: ScrollAwareFabProps) {
-  const direction = useScrollDirection();
+  const { direction } = useScrollDirection();
 
   return (
     <div

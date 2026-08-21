@@ -1,26 +1,36 @@
 import { Link } from "react-router-dom";
-import { useQuery } from "@/hooks/useReactQueryReplacement";
+import { useQuery, queryClient } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useRef, useState } from "react";
 import { User } from "@supabase/supabase-js";
-import {
-  Sparkles,
-  Check,
-  X,
-  ArrowRight,
-  User as UserIcon,
-  GraduationCap,
-  FileText,
-  Link2,
-  Calendar,
-  MessageCircle,
-  Users,
-} from "lucide-react";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Check from "lucide-react/dist/esm/icons/check";
+import X from "lucide-react/dist/esm/icons/x";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
+import UserIcon from "lucide-react/dist/esm/icons/user";
+import GraduationCap from "lucide-react/dist/esm/icons/graduation-cap";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import Link2 from "lucide-react/dist/esm/icons/link-2";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
+import Users from "lucide-react/dist/esm/icons/users";
 import TrendingCarousel from "@/components/Clubs/TrendingCarousel";
+import RecommendedCarousel from "@/components/Dashboard/RecommendedCarousel";
+import SuggestedEventsCarousel from "@/components/SuggestedEventsCarousel"; // <-- NEW IMPORT
 import { WidgetListSkeleton, TrendingCarouselSkeleton } from "@/components/DashboardWidgetSkeleton";
 import { AttendanceHeatmap } from "@/components/AttendanceHeatmap";
 import LazyHydrate from "@/components/LazyHydrate";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { WidgetErrorFallback } from "@/components/WidgetErrorFallback";
+import { RelativeTime } from "@/components/ui/RelativeTime";
+
+interface Club {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  member_count?: number;
+}
 
 interface SavedEventDetails {
   id: string;
@@ -50,13 +60,13 @@ interface ActivityPostRow {
 
 interface ActivityRsvpRow {
   id: string;
-  rsvp_at: string;
+  rsvp_at: string | null;
   events: { id: string; title: string } | { id: string; title: string }[] | null;
 }
 
 interface ActivityClubMemberRow {
   id: string;
-  joined_at: string;
+  joined_at: string | null;
   clubs: { name: string } | { name: string }[] | null;
 }
 
@@ -82,26 +92,10 @@ function formatRelativeActivityTime(dateString: string): string {
   return rtf.format(diffDays, "day");
 }
 
-// How long to wait before showing the progress bar at all. Queries that
-// resolve faster than this never trigger it — the widgets' own skeletons
-// (WidgetListSkeleton / TrendingCarouselSkeleton) cover that case instead.
 const PROGRESS_REVEAL_DELAY_MS = 250;
-// Simulated progress never crosses this ceiling on its own — the analytics
-// queries (backed by club_analytics_mat_view and friends) don't report real
-// byte-level progress, so we ease toward "almost done" and only jump to 100%
-// once the data has actually arrived.
 const PROGRESS_SOFT_CEILING = 90;
 const PROGRESS_TICK_MS = 200;
 
-/**
- * Page-load progress indicator for the dashboard's analytics-backed widgets
- * (trending clubs, your clubs, upcoming/saved events, recent activity — all
- * of which read from materialized/aggregated views that can be slow on a
- * cold cache). Shows a neubrutalist percentage bar once loading has taken
- * long enough to be noticeable, and snaps to 100% + fades out once real data
- * has arrived. If the underlying queries resolve immediately, this never
- * renders at all — the widgets' individual skeletons handle that case.
- */
 function AnalyticsLoadProgress({ isLoading }: { isLoading: boolean }) {
   const [visible, setVisible] = useState(false);
   const [percent, setPercent] = useState(0);
@@ -126,7 +120,6 @@ function AnalyticsLoadProgress({ isLoading }: { isLoading: boolean }) {
           setPercent((p) => {
             if (p >= PROGRESS_SOFT_CEILING) return p;
             const remaining = PROGRESS_SOFT_CEILING - p;
-            // Ease-out: bigger steps early, smaller as we approach the ceiling.
             const increment = Math.max(0.75, remaining * 0.12);
             return Math.min(PROGRESS_SOFT_CEILING, p + increment);
           });
@@ -195,7 +188,7 @@ export default function DashboardOverview() {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", user?.id)
+        .eq("id", user!.id)
         .single();
       if (error) throw error;
       return data;
@@ -261,8 +254,8 @@ export default function DashboardOverview() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("club_members")
-        .select(`role, clubs (id, name, slug)`)
-        .eq("user_id", user?.id)
+        .select(`role_id, club_roles (id, title, permissions_level), clubs (id, name, slug)`)
+        .eq("user_id", user!.id)
         .eq("status", "approved");
       if (error) throw error;
       return data || [];
@@ -276,10 +269,27 @@ export default function DashboardOverview() {
       const { data, error } = await supabase
         .from("events")
         .select(`*, clubs (name), event_rsvps!inner (id, user_id)`)
-        .eq("event_rsvps.user_id", user?.id)
+        .eq("event_rsvps.user_id", user!.id)
         .gte("event_date", new Date().toISOString())
         .order("event_date", { ascending: true })
         .limit(3);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const {
+    data: recommendedEvents = [],
+    isLoading: isRecommendedLoading,
+    refetch: refetchRecommended,
+  } = useQuery({
+    queryKey: ["recommendedEvents", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("recommend_events_for_user", {
+        p_user_id: user!.id,
+        p_limit: 10,
+      });
       if (error) throw error;
       return data || [];
     },
@@ -304,8 +314,8 @@ export default function DashboardOverview() {
           )
         `,
         )
-        .eq("user_id", user?.id)
-        .order("saved_at", { ascending: false });
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -319,20 +329,20 @@ export default function DashboardOverview() {
         supabase
           .from("posts")
           .select("id, content, created_at, clubs(name)")
-          .eq("author_id", user?.id)
+          .eq("author_id", user!.id)
           .is("deleted_at", null)
           .order("created_at", { ascending: false })
           .limit(5),
         supabase
           .from("event_rsvps")
           .select("id, rsvp_at, events(id, title)")
-          .eq("user_id", user?.id)
+          .eq("user_id", user!.id)
           .order("rsvp_at", { ascending: false })
           .limit(5),
         supabase
           .from("club_members")
           .select("id, joined_at, clubs(name)")
-          .eq("user_id", user?.id)
+          .eq("user_id", user!.id)
           .eq("status", "approved")
           .order("joined_at", { ascending: false })
           .limit(5),
@@ -354,7 +364,7 @@ export default function DashboardOverview() {
           id: `rsvp-${r.id}`,
           type: "rsvp",
           description: event?.title ? `You RSVP'd to ${event.title}` : "You RSVP'd to an event",
-          created_at: r.rsvp_at,
+          created_at: r.rsvp_at || "",
         };
       });
 
@@ -364,7 +374,7 @@ export default function DashboardOverview() {
           id: `club-${m.id}`,
           type: "club_join",
           description: club?.name ? `You joined ${club.name}` : "You joined a club",
-          created_at: m.joined_at,
+          created_at: m.joined_at || "",
         };
       });
 
@@ -377,9 +387,6 @@ export default function DashboardOverview() {
 
   const colors = ["bg-lime", "bg-sky", "bg-peach"];
 
-  // Combined loading state for every analytics-backed widget below (trending
-  // clubs, your clubs, upcoming/saved events, recent activity). Profile isn't
-  // included since it's a single-row lookup, not one of the slow views.
   const isAnalyticsLoading =
     isTrendingLoading || isClubsLoading || isUpcomingLoading || isSavedLoading || isActivityLoading;
 
@@ -393,7 +400,6 @@ export default function DashboardOverview() {
             animateIn ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-4 scale-95"
           } lg:col-span-3 neu-border bg-lavender p-6 md:p-8 relative neu-shadow mb-2 overflow-hidden`}
         >
-          {/* Absolute decorative pattern or circles in background */}
           <div className="absolute -top-12 -right-12 w-40 h-40 bg-peach rounded-full border-4 border-black opacity-30 pointer-events-none" />
           <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-lime rounded-full border-4 border-black opacity-30 pointer-events-none" />
 
@@ -401,9 +407,9 @@ export default function DashboardOverview() {
             onClick={() => {
               setAnimateIn(false);
               setTimeout(() => {
-                setDismissed(true);
+                setWelcomeDismissed(true);
                 localStorage.setItem("cc_welcome_dismissed", "true");
-              }, 500); // Wait for transition out
+              }, 500);
             }}
             className="absolute top-4 right-4 neu-border bg-white hover:bg-peach p-2 transition-colors cursor-pointer group"
             aria-label="Dismiss banner"
@@ -426,7 +432,6 @@ export default function DashboardOverview() {
               </p>
             </div>
 
-            {/* Progress Gauge */}
             <div className="shrink-0 flex flex-col items-center justify-center bg-white neu-border neu-shadow-sm p-4 w-full md:w-48 text-center">
               <span className="font-mono text-xs uppercase font-bold text-gray-600">
                 Setup Progress
@@ -437,7 +442,6 @@ export default function DashboardOverview() {
               <span className="font-mono text-sm text-gray-500 dark:text-gray-300">
                 {completedCount} of {steps.length} completed
               </span>
-              {/* Small progress bar */}
               <div className="w-full bg-cream border-2 border-black h-3 mt-3 overflow-hidden rounded-none relative">
                 <div
                   className="bg-lime h-full border-r-2 border-black transition-all duration-500 ease-out"
@@ -447,7 +451,6 @@ export default function DashboardOverview() {
             </div>
           </div>
 
-          {/* Checklist steps */}
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 relative z-10">
             {steps.map((step) => {
               const Icon =
@@ -509,11 +512,26 @@ export default function DashboardOverview() {
 
       <AnalyticsLoadProgress isLoading={isAnalyticsLoading} />
 
+      {/* NEW COMPONENT PLACED HERE */}
+      <div className="lg:col-span-3">
+        <SuggestedEventsCarousel />
+      </div>
+
+      <div className="lg:col-span-3">
+        <RecommendedCarousel
+          userId={user?.id || ""}
+          hasInterestVector={!!profile?.interest_vector}
+          events={recommendedEvents}
+          isLoading={isRecommendedLoading}
+          refetch={refetchRecommended}
+        />
+      </div>
+
       <div className="lg:col-span-3">
         {isTrendingLoading ? (
           <TrendingCarouselSkeleton />
         ) : (
-          <TrendingCarousel clubs={trendingClubs} />
+          <TrendingCarousel clubs={trendingClubs as unknown as Club[]} />
         )}
       </div>
 
@@ -629,7 +647,7 @@ export default function DashboardOverview() {
                       <p className="font-mono text-xs">Active</p>
                     </div>
                     <span className="neu-border bg-lime px-2 py-1 font-mono text-[10px] font-bold uppercase">
-                      {c.role}
+                      {c.club_roles?.title || "Member"}
                     </span>
                   </li>
                 );
@@ -666,9 +684,7 @@ export default function DashboardOverview() {
                     <Icon className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>
                       {item.description}
-                      <span className="ml-2 text-black/50">
-                        {formatRelativeActivityTime(item.created_at)}
-                      </span>
+                      <RelativeTime date={item.created_at} className="ml-2 text-black/50" />
                     </span>
                   </li>
                 );
@@ -708,14 +724,5 @@ function Widget({
 }
 
 function WidgetError({ title }: { title: string }) {
-  return (
-    <div className="neu-border bg-red-50 p-4 sm:p-6">
-      <div className="mb-4 flex items-center justify-between border-b-2 border-red-200 pb-3">
-        <h2 className="text-xl font-bold">{title}</h2>
-      </div>
-      <p className="font-mono text-sm text-red-600">
-        This widget failed to load. Other sections remain unaffected.
-      </p>
-    </div>
-  );
+  return <WidgetErrorFallback title={title} />;
 }

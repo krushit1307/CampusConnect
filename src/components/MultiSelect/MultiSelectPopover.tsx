@@ -6,8 +6,24 @@ import { MultiSelectList } from "./MultiSelectList";
 import { cn } from "../../lib/utils";
 
 export function MultiSelectPopover() {
-  const { inputValue, setInputValue } = useMultiSelectContext();
+  const { inputValue, setInputValue, selected, removeTag } = useMultiSelectContext();
 
+  /**
+   * Handles keyboard interaction inside the search input.
+   *
+   * When the input is empty and the caret is at the beginning,
+   * pressing Backspace removes the most recently selected tag.
+   */
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (
+      e.key === "Backspace" &&
+      inputValue === "" &&
+      e.currentTarget.selectionStart === 0 &&
+      selected.length > 0
+    ) {
+      removeTag(selected[selected.length - 1]);
+    }
+  };
   return (
     <Popover.Portal>
       <Popover.Content
@@ -28,6 +44,7 @@ export function MultiSelectPopover() {
               placeholder="Search..."
               value={inputValue}
               onValueChange={setInputValue}
+              onKeyDown={handleKeyDown}
               className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>

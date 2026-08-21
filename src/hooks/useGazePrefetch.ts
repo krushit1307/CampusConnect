@@ -2,9 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 
+interface WebGazer {
+  setGazeListener: (callback: (data: { x: number; y: number } | null) => void) => WebGazer;
+  begin: () => WebGazer;
+  end: () => WebGazer;
+  showVideoPreview: (show: boolean) => WebGazer;
+  showPredictionPoints: (show: boolean) => WebGazer;
+}
+
 declare global {
   interface Window {
-    webgazer: unknown;
+    webgazer: WebGazer;
   }
 }
 

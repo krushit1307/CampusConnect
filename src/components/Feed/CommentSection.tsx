@@ -50,10 +50,27 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
   useRealtimeComments({
     postId,
     enabled: !!postId,
-    onNewComment: (newComment) => {
-      setComments((prev) => [...prev, newComment]);
+    onNewComment: (newComment: unknown) => {
+      const c = newComment as {
+        id: string;
+        post_id?: string;
+        author_id?: string;
+        content: string;
+        created_at: string;
+        profiles?: { id: string } | { id: string }[] | null;
+      };
+      const authorId =
+        c.author_id || (Array.isArray(c.profiles) ? c.profiles[0]?.id : c.profiles?.id) || "";
+      const comment: Comment = {
+        id: c.id,
+        post_id: c.post_id || postId,
+        author_id: authorId,
+        content: c.content,
+        created_at: c.created_at,
+      };
+      setComments((prev) => [...prev, comment]);
       if (onNewComment) {
-        onNewComment(newComment);
+        onNewComment(comment);
       }
     },
   });

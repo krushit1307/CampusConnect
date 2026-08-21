@@ -1,31 +1,29 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef } from "react";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
+import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
-import { Camera, Loader2, Trash2 } from "lucide-react";
+import Camera from "lucide-react/dist/esm/icons/camera";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import UserCheck from "lucide-react/dist/esm/icons/user-check";
+import UserX from "lucide-react/dist/esm/icons/user-x";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 import { SwipeableLightbox } from "./SwipeableLightbox";
-import { useVirtualGrid } from "@/hooks/useVirtualGrid";
-import { uploadFileWithProgress } from "@/lib/supabase/uploadFileWithProgress";
+import { FaceAutoTaggingService } from "@/services/faceAutoTaggingService";
 
 interface EventPhotoGalleryProps {
   eventId: string;
   user: User | null;
 }
 
-interface Photo {
-  id: string;
-  url: string;
-  user_id: string;
-  profiles: { full_name: string } | { full_name: string }[];
-}
-
 export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [filterMode, setFilterMode] = useState<"all" | "tagged">("all");
 
   const {
     data: photos,
@@ -41,54 +39,63 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data as Photo[];
+      return data;
     },
   });
+
+  // Query user's photo tags (for auto-tagging matching)
+  const { data: userTags = [], refetch: refetchUserTags } = useQuery({
+    queryKey: ["user_photo_tags", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      return await FaceAutoTaggingService.getUserPhotoTags(user.id);
+    },
+    enabled: !!user?.id,
+  });
+
+  const taggedPhotoIds = new Set(userTags.map((t) => t.photoId));
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       if (!user) throw new Error("Must be logged in to upload");
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) throw new Error("Must be logged in to upload");
-
       const fileExt = file.name.split(".").pop();
       const fileName = `${eventId}/${user.id}-${Date.now()}.${fileExt}`;
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
-      await uploadFileWithProgress(
-        supabaseUrl,
-        session.access_token,
-        "event-galleries",
-        fileName,
-        file,
-        setUploadProgress,
-      );
+      const publicUrl = await uploadImageWithSignedUrl("event-galleries", fileName, file);
 
-      const { data: publicUrlData } = supabase.storage
-        .from("event-galleries")
-        .getPublicUrl(fileName);
-
-      const { error: dbError } = await supabase.from("event_photos").insert({
-        event_id: eventId,
-        user_id: user.id,
-        url: publicUrlData.publicUrl,
-      });
+      const { data: insertedPhoto, error: dbError } = await supabase
+        .from("event_photos")
+        .insert({
+          event_id: eventId,
+          user_id: user.id,
+          url: publicUrl,
+        })
+        .select("id")
+        .single();
 
       if (dbError) throw dbError;
+
+      // Trigger background facial recognition auto-tagging
+      try {
+        await FaceAutoTaggingService.processEventPhotos(
+          eventId,
+          insertedPhoto?.id ? [insertedPhoto.id] : undefined
+        );
+      } catch (err) {
+        console.warn("Background auto-tagging process error:", err);
+      }
     },
     onSuccess: () => {
-      toast.success("Photo uploaded successfully!");
+      toast.success("Photo uploaded & scanned for face tags!");
       refetch();
+      refetchUserTags();
     },
     onError: (err: Error) => {
       toast.error(err.message || "Failed to upload photo");
     },
     onSettled: () => {
       setUploading(false);
-      setUploadProgress(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     },
   });
@@ -97,6 +104,7 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
     mutationFn: async ({ photoId, url }: { photoId: string; url: string }) => {
       if (!user) throw new Error("Must be logged in");
 
+      // Extract file path from public URL
       const pathParts = url.split("/event-galleries/");
       if (pathParts.length > 1) {
         const filePath = pathParts[1];
@@ -114,9 +122,22 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
     onSuccess: () => {
       toast.success("Photo deleted");
       refetch();
+      refetchUserTags();
       setSelectedPhoto(null);
     },
     onError: (err: Error) => toast.error(err.message || "Failed to delete photo"),
+  });
+
+  const removeTagMutation = useMutation({
+    mutationFn: async (photoId: string) => {
+      if (!user) throw new Error("Must be logged in");
+      await FaceAutoTaggingService.removePhotoTag({ photoId, userId: user.id });
+    },
+    onSuccess: () => {
+      toast.success("Tag removed successfully");
+      refetchUserTags();
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to remove tag"),
   });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -130,35 +151,55 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
     uploadMutation.mutate(file);
   };
 
-  const { containerRef, visibleItems, totalHeight, columnCount, gap, measureItem } =
-    useVirtualGrid<Photo>({
-      items: photos ?? [],
-      columnWidth: 200,
-      gap: 16,
-      estimateHeight: () => 200,
-    });
-
-  const handleImgLoad = useCallback(
-    (index: number, el: HTMLImageElement | null) => {
-      if (!el) return;
-      const actualHeight = el.getBoundingClientRect().height;
-      if (actualHeight > 0) {
-        measureItem(index, actualHeight);
-      }
-    },
-    [measureItem],
-  );
-
   if (isLoading) {
     return <div className="animate-pulse h-64 bg-gray-200 w-full mb-8" />;
   }
 
+  const displayedPhotos = (photos || []).filter((p: any) => {
+    if (filterMode === "tagged") {
+      return taggedPhotoIds.has(p.id);
+    }
+    return true;
+  });
+
+  const selectedPhotoObj = photos?.find((p: any) => p.url === selectedPhoto);
+  const isSelectedPhotoTagged = selectedPhotoObj ? taggedPhotoIds.has(selectedPhotoObj.id) : false;
+
   return (
     <div className="mb-8">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="font-display text-2xl font-bold uppercase text-blue-900">
-          Attendee Gallery
-        </h3>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <h3 className="font-display text-2xl font-bold uppercase text-blue-900 flex items-center gap-2">
+            Attendee Gallery
+            {user && taggedPhotoIds.size > 0 && (
+              <span className="neu-border bg-emerald-400 text-black px-2 py-0.5 text-xs font-mono font-bold uppercase rounded-none">
+                {taggedPhotoIds.size} Spotted
+              </span>
+            )}
+          </h3>
+          {user && (
+            <div className="flex items-center gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => setFilterMode("all")}
+                className={`neu-border px-3 py-1 font-mono text-xs font-bold uppercase ${
+                  filterMode === "all" ? "bg-black text-white" : "bg-white text-black hover:bg-gray-100"
+                }`}
+              >
+                All Photos ({photos?.length || 0})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterMode("tagged")}
+                className={`neu-border px-3 py-1 font-mono text-xs font-bold uppercase flex items-center gap-1 ${
+                  filterMode === "tagged" ? "bg-emerald-400 text-black" : "bg-white text-black hover:bg-gray-100"
+                }`}
+              >
+                <UserCheck size={14} /> Photos of Me ({taggedPhotoIds.size})
+              </button>
+            </div>
+          )}
+        </div>
 
         {user && (
           <div>
@@ -176,51 +217,49 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
               className="neu-border neu-press flex items-center gap-2 bg-[#FFD166] px-4 py-2 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 disabled:opacity-50"
             >
               {uploading ? <Loader2 className="animate-spin" size={18} /> : <Camera size={18} />}
-              {uploading
-                ? uploadProgress !== null
-                  ? `Uploading ${uploadProgress}%`
-                  : "Uploading..."
-                : "Add Photo"}
+              {uploading ? "Uploading..." : "Add Photo"}
             </button>
           </div>
         )}
       </div>
 
-      {!photos || photos.length === 0 ? (
+      {!displayedPhotos || displayedPhotos.length === 0 ? (
         <div className="neu-border bg-gray-50 p-8 text-center font-mono text-sm text-gray-500">
-          No photos yet. Be the first to add one!
+          {filterMode === "tagged"
+            ? "No photos of you detected in this album yet. Enable auto-tagging in Settings!"
+            : "No photos yet. Be the first to add one!"}
         </div>
       ) : (
-        <div
-          ref={containerRef}
-          className="overflow-y-auto max-h-[70vh] neu-border bg-gray-50 p-2"
-          style={{ position: "relative" }}
-        >
-          <div style={{ height: `${totalHeight}px`, position: "relative", width: "100%" }}>
-            {visibleItems.map(({ index, top, left, width, height: itemHeight }) => {
-              const photo = photos[index];
-              if (!photo) return null;
+        <div className="columns-2 sm:columns-3 md:columns-4 gap-4 space-y-4">
+          {displayedPhotos.map(
+            (photo: {
+              id: string;
+              url: string;
+              user_id: string;
+              profiles: { full_name: string } | { full_name: string }[];
+            }) => {
+              const isTagged = taggedPhotoIds.has(photo.id);
+
               return (
                 <div
                   key={photo.id}
-                  className="cursor-pointer group"
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: `${width}px`,
-                    height: `${itemHeight}px`,
-                    transform: `translate(${left}px, ${top}px)`,
-                  }}
+                  className="break-inside-avoid cursor-pointer group relative overflow-hidden neu-border"
                   onClick={() => setSelectedPhoto(photo.url)}
                 >
                   <img
                     src={photo.url}
                     alt="Event memory"
-                    className="w-full h-full object-cover neu-border"
+                    className="w-full h-auto object-cover transition-transform hover:scale-[1.02]"
                     loading="lazy"
-                    ref={(el) => handleImgLoad(index, el)}
                   />
+
+                  {/* Auto-tag Badge */}
+                  {isTagged && (
+                    <div className="absolute top-2 left-2 z-10 neu-border bg-emerald-400 text-black px-2 py-1 font-mono text-[10px] font-bold uppercase flex items-center gap-1 shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+                      <Sparkles size={12} className="text-amber-700" /> You're in this photo
+                    </div>
+                  )}
+
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2 pointer-events-none">
                     <span className="text-white font-mono text-xs truncate drop-shadow-md">
                       {Array.isArray(photo.profiles)
@@ -230,39 +269,52 @@ export function EventPhotoGallery({ eventId, user }: EventPhotoGalleryProps) {
                   </div>
                 </div>
               );
-            })}
-          </div>
+            }
+          )}
         </div>
       )}
 
+      {/* Swipeable Lightbox */}
       {selectedPhoto &&
         (() => {
           const selectedIdx =
-            photos?.findIndex((p: { url: string }) => p.url === selectedPhoto) ?? 0;
+            displayedPhotos?.findIndex((p: { url: string }) => p.url === selectedPhoto) ?? 0;
 
           return (
             <div className="relative">
               <SwipeableLightbox
-                images={(photos || []).map((p: { url: string }) => ({
+                images={(displayedPhotos || []).map((p: { url: string }) => ({
                   url: p.url,
                   caption: "Event memory",
                 }))}
                 initialIndex={selectedIdx >= 0 ? selectedIdx : 0}
                 onClose={() => setSelectedPhoto(null)}
               />
-              {user && (
-                <button
-                  onClick={() => {
-                    const p = photos?.find(
-                      (ph: { url: string; id: string }) => ph.url === selectedPhoto,
-                    );
-                    if (p) deleteMutation.mutate({ photoId: p.id, url: p.url });
-                  }}
-                  className="absolute bottom-6 right-6 z-50 neu-border flex items-center gap-2 bg-red-500 text-white px-4 py-2 font-mono text-sm font-bold uppercase hover:bg-red-600 transition-colors"
-                >
-                  <Trash2 size={16} /> Delete My Photo
-                </button>
-              )}
+              <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3">
+                {/* Remove Tag / This isn't me button */}
+                {isSelectedPhotoTagged && selectedPhotoObj && (
+                  <button
+                    onClick={() => removeTagMutation.mutate(selectedPhotoObj.id)}
+                    disabled={removeTagMutation.isPending}
+                    className="neu-border flex items-center gap-2 bg-amber-400 text-black px-4 py-2 font-mono text-sm font-bold uppercase hover:bg-amber-500 transition-colors shadow-[4px_4px_0px_rgba(0,0,0,1)]"
+                  >
+                    <UserX size={16} /> Remove Tag (This Isn't Me)
+                  </button>
+                )}
+
+                {/* Delete photo button if owner */}
+                {user && selectedPhotoObj && selectedPhotoObj.user_id === user.id && (
+                  <button
+                    onClick={() =>
+                      deleteMutation.mutate({ photoId: selectedPhotoObj.id, url: selectedPhotoObj.url })
+                    }
+                    disabled={deleteMutation.isPending}
+                    className="neu-border flex items-center gap-2 bg-red-500 text-white px-4 py-2 font-mono text-sm font-bold uppercase hover:bg-red-600 transition-colors shadow-[4px_4px_0px_rgba(0,0,0,1)]"
+                  >
+                    <Trash2 size={16} /> Delete My Photo
+                  </button>
+                )}
+              </div>
             </div>
           );
         })()}

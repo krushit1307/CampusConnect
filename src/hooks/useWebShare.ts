@@ -1,4 +1,5 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
+import { useCopyToClipboard } from "./useCopyToClipboard";
 
 export interface WebShareData {
   title: string;
@@ -20,7 +21,7 @@ interface WebShareResult {
 }
 
 export function useWebShare(): WebShareResult {
-  const [copied, setCopied] = useState(false);
+  const { copyToClipboard, isCopied: copied } = useCopyToClipboard();
 
   const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
@@ -44,17 +45,6 @@ export function useWebShare(): WebShareResult {
     },
     [canShare],
   );
-
-  const copyToClipboard = useCallback(async (text: string): Promise<boolean> => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-      return true;
-    } catch {
-      return false;
-    }
-  }, []);
 
   return { canShare, share, copyToClipboard, copied };
 }

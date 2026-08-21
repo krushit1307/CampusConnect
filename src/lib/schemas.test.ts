@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   profileSchema,
   AVATAR_THEMES,
+  HANDLE_UNAVAILABLE_MESSAGE,
+  normalizeProfileHandle,
   signInSchema,
   signUpSchema,
   forgotPasswordSchema,
@@ -61,6 +63,29 @@ describe("profileSchema", () => {
       expect(result1.success).toBe(false);
       expect(result2.success).toBe(false);
       expect(result3.success).toBe(false);
+    });
+
+    it("trims and limits handles before async uniqueness checks", () => {
+      const result = profileSchema.safeParse({ ...validPayload, handle: "  clean_handle  " });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.handle).toBe("clean_handle");
+      }
+
+      expect(normalizeProfileHandle("  clean_handle  ")).toBe("clean_handle");
+      expect(HANDLE_UNAVAILABLE_MESSAGE).toBe("This handle is already taken");
+    });
+
+    it("rejects handles longer than 30 characters", () => {
+      const result = profileSchema.safeParse({ ...validPayload, handle: "a".repeat(31) });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.flatten().fieldErrors.handle).toContain(
+          "Handle must be 30 characters or fewer.",
+        );
+      }
     });
   });
 
@@ -230,8 +255,8 @@ describe("signUpSchema", () => {
     firstName: "Ada",
     lastName: "Lovelace",
     email: "ada@college.edu",
-    password: "Password1",
-    confirmPassword: "Password1",
+    password: "CorrectHorseBatteryStaple42!",
+    confirmPassword: "CorrectHorseBatteryStaple42!",
   };
 
   it("accepts a fully valid payload", () => {

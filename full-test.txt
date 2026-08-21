@@ -1,0 +1,64 @@
+
+ RUN  v4.1.10 c:/Users/lenovo/CampusConnect
+
+ ❯ src/lib/steganography.test.ts (8 tests | 4 failed) 121ms
+     ✓ converts strings to bit arrays and back accurately 9ms
+     ✓ embeds and extracts payload data into ImageData LSB correctly 5ms
+     ✓ modifies pixel color values by at most 1 unit (LSB only) 74ms
+     ✓ returns null when extracting LSB from clean or non-steganographic ImageData 1ms
+     × generates and verifies valid ticket signatures 17ms
+     × rejects tampered ticket payloads with invalid signatures 2ms
+     × rejects expired ticket signatures 3ms
+     × computes SHA-256 hex hashes reproducibly 1ms
+ ❯ src/lib/crypto.test.ts (4 tests | 4 failed) 15ms
+     × should generate, export, and import keys correctly 8ms
+     × should derive identical shared secrets for Alice and Bob 1ms
+     × should encrypt and decrypt messages correctly 1ms
+     × should fail to decrypt with incorrect key or tampered data 1ms
+ ✓ src/components/theme-provider.test.tsx (3 tests) 21ms
+ ❯ src/components/Navigation/UserDropdown.test.tsx (0 test)
+ ✓ src/hooks/useSupabaseSubscription.test.ts (4 tests) 149ms
+ ❯ src/components/EventCard.test.tsx (0 test)
+ ✓ src/components/ui/modal.test.tsx (5 tests) 724ms
+     ✓ renders when isOpen is true  589ms
+ ❯ src/components/ui/command-palette.test.tsx (0 test)
+ ✓ src/lib/markdown/MarkdownRenderer.test.tsx (20 tests) 225ms
+ ✓ src/components/ReportDialog.test.tsx (2 tests) 654ms
+     ✓ renders report form when open  521ms
+ ✓ src/lib/certificateUtils.test.ts (3 tests) 119ms
+ ✓ src/components/ThemeToggle.test.tsx (1 test) 60ms
+ ✓ src/components/ui/input.test.tsx (4 tests) 429ms
+ ✓ src/components/ui/button.test.tsx (5 tests) 735ms
+     ✓ renders the default button with base and default variant classes  501ms
+ ✓ src/components/ui/carousel.test.tsx (2 tests) 521ms
+     ✓ handles left and right arrow key events  380ms
+ ✓ src/components/ui/badge.test.tsx (4 tests) 121ms
+ ✓ src/components/ui/TagMultiSelect.test.tsx (6 tests) 993ms
+     ✓ filters dropdown options when typing in input  521ms
+ ✓ src/lib/schemas.test.ts (21 tests) 24ms
+ ✓ src/lib/markdown/parser.test.ts (30 tests) 24ms
+ ✓ src/lib/utils.test.ts (59 tests) 77ms
+ ✓ src/lib/eventUtils.test.ts (40 tests) 84ms
+ ✓ src/components/EventRSVPButton.test.tsx (2 tests) 29ms
+ ✓ src/lib/signals.test.ts (11 tests) 19ms
+ ✓ src/lib/clubUtils.test.ts (9 tests) 19ms
+ ✓ src/lib/conflictResolution.test.ts (11 tests) 13ms
+ ✓ src/lib/queryBuilder.test.ts (6 tests) 13ms
+ ✓ src/lib/markdown/sanitize.test.ts (17 tests) 10ms
+ ✓ src/lib/email/service.test.ts (3 tests) 9ms
+ ✓ src/lib/parser.test.ts (5 tests) 7ms
+ ✓ src/lib/imageOptimization.test.ts (4 tests) 8ms
+ ✓ src/store/globalState.test.ts (4 tests) 13ms
+ ✓ src/store/useNotificationStore.test.ts (3 tests) 9ms
+ ✓ src/lib/bookmarks.test.ts (3 tests) 10ms
+ ✓ src/components/EventDateBadge.test.tsx (2 tests) 19ms
+ ✓ src/lib/clubModeration.test.ts (3 tests) 6ms
+ ❯ src/lib/ocr.test.ts (1 test | 1 failed) 1303ms
+     × should extract text from a file 1301ms
+
+ Test Files  6 failed | 30 passed (36)
+      Tests  9 failed | 296 passed (305)
+     Errors  1 error
+   Start at  20:54:10
+   Duration  17.16s (transform 5.73s, setup 12.58s, import 45.26s, tests 6.58s, environment 28.66s)
+

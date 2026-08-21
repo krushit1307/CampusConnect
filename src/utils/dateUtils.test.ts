@@ -34,6 +34,16 @@ describe("dateUtils Unit Tests Suite - Issue #1778", () => {
       expect(result?.getUTCDate()).toBe(12);
     });
 
+    it("forces UTC parsing for offset-less ISO date-time strings by appending Z", () => {
+      const result = toDate("2026-10-12T14:30:00");
+      expect(result).toBeInstanceOf(Date);
+      expect(result?.getUTCFullYear()).toBe(2026);
+      expect(result?.getUTCMonth()).toBe(9);
+      expect(result?.getUTCDate()).toBe(12);
+      expect(result?.getUTCHours()).toBe(14);
+      expect(result?.getUTCMinutes()).toBe(30);
+    });
+
     it("passes through valid Date objects untouched", () => {
       const input = new Date(2026, 4, 1, 8, 0, 0);
       const result = toDate(input);

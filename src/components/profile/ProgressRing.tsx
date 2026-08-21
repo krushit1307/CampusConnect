@@ -106,7 +106,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
           className={cn(
-            "transition-[stroke-dashoffset] duration-1000 ease-in-out",
+            "transition-[stroke-dashoffset] duration-[1500ms] ease-in-out",
             strokeColorClass,
           )}
         />

@@ -1,17 +1,17 @@
 import { useMemo, useState } from "react";
-import {
-  addMonths,
-  eachDayOfInterval,
-  endOfMonth,
-  format,
-  getDay,
-  isSameDay,
-  isSameMonth,
-  parseISO,
-  startOfMonth,
-  subMonths,
-} from "date-fns";
-import { CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import addMonths from "date-fns/addMonths";
+import eachDayOfInterval from "date-fns/eachDayOfInterval";
+import endOfMonth from "date-fns/endOfMonth";
+import format from "date-fns/format";
+import getDay from "date-fns/getDay";
+import isSameDay from "date-fns/isSameDay";
+import isSameMonth from "date-fns/isSameMonth";
+import parseISO from "date-fns/parseISO";
+import startOfMonth from "date-fns/startOfMonth";
+import subMonths from "date-fns/subMonths";
+import CalendarIcon from "lucide-react/dist/esm/icons/calendar";
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";

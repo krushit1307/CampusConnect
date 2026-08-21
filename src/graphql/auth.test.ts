@@ -36,14 +36,14 @@ describe("GraphQL Auth Directive", () => {
   it("Authenticated USER should be rejected from ADMIN field", async () => {
     vi.mocked(supabase.auth.getUser).mockResolvedValue({
       data: { user: { id: "user-123" } },
-    } as any);
+    } as Awaited<ReturnType<typeof supabase.auth.getUser>>);
     vi.mocked(supabase.from).mockReturnValue({
       select: () => ({
         eq: () => ({
           single: async () => ({ data: { role: "USER" }, error: null }),
         }),
       }),
-    } as any);
+    } as ReturnType<typeof supabase.from>);
 
     const response = await yoga.fetch("http://localhost:4000/api/graphql", {
       method: "POST",
@@ -61,7 +61,7 @@ describe("GraphQL Auth Directive", () => {
   it("Authenticated ADMIN should receive data", async () => {
     vi.mocked(supabase.auth.getUser).mockResolvedValue({
       data: { user: { id: "admin-123" } },
-    } as any);
+    } as Awaited<ReturnType<typeof supabase.auth.getUser>>);
 
     vi.mocked(supabase.from).mockImplementation((table: string) => {
       if (table === "profiles") {
@@ -71,14 +71,14 @@ describe("GraphQL Auth Directive", () => {
               data: [{ id: "user-123" }, { id: "admin-123" }],
               error: null,
             });
-            (queryObj as any).eq = () => ({
+            (queryObj as unknown as { eq: unknown }).eq = () => ({
               single: async () => ({ data: { role: "ADMIN" }, error: null }),
             });
             return queryObj;
           },
-        } as any;
+        } as ReturnType<typeof supabase.from>;
       }
-      return {} as any;
+      return {} as ReturnType<typeof supabase.from>;
     });
 
     const response = await yoga.fetch("http://localhost:4000/api/graphql", {
@@ -99,9 +99,9 @@ describe("GraphQL Auth Directive", () => {
       if (table === "clubs") {
         return {
           select: () => Promise.resolve({ data: [{ id: "club-1", name: "Club 1" }], error: null }),
-        } as any;
+        } as ReturnType<typeof supabase.from>;
       }
-      return {} as any;
+      return {} as ReturnType<typeof supabase.from>;
     });
 
     const response = await yoga.fetch("http://localhost:4000/api/graphql", {

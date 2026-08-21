@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./analytics-fixture";
 
 test("real-time chat with multiple browser contexts and typing indicators", async ({ browser }) => {
   // 1. Create Context A (User A: Admin User)

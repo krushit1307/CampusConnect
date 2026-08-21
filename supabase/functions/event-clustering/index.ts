@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
+import { z } from "https://esm.sh/zod@3.24.2";
 import { verifyAuth } from "../shared/auth-middleware.ts";
+import { parseJsonBody } from "../_shared/validation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,6 +18,19 @@ interface ClusterRequest {
   use_kmeans?: boolean;
   num_clusters?: number;
 }
+
+const clusteringSchema = z
+  .object({
+    min_lat: z.number({ invalid_type_error: "min_lat must be a number" }),
+    max_lat: z.number({ invalid_type_error: "max_lat must be a number" }),
+    min_lng: z.number({ invalid_type_error: "min_lng must be a number" }),
+    max_lng: z.number({ invalid_type_error: "max_lng must be a number" }),
+    zoom_level: z.number().int().min(0).max(20).optional(),
+    cluster_radius: z.number().positive().optional(),
+    use_kmeans: z.boolean().optional(),
+    num_clusters: z.number().int().positive().optional(),
+  })
+  .strict();
 
 interface ClusterResult {
   cluster_id: number;
@@ -55,7 +70,9 @@ Deno.serve(async (req) => {
     // const user = await verifyAuth(req, supabase);
 
     // Parse request body
-    const body: ClusterRequest = await req.json();
+    const parsed = await parseJsonBody(clusteringSchema, req);
+    if (!parsed.ok) return parsed.response;
+    const body: ClusterRequest = parsed.data;
     const {
       min_lat,
       max_lat,

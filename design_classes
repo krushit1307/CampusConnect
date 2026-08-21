@@ -1,0 +1,45 @@
+--- a/design_classes
+@@ -0,0 +1,52 @@
++# Classes for Volunteer Shift Management Module
++
++class VolunteerShift:
++    def __init__(self, shift_id, start_time, end_time, location):
++        self.shift_id = shift_id
++        self.start_time = start_time
++        self.end_time = end_time
++        self.location = location
++        self.volunteers = []
++
++    def add_volunteer(self, volunteer):
++        self.volunteers.append(volunteer)
++
++class Volunteer:
++    def __init__(self, volunteer_id, name):
++        self.volunteer_id = volunteer_id
++        self.name = name
++
++class ShiftManager:
++    def __init__(self):
++        self.shifts = []
++
++    def create_shift(self, shift_id, start_time, end_time, location):
++        new_shift = VolunteerShift(shift_id, start_time, end_time, location)
++        self.shifts.append(new_shift)
++        return new_shift
++
++    def assign_volunteer_to_shift(self, shift_id, volunteer):
++        for shift in self.shifts:
++            if shift.shift_id == shift_id:
++                shift.add_volunteer(volunteer)
++                break
++
++class CampusConnectSystem:
++    def __init__(self):
++        self.shift_manager = ShiftManager()
++
++    def create_shift(self, shift_id, start_time, end_time, location):
++        return self.shift_manager.create_shift(shift_id, start_time, end_time, location)
++
++    def assign_volunteer_to_shift(self, shift_id, volunteer_id):
++        volunteer = Volunteer(volunteer_id, f"Volunteer_{volunteer_id}")
++        self.shift_manager.assign_volunteer_to_shift(shift_id, volunteer)

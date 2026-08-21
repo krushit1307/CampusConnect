@@ -1,0 +1,14 @@
+{
+  "navbar": {
+    "dashboard": "Dashboard",
+    "discover": "Discover",
+    "clubs": "My Clubs",
+    "settings": "Settings",
+    "logout": "Log Out"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "language_desc": "Select your preferred language."
+  }
+}

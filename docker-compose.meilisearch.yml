@@ -1,0 +1,36 @@
+# docker-compose.meilisearch.yml
+#
+# Local Meilisearch instance for development.
+# Run with: docker compose -f docker-compose.meilisearch.yml up -d
+#
+# In production, use a managed Meilisearch instance (Meilisearch Cloud)
+# or self-host with the same image + a persistent volume.
+#
+# The MEILI_MASTER_KEY is required for production. For local dev, we
+# set it to a fixed value so the Edge Functions can connect.
+# NEVER commit a real master key — use .env.local.
+
+version: "3.8"
+
+services:
+  meilisearch:
+    image: getmeili/meilisearch:v1.12
+    container_name: campusconnect-meilisearch
+    ports:
+      - "7700:7700"
+    environment:
+      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY:-local-dev-master-key-please-change}
+      - MEILI_ENV=development
+      - MEILI_NO_ANALYTICS=true
+      - MEILI_LOG_LEVEL=INFO
+    volumes:
+      - meili_data:/meili_data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  meili_data:

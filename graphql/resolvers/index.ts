@@ -1,14 +1,20 @@
 import { GraphQLError } from "graphql";
-import { createPubSub } from "@graphql-yoga/subscription";
+import { pubsub, RedisPubSub } from "../pubsub";
 import { createClient } from "../../src/lib/supabase/client";
-
+import { query as pgQuery } from "../db";
 const supabase = createClient();
 
-// ── PubSub for GraphQL Subscriptions ──
-// Keyed by channel name → topic (userId) for per-user delivery.
-export const pubsub = createPubSub<{
-  NOTIFICATION_RECEIVED: [userId: string, payload: NotificationRecord];
-}>();
+// Redis-backed PubSub (with in-memory fallback) used across all subscriptions.
+export { pubsub, RedisPubSub };
+
+// ── Message Record Interface ──
+export interface ChatMessageRecord {
+  id: string;
+  event_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+}
 
 // ── Notification Record Interface ──
 export interface NotificationRecord {
@@ -19,7 +25,11 @@ export interface NotificationRecord {
   message: string;
   link: string | null;
   is_read: boolean;
+  metadata?: Record<string, unknown> | null;
   created_at: string;
+  recent_actors?: string[] | null;
+  group_count?: number | null;
+  reference_id?: string | null;
 }
 
 /**
@@ -28,6 +38,60 @@ export interface NotificationRecord {
  */
 export function publishNotification(notification: NotificationRecord): void {
   pubsub.publish("NOTIFICATION_RECEIVED", notification.user_id, notification);
+}
+
+/**
+ * Helper to emit a discussion mention notification to a specific user.
+ * Triggered when a user is @mentioned in a post, comment, or discussion.
+ */
+export function publishMentionNotification(params: {
+  mentionedUserId: string;
+  authorName: string;
+  discussionTitle: string;
+  link?: string;
+}): NotificationRecord {
+  const notification: NotificationRecord = {
+    id: `notif_mention_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    user_id: params.mentionedUserId,
+    type: "mention",
+    title: "Mentioned in Discussion",
+    message: `${params.authorName} mentioned you in "${params.discussionTitle}"`,
+    link: params.link ?? null,
+    is_read: false,
+    created_at: new Date().toISOString(),
+  };
+
+  pubsub.publish("NOTIFICATION_RECEIVED", params.mentionedUserId, notification);
+  return notification;
+}
+
+/**
+ * Helper to emit an event update notification to all RSVP'd attendees of an event.
+ * Triggered when an event's details, date, or location are updated.
+ */
+export function publishEventUpdateNotification(params: {
+  eventId: string;
+  eventTitle: string;
+  updateSummary: string;
+  attendeeUserIds: string[];
+}): NotificationRecord[] {
+  const notifications: NotificationRecord[] = params.attendeeUserIds.map((userId) => {
+    const notification: NotificationRecord = {
+      id: `notif_event_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      user_id: userId,
+      type: "event_update",
+      title: `Event Updated: ${params.eventTitle}`,
+      message: params.updateSummary,
+      link: `/events/${params.eventId}`,
+      is_read: false,
+      created_at: new Date().toISOString(),
+    };
+
+    pubsub.publish("NOTIFICATION_RECEIVED", userId, notification);
+    return notification;
+  });
+
+  return notifications;
 }
 
 // ── In-Memory LRU Cache Class ──
@@ -83,13 +147,24 @@ export interface ClubRecord {
 export const clubsCache = new LRUCache<string, ClubRecord[]>(5);
 export const CLUBS_CACHE_KEY = "all_clubs";
 
-// Subscribe to real-time updates for clubs to invalidate cache when a club is created/updated/deleted
-supabase
-  .channel("clubs-cache-invalidation")
-  .on("postgres_changes", { event: "*", schema: "public", table: "clubs" }, () => {
-    clubsCache.delete(CLUBS_CACHE_KEY);
-  })
-  .subscribe();
+// Cache for directory search / profiles query
+export const profilesCache = new LRUCache<string, ProfileRecord[]>(50);
+
+if (typeof supabase.channel === "function") {
+  supabase
+    .channel("clubs-cache-invalidation")
+    .on("postgres_changes", { event: "*", schema: "public", table: "clubs" }, () => {
+      clubsCache.delete(CLUBS_CACHE_KEY);
+    })
+    .subscribe();
+
+  supabase
+    .channel("profiles-cache-invalidation")
+    .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
+      profilesCache.clear();
+    })
+    .subscribe();
+}
 
 // ── Lightweight Batch Loader Class ──
 
@@ -170,52 +245,61 @@ export function decodeCursor(cursor: string): { createdAt: string; id: string } 
 // ── DataLoaders for batching nested relations (solving N+1) ──
 
 // Batch fetch profiles by ID array
-const profileLoader = new SimpleDataLoader<string, ProfileRecord>(async (userIds) => {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .in("id", userIds as string[]);
+export const createProfileLoader = () =>
+  new SimpleDataLoader<string, ProfileRecord>(async (userIds) => {
+    // A feed page can reference hundreds of distinct authors at once.
+    // Passing the whole array as ONE bound parameter (ANY($1)) avoids
+    // building/parsing a giant "IN ($1, $2, ..., $500)" SQL string.
+    const { rows } = await pgQuery<ProfileRecord>("SELECT * FROM profiles WHERE id = ANY($1)", [
+      userIds,
+    ]);
 
-  if (error) throw error;
+    const profileMap = new Map<string, ProfileRecord>(rows.map((p) => [p.id, p]));
 
-  const profileMap = new Map<string, ProfileRecord>(
-    (data || []).map((p: ProfileRecord) => [p.id, p]),
-  );
-  return userIds.map((id) => profileMap.get(id) || null);
-});
-
-// Batch fetch clubs by ID array
-const clubLoader = new SimpleDataLoader<string, ClubRecord>(async (clubIds) => {
-  const { data, error } = await supabase
-    .from("clubs")
-    .select("*")
-    .in("id", clubIds as string[]);
-
-  if (error) throw error;
-
-  const clubMap = new Map<string, ClubRecord>((data || []).map((c: ClubRecord) => [c.id, c]));
-  return clubIds.map((id) => clubMap.get(id) || null);
-});
-
-// Batch fetch comments for a set of post IDs
-const commentsByPostLoader = new SimpleDataLoader<string, CommentRecord[]>(async (postIds) => {
-  const { data, error } = await supabase
-    .from("comments")
-    .select("*")
-    .in("post_id", postIds as string[])
-    .is("deleted_at", null);
-
-  if (error) throw error;
-
-  const commentsGrouped = new Map<string, CommentRecord[]>();
-  postIds.forEach((id) => commentsGrouped.set(id, []));
-
-  (data || []).forEach((comment: CommentRecord) => {
-    commentsGrouped.get(comment.post_id)?.push(comment);
+    return userIds.map((id) => profileMap.get(id) || null);
   });
+// Batch fetch clubs by ID array
+export const createClubLoader = () =>
+  new SimpleDataLoader<string, ClubRecord>(async (clubIds) => {
+    // Same array-binding optimization as createProfileLoader above.
+    const { rows } = await pgQuery<ClubRecord>("SELECT * FROM clubs WHERE id = ANY($1)", [
+      clubIds,
+    ]);
 
-  return postIds.map((id) => commentsGrouped.get(id) || null);
-});
+    const clubMap = new Map<string, ClubRecord>(rows.map((c) => [c.id, c]));
+
+    return clubIds.map((id) => clubMap.get(id) || null);
+  });
+// Batch fetch comments for a set of post IDs
+export const createCommentsByPostLoader = () =>
+  new SimpleDataLoader<string, CommentRecord[]>(async (postIds) => {
+    const { data, error } = await supabase
+      .from("comments")
+      .select("*")
+      .in("post_id", postIds as string[])
+      .is("deleted_at", null);
+
+    if (error) throw error;
+
+    const commentsGrouped = new Map<string, CommentRecord[]>();
+
+    postIds.forEach((id) => commentsGrouped.set(id, []));
+
+    (data || []).forEach((comment: CommentRecord) => {
+      commentsGrouped.get(comment.post_id)?.push(comment);
+    });
+
+    return postIds.map((id) => commentsGrouped.get(id) || null);
+  });
+interface GraphQLContext {
+  user: {
+    id: string;
+    role: string;
+  } | null;
+  profileLoader: ReturnType<typeof createProfileLoader>;
+  clubLoader: ReturnType<typeof createClubLoader>;
+  commentsByPostLoader: ReturnType<typeof createCommentsByPostLoader>;
+}
 
 // ── GraphQL Type Definitions ──
 
@@ -253,6 +337,18 @@ export const typeDefs = /* GraphQL */ `
     author: Profile
     club: Club
     comments: [Comment!]!
+  }
+
+  type PostEdge {
+    cursor: String!
+    node: Post!
+  }
+
+  type PostConnection {
+    edges: [PostEdge!]!
+    nodes: [Post!]!
+    pageInfo: PageInfo!
+    totalCount: Int!
   }
 
   type Event {
@@ -318,10 +414,26 @@ export const typeDefs = /* GraphQL */ `
     link: String
     isRead: Boolean!
     createdAt: String!
+    recentActors: [ID!]
+    groupCount: Int
+    referenceId: ID
+  }
+
+  """
+  A message in an event's live chat, delivered in real-time via the
+  messageAdded subscription.
+  """
+  type Message {
+    id: ID!
+    eventId: ID!
+    userId: ID!
+    author: Profile
+    content: String!
+    createdAt: String!
   }
 
   type Query {
-    posts(limit: Int, offset: Int): [Post!]!
+    posts(first: Int, after: String): PostConnection!
     post(id: ID!): Post
     clubs: [Club!]!
     profiles(limit: Int, offset: Int, sortBy: String, sortOrder: String): [Profile!]!
@@ -329,6 +441,11 @@ export const typeDefs = /* GraphQL */ `
     events(first: Int, after: String): EventConnection!
     event(id: ID!): Event
     allUsers: [Profile!]! @auth(requires: ADMIN)
+    """
+    Recent messages in an event's live chat. Used to backfill history after a
+    dropped WebSocket connection.
+    """
+    messages(eventId: ID!, limit: Int, before: String): [Message!]!
   }
 
   """
@@ -351,6 +468,12 @@ export const typeDefs = /* GraphQL */ `
     Prevents race conditions and overbooking.
     """
     rsvpToEvent(eventId: ID!, userId: ID, action: String): RsvpPayload!
+    """
+    Send a message to an event's live chat. Persists the message and
+    publishes it to the event's Redis channel so every connected client
+    receives it via the messageAdded subscription.
+    """
+    addMessage(eventId: ID!, content: String!): Message!
   }
 
   """
@@ -360,6 +483,11 @@ export const typeDefs = /* GraphQL */ `
   """
   type Subscription {
     notificationReceived(userId: ID!): Notification!
+    """
+    Subscribe to new messages in an event's live chat. Yields a Message for
+    every addMessage mutation published to the event's Redis channel.
+    """
+    messageAdded(eventId: ID!): Message!
   }
 `;
 
@@ -390,16 +518,51 @@ export const resolvers = {
   },
 
   Query: {
-    posts: async (_: unknown, { limit = 10, offset = 0 }: { limit?: number; offset?: number }) => {
-      const { data, error } = await supabase
-        .from("posts")
-        .select("*")
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1);
+    posts: async (_: unknown, { first = 10, after }: { first?: number; after?: string }) => {
+      const limit = Math.max(1, Math.min(first, 100));
+      let query = supabase.from("posts").select("*", { count: "exact" }).is("deleted_at", null);
 
+      if (after) {
+        const decoded = decodeCursor(after);
+        if (decoded) {
+          query = query.or(
+            `created_at.lt.${decoded.createdAt},and(created_at.eq.${decoded.createdAt},id.lt.${decoded.id})`,
+          );
+        }
+      }
+
+      // Fetch limit + 1 items to accurately calculate hasNextPage
+      query = query
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(limit + 1);
+
+      const { data, count, error } = await query;
       if (error) throw error;
-      return data || [];
+
+      const rawPosts = data || [];
+      const hasNextPage = rawPosts.length > limit;
+      const nodes = hasNextPage ? rawPosts.slice(0, limit) : rawPosts;
+
+      const edges = nodes.map((node) => ({
+        cursor: encodeCursor(node),
+        node,
+      }));
+
+      const startCursor = edges.length > 0 ? edges[0].cursor : null;
+      const endCursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
+
+      return {
+        edges,
+        nodes,
+        pageInfo: {
+          hasNextPage,
+          hasPreviousPage: !!after,
+          startCursor,
+          endCursor,
+        },
+        totalCount: count ?? nodes.length,
+      };
     },
     post: async (_: unknown, { id }: { id: string }) => {
       const { data, error } = await supabase
@@ -437,6 +600,12 @@ export const resolvers = {
         sortOrder?: string;
       },
     ) => {
+      const cacheKey = `profiles:${limit}:${offset}:${sortBy}:${sortOrder}`;
+      const cached = profilesCache.get(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
       let query = supabase.from("profiles").select("*");
 
       const allowedColumns = ["id", "full_name", "handle", "role", "is_banned"];
@@ -449,7 +618,10 @@ export const resolvers = {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data || [];
+
+      const result = data || [];
+      profilesCache.set(cacheKey, result);
+      return result;
     },
     totalProfiles: async () => {
       const { count, error } = await supabase
@@ -511,6 +683,31 @@ export const resolvers = {
       if (error) throw error;
       return data;
     },
+    messages: async (
+      _: unknown,
+      { eventId, limit = 50, before }: { eventId: string; limit?: number; before?: string },
+      context: GraphQLContext,
+    ) => {
+      const cappedLimit = Math.max(1, Math.min(limit, 100));
+      let query = supabase
+        .from("event_chat_messages")
+        .select("*")
+        .eq("event_id", eventId)
+        .order("created_at", { ascending: false })
+        .limit(cappedLimit);
+
+      if (before) {
+        query = query.lt("created_at", before);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      // Return in chronological order (oldest → newest) for the chat UI.
+      return ((data ?? []) as ChatMessageRecord[])
+        .reverse()
+        .map((row) => mapMessageToGraphQL(row, context));
+    },
     allUsers: async () => {
       const { data, error } = await supabase.from("profiles").select("*");
       if (error) throw error;
@@ -550,34 +747,82 @@ export const resolvers = {
         version: data?.version ?? null,
       };
     },
+    addMessage: async (
+      _: unknown,
+      { eventId, content }: { eventId: string; content: string },
+      context: GraphQLContext,
+    ) => {
+      if (!context.user) {
+        throw new GraphQLError("You must be signed in to send a message", {
+          extensions: { code: "UNAUTHENTICATED" },
+        });
+      }
+
+      const text = content.trim();
+      if (!text) {
+        throw new GraphQLError("Message content cannot be empty");
+      }
+      if (text.length > 500) {
+        throw new GraphQLError("Message cannot exceed 500 characters");
+      }
+
+      const { data, error } = await supabase.rpc("send_event_chat_message", {
+        p_event_id: eventId,
+        p_user_id: context.user.id,
+        p_content: text,
+      });
+
+      if (error) throw new Error(error.message);
+
+      const result = data as {
+        success: boolean;
+        message?: string;
+        data?: ChatMessageRecord;
+      } | null;
+      if (!result?.success || !result.data) {
+        throw new GraphQLError(result?.message ?? "Could not send message");
+      }
+
+      const message = await mapMessageToGraphQL(result.data, context);
+
+      // Fan the message out to every client subscribed to this event's chat.
+      await pubsub.publish("MESSAGE_ADDED", eventId, message);
+
+      return message;
+    },
   },
 
   Post: {
-    author: (parent: { author_id: string }) => {
-      return parent.author_id ? profileLoader.load(parent.author_id) : null;
+    author: (parent: { author_id: string }, _: unknown, context: GraphQLContext) => {
+      return parent.author_id ? context.profileLoader.load(parent.author_id) : null;
     },
-    club: (parent: { club_id: string }) => {
-      return parent.club_id ? clubLoader.load(parent.club_id) : null;
+
+    club: (parent: { club_id: string }, _: unknown, context: GraphQLContext) => {
+      return parent.club_id ? context.clubLoader.load(parent.club_id) : null;
     },
-    comments: (parent: { id: string }) => {
-      return commentsByPostLoader.load(parent.id);
+
+    comments: (parent: { id: string }, _: unknown, context: GraphQLContext) => {
+      return context.commentsByPostLoader.load(parent.id);
     },
   },
 
   Comment: {
-    author: (parent: { author_id: string }) => {
-      return parent.author_id ? profileLoader.load(parent.author_id) : null;
+    author: (parent: { author_id: string }, _: unknown, context: GraphQLContext) => {
+      return parent.author_id ? context.profileLoader.load(parent.author_id) : null;
     },
   },
 
   Event: {
-    club: (parent: { club_id: string }) => {
-      return parent.club_id ? clubLoader.load(parent.club_id) : null;
+    club: (parent: { club_id: string }, _: unknown, context: GraphQLContext) => {
+      return parent.club_id ? context.clubLoader.load(parent.club_id) : null;
     },
-    organizer: (parent: { created_by: string }) => {
-      return parent.created_by ? profileLoader.load(parent.created_by) : null;
+
+    organizer: (parent: { created_by: string }, _: unknown, context: GraphQLContext) => {
+      return parent.created_by ? context.profileLoader.load(parent.created_by) : null;
     },
+
     maxAttendees: (parent: { max_attendees?: number | null }) => parent.max_attendees ?? null,
+
     availableSpots: (parent: { available_spots?: number | null }) => parent.available_spots ?? null,
   },
 
@@ -606,7 +851,24 @@ export const resolvers = {
         link: payload.link ?? null,
         isRead: payload.is_read,
         createdAt: payload.created_at,
+        recentActors: payload.recent_actors ?? [],
+        groupCount: payload.group_count ?? 1,
+        referenceId: payload.reference_id ?? null,
       }),
+    },
+    messageAdded: {
+      /**
+       * subscribe() yields every message published to the MESSAGE_ADDED
+       * channel for this event. Because the channel is Redis-backed, messages
+       * published by *any* server instance reach this client.
+       */
+      subscribe: (_: unknown, { eventId }: { eventId: string }) =>
+        pubsub.subscribe("MESSAGE_ADDED", eventId),
+      /**
+       * resolve() returns the payload as-is: addMessage already publishes the
+       * fully-mapped Message shape (camelCase fields + author profile).
+       */
+      resolve: (payload: MessageRecord) => payload,
     },
   },
 
@@ -619,6 +881,9 @@ export const resolvers = {
     isRead: (parent: NotificationRecord) => parent.is_read,
     createdAt: (parent: NotificationRecord) => parent.created_at,
     type: (parent: NotificationRecord) => mapNotificationType(parent.type),
+    recentActors: (parent: NotificationRecord) => parent.recent_actors ?? [],
+    groupCount: (parent: NotificationRecord) => parent.group_count ?? 1,
+    referenceId: (parent: NotificationRecord) => parent.reference_id ?? null,
   },
 };
 
@@ -632,4 +897,41 @@ function mapNotificationType(type: string): "MENTION" | "EVENT_UPDATE" | "GENERI
   if (type === "mention") return "MENTION";
   if (type === "event_update") return "EVENT_UPDATE";
   return "GENERIC";
+}
+
+// ── Message type mapper ──
+
+/** The GraphQL `Message` shape published/subscribed over Redis. */
+export interface MessageRecord {
+  id: string;
+  eventId: string;
+  userId: string;
+  author: ProfileRecord | null;
+  content: string;
+  createdAt: string;
+}
+
+/**
+ * Maps a `event_chat_messages` row (snake_case) to the GraphQL Message shape
+ * (camelCase), enriching it with the sender's profile via the batch loader.
+ */
+async function mapMessageToGraphQL(
+  record: ChatMessageRecord,
+  context: GraphQLContext,
+): Promise<MessageRecord> {
+  let author: ProfileRecord | null = null;
+  try {
+    author = await context.profileLoader.load(record.user_id);
+  } catch {
+    author = null;
+  }
+
+  return {
+    id: record.id,
+    eventId: record.event_id,
+    userId: record.user_id,
+    author,
+    content: record.content,
+    createdAt: record.created_at,
+  };
 }

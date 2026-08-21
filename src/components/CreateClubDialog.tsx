@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useMutation } from "@/hooks/useReactQueryReplacement";
-import { Plus } from "lucide-react";
+import Plus from "lucide-react/dist/esm/icons/plus";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
 import {
   clubFormSchema,
   MAX_DESCRIPTION_LENGTH,
@@ -36,6 +37,7 @@ import {
 } from "@/components/ui/form";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { CascadingCategorySelect } from "@/components/Clubs/CascadingCategorySelect";
+import { useConfetti } from "@/hooks/useConfetti";
 
 const defaultValues: ClubFormInput = {
   name: "",
@@ -54,11 +56,16 @@ const generateSlug = (text: string) => {
     .replace(/-+/g, "-"); // remove duplicate hyphens
 };
 
+interface LocalClubFormValues extends ClubFormInput {
+  logo_url?: string;
+}
+
 export function CreateClubDialog({ user }: { user: User | null }) {
+  const { fireCannon } = useConfetti();
   const [open, setOpen] = useState(false);
   const supabase = createClient();
 
-  const form = useForm<ClubFormInput>({
+  const form = useForm<LocalClubFormValues>({
     resolver: zodResolver(clubFormSchema),
     defaultValues,
     mode: "onBlur",
@@ -74,7 +81,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
   }, [nameValue, form]);
 
   const createClub = useMutation({
-    mutationFn: async (values: ClubFormValues) => {
+    mutationFn: async (values: LocalClubFormValues) => {
       if (!user) {
         throw new Error("You must be logged in to create a club.");
       }
@@ -98,7 +105,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
         .insert({
           name: values.name.trim(),
           slug: values.slug.trim(),
-          description: values.description.trim(),
+          description: sanitizeHtml(values.description.trim()),
           logo_url: values.logo_url || null,
           category_id: values.category_id || null,
           created_by: user.id,
@@ -110,8 +117,34 @@ export function CreateClubDialog({ user }: { user: User | null }) {
       if (error) {
         throw new Error(error.message);
       }
+
+      // Automatically add creator as admin member
+      if (newClub) {
+        // First, get the admin role for this club
+        const { data: adminRole, error: roleError } = await supabase
+          .from("club_roles")
+          .select("id")
+          .eq("club_id", newClub.id)
+          .eq("title", "Admin")
+          .single();
+
+        if (roleError || !adminRole) {
+          console.error("[CreateClubDialog] Failed to get admin role:", roleError);
+        } else {
+          const { error: memberError } = await supabase.from("club_members").insert({
+            club_id: newClub.id,
+            user_id: user.id,
+            role_id: adminRole.id,
+            status: "approved",
+          });
+          if (memberError) {
+            console.error("[CreateClubDialog] Failed to add creator as member:", memberError);
+          }
+        }
+      }
     },
     onSuccess: () => {
+      fireCannon();
       toast.success("Club submitted for administrator review.");
       window.dispatchEvent(new Event("refetchClubs"));
       form.reset(defaultValues);
@@ -123,9 +156,9 @@ export function CreateClubDialog({ user }: { user: User | null }) {
     },
   });
 
-  const onSubmit = (values: ClubFormInput) => {
+  const onSubmit = (values: LocalClubFormValues) => {
     const parsed = clubFormSchema.parse(values);
-    createClub.mutate(parsed);
+    createClub.mutate({ ...parsed, logo_url: values.logo_url });
   };
 
   return (
@@ -175,7 +208,7 @@ export function CreateClubDialog({ user }: { user: User | null }) {
                             .watch("name")
                             .split(" ")
                             .filter(Boolean)
-                            .map((p) => p[0])
+                            .map((p: string) => p[0])
                             .join("")
                             .slice(0, 2)
                             .toUpperCase()

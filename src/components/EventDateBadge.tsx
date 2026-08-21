@@ -5,9 +5,13 @@ interface EventDateBadgeProps {
 }
 
 export function EventDateBadge({ eventDate }: EventDateBadgeProps) {
+  const dateText = eventDate ? formatDate(eventDate).split(" at ")[0].toUpperCase() : "TBA";
   return (
-    <p className="font-mono text-xs font-bold uppercase tracking-wider">
-      {eventDate ? formatDate(eventDate).split(" at ")[0].toUpperCase() : "TBA"}
+    <p
+      className="font-mono text-xs font-bold uppercase tracking-wider"
+      aria-label={`Event date: ${dateText}`}
+    >
+      {dateText}
     </p>
   );
 }

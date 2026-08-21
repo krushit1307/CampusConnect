@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { motion, useMotionValue, useTransform, animate, type PanInfo } from "framer-motion";
-import { Trash2 } from "lucide-react";
+import { LazyMotion, m, useMotionValue, useTransform, animate, type PanInfo } from "framer-motion";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import { loadDomMax } from "@/lib/motionFeatures";
 
 // How far (px) the card must travel before we treat it as a deliberate dismiss.
 const DISTANCE_THRESHOLD = 96;
@@ -71,30 +72,32 @@ export function SwipeToDismiss({
   };
 
   return (
-    <div className="relative">
-      {/* Delete affordance revealed behind the card while dragging */}
-      <motion.div
-        aria-hidden="true"
-        style={{ opacity: revealOpacity }}
-        className="absolute inset-0 flex items-center justify-between rounded-[inherit] bg-red-500 px-5 text-white"
-      >
-        <Trash2 size={18} />
-        <Trash2 size={18} />
-      </motion.div>
+    <LazyMotion features={loadDomMax} strict={import.meta.env.DEV}>
+      <div className="relative">
+        {/* Delete affordance revealed behind the card while dragging */}
+        <m.div
+          aria-hidden="true"
+          style={{ opacity: revealOpacity }}
+          className="absolute inset-0 flex items-center justify-between rounded-[inherit] bg-red-500 px-5 text-white"
+        >
+          <Trash2 size={18} />
+          <Trash2 size={18} />
+        </m.div>
 
-      <motion.div
-        role={ariaLabel ? "group" : undefined}
-        aria-label={ariaLabel}
-        drag={disabled ? false : "x"}
-        dragDirectionLock
-        dragElastic={0.85}
-        dragConstraints={{ left: 0, right: 0 }}
-        onDragEnd={handleDragEnd}
-        style={{ x, opacity: cardOpacity, touchAction: "pan-y" }}
-        className={className}
-      >
-        {children}
-      </motion.div>
-    </div>
+        <m.div
+          role={ariaLabel ? "group" : undefined}
+          aria-label={ariaLabel}
+          drag={disabled ? false : "x"}
+          dragDirectionLock
+          dragElastic={0.85}
+          dragConstraints={{ left: 0, right: 0 }}
+          onDragEnd={handleDragEnd}
+          style={{ x, opacity: cardOpacity, touchAction: "pan-y" }}
+          className={className}
+        >
+          {children}
+        </m.div>
+      </div>
+    </LazyMotion>
   );
 }

@@ -59,19 +59,31 @@ export function Parallax3DCard({
     }
   }, []);
 
+  const rafIdRef = useRef<number | null>(null);
+
   const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
     if (!isHoverSupported || !cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
+    const clientX = event.clientX;
+    const clientY = event.clientY;
 
-    const mouseXPos = event.clientX - rect.left;
-    const mouseYPos = event.clientY - rect.top;
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+    }
 
-    const xPct = mouseXPos / rect.width - 0.5;
-    const yPct = mouseYPos / rect.height - 0.5;
+    rafIdRef.current = window.requestAnimationFrame(() => {
+      if (!cardRef.current) return;
+      const rect = cardRef.current.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
 
-    x.set(xPct);
-    y.set(yPct);
+      const mouseXPos = clientX - rect.left;
+      const mouseYPos = event.clientY - rect.top;
+
+      const xPct = mouseXPos / rect.width - 0.5;
+      const yPct = mouseYPos / rect.height - 0.5;
+
+      x.set(xPct);
+      y.set(yPct);
+    });
   };
 
   const handleMouseEnter = () => {

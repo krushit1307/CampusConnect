@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { motion, useMotionValue, animate, type PanInfo } from "framer-motion";
-import { MessageCircle } from "lucide-react";
+import { LazyMotion, m, useMotionValue, animate, type PanInfo } from "framer-motion";
+import { loadDomMax } from "@/lib/motionFeatures";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useOptionalModal } from "@/components/modal/ModalContext";
@@ -67,7 +68,7 @@ function getViewport(): Viewport {
 /**
  * FloatingChat — a Messenger-style draggable chat head (issue #1873).
  *
- * - `motion.button` with full 2D drag; `dragConstraints` bound to the
+ * - `m.button` with full 2D drag; `dragConstraints` bound to the
  *   window so the bubble cannot be thrown off-screen.
  * - On drag end the bubble spring-snaps to the nearest vertical edge
  *   (left/right) using its `useMotionValue` position.
@@ -170,30 +171,32 @@ export function FloatingChat() {
   const zIndex = modal?.activeModal ? Z_INDEX_LOWERED : Z_INDEX_ACTIVE;
 
   return (
-    <motion.button
-      data-testid="floating-chat"
-      type="button"
-      aria-label="Open chat"
-      drag
-      dragMomentum
-      dragConstraints={dragConstraints}
-      dragElastic={0.3}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      onClick={handleClick}
-      style={{ x, y, zIndex, touchAction: "none" }}
-      whileTap={{ scale: 0.92 }}
-      className="fixed left-0 top-0 flex h-14 w-14 cursor-grab items-center justify-center overflow-hidden rounded-full border-2 border-black bg-brand-blue-dark text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-brand-blue-alt active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
-    >
-      {user.user_metadata?.avatar_url ? (
-        <img
-          src={user.user_metadata.avatar_url as string}
-          alt=""
-          className="h-full w-full rounded-full object-cover"
-        />
-      ) : (
-        <MessageCircle size={26} aria-hidden="true" />
-      )}
-    </motion.button>
+    <LazyMotion features={loadDomMax} strict={import.meta.env.DEV}>
+      <m.button
+        data-testid="floating-chat"
+        type="button"
+        aria-label="Open chat"
+        drag
+        dragMomentum
+        dragConstraints={dragConstraints}
+        dragElastic={0.3}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onClick={handleClick}
+        style={{ x, y, zIndex, touchAction: "none" }}
+        whileTap={{ scale: 0.92 }}
+        className="fixed left-0 top-0 flex h-14 w-14 cursor-grab items-center justify-center overflow-hidden rounded-full border-2 border-black bg-brand-blue-dark text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-brand-blue-alt active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+      >
+        {user.user_metadata?.avatar_url ? (
+          <img
+            src={user.user_metadata.avatar_url as string}
+            alt=""
+            className="h-full w-full rounded-full object-cover"
+          />
+        ) : (
+          <MessageCircle size={26} aria-hidden="true" />
+        )}
+      </m.button>
+    </LazyMotion>
   );
 }

@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Navigate, Link } from "react-router-dom";
-import { Check, Clock3, ShieldAlert, X } from "lucide-react";
+import Check from "lucide-react/dist/esm/icons/check";
+import Clock3 from "lucide-react/dist/esm/icons/clock-3";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import X from "lucide-react/dist/esm/icons/x";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 
@@ -160,6 +163,12 @@ export default function PendingClubsAdmin() {
                 Review newly submitted campus clubs before they appear in the public directory.
               </p>
             </div>
+            <Link
+              to="/admin/dlq"
+              className="neu-border text-center bg-white px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-cream"
+            >
+              Dead Letter Queue
+            </Link>
             <Link
               to="/admin/analytics"
               className="neu-border text-center bg-white px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-cream"

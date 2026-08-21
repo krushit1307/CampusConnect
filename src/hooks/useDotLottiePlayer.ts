@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { DotLottiePlayer } from '@dotlottie/react-player';
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { DotLottiePlayer } from "@dotlottie/react-player";
 
 /**
  * Configuration options for the DotLottie player hook
@@ -18,7 +18,7 @@ interface UseDotLottiePlayerOptions {
  * Return type for the useDotLottiePlayer hook
  */
 interface UseDotLottiePlayerReturn {
-  PlayerComponent: React.ComponentType<any>;
+  PlayerComponent: React.ComponentType<Record<string, unknown>>;
   isPlaying: boolean;
   isPaused: boolean;
   play: () => void;
@@ -32,7 +32,7 @@ interface UseDotLottiePlayerReturn {
  * Custom hook to manage dotLottie animation instances.
  * Wraps the @dotlottie/react-player to provide programmatic control
  * over playback state, speed, and event listeners.
- * 
+ *
  * @param options - Configuration for the animation
  * @returns Player component and control methods
  */
@@ -49,6 +49,7 @@ export const useDotLottiePlayer = ({
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [currentSpeed, setCurrentSpeed] = useState<number>(speed);
   const [error, setError] = useState<Error | null>(null);
+
   const playerRef = useRef<any>(null);
 
   const play = useCallback(() => {
@@ -77,25 +78,26 @@ export const useDotLottiePlayer = ({
   }, []);
 
   const setSpeed = useCallback((newSpeed: number) => {
+    setCurrentSpeed(newSpeed);
     if (playerRef.current) {
       playerRef.current.setSpeed(newSpeed);
-      setCurrentSpeed(newSpeed);
     }
   }, []);
 
   const handleComplete = useCallback(() => {
-    if (!loop) {
-      setIsPlaying(false);
-      setIsPaused(false);
-    }
+    setIsPlaying(false);
+    setIsPaused(false);
     onComplete?.();
-  }, [loop, onComplete]);
+  }, [onComplete]);
 
-  const handleError = useCallback((err: Error) => {
-    console.error('[dotLottie] Animation failed to load or play:', err);
-    setError(err);
-    onError?.(err);
-  }, [onError]);
+  const handleError = useCallback(
+    (err: Error) => {
+      console.error("[dotLottie] Animation failed to load or play:", err);
+      setError(err);
+      onError?.(err);
+    },
+    [onError],
+  );
 
   useEffect(() => {
     if (playerRef.current && autoplay && !isPlaying) {
@@ -104,8 +106,7 @@ export const useDotLottiePlayer = ({
   }, [src, autoplay]);
 
   const PlayerComponent = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (props: any) =>
+    (props: Record<string, unknown>) =>
       React.createElement(DotLottiePlayer, {
         ref: playerRef,
         src,
@@ -117,7 +118,7 @@ export const useDotLottiePlayer = ({
         background: "transparent",
         ...props,
       }),
-    [src, loop, autoplay, currentSpeed, handleError, handleComplete]
+    [src, loop, autoplay, currentSpeed, handleError, handleComplete],
   );
 
   return {

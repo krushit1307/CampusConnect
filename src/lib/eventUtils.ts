@@ -1,16 +1,46 @@
 import { z } from "zod";
-import { format } from "date-fns";
-import {
-  startOfWeek,
-  endOfWeek,
-  addMonths,
-  startOfMonth,
-  endOfMonth,
-  isSameDay,
-  isWithinInterval,
-} from "date-fns";
+import format from "date-fns/format";
+import { fromZonedTime } from "date-fns-tz";
+import { getUserTimeZone } from "@/lib/timezone";
+import startOfWeek from "date-fns/startOfWeek";
+import endOfWeek from "date-fns/endOfWeek";
+import addMonths from "date-fns/addMonths";
+import startOfMonth from "date-fns/startOfMonth";
+import endOfMonth from "date-fns/endOfMonth";
+import isSameDay from "date-fns/isSameDay";
+import isWithinInterval from "date-fns/isWithinInterval";
 
-export const TITLE_MAX_LENGTH = 100;
+export const DEFAULT_EVENT_TAGS = [
+  "Tech",
+  "Career",
+  "Food",
+  "Workshop",
+  "Social",
+  "Design",
+  "Gaming",
+  "Music",
+  "Sports",
+  "Networking",
+  "AI/ML",
+  "Hackathon",
+  "Arts",
+  "Academic",
+];
+
+export const DEFAULT_EVENT_TAG_OPTIONS = DEFAULT_EVENT_TAGS.map((tag) => ({
+  value: tag,
+  label: tag,
+}));
+
+export const TITLE_MAX_LENGTH = 60;
+
+export const accessibilityFeaturesSchema = z.object({
+  has_elevator: z.boolean(),
+  wheelchair_ramp: z.boolean(),
+  gender_neutral_restrooms: z.boolean(),
+  hearing_loop: z.boolean(),
+  low_sensory_zone: z.boolean(),
+});
 
 export const eventFormSchema = z
   .object({
@@ -20,8 +50,27 @@ export const eventFormSchema = z
       .min(1, "Title is required.")
       .max(TITLE_MAX_LENGTH, `Title must be ${TITLE_MAX_LENGTH} characters or fewer.`),
     description: z.string().trim().min(1, "Description is required."),
-    category: z.string().trim().min(1, "Category is required."),
+    tldr_summary: z
+      .string()
+      .trim()
+      .max(100, "TL;DR must be 100 characters or fewer.")
+      .optional()
+      .or(z.literal("")),
+    venue_id: z.string().optional(),
     location: z.string().trim().optional(),
+    accessibility_features: accessibilityFeaturesSchema.optional(),
+    category: z.string().trim().optional().default(""),
+    location: z.string().trim().optional(),
+    latitude: z.number().min(-90).max(90).optional().nullable(),
+    longitude: z.number().min(-180).max(180).optional().nullable(),
+    geofencingEnabled: z.boolean().optional().default(false),
+    geofenceRadiusMeters: z.coerce
+      .number()
+      .int()
+      .min(10, "Radius must be at least 10 meters.")
+      .max(5000, "Radius must be 5000 meters or less.")
+      .optional()
+      .default(100),
     startDate: z.string().min(1, "Start date is required."),
     endDate: z.string().min(1, "End date is required."),
     banner: z.union([z.literal(""), z.string().url("Must be a valid URL")]).optional(),
@@ -42,10 +91,27 @@ export const eventFormSchema = z
       .optional()
       .default([]),
     tags: z.array(z.string()).optional().default([]),
+    ratingMetrics: z.array(z.string().trim()).optional().default([]),
   })
   .refine((data) => new Date(data.endDate) > new Date(data.startDate), {
     message: "End date must be after the start date.",
     path: ["endDate"],
+  })
+  .refine(
+    (data) => {
+      if (data.venue_id) return true;
+      const isOnline = data.location?.trim().toLowerCase() === "online";
+      if (isOnline || !data.location?.trim()) return true;
+      return data.accessibility_features !== undefined;
+    },
+    {
+      message: "Custom venues require an accessibility audit.",
+      path: ["accessibility_features"],
+    },
+  )
+  .refine((data) => !data.geofencingEnabled || (data.latitude != null && data.longitude != null), {
+    message: "Drop a pin on the map to set the check-in geofence location.",
+    path: ["latitude"],
   });
 
 export type EventFormValues = z.infer<typeof eventFormSchema>;
@@ -69,8 +135,16 @@ export function isPastDate(dateString: string, now: Date = new Date()): boolean 
 /**
  * Formats a pair of ISO date strings into a human-readable event range.
  * e.g. "July 11, 2026 at 10:00 AM – 12:00 PM"
+ *
+ * The viewer's local timezone is used by default so events created from the
+ * date picker display on the exact day the organizer clicked, even across
+ * Daylight Saving boundaries (see issue #1613).
  */
-export function formatEventDateRange(startIso: string, endIso: string, timeZone = "UTC"): string {
+export function formatEventDateRange(
+  startIso: string,
+  endIso: string,
+  timeZone: string = getUserTimeZone(),
+): string {
   const start = new Date(startIso);
   const end = new Date(endIso);
 
@@ -134,19 +208,59 @@ export function hasDraftContent(values: EventFormValues): boolean {
   );
 }
 
+/**
+ * Parses the date picker's local wall-clock string (e.g. `2026-11-05T09:00`) into
+ * an explicit UTC instant without relying on `new Date(...).toISOString()`.
+ *
+ * JS `Date` parsing of timezone-less strings is environment-dependent and can
+ * shift a day around Daylight Saving transitions (see issue #1613). date-fns-tz
+ * resolves the intended wall-clock against the user's actual IANA timezone, so
+ * the serialized timestamp matches the exact day/time the user clicked on the
+ * calendar.
+ */
+export function localDateTimeToUtcIso(
+  localDateTimeStr: string,
+  timeZone: string = getUserTimeZone(),
+): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(
+    localDateTimeStr,
+  );
+
+  if (match) {
+    const [, year, month, day, hour = "0", minute = "0", second = "0"] = match;
+    const wallClock = new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      Number(second),
+    );
+    if (!Number.isNaN(wallClock.getTime())) {
+      return fromZonedTime(wallClock, timeZone).toISOString();
+    }
+  }
+
+  return new Date(localDateTimeStr).toISOString();
+}
+
 export function eventFormToDbPayload(
-  values: EventFormValues,
+  values: EventFormValues & { requiresApproval?: boolean },
   userId: string,
   clubId: string | null,
 ) {
-  const startDateIso = new Date(values.startDate).toISOString();
-  const endDateIso = new Date(values.endDate).toISOString();
+  const startDateIso = localDateTimeToUtcIso(values.startDate);
+  const endDateIso = localDateTimeToUtcIso(values.endDate);
 
   return {
     title: values.title.trim(),
     description: values.description.trim(),
     category_id: values.category || null,
     location: values.location?.trim() || null,
+    latitude: values.latitude ?? null,
+    longitude: values.longitude ?? null,
+    geofencing_enabled: values.geofencingEnabled || false,
+    geofence_radius_meters: values.geofenceRadiusMeters || 100,
     start_date: startDateIso,
     end_date: endDateIso,
     event_date: startDateIso,
@@ -154,6 +268,7 @@ export function eventFormToDbPayload(
     club_id: clubId,
     requires_approval: values.requiresApproval || false,
     tags: values.tags || [],
+    rating_metrics: values.ratingMetrics || [],
   };
 }
 
@@ -242,3 +357,4 @@ export function matchesDateFilter(
   }
   return true;
 }
+

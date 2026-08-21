@@ -180,8 +180,6 @@ We are committed to providing a welcoming and inspiring community for all. By pa
 
 Got questions? Need help? Join the discussion!
 
-<!-- TODO: Replace with the actual Discord/Slack invite link -->
-
-**👉 Join the ECSoC Project Discord / Slack Here** _(link coming soon)_
+**👉 Join the ECSoC Project Discord Server Here:** [https://discord.gg/BEMjApACe](https://discord.gg/BEMjApACe)
 
 Thank you for contributing! 🚀

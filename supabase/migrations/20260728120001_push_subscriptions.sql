@@ -1,0 +1,15 @@
+-- Migration: 20260728120001_push_subscriptions.sql
+-- Description: Creates a table to store Web Push Notification subscriptions.
+--
+-- SUPERSEDED: this was one of three independently-committed migrations
+-- all named "push_subscriptions", each defining a conflicting shape of
+-- the same table. Applying this one after 20260726000005 hard-failed
+-- with `column "user_id" does not exist`, since that earlier migration
+-- (at the time) created the table with a `profile_id` column instead.
+--
+-- 20260726000005 is now the single canonical definition (rewritten to
+-- use `user_id`, matching what this migration originally intended and
+-- what the push Edge Functions actually query against). This file is
+-- kept as a no-op, rather than deleted, to preserve migration history
+-- and avoid renumbering anything already applied elsewhere.
+SELECT 1;

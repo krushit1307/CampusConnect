@@ -25,6 +25,11 @@ export interface EventMetaInput {
   location?: string | null;
   /** Absolute URL of the event detail page. */
   url?: string | null;
+  /**
+   * Event UUID — when provided, `buildOpenGraphTags` prefers the
+   * og-image Edge Function URL (#1515) over the raw Storage URL.
+   */
+  eventId?: string | null;
 }
 
 /** Output: bag of strings suitable for Helmet's `<meta>` content attrs. */
@@ -63,6 +68,30 @@ export function buildOgImageUrl(rawBannerUrl: string): string {
 }
 
 /**
+ * Build the URL for the og-image Edge Function (#1515).
+ *
+ * The function renders a dynamic 1200×630 PNG card with the event title,
+ * date, location, and club branding — no static banner required.
+ *
+ * Falls back to an empty string when the Supabase project URL is not
+ * available in the environment (e.g. during unit tests).
+ */
+export function buildOgImageEdgeUrl(eventId: string): string {
+  if (!eventId) return "";
+  const projectUrl =
+    typeof import.meta !== "undefined"
+      ? (import.meta as Record<string, unknown>).env
+        ? (import.meta as { env: Record<string, string> }).env.VITE_SUPABASE_URL
+        : ""
+      : "";
+  if (!projectUrl) return "";
+  // Supabase Functions URL pattern:
+  //   https://<ref>.supabase.co/functions/v1/og-image?event_id=<uuid>
+  const base = projectUrl.replace("/rest/v1", "").replace(/\/$/, "");
+  return `${base}/functions/v1/og-image?event_id=${encodeURIComponent(eventId)}`;
+}
+
+/**
  * Build the canonical bag of OpenGraph / Twitter Card strings for an event.
  *
  * - Strips HTML and clamps description length.
@@ -80,10 +109,18 @@ export function buildOpenGraphTags(input: EventMetaInput): OpenGraphTagValues {
       ? `Join us at ${input.location}.`
       : "An event on CampusConnect.";
 
+  // Issue #1515: prefer the og-image Edge Function URL when an event ID is
+  // available — it generates a rich branded card regardless of whether the
+  // event has a banner. Fall back to the Supabase Storage transform URL when
+  // no ID is present (e.g. server-side renders without Supabase context).
+  const ogImage = input.eventId
+    ? buildOgImageEdgeUrl(input.eventId) || buildOgImageUrl(rawBannerUrl)
+    : buildOgImageUrl(rawBannerUrl);
+
   return {
     ogTitle: `${input.title} | CampusConnect`,
     ogDescription,
-    ogImage: buildOgImageUrl(rawBannerUrl),
+    ogImage,
     ogUrl: input.url ?? "",
     eventStartTime: input.eventDate ?? "",
     rawBannerUrl,

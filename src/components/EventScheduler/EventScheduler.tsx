@@ -1,8 +1,16 @@
-// src/components/EventScheduler/EventScheduler.tsx
 import React, { useState, useCallback, useMemo } from "react";
-import { format, addHours, differenceInHours, isSameDay, startOfWeek, addDays } from "date-fns";
+import format from "date-fns/format";
+import addHours from "date-fns/addHours";
+import differenceInHours from "date-fns/differenceInHours";
+import isSameDay from "date-fns/isSameDay";
+import startOfWeek from "date-fns/startOfWeek";
+import addDays from "date-fns/addDays";
 import { cn } from "../../lib/utils";
-import { Calendar, Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
 import { Button } from "../ui/button";
 
 export interface ScheduledEvent {
@@ -19,11 +27,15 @@ export interface EventSchedulerProps {
   onError?: (error: string) => void;
 }
 
-/**
- * Complex Event Scheduler component.
- * Handles date math, timezone rendering, and drag-and-drop logic.
- * Highly prone to breakage during refactors, hence the need for Cypress CT.
- */
+interface PendingMove {
+  eventId: string;
+  eventTitle: string;
+  oldStart: Date;
+  oldEnd: Date;
+  newStart: Date;
+  newEnd: Date;
+}
+
 export const EventScheduler: React.FC<EventSchedulerProps> = ({
   initialEvents,
   onSave,
@@ -32,6 +44,7 @@ export const EventScheduler: React.FC<EventSchedulerProps> = ({
   const [events, setEvents] = useState<ScheduledEvent[]>(initialEvents);
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [draggedEventId, setDraggedEventId] = useState<string | null>(null);
+  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
 
   const weekStart = useMemo(() => startOfWeek(currentDate, { weekStartsOn: 1 }), [currentDate]);
   const weekDays = useMemo(
@@ -55,34 +68,64 @@ export const EventScheduler: React.FC<EventSchedulerProps> = ({
       e.preventDefault();
       if (!draggedEventId) return;
 
-      setEvents((prev) => {
-        const updated = prev.map((evt) => {
-          if (evt.id === draggedEventId) {
-            const duration = differenceInHours(evt.endTime, evt.startTime);
-            const newStart = new Date(day);
-            newStart.setHours(hour, 0, 0, 0);
-            const newEnd = addHours(newStart, duration);
+      const evt = events.find((item) => item.id === draggedEventId);
+      if (!evt) {
+        setDraggedEventId(null);
+        return;
+      }
 
-            // Edge case: prevent scheduling outside of valid bounds (e.g. past events)
-            if (newStart < new Date() && !evt.startTime) {
-              onError?.("Cannot schedule events in the past");
-              return evt;
-            }
+      const duration = differenceInHours(evt.endTime, evt.startTime);
+      const newStart = new Date(day);
+      newStart.setHours(hour, 0, 0, 0);
+      const newEnd = addHours(newStart, duration);
 
-            return { ...evt, startTime: newStart, endTime: newEnd };
-          }
-          return evt;
-        });
+      // Past date validation
+      if (newStart < new Date()) {
+        onError?.("Cannot schedule events in the past");
+        setDraggedEventId(null);
+        return;
+      }
 
-        // Fire callback for parent component state sync
-        setTimeout(() => onSave(updated), 0);
-        return updated;
+      // Stage for confirmation modal
+      setPendingMove({
+        eventId: evt.id,
+        eventTitle: evt.title,
+        oldStart: evt.startTime,
+        oldEnd: evt.endTime,
+        newStart,
+        newEnd,
       });
 
       setDraggedEventId(null);
     },
-    [draggedEventId, onSave, onError],
+    [draggedEventId, events, onError],
   );
+
+  const confirmMove = useCallback(() => {
+    if (!pendingMove) return;
+
+    setEvents((prev) => {
+      const updated = prev.map((evt) => {
+        if (evt.id === pendingMove.eventId) {
+          return {
+            ...evt,
+            startTime: pendingMove.newStart,
+            endTime: pendingMove.newEnd,
+          };
+        }
+        return evt;
+      });
+
+      setTimeout(() => onSave(updated), 0);
+      return updated;
+    });
+
+    setPendingMove(null);
+  }, [pendingMove, onSave]);
+
+  const cancelMove = useCallback(() => {
+    setPendingMove(null);
+  }, []);
 
   const navigateWeek = (direction: number) => {
     setCurrentDate((prev) => addDays(prev, direction * 7));
@@ -90,7 +133,7 @@ export const EventScheduler: React.FC<EventSchedulerProps> = ({
 
   return (
     <div
-      className="border rounded-lg overflow-hidden bg-background shadow-sm"
+      className="border rounded-lg overflow-hidden bg-background shadow-sm relative"
       data-testid="event-scheduler"
     >
       <header className="flex items-center justify-between p-4 border-b bg-muted/30">
@@ -185,6 +228,53 @@ export const EventScheduler: React.FC<EventSchedulerProps> = ({
           </div>
         ))}
       </div>
+
+      {/* Reschedule Confirmation Modal */}
+      {pendingMove && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          data-testid="reschedule-modal"
+        >
+          <div className="bg-background rounded-lg p-6 max-w-md w-full shadow-lg border">
+            <div className="flex items-center gap-2 mb-4 text-amber-500">
+              <AlertCircle className="w-5 h-5" />
+              <h3 className="text-lg font-semibold text-foreground">Confirm Event Reschedule</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Are you sure you want to reschedule <strong>{pendingMove.eventTitle}</strong>?
+            </p>
+            <div className="bg-muted p-3 rounded-md text-xs space-y-2 mb-6">
+              <div>
+                <span className="font-medium text-muted-foreground">Previous: </span>
+                <span>
+                  {format(pendingMove.oldStart, "MMM d, HH:mm")} -{" "}
+                  {format(pendingMove.oldEnd, "HH:mm")}
+                </span>
+              </div>
+              <div>
+                <span className="font-medium text-primary">New Time: </span>
+                <span className="font-semibold text-foreground">
+                  {format(pendingMove.newStart, "MMM d, HH:mm")} -{" "}
+                  {format(pendingMove.newEnd, "HH:mm")}
+                </span>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={cancelMove}
+                data-testid="cancel-reschedule"
+              >
+                Cancel
+              </Button>
+              <Button size="sm" onClick={confirmMove} data-testid="confirm-reschedule">
+                Confirm Reschedule
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

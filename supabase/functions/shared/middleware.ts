@@ -178,3 +178,84 @@ export async function limitRate(
     return null;
   }
 }
+
+async function hmacSha256(key: string, message: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(key);
+  const messageData = encoder.encode(message);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+
+  const signature = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
+
+  return Array.from(new Uint8Array(signature))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+export async function validateSignature(req: Request): Promise<Response | null> {
+  const signature = req.headers.get("X-Request-Signature");
+  const timestamp = req.headers.get("X-Request-Timestamp");
+  const nonce = req.headers.get("X-Request-Nonce");
+
+  if (!signature || !timestamp || !nonce) {
+    return new Response(JSON.stringify({ error: "Missing request signature headers" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+    });
+  }
+
+  // 1. Replay attack time-window check (5 minutes)
+  const requestTime = Number(timestamp);
+  if (isNaN(requestTime) || Math.abs(Date.now() - requestTime) > 300000) {
+    return new Response(JSON.stringify({ error: "Request signature expired" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+    });
+  }
+
+  // 2. Replay attack duplicate nonce check in Redis
+  if (redis) {
+    try {
+      const nonceKey = `nonce:${nonce}`;
+      const exists = await redis.get(nonceKey);
+      if (exists) {
+        return new Response(JSON.stringify({ error: "Replay attack detected" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        });
+      }
+      await redis.set(nonceKey, "1", { ex: 300 });
+    } catch (err) {
+      console.error("[SignatureValidator] Redis nonce check error:", err);
+    }
+  }
+
+  // 3. Recalculate HMAC-SHA256 signature
+  const url = new URL(req.url);
+  const path = url.pathname;
+  const method = req.method.toUpperCase();
+  const bodyText = req.body ? await req.clone().text() : "";
+
+  const authHeader = req.headers.get("Authorization");
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : "";
+  const key = token;
+
+  const message = `${method}:${path}:${timestamp}:${nonce}:${bodyText}`;
+  const calculatedSignature = await hmacSha256(key, message);
+
+  if (signature !== calculatedSignature) {
+    return new Response(JSON.stringify({ error: "Invalid request signature" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+    });
+  }
+
+  return null;
+}

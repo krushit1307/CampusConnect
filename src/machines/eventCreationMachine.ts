@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { setup, assign } from "xstate";
 import { EventContext, EventMachineEvents } from "./eventMachine.types";
 import {

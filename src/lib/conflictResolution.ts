@@ -155,6 +155,9 @@ export function mergeObjects(
   const conflicts: FieldConflict[] = [];
 
   for (const key of allKeys) {
+    if (key === "__proto__" || key === "constructor" || key === "prototype") {
+      continue;
+    }
     const fullPath = pathPrefix ? `${pathPrefix}.${key}` : key;
     const baseVal = base[key];
     const localVal = local[key];

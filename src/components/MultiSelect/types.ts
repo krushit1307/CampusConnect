@@ -10,6 +10,7 @@ export interface MultiSelectProps {
   placeholder?: string;
   emptyText?: string;
   disabled?: boolean;
+  allowCustom?: boolean;
 }
 
 export interface MultiSelectContextValue {
@@ -25,4 +26,5 @@ export interface MultiSelectContextValue {
   disabled: boolean;
   placeholder: string;
   emptyText: string;
+  allowCustom: boolean;
 }

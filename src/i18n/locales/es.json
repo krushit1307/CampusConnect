@@ -12,5 +12,188 @@
     "features": "Características",
     "faq": "Preguntas",
     "contact": "Contacto"
+  },
+  "footer": {
+    "tagline": "Cada club. Cada evento. Un sistema operativo brutalmente simple para comunidades estudiantiles.",
+    "license": "Código abierto · Licencia MIT",
+    "navigate": "Navegar",
+    "community": "Comunidad",
+    "copyright": "© {{year}} CampusConnect. Construido por la comunidad.",
+    "privacy": "Política de privacidad",
+    "terms": "Términos de servicio",
+    "version": "ECSoC 2026 · v0.1",
+    "language": "Idioma"
+  },
+  "language_switcher": {
+    "label": "Idioma",
+    "en": "English",
+    "es": "Español",
+    "zh": "中文"
+  },
+  "home": {
+    "marquee": "🎓 Bienvenido a CampusConnect — Clubes, Eventos y Certificados para Comunidades Estudiantiles ✦ Regístrate en próximos eventos ✦ Únete a un club ✦ Obtén certificados ✦",
+    "hero_variant_b": {
+      "eyebrow": "Desbloquea Tu Potencial",
+      "title": "Potencia Tu Vida Universitaria",
+      "subtitle": "Descubre los mejores clubes estudiantiles, asiste a talleres y obtén certificados para construir tu futuro.",
+      "cta_primary": "Únete a CampusConnect",
+      "cta_secondary": "Ver Próximos Eventos"
+    },
+    "hero_variant_a": {
+      "eyebrow": "Plataforma para Comunidades Estudiantiles",
+      "title": "CampusConnect",
+      "subtitle": "Clubes, eventos y certificados. Un sistema operativo de código abierto para comunidades estudiantiles.",
+      "cta_primary": "Comenzar",
+      "cta_secondary": "Explorar Eventos"
+    },
+    "featured_events": {
+      "eyebrow": "Próximos",
+      "title": "Eventos Destacados",
+      "view_all": "Ver todos los eventos"
+    },
+    "features": {
+      "title": "Nuestras Características Destacadas",
+      "subtitle": "Todo lo que necesitas para gestionar clubes y eventos universitarios en una sola plataforma.",
+      "club_management": {
+        "title": "Gestión de Clubes",
+        "desc": "Crea páginas, gestiona listas y organiza tu club sin el caos de las hojas de cálculo."
+      },
+      "event_planning": {
+        "title": "Planificación de Eventos",
+        "desc": "RSVPs, registros, formularios de opinión e informes post-evento en un solo flujo."
+      },
+      "digital_interaction": {
+        "title": "Interacción Digital",
+        "desc": "Registro interactivo, actualizaciones en tiempo real y participación fluida de miembros."
+      },
+      "certificates": {
+        "title": "Certificados y Evidencia",
+        "desc": "Genera automáticamente certificados firmados y perfiles portables para talleres o eventos."
+      }
+    },
+    "about": {
+      "eyebrow": "Sobre la plataforma",
+      "title": "Construido para la forma en que las comunidades estudiantiles realmente funcionan.",
+      "card_01_title": "Clubes primero",
+      "card_01_desc": "Cada club obtiene una página, lista de miembros y calendario de eventos — sin burocracia de Google Docs.",
+      "card_02_title": "Eventos que funcionan",
+      "card_02_desc": "RSVPs, registros, opiniones e informes en un flujo. Nada se pierde en Instagram DMs.",
+      "card_03_title": "Prueba de trabajo",
+      "card_03_desc": "Certificados emitidos automáticamente y perfiles portables para hackathons, talleres y horas de voluntariado."
+    },
+    "stats": {
+      "events_run": "Eventos Realizados",
+      "active_clubs": "Clubes Activos",
+      "members_onboarded": "Miembros Registrados",
+      "open_source": "Código Abierto"
+    },
+    "capabilities": {
+      "eyebrow": "Todo lo que Necesitas",
+      "title": "Crea un club. Publica un evento. Emite certificados.",
+      "subtitle": "CampusConnect unifica las herramientas que los clubes manejan — formularios, hojas de cálculo, chat, carteles, correo — en un solo flujo.",
+      "list_1": "Crea la página de tu club en menos de 60 segundos",
+      "list_2": "Publica eventos con RSVP automático y sincronización de calendario",
+      "list_3": "Registra miembros en la puerta con un escáner QR",
+      "list_4": "Genera automáticamente certificados PDF firmados",
+      "list_5": "Publica actualizaciones en un feed compartido",
+      "list_6": "Exporta datos como CSV cuando quieras",
+      "pain_1_title": "El infierno de la transición",
+      "pain_1_desc": "Cada año, el liderazgo del club rota y la mitad del conocimiento muere en un Notion personal.",
+      "pain_2_title": "Datos bloqueados en DMs",
+      "pain_2_desc": "Asistencia en un grupo de WhatsApp, RSVPs en un formulario, opiniones en ninguna parte. Nunca unificados.",
+      "pain_3_title": "Sin prueba, sin confianza",
+      "pain_3_desc": "Los miembros hacen trabajo real pero no tienen nada verificable para mostrar a los reclutadores."
+    },
+    "testimonial": {
+      "eyebrow": "Por qué los estudiantes aman CampusConnect",
+      "quote": "\"Esta plataforma transformó completamente cómo gestionamos nuestro club de tecnología. Sin más hojas de cálculo dispersas ni actualizaciones perdidas. Todo está en un solo lugar.\"",
+      "attribution": "- Líderes de Clubes Universitarios"
+    },
+    "landscape": {
+      "eyebrow": "El panorama",
+      "title": "Dónde encaja CampusConnect.",
+      "vs_forms_title": "vs. Google Forms + Sheets",
+      "vs_forms_desc": "Excelente para un evento. Se rompe durante un año, entre clubes, entre transiciones.",
+      "vs_discord_title": "vs. Discord / WhatsApp",
+      "vs_discord_desc": "Perfecto para charlar. No está diseñado para ser fuente de verdad de membresía o asistencia.",
+      "vs_eventbrite_title": "vs. Eventbrite / Luma",
+      "vs_eventbrite_desc": "Sólido para el público general. No entiende semestres, clubes ni verificación estudiantil.",
+      "vs_portals_title": "vs. Portales universitarios personalizados",
+      "vs_portals_desc": "Bloqueado en un campus, sin interoperabilidad, sin comunidad de código abierto mejorándolo."
+    },
+    "hosting": {
+      "eyebrow": "Dos formas de gestionar tu club",
+      "title": "Alojado o autoalojado. Las mismas características de cualquier manera.",
+      "cloud_eyebrow": "Recomendado",
+      "cloud_title": "Nube",
+      "cloud_desc": "Alojamiento gestionado, SSO con tu correo universitario, cero DevOps.",
+      "selfhost_eyebrow": "Bifúrcalo",
+      "selfhost_title": "Autoalojado",
+      "selfhost_desc": "Docker Compose up. Posee la base de datos, posee los datos.",
+      "tech_eyebrow": "Bajo el capó",
+      "tech_title": "Tecnología probada.",
+      "tech_layer": "Capa",
+      "tech_choice": "Elección"
+    },
+    "integrations": {
+      "eyebrow": "Integraciones y herramientas",
+      "title": "Se integra con las herramientas que ya usas.",
+      "gcal_title": "Google Calendar",
+      "gcal_desc": "Sincroniza en todas partes. Feed iCal.",
+      "discord_title": "Discord + Slack",
+      "discord_desc": "Publica anuncios automáticamente.",
+      "github_title": "GitHub",
+      "github_desc": "Vincula hackathons a perfiles.",
+      "zapier_title": "Zapier",
+      "zapier_desc": "Cada acción activa un webhook."
+    },
+    "faq": {
+      "eyebrow": "Preguntas Frecuentes",
+      "title": "Respuestas a tus preguntas.",
+      "categories": {
+        "all": "Todas",
+        "general": "General",
+        "clubs": "Clubes",
+        "events": "Eventos",
+        "security": "Seguridad"
+      },
+      "items": {
+        "q1": "¿Qué es CampusConnect?",
+        "a1": "CampusConnect es una plataforma unificada de código abierto diseñada para optimizar la gestión de clubes estudiantiles, planificación de eventos y registros digitales.",
+        "q2": "¿Es CampusConnect gratuito?",
+        "a2": "¡Sí! CampusConnect es 100% de código abierto y gratuito para comunidades estudiantiles. Puedes alojar tu propia instancia o usar la versión en la nube.",
+        "q3": "¿Cómo creo un nuevo club?",
+        "a3": "Los estudiantes registrados pueden solicitar crear un nuevo club desde el Directorio de Clubes. Una vez aprobado por un administrador, puedes personalizar tu página.",
+        "q4": "¿Cómo gestiono los miembros de mi club?",
+        "a4": "Los administradores del club pueden aprobar solicitudes, asignar roles y ver perfiles completos directamente desde la configuración del club.",
+        "q5": "¿Cómo me registro en un evento?",
+        "a5": "Simplemente explora el feed de eventos activos, selecciona el que te interesa y haz clic en el botón 'RSVP'.",
+        "q6": "¿Cómo funciona el sistema de registro en la puerta?",
+        "a6": "Cuando te registras, se genera un ticket personalizado con un código QR. Los organizadores pueden escanear tu código en la puerta con cualquier móvil.",
+        "q7": "¿Están seguros mis datos estudiantiles?",
+        "a7": "Absolutamente. CampusConnect usa autenticación de Supabase y políticas estrictas de Seguridad a Nivel de Fila (RLS) para proteger los datos.",
+        "q8": "¿Quién puede ver mis datos de perfil?",
+        "a8": "Solo los miembros autorizados de tu comunidad estudiantil verificada pueden ver tu perfil. Puedes personalizar tus preferencias en Configuración."
+      }
+    },
+    "cta": {
+      "title": "¿Listo para comenzar?",
+      "subtitle": "Lanza la página de tu club en segundos y empieza a gestionar eventos como un profesional.",
+      "button": "Crea Tu Club Ahora"
+    },
+    "contact": {
+      "eyebrow": "Contacto",
+      "title": "Ponte en contacto con nosotros.",
+      "subtitle": "¿Tienes preguntas sobre CampusConnect? Contacta con nuestro equipo.",
+      "button": "Contactar Soporte"
+    }
+  },
+  "notifications": {
+    "EVENT_INVITE": "{{actor}} te invitó a {{target}}",
+    "EVENT_CANCELLED": "{{target}} ha sido cancelado.",
+    "EVENT_REMINDER": "Recordatorio: {{target}} comenzará pronto.",
+    "NEW_POST": "{{actor}} publicó en {{target}}",
+    "CLUB_INVITE": "{{actor}} te invitó a unirte a {{target}}",
+    "NEW_COMMENT": "{{actor}} comentó en tu publicación."
   }
 }

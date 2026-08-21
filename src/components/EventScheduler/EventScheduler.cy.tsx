@@ -1,7 +1,11 @@
 // src/components/EventScheduler/EventScheduler.cy.tsx
 import React from "react";
 import { EventScheduler, ScheduledEvent } from "./EventScheduler";
-import { addDays, setHours, setMinutes, addHours, format } from "date-fns";
+import addDays from "date-fns/addDays";
+import setHours from "date-fns/setHours";
+import setMinutes from "date-fns/setMinutes";
+import addHours from "date-fns/addHours";
+import format from "date-fns/format";
 
 describe("<EventScheduler />", () => {
   const baseDate = setMinutes(setHours(addDays(new Date(), 1), 10), 0);
@@ -68,7 +72,7 @@ describe("<EventScheduler />", () => {
 
     // Verify the payload contains the updated timestamp
     cy.get("@onSaveSpy").should((spy) => {
-      const calls = (spy as any).getCalls();
+      const calls = (spy as sinon.SinonSpy).getCalls();
       const updatedEvents = calls[0].args[0];
       const movedEvent = updatedEvents.find((e: ScheduledEvent) => e.id === "evt-1");
 
@@ -105,7 +109,7 @@ describe("<EventScheduler />", () => {
     cy.get('[data-testid="event-block-evt-1"]').dragAndDrop(200, 0);
 
     cy.get("@onSaveSpy").should((spy) => {
-      const calls = (spy as any).getCalls();
+      const calls = (spy as sinon.SinonSpy).getCalls();
       const updatedEvents = calls[0].args[0];
       const movedEvent = updatedEvents.find((e: ScheduledEvent) => e.id === "evt-1");
 

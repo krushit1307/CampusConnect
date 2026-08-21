@@ -73,13 +73,10 @@ export const ReportDialog: React.FC<ReportDialogProps> = ({
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Report Content"
-      description="Help us keep CampusConnect safe by reporting inappropriate content."
-      className="neu-border max-w-md rounded-none bg-white p-6"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title="Report Content">
+      <p className="text-xs text-gray-500 font-mono">
+        Help us keep CampusConnect safe by reporting inappropriate content.
+      </p>
       <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-black">
         <div>
           <label className="font-mono text-xs font-bold uppercase block mb-1">

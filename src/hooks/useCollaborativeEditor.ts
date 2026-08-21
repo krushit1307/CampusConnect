@@ -201,6 +201,46 @@ export function useCollaborativeEditor({
     };
   }, [isReady, noteId, currentUser]);
 
+  const lastSnapshotTimeRef = useRef<number>(Date.now());
+
+  // ── Auto-snapshot helper ──
+  const maybeCreateAutoSnapshot = useCallback(
+    async (state: string, text: string) => {
+      const now = Date.now();
+      // Auto-snapshot every 5 minutes if document text exists
+      if (now - lastSnapshotTimeRef.current > 300_000 && text.trim().length > 0) {
+        lastSnapshotTimeRef.current = now;
+        try {
+          const { data: note } = await supabase
+            .from("club_meeting_notes")
+            .select("title")
+            .eq("id", noteId)
+            .single();
+
+          const { count } = await supabase
+            .from("club_meeting_note_versions")
+            .select("id", { count: "exact", head: true })
+            .eq("note_id", noteId);
+
+          const versionNum = (count || 0) + 1;
+
+          await supabase.from("club_meeting_note_versions").insert({
+            note_id: noteId,
+            version_number: versionNum,
+            title: note?.title || "Meeting Note",
+            content_text: text,
+            yjs_state: state,
+            summary: `Auto-snapshot v${versionNum}`,
+            created_by: currentUser.id,
+          });
+        } catch {
+          // Ignore background auto-snapshot error
+        }
+      }
+    },
+    [noteId, currentUser.id],
+  );
+
   // ── Persist to Supabase DB (debounced, 2s) ──
   const persistState = useCallback(async () => {
     onSaveStatus?.("saving");
@@ -213,8 +253,12 @@ export function useCollaborativeEditor({
       .eq("id", noteId);
 
     onSaveStatus?.(error ? "unsaved" : "saved");
-    if (error) console.error("[CollabNotes] Persist error:", error);
-  }, [noteId, onSaveStatus]);
+    if (!error) {
+      void maybeCreateAutoSnapshot(state, text);
+    } else {
+      console.error("[CollabNotes] Persist error:", error);
+    }
+  }, [noteId, onSaveStatus, maybeCreateAutoSnapshot]);
 
   // Schedule autosave whenever the Yjs doc changes
   useEffect(() => {

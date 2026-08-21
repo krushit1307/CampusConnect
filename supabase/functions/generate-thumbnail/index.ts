@@ -8,7 +8,9 @@
 // Issue #1448: [REFACTOR] Move Heavy Image Processing to Supabase Edge Functions
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://esm.sh/zod@3.24.2";
 import { decode, Image } from "https://deno.land/x/imagescript@1.2.17/mod.ts";
+import { parseJsonBody } from "../_shared/validation.ts";
 
 const THUMB_SIZE = 128;
 const THUMB_SUFFIX = "_thumb";
@@ -22,6 +24,19 @@ interface StorageWebhookPayload {
     name: string; // e.g. "<user_id>/<uuid>.jpg"
   };
 }
+
+const storageWebhookSchema = z
+  .object({
+    type: z.string().optional(),
+    table: z.string().optional(),
+    record: z
+      .object({
+        bucket_id: z.string().min(1),
+        name: z.string().min(1),
+      })
+      .strict(),
+  })
+  .strict();
 
 Deno.serve(async (req) => {
   try {
@@ -37,7 +52,9 @@ Deno.serve(async (req) => {
       return new Response("Unauthorized", { status: 401 });
     }
 
-    const payload = (await req.json()) as StorageWebhookPayload;
+    const parsed = await parseJsonBody(storageWebhookSchema, req);
+    if (!parsed.ok) return parsed.response;
+    const payload = parsed.data as StorageWebhookPayload;
     const { bucket_id, name: objectPath } = payload.record ?? {};
 
     if (!bucket_id || !objectPath) {

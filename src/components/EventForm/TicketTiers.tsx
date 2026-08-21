@@ -1,42 +1,43 @@
 // src/components/EventForm/TicketTiers.tsx
 import React from "react";
-import { useFieldArray, UseFormReturn } from "react-hook-form";
+import { useFormContext, useFieldArray } from "react-hook-form";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { EventFormData, TicketTier } from "../../lib/eventFormSchema";
 import { TicketTierItem } from "./TicketTierItem";
 import { Button } from "../ui/button";
 import { useTicketCalculations } from "../../hooks/useTicketCalculations";
-import { PlusCircle, AlertTriangle, DollarSign, Users, Layers } from "lucide-react";
+import PlusCircle from "lucide-react/dist/esm/icons/plus-circle";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import DollarSign from "lucide-react/dist/esm/icons/dollar-sign";
+import Layers from "lucide-react/dist/esm/icons/layers";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { cn } from "../../lib/utils";
 
 interface TicketTiersProps {
-  form: UseFormReturn<EventFormData>;
+  className?: string;
 }
 
 /**
- * Manages the dynamic array of ticket tiers using react-hook-form's `useFieldArray`.
- * Integrates with `@hello-pangea/dnd` to allow drag-and-drop reordering of tiers.
- * Displays real-time financial projections based on the current tier configuration.
+ * Manages the dynamic array of ticket tiers using react-hook-form's `useFieldArray` & `useFormContext`.
+ * Eliminates prop-drilling by retrieving form context directly.
+ * Integrates with `@hello-pangea/dnd` for drag-and-drop reordering.
  */
-export const TicketTiers: React.FC<TicketTiersProps> = ({ form }) => {
+export const TicketTiers: React.FC<TicketTiersProps> = ({ className }) => {
   const {
     control,
-    register,
+    watch,
     formState: { errors },
-    getValues,
-    setValue,
-  } = form;
+  } = useFormContext<EventFormData>();
 
   const { fields, append, remove, move } = useFieldArray({
     control,
     name: "tickets",
   });
 
-  // Watch the current tiers for calculations
-  const currentTiers = getValues("tickets") as TicketTier[];
-  const calculations = useTicketCalculations(currentTiers || []);
+  // Watch current tiers for calculations
+  const ticketsWatch = watch("tickets");
+  const currentTiers: TicketTier[] = Array.isArray(ticketsWatch) ? ticketsWatch : [];
+  const calculations = useTicketCalculations(currentTiers);
 
   const handleAddTier = () => {
     append({
@@ -51,15 +52,13 @@ export const TicketTiers: React.FC<TicketTiersProps> = ({ form }) => {
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
-
-    // Update the RHF internal state order
     move(result.source.index, result.destination.index);
   };
 
   const arrayError = typeof errors.tickets?.message === "string" ? errors.tickets.message : null;
 
   return (
-    <div className="space-y-6">
+    <div className={className || "space-y-6"}>
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -89,9 +88,6 @@ export const TicketTiers: React.FC<TicketTiersProps> = ({ form }) => {
                         <div ref={provided.innerRef} {...provided.draggableProps}>
                           <TicketTierItem
                             index={index}
-                            tier={getValues(`tickets.${index}`)}
-                            register={register}
-                            errors={errors}
                             onRemove={remove}
                             isDragging={snapshot.isDragging}
                             dragHandleProps={provided.dragHandleProps}

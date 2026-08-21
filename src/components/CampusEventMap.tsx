@@ -3,10 +3,14 @@ import { Link } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.heat";
 import { createClient } from "@/lib/supabase/client";
 import { parseCoordinates, formatEventDateRange } from "@/lib/eventUtils";
 import { formatStandardDate } from "@/utils/dateUtils";
-import { MapPin, Calendar, Search, RefreshCw } from "lucide-react";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Search from "lucide-react/dist/esm/icons/search";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
 
 // Campus center default (Delhi campus or customizable)
 const DEFAULT_MAP_CENTER: [number, number] = [28.7041, 77.1025];
@@ -34,6 +38,7 @@ export interface MapEventItem {
   banner_url?: string | null;
   club_name?: string | null;
   clubs?: { name: string } | { name: string }[] | null;
+  rsvp_count?: number;
 }
 
 export interface CampusEventMapProps {
@@ -56,6 +61,38 @@ function RecenterController({ center }: { center: [number, number] }) {
   return null;
 }
 
+function HeatmapLayer({ points }: { points: [number, number, number][] }) {
+  const map = useMap();
+  const layerRef = useRef<L.Layer | null>(null);
+
+  useEffect(() => {
+    // Remove existing layer if any
+    if (layerRef.current) {
+      map.removeLayer(layerRef.current);
+      layerRef.current = null;
+    }
+
+    if (points.length > 0 && (L as any).heatLayer) {
+      layerRef.current = (L as any)
+        .heatLayer(points, {
+          radius: 25,
+          blur: 15,
+          maxZoom: 17,
+        })
+        .addTo(map);
+    }
+
+    return () => {
+      if (layerRef.current) {
+        map.removeLayer(layerRef.current);
+        layerRef.current = null;
+      }
+    };
+  }, [map, points]);
+
+  return null;
+}
+
 export function CampusEventMap({
   initialCenter = DEFAULT_MAP_CENTER,
   initialZoom = 15,
@@ -65,18 +102,31 @@ export function CampusEventMap({
 }: CampusEventMapProps) {
   const supabase = useMemo(() => createClient(), []);
   const [events, setEvents] = useState<MapEventItem[]>(initialEvents || []);
-  const [loading, setLoading] = useState<boolean>(!initialEvents);
+  const [geoJsonFeatures, setGeoJsonFeatures] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [currentCenter, setCurrentCenter] = useState<[number, number]>(initialCenter);
+  const [viewMode, setViewMode] = useState<"pins" | "heatmap">("heatmap");
+  const [selectedHour, setSelectedHour] = useState<number>(new Date().getHours());
 
-  // Fetch upcoming events from Supabase if not provided via props
+  // Fetch upcoming events and GeoJSON heatmap points from Supabase Edge Function
   const fetchUpcomingEvents = useCallback(async () => {
-    if (initialEvents && initialEvents.length > 0) return;
-
+    setLoading(true);
+    setError(null);
     try {
+      // 1. Invoke the Edge Function to get live event heatmap points
+      const { data: heatmapData, error: heatmapError } =
+        await supabase.functions.invoke("live-event-heatmap");
+      if (heatmapError) throw heatmapError;
+
+      if (heatmapData && heatmapData.features) {
+        setGeoJsonFeatures(heatmapData.features);
+      }
+
+      // 2. Fetch standard events list for standard pins view
       const nowIso = new Date().toISOString();
-      const { data, error: fetchError } = await supabase
+      const { data: eventsData, error: fetchError } = await supabase
         .from("events")
         .select(
           `
@@ -90,19 +140,18 @@ export function CampusEventMap({
           end_date,
           event_date,
           banner_url,
-          clubs ( name )
+          clubs ( name ),
+          event_rsvps ( count )
         `,
         )
         .or(`start_date.gte.${nowIso},event_date.gte.${nowIso},start_date.is.null`)
         .order("created_at", { ascending: false })
         .limit(100);
 
-      if (fetchError) {
-        throw new Error(fetchError.message);
-      }
+      if (fetchError) throw fetchError;
 
-      if (data) {
-        const formatted: MapEventItem[] = data.map((item) => ({
+      if (eventsData) {
+        const formatted: MapEventItem[] = eventsData.map((item: any) => ({
           id: item.id,
           title: item.title,
           description: item.description,
@@ -114,6 +163,12 @@ export function CampusEventMap({
           event_date: item.event_date,
           banner_url: item.banner_url,
           club_name: Array.isArray(item.clubs) ? item.clubs[0]?.name : item.clubs?.name,
+          rsvp_count:
+            Array.isArray(item.event_rsvps) && item.event_rsvps.length > 0
+              ? item.event_rsvps[0].count || 0
+              : typeof item.event_rsvps === "object" && item.event_rsvps?.count
+                ? item.event_rsvps.count
+                : 0,
         }));
         setEvents(formatted);
       }
@@ -123,16 +178,16 @@ export function CampusEventMap({
     } finally {
       setLoading(false);
     }
-  }, [initialEvents, supabase]);
+  }, [supabase]);
 
   const hasFetchedRef = useRef(false);
 
   useEffect(() => {
-    if (!initialEvents && !hasFetchedRef.current) {
+    if (!hasFetchedRef.current) {
       hasFetchedRef.current = true;
       fetchUpcomingEvents();
     }
-  }, [initialEvents, fetchUpcomingEvents]);
+  }, [fetchUpcomingEvents]);
 
   // Process events and map each event to valid coordinates
   const mappedEvents = useMemo(() => {
@@ -171,6 +226,28 @@ export function CampusEventMap({
         (event.club_name && event.club_name.toLowerCase().includes(term)),
     );
   }, [mappedEvents, searchTerm]);
+
+  // Filter and map heatmap points dynamically based on the selected hour (Time Slider)
+  const heatPoints = useMemo(() => {
+    // Construct selected target datetime for today at selectedHour
+    const targetTime = new Date();
+    targetTime.setHours(selectedHour, 0, 0, 0);
+
+    return geoJsonFeatures
+      .filter((f) => {
+        const start = new Date(f.properties.start_date);
+        const end = new Date(f.properties.end_date);
+        return start <= targetTime && end >= targetTime;
+      })
+      .map(
+        (f) =>
+          [f.geometry.coordinates[1], f.geometry.coordinates[0], f.properties.intensity] as [
+            number,
+            number,
+            number,
+          ],
+      );
+  }, [geoJsonFeatures, selectedHour]);
 
   // Helper for displaying dates nicely in popup
   const getEventDateText = (event: MapEventItem): string => {
@@ -217,6 +294,13 @@ export function CampusEventMap({
               {filteredEvents.length} {filteredEvents.length === 1 ? "Event" : "Events"} On Map
             </span>
             <button
+              onClick={() => setViewMode((v) => (v === "pins" ? "heatmap" : "pins"))}
+              title="Toggle View Mode"
+              className="flex items-center gap-1 border-2 border-black bg-white px-2.5 py-1 font-mono text-xs font-bold hover:bg-cream active:translate-y-0.5"
+            >
+              {viewMode === "pins" ? "Show Heatmap" : "Show Pins"}
+            </button>
+            <button
               onClick={handleResetView}
               title="Reset Campus View"
               className="flex items-center gap-1 border-2 border-black bg-white px-2.5 py-1 font-mono text-xs font-bold hover:bg-cream active:translate-y-0.5"
@@ -228,12 +312,48 @@ export function CampusEventMap({
         </div>
       )}
 
+      {/* Predictive Time Slider (Visible in Heatmap Mode) */}
+      {viewMode === "heatmap" && (
+        <div className="z-[1000] mb-3 border-2 border-black bg-white p-3.5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+          <div className="flex flex-col gap-2.5">
+            <div className="flex items-center justify-between font-mono text-xs font-bold uppercase">
+              <span>⏰ Dynamic Activity Scrubber (Today)</span>
+              <span className="bg-lime border-2 border-black px-2.5 py-0.5 font-bold shadow-[1px_1px_0_0_#000]">
+                {selectedHour === 0
+                  ? "12:00 AM"
+                  : selectedHour === 12
+                    ? "12:00 PM"
+                    : selectedHour > 12
+                      ? `${selectedHour - 12}:00 PM`
+                      : `${selectedHour}:00 AM`}
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="23"
+              value={selectedHour}
+              onChange={(e) => setSelectedHour(parseInt(e.target.value))}
+              className="w-full accent-black h-2.5 bg-cream border border-black cursor-pointer appearance-none"
+            />
+            <div className="flex justify-between font-mono text-[9px] font-bold text-gray-500">
+              <span>12 AM</span>
+              <span>6 AM</span>
+              <span>12 PM</span>
+              <span>6 PM</span>
+              <span>11 PM</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Map Display Container */}
       <div className="relative min-h-[450px] w-full flex-1 overflow-hidden border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
         <MapContainer
           center={currentCenter}
           zoom={initialZoom}
           scrollWheelZoom={true}
+          preferCanvas={true}
           className="h-full w-full min-h-[450px]"
         >
           <TileLayer
@@ -241,66 +361,68 @@ export function CampusEventMap({
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <RecenterController center={currentCenter} />
+          {viewMode === "heatmap" && <HeatmapLayer points={heatPoints} />}
 
-          {filteredEvents.map((event) => {
-            const clubName = getClubName(event);
-            const dateStr = getEventDateText(event);
+          {viewMode === "pins" &&
+            filteredEvents.map((event) => {
+              const clubName = getClubName(event);
+              const dateStr = getEventDateText(event);
 
-            return (
-              <Marker
-                key={event.id}
-                position={event.coords}
-                icon={markerIcon}
-                eventHandlers={{
-                  click: () => {
-                    setCurrentCenter(event.coords);
-                  },
-                }}
-              >
-                <Popup className="campus-map-popup min-w-[220px]">
-                  <div className="p-1 font-sans" data-testid={`event-popup-${event.id}`}>
-                    {event.banner_url && (
-                      <div className="mb-2 overflow-hidden border border-black">
-                        <img
-                          src={event.banner_url}
-                          alt={event.title}
-                          className="h-24 w-full object-cover"
-                        />
+              return (
+                <Marker
+                  key={event.id}
+                  position={event.coords}
+                  icon={markerIcon}
+                  eventHandlers={{
+                    click: () => {
+                      setCurrentCenter(event.coords);
+                    },
+                  }}
+                >
+                  <Popup className="campus-map-popup min-w-[220px]">
+                    <div className="p-1 font-sans" data-testid={`event-popup-${event.id}`}>
+                      {event.banner_url && (
+                        <div className="mb-2 overflow-hidden border border-black">
+                          <img
+                            src={event.banner_url}
+                            alt={event.title}
+                            className="h-24 w-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <h3 className="mb-1 font-display text-sm font-bold leading-tight text-black">
+                        {event.title}
+                      </h3>
+
+                      {clubName && (
+                        <p className="mb-1 font-mono text-[11px] font-semibold text-gray-700">
+                          Hosted by {clubName}
+                        </p>
+                      )}
+
+                      <div className="mb-1.5 flex items-start gap-1 font-mono text-[11px] text-gray-600">
+                        <Calendar className="mt-0.5 h-3 w-3 shrink-0" />
+                        <span>{dateStr}</span>
                       </div>
-                    )}
-                    <h3 className="mb-1 font-display text-sm font-bold leading-tight text-black">
-                      {event.title}
-                    </h3>
 
-                    {clubName && (
-                      <p className="mb-1 font-mono text-[11px] font-semibold text-gray-700">
-                        Hosted by {clubName}
-                      </p>
-                    )}
+                      {event.location && (
+                        <div className="mb-2.5 flex items-start gap-1 font-mono text-[11px] text-gray-600">
+                          <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-red-500" />
+                          <span className="truncate">{event.location}</span>
+                        </div>
+                      )}
 
-                    <div className="mb-1.5 flex items-start gap-1 font-mono text-[11px] text-gray-600">
-                      <Calendar className="mt-0.5 h-3 w-3 shrink-0" />
-                      <span>{dateStr}</span>
+                      <Link
+                        to={`/events/${event.id}`}
+                        className="neu-border neu-press inline-block w-full text-center bg-peach py-1.5 px-3 font-mono text-xs font-bold uppercase tracking-wider text-black transition-colors hover:bg-yellow-300"
+                      >
+                        View Event Page →
+                      </Link>
                     </div>
-
-                    {event.location && (
-                      <div className="mb-2.5 flex items-start gap-1 font-mono text-[11px] text-gray-600">
-                        <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-red-500" />
-                        <span className="truncate">{event.location}</span>
-                      </div>
-                    )}
-
-                    <Link
-                      to={`/events/${event.id}`}
-                      className="neu-border neu-press inline-block w-full text-center bg-peach py-1.5 px-3 font-mono text-xs font-bold uppercase tracking-wider text-black transition-colors hover:bg-yellow-300"
-                    >
-                      View Event Page →
-                    </Link>
-                  </div>
-                </Popup>
-              </Marker>
-            );
-          })}
+                  </Popup>
+                </Marker>
+              );
+            })}
         </MapContainer>
 
         {/* Loading overlay */}

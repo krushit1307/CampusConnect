@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Modal } from "@/components/ui/modal";
 import { Button, type ButtonProps } from "@/components/ui/button";
 
 interface ConfirmModalProps {
@@ -38,31 +31,18 @@ export function ConfirmModal({
   loading = false,
 }: ConfirmModalProps) {
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(isOpen) => {
-        if (!isOpen) {
-          onCancel();
-        }
-      }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-
-        <DialogFooter className="gap-2">
+    <Modal isOpen={open} onClose={onCancel} title={title}>
+      <div className="flex flex-col space-y-4">
+        <p className="text-sm text-muted-foreground">{description}</p>
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 gap-2">
           <Button variant="outline" onClick={onCancel} disabled={loading}>
             {cancelText}
           </Button>
-
           <Button variant={confirmVariant} onClick={onConfirm} disabled={loading}>
             {loading ? "Please wait..." : confirmText}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
+    </Modal>
   );
 }

@@ -16,9 +16,23 @@ async function runTests() {
   // 2. Authenticated as USER
   // Mock Supabase methods
   supabase.auth.getUser = async (token) => {
-    if (token === "token-user") return { data: { user: { id: "user-123" } }, error: null } as any;
-    if (token === "token-admin") return { data: { user: { id: "admin-123" } }, error: null } as any;
-    return { data: { user: null }, error: null } as any;
+    if (token === "token-user")
+      return { data: { user: { id: "user-123" } }, error: null } as ReturnType<
+        typeof supabase.auth.getUser
+      > extends Promise<infer R>
+        ? R
+        : never;
+    if (token === "token-admin")
+      return { data: { user: { id: "admin-123" } }, error: null } as ReturnType<
+        typeof supabase.auth.getUser
+      > extends Promise<infer R>
+        ? R
+        : never;
+    return { data: { user: null }, error: null } as ReturnType<
+      typeof supabase.auth.getUser
+    > extends Promise<infer R>
+      ? R
+      : never;
   };
 
   // Mock supabase.from
@@ -26,23 +40,12 @@ async function runTests() {
   supabase.from = ((table: string) => {
     if (table === "profiles") {
       return {
-        select: () => ({
-          eq: (field: string, val: string) => ({
-            single: async () => {
-              if (val === "user-123") return { data: { role: "USER" }, error: null };
-              if (val === "admin-123") return { data: { role: "ADMIN" }, error: null };
-              return { data: null, error: null };
-            },
-          }),
-        }),
-        // For the allUsers resolver
         select: (cols: string) => {
           if (cols === "*") {
-            // Mock eq for context parsing, but for the actual query, it returns array
             return Object.assign(
               Promise.resolve({ data: [{ id: "user-123" }, { id: "admin-123" }], error: null }),
               {
-                eq: (field: string, val: string) => ({
+                eq: (_field: string, val: string) => ({
                   single: async () => {
                     if (val === "user-123") return { data: { role: "USER" }, error: null };
                     if (val === "admin-123") return { data: { role: "ADMIN" }, error: null };
@@ -52,11 +55,20 @@ async function runTests() {
               },
             );
           }
+          return {
+            eq: (_field: string, val: string) => ({
+              single: async () => {
+                if (val === "user-123") return { data: { role: "USER" }, error: null };
+                if (val === "admin-123") return { data: { role: "ADMIN" }, error: null };
+                return { data: null, error: null };
+              },
+            }),
+          };
         },
       };
     }
     return originalFrom(table);
-  }) as any;
+  }) as ReturnType<typeof supabase.from>;
 
   res = await yoga.fetch("http://localhost:4000/api/graphql", {
     method: "POST",

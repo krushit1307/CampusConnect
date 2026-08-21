@@ -1,4 +1,4 @@
-// Removed SiteShell import
+import { AnimatePresence, motion } from "framer-motion";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
@@ -9,16 +9,27 @@ import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { toast } from "sonner";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
-import { Search, Loader2, Calendar as CalendarIcon, Download, MapPin } from "lucide-react";
+import Search from "lucide-react/dist/esm/icons/search";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import CalendarIcon from "lucide-react/dist/esm/icons/calendar";
+import Download from "lucide-react/dist/esm/icons/download";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addMonths } from "date-fns";
+import format from "date-fns/format";
+import startOfWeek from "date-fns/startOfWeek";
+import endOfWeek from "date-fns/endOfWeek";
+import startOfMonth from "date-fns/startOfMonth";
+import endOfMonth from "date-fns/endOfMonth";
+import addMonths from "date-fns/addMonths";
 import { matchesDateFilter } from "@/lib/eventUtils";
+import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { getMultiIcsContent } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EventFilters, FilterState } from "@/components/EventFilters";
+import { EmptyState } from "@/components/EmptyState";
 import { ScrollAwareFab } from "@/components/ScrollAwareFab";
 
 import {
@@ -41,14 +52,23 @@ export interface EventItem {
   end_date?: string | null;
   location: string | null;
   banner_url?: string | null;
+  announce_date?: string | null;
   created_at?: string | null;
-  clubs: { name: string } | { name: string }[] | null;
+  clubs:
+    | { name: string; average_lead_time_days?: number | null }
+    | { name: string; average_lead_time_days?: number | null }[]
+    | null;
   event_rsvps: { id: string; user_id: string }[] | null;
   saved_events: { id: string; user_id: string }[] | null;
+  rsvp_count?: number;
+  saved_count?: number;
   max_attendees?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 import EventsCalendar from "@/components/events/EventsCalendar";
+import EventMap from "@/components/events/EventMap";
 import { useParams } from "react-router-dom";
 
 // Helper: Check if two event date ranges overlap
@@ -74,7 +94,7 @@ export default function EventsList() {
   const emailVerified = useEmailVerification();
   const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [filter, setFilter] = useState<string>("All");
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [viewMode, setViewMode] = useState<"list" | "calendar" | "map">("list");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [sortLoaded, setSortLoaded] = useState(false);
   const [hidePastEvents, setHidePastEvents] = useState(false);
@@ -148,7 +168,7 @@ export default function EventsList() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setSearchQuery(searchInput);
+      setSearchQuery(searchInput.trim());
     }, 300);
     return () => clearTimeout(timer);
   }, [searchInput]);
@@ -178,37 +198,82 @@ export default function EventsList() {
       let fetchedCount: number | null = null;
 
       if (searchQuery.trim()) {
-        const { data, error } = await supabase
-          .rpc("search_events_advanced", { query_string: searchQuery })
-          .select(
-            `
-            id, title, description, event_date, start_date, end_date, location, banner_url,
-            clubs (name),
-            event_rsvps (id, user_id),
-            saved_events (id, user_id)
-          `,
-          );
+        const { data, error } = await supabase.functions.invoke("global-search", {
+          body: {
+            query: searchQuery,
+          },
+        });
         if (error) throw error;
         const results = (data || []) as unknown[];
         fetchedData = results;
         fetchedCount = results.length;
       } else {
         const { data, count, error } = await supabase
-          .from("club_analytics_view")
+          .from("events")
           .select(
             `
-            id, title, description, event_date, start_date, end_date, location, banner_url,
-            clubs (name),
-            event_rsvps (id, user_id),
-            saved_events (id, user_id)
+            id, title, description, event_date, start_date, end_date, location, banner_url, created_at, announce_date, max_attendees, latitude, longitude,
+            clubs (name, average_lead_time_days),
+            event_rsvps(count),
+            saved_events(count)
           `,
             { count: "exact" },
           )
+          .neq("status", "archived")
           .order("event_date", { ascending: true })
           .range(0, PAGE_SIZE - 1);
         if (error) throw error;
         fetchedData = data as unknown[];
         fetchedCount = count;
+      }
+
+      if (user && fetchedData && fetchedData.length > 0) {
+        const eventIds = fetchedData.map((e: unknown) => (e as { id: string }).id);
+        const [rsvpRes, savedRes] = await Promise.all([
+          supabase
+            .from("event_rsvps")
+            .select("id, event_id, user_id")
+            .in("event_id", eventIds)
+            .eq("user_id", user.id),
+          supabase
+            .from("saved_events")
+            .select("id, event_id, user_id")
+            .in("event_id", eventIds)
+            .eq("user_id", user.id),
+        ]);
+
+        const userRsvps = rsvpRes.data || [];
+        const userSaved = savedRes.data || [];
+
+        fetchedData = fetchedData.map((e: unknown) => {
+          const typedE = e as EventItem & {
+            event_rsvps?: { count: number }[];
+            saved_events?: { count: number }[];
+          };
+          const myRsvp = userRsvps.find((r: { event_id: string }) => r.event_id === typedE.id);
+          const mySaved = userSaved.find((s: { event_id: string }) => s.event_id === typedE.id);
+          return {
+            ...typedE,
+            rsvp_count: typedE.event_rsvps?.[0]?.count ?? 0,
+            saved_count: typedE.saved_events?.[0]?.count ?? 0,
+            event_rsvps: myRsvp ? [myRsvp] : [],
+            saved_events: mySaved ? [mySaved] : [],
+          };
+        });
+      } else if (fetchedData) {
+        fetchedData = fetchedData.map((e: unknown) => {
+          const typedE = e as EventItem & {
+            event_rsvps?: { count: number }[];
+            saved_events?: { count: number }[];
+          };
+          return {
+            ...typedE,
+            rsvp_count: typedE.event_rsvps?.[0]?.count ?? 0,
+            saved_count: typedE.saved_events?.[0]?.count ?? 0,
+            event_rsvps: [],
+            saved_events: [],
+          };
+        });
       }
 
       if (fetchedCount !== null) {
@@ -270,6 +335,40 @@ export default function EventsList() {
     },
   });
 
+  const { data: trendingEvents, isLoading: isTrendingLoading } = useQuery({
+    queryKey: ["trendingEvents"],
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("trending-events");
+        if (error) throw error;
+
+        const uuids = data?.events || [];
+        if (!uuids || uuids.length === 0) return [];
+
+        const { data: eventsData, error: dbError } = await supabase
+          .from("events")
+          .select(
+            `
+            id, title, description, event_date, start_date, end_date, location, banner_url, created_at, max_attendees, latitude, longitude,
+            clubs (name),
+            event_rsvps(count),
+            saved_events(count)
+          `,
+          )
+          .in("id", uuids);
+
+        if (dbError) throw dbError;
+
+        return (eventsData as unknown as EventItem[]).sort((a, b) => {
+          return uuids.indexOf(a.id) - uuids.indexOf(b.id);
+        });
+      } catch (err) {
+        console.error("Failed to load trending events:", err);
+        return [];
+      }
+    },
+  });
+
   const [events, setEvents] = useState<EventItem[]>([]);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -318,8 +417,8 @@ export default function EventsList() {
       let selectString = `
           id, title, description, event_date, start_date, end_date, location, banner_url, created_at, max_attendees,
           clubs (name),
-          event_rsvps (id, user_id),
-          saved_events (id, user_id)
+          event_rsvps(count),
+          saved_events(count)
       `;
 
       if (filters.categories.length > 0) {
@@ -361,7 +460,57 @@ export default function EventsList() {
         throw error;
       }
 
-      const newEvents = data as unknown as EventItem[];
+      let fetchedData = data as unknown[];
+      if (user && fetchedData && fetchedData.length > 0) {
+        const eventIds = fetchedData.map((e: unknown) => (e as { id: string }).id);
+        const [rsvpRes, savedRes] = await Promise.all([
+          supabase
+            .from("event_rsvps")
+            .select("id, event_id, user_id")
+            .in("event_id", eventIds)
+            .eq("user_id", user.id),
+          supabase
+            .from("saved_events")
+            .select("id, event_id, user_id")
+            .in("event_id", eventIds)
+            .eq("user_id", user.id),
+        ]);
+
+        const userRsvps = rsvpRes.data || [];
+        const userSaved = savedRes.data || [];
+
+        fetchedData = fetchedData.map((e: unknown) => {
+          const typedE = e as EventItem & {
+            event_rsvps?: { count: number }[];
+            saved_events?: { count: number }[];
+          };
+          const myRsvp = userRsvps.find((r: { event_id: string }) => r.event_id === typedE.id);
+          const mySaved = userSaved.find((s: { event_id: string }) => s.event_id === typedE.id);
+          return {
+            ...typedE,
+            rsvp_count: typedE.event_rsvps?.[0]?.count ?? 0,
+            saved_count: typedE.saved_events?.[0]?.count ?? 0,
+            event_rsvps: myRsvp ? [myRsvp] : [],
+            saved_events: mySaved ? [mySaved] : [],
+          };
+        });
+      } else if (fetchedData) {
+        fetchedData = fetchedData.map((e: unknown) => {
+          const typedE = e as EventItem & {
+            event_rsvps?: { count: number }[];
+            saved_events?: { count: number }[];
+          };
+          return {
+            ...typedE,
+            rsvp_count: typedE.event_rsvps?.[0]?.count ?? 0,
+            saved_count: typedE.saved_events?.[0]?.count ?? 0,
+            event_rsvps: [],
+            saved_events: [],
+          };
+        });
+      }
+
+      const newEvents = fetchedData as unknown as EventItem[];
       setEvents((prev) => [...prev, ...newEvents]);
       setPage(nextPage);
 
@@ -373,7 +522,7 @@ export default function EventsList() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [isLoadingMore, hasMore, page, supabase]);
+  }, [isLoadingMore, hasMore, page, supabase, filters, user]);
 
   // Infinite scroll: auto-trigger load when sentinel enters the viewport
   useEffect(() => {
@@ -410,25 +559,6 @@ export default function EventsList() {
       .on("postgres_changes", { event: "*", schema: "public", table: "saved_events" }, () => {
         refetch();
       })
-      .channel("events-update")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "event_rsvps",
-        },
-        () => refetch(),
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "saved_events",
-        },
-        () => refetch(),
-      )
       .subscribe();
     return () => {
       void channel.unsubscribe();
@@ -451,6 +581,8 @@ export default function EventsList() {
         return;
       }
 
+      const idempotencyKey = getRsvpIdempotencyKey(eventId);
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -463,12 +595,14 @@ export default function EventsList() {
         },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
+          "Idempotency-Key": idempotencyKey,
         },
       });
 
       if (error) {
         throw error;
       }
+      clearRsvpIdempotencyKey(eventId);
     },
     onSuccess: async (_data, variables) => {
       toast.success(
@@ -564,11 +698,13 @@ export default function EventsList() {
             return {
               ...e,
               event_rsvps: rsvpsList.filter((r) => r.user_id !== (user?.id || "")),
+              rsvp_count: Math.max(0, (e.rsvp_count ?? 0) - 1),
             };
           } else {
             return {
               ...e,
               event_rsvps: [...rsvpsList, { id: "temp-rsvp-id", user_id: user?.id || "" }],
+              rsvp_count: (e.rsvp_count ?? 0) + 1,
             };
           }
         }
@@ -581,7 +717,6 @@ export default function EventsList() {
 
       // Show confetti only when successfully RSVPing (not when cancelling)
       if (!hasRsvpd) {
-        // @ts-expect-error - canvas-confetti lacks type declarations
         import("canvas-confetti")
           .then((m) => {
             const fireConfetti = m.default || m;
@@ -608,11 +743,13 @@ export default function EventsList() {
             return {
               ...e,
               saved_events: savedList.filter((s) => s.user_id !== (user?.id || "")),
+              saved_count: Math.max(0, (e.saved_count ?? 0) - 1),
             };
           } else {
             return {
               ...e,
               saved_events: [...savedList, { id: "temp-id", user_id: user?.id || "" }],
+              saved_count: (e.saved_count ?? 0) + 1,
             };
           }
         }
@@ -952,13 +1089,21 @@ export default function EventsList() {
                         >
                           Calendar
                         </button>
-                        <Link
-                          to="/events/map"
-                          className="flex items-center gap-1 px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors bg-white text-black hover:bg-cream cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                        <button
+                          type="button"
+                          onClick={() => setViewMode("map")}
+                          aria-pressed={viewMode === "map"}
+                          className={`flex items-center gap-1 px-3 py-1.5 font-mono text-xs font-bold uppercase transition-colors cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black ${
+                            viewMode === "map"
+                              ? "bg-black text-cream"
+                              : "bg-white text-black hover:bg-cream"
+                          }`}
                         >
-                          <MapPin className="h-3.5 w-3.5 text-red-500" />
+                          <MapPin
+                            className={`h-3.5 w-3.5 ${viewMode === "map" ? "text-red-400" : "text-red-500"}`}
+                          />
                           Map
-                        </Link>
+                        </button>
                       </div>
 
                       <button
@@ -987,80 +1132,153 @@ export default function EventsList() {
                   </div>
                 </div>
               </section>
-              <section className="bg-cream px-4 py-12 md:px-6">
-                {viewMode === "list" ? (
+              <section
+                className={`bg-cream px-4 py-12 md:px-6 ${viewMode === "map" ? "h-[80vh] min-h-[600px] flex flex-col" : ""}`}
+              >
+                {viewMode === "map" ? (
+                  <EventMap events={filteredEvents} />
+                ) : viewMode === "list" ? (
                   <>
-                    <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
-                      {isLoading ? (
-                        Array.from({ length: 6 }).map((_, i) => (
-                          <EventCardSkeleton key={i} index={i} />
-                        ))
-                      ) : sortedEvents.length === 0 && filter !== "All" ? (
-                        <div className="col-span-full mx-auto max-w-md text-center neu-border bg-white p-8 animate-in fade-in-0 zoom-in-95 duration-300">
-                          <CalendarIcon
-                            className="mx-auto h-10 w-10 text-neutral-500"
-                            aria-hidden="true"
-                          />
-                          <h3 className="mt-3 font-mono text-lg font-bold uppercase">
-                            No {filter} events found.
-                          </h3>
-                          <p className="mt-1 font-mono text-xs text-neutral-600">
-                            Try a different category, or clear the filter to see everything.
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setFilter("All");
-                              setDateFilterType("all");
-                              setSpecificDate(undefined);
-                            }}
-                            className="mt-4 neu-border bg-yellow px-5 py-2 font-mono text-xs font-bold uppercase transition-all hover:bg-black hover:text-white cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
-                          >
-                            Clear filter
-                          </button>
+                    {(isTrendingLoading || (trendingEvents && trendingEvents.length > 0)) &&
+                      filter === "All" &&
+                      !searchQuery && (
+                        <div className="mx-auto max-w-7xl mb-12">
+                          <div className="flex items-center gap-2 mb-6">
+                            <h2 className="text-2xl font-bold font-display">Trending Now</h2>
+                            <span className="text-xl">🔥</span>
+                          </div>
+                          <div className="flex gap-4 overflow-x-auto pb-4 snap-x hide-scrollbar">
+                            {isTrendingLoading
+                              ? Array.from({ length: 4 }).map((_, i) => (
+                                  <div
+                                    key={`trending-skel-${i}`}
+                                    className="min-w-[300px] md:min-w-[350px] snap-start"
+                                  >
+                                    <EventCardSkeleton index={i} />
+                                  </div>
+                                ))
+                              : trendingEvents?.map((e, index) => (
+                                  <div
+                                    key={`trending-${e.id}`}
+                                    className="min-w-[300px] md:min-w-[350px] snap-start"
+                                  >
+                                    <EventCard
+                                      event={e}
+                                      index={index}
+                                      user={user}
+                                      active={e.id === eventId}
+                                      onRsvpToggle={handleRsvpToggle}
+                                      isRsvpPending={toggleRsvp.isPending}
+                                      onBookmarkToggle={handleBookmarkToggle}
+                                      isBookmarkPending={toggleBookmark.isPending}
+                                    />
+                                  </div>
+                                ))}
+                          </div>
                         </div>
-                      ) : sortedEvents.length === 0 ? (
-                        <div className="col-span-full mx-auto max-w-md text-center neu-border bg-white p-8">
-                          <p className="text-3xl">🔍</p>
-                          <h3 className="mt-2 font-mono text-lg font-bold uppercase">
-                            No Events Found
-                          </h3>
-                          <p className="mt-1 font-mono text-xs text-neutral-600">
-                            No events matched &quot;{searchQuery}&quot;. Try clearing your filters
-                            or searching for another term.
-                          </p>
-                          <button
-                            onClick={() => {
-                              setFilter("All");
-                              setSearchInput("");
-                              setSearchQuery("");
-                              setDateFilterType("all");
-                              setSpecificDate(undefined);
-                            }}
-                            className="mt-4 neu-border bg-yellow px-5 py-2 font-mono text-xs font-bold uppercase transition-all hover:bg-black hover:text-white cursor-pointer"
-                          >
-                            Reset Filters
-                          </button>
-                        </div>
-                      ) : (
-                        sortedEvents.map((e, index) => (
-                          <EventCard
-                            key={e.id}
-                            event={e}
-                            index={index}
-                            user={user}
-                            active={e.id === eventId}
-                            onRsvpToggle={(eventId, hasRsvpd) =>
-                              handleRsvpToggle(eventId, hasRsvpd)
-                            }
-                            isRsvpPending={toggleRsvp.isPending}
-                            onBookmarkToggle={(eventId, isSaved) =>
-                              handleBookmarkToggle(eventId, isSaved)
-                            }
-                            isBookmarkPending={toggleBookmark.isPending}
-                          />
-                        ))
                       )}
+
+                    <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3">
+                      <AnimatePresence mode="sync">
+                        {isLoading ? (
+                          <motion.div
+                            key="events-loading-skeletons"
+                            layout
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.25, ease: "easeInOut" }}
+                            className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
+                          >
+                            {Array.from({ length: 6 }).map((_, i) => (
+                              <EventCardSkeleton key={`events-skeleton-${i}`} index={i} />
+                            ))}
+                          </motion.div>
+                        ) : sortedEvents.length === 0 && filter !== "All" ? (
+                          <motion.div
+                            key="events-empty-filter"
+                            layout
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.25, ease: "easeInOut" }}
+                            className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
+                          >
+                            <div className="col-span-full mx-auto w-full max-w-md animate-in fade-in-0 zoom-in-95 duration-300">
+                              <EmptyState
+                                illustrationType="no-events"
+                                title={`No ${filter} events found`}
+                                description="Try a different category, or clear the filter to see everything."
+                                action={{
+                                  label: "Clear filter",
+                                  onClick: () => {
+                                    setFilter("All");
+                                    setDateFilterType("all");
+                                    setSpecificDate(undefined);
+                                  },
+                                }}
+                              />
+                            </div>
+                          </motion.div>
+                        ) : sortedEvents.length === 0 ? (
+                          <motion.div
+                            key="events-empty-results"
+                            layout
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.25, ease: "easeInOut" }}
+                            className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
+                          >
+                            <div className="col-span-full mx-auto max-w-md text-center neu-border bg-white p-8">
+                              <EmptyState
+                                illustrationType="no-results"
+                                title="No events found"
+                                description={`No events matched “${searchQuery}”. Try clearing your filters or searching for another term.`}
+                                action={{
+                                  label: "Reset filters",
+                                  onClick: () => {
+                                    setFilter("All");
+                                    setSearchInput("");
+                                    setSearchQuery("");
+                                    setDateFilterType("all");
+                                    setSpecificDate(undefined);
+                                  },
+                                }}
+                              />
+                            </div>
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="events-loaded-grid"
+                            layout
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.25, ease: "easeInOut" }}
+                            className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:grid-cols-3"
+                          >
+                            {sortedEvents.map((e, index) => (
+                              <motion.div key={e.id} layout>
+                                <EventCard
+                                  event={e}
+                                  index={index}
+                                  user={user}
+                                  active={e.id === eventId}
+                                  onRsvpToggle={(eventId, hasRsvpd) =>
+                                    handleRsvpToggle(eventId, hasRsvpd)
+                                  }
+                                  isRsvpPending={toggleRsvp.isPending}
+                                  onBookmarkToggle={(eventId, isSaved) =>
+                                    handleBookmarkToggle(eventId, isSaved)
+                                  }
+                                  isBookmarkPending={toggleBookmark.isPending}
+                                />
+                              </motion.div>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
 
                     {isLoadingMore && (

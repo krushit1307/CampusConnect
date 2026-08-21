@@ -7,6 +7,15 @@ CREATE TYPE member_role AS ENUM ('member', 'admin');
 CREATE TYPE join_status AS ENUM ('pending', 'approved');
 CREATE TYPE club_visibility AS ENUM ('public', 'private');
 
+-- 1.5 Create utility functions
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS trigger AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- 2. Create tables
 CREATE TABLE profiles (
   id UUID REFERENCES auth.users(id) PRIMARY KEY,
@@ -17,24 +26,45 @@ CREATE TABLE profiles (
   bio TEXT,
   skills TEXT[] DEFAULT '{}'::TEXT[],
   role user_role DEFAULT 'student'::user_role,
-  notification_preferences JSONB NOT NULL DEFAULT '{"rsvps": true, "digest": true, "certs": true}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-ALTER TABLE profiles
-ADD CONSTRAINT profiles_notification_preferences_valid
-CHECK (
-  jsonb_typeof(notification_preferences) = 'object'
-  AND notification_preferences ? 'rsvps'
-  AND notification_preferences ? 'digest'
-  AND notification_preferences ? 'certs'
-  AND jsonb_typeof(notification_preferences->'rsvps') = 'boolean'
-  AND jsonb_typeof(notification_preferences->'digest') = 'boolean'
-  AND jsonb_typeof(notification_preferences->'certs') = 'boolean'
+CREATE INDEX IF NOT EXISTS idx_profiles_skills ON public.profiles USING gin (skills);
+
+CREATE TABLE user_preferences (
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE PRIMARY KEY,
+  email_alerts BOOLEAN NOT NULL DEFAULT true,
+  push_notifications BOOLEAN NOT NULL DEFAULT true,
+  digest BOOLEAN NOT NULL DEFAULT true,
+  dark_mode_default BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_profiles_skills ON public.profiles USING gin (skills);
+ALTER TABLE public.user_preferences ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their own preferences." ON public.user_preferences;
+CREATE POLICY "Users can view their own preferences." ON public.user_preferences
+  FOR SELECT TO authenticated
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert their own preferences." ON public.user_preferences;
+CREATE POLICY "Users can insert their own preferences." ON public.user_preferences
+  FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own preferences." ON public.user_preferences;
+CREATE POLICY "Users can update their own preferences." ON public.user_preferences
+  FOR UPDATE TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE TRIGGER set_updated_at_user_preferences
+BEFORE UPDATE ON user_preferences
+FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
+
+ALTER PUBLICATION supabase_realtime ADD TABLE public.user_preferences;
 
 CREATE OR REPLACE FUNCTION public.is_valid_social_links(links jsonb)
 RETURNS boolean
@@ -72,14 +102,17 @@ CREATE TABLE clubs (
 );
 
 CREATE TABLE club_members (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   club_id UUID REFERENCES clubs(id) ON DELETE CASCADE,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  role member_role DEFAULT 'member'::member_role,
+  role_id UUID REFERENCES club_roles(id, club_id) ON DELETE RESTRICT NOT NULL,
   status join_status DEFAULT 'pending'::join_status,
   joined_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(club_id, user_id)
+  PRIMARY KEY (club_id, user_id)
 );
+
+CREATE INDEX idx_club_members_club_id ON club_members(club_id);
+CREATE INDEX idx_club_members_user_id ON club_members(user_id);
+CREATE INDEX idx_club_members_status ON club_members(status);
 
 CREATE TABLE event_categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -109,7 +142,8 @@ CREATE TABLE events (
   created_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  short_id TEXT UNIQUE
+  short_id TEXT UNIQUE,
+  generates_certificate BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 ALTER TABLE events
@@ -160,6 +194,8 @@ CREATE TABLE event_waitlist (
   UNIQUE(event_id, user_id)
 );
 
+
+
 CREATE TABLE posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   club_id UUID REFERENCES clubs(id) ON DELETE CASCADE,
@@ -172,28 +208,34 @@ CREATE TABLE posts (
   deleted_at TIMESTAMPTZ
 );
 
-CREATE TABLE post_likes (
-  post_id UUID REFERENCES posts(id) ON DELETE CASCADE NOT NULL,
+CREATE TYPE like_entity_type AS ENUM ('event', 'post', 'comment');
+
+CREATE TABLE likes (
+  id UUID DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  entity_type like_entity_type NOT NULL,
+  entity_id UUID NOT NULL,
+  club_id UUID,
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-  UNIQUE(post_id, user_id)
+  PRIMARY KEY (id, club_id),
+  CONSTRAINT likes_user_entity_unique UNIQUE (user_id, entity_type, entity_id, club_id)
 );
 
-CREATE INDEX idx_post_likes_post_id ON post_likes(post_id);
-CREATE INDEX idx_post_likes_user_id ON post_likes(user_id);
+CREATE INDEX idx_likes_user_id ON likes(user_id);
+CREATE INDEX idx_likes_entity ON likes(entity_type, entity_id);
 
-ALTER TABLE post_likes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE likes ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Anyone can read post likes."
-  ON post_likes FOR SELECT
+CREATE POLICY "Anyone can read likes."
+  ON likes FOR SELECT
   USING (true);
 
 CREATE POLICY "Users can insert their own likes."
-  ON post_likes FOR INSERT
+  ON likes FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Users can delete their own likes."
-  ON post_likes FOR DELETE
+  ON likes FOR DELETE
   USING (auth.uid() = user_id);
 
 CREATE TABLE comments (
@@ -218,8 +260,13 @@ CREATE TABLE certificates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID REFERENCES events(id) ON DELETE CASCADE,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  attendee_name TEXT,
+  event_title TEXT,
+  event_date TIMESTAMPTZ,
   certificate_url TEXT NOT NULL,
-  issued_at TIMESTAMPTZ DEFAULT NOW()
+  issued_at TIMESTAMPTZ DEFAULT NOW(),
+  email_sent_at TIMESTAMPTZ,
+  CONSTRAINT unique_event_user_certificate UNIQUE (event_id, user_id)
 );
 
 CREATE TABLE saved_events (
@@ -262,6 +309,7 @@ CREATE TABLE notifications (
   title TEXT NOT NULL,
   message TEXT NOT NULL,
   is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -272,6 +320,22 @@ CREATE TABLE audit_logs (
   target_table TEXT NOT NULL,
   record_id UUID,
   details JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE user_public_keys (
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE PRIMARY KEY,
+  public_key TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE direct_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  sender_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  receiver_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  encrypted_content TEXT NOT NULL,
+  iv TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -288,6 +352,21 @@ CREATE INDEX idx_polls_event_id_active ON polls(event_id) WHERE is_active = TRUE
 CREATE INDEX idx_poll_options_poll_id ON poll_options(poll_id);
 CREATE INDEX idx_poll_votes_poll_id ON poll_votes(poll_id);
 CREATE INDEX idx_poll_votes_poll_id_user_id ON poll_votes(poll_id, user_id);
+CREATE INDEX idx_direct_messages_sender_id ON direct_messages(sender_id);
+CREATE INDEX idx_direct_messages_receiver_id ON direct_messages(receiver_id);
+CREATE INDEX idx_direct_messages_created_at ON direct_messages(created_at);
+
+-------------------------------------------------------------------------------------------------------------
+-- Speeds up filtering/joining posts by the club they belong to
+CREATE INDEX IF NOT EXISTS idx_posts_club_id ON posts(club_id);
+-- Speeds up joining posts to the author's profile data
+CREATE INDEX IF NOT EXISTS idx_posts_author_id ON posts(author_id);
+-- Drastically speeds up ordering the feed chronologically 
+-- The partial index (WHERE deleted_at IS NULL) saves space and speeds up queries that ignore deleted posts
+CREATE INDEX IF NOT EXISTS idx_posts_active_created_at ON posts(created_at DESC) WHERE deleted_at IS NULL;
+-- Speeds up fetching or counting comments for a specific post
+CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id);
+-------------------------------------------------------------------------------------------------------------
 
 -- Helper function: check if user is system admin
 CREATE OR REPLACE FUNCTION public.is_system_admin()
@@ -388,6 +467,8 @@ ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE polls ENABLE ROW LEVEL SECURITY;
 ALTER TABLE poll_options ENABLE ROW LEVEL SECURITY;
 ALTER TABLE poll_votes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_public_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE direct_messages ENABLE ROW LEVEL SECURITY;
 
 -- event_co_hosts policies
 CREATE POLICY "Co-hosts are viewable by everyone." ON event_co_hosts FOR SELECT USING (true);
@@ -530,6 +611,15 @@ CREATE POLICY "Users can view their own notifications" ON notifications FOR SELE
 CREATE POLICY "Users can update their own notifications" ON notifications FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own notifications" ON notifications FOR DELETE USING (auth.uid() = user_id);
 
+-- user_public_keys: E2EE public keys are readable by all authenticated users; owners can insert/update their own
+CREATE POLICY "Public keys are readable by authenticated users." ON user_public_keys FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Users can insert their own public key." ON user_public_keys FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own public key." ON user_public_keys FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- direct_messages: E2EE ciphertext only visible to sender and receiver; only sender can insert
+CREATE POLICY "Users can view direct messages sent by or to them." ON direct_messages FOR SELECT TO authenticated USING (auth.uid() = sender_id OR auth.uid() = receiver_id);
+CREATE POLICY "Users can send direct messages." ON direct_messages FOR INSERT TO authenticated WITH CHECK (auth.uid() = sender_id);
+
 -- saved_events: users can manage their own saved events/bookmarks
 CREATE POLICY "Users can read own saved events." ON saved_events FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can save events." ON saved_events FOR INSERT WITH CHECK (auth.uid() = user_id);
@@ -564,6 +654,11 @@ CREATE POLICY "Poll creators can delete options." ON poll_options FOR DELETE USI
 CREATE POLICY "Poll votes are viewable by everyone." ON poll_votes FOR SELECT USING (true);
 CREATE POLICY "Users can cast their own vote." ON poll_votes FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can remove their own vote." ON poll_votes FOR DELETE USING (auth.uid() = user_id);
+
+-- saved_events: users can manage their own saved events/bookmarks
+CREATE POLICY "Users can read own saved events." ON saved_events FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can save events." ON saved_events FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can unsave events." ON saved_events FOR DELETE USING (auth.uid() = user_id);
 
 -- saved_events: users can manage their own saved events/bookmarks
 CREATE POLICY "Users can read own saved events." ON saved_events FOR SELECT USING (auth.uid() = user_id);
@@ -793,7 +888,7 @@ BEFORE INSERT ON public.comments
 FOR EACH ROW
 EXECUTE FUNCTION public.check_comment_rate_limit();
 
--- Post like count triggers on post_reactions and post_likes
+-- Post like count triggers on post_reactions and likes
 CREATE OR REPLACE FUNCTION public.update_post_like_count()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -803,12 +898,16 @@ AS $$
 DECLARE
   v_post_id UUID;
 BEGIN
-  v_post_id := COALESCE(NEW.post_id, OLD.post_id);
+  IF TG_TABLE_NAME = 'likes' THEN
+    v_post_id := COALESCE(NEW.entity_id, OLD.entity_id);
+  ELSE
+    v_post_id := COALESCE(NEW.post_id, OLD.post_id);
+  END IF;
 
   UPDATE posts
   SET like_count = (
     (SELECT COUNT(*) FROM post_reactions WHERE post_id = v_post_id) +
-    (SELECT COUNT(*) FROM post_likes WHERE post_id = v_post_id)
+    (SELECT COUNT(*) FROM likes WHERE entity_type = 'post' AND entity_id = v_post_id)
   )
   WHERE id = v_post_id;
 
@@ -826,23 +925,19 @@ AFTER DELETE ON post_reactions
 FOR EACH ROW
 EXECUTE FUNCTION public.update_post_like_count();
 
-CREATE TRIGGER trg_post_likes_insert
-AFTER INSERT ON post_likes
+CREATE TRIGGER trg_likes_insert
+AFTER INSERT ON likes
 FOR EACH ROW
+WHEN (NEW.entity_type = 'post')
 EXECUTE FUNCTION public.update_post_like_count();
 
-CREATE TRIGGER trg_post_likes_delete
-AFTER DELETE ON post_likes
+CREATE TRIGGER trg_likes_delete
+AFTER DELETE ON likes
 FOR EACH ROW
+WHEN (OLD.entity_type = 'post')
 EXECUTE FUNCTION public.update_post_like_count();
 
-CREATE OR REPLACE FUNCTION public.update_updated_at_column()
-RETURNS trigger AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+
 
 CREATE TRIGGER set_updated_at_profiles
 BEFORE UPDATE ON profiles
@@ -1078,6 +1173,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE comments;
 ALTER PUBLICATION supabase_realtime ADD TABLE event_rsvps;
 ALTER PUBLICATION supabase_realtime ADD TABLE saved_events;
 ALTER PUBLICATION supabase_realtime ADD TABLE poll_votes;
+ALTER PUBLICATION supabase_realtime ADD TABLE direct_messages;
 
 -- Backfill any missing profiles for existing authenticated users
 INSERT INTO public.profiles (id, first_name, last_name, avatar_url)
@@ -1311,3 +1407,34 @@ GRANT ALL ON TABLE public.club_audit_logs TO postgres;
 GRANT SELECT ON TABLE public.club_audit_logs TO authenticated;
 
 
+-- Backfill any missing profiles for existing authenticated users
+INSERT INTO public.profiles (id, full_name, avatar_url)
+SELECT id, raw_user_meta_data->>'full_name', raw_user_meta_data->>'avatar_url'
+FROM auth.users
+ON CONFLICT (id) DO NOTHING;
+
+-- Enable pg_trgm extension
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+-- Create GIN indexes for fast trigram prefix matching and typo tolerance
+CREATE INDEX IF NOT EXISTS clubs_name_trgm_idx ON public.clubs USING gin (name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS clubs_description_trgm_idx ON public.clubs USING gin (description gin_trgm_ops);
+
+-- Create the RPC search function
+CREATE OR REPLACE FUNCTION public.search_clubs(search_term TEXT)
+RETURNS SETOF public.clubs
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  -- Set pg_trgm.similarity_threshold to 0.3 as requested
+  PERFORM set_config('pg_trgm.similarity_threshold', '0.3', true);
+  
+  RETURN QUERY
+    SELECT *
+    FROM public.clubs
+    WHERE name % search_term OR description % search_term
+    ORDER BY similarity(name, search_term) DESC;
+END;
+$$;

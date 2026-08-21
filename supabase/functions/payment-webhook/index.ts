@@ -1,54 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+import Stripe from "https://esm.sh/stripe@14.16.0?target=deno";
+import { rateLimiter } from "../shared/rateLimiter.ts";
+import { signTicket } from "../_shared/ticket-crypto.ts";
 
 const stripeSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET") || Deno.env.get("WEBHOOK_SECRET") || "";
 
-/**
- * Verifies Stripe cryptographic HMAC-SHA256 signature using standard Web Crypto APIs
- */
-async function verifyStripeSignature(
-  rawBody: string,
-  signatureHeader: string,
-  secret: string,
-): Promise<boolean> {
-  try {
-    const encoder = new TextEncoder();
-
-    // Parse signature header parts (e.g. t=123,v1=abc)
-    const parts = signatureHeader.split(",");
-    const tPart = parts.find((p) => p.trim().startsWith("t="));
-    const v1Part = parts.find((p) => p.trim().startsWith("v1="));
-
-    if (!tPart || !v1Part) return false;
-
-    const timestamp = tPart.split("=")[1].trim();
-    const signatureHex = v1Part.split("=")[1].trim();
-
-    // The signature payload is the timestamp concatenated with a '.' and the raw body
-    const payload = `${timestamp}.${rawBody}`;
-    const payloadData = encoder.encode(payload);
-    const secretData = encoder.encode(secret);
-
-    // Import raw HMAC key
-    const key = await crypto.subtle.importKey(
-      "raw",
-      secretData,
-      { name: "HMAC", hash: "SHA-256" },
-      false,
-      ["verify"],
-    );
-
-    // Convert hex signature string to raw bytes
-    const sigBytes = new Uint8Array(
-      signatureHex.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16)),
-    );
-
-    // Verify HMAC-SHA256 signature match
-    return await crypto.subtle.verify("HMAC", key, sigBytes, payloadData);
-  } catch (err) {
-    console.error("[Signature Verification Error]:", err);
-    return false;
-  }
-}
+const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
+  httpClient: Stripe.createFetchHttpClient(),
+});
 
 Deno.serve(async (req) => {
   // Handle CORS preflight request
@@ -61,6 +20,9 @@ Deno.serve(async (req) => {
       },
     });
   }
+
+  const limited = await rateLimiter(req, "payment-webhook", 30, 60);
+  if (limited) return limited;
 
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
@@ -79,14 +41,19 @@ Deno.serve(async (req) => {
       return new Response("Server configuration error", { status: 500 });
     }
 
-    // 1. Cryptographically verify webhook signature
-    const isVerified = await verifyStripeSignature(rawBody, signatureHeader, stripeSecret);
-    if (!isVerified) {
-      console.warn("[Security Alert] Cryptographic signature mismatch.");
-      return new Response("Invalid signature payload", { status: 401 });
+    // 1. Cryptographically verify webhook signature using Stripe SDK
+    let stripeEvent;
+    try {
+      stripeEvent = await stripe.webhooks.constructEventAsync(
+        rawBody,
+        signatureHeader,
+        stripeSecret,
+      );
+    } catch (err: any) {
+      console.warn("[Security Alert] Cryptographic signature mismatch:", err.message);
+      return new Response("Invalid signature payload", { status: 400 });
     }
 
-    const stripeEvent = JSON.parse(rawBody);
     const eventId = stripeEvent.id;
 
     if (!eventId) {
@@ -134,24 +101,259 @@ Deno.serve(async (req) => {
     // 5. Check completed status and update event_rsvps table status to 'PAID'
     if (stripeEvent.type === "checkout.session.completed") {
       const session = stripeEvent.data.object;
+
+      // 5a. Crowdfunding campaign donation
+      if (session.metadata?.type === "campaign_donation") {
+        const campaignId = session.metadata?.campaign_id;
+        if (!campaignId) {
+          console.warn("[Webhook Ingestion] Missing metadata campaign_id parameter.");
+          return new Response("Missing campaign_id metadata parameter", { status: 400 });
+        }
+
+        const isAnonymous = session.metadata?.is_anonymous === "true";
+        const amountCents = session.amount_total ?? 0;
+
+        // Insert as 'succeeded' directly — the campaign_donation_delta trigger
+        // increments crowdfunding_campaigns.current_amount_cents automatically.
+        const { error: insertDonationError } = await supabase
+          .from("campaign_donations")
+          .insert({
+            campaign_id: campaignId,
+            donor_id: session.metadata?.donor_id || null,
+            display_name: isAnonymous ? null : session.metadata?.display_name || null,
+            is_anonymous: isAnonymous,
+            amount_cents: amountCents,
+            currency: session.currency ?? "usd",
+            stripe_checkout_session_id: session.id,
+            stripe_payment_intent_id:
+              typeof session.payment_intent === "string" ? session.payment_intent : null,
+            status: "succeeded",
+          });
+
+        if (insertDonationError) {
+          console.error(
+            `[DB Error] Failed to record donation for campaign ${campaignId}:`,
+            insertDonationError,
+          );
+          return new Response("Failed to record campaign donation", { status: 500 });
+        }
+
+        console.log(
+          `[Webhook Ingestion] Recorded $${(amountCents / 100).toFixed(2)} donation to campaign ${campaignId}.`,
+        );
+
+        return new Response(JSON.stringify({ status: "success", eventId }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      // 5b. Event ticket RSVP
       const rsvpId = session.metadata?.rsvp_id;
 
-      if (!rsvpId) {
-        console.warn("[Webhook Ingestion] Missing metadata rsvp_id parameter.");
-        return new Response("Missing rsvp_id metadata parameter", { status: 400 });
+      if (rsvpId) {
+        const { error: updateRsvpError } = await supabase
+          .from("event_rsvps")
+          .update({ status: "PAID" })
+          .eq("id", rsvpId);
+
+        if (updateRsvpError) {
+          console.error(`[DB Error] Failed to update RSVP ${rsvpId} to PAID:`, updateRsvpError);
+          return new Response("Failed to update RSVP status", { status: 500 });
+        }
+        console.log(`[Webhook Ingestion] Successfully set RSVP ${rsvpId} status to PAID.`);
+
+        // Decentralized Ticketing: Sign the ticket
+        try {
+          const { data: rsvpData } = await supabase
+            .from("event_rsvps")
+            .select("ticket_id, event_id, user_id, version")
+            .eq("id", rsvpId)
+            .single();
+
+          if (rsvpData?.user_id && rsvpData?.ticket_id) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("public_key")
+              .eq("id", rsvpData.user_id)
+              .single();
+
+            if (profile?.public_key) {
+              const signature = await signTicket(
+                rsvpData.ticket_id,
+                rsvpData.event_id,
+                profile.public_key,
+                rsvpData.version || 1
+              );
+
+              await supabase
+                .from("event_rsvps")
+                .update({
+                  owner_public_key: profile.public_key,
+                  signature: signature
+                })
+                .eq("id", rsvpId);
+            }
+          }
+        } catch (cryptoErr) {
+          console.error("Failed to sign ticket in webhook:", cryptoErr);
+        }
+      } else if (session.metadata?.tier_id && session.metadata?.event_id && session.metadata?.user_id) {
+        // Dynamic Pricing Tiers (Issue #3293)
+        // Record the purchased ticket tier and price
+        const { error: insertRsvpError } = await supabase
+          .from("event_rsvps")
+          .insert({
+             event_id: session.metadata.event_id,
+             user_id: session.metadata.user_id,
+             status: "PAID",
+             ticket_tier_id: session.metadata.tier_id,
+             paid_amount_cents: session.amount_total ?? 0,
+             payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
+          });
+
+        if (insertRsvpError) {
+          console.error(`[DB Error] Failed to insert RSVP for dynamic tier:`, insertRsvpError);
+          return new Response("Failed to insert RSVP", { status: 500 });
+        }
+        console.log(`[Webhook Ingestion] Successfully recorded RSVP for tier ${session.metadata.tier_id}.`);
+
+        // Decentralized Ticketing: Sign the new ticket
+        try {
+          // Get the inserted row to get the ticket_id
+          const { data: rsvpData } = await supabase
+            .from("event_rsvps")
+            .select("id, ticket_id, version")
+            .match({ event_id: session.metadata.event_id, user_id: session.metadata.user_id })
+            .single();
+
+          if (rsvpData?.ticket_id) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("public_key")
+              .eq("id", session.metadata.user_id)
+              .single();
+
+            if (profile?.public_key) {
+              const signature = await signTicket(
+                rsvpData.ticket_id,
+                session.metadata.event_id,
+                profile.public_key,
+                rsvpData.version || 1
+              );
+
+              await supabase
+                .from("event_rsvps")
+                .update({
+                  owner_public_key: profile.public_key,
+                  signature: signature
+                })
+                .eq("id", rsvpData.id);
+            }
+          }
+        } catch (cryptoErr) {
+          console.error("Failed to sign dynamically priced ticket in webhook:", cryptoErr);
+        }
+      } else {
+        console.warn("[Webhook Ingestion] Missing rsvp_id or tier_id metadata parameter.");
+        return new Response("Missing rsvp_id or tier_id metadata parameter", { status: 400 });
       }
 
-      const { error: updateRsvpError } = await supabase
-        .from("event_rsvps")
-        .update({ status: "PAID" })
-        .eq("id", rsvpId);
+      // 6. Handle Micro-Donation splitting (Issue #2876)
+      if (
+        session.metadata?.include_charity_donation === "true" ||
+        session.metadata?.include_charity_donation === true
+      ) {
+        console.log(
+          `[Webhook Ingestion] Detected Charity Donation. Fetching line items for Session ${session.id}...`,
+        );
 
-      if (updateRsvpError) {
-        console.error(`[DB Error] Failed to update RSVP ${rsvpId} to PAID:`, updateRsvpError);
-        return new Response("Failed to update RSVP status", { status: 500 });
+        try {
+          const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
+          const charityItem = lineItems.data.find(
+            (item: any) =>
+              item.description?.toLowerCase().includes("charity") ||
+              item.price?.product_data?.name?.toLowerCase().includes("charity"),
+          );
+
+          if (charityItem) {
+            const donationAmount = charityItem.amount_total;
+            const { error: charityError } = await supabase.from("charity_ledger").insert({
+              user_id: session.metadata.user_id || null, // Assuming you passed user_id in metadata
+              event_id: session.metadata.event_id || null, // Assuming you passed event_id in metadata
+              stripe_session_id: session.id,
+              donation_amount_cents: donationAmount,
+            });
+
+            if (charityError) {
+              console.error("[DB Error] Failed to insert into charity_ledger:", charityError);
+              // Consider whether to fail the whole webhook or just log it
+            } else {
+              console.log(
+                `[Webhook Ingestion] Successfully recorded $${(donationAmount / 100).toFixed(2)} to charity_ledger.`,
+              );
+            }
+          } else {
+            console.warn(
+              `[Webhook Ingestion] include_charity_donation flag was true, but no Charity line item found for session ${session.id}`,
+            );
+          }
+        } catch (err: any) {
+          console.error(
+            `[Stripe API Error] Failed to fetch line items for session ${session.id}:`,
+            err.message,
+          );
+        }
+      }
+    }
+
+    // 6. Refunds / disputes on a donation charge must decrement current_amount_cents
+    // so the progress bar stays mathematically accurate. We resolve the donation
+    // row by payment_intent_id (present on both charge.refunded and
+    // charge.dispute.created payloads) rather than trusting client-supplied state.
+    if (stripeEvent.type === "charge.refunded" || stripeEvent.type === "charge.dispute.created") {
+      // Both a Stripe Charge (charge.refunded) and a Stripe Dispute
+      // (charge.dispute.created) payload carry a payment_intent field.
+      const eventObject = stripeEvent.data.object as { payment_intent?: string | null };
+      const paymentIntentId = eventObject.payment_intent;
+
+      if (!paymentIntentId) {
+        console.warn("[Webhook Ingestion] Refund/dispute event missing payment_intent.");
+        return new Response(JSON.stringify({ status: "ignored", eventId }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
       }
 
-      console.log(`[Webhook Ingestion] Successfully set RSVP ${rsvpId} status to PAID.`);
+      const newStatus = stripeEvent.type === "charge.dispute.created" ? "disputed" : "refunded";
+
+      const { data: donation, error: findError } = await supabase
+        .from("campaign_donations")
+        .select("id, status")
+        .eq("stripe_payment_intent_id", paymentIntentId)
+        .maybeSingle();
+
+      if (findError) {
+        console.error("[DB Error] Failed to look up donation for refund/dispute:", findError);
+        return new Response("Database lookup error", { status: 500 });
+      }
+
+      if (donation) {
+        const { error: updateDonationError } = await supabase
+          .from("campaign_donations")
+          .update({ status: newStatus, updated_at: new Date().toISOString() })
+          .eq("id", donation.id);
+
+        if (updateDonationError) {
+          console.error(
+            `[DB Error] Failed to mark donation ${donation.id} as ${newStatus}:`,
+            updateDonationError,
+          );
+          return new Response("Failed to update donation status", { status: 500 });
+        }
+
+        console.log(`[Webhook Ingestion] Donation ${donation.id} marked as ${newStatus}.`);
+      }
     }
 
     return new Response(JSON.stringify({ status: "success", eventId }), {

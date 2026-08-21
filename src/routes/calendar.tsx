@@ -1,7 +1,7 @@
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
-import { CalendarDays } from "lucide-react";
+import CalendarDays from "lucide-react/dist/esm/icons/calendar-days";
 import EventsCalendar from "@/components/events/EventsCalendar";
 
 interface EventCategory {

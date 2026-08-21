@@ -1,5 +1,7 @@
 import * as React from "react";
-import { Check, ChevronsUpDown, Search } from "lucide-react";
+import Check from "lucide-react/dist/esm/icons/check";
+import ChevronsUpDown from "lucide-react/dist/esm/icons/chevrons-up-down";
+import Search from "lucide-react/dist/esm/icons/search";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { cn } from "@/lib/utils";
@@ -136,7 +138,7 @@ export function VirtualCombobox({
               ref={inputRef}
               placeholder={searchPlaceholder}
               value={search}
-              onChange={(e: { target: { value: any } }) => setSearch(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
               className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
@@ -153,45 +155,40 @@ export function VirtualCombobox({
                   position: "relative",
                 }}
               >
-                {virtualizer
-                  .getVirtualItems()
-                  .map((virtualItem: { index: string | number; start: any }) => {
-                    const option = filteredOptions[virtualItem.index];
-                    const isActive = activeIndex === virtualItem.index;
-                    const isSelected = value === option.value;
+                {virtualizer.getVirtualItems().map((virtualItem) => {
+                  const option = filteredOptions[virtualItem.index];
+                  const isActive = activeIndex === virtualItem.index;
+                  const isSelected = value === option.value;
 
-                    return (
-                      <div
-                        key={option.value}
-                        ref={virtualizer.measureElement}
-                        data-index={virtualItem.index}
-                        className={cn(
-                          "absolute top-0 left-0 w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
-                          isActive && "bg-accent text-accent-foreground",
-                          !isActive && isSelected && "bg-accent/50 text-accent-foreground",
-                          "flex gap-2",
-                        )}
-                        style={{
-                          transform: `translateY(${virtualItem.start}px)`,
-                        }}
-                        onMouseEnter={() => setActiveIndex(virtualItem.index)}
-                        onClick={() => {
-                          onSelect?.(isSelected ? "" : option.value);
-                          setOpen(false);
-                        }}
-                      >
-                        <Check
-                          className={cn(
-                            "h-4 w-4 shrink-0",
-                            isSelected ? "opacity-100" : "opacity-0",
-                          )}
-                        />
-                        <div className="flex-1 overflow-hidden">
-                          {option.render || <span className="truncate">{option.label}</span>}
-                        </div>
+                  return (
+                    <div
+                      key={option.value}
+                      ref={virtualizer.measureElement}
+                      data-index={virtualItem.index}
+                      className={cn(
+                        "absolute top-0 left-0 w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
+                        isActive && "bg-accent text-accent-foreground",
+                        !isActive && isSelected && "bg-accent/50 text-accent-foreground",
+                        "flex gap-2",
+                      )}
+                      style={{
+                        transform: `translateY(${virtualItem.start}px)`,
+                      }}
+                      onMouseEnter={() => setActiveIndex(virtualItem.index)}
+                      onClick={() => {
+                        onSelect?.(isSelected ? "" : option.value);
+                        setOpen(false);
+                      }}
+                    >
+                      <Check
+                        className={cn("h-4 w-4 shrink-0", isSelected ? "opacity-100" : "opacity-0")}
+                      />
+                      <div className="flex-1 overflow-hidden">
+                        {option.render || <span className="truncate">{option.label}</span>}
                       </div>
-                    );
-                  })}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

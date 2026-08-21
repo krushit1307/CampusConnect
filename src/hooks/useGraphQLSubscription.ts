@@ -52,6 +52,10 @@ export function useGraphQLSubscription<T>(
   // Keep a stable ref to avoid closure issues in the cleanup.
   const abortRef = useRef<AbortController | null>(null);
 
+  const operationKey = operation
+    ? `${operation.query}::${JSON.stringify(operation.variables || {})}`
+    : null;
+
   const subscribe = useCallback(async () => {
     if (!operation || skip) return;
 
@@ -59,8 +63,6 @@ export function useGraphQLSubscription<T>(
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-
-    setState({ data: null, error: null, connected: false });
 
     try {
       const response = await fetch(endpoint, {
@@ -100,10 +102,11 @@ export function useGraphQLSubscription<T>(
         buffer = lines.pop() ?? "";
 
         for (const line of lines) {
-          // SSE data lines start with "data: ".
-          if (!line.startsWith("data: ")) continue;
+          const trimmed = line.trim();
+          // SSE data lines start with "data:".
+          if (!trimmed.startsWith("data:")) continue;
 
-          const jsonStr = line.slice("data: ".length).trim();
+          const jsonStr = trimmed.slice("data:".length).trim();
           if (!jsonStr || jsonStr === "[DONE]") continue;
 
           try {
@@ -114,21 +117,26 @@ export function useGraphQLSubscription<T>(
                 error: new Error(JSON.stringify(parsed.errors)),
               }));
             } else if (parsed.data !== undefined) {
-              setState({ data: parsed.data as T, error: null, connected: true });
+              setState((prev) => ({
+                ...prev,
+                data: parsed.data as T,
+                error: null,
+                connected: true,
+              }));
             }
           } catch {
             // Ignore malformed SSE frames.
           }
         }
       }
-    } catch (err: unknown) {
+    } catch (err) {
       // AbortError is expected when we deliberately tear down the connection.
       if (err instanceof Error && err.name === "AbortError") return;
-      setState({ data: null, error: err as Error, connected: false });
+      setState((prev) => ({ ...prev, error: err as Error, connected: false }));
     } finally {
       setState((prev) => ({ ...prev, connected: false }));
     }
-  }, [operation, endpoint, skip]);
+  }, [operationKey, endpoint, skip]);
 
   useEffect(() => {
     subscribe();

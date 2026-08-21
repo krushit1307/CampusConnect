@@ -1,4 +1,7 @@
-import { ImagePlus, Loader2, Send, X } from "lucide-react";
+import ImagePlus from "lucide-react/dist/esm/icons/image-plus";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Send from "lucide-react/dist/esm/icons/send";
+import X from "lucide-react/dist/esm/icons/x";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";

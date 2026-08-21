@@ -3,7 +3,10 @@ import { Navigate, Link } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { ShieldAlert, RefreshCw, Trash2, ArrowLeft } from "lucide-react";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 
 interface Profile {
@@ -124,7 +127,7 @@ export default function AdminRestorePage() {
       toast.success("Post restored successfully!");
       refetchPosts();
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err.message || "Failed to restore post.");
     },
   });
@@ -142,7 +145,7 @@ export default function AdminRestorePage() {
       toast.success("Comment restored successfully!");
       refetchComments();
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err.message || "Failed to restore comment.");
     },
   });

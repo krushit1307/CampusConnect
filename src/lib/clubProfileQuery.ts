@@ -15,7 +15,7 @@ export function createClubProfileQueryOptions(supabase: SupabaseClient, slug: st
         .select(
           `
           id, name, slug, description, github_repo_url, visibility, promo_video_url,
-          club_members (id, role, status, user_id, profiles (full_name, avatar_url, handle)),
+          club_members (id, role, role_id, status, user_id, club_roles (id, title, permissions_level), profiles (full_name, avatar_url, handle)),
           events (id, title, event_date)
         `,
         )

@@ -1,4 +1,5 @@
-import { ShieldCheck, RefreshCw } from "lucide-react";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
 import { useChatStore } from "@/store/useChatStore";
 
 export default function ChatHeader({ onResetKeys }: { onResetKeys: () => void }) {

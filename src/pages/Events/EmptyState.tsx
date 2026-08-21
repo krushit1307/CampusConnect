@@ -1,5 +1,5 @@
 import React from "react";
-import { Calendar } from "lucide-react";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
 
 export default function EmptyState() {
   return (

@@ -1,12 +1,46 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { createClient } from "@/lib/supabase/client";
 import { SiteShell } from "@/components/site/SiteShell";
 import { getFriendlyAuthError } from "@/utils/authErrors";
+import { MfaVerificationModal } from "@/components/auth/MfaVerificationModal";
 
 export default function AuthLogin() {
   const supabase = createClient();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [isMfaVerifyOpen, setIsMfaVerifyOpen] = useState(false);
+  const [mfaFactorId, setMfaFactorId] = useState("");
+
+  useEffect(() => {
+    checkMfaStatus();
+  }, []);
+
+  const checkMfaStatus = async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      const { data: factorsData } = await supabase.auth.mfa.listFactors();
+      const verifiedTotpFactor = factorsData?.totp?.find((f) => f.status === "verified");
+
+      if (
+        (aalData && aalData.nextLevel === "aal2" && aalData.currentLevel === "aal1") ||
+        verifiedTotpFactor
+      ) {
+        if (verifiedTotpFactor) {
+          setMfaFactorId(verifiedTotpFactor.id);
+          setIsMfaVerifyOpen(true);
+        }
+      }
+    } catch {
+      // Graceful fallback
+    }
+  };
 
   const handleOAuthLogin = async (provider: "google" | "github") => {
     setLoading(true);
@@ -64,6 +98,19 @@ export default function AuthLogin() {
             </button>
           </div>
         </div>
+
+        <MfaVerificationModal
+          isOpen={isMfaVerifyOpen}
+          factorId={mfaFactorId}
+          onSuccess={() => {
+            setIsMfaVerifyOpen(false);
+            navigate("/dashboard", { replace: true });
+          }}
+          onCancel={() => {
+            setIsMfaVerifyOpen(false);
+            void supabase.auth.signOut();
+          }}
+        />
       </div>
     </SiteShell>
   );

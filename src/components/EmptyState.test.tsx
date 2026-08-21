@@ -41,4 +41,17 @@ describe("EmptyState Component", () => {
     expect(link).toBeInTheDocument();
     expect(link).toHaveAttribute("href", "/clubs");
   });
+
+  it("renders a custom action button and messages illustration", () => {
+    render(
+      <EmptyState
+        title="No messages yet"
+        illustrationType="no-messages"
+        actionButton={<button type="button">Start a conversation</button>}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /start a conversation/i })).toBeInTheDocument();
+    expect(screen.getByTestId("empty-state-illustration-no-messages")).toBeInTheDocument();
+  });
 });

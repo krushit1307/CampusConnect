@@ -115,7 +115,7 @@ export const WebhooksSettings: React.FC<WebhooksSettingsProps> = ({ clubId }) =>
         <DialogContent>
           <WebhookForm
             initialData={editingWebhook}
-            onSubmit={handleCreateOrUpdate}
+            onSubmit={handleCreateOrUpdate as any}
             onCancel={() => {
               setIsFormOpen(false);
               setEditingWebhook(undefined);

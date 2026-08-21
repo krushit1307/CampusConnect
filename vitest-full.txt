@@ -1,0 +1,9 @@
+
+ RUN  v4.1.10 c:/Users/lenovo/CampusConnect
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  20:41:46
+   Duration  3.11s (transform 125ms, setup 609ms, import 0ms, tests 0ms, environment 2.10s)
+

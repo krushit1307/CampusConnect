@@ -6,7 +6,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 
-const chartData = [
+const defaultChartData = [
   { month: "January", reports: 45, resolved: 35 },
   { month: "February", reports: 80, resolved: 65 },
   { month: "March", reports: 65, resolved: 50 },
@@ -26,7 +26,15 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-export default function AdminCharts() {
+interface AdminChartsProps {
+  data?: typeof defaultChartData;
+  isAnimationActive?: boolean;
+}
+
+export default function AdminCharts({
+  data = defaultChartData,
+  isAnimationActive = true,
+}: AdminChartsProps) {
   return (
     <div className="neu-border bg-white p-6 rounded-none text-black dark:bg-brand-gray-base-800 dark:border-cream dark:text-cream shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
       <h3 className="font-mono text-sm font-bold uppercase mb-4 tracking-wider">
@@ -34,7 +42,7 @@ export default function AdminCharts() {
       </h3>
       <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
         <AreaChart
-          data={chartData}
+          data={data}
           margin={{
             left: 0,
             right: 12,
@@ -64,6 +72,7 @@ export default function AdminCharts() {
             stroke="var(--sky)"
             strokeWidth={2}
             stackId="a"
+            isAnimationActive={isAnimationActive}
           />
           <Area
             dataKey="reports"
@@ -73,6 +82,7 @@ export default function AdminCharts() {
             stroke="var(--lime)"
             strokeWidth={2}
             stackId="a"
+            isAnimationActive={isAnimationActive}
           />
         </AreaChart>
       </ChartContainer>

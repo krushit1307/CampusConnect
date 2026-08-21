@@ -1,5 +1,6 @@
 import { MapViewType } from "./hooks/useMapView";
-import { MapPin, Flame } from "lucide-react";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Flame from "lucide-react/dist/esm/icons/flame";
 
 interface MapToggleProps {
   view: MapViewType;

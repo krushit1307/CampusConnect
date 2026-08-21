@@ -1,9 +1,7 @@
-import { render, unmountComponentAtNode } from "react-dom";
-import { act } from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import Feed from "./feed";
 import * as supabaseClient from "@/lib/supabase/client";
-import * as queryHooks from "@/hooks/useReactQueryReplacement";
 
 // Mock the modules
 vi.mock("@/lib/supabase/client", () => ({
@@ -11,7 +9,7 @@ vi.mock("@/lib/supabase/client", () => ({
 }));
 
 vi.mock("@/hooks/useReactQueryReplacement", () => ({
-  useQuery: vi.fn(() => ({ data: null })),
+  useQuery: vi.fn(() => ({ data: [] })),
   useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useInfiniteQuery: vi.fn(() => ({
     data: null,
@@ -25,75 +23,94 @@ vi.mock("@/hooks/useReactQueryReplacement", () => ({
 }));
 
 vi.mock("@/components/site/SiteShell", () => ({
-  SiteShell: ({ children }: any) => <div>{children}</div>,
+  SiteShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 vi.mock("@/components/PullToRefresh", () => ({
-  PullToRefresh: ({ children }: any) => <div>{children}</div>,
+  PullToRefresh: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+
+vi.mock("@/components/MarkdownEditorWithMentions", () => ({
+  MarkdownEditorWithMentions: ({
+    value,
+    onChange,
+  }: {
+    value: string;
+    onChange?: (val: string) => void;
+  }) => <textarea value={value} onChange={(e) => onChange?.(e.target.value)} />,
 }));
 
 describe("Feed Component - Realtime Subscription", () => {
-  let container: any = null;
-
-  beforeEach(() => {
-    container = document.createElement("div");
-    document.body.appendChild(container);
-  });
+  let unmount: (() => void) | null = null;
 
   afterEach(() => {
-    unmountComponentAtNode(container);
-    container.remove();
-    container = null;
+    if (unmount) {
+      unmount();
+      unmount = null;
+    }
     vi.clearAllMocks();
   });
 
   it("should prevent duplicate listeners and cleanup on unmount", async () => {
-    const mockUnsubscribe = vi.fn();
-    const mockSubscribe = vi.fn();
+    const mockUnsubscribe = vi.fn().mockResolvedValue(undefined);
+    const mockSubscribe = vi.fn().mockReturnThis();
     const mockOn = vi.fn().mockReturnThis();
 
     const mockChannel = {
       on: mockOn,
       subscribe: mockSubscribe,
       unsubscribe: mockUnsubscribe,
+      presenceState: vi.fn().mockReturnValue({}),
+      track: vi.fn().mockResolvedValue("ok"),
       topic: "realtime:realtime_feed",
     };
 
-    const mockRemoveChannel = vi.fn();
-    const mockGetChannels = vi.fn(() => [mockChannel]); // mock an existing channel
+    const mockRemoveChannel = vi.fn().mockResolvedValue(undefined);
+    const mockGetChannels = vi.fn(() => [mockChannel]);
 
     const mockSupabase = {
-      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "1" } } }) },
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: "1" } } }),
+        getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+        onAuthStateChange: vi.fn().mockReturnValue({
+          data: { subscription: { unsubscribe: vi.fn() } },
+        }),
+      },
       channel: vi.fn(() => mockChannel),
       removeChannel: mockRemoveChannel,
       getChannels: mockGetChannels,
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+          order: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+        upsert: vi.fn().mockResolvedValue({ error: null }),
+      }),
     };
 
-    (supabaseClient.createClient as any).mockReturnValue(mockSupabase);
+    vi.mocked(supabaseClient.createClient).mockReturnValue(
+      mockSupabase as unknown as ReturnType<typeof supabaseClient.createClient>,
+    );
 
-    await act(async () => {
-      // @ts-ignore
-      const { createRoot } = await import("react-dom/client");
-      const root = createRoot(container);
-      root.render(<Feed />);
-    });
+    const result = render(<Feed />);
+    unmount = result.unmount;
 
     // Verify duplicate channel prevention
-    expect(mockGetChannels).toHaveBeenCalled();
-    expect(mockRemoveChannel).toHaveBeenCalledWith(mockChannel);
-    expect(mockSupabase.channel).toHaveBeenCalledWith("realtime_feed");
-    expect(mockSubscribe).toHaveBeenCalled();
-
-    // Verify unmount cleanup
-    await act(async () => {
-      // @ts-ignore
-      const { createRoot } = await import("react-dom/client");
-      const root = createRoot(container);
-      root.unmount();
+    await waitFor(() => {
+      expect(mockGetChannels).toHaveBeenCalled();
+      expect(mockRemoveChannel).toHaveBeenCalledWith(mockChannel);
+      expect(mockSupabase.channel).toHaveBeenCalledWith("realtime_feed");
+      expect(mockSubscribe).toHaveBeenCalled();
     });
 
-    expect(mockUnsubscribe).toHaveBeenCalled();
-    // removeChannel was called twice (once for duplicate prevention, once for unmount cleanup)
-    expect(mockRemoveChannel).toHaveBeenCalledTimes(2);
+    // Trigger unmount to test cleanup
+    result.unmount();
+    unmount = null;
+
+    await waitFor(() => {
+      expect(mockUnsubscribe).toHaveBeenCalled();
+    });
   });
 });

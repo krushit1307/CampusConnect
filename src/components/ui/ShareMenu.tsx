@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { Share2, Copy, Check, MessageCircle, Twitter, Linkedin } from "lucide-react";
+import Share2 from "lucide-react/dist/esm/icons/share-2";
+import Copy from "lucide-react/dist/esm/icons/copy";
+import Check from "lucide-react/dist/esm/icons/check";
+import MessageCircle from "lucide-react/dist/esm/icons/message-circle";
+import Twitter from "lucide-react/dist/esm/icons/twitter";
+import Linkedin from "lucide-react/dist/esm/icons/linkedin";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -15,23 +20,26 @@ interface ShareMenuProps {
   url: string;
   title: string;
   text?: string;
+  eventId?: string;
   children?: React.ReactNode;
 }
 
-export function ShareMenu({ url, title, text, children }: ShareMenuProps) {
+export function ShareMenu({ url, title, text, eventId, children }: ShareMenuProps) {
   const [open, setOpen] = useState(false);
   const webShare = useWebShare();
   const [localCopied, setLocalCopied] = useState(false);
 
-  const encodedUrl = encodeURIComponent(url);
+  // Share the OG-friendly URL when we have an eventId, so links unfurl
+  // correctly (rich preview card) in iMessage, WhatsApp, Discord, and Slack.
+  const shareUrl = eventId
+    ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/event-share?event=${encodeURIComponent(eventId)}`
+    : url;
+  const encodedUrl = encodeURIComponent(shareUrl);
   const shareText = text || `Check out: ${title}`;
-  const encodedShareText = encodeURIComponent(shareText);
-
-  const handleShareClick = async (e: React.MouseEvent) => {
+  const encodedShareText = encodeURIComponent(shareText);  const handleShareClick = async (e: React.MouseEvent) => {
     if (webShare.canShare) {
       e.preventDefault();
-      const result = await webShare.share({ title, text: shareText, url });
-      switch (result.kind) {
+const result = await webShare.share({ title, text: shareText, url: shareUrl });      switch (result.kind) {
         case "success":
           toast.success("Shared successfully!");
           break;
@@ -46,9 +54,8 @@ export function ShareMenu({ url, title, text, children }: ShareMenuProps) {
     }
   };
 
-  const handleCopyLink = async () => {
-    const ok = await webShare.copyToClipboard(url);
-    if (ok) {
+const handleCopyLink = async () => {
+    const ok = await webShare.copyToClipboard(shareUrl);    if (ok) {
       setLocalCopied(true);
       toast.success("Link copied!");
       setTimeout(() => setLocalCopied(false), 2000);

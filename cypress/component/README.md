@@ -22,12 +22,12 @@ inherit the project's Vite config (Tailwind, path aliases, etc.).
 
 ## Layout
 
-| Path | Purpose |
-| --- | --- |
-| `cypress.config.ts` | Both-mode Cypress config (e2e + component) |
-| `cypress/support/component.ts` | Per-spec support file for CT |
-| `cypress/support/component-index.html` | Iframe mount target |
-| `cypress/component/*.cy.tsx` | Component test specs |
+| Path                                   | Purpose                                    |
+| -------------------------------------- | ------------------------------------------ |
+| `cypress.config.ts`                    | Both-mode Cypress config (e2e + component) |
+| `cypress/support/component.ts`         | Per-spec support file for CT               |
+| `cypress/support/component-index.html` | Iframe mount target                        |
+| `cypress/component/*.cy.tsx`           | Component test specs                       |
 
 ## Adding a new CT spec
 
@@ -37,12 +37,12 @@ inherit the project's Vite config (Tailwind, path aliases, etc.).
 
 ## When to use CT vs RTL + Vitest
 
-| Need | Use |
-| --- | --- |
+| Need                                | Use          |
+| ----------------------------------- | ------------ |
 | Logic, props, conditional rendering | Vitest + RTL |
-| Canvas / WebGL / getUserMedia | CT |
-| Real pointer / drag physics | CT |
-| Supabase network interception | e2e |
+| Canvas / WebGL / getUserMedia       | CT           |
+| Real pointer / drag physics         | CT           |
+| Supabase network interception       | e2e          |
 
 ## Why not both?
 

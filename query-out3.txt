@@ -1,2 +1,2 @@
-﻿{"_tag":"Error","error":{"code":"LegacyDbQueryUnexpectedStatusError","message":"unexpected status 400: {\"message\":\"Failed to run sql query: ERROR:  42501: permission denied to set role \\\"supabase_auth_admin\\\"\\n\"}"}}
+{"_tag":"Error","error":{"code":"LegacyDbQueryUnexpectedStatusError","message":"unexpected status 400: {\"message\":\"Failed to run sql query: ERROR:  42501: permission denied to set role \\\"supabase_auth_admin\\\"\\n\"}"}}
 

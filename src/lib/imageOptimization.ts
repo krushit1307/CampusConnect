@@ -3,6 +3,7 @@ export interface ImageTransformOptions {
   height?: number;
   quality?: number;
   resize?: "cover" | "contain" | "fill";
+  format?: "avif" | "webp" | "origin";
 }
 
 const SUPABASE_PUBLIC_OBJECT_SEGMENT = "/storage/v1/object/public/";
@@ -48,15 +49,19 @@ export function getOptimizedImageUrl(source: string, options: ImageTransformOpti
   if (!isSupabasePublicImage(source)) return source;
 
   const parsed = new URL(source);
-  parsed.pathname = parsed.pathname.replace(
-    SUPABASE_PUBLIC_OBJECT_SEGMENT,
-    SUPABASE_RENDER_SEGMENT,
+  // Extract bucket and file path
+  const fileRoute = parsed.pathname.substring(
+    parsed.pathname.indexOf(SUPABASE_PUBLIC_OBJECT_SEGMENT) + SUPABASE_PUBLIC_OBJECT_SEGMENT.length,
   );
 
+  parsed.pathname = "/functions/v1/image";
+  parsed.searchParams.set("file", fileRoute);
+
   if (options.width) parsed.searchParams.set("width", String(options.width));
-  if (options.height) parsed.searchParams.set("height", String(options.height));
-  if (options.quality) parsed.searchParams.set("quality", String(options.quality));
-  if (options.resize) parsed.searchParams.set("resize", options.resize);
+  // The Edge function doesn't currently use these, but we keep them for compatibility
+  // if (options.height) parsed.searchParams.set("height", String(options.height));
+  // if (options.quality) parsed.searchParams.set("quality", String(options.quality));
+  // if (options.resize) parsed.searchParams.set("resize", options.resize);
 
   return parsed.toString();
 }

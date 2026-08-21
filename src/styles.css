@@ -1,10 +1,79 @@
 @import "tailwindcss";
+@config "../tailwind.config.js";
+@plugin "@tailwindcss/typography";
 @import "./styles/disabled-buttons.css";
 @source "../src";
+/* Runtime-selected utility maps must remain available in production builds. */
+@source inline("bg-lime bg-sky bg-lavender bg-peach text-green-700 text-yellow-700 text-red-700 bg-destructive bg-orange-500 bg-green-600 bg-transparent text-destructive text-orange-600");
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 @custom-variant high-contrast (&:is(.high-contrast *));
+
+/* Space Grotesk Custom Font Declarations */
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("/fonts/space-grotesk-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("/fonts/space-grotesk-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Space Mono Custom Font Declarations */
+@font-face {
+  font-family: "Space Mono";
+  src: url("/fonts/space-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Space Mono";
+  src: url("/fonts/space-mono-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Fallback Metric Override font-faces to eliminate Layout Shift (CLS) */
+@font-face {
+  font-family: "Space Grotesk Fallback";
+  src: local("Arial");
+  size-adjust: 102.5%;
+  ascent-override: 95%;
+  descent-override: 23%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Space Mono Fallback";
+  src: local("Courier New");
+  size-adjust: 91.5%;
+  ascent-override: 104%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+}
 
 @theme inline {
   --radius-sm: 0px;
@@ -53,18 +122,18 @@
   --color-lavender: var(--lavender);
   --color-peach: var(--peach);
   --color-ink: var(--ink);
-  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Space Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Space Grotesk", "Space Grotesk Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Space Mono", "Space Mono Fallback", ui-monospace, SFMono-Regular, monospace;
 }
 
 :root {
   --font-size-base: 16px;
   --radius: 0px;
   --cream: #f3f1e4;
-  --lime: #acc412;
-  --sky: #08b3ca;
-  --lavender: #d9cdeb;
-  --peach: #e37c2d;
+  --lime: #6f8000;
+  --sky: #007b8f;
+  --lavender: #8367a7;
+  --peach: #c55913;
   --ink: #000000;
   --background: #f3f1e4;
   --foreground: #000000;
@@ -80,7 +149,7 @@
   --muted-foreground: #333333;
   --accent: #dff25c;
   --accent-foreground: #000000;
-  --destructive: #e53935;
+  --destructive: #d32f2f;
   --destructive-foreground: #ffffff;
   --border: #000000;
   --input: #000000;
@@ -98,8 +167,8 @@
   --sidebar-accent-foreground: #000000;
   --sidebar-border: #000000;
   --sidebar-ring: #000000;
-  --border-thickness: 2px;
-  --border-radius: 0px;
+  --border-thickness: 4px;
+  --border-radius: 8px;
 }
 
 .dark {
@@ -175,6 +244,10 @@
       linear-gradient(135deg, #f8efe2 0%, #eef8fb 48%, #f6e0c5 100%);
     color: var(--color-foreground);
     font-family: var(--font-mono);
+    /* Disable the browser's native pull-to-refresh so the custom Feed
+       PullToRefresh component is the only path that triggers a refetch
+       (issue #1917). */
+    overscroll-behavior-y: none;
   }
 
   h1,
@@ -266,20 +339,37 @@
 
   .college-card {
     background: rgba(255, 255, 255, 0.92);
-    border: 2px solid #123a57;
+    border: var(--border-thickness) solid #123a57;
+    border-radius: var(--border-radius);
     box-shadow: 6px 6px 0 0 #123a57;
     backdrop-filter: blur(6px);
   }
 
   .college-pill {
-    border: 2px solid #123a57;
+    border: var(--border-thickness) solid #123a57;
+    border-radius: var(--border-radius);
     background: rgba(255, 255, 255, 0.92);
     box-shadow: 4px 4px 0 0 #123a57;
   }
 }
 
+/*
+ * Glassmorphism navbar effect, toggled on/off via IntersectionObserver
+ * (see useScrollSentinel + Navbar.tsx) rather than always-on, since
+ * backdrop-filter is expensive to composite on mobile GPUs.
+ *
+ * Safari (desktop + iOS) only recognizes the -webkit- prefixed property.
+ * Without it, Safari silently ignores backdrop-filter and the navbar
+ * renders as a flat, opaque block instead of frosted glass.
+ */
+@utility navbar-glass {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
 @utility neu-border {
-  border: 2px solid #000000;
+  border: var(--border-thickness) solid #000000;
+  border-radius: var(--border-radius);
 }
 
 @utility neu-shadow {
@@ -543,8 +633,8 @@
 }
 
 .rbc-month-view {
-  border: 2px solid #000000 !important;
-  border-radius: 0px !important;
+  border: var(--border-thickness) solid #000000 !important;
+  border-radius: var(--border-radius) !important;
 }
 
 .rbc-day-bg {
@@ -583,8 +673,8 @@
 }
 
 .rbc-event {
-  border: 2px solid #000000 !important;
-  border-radius: 0px !important;
+  border: var(--border-thickness) solid #000000 !important;
+  border-radius: var(--border-radius) !important;
   background-color: var(--peach) !important;
   color: #000000 !important;
   font-family: var(--font-mono) !important;
@@ -613,8 +703,8 @@
 }
 
 .rbc-toolbar button {
-  border: 2px solid #000000 !important;
-  border-radius: 0px !important;
+  border: var(--border-thickness) solid #000000 !important;
+  border-radius: var(--border-radius) !important;
   background-color: #ffffff !important;
   color: #000000 !important;
   font-family: var(--font-mono) !important;
@@ -646,15 +736,52 @@
   transform: none !important;
 }
 /* ============================================================
-   Feed Reaction Spring Micro-Interaction (issue #483)
-   - Plays a bouncy spring scale on like/unlike toggle.
-   - Class is always present on the emoji <span>; replay is
-     triggered by remounting the span via a changing React key
-     (see src/routes/feed.tsx → reactionBursts state).
-   - Respects prefers-reduced-motion (handled globally above).
+   Announcement Marquee — pure CSS keyframe ticker
+   - Animation applied to each child div individually.
+   - translateX(-100%) on a child = scroll exactly one full
+     copy off-screen; the second copy replaces it seamlessly.
+   - No JS timers, no state, no rAF. GPU transform only.
+   - prefers-reduced-motion: animation off, text centered.
    ============================================================ */
 
-@keyframes reaction-spring {
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.marquee-wrapper {
+  display: flex;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.marquee-child {
+  animation: marquee 20s linear infinite;
+  /* Shrink-0 keeps the child at its natural width inside the flex row */
+  flex-shrink: 0;
+  min-width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-child {
+    animation: none;
+    /* Static centered text when motion is reduced */
+    min-width: unset;
+    flex: 1;
+    text-align: center;
+  }
+  /* Hide the second duplicate copy — only one copy needed when static */
+  .marquee-child + .marquee-child {
+    display: none;
+  }
+}
+
+/* ============================================================
+   Feed Reaction Spring Micro-Interaction (issue #483)
   0% {
     transform: scale(1);
   }

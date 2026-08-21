@@ -2,8 +2,11 @@
 import React from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { Button } from "../ui/button";
-import { Calendar, MapPin, Users, ArrowRight } from "lucide-react";
-import { format } from "date-fns";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Users from "lucide-react/dist/esm/icons/users";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
+import { formatDateTimeShort } from "@/lib/dateFormatter";
 import { cn } from "../../lib/utils";
 
 export interface MapEvent {
@@ -77,7 +80,7 @@ export const EventPopover: React.FC<EventPopoverProps> = ({
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="flex items-center gap-2 text-foreground/80">
                 <Calendar className="w-4 h-4 text-primary" />
-                <span>{format(event.date, "MMM d, h:mm a")}</span>
+                <span>{formatDateTimeShort(event.date)}</span>
               </div>
               <div className="flex items-center gap-2 text-foreground/80">
                 <MapPin className="w-4 h-4 text-primary" />

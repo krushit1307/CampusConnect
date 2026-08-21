@@ -2,34 +2,56 @@ import { createClient } from "@/lib/supabase/client";
 
 export interface SearchOptions {
   query: string;
-  limit?: number;
+  categoryFilter?: string | null;
+  dateFilter?: "this_week" | null;
+}
+
+export interface GlobalSearchResult {
+  entity_type: "event" | "club" | "profile";
+  id: string;
+  label: string;
+  description: string;
+  sublabel: string;
+  short_id: string | null;
+  slug: string | null;
+  handle: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
+  club_name: string | null;
+  rank: number;
 }
 
 export const searchService = {
-  async searchEvents({ query, limit = 50 }: SearchOptions) {
+  async searchEvents({ query, categoryFilter = null, dateFilter = null }: SearchOptions) {
     const supabase = createClient();
 
-    if (!query.trim()) {
-      return [];
-    }
-
-    const { data, error } = await supabase
-      .rpc("search_events_advanced", { query_string: query })
-      .select(
-        `
-        id, title, description, event_date, start_date, end_date, location, banner_url, max_attendees, created_at,
-        clubs (name),
-        event_rsvps (id, user_id),
-        saved_events (id, user_id)
-      `,
-      )
-      .limit(limit);
+    const { data, error } = await supabase.rpc("search_events", {
+      query_text: query.trim(),
+      category_filter: categoryFilter,
+      date_filter: dateFilter,
+    });
 
     if (error) {
       console.error("Error searching events:", error);
       throw error;
     }
 
-    return data;
+    return data ?? [];
+  },
+
+  async globalSearch(query: string): Promise<GlobalSearchResult[]> {
+    const supabase = createClient();
+
+    const { data, error } = await supabase.rpc("global_search", {
+      p_query: query.trim(),
+    });
+
+    if (error) {
+      console.error("Error running global search:", error);
+      throw error;
+    }
+
+    return (data as GlobalSearchResult[] | null) ?? [];
   },
 };

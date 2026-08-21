@@ -60,6 +60,13 @@ export function TicketingStep({ wizard }: { wizard: ReturnType<typeof useEventWi
           )}
         </div>
       </div>
+
+      <div className="mt-8 p-4 border-2 border-black bg-blue-50 text-blue-900 shadow-[4px_4px_0_0_#000]">
+        <h3 className="font-display font-bold uppercase mb-2">Want to set up Dynamic Pricing?</h3>
+        <p className="font-mono text-sm text-blue-800">
+          You can configure advanced time-based or capacity-based ticket pricing tiers (e.g., Early Bird, General Admission, Last Minute) from your Event Dashboard <strong>after</strong> this event is created.
+        </p>
+      </div>
     </div>
   );
 }

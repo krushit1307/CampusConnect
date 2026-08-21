@@ -1,18 +1,16 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useOnScreen } from "@/hooks/useOnScreen";
 import { ShaderPipeline, ShaderPreset, AudioData } from "@/lib/webgl/shaderPipeline";
-import {
-  Mic,
-  Upload,
-  Play,
-  Pause,
-  Sliders,
-  Sparkles,
-  Volume2,
-  VolumeX,
-  Maximize2,
-  Minimize2,
-} from "lucide-react";
+import Mic from "lucide-react/dist/esm/icons/mic";
+import Upload from "lucide-react/dist/esm/icons/upload";
+import Play from "lucide-react/dist/esm/icons/play";
+import Pause from "lucide-react/dist/esm/icons/pause";
+import Sliders from "lucide-react/dist/esm/icons/sliders";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Volume2 from "lucide-react/dist/esm/icons/volume-2";
+import VolumeX from "lucide-react/dist/esm/icons/volume-x";
+import Maximize2 from "lucide-react/dist/esm/icons/maximize-2";
+import Minimize2 from "lucide-react/dist/esm/icons/minimize-2";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -319,7 +317,7 @@ export const AudioReactiveBackground: React.FC<AudioReactiveBackgroundProps> = (
     <div
       ref={containerRef}
       className={cn(
-        "relative w-full h-full min-h-[350px] overflow-hidden rounded-xl bg-slate-950 border border-slate-800 shadow-2xl",
+        "relative w-full h-full min-h-[200px] md:min-h-[350px] overflow-hidden rounded-xl bg-slate-950 border border-slate-800 shadow-2xl",
         className,
       )}
     >
@@ -391,7 +389,7 @@ export const AudioReactiveBackground: React.FC<AudioReactiveBackgroundProps> = (
                 <div className="grid grid-cols-3 gap-1.5">
                   <Button
                     size="sm"
-                    variant={sourceType === "demo" ? "default" : "outline"}
+                    variant={sourceType === "demo" ? "primary" : "outline"}
                     onClick={() => handleSourceChange("demo")}
                     className={cn(
                       "text-xs px-2 h-8",
@@ -405,7 +403,7 @@ export const AudioReactiveBackground: React.FC<AudioReactiveBackgroundProps> = (
 
                   <Button
                     size="sm"
-                    variant={sourceType === "microphone" ? "default" : "outline"}
+                    variant={sourceType === "microphone" ? "primary" : "outline"}
                     onClick={() => handleSourceChange("microphone")}
                     className={cn(
                       "text-xs px-2 h-8 gap-1",

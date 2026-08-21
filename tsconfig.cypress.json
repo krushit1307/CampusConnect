@@ -6,9 +6,5 @@
     "isolatedModules": false,
     "noUncheckedSideEffectImports": false
   },
-  "include": [
-    "cypress/**/*.ts",
-    "cypress/**/*.tsx",
-    "cypress.config.ts"
-  ]
+  "include": ["cypress/**/*.ts", "cypress/**/*.tsx", "cypress.config.ts"]
 }
