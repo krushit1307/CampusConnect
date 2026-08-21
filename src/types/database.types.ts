@@ -836,6 +836,10 @@ export type Database = {
           event_date: string | null;
           start_date: string | null;
           end_date: string | null;
+          is_outdoor: boolean;
+          backup_indoor_venue: string | null;
+          location_lat: number | null;
+          location_lon: number | null;
 
           location: any;
           metadata: Json | null;
@@ -892,6 +896,10 @@ export type Database = {
           event_date?: string | null;
           start_date?: string | null;
           end_date?: string | null;
+          is_outdoor?: boolean;
+          backup_indoor_venue?: string | null;
+          location_lat?: number | null;
+          location_lon?: number | null;
 
           location?: any;
           metadata?: Json | null;
@@ -947,6 +955,10 @@ export type Database = {
           event_date?: string | null;
           start_date?: string | null;
           end_date?: string | null;
+          is_outdoor?: boolean;
+          backup_indoor_venue?: string | null;
+          location_lat?: number | null;
+          location_lon?: number | null;
 
           location?: any;
           metadata?: Json | null;
@@ -2709,6 +2721,57 @@ export type Database = {
             columns: ["session_id"];
             isOneToOne: false;
             referencedRelation: "event_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      event_weather_alerts: {
+        Row: {
+          id: string;
+          event_id: string;
+          organizer_id: string;
+          forecast_time: string;
+          condition: string;
+          precipitation_probability: number;
+          temperature_c: number | null;
+          indoor_backup_url: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          organizer_id: string;
+          forecast_time: string;
+          condition: string;
+          precipitation_probability?: number;
+          temperature_c?: number | null;
+          indoor_backup_url: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          organizer_id?: string;
+          forecast_time?: string;
+          condition?: string;
+          precipitation_probability?: number;
+          temperature_c?: number | null;
+          indoor_backup_url?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_weather_alerts_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "event_weather_alerts_organizer_id_fkey";
+            columns: ["organizer_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
