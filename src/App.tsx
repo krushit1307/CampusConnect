@@ -100,7 +100,7 @@ const ClubArticlesRoute = lazy(() => import("./routes/clubs.$slug.articles"));
 const ClubArticleDetailsRoute = lazy(() => import("./routes/clubs.$slug.articles.$articleId"));
 const ClubVaultRoute = lazy(() => import("./routes/clubs.$slug.vault"));
 const ClubHonorariumsRoute = lazy(() => import("./routes/clubs.$slug.honorariums"));
-const ClubYearbookRoute = lazy(() => import("./routes/clubs.$slug.yearbook"));
+const ClubResourcesRoute = lazy(() => import("./routes/clubs.$slug.resources"));const ClubYearbookRoute = lazy(() => import("./routes/clubs.$slug.yearbook"));
 const ScavengerHuntsList = lazy(() => import("./routes/scavenger-hunts"));
 const ScavengerHuntGame = lazy(() => import("./routes/scavenger-hunts.$id"));
 const ExploreShowcase = lazy(() => import("./routes/explore"));
@@ -214,9 +214,9 @@ const router = createBrowserRouter(
             <Route path=":slug/articles/:articleId" element={<ClubArticleDetailsRoute />} />
             <Route path=":slug/vault" element={<ClubVaultRoute />} />
             <Route path=":slug/honorariums" element={<ClubHonorariumsRoute />} />
+            <Route path=":slug/resources" element={<ClubResourcesRoute />} />
             <Route path=":slug/yearbook/2026" element={<ClubYearbookRoute />} />
-            <Route path=":slug/revive" element={<ReviveClubPage />} />
-          </Route>
+            <Route path=":slug/revive" element={<ReviveClubPage />} />          </Route>
           <Route path="/print/charter/:slug" element={<PrintableCharter />} />
           <Route path="/bundles/:bundleId" element={<BundleDetailsRoute />} />
           <Route path="/bundles/:bundleId/checkout" element={<BundleCheckoutRoute />} />
@@ -262,10 +262,10 @@ const router = createBrowserRouter(
               <Route path=":slug/articles/:articleId" element={<ClubArticleDetailsRoute />} />
               <Route path=":slug/vault" element={<ClubVaultRoute />} />
               <Route path=":slug/honorariums" element={<ClubHonorariumsRoute />} />
+              <Route path=":slug/resources" element={<ClubResourcesRoute />} />
               <Route path=":slug/yearbook/2026" element={<ClubYearbookRoute />} />
             </Route>
-            <Route path="/print/charter/:slug" element={<PrintableCharter />} />
-            <Route path="/bundles/:bundleId" element={<BundleDetailsRoute />} />
+            <Route path="/print/charter/:slug" element={<PrintableCharter />} />            <Route path="/bundles/:bundleId" element={<BundleDetailsRoute />} />
             <Route path="/bundles/:bundleId/checkout" element={<BundleCheckoutRoute />} />
             <Route path="/referrals/dashboard" element={<ReferralDashboardRoute />} />
             <Route path="/referrals/leaderboard" element={<ReferralLeaderboardRoute />} />
