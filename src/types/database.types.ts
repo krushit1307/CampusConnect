@@ -29,6 +29,57 @@ export type Database = {
           created_at?: string;
         };
       };
+      constitution_signatures: {
+        Row: {
+          id: string;
+          club_id: string;
+          user_id: string;
+          constitution_version: number;
+          legal_name: string;
+          signed_at: string;
+          ip_address: string;
+          signature_hash: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          club_id: string;
+          user_id: string;
+          constitution_version: number;
+          legal_name: string;
+          signed_at?: string;
+          ip_address: string;
+          signature_hash: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          club_id?: string;
+          user_id?: string;
+          constitution_version?: number;
+          legal_name?: string;
+          signed_at?: string;
+          ip_address?: string;
+          signature_hash?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "constitution_signatures_club_id_fkey";
+            columns: ["club_id"];
+            isOneToOne: false;
+            referencedRelation: "clubs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "constitution_signatures_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       clubs: {
         Row: {
           id: string;
@@ -1508,6 +1559,7 @@ export type Database = {
           status: "pending" | "approved" | "rejected";
           joined_at: string | null;
           removed_at: string | null;
+          constitution_ratification_required: boolean;
           termination_reason:
             | "term_completed"
             | "resigned"
@@ -1526,6 +1578,7 @@ export type Database = {
           status?: "pending" | "approved" | "rejected";
           joined_at?: string | null;
           removed_at?: string | null;
+          constitution_ratification_required?: boolean;
           termination_reason?:
             | "term_completed"
             | "resigned"
@@ -1544,6 +1597,7 @@ export type Database = {
           status?: "pending" | "approved" | "rejected";
           joined_at?: string | null;
           removed_at?: string | null;
+          constitution_ratification_required?: boolean;
           termination_reason?:
             | "term_completed"
             | "resigned"
