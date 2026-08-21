@@ -5,10 +5,9 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
 import { queueRsvpSubmission } from "@/lib/events/offlineRsvpSync";
 import { useOfflineRsvpSync } from "@/hooks/useOfflineRsvpSync";
-import { createClient } from "@/lib/supabase/client";
 import { incrementEventViews } from "@/lib/supabase/events";
 import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
-import { useState, useEffect, lazy, Suspense, useMemo, useRef } from "react";
+import { lazy, Suspense, useMemo, useRef } from "react";
 import { TableOfContents } from "@/components/events/TableOfContents";
 import { NotFound } from "@/components/NotFound";
 import { AttendeeVenueMap } from "@/components/events/AttendeeVenueMap";
@@ -28,7 +27,6 @@ import { calculateHaversineDistance } from "@/lib/scavengerHunt";
 import { Helmet } from "react-helmet-async";
 import { buildOpenGraphTags } from "@/lib/seo/eventMeta";
 const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ default: m.EventMap })));
-import { formatEventDateRange } from "@/lib/utils";
 import { AddToCalendarDropdown } from "@/components/events/AddToCalendarDropdown";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
 import { formatDateLong } from "@/lib/dateFormatter";
@@ -101,7 +99,6 @@ import EventFeedbackForm from "@/components/EventFeedbackForm";
 import EventMetricRatingForm from "@/components/events/EventMetricRatingForm";
 import { EventPhotoGallery } from "@/components/EventPhotoGallery";
 import SafeEventImage from "@/components/SafeEventImage";
-import { EventMap } from "@/components/EventMap";
 import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
 import { TournamentBracket } from "@/components/events/TournamentBracket";
 import {
@@ -134,18 +131,15 @@ import { DynamicEventPoster } from "@/components/events/DynamicEventPoster";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
 import { ActivePoll } from "@/components/polls/ActivePoll";
-import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
 import { CaptchaWidget } from "@/components/CaptchaWidget";
 import { Blurhash } from "react-blurhash";
 import { isValidBlurhash, DEFAULT_FALLBACK_BLURHASH } from "@/lib/blurhashUtils";
 import { EventDescriptionTranslation } from "@/components/events/EventDescriptionTranslation";
- feat/3293-dynamic-ticket-pricing
 import { TicketPricingTimeline } from "@/components/events/TicketPricingTimeline";
 
 import { LiveNowBadge } from "@/components/events/LiveNowBadge";
 import { isEventLive } from "@/lib/utils";
 import { LiveGPSBusTracker } from "@/components/events/LiveGPSBusTracker";
- main
 
 /**
  * Hero banner for the event detail page.
@@ -838,7 +832,7 @@ export default function EventDetailsPage() {
   // We store the canonical event UUID (event.id) rather than a boolean so that:
   // - Short-id URLs resolve to their UUID before incrementing (avoids wrong PK)
   // - Navigating between events while the component stays mounted still
-  //   increments each new event exactly once
+  //  increments each new event exactly once
   const viewIncrementedRef = useRef<string | null>(null);
   useEffect(() => {
     // Wait until the query has resolved and we have the canonical UUID
@@ -1136,7 +1130,6 @@ export default function EventDetailsPage() {
   });
 
   const isOrganizer = user && event?.created_by === user.id;
-  const isOrganizer = !!(user && event?.created_by === user.id);
 
   useEffect(() => {
     if (!eventId || eventId.startsWith("mock-") || !event) return;
@@ -1673,7 +1666,8 @@ export default function EventDetailsPage() {
               >
                 {event.title}
               </h1>
-<ShareMenu url={shareUrl} title={event.title} eventId={event.id} />              <TooltipProvider>
+              <ShareMenu url={shareUrl} title={event.title} eventId={event.id} />
+              <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -1729,7 +1723,7 @@ export default function EventDetailsPage() {
               className={`mt-8 flex flex-wrap gap-4 font-mono text-sm font-bold sm:gap-8 ${event.banner_url ? "text-white" : "text-black"}`}
             >
               <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
+                <Clock className="h-5 w-5" />
                 <span>{formatEventDateRange(event)}</span>
               </div>
               <div className="flex items-center gap-2">
