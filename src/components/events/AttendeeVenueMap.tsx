@@ -1,5 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Accessibility, ZoomIn, ZoomOut, RotateCcw, Search, MapPin } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import QueueTrackerCard from "@/components/QueueTrackerCard";
+import { useAuth } from "@/components/Auth/AuthSecurityContext";
 import {
   ACCESSIBILITY_NODE_LABELS,
   createAccessibilityRouteSegments,
@@ -39,6 +42,38 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
   const accessibilityNodes = getAccessibilityNodes(nodes);
   const entrance = accessibilityNodes.find((node) => node.type === "entrance");
   const routeSegments = createAccessibilityRouteSegments(nodes);
+
+  const { user } = useAuth();
+  const supabase = createClient();
+  const [queueNodes, setQueueNodes] = useState<Record<string, { id: string, status_color: 'green' | 'amber' | 'red' }>>({});
+  const [selectedQueueNodeId, setSelectedQueueNodeId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchQueues = async () => {
+      const { data } = await supabase.from('queue_nodes').select('id, booth_id, status_color');
+      if (data) {
+        const queueMap: Record<string, any> = {};
+        data.forEach(q => {
+          queueMap[q.booth_id] = { id: q.id, status_color: q.status_color };
+        });
+        setQueueNodes(queueMap);
+      }
+    };
+    fetchQueues();
+
+    const channel = supabase.channel('venue-queues')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'queue_nodes' }, (payload) => {
+        setQueueNodes(prev => ({
+          ...prev,
+          [payload.new.booth_id]: { id: payload.new.id, status_color: payload.new.status_color }
+        }));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   // Colors mapping for normal mode; Accessibility Mode applies a high-contrast blue layer.
   const colors: Record<MapNodeType, string> = {
@@ -229,6 +264,17 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
             />
           )}
 
+          {/* Queue Tracker Floating Modal */}
+          {selectedQueueNodeId && user && (
+            <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/40 pointer-events-auto">
+              <QueueTrackerCard 
+                nodeId={selectedQueueNodeId} 
+                userId={user.id} 
+                onClose={() => setSelectedQueueNodeId(null)} 
+              />
+            </div>
+          )}
+
           {isAccessibilityMode && routeSegments.length > 0 && (
             <svg
               aria-hidden="true"
@@ -262,12 +308,25 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
               ? getSpatialDescription(node, entrance)
               : `${node.entity_name || ACCESSIBILITY_NODE_LABELS[node.type] || node.type} map element.`;
 
+            const queueInfo = queueNodes[node.id];
+            let dynamicColorClass = colors[node.type] || "bg-white";
+            if (queueInfo) {
+              if (queueInfo.status_color === 'red') dynamicColorClass = "bg-rose-500 text-white border-rose-700 ring-4 ring-rose-200 animate-pulse";
+              else if (queueInfo.status_color === 'amber') dynamicColorClass = "bg-amber-400 text-amber-900 border-amber-600 ring-2 ring-amber-200";
+              else if (queueInfo.status_color === 'green') dynamicColorClass = "bg-emerald-400 text-emerald-950 border-emerald-600 ring-2 ring-emerald-200";
+            }
+
             return (
               <div
                 key={node.id}
                 role="img"
                 tabIndex={isAccessibilityMode && isAccessibilityInfrastructure ? 0 : -1}
                 aria-label={spatialDescription}
+                onClick={() => {
+                  if (queueInfo) {
+                    setSelectedQueueNodeId(queueInfo.id);
+                  }
+                }}
                 style={{
                   position: "absolute",
                   left: `${node.x_coord}%`,
@@ -275,7 +334,7 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
                   width: `${node.width}%`,
                   height: `${node.height}%`,
                   transform: `rotate(${node.rotation}deg)`,
-                  zIndex: matchesQuery ? 50 : isAccessibilityInfrastructure ? 40 : 10,
+                  zIndex: matchesQuery ? 50 : isAccessibilityInfrastructure ? 40 : queueInfo ? 30 : 10,
                 }}
                 className={`border-2 border-black flex flex-col items-center justify-center p-1 text-center shadow-[1px_1px_0_0_#000] transition-colors duration-200 ${
                   matchesQuery
@@ -284,8 +343,8 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
                       ? "bg-blue-700 text-white border-white ring-2 ring-blue-950"
                       : isAccessibilityMode
                         ? "opacity-25 grayscale"
-                        : colors[node.type] || "bg-white"
-                }`}
+                        : dynamicColorClass
+                } ${queueInfo ? 'cursor-pointer hover:scale-105' : ''}`}
               >
                 <div className="flex flex-col items-center justify-center w-full h-full overflow-hidden">
                   <span className="font-mono text-[9px] md:text-[10px] font-black uppercase leading-tight truncate w-full px-0.5">

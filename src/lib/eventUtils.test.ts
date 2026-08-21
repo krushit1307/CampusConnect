@@ -23,6 +23,10 @@ import {
 // eventFormSchema — field-level validation
 // ---------------------------------------------------------------------------
 describe("eventFormSchema", () => {
+  it("limits event titles to 60 characters", () => {
+    expect(TITLE_MAX_LENGTH).toBe(60);
+  });
+
   const valid = {
     title: "Hackathon 2026",
     description: "A 24-hour coding event.",
@@ -739,3 +743,4 @@ describe("updateFaq", () => {
     expect(result[0].answer).toBe("A1");
   });
 });
+

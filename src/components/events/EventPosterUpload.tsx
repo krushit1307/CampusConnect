@@ -8,16 +8,23 @@
 
 import React, { useState, useRef } from 'react';
 import { useImageProcessing, ProcessingStatus } from '../../hooks/useImageProcessing';
-
+import {
+    getImageDataFromFile,
+    lintImageAccessibility,
+    AccessibilityViolation,
+} from '../../lib/accessibilityLinter';
 interface EventPosterUploadProps {
     eventId: string;
     onUploadComplete: () => void;
 }
 
 export const EventPosterUpload: React.FC<EventPosterUploadProps> = ({ eventId, onUploadComplete }) => {
-    const { imageData, isUploading, error, uploadAndProcess } = useImageProcessing(eventId);
+    const { imageData, isUploading, error, uploadAndProcess, logAccessibilityBypass } = useImageProcessing(eventId);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [dragActive, setDragActive] = useState(false);
+    const [altText, setAltText] = useState('');
+    const [violations, setViolations] = useState<AccessibilityViolation[]>([]);
+    const [pendingFile, setPendingFile] = useState<File | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
     const handleFile = async (file: File) => {
@@ -34,12 +41,35 @@ export const EventPosterUpload: React.FC<EventPosterUploadProps> = ({ eventId, o
         }
 
         setPreviewUrl(URL.createObjectURL(file));
-        const success = await uploadAndProcess(eventId, file);
+
+        // Accessibility Linter: check contrast + alt text before publishing
+        const imageData = await getImageDataFromFile(file);
+        const foundViolations = lintImageAccessibility(imageData, altText);
+
+        if (foundViolations.length > 0) {
+            setViolations(foundViolations);
+            setPendingFile(file);
+            return;
+        }
+
+        setViolations([]);
+        setPendingFile(null);
+        const success = await uploadAndProcess(eventId, file, altText);
         if (success) {
             onUploadComplete();
         }
     };
 
+    const handleBypass = async () => {
+        if (!pendingFile) return;
+        await logAccessibilityBypass(eventId, violations);
+        const success = await uploadAndProcess(eventId, pendingFile, altText);
+        if (success) {
+            setViolations([]);
+            setPendingFile(null);
+            onUploadComplete();
+        }
+    };
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         setDragActive(false);
@@ -79,9 +109,46 @@ export const EventPosterUpload: React.FC<EventPosterUploadProps> = ({ eventId, o
 
     return (
         <div className="space-y-4">
+            <div className="space-y-1">
+                <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Alt Text (for screen readers)</label>
+                <input
+                    type="text"
+                    value={altText}
+                    onChange={(e) => setAltText(e.target.value)}
+                    placeholder="Describe what's in the poster, e.g. 'Blue flyer for the Fall Hackathon on Oct 12'"
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+                />
+            </div>
+
+            {violations.length > 0 && (
+                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-800 rounded-lg text-sm space-y-2">
+                    <p className="font-bold text-yellow-800 dark:text-yellow-300">Accessibility check failed — publish is blocked:</p>
+                    <ul className="list-disc list-inside text-yellow-700 dark:text-yellow-400">
+                        {violations.map((violation) => (
+                            <li key={violation.type}>{violation.message}</li>
+                        ))}
+                    </ul>
+                    <div className="flex gap-2 pt-1">
+                        <button
+                            type="button"
+                            onClick={() => pendingFile && handleFile(pendingFile)}
+                            className="px-3 py-1.5 text-xs font-bold rounded-md bg-gray-200 dark:bg-gray-700"
+                        >
+                            Re-check
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleBypass}
+                            className="px-3 py-1.5 text-xs font-bold rounded-md bg-yellow-600 text-white"
+                        >
+                            Bypass (logs for Student Union audit)
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div
-                className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${dragActive
-                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
+                className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${dragActive                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
                         : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 bg-gray-50 dark:bg-gray-900/50'
                     } ${isProcessing ? 'pointer-events-none opacity-80' : ''}`}
                 onDragEnter={(e) => { e.preventDefault(); setDragActive(true); }}

@@ -23,7 +23,7 @@ interface UseInfiniteEventsOptions {
 
 export function useInfiniteEvents({
   filters = {},
-  pageSize = 20,
+  pageSize = 12,
   orderDirection = "desc",
   enabled = true,
 }: UseInfiniteEventsOptions = {}) {

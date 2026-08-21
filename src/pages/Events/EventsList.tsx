@@ -168,7 +168,7 @@ export default function EventsList() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setSearchQuery(searchInput);
+      setSearchQuery(searchInput.trim());
     }, 300);
     return () => clearTimeout(timer);
   }, [searchInput]);

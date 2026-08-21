@@ -19,7 +19,11 @@ export default function DashboardRsvps() {
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const { downloadTicket, isGenerating: isTicketGenerating, generatingEventId } = useTicketDownload();
+  const {
+    downloadTicket,
+    isGenerating: isTicketGenerating,
+    generatingEventId,
+  } = useTicketDownload();
   // Event whose ticket is currently being transferred, if any.
   const [transferringEvent, setTransferringEvent] = useState<{
     id: string;
@@ -72,7 +76,8 @@ export default function DashboardRsvps() {
             ),
             event_rsvps (
               id,
-              user_id
+              user_id,
+              no_media_consent
             ),
             saved_events (
               id,

@@ -94,6 +94,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
       category: (event.category_id as string) || "",
       location: event.location || "",
       is_outdoor: event.is_outdoor || false,
+      has_photography: event.has_photography || false,
       backup_indoor_venue: event.backup_indoor_venue || "",
       startDate: event.start_date ? new Date(event.start_date).toISOString().slice(0, 16) : "",
       endDate: event.end_date ? new Date(event.end_date).toISOString().slice(0, 16) : "",
@@ -116,6 +117,9 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
         startDate: event.start_date ? new Date(event.start_date).toISOString().slice(0, 16) : "",
         endDate: event.end_date ? new Date(event.end_date).toISOString().slice(0, 16) : "",
         tags: event.tags || [],
+        has_photography: event.has_photography || false,
+        is_outdoor: event.is_outdoor || false,
+        backup_indoor_venue: event.backup_indoor_venue || "",
       });
     }
   }, [open, event, form]);
@@ -140,6 +144,9 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
           tldr_summary_error: null,
           category_id: docToSave.category_id || null,
           location: docToSave.location || null,
+          is_outdoor: docToSave.is_outdoor || false,
+          has_photography: docToSave.has_photography || false,
+          backup_indoor_venue: docToSave.backup_indoor_venue || null,
           start_date: docToSave.start_date,
           end_date: docToSave.end_date,
           event_date: docToSave.start_date,
@@ -236,6 +243,7 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
         category_id: values.category || null,
         location: values.location?.trim() || null,
         is_outdoor: values.is_outdoor || false,
+        has_photography: values.has_photography || false,
         backup_indoor_venue: values.backup_indoor_venue?.trim() || null,
         start_date: new Date(values.startDate).toISOString(),
         end_date: new Date(values.endDate).toISOString(),
@@ -435,6 +443,31 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                       <FormLabel className="cursor-pointer font-medium">Outdoor Event</FormLabel>
                       <p className="text-xs text-muted-foreground">
                         Mark this as an outdoor event to enable automated weather alerts.
+                      </p>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={control}
+                name="has_photography"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
+                    <FormControl>
+                      <input
+                        type="checkbox"
+                        checked={field.value}
+                        onChange={field.onChange}
+                        className="mt-1"
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel className="cursor-pointer font-medium">
+                        Photography or filming planned
+                      </FormLabel>
+                      <p className="text-xs text-muted-foreground">
+                        RSVP checkout will require attendees to choose Yes or No for media consent.
                       </p>
                     </div>
                   </FormItem>

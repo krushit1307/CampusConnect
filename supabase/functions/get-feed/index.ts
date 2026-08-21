@@ -59,7 +59,7 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     const after = url.searchParams.get("after") || null;
-    const first = Number(url.searchParams.get("first")) || 10;
+    const first = Number(url.searchParams.get("first")) || 12;
 
     const cacheKey = getFeedCacheKey(after);
     const cached = await getCachedPage<{ pageInfo?: { endCursor?: string | null } }>(cacheKey);
