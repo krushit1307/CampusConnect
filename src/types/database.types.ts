@@ -353,6 +353,7 @@ export type Database = {
           email: string | null;
           college: string | null;
           phone_number: string | null;
+          preferred_currency: string;
           linkedin_url: string | null;
           role: "student" | "admin" | "faculty" | "owner" | "system_admin";
           skills: string[] | null;
@@ -375,6 +376,7 @@ export type Database = {
           email?: string | null;
           college?: string | null;
           phone_number?: string | null;
+          preferred_currency?: string;
           linkedin_url?: string | null;
           role?: "student" | "admin" | "faculty" | "owner" | "system_admin";
           skills?: string[] | null;
@@ -397,6 +399,7 @@ export type Database = {
           email?: string | null;
           college?: string | null;
           phone_number?: string | null;
+          preferred_currency?: string;
           linkedin_url?: string | null;
           role?: "student" | "admin" | "faculty" | "owner" | "system_admin";
           skills?: string[] | null;
@@ -406,6 +409,42 @@ export type Database = {
           strike_count?: number;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      currency_exchange_rates: {
+        Row: {
+          id: string;
+          base_currency: string;
+          quote_currency: string;
+          rate: number;
+          rate_date: string;
+          cache_date: string;
+          provider: string;
+          fetched_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          base_currency?: string;
+          quote_currency: string;
+          rate: number;
+          rate_date: string;
+          cache_date?: string;
+          provider?: string;
+          fetched_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          base_currency?: string;
+          quote_currency?: string;
+          rate?: number;
+          rate_date?: string;
+          cache_date?: string;
+          provider?: string;
+          fetched_at?: string;
+          created_at?: string;
         };
         Relationships: [];
       };

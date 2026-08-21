@@ -15,6 +15,7 @@ import { createClient } from "@/lib/supabase/client";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { Switch } from "@/components/ui/switch";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
+import { SUPPORTED_CURRENCIES } from "@/lib/currency";
 
 import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
@@ -426,6 +427,7 @@ export default function SettingsPage() {
       phoneNumber: "",
       role: "student",
       expectedGraduationDate: "",
+      preferredCurrency: "USD",
     },
   });
   const {
@@ -480,6 +482,7 @@ export default function SettingsPage() {
         phoneNumber: profile?.phone_number || "",
         role: (profile?.role as any) || "student",
         expectedGraduationDate: profile?.expected_graduation_date || "",
+        preferredCurrency: profile?.preferred_currency || "USD",
       });
       // Hydrate skills from profile (text[])
       if (Array.isArray(profile?.skills)) {
@@ -607,6 +610,7 @@ export default function SettingsPage() {
         phone_number: values.phoneNumber || null,
         skills: dedupedSkills,
         expected_graduation_date: values.expectedGraduationDate || null,
+        preferred_currency: values.preferredCurrency,
         course_codes: [
           ...new Set(
             courseCodes.map((courseCode) => courseCode.trim().toUpperCase()).filter(Boolean),
@@ -928,6 +932,34 @@ export default function SettingsPage() {
                   )}
                 />
 
+                <FormField
+                  control={form.control}
+                  name="preferredCurrency"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="eyebrow font-bold text-black">
+                        Price display currency
+                      </FormLabel>
+                      <FormControl>
+                        <select
+                          {...field}
+                          className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                          aria-describedby="preferred-currency-help"
+                        >
+                          {SUPPORTED_CURRENCIES.map((currency) => (
+                            <option key={currency.code} value={currency.code}>
+                              {currency.code} — {currency.name}
+                            </option>
+                          ))}
+                        </select>
+                      </FormControl>
+                      <p id="preferred-currency-help" className="font-mono text-xs text-black/60">
+                        Ticket estimates use this currency when available. Checkout remains in USD.
+                      </p>
+                      <FormMessage className="font-mono text-xs text-destructive" />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={form.control}
                   name="phoneNumber"
