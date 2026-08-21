@@ -840,6 +840,7 @@ export type Database = {
           backup_indoor_venue: string | null;
           location_lat: number | null;
           location_lon: number | null;
+          has_photography: boolean;
 
           location: any;
           metadata: Json | null;
@@ -900,6 +901,7 @@ export type Database = {
           backup_indoor_venue?: string | null;
           location_lat?: number | null;
           location_lon?: number | null;
+          has_photography?: boolean;
 
           location?: any;
           metadata?: Json | null;
@@ -959,6 +961,7 @@ export type Database = {
           backup_indoor_venue?: string | null;
           location_lat?: number | null;
           location_lon?: number | null;
+          has_photography?: boolean;
 
           location?: any;
           metadata?: Json | null;
@@ -1084,6 +1087,7 @@ export type Database = {
           created_at: string;
           updated_at: string;
           accommodations_requested: string | null;
+          no_media_consent: boolean;
         };
         Insert: {
           id?: string;
@@ -1096,6 +1100,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           accommodations_requested?: string | null;
+          no_media_consent?: boolean;
         };
         Update: {
           id?: string;
@@ -1108,6 +1113,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           accommodations_requested?: string | null;
+          no_media_consent?: boolean;
         };
         Relationships: [
           {

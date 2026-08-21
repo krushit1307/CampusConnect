@@ -81,6 +81,7 @@ export const eventFormSchema = z
       .optional()
       .or(z.literal("")),
     isPrivate: z.boolean().optional().default(false),
+    has_photography: z.boolean().optional().default(false),
     faqs: z
       .array(
         z.object({
@@ -267,6 +268,7 @@ export function eventFormToDbPayload(
     created_by: userId,
     club_id: clubId,
     requires_approval: values.requiresApproval || false,
+    has_photography: values.has_photography || false,
     tags: values.tags || [],
     rating_metrics: values.ratingMetrics || [],
   };
@@ -357,4 +359,3 @@ export function matchesDateFilter(
   }
   return true;
 }
-

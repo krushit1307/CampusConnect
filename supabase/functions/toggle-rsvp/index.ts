@@ -14,6 +14,7 @@ const toggleRsvpSchema = z
     hasRsvpd: z.boolean().optional(),
     captchaToken: z.string().optional(),
     accommodationsRequested: z.string().max(1000).optional().nullable(),
+    noMediaConsent: z.boolean().optional().nullable(),
     referredBy: z.string().uuid().optional().nullable(),
   })
   .strict();
@@ -163,7 +164,8 @@ serve(async (req: Request) => {
 
     const parsed = await parseJsonBody(toggleRsvpSchema, req);
     if (!parsed.ok) return parsed.response;
-    const { eventId, hasRsvpd, captchaToken, accommodationsRequested, referredBy } = parsed.data;
+    const { eventId, hasRsvpd, captchaToken, accommodationsRequested, noMediaConsent, referredBy } =
+      parsed.data;
 
     const siteKey = Deno.env.get("TURNSTILE_SITE_KEY") || Deno.env.get("HCAPTCHA_SITE_KEY");
     const secretKey = Deno.env.get("TURNSTILE_SECRET_KEY") || Deno.env.get("HCAPTCHA_SECRET_KEY");
@@ -278,11 +280,18 @@ serve(async (req: Request) => {
       // 1.5 Pre-flight Prerequisite Verification
       const { data: eventData, error: eventErr } = await supabase
         .from("events")
-        .select("prerequisite_event_id, title")
+        .select("prerequisite_event_id, title, has_photography")
         .eq("id", eventId)
         .single();
 
       if (eventErr) throw eventErr;
+
+      if (eventData?.has_photography && noMediaConsent == null) {
+        return respond(
+          { error: "Media consent choice is required for this photography event." },
+          400,
+        );
+      }
 
       if (eventData?.prerequisite_event_id) {
         const { data: prereqRsvp } = await supabase
@@ -296,7 +305,7 @@ serve(async (req: Request) => {
             {
               error: `You must attend the prerequisite event before registering for this event.`,
             },
-            403
+            403,
           );
         }
       }
@@ -320,6 +329,22 @@ serve(async (req: Request) => {
         }
 
         if (data && data.success && (data.status === "attending" || data.status === "waitlisted")) {
+          const { error: mediaConsentError } = await supabase
+            .from("event_rsvps")
+            .update({ no_media_consent: noMediaConsent === true })
+            .match({ event_id: eventId, user_id: user.id });
+
+          if (mediaConsentError) {
+            await supabase
+              .from("event_rsvps")
+              .delete()
+              .match({ event_id: eventId, user_id: user.id });
+            return respond(
+              { error: "Failed to securely save media consent. Please try again." },
+              500,
+            );
+          }
+
           if (accommodationsRequested) {
             const { error: updateErr } = await supabase
               .from("event_rsvps")
@@ -458,15 +483,15 @@ serve(async (req: Request) => {
                 rsvpData.ticket_id,
                 eventId,
                 profile.public_key,
-                rsvpData.version || 1
+                rsvpData.version || 1,
               );
 
               // 4. Update the ticket with public key and signature
               await supabase
                 .from("event_rsvps")
-                .update({ 
+                .update({
                   owner_public_key: profile.public_key,
-                  signature: signature
+                  signature: signature,
                 })
                 .eq("id", rsvpData.id);
             }
