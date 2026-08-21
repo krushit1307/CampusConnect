@@ -752,6 +752,26 @@ export default function SettingsPage() {
             </div>
           </div>
           {/* ------------------------------- */}
+          <Panel title="Integrations">
+            <div className="mb-6 border-2 border-black bg-lime/10 p-4 font-mono text-sm">
+              <p className="font-bold text-black uppercase mb-2">Spotify</p>
+              <p className="text-xs text-gray-700 mb-4">
+                Connect your Spotify account to easily export song requests from your events to playlists.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  // In a real implementation, this would trigger an OAuth flow with Supabase or a custom endpoint
+                  // supabase.auth.signInWithOAuth({ provider: 'spotify', options: { scopes: 'playlist-modify-public playlist-modify-private' } })
+                  toast.info('Spotify OAuth configuration required.');
+                }}
+                className="neu-border flex items-center gap-2 bg-[#1DB954] text-white px-4 py-2 font-bold uppercase transition-all hover:scale-105 active:scale-95"
+              >
+                Link Spotify Profile
+              </button>
+            </div>
+          </Panel>
+          {/* ------------------------------- */}
           <Panel title="Profile">
             <AvatarUpload name={currentFullName || "User"} avatarTheme={currentAvatarTheme} />
 
