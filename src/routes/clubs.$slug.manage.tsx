@@ -39,6 +39,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
 } from "@/components/ui/alert-dialog";
+import ClubAdminWarningBanner from "@/components/ClubAdminWarningBanner";
 
 // ⚠️ Adjust if your Supabase Storage bucket for club banners has a different name
 const BUCKET_NAME = "club-banners";
@@ -470,6 +471,13 @@ export default function ClubManageRoute() {
             </div>
           </div>
         </header>
+
+        <ClubAdminWarningBanner
+          clubId={club.id}
+          clubSlug={club.slug}
+          currentStatus={club.lifecycle_status || 'active'}
+          warningIssuedAt={club.warning_issued_at}
+        />
 
         <div className="max-w-5xl mx-auto px-4 py-8 flex flex-col md:flex-row gap-8">
           <aside className="w-full md:w-64 shrink-0">

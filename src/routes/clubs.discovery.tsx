@@ -93,7 +93,9 @@ export default function ClubDiscovery() {
           id, name, slug, description, banner_url, logo_url, category
         `
         )
-        .eq("status", "approved");
+        .eq("status", "approved")
+        .neq("lifecycle_status", "hibernated")
+        .neq("lifecycle_status", "decertified");
       if (error) throw error;
       return (data || []) as Club[];
     },
