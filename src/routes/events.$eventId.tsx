@@ -565,6 +565,10 @@ export default function EventDetailsPage() {
           `
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by, venue_id, accessibility_features,
  feature/waitlist-churn-predictor
+ feature/waitlist-churn-predictor
+
+ feature/vendor-contract-nudges
+ main
           is_high_risk, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash,
 
           has_photography, is_high_risk, status, short_id, max_attendees, waitlist_capacity, waitlist_count, requires_approval, category_id, tags, version, version_vector, blurhash,
@@ -1854,6 +1858,10 @@ export default function EventDetailsPage() {
                     toggleWaitlist.mutate({ isOnWaitlist });
                   }}
  feature/waitlist-churn-predictor
+ feature/waitlist-churn-predictor
+
+ feature/vendor-contract-nudges
+ main
                   disabled={toggleWaitlist.isPending || !prereqMet}
                   variant={isOnWaitlist ? "secondary" : "primary"}
                   size="lg"
@@ -1882,6 +1890,10 @@ export default function EventDetailsPage() {
                     : isOnWaitlist
                       ? "On Waitlist ✓"
  feature/waitlist-churn-predictor
+ feature/waitlist-churn-predictor
+
+ feature/vendor-contract-nudges
+ main
                       : "Join Waitlist"}
                 </Button>
               ) : (
@@ -3361,6 +3373,10 @@ export default function EventDetailsPage() {
                 toggleWaitlist.mutate({ isOnWaitlist });
               }}
  feature/waitlist-churn-predictor
+ feature/waitlist-churn-predictor
+
+ feature/vendor-contract-nudges
+ main
               disabled={toggleWaitlist.isPending || !prereqMet}
               variant={isOnWaitlist ? "secondary" : "primary"}
               title={!prereqMet ? `You must attend '${prereqTitle}' before registering for this event.` : undefined}
@@ -3393,6 +3409,10 @@ export default function EventDetailsPage() {
               onClick={() => {
                 if (!prereqMet && !hasRsvpd) {
  feature/waitlist-churn-predictor
+ feature/waitlist-churn-predictor
+
+ feature/vendor-contract-nudges
+ main
                   toast.error(`You must attend '${prereqTitle}' before registering for this event.`);
 
                   toast.error(
@@ -3406,6 +3426,10 @@ export default function EventDetailsPage() {
               disabled={toggleRsvp.isPending || !prereqMet}
               variant="primary"
  feature/waitlist-churn-predictor
+ feature/waitlist-churn-predictor
+
+ feature/vendor-contract-nudges
+ main
               title={!prereqMet && !hasRsvpd ? `You must attend '${prereqTitle}' before registering for this event.` : undefined}
 
               title={

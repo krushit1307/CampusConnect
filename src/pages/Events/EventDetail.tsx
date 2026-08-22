@@ -26,6 +26,7 @@ import { LiveTaskOrganizerPanel } from "@/components/events/LiveTaskOrganizerPan
 import { LiveTaskAttendeePopup } from "@/components/events/LiveTaskAttendeePopup";
 import { HelpQueueMentorDashboard } from "@/components/events/HelpQueueMentorDashboard";
 import { HelpQueueAttendeeWidget } from "@/components/events/HelpQueueAttendeeWidget";
+import { DietaryForecastPanel } from "@/components/events/DietaryForecastPanel";
 import { User } from "@supabase/supabase-js";
 import { SongRequestSection } from "@/components/events/SongRequestSection";
 
@@ -165,6 +166,13 @@ export default function EventDetail() {
          {user && event.id && (
            <div className="pt-6">
              <HelpQueueAttendeeWidget eventId={event.id} userId={user.id} />
+           </div>
+         )}
+
+         {/* ── NEW (Issue #3931): Dietary Forecast ──────────────── */}
+         {isOrganizer && event.id && (
+           <div className="pt-6">
+             <DietaryForecastPanel eventId={event.id} />
            </div>
          )}
       </div>
