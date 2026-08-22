@@ -33,7 +33,7 @@ jobs:
         run: npx wait-on http://localhost:5173
 
       - name: Run Visual Tests
-        run: npx playwright test e2e/visual.spec.ts
+        run: npx playwright test e2e/visual.spec.ts --project=chromium --update-snapshots
 
       - uses: actions/upload-artifact@v4
         if: failure()

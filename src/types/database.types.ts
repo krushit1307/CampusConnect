@@ -29,6 +29,57 @@ export type Database = {
           created_at?: string;
         };
       };
+      constitution_signatures: {
+        Row: {
+          id: string;
+          club_id: string;
+          user_id: string;
+          constitution_version: number;
+          legal_name: string;
+          signed_at: string;
+          ip_address: string;
+          signature_hash: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          club_id: string;
+          user_id: string;
+          constitution_version: number;
+          legal_name: string;
+          signed_at?: string;
+          ip_address: string;
+          signature_hash: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          club_id?: string;
+          user_id?: string;
+          constitution_version?: number;
+          legal_name?: string;
+          signed_at?: string;
+          ip_address?: string;
+          signature_hash?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "constitution_signatures_club_id_fkey";
+            columns: ["club_id"];
+            isOneToOne: false;
+            referencedRelation: "clubs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "constitution_signatures_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       clubs: {
         Row: {
           id: string;
@@ -353,6 +404,7 @@ export type Database = {
           email: string | null;
           college: string | null;
           phone_number: string | null;
+          preferred_currency: string;
           linkedin_url: string | null;
           role: "student" | "admin" | "faculty" | "owner" | "system_admin";
           skills: string[] | null;
@@ -375,6 +427,7 @@ export type Database = {
           email?: string | null;
           college?: string | null;
           phone_number?: string | null;
+          preferred_currency?: string;
           linkedin_url?: string | null;
           role?: "student" | "admin" | "faculty" | "owner" | "system_admin";
           skills?: string[] | null;
@@ -397,6 +450,7 @@ export type Database = {
           email?: string | null;
           college?: string | null;
           phone_number?: string | null;
+          preferred_currency?: string;
           linkedin_url?: string | null;
           role?: "student" | "admin" | "faculty" | "owner" | "system_admin";
           skills?: string[] | null;
@@ -406,6 +460,42 @@ export type Database = {
           strike_count?: number;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      currency_exchange_rates: {
+        Row: {
+          id: string;
+          base_currency: string;
+          quote_currency: string;
+          rate: number;
+          rate_date: string;
+          cache_date: string;
+          provider: string;
+          fetched_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          base_currency?: string;
+          quote_currency: string;
+          rate: number;
+          rate_date: string;
+          cache_date?: string;
+          provider?: string;
+          fetched_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          base_currency?: string;
+          quote_currency?: string;
+          rate?: number;
+          rate_date?: string;
+          cache_date?: string;
+          provider?: string;
+          fetched_at?: string;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -488,6 +578,87 @@ export type Database = {
         Row: { request_id: string; user_id: string; created_at: string };
         Insert: { request_id: string; user_id: string; created_at?: string };
         Update: { request_id?: string; user_id?: string; created_at?: string };
+        Relationships: [];
+      };
+      event_caterer_contracts: {
+        Row: {
+          id: string;
+          event_id: string;
+          caterer_name: string;
+          caterer_email: string;
+          caterer_phone: string | null;
+          rfp_finalized_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          caterer_name: string;
+          caterer_email: string;
+          caterer_phone?: string | null;
+          rfp_finalized_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          caterer_name?: string;
+          caterer_email?: string;
+          caterer_phone?: string | null;
+          rfp_finalized_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      caterer_dietary_alerts: {
+        Row: {
+          id: string;
+          event_id: string;
+          user_id: string | null;
+          attendee_name: string;
+          dietary_tag: string;
+          severity_level: string;
+          caterer_email: string;
+          caterer_phone: string | null;
+          token: string;
+          alert_sent_at: string;
+          acknowledgment_status: string;
+          acknowledged_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          user_id?: string | null;
+          attendee_name: string;
+          dietary_tag: string;
+          severity_level?: string;
+          caterer_email: string;
+          caterer_phone?: string | null;
+          token?: string;
+          alert_sent_at?: string;
+          acknowledgment_status?: string;
+          acknowledged_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          user_id?: string | null;
+          attendee_name?: string;
+          dietary_tag?: string;
+          severity_level?: string;
+          caterer_email?: string;
+          caterer_phone?: string | null;
+          token?: string;
+          alert_sent_at?: string;
+          acknowledgment_status?: string;
+          acknowledged_at?: string | null;
+          created_at?: string;
+        };
         Relationships: [];
       };
       user_preferences: {
@@ -654,6 +825,93 @@ export type Database = {
           created_at?: string;
         };
       };
+      cross_club_matches: {
+        Row: {
+          id: string;
+          draft_a_id: string;
+          draft_b_id: string;
+          club_a_id: string;
+          club_b_id: string;
+          club_a_name: string;
+          club_b_name: string;
+          similarity_score: number;
+          status: string;
+          draft_a_budget: number;
+          draft_b_budget: number;
+          pooled_budget: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          draft_a_id: string;
+          draft_b_id: string;
+          club_a_id: string;
+          club_b_id: string;
+          club_a_name: string;
+          club_b_name: string;
+          similarity_score?: number;
+          status?: string;
+          draft_a_budget?: number;
+          draft_b_budget?: number;
+          pooled_budget?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          draft_a_id?: string;
+          draft_b_id?: string;
+          club_a_id?: string;
+          club_b_id?: string;
+          club_a_name?: string;
+          club_b_name?: string;
+          similarity_score?: number;
+          status?: string;
+          draft_a_budget?: number;
+          draft_b_budget?: number;
+          pooled_budget?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      registrar_sync_logs: {
+        Row: {
+          id: string;
+          user_id: string;
+          student_id: string;
+          user_full_name: string;
+          previous_status: string;
+          new_status: string;
+          action_taken: string;
+          clubs_notified_count: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          student_id: string;
+          user_full_name: string;
+          previous_status?: string;
+          new_status: string;
+          action_taken?: string;
+          clubs_notified_count?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          student_id?: string;
+          user_full_name?: string;
+          previous_status?: string;
+          new_status?: string;
+          action_taken?: string;
+          clubs_notified_count?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       events: {
         Row: {
           id: string;
@@ -668,14 +926,22 @@ export type Database = {
           event_date: string | null;
           start_date: string | null;
           end_date: string | null;
+          is_outdoor: boolean;
+          backup_indoor_venue: string | null;
+          location_lat: number | null;
+          location_lon: number | null;
+          has_photography: boolean;
 
           location: any;
           metadata: Json | null;
+          refund_policy: Json | null;
           latitude: number | null;
           longitude: number | null;
           geofencing_enabled: boolean;
           geofence_radius_meters: number;
           max_attendees: number | null;
+          waitlist_capacity: number | null;
+          waitlist_count: number | null;
           available_spots: number | null;
           rsvp_count: number;
           // views column removed — view counts now live in the event_metrics table (issue #2274)
@@ -721,6 +987,11 @@ export type Database = {
           event_date?: string | null;
           start_date?: string | null;
           end_date?: string | null;
+          is_outdoor?: boolean;
+          backup_indoor_venue?: string | null;
+          location_lat?: number | null;
+          location_lon?: number | null;
+          has_photography?: boolean;
 
           location?: any;
           metadata?: Json | null;
@@ -729,6 +1000,8 @@ export type Database = {
           geofencing_enabled?: boolean;
           geofence_radius_meters?: number;
           max_attendees?: number | null;
+          waitlist_capacity?: number | null;
+          waitlist_count?: number | null;
           available_spots?: number | null;
           rsvp_count?: number;
           // views column removed — view counts now live in the event_metrics table (issue #2274)
@@ -774,6 +1047,11 @@ export type Database = {
           event_date?: string | null;
           start_date?: string | null;
           end_date?: string | null;
+          is_outdoor?: boolean;
+          backup_indoor_venue?: string | null;
+          location_lat?: number | null;
+          location_lon?: number | null;
+          has_photography?: boolean;
 
           location?: any;
           metadata?: Json | null;
@@ -782,6 +1060,8 @@ export type Database = {
           geofencing_enabled?: boolean;
           geofence_radius_meters?: number;
           max_attendees?: number | null;
+          waitlist_capacity?: number | null;
+          waitlist_count?: number | null;
           available_spots?: number | null;
           rsvp_count?: number;
           // views column removed — view counts now live in the event_metrics table (issue #2274)
@@ -897,6 +1177,7 @@ export type Database = {
           created_at: string;
           updated_at: string;
           accommodations_requested: string | null;
+          no_media_consent: boolean;
         };
         Insert: {
           id?: string;
@@ -909,6 +1190,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           accommodations_requested?: string | null;
+          no_media_consent?: boolean;
         };
         Update: {
           id?: string;
@@ -921,6 +1203,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           accommodations_requested?: string | null;
+          no_media_consent?: boolean;
         };
         Relationships: [
           {
@@ -1321,6 +1604,7 @@ export type Database = {
           status: "pending" | "approved" | "rejected";
           joined_at: string | null;
           removed_at: string | null;
+          constitution_ratification_required: boolean;
           termination_reason:
             | "term_completed"
             | "resigned"
@@ -1339,6 +1623,7 @@ export type Database = {
           status?: "pending" | "approved" | "rejected";
           joined_at?: string | null;
           removed_at?: string | null;
+          constitution_ratification_required?: boolean;
           termination_reason?:
             | "term_completed"
             | "resigned"
@@ -1357,6 +1642,7 @@ export type Database = {
           status?: "pending" | "approved" | "rejected";
           joined_at?: string | null;
           removed_at?: string | null;
+          constitution_ratification_required?: boolean;
           termination_reason?:
             | "term_completed"
             | "resigned"
@@ -2534,6 +2820,57 @@ export type Database = {
             columns: ["session_id"];
             isOneToOne: false;
             referencedRelation: "event_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      event_weather_alerts: {
+        Row: {
+          id: string;
+          event_id: string;
+          organizer_id: string;
+          forecast_time: string;
+          condition: string;
+          precipitation_probability: number;
+          temperature_c: number | null;
+          indoor_backup_url: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          organizer_id: string;
+          forecast_time: string;
+          condition: string;
+          precipitation_probability?: number;
+          temperature_c?: number | null;
+          indoor_backup_url: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          organizer_id?: string;
+          forecast_time?: string;
+          condition?: string;
+          precipitation_probability?: number;
+          temperature_c?: number | null;
+          indoor_backup_url?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_weather_alerts_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "event_weather_alerts_organizer_id_fkey";
+            columns: ["organizer_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];

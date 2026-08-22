@@ -100,7 +100,7 @@ const ClubArticlesRoute = lazy(() => import("./routes/clubs.$slug.articles"));
 const ClubArticleDetailsRoute = lazy(() => import("./routes/clubs.$slug.articles.$articleId"));
 const ClubVaultRoute = lazy(() => import("./routes/clubs.$slug.vault"));
 const ClubHonorariumsRoute = lazy(() => import("./routes/clubs.$slug.honorariums"));
-const ClubYearbookRoute = lazy(() => import("./routes/clubs.$slug.yearbook"));
+const ClubResourcesRoute = lazy(() => import("./routes/clubs.$slug.resources"));const ClubYearbookRoute = lazy(() => import("./routes/clubs.$slug.yearbook"));
 const ScavengerHuntsList = lazy(() => import("./routes/scavenger-hunts"));
 const ScavengerHuntGame = lazy(() => import("./routes/scavenger-hunts.$id"));
 const ExploreShowcase = lazy(() => import("./routes/explore"));
@@ -160,7 +160,7 @@ const MentorshipDashboard = lazy(() => import("./routes/mentorship-dashboard"));
 const ReferralDashboardRoute = lazy(() => import("./pages/ReferralDashboard"));
 const ReferralLeaderboardRoute = lazy(() => import("./pages/ReferralLeaderboard"));
 const AudioTourRoute = lazy(() => import("./routes/audio-tour"));
-// ---------------------------------------------------------------------------
+const PollOverlayRoute = lazy(() => import("./routes/overlay.poll.$poll_id"));// ---------------------------------------------------------------------------
 // Animated Outlet Wrapper for Framer Motion transitions with Skeleton Fallback
 // ---------------------------------------------------------------------------
 function AnimatedOutlet() {
@@ -190,8 +190,9 @@ function AnimatedOutlet() {
 
 const router = createBrowserRouter(
   createRoutesFromElements(
-    <Route element={<Layout />} errorElement={<RouteErrorBoundary />}>
-      <Route element={<MfaChallengeGuard />}>
+    <>
+      <Route path="/overlay/poll/:poll_id" element={<PollOverlayRoute />} />
+      <Route element={<Layout />} errorElement={<RouteErrorBoundary />}>      <Route element={<MfaChallengeGuard />}>
  feature/3022-club-hibernation-workflow
         <Route element={<AnimatedOutlet />}>
           <Route index element={<Index />} />
@@ -213,9 +214,9 @@ const router = createBrowserRouter(
             <Route path=":slug/articles/:articleId" element={<ClubArticleDetailsRoute />} />
             <Route path=":slug/vault" element={<ClubVaultRoute />} />
             <Route path=":slug/honorariums" element={<ClubHonorariumsRoute />} />
+            <Route path=":slug/resources" element={<ClubResourcesRoute />} />
             <Route path=":slug/yearbook/2026" element={<ClubYearbookRoute />} />
-            <Route path=":slug/revive" element={<ReviveClubPage />} />
-          </Route>
+            <Route path=":slug/revive" element={<ReviveClubPage />} />          </Route>
           <Route path="/print/charter/:slug" element={<PrintableCharter />} />
           <Route path="/bundles/:bundleId" element={<BundleDetailsRoute />} />
           <Route path="/bundles/:bundleId/checkout" element={<BundleCheckoutRoute />} />
@@ -261,10 +262,10 @@ const router = createBrowserRouter(
               <Route path=":slug/articles/:articleId" element={<ClubArticleDetailsRoute />} />
               <Route path=":slug/vault" element={<ClubVaultRoute />} />
               <Route path=":slug/honorariums" element={<ClubHonorariumsRoute />} />
+              <Route path=":slug/resources" element={<ClubResourcesRoute />} />
               <Route path=":slug/yearbook/2026" element={<ClubYearbookRoute />} />
             </Route>
-            <Route path="/print/charter/:slug" element={<PrintableCharter />} />
-            <Route path="/bundles/:bundleId" element={<BundleDetailsRoute />} />
+            <Route path="/print/charter/:slug" element={<PrintableCharter />} />            <Route path="/bundles/:bundleId" element={<BundleDetailsRoute />} />
             <Route path="/bundles/:bundleId/checkout" element={<BundleCheckoutRoute />} />
             <Route path="/referrals/dashboard" element={<ReferralDashboardRoute />} />
             <Route path="/referrals/leaderboard" element={<ReferralLeaderboardRoute />} />
@@ -389,10 +390,10 @@ const router = createBrowserRouter(
 
         <Route path="/gallery" element={<GalleryPage />} />
       </Route>
-    </Route>,
+    </Route>
+    </>,
   ),
 );
-
 const DB_HEALTH_CHECK_TIMEOUT_MS = 8000;
 const DB_RETRY_INTERVAL_MS = 15000;
 
@@ -458,9 +459,13 @@ function usePushNotifications() {
 
 export default function App() {
   const [dbStatus, setDbStatus] = useState<DbStatus>("checking");
+  // OBS/vMix load this route directly as a bare Browser Source, so the
+  // app's floating chrome (theme toggle, banners, modals) must not render
+  // on top of the transparent poll overlay.
+  const isPollOverlayRoute =
+    typeof window !== "undefined" && window.location.pathname.startsWith("/overlay/poll/");
 
   usePushNotifications();
-
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
     const verify = async () => {
@@ -520,13 +525,17 @@ export default function App() {
               */}
               <LazyMotion features={loadDomAnimation} strict={import.meta.env.DEV}>
                 <CommandPaletteProvider>
-<OfflineIndicator />
-<EmergencyBroadcastOverlay />
-<LoginRecoveryModal />                {/* Floating Dark Mode Toggle */}
-                  <div className="fixed bottom-4 right-4 z-[9999]">
-                    <ThemeToggle />
-                  </div>
-
+                  {!isPollOverlayRoute && (
+                    <>
+                      <OfflineIndicator />
+                      <EmergencyBroadcastOverlay />
+                      <LoginRecoveryModal />
+                      {/* Floating Dark Mode Toggle */}
+                      <div className="fixed bottom-4 right-4 z-[9999]">
+                        <ThemeToggle />
+                      </div>
+                    </>
+                  )}
                   <BreadcrumbProvider>
                     <MotionConfig reducedMotion="user">
                       <PushDeepLinkListener router={router} />

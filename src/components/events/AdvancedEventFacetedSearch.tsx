@@ -65,7 +65,8 @@ export const AdvancedEventFacetedSearch: React.FC<AdvancedEventFacetedSearchProp
 
   // Client-side filtering simulation for mock/local event lists
   const filteredEvents = events.filter((e) => {
-    if (filters.query && !e.title.toLowerCase().includes(filters.query.toLowerCase()) && !e.description?.toLowerCase().includes(filters.query.toLowerCase())) {
+    const cleanQuery = (filters.query || "").trim().toLowerCase();
+    if (cleanQuery && !e.title.toLowerCase().includes(cleanQuery) && !e.description?.toLowerCase().includes(cleanQuery)) {
       return false;
     }
     if (filters.cost === "free" && e.is_free === false) return false;

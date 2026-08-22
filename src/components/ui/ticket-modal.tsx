@@ -7,6 +7,7 @@ import { formatEventDateRange } from "@/lib/utils";
 import { DownloadTicketButton } from "@/lib/ticket/DownloadTicketButton";
 import { useQrCodeDataUrl } from "@/lib/ticket/useQrCodeDataUrl";
 import type { TicketPdfInput } from "@/lib/ticket/types";
+import { MEDIA_CONSENT_COPY } from "@/lib/mediaConsent";
 import { signChallenge } from "@/lib/crypto/ticketCrypto";
 
 interface Event {
@@ -23,9 +24,16 @@ interface TicketDialogProps {
   onOpenChange: (open: boolean) => void;
   event: Event;
   rsvpId: string;
+  noMediaConsent?: boolean;
 }
 
-export function TicketDialog({ open, onOpenChange, event, rsvpId }: TicketDialogProps) {
+export function TicketDialog({
+  open,
+  onOpenChange,
+  event,
+  rsvpId,
+  noMediaConsent,
+}: TicketDialogProps) {
   const ticketId = rsvpId.slice(-6).toUpperCase();
   const [activeTab, setActiveTab] = useState<"ticket" | "scanner">("ticket");
   const { qrCodeDataUrl, qrCanvasRef } = useQrCodeDataUrl(ticketId);
@@ -40,6 +48,7 @@ export function TicketDialog({ open, onOpenChange, event, rsvpId }: TicketDialog
     attendee: {},
     ticketId,
     qrCodeDataUrl,
+    noMediaConsent,
   };
   const [ticketRevealed, setTicketRevealed] = useState(false);
 
@@ -117,6 +126,19 @@ export function TicketDialog({ open, onOpenChange, event, rsvpId }: TicketDialog
               </div>
             ) : (
               <div className="w-[200px] h-[200px] bg-muted animate-pulse rounded-xl" />
+            )}
+            {noMediaConsent && (
+              <div
+                role="alert"
+                className="w-full rounded-md border-2 border-red-900 bg-red-700 p-3 text-left text-white"
+              >
+                <p className="font-mono text-sm font-black uppercase tracking-wide">
+                  {MEDIA_CONSENT_COPY.ticketLabel}
+                </p>
+                <p className="mt-1 font-mono text-[10px] font-bold leading-relaxed">
+                  {MEDIA_CONSENT_COPY.staffInstruction}
+                </p>
+              </div>
             )}
             <div className="w-full space-y-2 text-center">
               <h3 className="text-lg font-bold">{event.title}</h3>
