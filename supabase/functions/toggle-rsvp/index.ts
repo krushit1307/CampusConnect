@@ -283,6 +283,12 @@ serve(async (req: Request) => {
  feature/waitlist-churn-predictor
  feature/waitlist-churn-predictor
  feature/waitlist-churn-predictor
+ feature/waitlist-churn-predictor
+
+ feature/club-lifecycle-monitor-3610
+ feature/club-lifecycle-monitor-3610
+ feature/club-lifecycle-monitor-3610
+ main
 
  feature/vendor-contract-nudges
  main
@@ -299,6 +305,12 @@ serve(async (req: Request) => {
  feature/waitlist-churn-predictor
  feature/waitlist-churn-predictor
  feature/waitlist-churn-predictor
+ feature/waitlist-churn-predictor
+
+ feature/club-lifecycle-monitor-3610
+ feature/club-lifecycle-monitor-3610
+ feature/club-lifecycle-monitor-3610
+ main
 
  feature/vendor-contract-nudges
  main
@@ -328,6 +340,13 @@ serve(async (req: Request) => {
 
             },
  feature/waitlist-churn-predictor
+ feature/waitlist-churn-predictor
+
+ feature/club-lifecycle-monitor-3610
+ feature/club-lifecycle-monitor-3610
+ feature/club-lifecycle-monitor-3610
+
+ main
  feature/vendor-contract-nudges
  main
             403
