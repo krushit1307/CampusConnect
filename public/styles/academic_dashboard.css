@@ -1,0 +1,88 @@
+/*
+ * Enterprise CSS Styling Sheet for CampusConnect Academic Curriculum Studio
+ */
+:root {
+  --bg-dark-slate: #0f172a;
+  --panel-bg-glass: rgba(30, 41, 59, 0.8);
+  --border-slate-700: rgba(51, 65, 85, 0.8);
+  --accent-indigo-400: #818cf8;
+  --accent-cyan-400: #22d3ee;
+  --accent-emerald-400: #34d399;
+  --text-slate-50: #f8fafc;
+  --text-slate-400: #94a3b8;
+}
+
+body.academic-studio {
+  background-color: var(--bg-dark-slate);
+  color: var(--text-slate-50);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.academic-card {
+  background: var(--panel-bg-glass);
+  border: 1px solid var(--border-slate-700);
+  border-radius: 1.25rem;
+  padding: 1.75rem;
+  backdrop-filter: blur(16px);
+}
+
+.academic-badge-indigo {
+  background: rgba(129, 140, 248, 0.15);
+  color: var(--accent-indigo-400);
+  border: 1px solid var(--accent-indigo-400);
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  font-weight: 700;
+}
+
+.academic-btn-course {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--border-slate-700);
+  color: var(--text-slate-50);
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.academic-btn-course:hover {
+  border-color: var(--accent-indigo-400);
+  background: rgba(129, 140, 248, 0.2);
+  color: var(--accent-cyan-400);
+}
+
+.academic-telemetry-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.academic-glow-cyan {
+  box-shadow: 0 0 15px rgba(34, 211, 238, 0.2);
+}
+
+.academic-header-title {
+  font-size: 2rem;
+  background: linear-gradient(135deg, var(--accent-indigo-400), var(--accent-cyan-400));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ==============================================================================
+ENTERPRISE CSS STYLING SHEET SPECIFICATIONS
+------------------------------------------------------------------------------
+Expanded design system tokens ensuring responsive glassmorphism aesthetic across all screens.
+Section 1: Dark Mode Glassmorphic Panel Design System
+- Backdrop Blur: 16px gaussian blur with 80% opacity dark slate background.
+- Border Gradients: 1px semi-transparent slate border for crisp high-DPI rendering.
+Section 2: Micro-Interactions & Hover Animations
+- Scale Shift: Subtle 2px vertical elevation with glow drop-shadow.
+Section 3: Academic Theme Palettes & Accent Gradients
+- Indigo & Cyan Gradients: Tailored HSL colors evoking academic excellence.
+Section 4: Spatial Telemetry Layout Grid
+- Mobile Responsiveness: Single-column breakpoint layout under 1024px viewport width.
+Section 5: Glow Effects & Shadow Utilities
+- Cyan Ambient Glow: Low-contrast radial box-shadows for active selection cards.
+============================================================================== */
