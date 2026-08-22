@@ -454,6 +454,7 @@ export default function AuthPage() {
                             placeholder="********"
                             autoComplete="new-password"
                             className="px-1 py-2 font-mono text-sm"
+                            required
                             {...field}
                           />
                         </FormControl>
