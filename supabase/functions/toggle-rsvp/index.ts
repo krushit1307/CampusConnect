@@ -282,13 +282,15 @@ serve(async (req: Request) => {
         .from("events")
  feature/club-lifecycle-monitor-3610
  feature/club-lifecycle-monitor-3610
+ feature/club-lifecycle-monitor-3610
 
  feature/vendor-contract-nudges
  main
         .select("prerequisite_event_id, title")
 
-        .select("prerequisite_event_id, title, has_photography")
+
  main
+        .select("prerequisite_event_id, title, has_photography")
         .eq("id", eventId)
         .single();
 
@@ -296,18 +298,19 @@ serve(async (req: Request) => {
 
  feature/club-lifecycle-monitor-3610
  feature/club-lifecycle-monitor-3610
+ feature/club-lifecycle-monitor-3610
 
  feature/vendor-contract-nudges
  main
 
+
+ main
       if (eventData?.has_photography && noMediaConsent == null) {
         return respond(
           { error: "Media consent choice is required for this photography event." },
           400,
         );
       }
-
- main
       if (eventData?.prerequisite_event_id) {
         const { data: prereqRsvp } = await supabase
           .from("event_rsvps")
@@ -322,13 +325,15 @@ serve(async (req: Request) => {
             },
  feature/club-lifecycle-monitor-3610
  feature/club-lifecycle-monitor-3610
+ feature/club-lifecycle-monitor-3610
 
  feature/vendor-contract-nudges
  main
             403
 
-            403,
+
  main
+            403,
           );
         }
       }
