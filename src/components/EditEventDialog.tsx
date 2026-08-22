@@ -52,7 +52,6 @@ import {
 import { MultiSelect } from "@/components/MultiSelect";
 import { DateTimePicker } from "@/components/DateTimePicker";
 import CollaborativeDescriptionEditor from "@/components/events/CollaborativeDescriptionEditor";
-import { LocationAutocomplete } from "@/components/LocationAutocomplete";
 
 const EVENT_CONCURRENT_EDIT_CONFLICT = "EVENT_CONCURRENT_EDIT_CONFLICT";
 
@@ -91,17 +90,14 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
     defaultValues: {
       title: event.title || "",
       description: event.description || "",
-      tldr_summary: event.tldr_summary || "",
       category: (event.category_id as string) || "",
       location: event.location || "",
-      latitude: typeof event.latitude === "number" ? event.latitude : null,
-      longitude: typeof event.longitude === "number" ? event.longitude : null,
       is_outdoor: event.is_outdoor || false,
-      has_photography: event.has_photography || false,
       backup_indoor_venue: event.backup_indoor_venue || "",
       startDate: event.start_date ? new Date(event.start_date).toISOString().slice(0, 16) : "",
       endDate: event.end_date ? new Date(event.end_date).toISOString().slice(0, 16) : "",
       tags: event.tags || [],
+      dress_code: event.dress_code || "",
     },
     mode: "onBlur",
   });
@@ -114,17 +110,12 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
       form.reset({
         title: event.title || "",
         description: event.description || "",
-        tldr_summary: event.tldr_summary || "",
         category: (event.category_id as string) || "",
         location: event.location || "",
-        latitude: typeof event.latitude === "number" ? event.latitude : null,
-        longitude: typeof event.longitude === "number" ? event.longitude : null,
         startDate: event.start_date ? new Date(event.start_date).toISOString().slice(0, 16) : "",
         endDate: event.end_date ? new Date(event.end_date).toISOString().slice(0, 16) : "",
         tags: event.tags || [],
-        has_photography: event.has_photography || false,
-        is_outdoor: event.is_outdoor || false,
-        backup_indoor_venue: event.backup_indoor_venue || "",
+        dress_code: event.dress_code || "",
       });
     }
   }, [open, event, form]);
@@ -144,20 +135,13 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
         .update({
           title: docToSave.title,
           description: docToSave.description,
-          tldr_summary: docToSave.tldr_summary?.toString().trim() || null,
-          tldr_summary_source: docToSave.tldr_summary?.toString().trim() ? "organizer" : "none",
-          tldr_summary_error: null,
           category_id: docToSave.category_id || null,
           location: docToSave.location || null,
-          is_outdoor: docToSave.is_outdoor || false,
-          has_photography: docToSave.has_photography || false,
-          backup_indoor_venue: docToSave.backup_indoor_venue || null,
-          latitude: typeof docToSave.latitude === "number" ? docToSave.latitude : null,
-          longitude: typeof docToSave.longitude === "number" ? docToSave.longitude : null,
           start_date: docToSave.start_date,
           end_date: docToSave.end_date,
           event_date: docToSave.start_date,
           tags: docToSave.tags || [],
+          dress_code: docToSave.dress_code || null,
           version_vector: docToSave.version_vector || {},
           version: docToSave.version || 1,
         })
@@ -246,17 +230,14 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
         ...baseSnapshot,
         title: values.title.trim(),
         description: values.description.trim(),
-        tldr_summary: values.tldr_summary?.trim() || null,
         category_id: values.category || null,
         location: values.location?.trim() || null,
-        latitude: typeof values.latitude === "number" ? values.latitude : null,
-        longitude: typeof values.longitude === "number" ? values.longitude : null,
         is_outdoor: values.is_outdoor || false,
-        has_photography: values.has_photography || false,
         backup_indoor_venue: values.backup_indoor_venue?.trim() || null,
         start_date: new Date(values.startDate).toISOString(),
         end_date: new Date(values.endDate).toISOString(),
         tags: values.tags || [],
+        dress_code: values.dress_code || null,
         version_vector: (baseSnapshot.version_vector || {}) as VersionVector,
       };
 
@@ -352,29 +333,6 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
 
               <FormField
                 control={control}
-                name="tldr_summary"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Feed TL;DR</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Optional one-sentence summary for the event feed"
-                        maxLength={100}
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    </FormControl>
-                    <p className="text-xs text-muted-foreground">
-                      The automatic summary can be edited here before students see it. Leave blank
-                      to use the generated summary or fallback.
-                    </p>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={control}
                 name="category"
                 render={({ field }) => (
                   <FormItem>
@@ -424,22 +382,40 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
 
               <FormField
                 control={control}
+                name="dress_code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Dress Code</FormLabel>
+                    <Select
+                      onValueChange={(val) => field.onChange(val === "none" ? "" : val)}
+                      value={field.value || "none"}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select event dress code (optional)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">No Specific Dress Code</SelectItem>
+                        <SelectItem value="casual">Casual</SelectItem>
+                        <SelectItem value="smart_casual">Smart Casual</SelectItem>
+                        <SelectItem value="business_casual">Business Casual</SelectItem>
+                        <SelectItem value="formal">Formal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={control}
                 name="location"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Location</FormLabel>
                     <FormControl>
-                      <LocationAutocomplete
-                        value={field.value || ""}
-                        latitude={form.watch("latitude")}
-                        longitude={form.watch("longitude")}
-                        placeholder='Search for a venue, address, or type "Online"'
-                        onChange={(value, coordinates) => {
-                          field.onChange(value);
-                          form.setValue("latitude", coordinates?.latitude ?? null);
-                          form.setValue("longitude", coordinates?.longitude ?? null);
-                        }}
-                      />
+                      <Input placeholder="Location or Online" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -462,31 +438,6 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                       <FormLabel className="cursor-pointer font-medium">Outdoor Event</FormLabel>
                       <p className="text-xs text-muted-foreground">
                         Mark this as an outdoor event to enable automated weather alerts.
-                      </p>
-                    </div>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={control}
-                name="has_photography"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
-                    <FormControl>
-                      <input
-                        type="checkbox"
-                        checked={field.value}
-                        onChange={field.onChange}
-                        className="mt-1"
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel className="cursor-pointer font-medium">
-                        Photography or filming planned
-                      </FormLabel>
-                      <p className="text-xs text-muted-foreground">
-                        RSVP checkout will require attendees to choose Yes or No for media consent.
                       </p>
                     </div>
                   </FormItem>

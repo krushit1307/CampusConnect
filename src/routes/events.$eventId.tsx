@@ -1,17 +1,14 @@
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
-import { useEffect, useState, lazy, Suspense, useMemo, useRef } from "react";
 import { queueRsvpSubmission } from "@/lib/events/offlineRsvpSync";
-import {
-  consentChoiceToNoMediaConsent,
-  getMediaConsentValidationMessage,
-  MEDIA_CONSENT_COPY,
-  type MediaConsentChoice,
-} from "@/lib/mediaConsent";
 import { useOfflineRsvpSync } from "@/hooks/useOfflineRsvpSync";
+import { createClient } from "@/lib/supabase/client";
 import { incrementEventViews } from "@/lib/supabase/events";
 import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
+import { useState, useEffect, lazy, Suspense, useMemo, useRef } from "react";
 import { TableOfContents } from "@/components/events/TableOfContents";
 import { NotFound } from "@/components/NotFound";
 import { AttendeeVenueMap } from "@/components/events/AttendeeVenueMap";
@@ -22,15 +19,13 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { EventSeatingManager } from "@/components/events/EventSeatingManager";
 import { InteractiveSeatingChart } from "@/components/events/InteractiveSeatingChart";
-import { SeatSwapMarketplace } from "@/components/events/SeatSwapMarketplace";
 import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
 import { useBannerColor } from "@/hooks/useBannerColor";
 import { MapSkeleton } from "@/components/ui/MapSkeleton";
-import { useGeofencedCheckIn } from "@/hooks/useGeofencedCheckIn";
-import { calculateHaversineDistance } from "@/lib/scavengerHunt";
 import { Helmet } from "react-helmet-async";
 import { buildOpenGraphTags } from "@/lib/seo/eventMeta";
 const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ default: m.EventMap })));
+import { formatEventDateRange } from "@/lib/utils";
 import { AddToCalendarDropdown } from "@/components/events/AddToCalendarDropdown";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
 import { formatDateLong } from "@/lib/dateFormatter";
@@ -56,6 +51,10 @@ import Flag from "lucide-react/dist/esm/icons/flag";
 import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
 import QrCode from "lucide-react/dist/esm/icons/qr-code";
 import Eye from "lucide-react/dist/esm/icons/eye";
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import Shirt from "lucide-react/dist/esm/icons/shirt";
+import { DRESS_CODE_LIBRARY } from "@/lib/dressCodeLibrary";
 import {
   Accordion,
   AccordionItem,
@@ -85,9 +84,6 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SeatingCanvas } from "@/components/events/SeatingCanvas";
-import { CrowdDensityMeter } from "@/components/events/CrowdDensityMeter";
-import { EventNoiseMonitor } from "@/components/events/EventNoiseMonitor";
-import { EventLogisticsChecklist } from "@/components/events/EventLogisticsChecklist";
 import { SponsorManager } from "@/components/events/SponsorManager";
 import { SteganographicQRScanner } from "@/components/events/SteganographicQRScanner";
 import { EventGuestList } from "@/components/events/EventGuestList";
@@ -97,16 +93,13 @@ import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { ImageWithBlur } from "@/components/ui/ImageWithBlur";
 import { parseCoordinates } from "@/lib/eventUtils";
 import { EventFaqSection } from "@/components/events/EventFaqSection";
-import { EventMenuSection } from "@/components/events/EventMenuSection";
 import { AccessibilityBadges } from "@/components/events/AccessibilityBadges";
 import { ReportAccessibilityIssueDialog } from "@/components/events/ReportAccessibilityIssueDialog";
 import { ManageAccessibilityOverridesDialog } from "@/components/events/ManageAccessibilityOverridesDialog";
 import EventFeedbackForm from "@/components/EventFeedbackForm";
-import EventMetricRatingForm from "@/components/events/EventMetricRatingForm";
 import { EventPhotoGallery } from "@/components/EventPhotoGallery";
-import SafeEventImage from "@/components/SafeEventImage";
+import { EventMap } from "@/components/EventMap";
 import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
-import { TournamentBracket } from "@/components/events/TournamentBracket";
 import {
   buildKanbanColumns,
   buildRsvpStatus,
@@ -137,15 +130,11 @@ import { DynamicEventPoster } from "@/components/events/DynamicEventPoster";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
 import { ActivePoll } from "@/components/polls/ActivePoll";
+import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
 import { CaptchaWidget } from "@/components/CaptchaWidget";
 import { Blurhash } from "react-blurhash";
 import { isValidBlurhash, DEFAULT_FALLBACK_BLURHASH } from "@/lib/blurhashUtils";
 import { EventDescriptionTranslation } from "@/components/events/EventDescriptionTranslation";
-import { TicketPricingTimeline } from "@/components/events/TicketPricingTimeline";
-
-import { LiveNowBadge } from "@/components/events/LiveNowBadge";
-import { isEventLive } from "@/lib/utils";
-import { LiveGPSBusTracker } from "@/components/events/LiveGPSBusTracker";
 
 /**
  * Hero banner for the event detail page.
@@ -350,10 +339,95 @@ interface EventSignature {
   ip_address: string | null;
 }
 
+function DressCodeVisualizer({ code }: { code: string }) {
+  const definition = DRESS_CODE_LIBRARY[code];
+  if (!definition) return null;
+
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+
+  const handlePrev = () => {
+    setActivePhotoIndex((prev) => (prev === 0 ? definition.images.length - 1 : prev - 1));
+  };
+
+  const handleNext = () => {
+    setActivePhotoIndex((prev) => (prev === definition.images.length - 1 ? 0 : prev + 1));
+  };
+
+  return (
+    <div className="border-4 border-black bg-white shadow-[8px_8px_0_0_#000] p-6 mt-8 flex flex-col md:flex-row gap-6">
+      <div className="flex-1 flex flex-col justify-between">
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="border-2 border-black bg-yellow-300 p-1.5 shadow-[2px_2px_0_0_#000]">
+              <Shirt className="h-5 w-5 text-black" />
+            </div>
+            <h3 className="font-display text-lg font-black uppercase tracking-tight text-black">
+              What to Wear
+            </h3>
+          </div>
+
+          <p className="font-mono text-xs text-black/60 uppercase font-bold tracking-wider mb-1">
+            Dress Code Tier
+          </p>
+          <div className="inline-block border-2 border-black bg-purple-200 px-3 py-1 text-sm font-black uppercase shadow-[2px_2px_0_0_#000] mb-4">
+            {definition.name}
+          </div>
+
+          <p className="font-mono text-sm font-bold text-black mb-4 leading-relaxed">
+            {definition.description}
+          </p>
+
+          <div className="bg-gray-50 border-2 border-dashed border-black/20 p-4">
+            <h4 className="font-mono text-xs font-bold uppercase text-black/50 mb-1">Guidelines</h4>
+            <p className="font-mono text-xs text-black/85 leading-relaxed">
+              {definition.guidelines}
+            </p>
+          </div>
+        </div>
+
+        <p className="mt-4 text-xs font-mono text-black/50 italic leading-snug">
+          💡 First time attending? Don&apos;t stress! The photos on the right show standard outfit
+          combinations. Focus on being comfortable and ready to connect!
+        </p>
+      </div>
+
+      <div className="md:w-72 shrink-0">
+        <div className="relative border-4 border-black bg-black shadow-[4px_4px_0_0_#000] overflow-hidden aspect-[3/4]">
+          <img
+            src={definition.images[activePhotoIndex]}
+            alt={`Example look for ${definition.name} dress code`}
+            className="w-full h-full object-cover transition-opacity duration-300"
+          />
+
+          <div className="absolute inset-x-0 bottom-0 bg-black/70 border-t-2 border-black p-2 flex items-center justify-between text-white font-mono text-xs">
+            <span>
+              Example Look {activePhotoIndex + 1} of {definition.images.length}
+            </span>
+            <div className="flex gap-1">
+              <button
+                onClick={handlePrev}
+                className="border border-white bg-black hover:bg-white hover:text-black p-1 transition-colors duration-200"
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                onClick={handleNext}
+                className="border border-white bg-black hover:bg-white hover:text-black p-1 transition-colors duration-200"
+                aria-label="Next image"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function EventDetailsPage() {
   const { eventId = "" } = useParams();
-  const [searchParams] = useSearchParams();
-  const ref = searchParams.get("ref");
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const emailVerified = useEmailVerification();
@@ -361,12 +435,7 @@ export default function EventDetailsPage() {
   const [idCopied, setIdCopied] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [rsvpDialogOpen, setRsvpDialogOpen] = useState(false);
-  const [revealedWarnings, setRevealedWarnings] = useState(false);
   const [needAccommodations, setNeedAccommodations] = useState(false);
-  const [mediaConsent, setMediaConsent] = useState<MediaConsentChoice | null>(null);
-  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
-  const hasAttemptedAutoCheckInRef = useRef(false);
-  const { checkIn: performAutoCheckIn } = useGeofencedCheckIn();
   const [accommodationsText, setAccommodationsText] = useState("");
   const [validationError, setValidationError] = useState("");
   const [captchaToken, setCaptchaToken] = useState<string | undefined>(undefined);
@@ -428,23 +497,23 @@ export default function EventDetailsPage() {
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
-  const { data: galleryPhotos = [], refetch: refetchGallery } = useQuery<
-    { id: string; image_url: string; is_nsfw: boolean }[]
-  >({
+  const { data: galleryPhotos = [], refetch: refetchGallery } = useQuery<string[]>({
     queryKey: ["eventGallery", eventId],
     queryFn: async () => {
       if (eventId.startsWith("mock-")) return [];
-      const { data, error } = await supabase
-        .from("event_gallery")
-        .select("id, image_url, is_nsfw")
-        .eq("event_id", eventId)
-        .order("created_at", { ascending: false });
-
+      const { data, error } = await supabase.storage.from("event-gallery").list(eventId);
       if (error) {
-        console.error("Failed to fetch gallery records", error);
+        console.error("Failed to list gallery files", error);
         return [];
       }
-      return data || [];
+      if (!data) return [];
+
+      return data
+        .filter((file) => file.name !== ".emptyFolderPlaceholder")
+        .map((file) => {
+          return supabase.storage.from("event-gallery").getPublicUrl(`${eventId}/${file.name}`).data
+            .publicUrl;
+        });
     },
     enabled: !!eventId,
   });
@@ -507,18 +576,8 @@ export default function EventDetailsPage() {
         }, 200);
 
         uploadImageWithSignedUrl("event-gallery", filePath, file)
-          .then(async () => {
+          .then(() => {
             clearInterval(progressInterval);
-
-            // Insert into event_gallery to trigger moderation
-            const publicUrl = supabase.storage.from("event-gallery").getPublicUrl(filePath)
-              .data.publicUrl;
-            await supabase.from("event_gallery").insert({
-              event_id: eventId,
-              club_id: event.club_id,
-              image_url: publicUrl,
-            });
-
             setUploadingFiles((prev) =>
               prev.map((item) =>
                 item.id === uploadItem.id ? { ...item, status: "success", progress: 100 } : item,
@@ -564,24 +623,14 @@ export default function EventDetailsPage() {
         .select(
           `
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by, venue_id, accessibility_features,
-
-
-          is_high_risk, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash,
-
-
-          has_photography, is_high_risk, status, short_id, max_attendees, waitlist_capacity, waitlist_count, requires_approval, category_id, tags, version, version_vector, blurhash,
- main
-          latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline, content_warnings, prerequisite_event_id,
-          prerequisite_event:events!prerequisite_event_id(id, title),
-          rating_metrics,
-          profiles (full_name, email),
-          clubs (name, slug, logo_url, primary_color, secondary_color),
-          event_rsvps (id, user_id, checked_in, status),
+clubs (name, slug, logo_url, primary_color, secondary_color),          event_rsvps (id, user_id),
           attendee_count,
-          event_metrics (views),
           venues (
-            name, building, capacity, accessibility_features, latitude, longitude, geofence_radius_meters
+            name, building, capacity, accessibility_features
           )
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, is_high_risk, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash, latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline, dress_code,
+          profiles (full_name, email),
+clubs (name, slug, logo_url, primary_color, secondary_color),          event_metrics (views)
         `,
         )
         .or(`short_id.eq.${eventId},id.eq.${eventId}`)
@@ -619,8 +668,6 @@ export default function EventDetailsPage() {
                   : "Student Activity Centre, IIT Bombay, Powai, Mumbai",
             banner_url: null as string | null,
             max_attendees: eventId === "mock-1" ? 1 : null,
-            waitlist_capacity: eventId === "mock-1" ? 50 : null,
-            waitlist_count: eventId === "mock-1" ? 0 : null,
             latitude: eventId === "mock-1" ? 30.3564 : eventId === "mock-2" ? 28.5355 : 19.076,
             longitude: eventId === "mock-1" ? 76.3647 : eventId === "mock-2" ? 77.209 : 72.8777,
             geofencing_enabled: eventId === "mock-1",
@@ -645,7 +692,6 @@ export default function EventDetailsPage() {
             attendee_count: eventId === "mock-1" ? 1 : 0,
             profiles: { full_name: "Mock Organizer", email: "mock@example.com" },
             accommodation_deadline: null,
-            content_warnings: [] as string[],
             event_metrics: { views: 0 },
           };
         }
@@ -732,6 +778,8 @@ export default function EventDetailsPage() {
     enabled: !!eventId,
   });
 
+  const isOrganizer = !!(user && event?.created_by === user.id);
+
   const { data: myRsvp, refetch: refetchMyRsvp } = useQuery({
     queryKey: ["my_rsvp", eventId, user?.id],
     queryFn: async () => {
@@ -811,24 +859,6 @@ export default function EventDetailsPage() {
     },
     enabled: !!user?.id && !!eventId && isOnWaitlist,
   });
-
-  const { data: waitlistChurnPrediction } = useQuery({
-    queryKey: ["waitlist_churn_prediction", eventId, waitlistPosition],
-    queryFn: async () => {
-      if (!eventId || waitlistPosition <= 0) return null;
-      const { data, error } = await supabase.rpc("predict_waitlist_success", {
-        p_event_id: eventId,
-        p_user_waitlist_position: waitlistPosition,
-      });
-      if (error) {
-        console.error("Error predicting waitlist churn:", error);
-        return null;
-      }
-      return data?.[0] || null;
-    },
-    enabled: !!eventId && isOnWaitlist && waitlistPosition > 0,
-  });
-
   // Extract headings from HTML description for TOC
   const tocItems = useMemo(() => {
     if (!event?.description) return [];
@@ -870,7 +900,7 @@ export default function EventDetailsPage() {
   // We store the canonical event UUID (event.id) rather than a boolean so that:
   // - Short-id URLs resolve to their UUID before incrementing (avoids wrong PK)
   // - Navigating between events while the component stays mounted still
-  //  increments each new event exactly once
+  //   increments each new event exactly once
   const viewIncrementedRef = useRef<string | null>(null);
   useEffect(() => {
     // Wait until the query has resolved and we have the canonical UUID
@@ -895,22 +925,6 @@ export default function EventDetailsPage() {
       }
     });
   }, [(event as any)?.id, eventId]);
-
-  // Record one privacy-conscious traffic event after the canonical event loads.
-  // This never blocks the page and silently tolerates analytics outages.
-  const trafficTrackedRef = useRef<string | null>(null);
-  useEffect(() => {
-    const canonicalId = (event as any)?.id as string | undefined;
-    if (!canonicalId || canonicalId.startsWith("mock-")) return;
-    if (trafficTrackedRef.current === canonicalId) return;
-    trafficTrackedRef.current = canonicalId;
-
-    void supabase
-      .rpc("record_event_traffic", { p_event_id: canonicalId, p_event_type: "event_view" })
-      .then(({ error }) => {
-        if (error) console.warn("[event traffic] tracking failed silently:", error);
-      });
-  }, [(event as any)?.id, supabase]);
 
   const toggleWaitlist = useMutation({
     mutationFn: async ({ isOnWaitlist }: { isOnWaitlist: boolean }) => {
@@ -947,15 +961,11 @@ export default function EventDetailsPage() {
       hasRsvpd,
       captchaToken,
       accommodationsRequested,
-      mediaConsent,
-      referredBy,
     }: {
       eventId: string;
       hasRsvpd: boolean;
       captchaToken?: string;
       accommodationsRequested?: string | null;
-      mediaConsent?: MediaConsentChoice | null;
-      referredBy?: string | null;
     }) => {
       if (!user) throw new Error("Please log in to RSVP");
       if (eventId.startsWith("mock-")) {
@@ -971,15 +981,7 @@ export default function EventDetailsPage() {
       let funcError = null;
       try {
         const { error } = await supabase.functions.invoke("toggle-rsvp", {
-          body: {
-            eventId,
-            hasRsvpd,
-            captchaToken,
-            accommodationsRequested,
-            noMediaConsent:
-              mediaConsent === null ? undefined : consentChoiceToNoMediaConsent(mediaConsent),
-            referredBy,
-          },
+          body: { eventId, hasRsvpd, captchaToken, accommodationsRequested },
           headers: {
             Authorization: `Bearer ${session?.access_token}`,
             "Idempotency-Key": idempotencyKey,
@@ -998,8 +1000,6 @@ export default function EventDetailsPage() {
             hasRsvpd,
             captchaToken,
             accommodationsRequested,
-            noMediaConsent:
-              mediaConsent === null ? undefined : consentChoiceToNoMediaConsent(mediaConsent),
             idempotencyKey,
             queuedAt: Date.now(),
           });
@@ -1076,7 +1076,6 @@ export default function EventDetailsPage() {
       setRsvpDialogOpen(false);
       setNeedAccommodations(false);
       setAccommodationsText("");
-      setMediaConsent(null);
       setValidationError("");
     },
   });
@@ -1195,8 +1194,6 @@ export default function EventDetailsPage() {
       toast.error(error.message || "Failed to submit feedback. Please try again.");
     },
   });
-
-  const isOrganizer = user && event?.created_by === user.id;
 
   useEffect(() => {
     if (!eventId || eventId.startsWith("mock-") || !event) return;
@@ -1421,68 +1418,6 @@ export default function EventDetailsPage() {
     ? parseCoordinates(event.location)
     : { isCoordinates: false, isValid: true };
 
-  const isWithinCheckInWindow = useMemo(() => {
-    if (!event?.start_date) return false;
-    const now = new Date().getTime();
-    const startTime = new Date(event.start_date).getTime();
-    return now >= startTime - 60 * 60 * 1000 && !hasEnded;
-  }, [event?.start_date, hasEnded]);
-
-  const triggerAutoCheckIn = useCallback(() => {
-    if (typeof window === "undefined" || !navigator.geolocation) {
-      toast.error("Geolocation is not supported by your browser.");
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        const venueObj = Array.isArray(event.venues) ? event.venues[0] : event.venues;
-        const targetLat = venueObj?.latitude ?? event.latitude;
-        const targetLng = venueObj?.longitude ?? event.longitude;
-        const targetRadius =
-          venueObj?.geofence_radius_meters ?? event.geofence_radius_meters ?? 100;
-
-        if (targetLat != null && targetLng != null) {
-          const distance = calculateHaversineDistance(latitude, longitude, targetLat, targetLng);
-          if (distance <= targetRadius) {
-            try {
-              const res = await performAutoCheckIn(myRsvpId!);
-              if (res.status === "success" || res.status === "already_checked_in") {
-                toast.success("Welcome! You have been automatically checked in.");
-                refetch();
-              }
-            } catch (err) {
-              console.error("Auto check-in verification failed:", err);
-            }
-          } else {
-            toast.error(
-              `You are too far from the venue to check in (${Math.round(distance)}m away).`,
-            );
-          }
-        }
-      },
-      (error) => {
-        toast.error("Location access failed. Please check your browser location permissions.");
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-    );
-  }, [event, myRsvpId, performAutoCheckIn, refetch]);
-
-  useEffect(() => {
-    if (
-      event?.geofencing_enabled &&
-      hasRsvpd &&
-      myRsvpId &&
-      !isCheckedIn &&
-      isWithinCheckInWindow &&
-      !hasAttemptedAutoCheckInRef.current
-    ) {
-      hasAttemptedAutoCheckInRef.current = true;
-      setShowLocationPrompt(true);
-    }
-  }, [event?.geofencing_enabled, hasRsvpd, myRsvpId, isCheckedIn, isWithinCheckInWindow]);
-
   const captchaSiteKey =
     import.meta.env.VITE_TURNSTILE_SITE_KEY || import.meta.env.VITE_HCAPTCHA_SITE_KEY;
   const captchaSecretKey =
@@ -1572,10 +1507,6 @@ export default function EventDetailsPage() {
   };
 
   const handleRsvpClick = () => {
-    if (event && event.content_warnings && event.content_warnings.length > 0 && !revealedWarnings) {
-      toast.error("Please read and acknowledge the content warnings before RSVPing.");
-      return;
-    }
     if (!user) {
       toast.error("Please log in to RSVP");
       return;
@@ -1597,7 +1528,6 @@ export default function EventDetailsPage() {
     // Open accommodations dialog instead of immediate submit
     setNeedAccommodations(false);
     setAccommodationsText("");
-    setMediaConsent(null);
     setValidationError("");
     setRsvpDialogOpen(true);
   };
@@ -1637,18 +1567,6 @@ export default function EventDetailsPage() {
     maxAttendees !== undefined &&
     maxAttendees > 0 &&
     attendeeCount >= maxAttendees;
-
-  const waitlistCapacity = (event as Record<string, unknown>).waitlist_capacity as
-    number | null | undefined;
-  const waitlistCount =
-    ((event as Record<string, unknown>).waitlist_count as number) ?? (rawWaitlist?.length || 0);
-  const isWaitlistFull =
-    waitlistCapacity !== null &&
-    waitlistCapacity !== undefined &&
-    waitlistCapacity > 0 &&
-    waitlistCount >= waitlistCapacity;
-
-  const isLive = isEventLive(event);
 
   return (
     <>
@@ -1738,11 +1656,10 @@ export default function EventDetailsPage() {
           )}
 
           <div className="relative mx-auto flex min-h-[50vh] max-w-4xl flex-col justify-end px-4 py-16 md:min-h-[60vh] md:px-6 md:py-24">
-            <div className="mb-4 flex flex-wrap items-center gap-3">
+            <div className="mb-4">
               <span className="neu-border inline-block bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider text-black">
                 Event Details
               </span>
-              {isLive && <LiveNowBadge>Live Now</LiveNowBadge>}
             </div>
 
             <div className="flex items-center gap-3">
@@ -1751,7 +1668,7 @@ export default function EventDetailsPage() {
               >
                 {event.title}
               </h1>
-              <ShareMenu url={shareUrl} title={event.title} eventId={event.id} />
+              <ShareMenu url={shareUrl} title={event.title} />
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1808,7 +1725,7 @@ export default function EventDetailsPage() {
               className={`mt-8 flex flex-wrap gap-4 font-mono text-sm font-bold sm:gap-8 ${event.banner_url ? "text-white" : "text-black"}`}
             >
               <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
+                <Calendar className="h-5 w-5" />
                 <span>{formatEventDateRange(event)}</span>
               </div>
               <div className="flex items-center gap-2">
@@ -1839,10 +1756,6 @@ export default function EventDetailsPage() {
               />
             </div>
 
-            <div className="mt-6 max-w-md">
-              <TicketPricingTimeline eventId={event.id} />
-            </div>
-
             {hasRsvpd && myRsvpId && !isCheckedIn && !hasEnded && (
               <div className="mt-6 max-w-md">
                 <GeofencedCheckInButton
@@ -1864,160 +1777,139 @@ export default function EventDetailsPage() {
                   {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
                 </Button>
               ) : isAtCapacity ? (
-                <Button
-                  onClick={() => {
-                    if (!user) {
-                      toast.error("Please log in to join waitlist");
-                      return;
-                    }
-                    if (!prereqMet) {
-                      toast.error(`You must attend '${prereqTitle}' before joining waitlist.`);
-                      return;
-                    }
-                    toggleWaitlist.mutate({ isOnWaitlist });
-                  }}
+                <div className="flex flex-col gap-1">
+                  <Button
+                    onClick={() => {
+                      if (!user) {
+                        toast.error("Please log in to join the waitlist");
+                        return;
+                      }
+                      if (!emailVerified) {
+                        toast.error("Please verify your email to join the waitlist");
+                        return;
+                      }
+                      toggleWaitlist.mutate({ isOnWaitlist });
+                    }}
+                    disabled={toggleWaitlist.isPending}
+                    variant={isOnWaitlist ? "secondary" : "primary"}
+                    size="lg"
+                  >
+                    {toggleWaitlist.isPending
+                      ? "Updating..."
+                      : isOnWaitlist
+                        ? "On Waitlist ✓"
+                        : "Join Waitlist"}
+                  </Button>
+                  {isOnWaitlist && (
+                    <div className="mt-4 flex flex-col items-center gap-2 rounded bg-amber-50 p-4 border-2 border-amber-300">
+                      <p className="font-mono text-sm font-bold text-amber-900">
+                        Priority Score: {waitlistScore?.total_score || "..."}
+                      </p>
+                      <p className="text-center text-xs text-amber-800/80 max-w-xs leading-relaxed">
+                        Your position is determined by:
+                        <br />
+                        • Time on waitlist
+                        <br />
+                        • Club membership
+                        <br />
+                        • Attendance streak
+                        <br />• Graduation status
+                      </p>
 
-                  disabled={
-                    toggleWaitlist.isPending || !prereqMet || (!isOnWaitlist && isWaitlistFull)
-                  }
-                  variant={isOnWaitlist ? "secondary" : "primary"}
-                  size="lg"
-                  title={
-                    !prereqMet
-                      ? `You must attend '${prereqTitle}' before registering for this event.`
-                      : undefined
-                  }
-                  className={
-                    !prereqMet || (!isOnWaitlist && isWaitlistFull)
-                      ? "opacity-50 cursor-not-allowed"
-                      : ""
-                  }
-                >
-                  {toggleWaitlist.isPending
-                    ? "Updating..."
-                    : isOnWaitlist
-                      ? "On Waitlist ✓"
-                      : "Join Waitlist"}
-                </Button>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2 text-xs border-amber-400 text-amber-900 hover:bg-amber-100 font-bold tracking-tight"
+                          >
+                            View Score Breakdown
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md border-4 border-black shadow-[8px_8px_0_0_#000]">
+                          <DialogHeader>
+                            <DialogTitle className="font-display uppercase text-2xl tracking-tight text-black">
+                              Priority Score Breakdown
+                            </DialogTitle>
+                            <DialogDescription className="font-mono text-gray-600">
+                              How your waitlist priority is calculated.
+                            </DialogDescription>
+                          </DialogHeader>
+                          {waitlistScore ? (
+                            <div className="flex flex-col gap-3 font-mono text-sm my-4 text-black">
+                              <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
+                                <span>Time on waitlist ({waitlistScore.waitlist_hours}h)</span>
+                                <span className="font-bold text-blue-600">
+                                  +{waitlistScore.time_score}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
+                                <span>Active club member</span>
+                                <span className="font-bold text-lime-600">
+                                  +{waitlistScore.membership_score}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
+                                <span>Attendance streak</span>
+                                <span className="font-bold text-orange-600">
+                                  +{waitlistScore.streak_score}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center border-b-2 border-black pb-2">
+                                <span>Graduating senior</span>
+                                <span className="font-bold text-purple-600">
+                                  +{waitlistScore.senior_score}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center pt-2 text-lg font-black uppercase">
+                                <span>Total Score</span>
+                                <span>{waitlistScore.total_score}</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="p-4 text-center font-mono text-gray-500">
+                              Loading score...
+                            </div>
+                          )}
+                          <DialogFooter className="sm:justify-start">
+                            <Button
+                              variant="outline"
+                              className="w-full font-bold uppercase border-2 border-black shadow-[4px_4px_0_0_#000]"
+                            >
+                              Close
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  )}
+                </div>
               ) : (
-                <Button
-                  onClick={() => {
-                    if (!prereqMet && !hasRsvpd) {
-                      toast.error(
-                        `You must attend '${prereqTitle}' before registering for this event.`,
-                      );
-                      return;
-                    }
-                    handleRsvpClick();
-                  }}
-                  disabled={toggleRsvp.isPending || !prereqMet}
-                  variant="primary"
-                  size="lg"
-                  title={
-                    !prereqMet && !hasRsvpd
-                      ? `You must attend '${prereqTitle}' before registering for this event.`
-                      : undefined
-                  }
-                  className={
-                    !prereqMet && !hasRsvpd ? "opacity-50 cursor-not-allowed relative group" : ""
-                  }
-                >
-                  {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
-                </Button>
-              )}
-              {isOnWaitlist && (
-                <div className="mt-4 flex flex-col items-center gap-2 rounded bg-amber-50 p-4 border-2 border-amber-300">
-                  <p className="font-mono text-sm font-bold text-amber-900">
-                    Priority Score: {waitlistScore?.total_score || "..."}
-                  </p>
-                  {waitlistChurnPrediction && (
-                    <p
-                      className={`font-mono text-xs font-bold ${
-                        waitlistChurnPrediction.probability_percentage >= 70
-                          ? "text-emerald-700"
-                          : waitlistChurnPrediction.probability_percentage >= 30
-                            ? "text-amber-700"
-                            : "text-rose-700"
-                      }`}
-                    >
-                      {waitlistChurnPrediction.message}
-                    </p>
-                  )}{" "}
-                  <p className="text-center text-xs text-amber-800/80 max-w-xs leading-relaxed">
-                    Your position is determined by:
-                    <br />
-                    • Time on waitlist
-                    <br />
-                    • Club membership
-                    <br />
-                    • Attendance streak
-                    <br />• Graduation status
-                  </p>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-2 text-xs border-amber-400 text-amber-900 hover:bg-amber-100 font-bold tracking-tight"
+                <div className="flex flex-col gap-1">
+                  <Button
+                    onClick={handleRsvpClick}
+                    disabled={toggleRsvp.isPending}
+                    variant="primary"
+                    size="lg"
+                  >
+                    {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
+                  </Button>
+                  {captchaEnabled && (
+                    <div className="flex flex-col gap-2">
+                      <span
+                        className={`font-mono text-xs font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
                       >
-                        View Score Breakdown
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-md border-4 border-black shadow-[8px_8px_0_0_#000]">
-                      <DialogHeader>
-                        <DialogTitle className="font-display uppercase text-2xl tracking-tight text-black">
-                          Priority Score Breakdown
-                        </DialogTitle>
-                        <DialogDescription className="font-mono text-gray-600">
-                          How your waitlist priority is calculated.
-                        </DialogDescription>
-                      </DialogHeader>
-                      {waitlistScore ? (
-                        <div className="flex flex-col gap-3 font-mono text-sm my-4 text-black">
-                          <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
-                            <span>Time on waitlist ({waitlistScore.waitlist_hours}h)</span>
-                            <span className="font-bold text-blue-600">
-                              +{waitlistScore.time_score}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
-                            <span>Active club member</span>
-                            <span className="font-bold text-lime-600">
-                              +{waitlistScore.membership_score}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
-                            <span>Attendance streak</span>
-                            <span className="font-bold text-orange-600">
-                              +{waitlistScore.streak_score}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center border-b-2 border-black pb-2">
-                            <span>Graduating senior</span>
-                            <span className="font-bold text-purple-600">
-                              +{waitlistScore.senior_score}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center pt-2 text-lg font-black uppercase">
-                            <span>Total Score</span>
-                            <span>{waitlistScore.total_score}</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="p-4 text-center font-mono text-gray-500">
-                          Loading score...
-                        </div>
-                      )}
-                      <DialogFooter className="sm:justify-start">
-                        <Button
-                          variant="outline"
-                          className="w-full font-bold uppercase border-2 border-black shadow-[4px_4px_0_0_#000]"
-                        >
-                          Close
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                        Verification required before RSVP
+                      </span>
+                      <CaptchaWidget
+                        siteKey={captchaSiteKey}
+                        provider={captchaProvider}
+                        onToken={(token) => setCaptchaToken(token)}
+                        onError={() => setCaptchaToken(undefined)}
+                        onExpire={() => setCaptchaToken(undefined)}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
               <span
@@ -2028,9 +1920,6 @@ export default function EventDetailsPage() {
               </span>
             </div>
           </div>
-        </section>
-        <section className="bg-cream px-4 py-8 md:px-6">
-          <TournamentBracket />
         </section>
         {/* Details Container */}
         <section className="bg-cream px-4 py-12 md:px-6">
@@ -2062,12 +1951,7 @@ export default function EventDetailsPage() {
               {/* Download Ticket — visible to confirmed attendees of upcoming/ongoing events */}
               {hasRsvpd && !hasEnded && (
                 <Button
-                  onClick={() =>
-                    downloadTicket({
-                      ...event,
-                      noMediaConsent: myRsvp?.no_media_consent === true,
-                    })
-                  }
+                  onClick={() => downloadTicket(event)}
                   disabled={isTicketGenerating}
                   variant="outline"
                   className="neu-border neu-press h-12 bg-lime px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-60"
@@ -2229,9 +2113,9 @@ export default function EventDetailsPage() {
               )}
             </div>
 
+            {/* Predictive Turnout (Visible to Organizer / Admins) */}
             {isOrganizer && (
-              <div className="mt-8 space-y-8">
-                <EventLogisticsChecklist eventId={event.id} />
+              <div className="mt-8">
                 <PredictiveTurnout
                   rsvpCount={attendeeCount}
                   latitude={(event as Record<string, unknown>).latitude as number | null}
@@ -2254,14 +2138,6 @@ export default function EventDetailsPage() {
 
             {/* Transportation / Carpool Matching (Issue #2877) */}
             <div className="mt-8">
-              <LiveGPSBusTracker
-                eventId={eventId}
-                isCaptain={isOrganizer}
-                eventTitle={event.title}
-              />
-            </div>
-
-            <div className="mt-8">
               <CarpoolMatchingSection eventId={eventId} user={user} />
             </div>
 
@@ -2280,7 +2156,7 @@ export default function EventDetailsPage() {
               <EventSubmissions
                 eventId={eventId}
                 submissionDeadline={(event as any).submission_deadline}
-                userRsvp={!!userRsvp}
+                userRsvp={hasRsvpd}
                 isOrganizer={isOrganizer}
               />
             </div>
@@ -2290,45 +2166,19 @@ export default function EventDetailsPage() {
                 About the Event
               </h2>
               <div className="flex flex-col gap-8 lg:flex-row">
-                <main className="flex-1 min-w-0 relative">
-                  {event.content_warnings && event.content_warnings.length > 0 && !revealedWarnings ? (
-                    <div className="relative border-4 border-black bg-yellow-50 p-6 shadow-[4px_4px_0_0_#000] mb-6 z-10">
-                      <div className="flex items-start gap-3">
-                        <span className="text-2xl">⚠️</span>
-                        <div>
-                          <h3 className="font-display text-lg font-black uppercase text-red-700">
-                            Content Warning
-                          </h3>
-                          <p className="mt-1 font-mono text-xs text-zinc-700">
-                            This event contains content warnings:{" "}
-                            <span className="font-bold uppercase text-red-600">
-                              {event.content_warnings.join(", ")}
-                            </span>.
-                            Reader discretion is advised.
-                          </p>
-                          <button
-                            onClick={() => setRevealedWarnings(true)}
-                            className="mt-4 border-2 border-black bg-black text-white px-4 py-2 font-mono text-xs font-bold uppercase hover:bg-zinc-800 active:translate-y-0.5 transition-all shadow-[2px_2px_0_0_rgba(0,0,0,0.4)] cursor-pointer"
-                          >
-                            I understand, reveal description
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
+                <main className="flex-1 min-w-0">
+                  {event.description ? (
+                    <EventDescriptionTranslation
+                      eventId={event.id}
+                      description={event.description}
+                    />
+                  ) : (
+                    <p className="mt-4 font-mono text-sm italic text-black/40">
+                      No description provided for this event.
+                    </p>
+                  )}
 
-                  <div className={event.content_warnings && event.content_warnings.length > 0 && !revealedWarnings ? "blur-sm select-none pointer-events-none" : ""}>
-                    {event.description ? (
-                      <EventDescriptionTranslation
-                        eventId={event.id}
-                        description={event.description}
-                      />
-                    ) : (
-                      <p className="mt-4 font-mono text-sm italic text-black/40">
-                        No description provided for this event.
-                      </p>
-                    )}
-                  </div>
+                  {event.dress_code && <DressCodeVisualizer code={event.dress_code} />}
                 </main>
                 <aside className="lg:w-64 shrink-0">
                   <TableOfContents items={tocItems} />
@@ -2338,11 +2188,7 @@ export default function EventDetailsPage() {
 
             <EventSeatingManager eventId={event.id} isOrganizer={isOrganizer} />
 
-            <CrowdDensityMeter eventId={event.id} />
-            <EventNoiseMonitor eventId={event.id} />
-
             <InteractiveSeatingChart eventId={event.id} user={user} />
-            <SeatSwapMarketplace eventId={event.id} user={user} />
 
             {/* Interactive venue map layout for attendees */}
             {venueMapData && venueMapData.nodes && venueMapData.nodes.length > 0 ? (
@@ -2515,14 +2361,7 @@ export default function EventDetailsPage() {
               hasRsvpd &&
               event.end_date &&
               new Date(event.end_date).getTime() < Date.now() && (
-                <div className="mt-10 space-y-8">
-                  <EventMetricRatingForm
-                    eventId={event.id}
-                    user={user}
-                    metrics={
-                      (event as Record<string, unknown>).rating_metrics as string[] | undefined
-                    }
-                  />
+                <div className="mt-10">
                   <EventFeedbackForm eventId={event.id} user={user} />
                 </div>
               )}
@@ -2686,24 +2525,20 @@ export default function EventDetailsPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-                  {galleryPhotos.map((photo, idx: number) => (
+                  {galleryPhotos.map((url: string, idx: number) => (
                     <div
-                      key={photo.id}
+                      key={url}
                       className="neu-border bg-white p-2 hover:scale-[1.02] transition-transform duration-300 group cursor-zoom-in"
                       onClick={() => {
-                        if (!photo.is_nsfw) {
-                          setLightboxSrc(photo.image_url);
-                        }
+                        setLightboxSrc(url);
                       }}
                     >
                       <div className="aspect-square w-full overflow-hidden bg-cream">
-                        <SafeEventImage
-                          id={photo.id}
-                          src={photo.image_url}
+                        <img
+                          src={url}
                           alt={`Event gallery photo ${idx + 1}`}
-                          initialIsNsfw={photo.is_nsfw}
-                          isAdmin={isClubAdmin}
-                          className="h-full w-full"
+                          className="h-full w-full object-cover"
+                          loading="lazy"
                         />
                       </div>
                     </div>
@@ -2713,528 +2548,429 @@ export default function EventDetailsPage() {
             </div>
 
             {/* Social Share */}
-            <div className="mt-10 border-t-2 border-black pt-6 space-y-6">
-              <div>
-                <h3 className="font-mono text-xs font-bold uppercase text-blue-900">
-                  Share with Friends
-                </h3>
-                <div className="mt-4">
-                  <ShareMenu
-                    url={shareUrl}
-                    title={event.title}
-                    text={`Check out this event: ${event.title}`}
-                    eventId={event.id}
-                  />{" "}
-                </div>
+            <div className="mt-10 border-t-2 border-black pt-6">
+              <h3 className="font-mono text-xs font-bold uppercase text-blue-900">
+                Share with Friends
+              </h3>
+              <div className="mt-4">
+                <ShareMenu
+                  url={shareUrl}
+                  title={event.title}
+                  text={`Check out this event: ${event.title}`}
+                />
               </div>
-              <div className="border-t border-black/10 pt-4">
-                <h3 className="font-mono text-xs font-bold uppercase text-blue-900 mb-2">
-                  Referral Invite Link 🎁
-                </h3>
-                <p className="text-xs font-mono text-gray-500 mb-3">
-                  Invite friends to earn 50 Gamification Points for both of you when they RSVP!
-                </p>
-                {user ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const refUrl = `${window.location.origin}/events/${event.id}?ref=${user.id}`;
-                      navigator.clipboard.writeText(refUrl);
-                      toast.success("Referral invite link copied to clipboard!");
-                    }}
-                    className="neu-border neu-press w-full bg-[#a3e635] p-2.5 font-mono text-xs font-bold uppercase text-black"
-                  >
-                    Generate & Copy Invite Link
-                  </button>
-                ) : (
-                  <p className="text-xs font-mono text-gray-400 italic">
-                    Log in to generate your unique invite link and earn points.
-                  </p>
-                )}
-              </div>
-              {/* Event Live Support Reporting Card */}
-              <div className="border-t border-black/10 pt-4 space-y-3 text-black">
-                <h3 className="font-mono text-xs font-bold uppercase text-red-600">
-                  Event Live Support 🚨
-                </h3>
-                <p className="text-xs font-mono text-gray-500">
-                  Experiencing an issue during the event? Report it instantly to the organizers.
-                </p>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {["🎙️ Mic Broken", "❄️ Too Cold", "🔥 Too Hot", "🔊 Too Quiet"].map((label) => (
-                    <button
-                      key={label}
-                      onClick={async () => {
-                        const { error } = await supabase.from("event_live_tickets").insert({
-                          event_id: event.id,
-                          user_id: user?.id || null,
-                          message: label,
-                          status: "open",
-                        });
-                        if (error) {
-                          toast.error(error.message);
-                        } else {
-                          toast.success("Issue reported! Organizers have been notified.");
-                        }
-                      }}
-                      className="border border-black bg-white hover:bg-red-50 text-[10px] font-mono font-bold uppercase px-2 py-1 transition-colors"
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Report another issue..."
-                    className="w-full border-2 border-black p-2 font-mono text-xs focus:outline-none"
-                    onKeyDown={async (e) => {
-                      if (e.key === "Enter") {
-                        const target = e.currentTarget;
-                        if (!target.value.trim()) return;
-                        const { error } = await supabase.from("event_live_tickets").insert({
-                          event_id: event.id,
-                          user_id: user?.id || null,
-                          message: target.value.trim(),
-                          status: "open",
-                        });
-                        if (error) {
-                          toast.error(error.message);
-                        } else {
-                          toast.success("Issue reported! Organizers have been notified.");
-                          target.value = "";
-                        }
-                      }
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="border-t border-black/10 pt-4">
-                <EventFaqSection eventId={event.id} isOrganizer={isOrganizer} userId={user?.id} />
-              </div>
-              <EventMenuSection eventId={event.id} isOrganizer={isOrganizer} />{" "}
-              {/* Kanban Board for Organizer */}
-              {isOrganizer && (
-                <div className="mt-12 border-t-4 border-black pt-10">
-                  <h2 className="font-display text-2xl font-black uppercase tracking-tight text-black mb-6">
-                    Attendee Manager
-                  </h2>
-                  <div className="mb-8 rounded-2xl border-4 border-black bg-white p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <h3 className="font-display text-xl font-black uppercase tracking-tight text-black">
-                          QR Check-in
-                        </h3>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          Verify a signed ticket from the camera or an uploaded image to mark the
-                          attendee as checked in.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-5">
-                      <SteganographicQRScanner
-                        onVerificationSuccess={(payload) => {
-                          checkInRsvp.mutate({ rsvpId: payload.rsvpId });
-                        }}
-                      />
+            </div>
+
+            <EventFaqSection eventId={event.id} isOrganizer={isOrganizer} userId={user?.id} />
+            {/* Kanban Board for Organizer */}
+            {isOrganizer && (
+              <div className="mt-12 border-t-4 border-black pt-10">
+                <h2 className="font-display text-2xl font-black uppercase tracking-tight text-black mb-6">
+                  Attendee Manager
+                </h2>
+                <div className="mb-8 rounded-2xl border-4 border-black bg-white p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-display text-xl font-black uppercase tracking-tight text-black">
+                        QR Check-in
+                      </h3>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Verify a signed ticket from the camera or an uploaded image to mark the
+                        attendee as checked in.
+                      </p>
                     </div>
                   </div>
-                  <DragDropContext onDragEnd={onDragEnd}>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {/* Waitlisted Column */}
-                      <div className="flex flex-col border-4 border-black bg-amber-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                        <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
-                          <span className="flex items-center gap-2">
-                            <Clock size={18} className="text-amber-600" /> Waitlisted
-                          </span>
-                          <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
-                            {columns.waitlisted.length}
-                          </span>
-                        </h3>
-                        <Droppable droppableId="waitlisted">
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.droppableProps}
-                              className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
-                                snapshot.isDraggingOver ? "bg-amber-100/50" : ""
-                              }`}
-                            >
-                              {columns.waitlisted.map((card, index) => (
-                                <Draggable key={card.id} draggableId={card.id} index={index}>
-                                  {(provided, snapshot) => (
-                                    <div
-                                      ref={provided.innerRef}
-                                      {...provided.draggableProps}
-                                      {...provided.dragHandleProps}
-                                      className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
-                                        snapshot.isDragging
-                                          ? "rotate-2 scale-105 z-50 bg-amber-50/90"
-                                          : ""
-                                      }`}
-                                    >
-                                      <div className="flex items-center gap-3 min-w-0">
-                                        {card.avatarUrl ? (
-                                          <img
-                                            src={card.avatarUrl}
-                                            alt={card.name}
-                                            className="h-10 w-10 border-2 border-black object-cover rounded-none"
-                                          />
-                                        ) : (
-                                          <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
-                                            {card.name.substring(0, 2)}
-                                          </div>
-                                        )}
-                                        <div className="min-w-0">
-                                          <p className="truncate font-mono text-sm font-bold text-black">
-                                            {card.name}
-                                          </p>
-                                          <p className="font-mono text-[9px] text-black/60 uppercase">
-                                            {card.rsvpId ? "Requested" : "Waitlist"}
-                                          </p>
-                                          {card.hasAccommodation && card.rsvpId && (
-                                            <div className="mt-1 flex flex-col gap-0.5">
-                                              <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
-                                                🔴 Accessibility accommodation requested
-                                              </span>
-                                              <button
-                                                type="button"
-                                                className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
-                                                onClick={() =>
-                                                  handleViewAccommodation(card.rsvpId!)
-                                                }
-                                              >
-                                                [Decrypt / View]
-                                              </button>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <div className="flex gap-1 ml-2">
-                                        <TooltipProvider>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button
-                                                size="icon"
-                                                variant="outline"
-                                                className="h-7 w-7 border border-black rounded-none bg-emerald-50 hover:bg-emerald-200"
-                                                onClick={() =>
-                                                  updateRsvpStatus.mutate({
-                                                    userId: card.userId,
-                                                    rsvpId: card.rsvpId,
-                                                    newStatus: "approved",
-                                                  })
-                                                }
-                                              >
-                                                <CheckCircle
-                                                  size={14}
-                                                  className="text-emerald-700"
-                                                />
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                              <p>Approve RSVP</p>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        </TooltipProvider>
-
-                                        <TooltipProvider>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button
-                                                size="icon"
-                                                variant="outline"
-                                                className="h-7 w-7 border border-black rounded-none bg-rose-50 hover:bg-rose-200"
-                                                onClick={() =>
-                                                  updateRsvpStatus.mutate({
-                                                    userId: card.userId,
-                                                    rsvpId: card.rsvpId,
-                                                    newStatus: "rejected",
-                                                  })
-                                                }
-                                              >
-                                                <X size={14} className="text-rose-700" />
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                              <p>Reject RSVP</p>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        </TooltipProvider>
-                                      </div>
-                                    </div>
-                                  )}
-                                </Draggable>
-                              ))}
-                              {provided.placeholder}
-                            </div>
-                          )}
-                        </Droppable>
-                      </div>
-
-                      {/* Approved Column */}
-                      <div className="flex flex-col border-4 border-black bg-emerald-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                        <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
-                          <span className="flex items-center gap-2">
-                            <CheckCircle size={18} className="text-emerald-600" /> Approved
-                          </span>
-                          <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
-                            {columns.approved.length}
-                          </span>
-                        </h3>
-                        <Droppable droppableId="approved">
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.droppableProps}
-                              className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
-                                snapshot.isDraggingOver ? "bg-emerald-100/50" : ""
-                              }`}
-                            >
-                              {columns.approved.map((card, index) => (
-                                <Draggable key={card.id} draggableId={card.id} index={index}>
-                                  {(provided, snapshot) => (
-                                    <div
-                                      ref={provided.innerRef}
-                                      {...provided.draggableProps}
-                                      {...provided.dragHandleProps}
-                                      className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
-                                        snapshot.isDragging
-                                          ? "rotate-2 scale-105 z-50 bg-emerald-50/90"
-                                          : ""
-                                      }`}
-                                    >
-                                      <div className="flex items-center gap-3 min-w-0">
-                                        {card.avatarUrl ? (
-                                          <img
-                                            src={card.avatarUrl}
-                                            alt={card.name}
-                                            className="h-10 w-10 border-2 border-black object-cover rounded-none"
-                                          />
-                                        ) : (
-                                          <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
-                                            {card.name.substring(0, 2)}
-                                          </div>
-                                        )}
-                                        <div className="min-w-0">
-                                          <p className="truncate font-mono text-sm font-bold text-black">
-                                            {card.name}
-                                          </p>
-                                          <p className="font-mono text-[9px] text-black/60 uppercase">
-                                            Approved
-                                          </p>
-                                          {card.hasAccommodation && card.rsvpId && (
-                                            <div className="mt-1 flex flex-col gap-0.5">
-                                              <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
-                                                🔴 Accessibility accommodation requested
-                                              </span>
-                                              <button
-                                                type="button"
-                                                className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
-                                                onClick={() =>
-                                                  handleViewAccommodation(card.rsvpId!)
-                                                }
-                                              >
-                                                [Decrypt / View]
-                                              </button>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <div className="flex gap-1 ml-2">
-                                        <TooltipProvider>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button
-                                                size="icon"
-                                                variant="outline"
-                                                className="h-7 w-7 border border-black rounded-none bg-amber-50 hover:bg-amber-200"
-                                                onClick={() =>
-                                                  updateRsvpStatus.mutate({
-                                                    userId: card.userId,
-                                                    rsvpId: card.rsvpId,
-                                                    newStatus: "waitlisted",
-                                                  })
-                                                }
-                                              >
-                                                <Clock size={14} className="text-amber-700" />
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                              <p>Move to Waitlist</p>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        </TooltipProvider>
-
-                                        <TooltipProvider>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button
-                                                size="icon"
-                                                variant="outline"
-                                                className="h-7 w-7 border border-black rounded-none bg-rose-50 hover:bg-rose-200"
-                                                onClick={() =>
-                                                  updateRsvpStatus.mutate({
-                                                    userId: card.userId,
-                                                    rsvpId: card.rsvpId,
-                                                    newStatus: "rejected",
-                                                  })
-                                                }
-                                              >
-                                                <X size={14} className="text-rose-700" />
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                              <p>Reject RSVP</p>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        </TooltipProvider>
-                                      </div>
-                                    </div>
-                                  )}
-                                </Draggable>
-                              ))}
-                              {provided.placeholder}
-                            </div>
-                          )}
-                        </Droppable>
-                      </div>
-
-                      {/* Rejected Column */}
-                      <div className="flex flex-col border-4 border-black bg-rose-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                        <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
-                          <span className="flex items-center gap-2">
-                            <X size={18} className="text-rose-600" /> Rejected
-                          </span>
-                          <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
-                            {columns.rejected.length}
-                          </span>
-                        </h3>
-                        <Droppable droppableId="rejected">
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.droppableProps}
-                              className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
-                                snapshot.isDraggingOver ? "bg-rose-100/50" : ""
-                              }`}
-                            >
-                              {columns.rejected.map((card, index) => (
-                                <Draggable key={card.id} draggableId={card.id} index={index}>
-                                  {(provided, snapshot) => (
-                                    <div
-                                      ref={provided.innerRef}
-                                      {...provided.draggableProps}
-                                      {...provided.dragHandleProps}
-                                      className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
-                                        snapshot.isDragging
-                                          ? "rotate-2 scale-105 z-50 bg-rose-50/90"
-                                          : ""
-                                      }`}
-                                    >
-                                      <div className="flex items-center gap-3 min-w-0">
-                                        {card.avatarUrl ? (
-                                          <img
-                                            src={card.avatarUrl}
-                                            alt={card.name}
-                                            className="h-10 w-10 border-2 border-black object-cover rounded-none"
-                                          />
-                                        ) : (
-                                          <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
-                                            {card.name.substring(0, 2)}
-                                          </div>
-                                        )}
-                                        <div className="min-w-0">
-                                          <p className="truncate font-mono text-sm font-bold text-black">
-                                            {card.name}
-                                          </p>
-                                          <p className="font-mono text-[9px] text-black/60 uppercase">
-                                            Rejected
-                                          </p>
-                                          {card.hasAccommodation && card.rsvpId && (
-                                            <div className="mt-1 flex flex-col gap-0.5">
-                                              <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
-                                                🔴 Accessibility accommodation requested
-                                              </span>
-                                              <button
-                                                type="button"
-                                                className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
-                                                onClick={() =>
-                                                  handleViewAccommodation(card.rsvpId!)
-                                                }
-                                              >
-                                                [Decrypt / View]
-                                              </button>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <div className="flex gap-1 ml-2">
-                                        <TooltipProvider>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button
-                                                size="icon"
-                                                variant="outline"
-                                                className="h-7 w-7 border border-black rounded-none bg-amber-50 hover:bg-amber-200"
-                                                onClick={() =>
-                                                  updateRsvpStatus.mutate({
-                                                    userId: card.userId,
-                                                    rsvpId: card.rsvpId,
-                                                    newStatus: "waitlisted",
-                                                  })
-                                                }
-                                              >
-                                                <Clock size={14} className="text-amber-700" />
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                              <p>Move to Waitlist</p>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        </TooltipProvider>
-
-                                        <TooltipProvider>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button
-                                                size="icon"
-                                                variant="outline"
-                                                className="h-7 w-7 border border-black rounded-none bg-emerald-50 hover:bg-emerald-200"
-                                                onClick={() =>
-                                                  updateRsvpStatus.mutate({
-                                                    userId: card.userId,
-                                                    rsvpId: card.rsvpId,
-                                                    newStatus: "approved",
-                                                  })
-                                                }
-                                              >
-                                                <CheckCircle
-                                                  size={14}
-                                                  className="text-emerald-700"
-                                                />
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                              <p>Approve RSVP</p>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        </TooltipProvider>
-                                      </div>
-                                    </div>
-                                  )}
-                                </Draggable>
-                              ))}
-                              {provided.placeholder}
-                            </div>
-                          )}
-                        </Droppable>
-                      </div>
-                    </div>
-                  </DragDropContext>
+                  <div className="mt-5">
+                    <SteganographicQRScanner
+                      onVerificationSuccess={(payload) => {
+                        checkInRsvp.mutate({ rsvpId: payload.rsvpId });
+                      }}
+                    />
+                  </div>
                 </div>
-              )}
-            </div>
+                <DragDropContext onDragEnd={onDragEnd}>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Waitlisted Column */}
+                    <div className="flex flex-col border-4 border-black bg-amber-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                      <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                          <Clock size={18} className="text-amber-600" /> Waitlisted
+                        </span>
+                        <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
+                          {columns.waitlisted.length}
+                        </span>
+                      </h3>
+                      <Droppable droppableId="waitlisted">
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
+                              snapshot.isDraggingOver ? "bg-amber-100/50" : ""
+                            }`}
+                          >
+                            {columns.waitlisted.map((card, index) => (
+                              <Draggable key={card.id} draggableId={card.id} index={index}>
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
+                                      snapshot.isDragging
+                                        ? "rotate-2 scale-105 z-50 bg-amber-50/90"
+                                        : ""
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      {card.avatarUrl ? (
+                                        <img
+                                          src={card.avatarUrl}
+                                          alt={card.name}
+                                          className="h-10 w-10 border-2 border-black object-cover rounded-none"
+                                        />
+                                      ) : (
+                                        <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
+                                          {card.name.substring(0, 2)}
+                                        </div>
+                                      )}
+                                      <div className="min-w-0">
+                                        <p className="truncate font-mono text-sm font-bold text-black">
+                                          {card.name}
+                                        </p>
+                                        <p className="font-mono text-[9px] text-black/60 uppercase">
+                                          {card.rsvpId ? "Requested" : "Waitlist"}
+                                        </p>
+                                        {card.hasAccommodation && card.rsvpId && (
+                                          <div className="mt-1 flex flex-col gap-0.5">
+                                            <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
+                                              🔴 Accessibility accommodation requested
+                                            </span>
+                                            <button
+                                              type="button"
+                                              className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
+                                              onClick={() => handleViewAccommodation(card.rsvpId!)}
+                                            >
+                                              [Decrypt / View]
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-1 ml-2">
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              size="icon"
+                                              variant="outline"
+                                              className="h-7 w-7 border border-black rounded-none bg-emerald-50 hover:bg-emerald-200"
+                                              onClick={() =>
+                                                updateRsvpStatus.mutate({
+                                                  userId: card.userId,
+                                                  rsvpId: card.rsvpId,
+                                                  newStatus: "approved",
+                                                })
+                                              }
+                                            >
+                                              <CheckCircle size={14} className="text-emerald-700" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Approve RSVP</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              size="icon"
+                                              variant="outline"
+                                              className="h-7 w-7 border border-black rounded-none bg-rose-50 hover:bg-rose-200"
+                                              onClick={() =>
+                                                updateRsvpStatus.mutate({
+                                                  userId: card.userId,
+                                                  rsvpId: card.rsvpId,
+                                                  newStatus: "rejected",
+                                                })
+                                              }
+                                            >
+                                              <X size={14} className="text-rose-700" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Reject RSVP</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    </div>
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </div>
+
+                    {/* Approved Column */}
+                    <div className="flex flex-col border-4 border-black bg-emerald-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                      <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                          <CheckCircle size={18} className="text-emerald-600" /> Approved
+                        </span>
+                        <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
+                          {columns.approved.length}
+                        </span>
+                      </h3>
+                      <Droppable droppableId="approved">
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
+                              snapshot.isDraggingOver ? "bg-emerald-100/50" : ""
+                            }`}
+                          >
+                            {columns.approved.map((card, index) => (
+                              <Draggable key={card.id} draggableId={card.id} index={index}>
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
+                                      snapshot.isDragging
+                                        ? "rotate-2 scale-105 z-50 bg-emerald-50/90"
+                                        : ""
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      {card.avatarUrl ? (
+                                        <img
+                                          src={card.avatarUrl}
+                                          alt={card.name}
+                                          className="h-10 w-10 border-2 border-black object-cover rounded-none"
+                                        />
+                                      ) : (
+                                        <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
+                                          {card.name.substring(0, 2)}
+                                        </div>
+                                      )}
+                                      <div className="min-w-0">
+                                        <p className="truncate font-mono text-sm font-bold text-black">
+                                          {card.name}
+                                        </p>
+                                        <p className="font-mono text-[9px] text-black/60 uppercase">
+                                          Approved
+                                        </p>
+                                        {card.hasAccommodation && card.rsvpId && (
+                                          <div className="mt-1 flex flex-col gap-0.5">
+                                            <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
+                                              🔴 Accessibility accommodation requested
+                                            </span>
+                                            <button
+                                              type="button"
+                                              className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
+                                              onClick={() => handleViewAccommodation(card.rsvpId!)}
+                                            >
+                                              [Decrypt / View]
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-1 ml-2">
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              size="icon"
+                                              variant="outline"
+                                              className="h-7 w-7 border border-black rounded-none bg-amber-50 hover:bg-amber-200"
+                                              onClick={() =>
+                                                updateRsvpStatus.mutate({
+                                                  userId: card.userId,
+                                                  rsvpId: card.rsvpId,
+                                                  newStatus: "waitlisted",
+                                                })
+                                              }
+                                            >
+                                              <Clock size={14} className="text-amber-700" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Move to Waitlist</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              size="icon"
+                                              variant="outline"
+                                              className="h-7 w-7 border border-black rounded-none bg-rose-50 hover:bg-rose-200"
+                                              onClick={() =>
+                                                updateRsvpStatus.mutate({
+                                                  userId: card.userId,
+                                                  rsvpId: card.rsvpId,
+                                                  newStatus: "rejected",
+                                                })
+                                              }
+                                            >
+                                              <X size={14} className="text-rose-700" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Reject RSVP</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    </div>
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </div>
+
+                    {/* Rejected Column */}
+                    <div className="flex flex-col border-4 border-black bg-rose-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                      <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                          <X size={18} className="text-rose-600" /> Rejected
+                        </span>
+                        <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
+                          {columns.rejected.length}
+                        </span>
+                      </h3>
+                      <Droppable droppableId="rejected">
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
+                              snapshot.isDraggingOver ? "bg-rose-100/50" : ""
+                            }`}
+                          >
+                            {columns.rejected.map((card, index) => (
+                              <Draggable key={card.id} draggableId={card.id} index={index}>
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
+                                      snapshot.isDragging
+                                        ? "rotate-2 scale-105 z-50 bg-rose-50/90"
+                                        : ""
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      {card.avatarUrl ? (
+                                        <img
+                                          src={card.avatarUrl}
+                                          alt={card.name}
+                                          className="h-10 w-10 border-2 border-black object-cover rounded-none"
+                                        />
+                                      ) : (
+                                        <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
+                                          {card.name.substring(0, 2)}
+                                        </div>
+                                      )}
+                                      <div className="min-w-0">
+                                        <p className="truncate font-mono text-sm font-bold text-black">
+                                          {card.name}
+                                        </p>
+                                        <p className="font-mono text-[9px] text-black/60 uppercase">
+                                          Rejected
+                                        </p>
+                                        {card.hasAccommodation && card.rsvpId && (
+                                          <div className="mt-1 flex flex-col gap-0.5">
+                                            <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
+                                              🔴 Accessibility accommodation requested
+                                            </span>
+                                            <button
+                                              type="button"
+                                              className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
+                                              onClick={() => handleViewAccommodation(card.rsvpId!)}
+                                            >
+                                              [Decrypt / View]
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-1 ml-2">
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              size="icon"
+                                              variant="outline"
+                                              className="h-7 w-7 border border-black rounded-none bg-amber-50 hover:bg-amber-200"
+                                              onClick={() =>
+                                                updateRsvpStatus.mutate({
+                                                  userId: card.userId,
+                                                  rsvpId: card.rsvpId,
+                                                  newStatus: "waitlisted",
+                                                })
+                                              }
+                                            >
+                                              <Clock size={14} className="text-amber-700" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Move to Waitlist</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              size="icon"
+                                              variant="outline"
+                                              className="h-7 w-7 border border-black rounded-none bg-emerald-50 hover:bg-emerald-200"
+                                              onClick={() =>
+                                                updateRsvpStatus.mutate({
+                                                  userId: card.userId,
+                                                  rsvpId: card.rsvpId,
+                                                  newStatus: "approved",
+                                                })
+                                              }
+                                            >
+                                              <CheckCircle size={14} className="text-emerald-700" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Approve RSVP</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    </div>
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </div>
+                  </div>
+                </DragDropContext>
+              </div>
+            )}
           </div>
         </section>
         {/* Sticky Mobile RSVP Bar */}
@@ -3244,24 +2980,9 @@ export default function EventDetailsPage() {
               {attendeeCount} {maxAttendees ? `/ ${maxAttendees}` : ""} going
             </span>
             {isOnWaitlist && waitlistPosition > 0 && (
-              <div className="flex flex-col">
-                <span className="font-mono text-[10px] font-bold text-amber-700">
-                  Waitlist position: #{waitlistPosition}
-                </span>
-                {waitlistChurnPrediction && (
-                  <span
-                    className={`font-mono text-[10px] font-bold ${
-                      waitlistChurnPrediction.probability_percentage >= 70
-                        ? "text-emerald-700"
-                        : waitlistChurnPrediction.probability_percentage >= 30
-                          ? "text-amber-700"
-                          : "text-rose-700"
-                    }`}
-                  >
-                    {waitlistChurnPrediction.message}
-                  </span>
-                )}
-              </div>
+              <span className="font-mono text-[10px] font-bold text-amber-700">
+                Waitlist position: #{waitlistPosition}
+              </span>
             )}
           </div>
           {hasRsvpd ? (
@@ -3275,74 +2996,19 @@ export default function EventDetailsPage() {
                   toast.error("Please log in to join waitlist");
                   return;
                 }
-                if (!prereqMet) {
-                  toast.error(`You must attend '${prereqTitle}' before joining waitlist.`);
-                  return;
-                }
                 toggleWaitlist.mutate({ isOnWaitlist });
               }}
-
-              disabled={toggleWaitlist.isPending || !prereqMet}
+              disabled={toggleWaitlist.isPending}
               variant={isOnWaitlist ? "secondary" : "primary"}
-              title={
-                !prereqMet
-                  ? `You must attend '${prereqTitle}' before registering for this event.`
-                  : undefined
-              }
-              className={!prereqMet ? "opacity-50 cursor-not-allowed" : ""}
-
-              disabled={toggleWaitlist.isPending || !prereqMet || (!isOnWaitlist && isWaitlistFull)}
-              variant={isOnWaitlist ? "secondary" : "primary"}
-              title={
-                !prereqMet
-                  ? `You must attend '${prereqTitle}' before registering for this event.`
-                  : undefined
-              }
-              className={
-                !prereqMet || (!isOnWaitlist && isWaitlistFull)
-                  ? "opacity-50 cursor-not-allowed"
-                  : ""
-              }
             >
               {toggleWaitlist.isPending
                 ? "Updating..."
                 : isOnWaitlist
                   ? "On Waitlist ✓"
-                  : isWaitlistFull
-                    ? "Waitlist Full"
-                    : "Join Waitlist"}
+                  : "Join Waitlist"}
             </Button>
           ) : (
-            <Button
-              onClick={() => {
-                if (!prereqMet && !hasRsvpd) {
-                  toast.error(
-                    `You must attend '${prereqTitle}' before registering for this event.`,
-                  );
-
-                  toast.error(
-                    `You must attend '${prereqTitle}' before registering for this event.`,
-                  );
-                  return;
-                }
-                handleRsvpClick();
-              }}
-              disabled={toggleRsvp.isPending || !prereqMet}
-              variant="primary"
-
-              title={
-                !prereqMet && !hasRsvpd
-                  ? `You must attend '${prereqTitle}' before registering for this event.`
-                  : undefined
-              }
-
-              title={
-                !prereqMet && !hasRsvpd
-                  ? `You must attend '${prereqTitle}' before registering for this event.`
-                  : undefined
-              }
-              className={!prereqMet && !hasRsvpd ? "opacity-50 cursor-not-allowed" : ""}
-            >
+            <Button onClick={handleRsvpClick} disabled={toggleRsvp.isPending} variant="primary">
               {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
             </Button>
           )}
@@ -3363,7 +3029,6 @@ export default function EventDetailsPage() {
               // Reset states when closed
               setNeedAccommodations(false);
               setAccommodationsText("");
-              setMediaConsent(null);
               setValidationError("");
             }
             setRsvpDialogOpen(open);
@@ -3380,56 +3045,6 @@ export default function EventDetailsPage() {
             </DialogHeader>
 
             <div className="space-y-4 py-4">
-              {event.has_photography && (
-                <fieldset
-                  className="space-y-3 rounded-md border-2 border-red-700 bg-red-50 p-4"
-                  aria-describedby="media-consent-help media-consent-error"
-                >
-                  <legend className="font-mono text-sm font-black uppercase text-red-900">
-                    Media Consent <span className="text-red-700">*</span>
-                  </legend>
-                  <p
-                    id="media-consent-help"
-                    className="font-mono text-xs leading-relaxed text-red-900"
-                  >
-                    {MEDIA_CONSENT_COPY.prompt} Your RSVP will be processed either way, but your
-                    choice tells the club and door staff how to protect your privacy.
-                  </p>
-                  <div className="space-y-2">
-                    {[
-                      { value: "yes" as const, label: MEDIA_CONSENT_COPY.yes },
-                      { value: "no" as const, label: MEDIA_CONSENT_COPY.no },
-                    ].map((option) => (
-                      <label
-                        key={option.value}
-                        className="flex cursor-pointer items-start gap-3 rounded border border-red-900 bg-white p-3 font-mono text-xs font-bold"
-                      >
-                        <input
-                          type="radio"
-                          name="media-consent"
-                          value={option.value}
-                          checked={mediaConsent === option.value}
-                          onChange={() => {
-                            setMediaConsent(option.value);
-                            setValidationError("");
-                          }}
-                          disabled={toggleRsvp.isPending}
-                          className="mt-0.5 h-4 w-4 accent-red-700"
-                        />
-                        <span>{option.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                  <p
-                    id="media-consent-error"
-                    role="alert"
-                    className="min-h-4 font-mono text-[10px] font-bold text-red-700"
-                  >
-                    {mediaConsent === null ? "A choice is required to continue." : ""}
-                  </p>
-                </fieldset>
-              )}
-
               <div className="flex items-center gap-3">
                 <input
                   id="req-accommodations-checkbox"
@@ -3520,15 +3135,6 @@ export default function EventDetailsPage() {
               <Button
                 variant="primary"
                 onClick={() => {
-                  const consentError = getMediaConsentValidationMessage(
-                    event.has_photography,
-                    mediaConsent,
-                  );
-                  if (consentError) {
-                    setValidationError(consentError);
-                    return;
-                  }
-
                   if (needAccommodations) {
                     if (!accommodationsText.trim()) {
                       setValidationError("Accommodation description is required when requested.");
@@ -3545,11 +3151,6 @@ export default function EventDetailsPage() {
                     hasRsvpd: false,
                     captchaToken,
                     accommodationsRequested: needAccommodations ? accommodationsText : null,
-                    noMediaConsent:
-                      mediaConsent === null
-                        ? undefined
-                        : consentChoiceToNoMediaConsent(mediaConsent),
-                    referredBy: ref,
                   });
                 }}
                 disabled={toggleRsvp.isPending}
@@ -3638,49 +3239,6 @@ export default function EventDetailsPage() {
             />
           </div>
         )}
-        {/* Auto Check-In Location Privacy Prompt Dialog */}
-        <Dialog open={showLocationPrompt} onOpenChange={setShowLocationPrompt}>
-          <DialogContent className="max-w-md border-4 border-black bg-white p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none font-mono">
-            <DialogHeader className="border-b-2 border-black pb-4">
-              <DialogTitle className="text-xl font-black uppercase text-black">
-                Automatic Check-In
-              </DialogTitle>
-              <DialogDescription className="text-xs text-black/60 font-mono">
-                Verify your attendance at {event.title} using location access.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4 py-4 text-sm text-black">
-              <p className="leading-relaxed">
-                📍 <strong>Location Check:</strong> CampusConnect can automatically check you in to
-                this event. We need to verify that you are physically present at the venue.
-              </p>
-              <p className="text-xs text-black/60">
-                🔒 <strong>Privacy details:</strong> Your location coordinates are processed only in
-                your browser to compute the distance from the venue. We never store, track, or share
-                your GPS history.
-              </p>
-            </div>
-
-            <div className="border-t-2 border-black pt-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-              <Button
-                className="neu-press border-2 border-black bg-white px-4 py-2 font-mono text-xs font-bold uppercase rounded-none text-black hover:bg-neutral-100"
-                onClick={() => setShowLocationPrompt(false)}
-              >
-                No Thanks
-              </Button>
-              <Button
-                className="neu-press border-2 border-black bg-lime px-4 py-2 font-mono text-xs font-bold uppercase rounded-none text-black hover:bg-lime/90"
-                onClick={() => {
-                  setShowLocationPrompt(false);
-                  triggerAutoCheckIn();
-                }}
-              >
-                Enable & Check In
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </SiteShell>
     </>
   );
