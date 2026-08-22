@@ -416,6 +416,38 @@ export interface CoHostFinancialSplitResult {
   transfers?: CoHostTransferItem[];
 }
 
+export interface VolunteerShift {
+  id: string;
+  event_id: string;
+  role_name: string;
+  start_time: string;
+  end_time: string;
+  capacity: number;
+  points_per_hour: number;
+  claimed_count?: number;
+  user_has_claimed?: boolean;
+  created_at: string;
+}
+
+export interface ShiftClaim {
+  id: string;
+  shift_id: string;
+  user_id: string;
+  status: "claimed" | "completed" | "cancelled";
+  claimed_at: string;
+}
+
+export interface ClaimShiftResult {
+  success: boolean;
+  claim_id?: string;
+  shift_id?: string;
+  user_id?: string;
+  role_name?: string;
+  duration_hours?: number;
+  points_awarded?: number;
+  error?: string;
+}
+
 /**
  * Generic Row Type
  * Maps a table name to its corresponding TypeScript interface.
