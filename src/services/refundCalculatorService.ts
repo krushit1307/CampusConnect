@@ -41,8 +41,10 @@ export function calculateProratedRefund(
     }
   }
 
-  const refundAmountDollars = Math.floor(ticketPriceDollars * (refundPercentage / 100));
-  const cancellationFeeDollars = ticketPriceDollars - refundAmountDollars;
+  const refundAmountDollars =
+    Math.round(ticketPriceDollars * (refundPercentage / 100) * 100) / 100;
+  const cancellationFeeDollars =
+    Math.round((ticketPriceDollars - refundAmountDollars) * 100) / 100;
   const roundedHours = Math.round(hoursRemaining);
 
   const policyDescription = `You are cancelling ${roundedHours} hours before the event. Per the policy, you will receive a ${refundPercentage}% refund ($${refundAmountDollars}).`;
