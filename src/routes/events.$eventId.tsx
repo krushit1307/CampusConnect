@@ -18,6 +18,7 @@ import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { EventSeatingManager } from "@/components/events/EventSeatingManager";
+import { SilentAuctionSection } from "@/components/events/SilentAuctionSection";
 import { InteractiveSeatingChart } from "@/components/events/InteractiveSeatingChart";
 import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
 import { useBannerColor } from "@/hooks/useBannerColor";
@@ -2194,6 +2195,13 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
             </div>
 
             <EventSeatingManager eventId={event.id} isOrganizer={isOrganizer} />
+
+            <SilentAuctionSection
+              eventId={event.id}
+              eventEndDate={event.end_date}
+              userId={user?.id}
+              isOrganizer={Boolean(isOrganizer)}
+            />
 
             <InteractiveSeatingChart eventId={event.id} user={user} />
 

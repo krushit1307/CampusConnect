@@ -3114,8 +3114,152 @@ export type Database = {
           },
         ];
       };
+      auction_items: {
+        Row: {
+          id: string;
+          event_id: string | null;
+          title: string;
+          description: string | null;
+          starting_bid: number;
+          current_highest_bid: number;
+          highest_bidder_id: string | null;
+          end_time: string;
+          is_closed: boolean;
+          created_at: string;
+          bid_increment_cents: number;
+        };
+        Insert: {
+          id?: string;
+          event_id?: string | null;
+          title: string;
+          description?: string | null;
+          starting_bid?: number;
+          current_highest_bid?: number;
+          highest_bidder_id?: string | null;
+          end_time: string;
+          is_closed?: boolean;
+          created_at?: string;
+          bid_increment_cents?: number;
+        };
+        Update: {
+          id?: string;
+          event_id?: string | null;
+          title?: string;
+          description?: string | null;
+          starting_bid?: number;
+          current_highest_bid?: number;
+          highest_bidder_id?: string | null;
+          end_time?: string;
+          is_closed?: boolean;
+          created_at?: string;
+          bid_increment_cents?: number;
+        };
+        Relationships: [];
+      };
+      auction_bids: {
+        Row: {
+          id: string;
+          item_id: string | null;
+          user_id: string | null;
+          bid_amount: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          item_id?: string | null;
+          user_id?: string | null;
+          bid_amount: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          item_id?: string | null;
+          user_id?: string | null;
+          bid_amount?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      auction_winners: {
+        Row: {
+          id: string;
+          item_id: string | null;
+          winner_user_id: string | null;
+          winning_bid: number;
+          stripe_checkout_url: string | null;
+          stripe_checkout_session_id: string | null;
+          payment_status: string;
+          closed_at: string;
+        };
+        Insert: {
+          id?: string;
+          item_id?: string | null;
+          winner_user_id?: string | null;
+          winning_bid: number;
+          stripe_checkout_url?: string | null;
+          stripe_checkout_session_id?: string | null;
+          payment_status?: string;
+          closed_at?: string;
+        };
+        Update: {
+          id?: string;
+          item_id?: string | null;
+          winner_user_id?: string | null;
+          winning_bid?: number;
+          stripe_checkout_url?: string | null;
+          stripe_checkout_session_id?: string | null;
+          payment_status?: string;
+          closed_at?: string;
+        };
+        Relationships: [];
+      };
+      auction_item_updates: {
+        Row: {
+          id: string;
+          item_id: string;
+          event_id: string | null;
+          current_highest_bid: number;
+          end_time: string;
+          is_closed: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          item_id: string;
+          event_id?: string | null;
+          current_highest_bid: number;
+          end_time: string;
+          is_closed: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          item_id?: string;
+          event_id?: string | null;
+          current_highest_bid?: number;
+          end_time?: string;
+          is_closed?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
+      auction_item_public_state: {
+        Row: {
+          id: string;
+          event_id: string | null;
+          title: string;
+          description: string | null;
+          starting_bid: number;
+          current_highest_bid: number;
+          bid_increment_cents: number;
+          end_time: string;
+          is_closed: boolean;
+          created_at: string;
+        };
+        Relationships: [];
+      };
       campaign_match_activity: {
         Row: {
           match_id: string;
@@ -3253,6 +3397,29 @@ export type Database = {
       };
     };
     Functions: {
+      place_silent_auction_bid: {
+        Args: {
+          p_item_id: string;
+          p_user_id: string;
+          p_bid_amount: number;
+        };
+        Returns: {
+          success: boolean;
+          message: string;
+          new_highest_bid: number;
+          new_end_time: string;
+          extended_by_anti_sniping: boolean;
+        }[];
+      };
+      close_silent_auction: {
+        Args: { p_item_id: string };
+        Returns: {
+          success: boolean;
+          winner_id: string | null;
+          winning_bid: number;
+          message: string;
+        }[];
+      };
       create_campaign_donation_matches: {
         Args: {
           p_donation_id: string;
