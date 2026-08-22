@@ -78,7 +78,7 @@ function EventsPage() {
       const { data, error } = await supabase
         .from("events")
         .select("id, title, location")
-        .or(`title.ilike.%${debouncedSearchQuery}%,location.ilike.%${debouncedSearchQuery}%`)
+        .or(`title.ilike.%${debouncedSearchQuery.trim()}%,location.ilike.%${debouncedSearchQuery.trim()}%`)
         .limit(5);
 
       if (error) {
@@ -336,7 +336,7 @@ function EventsPage() {
   const filteredEvents = events.filter((e) => {
     if (hidePastEvents && e.event_date && new Date(e.event_date) < new Date()) return false;
     if (debouncedSearchQuery.trim()) {
-      const q = debouncedSearchQuery.toLowerCase();
+      const q = debouncedSearchQuery.trim().toLowerCase();
       return e.title.toLowerCase().includes(q) || (e.location?.toLowerCase().includes(q) ?? false);
     }
     return true;

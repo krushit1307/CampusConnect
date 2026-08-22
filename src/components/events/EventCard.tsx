@@ -76,7 +76,7 @@ export default function EventCard({ event, onRSVP, onInspect }: EventCardProps) 
             <span className="truncate">{event.location}</span>
           </div>
 
-          <p className="text-slate-400 text-xs line-clamp-2 mb-4 leading-relaxed">
+          <p className="text-slate-400 text-xs line-clamp-3 mb-4 leading-relaxed">
             {event.description}
           </p>
 

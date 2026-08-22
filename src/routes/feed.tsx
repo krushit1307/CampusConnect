@@ -41,7 +41,7 @@ export default function Feed() {
             .is("deleted_at", null)
             .gte("event_date", new Date().toISOString())
             .order("event_date", { ascending: true })
-            .limit(10);
+            .limit(12);
           if (error) throw error;
           return data;
         }

@@ -31,7 +31,7 @@ export interface FilterParams {
  * @returns The fetched page of data and the cursor for the next page
  */
 export async function fetchEventsKeyset(cursor: CursorParams = {}, filters: FilterParams = {}) {
-  const { cursorCreatedAt, cursorId, limit = 20, orderDirection = "desc" } = cursor;
+  const { cursorCreatedAt, cursorId, limit = 12, orderDirection = "desc" } = cursor;
 
   // Start building the query
   let query = supabase.from("events").select(

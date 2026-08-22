@@ -12,6 +12,7 @@ import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
 import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
 import LogOut from "lucide-react/dist/esm/icons/log-out";
 import { Button } from "@/components/ui/button";
+import ConstitutionRatificationFlow from "@/components/ConstitutionRatificationFlow";
 
 interface OutstandingItem {
   club_id: string;
@@ -41,7 +42,7 @@ interface ComplianceResponse {
  *   2. Draw their signature on a touch-optimized canvas, then
  *   3. Confirm — the backend records the signature hash + timestamp.
  */
-export default function ComplianceCheckPage() {
+function ExecutiveComplianceCheckPage() {
   const supabase = createClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -422,4 +423,12 @@ export default function ComplianceCheckPage() {
       </div>
     </div>
   );
+}
+
+export default function ComplianceCheckPage() {
+  const [searchParams] = useSearchParams();
+  if (searchParams.get("mode") === "ratification") {
+    return <ConstitutionRatificationFlow />;
+  }
+  return <ExecutiveComplianceCheckPage />;
 }
