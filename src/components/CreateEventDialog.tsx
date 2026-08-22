@@ -106,6 +106,7 @@ interface LocalEventFormValues extends EventFormValues {
   maxAttendees?: number;
   offCampusSpeaker?: boolean;
   requiresApproval?: boolean;
+  has_photography?: boolean;
 }
 
 const defaultValues: LocalEventFormValues = {
@@ -131,6 +132,7 @@ const defaultValues: LocalEventFormValues = {
   maxAttendees: undefined,
   offCampusSpeaker: false,
   requiresApproval: false,
+  has_photography: false,
   isPrivate: false,
   tags: [],
   faqs: [],
@@ -1047,6 +1049,26 @@ export function CreateEventDialog({
                     )}
                   />
                 )}
+                <FormField
+                  control={control}
+                  name="has_photography"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-red-50 p-4 shadow-sm">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="font-bold cursor-pointer">
+                          Photography or filming planned
+                        </FormLabel>
+                        <p className="text-xs text-black/60">
+                          RSVP checkout will require attendees to choose Yes or No for media
+                          consent.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={control}
                   name="geofencingEnabled"

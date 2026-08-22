@@ -98,6 +98,22 @@ export function DateLocationStepForm() {
         </Label>
       </div>
 
+      <div className="flex items-start space-x-2">
+        <Checkbox
+          id="hasPhotography"
+          checked={formData.hasPhotography}
+          onCheckedChange={(checked) => updateFormData({ hasPhotography: checked === true })}
+        />
+        <div className="space-y-1">
+          <Label htmlFor="hasPhotography" className="cursor-pointer">
+            Photography or filming planned
+          </Label>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Attendees will be asked for a required media-consent choice during RSVP.
+          </p>
+        </div>
+      </div>
+
       {formData.isOutdoor && (
         <div className="space-y-2">
           <Label htmlFor="backupIndoorVenue">Backup Indoor Venue</Label>

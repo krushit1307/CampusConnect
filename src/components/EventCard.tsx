@@ -38,7 +38,7 @@ interface Event {
   created_at?: string | null;
   max_attendees?: number | null;
   clubs: { name: string } | { name: string }[] | null;
-  event_rsvps: { id: string; user_id: string }[] | null;
+  event_rsvps: { id: string; user_id: string; no_media_consent?: boolean | null }[] | null;
   saved_events: { id: string; user_id: string }[] | null;
   rsvp_count?: number;
   saved_count?: number;
@@ -285,9 +285,6 @@ export function EventCard({
     <div className="group">
       <article
         id={`event-${event.id}`}
- feat/club-equipment-asset-register-3481
-        className={`neu-border p-5 relative ${colors[index % colors.length]} transition-all duration-300 ease-out group-hover:scale-[1.02] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-ink)]`}
-
         className={`neu-border p-5 relative ${
           active
             ? "bg-blue-100 border-4 border-blue-600 ring-2 ring-blue-600"
@@ -295,7 +292,6 @@ export function EventCard({
         } transition-all duration-300 ease-out group-hover:scale-[1.02] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_var(--color-ink)]`}
         onMouseEnter={preloadEvent.onMouseEnter}
         onMouseLeave={preloadEvent.onMouseLeave}
- main
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col">
@@ -311,9 +307,7 @@ export function EventCard({
               event.event_date && (
                 <span
                   className={`mt-2 inline-flex min-h-[24px] items-center rounded-full px-2 py-1 text-[11px] font-bold ${
-                    countdown === "Ended"
-                      ? "bg-gray-100 text-gray-600"
-                      : "bg-peach text-orange-700"
+                    countdown === "Ended" ? "bg-gray-100 text-gray-600" : "bg-peach text-orange-700"
                   }`}
                 >
                   {countdown}
@@ -344,21 +338,13 @@ export function EventCard({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
- feat/club-equipment-asset-register-3481
                   <ShareMenu
                     url={shareUrl}
                     title={event.title}
                     text={`Check out this event: ${event.title}`}
+                    eventId={event.id}
                   >
                     <button
-
-<ShareMenu
-                    url={shareUrl}
-                    title={event.title}
-                    text={`Check out this event: ${event.title}`}
-                    eventId={event.id}
-                  >                    <button
- main
                       type="button"
                       aria-label="Share event link"
                       className="neu-border neu-press grid h-8 w-8 shrink-0 place-items-center bg-white text-black"
@@ -486,6 +472,7 @@ export function EventCard({
           onOpenChange={setTicketOpen}
           event={event}
           rsvpId={myRsvp?.id ?? ""}
+          noMediaConsent={myRsvp?.no_media_consent === true}
         />
         <EventRsvpCancelDialog
           open={cancelConfirmOpen}

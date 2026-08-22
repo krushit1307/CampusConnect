@@ -60,7 +60,7 @@ export default function GlobalSearch() {
       return;
     }
 
-    fetchSearchResults(deferredSearchTerm);
+    fetchSearchResults(deferredSearchTerm.trim());
 
     return () => {
       ignore = true;

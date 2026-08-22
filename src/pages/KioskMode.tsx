@@ -19,9 +19,16 @@ export const KioskMode: React.FC = () => {
   // Broadcast hardware telemetry (battery, charging status, ping) every 60s
   useKioskTelemetry("Door 1", eventId);
 
-  const { isFullscreen, enterFullscreen, status, result, processScan, incrementExitGesture } =
-    useKioskMode(eventId || "");
-
+  const {
+    isFullscreen,
+    enterFullscreen,
+    status,
+    result,
+    processScan,
+    incrementExitGesture,
+    isOffline,
+    pendingSyncCount,
+  } = useKioskMode(eventId || "");
   const {
     isSupported: isWakeLockSupported,
     isActive: isWakeLockActive,
@@ -131,8 +138,9 @@ export const KioskMode: React.FC = () => {
                   </div>
                   <h2 className="text-8xl font-black text-white mb-4 tracking-tight">WELCOME!</h2>
                   <p className="text-5xl font-bold text-green-100">{result?.userName}</p>
-                  <p className="text-3xl text-green-200 mt-4">Check-in successful</p>
-                </>
+                  <p className="text-3xl text-green-200 mt-4">
+                    {result?.isOfflineCheckIn ? "Checked In (Offline Mode)" : "Check-in successful"}
+                  </p>                </>
               )}
 
               {status === "error" && (
@@ -191,10 +199,16 @@ export const KioskMode: React.FC = () => {
 
           {/* Top Bar (Minimal) */}
           <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center text-white/50 text-sm pointer-events-none">
-            <span>KIOSK MODE ACTIVE</span>
+            <span>
+              KIOSK MODE ACTIVE
+              {isOffline && (
+                <span className="ml-3 px-2 py-0.5 rounded bg-yellow-500/80 text-black font-bold">
+                  OFFLINE — {pendingSyncCount} pending sync{pendingSyncCount === 1 ? "" : "s"}
+                </span>
+              )}
+            </span>
             <span>Event ID: {eventId?.substring(0, 8)}...</span>
-          </div>
-        </div>
+          </div>        </div>
       )}
     </div>
   );
