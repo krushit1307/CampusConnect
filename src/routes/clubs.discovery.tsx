@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@/hooks/useReactQueryReplacement";
 import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 import { Calendar } from "lucide-react/dist/esm/icons/calendar";
+import { ShieldCheck } from "lucide-react";
 
 interface Club {
   id: string;
@@ -24,6 +25,7 @@ interface Club {
   banner_url: string | null;
   logo_url: string | null;
   category: string | null;
+  club_settings?: { is_ledger_public: boolean }[] | null;
 }
 
 interface Event {
@@ -90,7 +92,8 @@ export default function ClubDiscovery() {
         .from("clubs")
         .select(
           `
-          id, name, slug, description, banner_url, logo_url, category
+          id, name, slug, description, banner_url, logo_url, category,
+          club_settings(is_ledger_public)
         `
         )
         .eq("status", "approved")
@@ -600,8 +603,15 @@ export default function ClubDiscovery() {
                       {/* Front face */}
                       <div className="relative w-full h-full rounded-t-md overflow-hidden">
                         <div className="absolute bottom-4 left-4 right-4">
-                          <h2 className="text-xl font-bold font-display text-black mb-1">
+                          <h2 className="text-xl font-bold font-display text-black mb-1 flex items-center gap-1.5">
                             {club.name}
+                            {club.club_settings?.[0]?.is_ledger_public && (
+                              <ShieldCheck 
+                                size={18} 
+                                className="text-emerald-500 fill-emerald-100" 
+                                title="Verified Transparent 🛡️"
+                              />
+                            )}
                           </h2>
                           {club.description && (
                             <p className="text-sm text-gray-600 line-clamp-1">
