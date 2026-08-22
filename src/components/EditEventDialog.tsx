@@ -52,6 +52,7 @@ import {
 import { MultiSelect } from "@/components/MultiSelect";
 import { DateTimePicker } from "@/components/DateTimePicker";
 import CollaborativeDescriptionEditor from "@/components/events/CollaborativeDescriptionEditor";
+import { LocationAutocomplete } from "@/components/LocationAutocomplete";
 
 const EVENT_CONCURRENT_EDIT_CONFLICT = "EVENT_CONCURRENT_EDIT_CONFLICT";
 
@@ -93,6 +94,8 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
       tldr_summary: event.tldr_summary || "",
       category: (event.category_id as string) || "",
       location: event.location || "",
+      latitude: typeof event.latitude === "number" ? event.latitude : null,
+      longitude: typeof event.longitude === "number" ? event.longitude : null,
       is_outdoor: event.is_outdoor || false,
       has_photography: event.has_photography || false,
       backup_indoor_venue: event.backup_indoor_venue || "",
@@ -114,6 +117,8 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
         tldr_summary: event.tldr_summary || "",
         category: (event.category_id as string) || "",
         location: event.location || "",
+        latitude: typeof event.latitude === "number" ? event.latitude : null,
+        longitude: typeof event.longitude === "number" ? event.longitude : null,
         startDate: event.start_date ? new Date(event.start_date).toISOString().slice(0, 16) : "",
         endDate: event.end_date ? new Date(event.end_date).toISOString().slice(0, 16) : "",
         tags: event.tags || [],
@@ -147,6 +152,8 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
           is_outdoor: docToSave.is_outdoor || false,
           has_photography: docToSave.has_photography || false,
           backup_indoor_venue: docToSave.backup_indoor_venue || null,
+          latitude: typeof docToSave.latitude === "number" ? docToSave.latitude : null,
+          longitude: typeof docToSave.longitude === "number" ? docToSave.longitude : null,
           start_date: docToSave.start_date,
           end_date: docToSave.end_date,
           event_date: docToSave.start_date,
@@ -242,6 +249,8 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
         tldr_summary: values.tldr_summary?.trim() || null,
         category_id: values.category || null,
         location: values.location?.trim() || null,
+        latitude: typeof values.latitude === "number" ? values.latitude : null,
+        longitude: typeof values.longitude === "number" ? values.longitude : null,
         is_outdoor: values.is_outdoor || false,
         has_photography: values.has_photography || false,
         backup_indoor_venue: values.backup_indoor_venue?.trim() || null,
@@ -420,7 +429,17 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                   <FormItem>
                     <FormLabel>Location</FormLabel>
                     <FormControl>
-                      <Input placeholder="Location or Online" {...field} />
+                      <LocationAutocomplete
+                        value={field.value || ""}
+                        latitude={form.watch("latitude")}
+                        longitude={form.watch("longitude")}
+                        placeholder='Search for a venue, address, or type "Online"'
+                        onChange={(value, coordinates) => {
+                          field.onChange(value);
+                          form.setValue("latitude", coordinates?.latitude ?? null);
+                          form.setValue("longitude", coordinates?.longitude ?? null);
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

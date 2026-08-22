@@ -87,6 +87,7 @@ import {
   DEFAULT_GEOFENCE_RADIUS_METERS,
 } from "@/components/GeofenceMapPicker";
 import { VenueWifiOverlay } from "@/components/venue/VenueWifiOverlay";
+import { LocationAutocomplete } from "@/components/LocationAutocomplete";
 
 const STEPS = [
   { label: "Details", fields: ["title", "description"] as const },
@@ -846,14 +847,22 @@ export function CreateEventDialog({
                     <FormItem>
                       <FormLabel>Location</FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder='e.g. "Main Auditorium" or "28.7041,77.1025" or "Online"'
-                          {...field}
+                        <LocationAutocomplete
+                          value={field.value ?? ""}
+                          latitude={watchedLatitude}
+                          longitude={watchedLongitude}
+                          placeholder='Search for a venue, address, or type "Online"'
+                          onChange={(value, coordinates) => {
+                            field.onChange(value);
+                            form.setValue("latitude", coordinates?.latitude ?? null, {
+                              shouldValidate: true,
+                            });
+                            form.setValue("longitude", coordinates?.longitude ?? null, {
+                              shouldValidate: true,
+                            });
+                          }}
                         />
                       </FormControl>
-                      <p className="mt-1 text-xs text-black/50">
-                        Enter a venue name, address, or coordinates (lat,lng)
-                      </p>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -924,28 +933,6 @@ export function CreateEventDialog({
 
                 {isCustomVenue && (
                   <>
-                    <FormField
-                      control={form.control}
-                      name="location"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-red-800" required>
-                            Custom Location
-                          </FormLabel>
-                          <FormControl className="text-black">
-                            <Input
-                              placeholder='e.g. "Main Auditorium, IIT Bombay" or "Online"'
-                              {...field}
-                            />
-                          </FormControl>
-                          <p className="text-xs text-black/50 mt-1">
-                            Enter a venue name, address, or "Online"
-                          </p>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
                     {watchedLocation?.trim().toLowerCase() !== "online" && (
                       <div className="border border-black p-3 rounded-md bg-white/50 space-y-2">
                         <FormLabel className="text-red-800 text-sm font-bold block mb-2">
