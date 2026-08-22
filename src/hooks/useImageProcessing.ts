@@ -8,6 +8,7 @@
 
     import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabaseClient';
+import type { AccessibilityViolation } from '../lib/accessibilityLinter';
 
 export type ProcessingStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
@@ -18,18 +19,18 @@ export interface EventImageData {
     thumb_sq_url: string | null;
     banner_url: string | null;
     full_url: string | null;
+    alt_text: string | null;
     status: ProcessingStatus;
     error_message: string | null;
 }
-
 interface UseImageProcessingReturn {
     imageData: EventImageData | null;
     isUploading: boolean;
     error: string | null;
-    uploadAndProcess: (eventId: string, file: File) => Promise<boolean>;
+    uploadAndProcess: (eventId: string, file: File, altText: string) => Promise<boolean>;
     fetchImage: (eventId: string) => Promise<void>;
+    logAccessibilityBypass: (eventId: string, violations: AccessibilityViolation[]) => Promise<void>;
 }
-
 export function useImageProcessing(eventId: string | null): UseImageProcessingReturn {
     const [imageData, setImageData] = useState<EventImageData | null>(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -73,8 +74,7 @@ export function useImageProcessing(eventId: string | null): UseImageProcessingRe
         fetchImage();
     }, [fetchImage]);
 
-    const uploadAndProcess = async (eventId: string, file: File): Promise<boolean> => {
-        setIsUploading(true);
+    const uploadAndProcess = async (eventId: string, file: File, altText: string): Promise<boolean> => {        setIsUploading(true);
         setError(null);
 
         try {
@@ -99,9 +99,9 @@ export function useImageProcessing(eventId: string | null): UseImageProcessingRe
                 .upsert({
                     event_id: eventId,
                     original_url: publicUrl,
+                    alt_text: altText,
                     status: 'pending'
-                }, { onConflict: 'event_id' })
-                .select()
+                }, { onConflict: 'event_id' })                .select()
                 .single();
 
             if (insertError || !imageRecord) throw insertError;
@@ -124,5 +124,27 @@ export function useImageProcessing(eventId: string | null): UseImageProcessingRe
         }
     };
 
-    return { imageData, isUploading, error, uploadAndProcess, fetchImage };
+    const logAccessibilityBypass = useCallback(
+        async (eventId: string, violations: AccessibilityViolation[]) => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                const rows = violations.map((violation) => ({
+                    event_id: eventId,
+                    user_id: user?.id ?? null,
+                    violation_type: violation.type,
+                    details: violation.message,
+                    bypassed: true,
+                }));
+                const { error: logError } = await supabase
+                    .from('accessibility_violations')
+                    .insert(rows);
+                if (logError) throw logError;
+            } catch (err: any) {
+                console.error('[useImageProcessing] Failed to log accessibility bypass:', err);
+            }
+        },
+        [],
+    );
+
+    return { imageData, isUploading, error, uploadAndProcess, fetchImage, logAccessibilityBypass };
 }

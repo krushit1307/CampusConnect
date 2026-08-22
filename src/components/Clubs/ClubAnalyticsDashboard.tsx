@@ -23,6 +23,7 @@ import Filter from "lucide-react/dist/esm/icons/filter";
 import BarChart2 from "lucide-react/dist/esm/icons/bar-chart-2";
 import { SponsorshipValueCalculator } from "@/components/sponsorship/SponsorshipValueCalculator";
 import { toast } from "sonner";
+import { ClubPruneReportPanel } from "./ClubPruneReportPanel";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -488,6 +489,8 @@ export function ClubAnalyticsDashboard({ clubId }: ClubAnalyticsDashboardProps) 
           </div>
         </>
       )}
+      {/* ── NEW (Issue #3682): Roster Pruning Report ── */}
+      <ClubPruneReportPanel clubId={clubId} />
     </div>
   );
 }

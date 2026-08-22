@@ -39,4 +39,6 @@ export interface TicketPdfInput {
    * -> toDataURL() or a server endpoint).
    */
   qrCodeDataUrl?: string | null;
+  /** Whether the attendee declined event photography or filming. */
+  noMediaConsent?: boolean;
 }

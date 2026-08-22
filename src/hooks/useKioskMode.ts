@@ -6,7 +6,12 @@
 // =============================================================================
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { supabase } from "../lib/supabaseClient";
+import {
+  downloadRsvpsForOfflineUse,
+  findLocalRsvp,
+  markLocalRsvpAttended,
+  flushKioskSyncQueue,
+} from "../lib/kioskOfflineSync";
 
 export type KioskStatus = "idle" | "scanning" | "success" | "error" | "already_checked_in";
 
@@ -14,6 +19,7 @@ interface CheckInResult {
   status: KioskStatus;
   userName?: string;
   errorMessage?: string;
+  isOfflineCheckIn?: boolean;
 }
 
 interface UseKioskModeReturn {
@@ -26,17 +32,21 @@ interface UseKioskModeReturn {
   exitGestureCount: number;
   incrementExitGesture: () => void;
   resetStatus: () => void;
+  isOffline: boolean;
+  pendingSyncCount: number;
 }
-
 export function useKioskMode(eventId: string): UseKioskModeReturn {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [status, setStatus] = useState<KioskStatus>("idle");
   const [result, setResult] = useState<CheckInResult | null>(null);
   const [exitGestureCount, setExitGestureCount] = useState(0);
+  const [isOffline, setIsOffline] = useState(
+    typeof navigator !== "undefined" ? !navigator.onLine : false,
+  );
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
 
   const resetTimerRef = useRef<NodeJS.Timeout | null>(null);
   const debounceRef = useRef<boolean>(false);
-
   // Enter Fullscreen Mode
   const enterFullscreen = useCallback(async () => {
     try {
@@ -73,8 +83,49 @@ export function useKioskMode(eventId: string): UseKioskModeReturn {
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
-  // Process QR Code Scan
-  const processScan = useCallback(
+  // Pre-fetch the full RSVP list into IndexedDB before scanning starts
+  useEffect(() => {
+    if (!eventId) return;
+    downloadRsvpsForOfflineUse(eventId).catch((err) =>
+      console.error("[KioskMode] Failed to pre-cache RSVPs:", err),
+    );
+  }, [eventId]);
+
+  // Monitor connectivity and flush the local sync_queue whenever we come
+  // back online (also triggered by the Service Worker's background sync
+  // "OFFLINE_RSVP_SYNC" message so a reconnect is caught even in the background).
+  useEffect(() => {
+    const syncQueue = async () => {
+      const { syncedCount } = await flushKioskSyncQueue();
+      if (syncedCount > 0) {
+        setPendingSyncCount((count) => Math.max(0, count - syncedCount));
+      }
+    };
+
+    const handleOnline = () => {
+      setIsOffline(false);
+      syncQueue();
+    };
+    const handleOffline = () => setIsOffline(true);
+    const handleSwMessage = (event: MessageEvent) => {
+      if (event.data?.type === "OFFLINE_RSVP_SYNC") {
+        syncQueue();
+      }
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    navigator.serviceWorker?.addEventListener?.("message", handleSwMessage);
+    syncQueue();
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      navigator.serviceWorker?.removeEventListener?.("message", handleSwMessage);
+    };
+  }, []);
+
+  // Process QR Code Scan  const processScan = useCallback(
     async (qrData: string) => {
       // Aggressive debouncing to prevent scanning the same code 50 times in a second
       if (debounceRef.current) return;
@@ -96,15 +147,10 @@ export function useKioskMode(eventId: string): UseKioskModeReturn {
           // Assume it's a raw UUID string
         }
 
-        // 1. Verify the RSVP exists and belongs to this event
-        const { data: rsvp, error: rsvpError } = await supabase
-          .from("event_rsvps")
-          .select("*, profiles:user_id(full_name)")
-          .eq("id", rsvpId)
-          .eq("event_id", eventId)
-          .single();
+        // 1. Look up the RSVP in the local IndexedDB cache — never Supabase
+        const rsvp = await findLocalRsvp(eventId, rsvpId);
 
-        if (rsvpError || !rsvp) {
+        if (!rsvp) {
           throw new Error("Invalid ticket or wrong event.");
         }
 
@@ -112,29 +158,25 @@ export function useKioskMode(eventId: string): UseKioskModeReturn {
         if (rsvp.checked_in) {
           setResult({
             status: "already_checked_in",
-            userName: (rsvp.profiles as any)?.full_name || "Attendee",
+            userName: rsvp.full_name,
           });
           setStatus("already_checked_in");
           scheduleReset();
           return;
         }
 
-        // 3. Perform the check-in mutation
-        const { error: updateError } = await supabase
-          .from("event_rsvps")
-          .update({ checked_in: true })
-          .eq("id", rsvpId);
+        // 3. Update local IndexedDB status and push the scan to the sync_queue
+        await markLocalRsvpAttended(rsvp);
+        setPendingSyncCount((count) => count + 1);
 
-        if (updateError) throw updateError;
-
-        // 4. Success!
+        // 4. Success! (offline-first — synced to Supabase once reconnected)
         setResult({
           status: "success",
-          userName: (rsvp.profiles as any)?.full_name || "Attendee",
+          userName: rsvp.full_name,
+          isOfflineCheckIn: typeof navigator !== "undefined" ? !navigator.onLine : false,
         });
         setStatus("success");
-        scheduleReset();
-      } catch (err: any) {
+        scheduleReset();      } catch (err: any) {
         setResult({
           status: "error",
           errorMessage: err.message || "Check-in failed",
@@ -184,5 +226,7 @@ export function useKioskMode(eventId: string): UseKioskModeReturn {
     exitGestureCount,
     incrementExitGesture,
     resetStatus,
+    isOffline,
+    pendingSyncCount,
   };
 }

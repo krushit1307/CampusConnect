@@ -4,7 +4,8 @@ import isPast from "date-fns/isPast";
 import isFuture from "date-fns/isFuture";
 import formatDistanceToNow from "date-fns/formatDistanceToNow";
 import { Ticket, Clock, CheckCircle, Info } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/client";
+import { CurrencyEstimate } from "@/components/CurrencyEstimate";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -19,12 +20,40 @@ interface TicketTier {
   sold_count?: number; // fetched separately
 }
 
-export function TicketPricingTimeline({ eventId, isOrganizer }: { eventId: string, isOrganizer?: boolean }) {
+export function TicketPricingTimeline({
+  eventId,
+  isOrganizer,
+}: {
+  eventId: string;
+  isOrganizer?: boolean;
+}) {
   const [tiers, setTiers] = useState<TicketTier[]>([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
-  const supabase = createClient();
+  const [preferredCurrency, setPreferredCurrency] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCurrencyPreference = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("profiles")
+        .select("preferred_currency")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (!cancelled) setPreferredCurrency(data?.preferred_currency ?? null);
+    };
+
+    void loadCurrencyPreference();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Update current time every minute for countdowns
   useEffect(() => {
@@ -43,7 +72,7 @@ export function TicketPricingTimeline({ eventId, isOrganizer }: { eventId: strin
           .order("start_date", { ascending: true, nullsFirst: false });
 
         if (error) throw error;
-        
+
         // Also fetch sold counts to determine capacity
         const { data: rsvps, error: rsvpError } = await supabase
           .from("event_rsvps")
@@ -54,15 +83,17 @@ export function TicketPricingTimeline({ eventId, isOrganizer }: { eventId: strin
 
         const counts = (rsvps || []).reduce((acc: any, rsvp) => {
           if (rsvp.ticket_tier_id) {
-             acc[rsvp.ticket_tier_id] = (acc[rsvp.ticket_tier_id] || 0) + 1;
+            acc[rsvp.ticket_tier_id] = (acc[rsvp.ticket_tier_id] || 0) + 1;
           }
           return acc;
         }, {});
 
-        setTiers((data || []).map(t => ({
-          ...t,
-          sold_count: counts[t.id] || 0
-        })));
+        setTiers(
+          (data || []).map((t) => ({
+            ...t,
+            sold_count: counts[t.id] || 0,
+          })),
+        );
       } catch (err) {
         console.error("Failed to load ticket tiers", err);
       } finally {
@@ -81,13 +112,13 @@ export function TicketPricingTimeline({ eventId, isOrganizer }: { eventId: strin
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
           },
           body: JSON.stringify({
             eventId,
-            quantity: 1
-          })
-        }
+            quantity: 1,
+          }),
+        },
       );
 
       const result = await response.json();
@@ -122,9 +153,10 @@ export function TicketPricingTimeline({ eventId, isOrganizer }: { eventId: strin
   };
 
   // The active tier visually is the first one that is "active"
-  const activeIndex = tiers.findIndex(t => getTierState(t) === "active");
+  const activeIndex = tiers.findIndex((t) => getTierState(t) === "active");
   const activeTier = activeIndex !== -1 ? tiers[activeIndex] : null;
-  const nextTier = activeIndex !== -1 && activeIndex + 1 < tiers.length ? tiers[activeIndex + 1] : null;
+  const nextTier =
+    activeIndex !== -1 && activeIndex + 1 < tiers.length ? tiers[activeIndex + 1] : null;
 
   return (
     <div className="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)] relative overflow-hidden">
@@ -144,7 +176,7 @@ export function TicketPricingTimeline({ eventId, isOrganizer }: { eventId: strin
           </span>
           {nextTier && (
             <span className="ml-auto text-black/60 hidden md:inline">
-              Next price: ${(nextTier.price / 100).toFixed(2)}
+              Next price: ${(nextTier.price / 100).toFixed(2)} USD
             </span>
           )}
         </div>
@@ -158,29 +190,43 @@ export function TicketPricingTimeline({ eventId, isOrganizer }: { eventId: strin
           {tiers.map((tier, idx) => {
             const state = getTierState(tier);
             const isCurrent = idx === activeIndex;
-            
+
             return (
               <div key={tier.id} className="flex flex-col items-center flex-1">
                 <div className="text-lg font-black font-display mb-2">
-                  ${(tier.price / 100).toFixed(2)}
+                  ${(tier.price / 100).toFixed(2)} USD
                 </div>
-                
+
                 {/* Node */}
-                <div className={`w-6 h-6 rounded-full border-2 border-black flex items-center justify-center transition-colors
-                  ${state === "ended" || state === "sold_out" ? "bg-black" : 
-                    isCurrent ? "bg-lime scale-125" : "bg-white"}`}>
+                <div
+                  className={`w-6 h-6 rounded-full border-2 border-black flex items-center justify-center transition-colors
+                  ${
+                    state === "ended" || state === "sold_out"
+                      ? "bg-black"
+                      : isCurrent
+                        ? "bg-lime scale-125"
+                        : "bg-white"
+                  }`}
+                >
                   {state === "ended" && <CheckCircle className="w-4 h-4 text-white" />}
                 </div>
 
-                <div className={`mt-3 font-mono text-sm font-bold text-center ${isCurrent ? 'text-black' : 'text-black/60'}`}>
+                <div
+                  className={`mt-3 font-mono text-sm font-bold text-center ${isCurrent ? "text-black" : "text-black/60"}`}
+                >
                   {tier.name}
                 </div>
-                
+
                 <div className="text-xs font-mono text-black/50 text-center mt-1">
-                  {state === "ended" ? "Ended" : 
-                   state === "sold_out" ? "Sold Out" :
-                   tier.start_date && isFuture(new Date(tier.start_date)) ? `Starts ${format(new Date(tier.start_date), "MMM d")}` :
-                   tier.end_date ? `Until ${format(new Date(tier.end_date), "MMM d")}` : "Available"}
+                  {state === "ended"
+                    ? "Ended"
+                    : state === "sold_out"
+                      ? "Sold Out"
+                      : tier.start_date && isFuture(new Date(tier.start_date))
+                        ? `Starts ${format(new Date(tier.start_date), "MMM d")}`
+                        : tier.end_date
+                          ? `Until ${format(new Date(tier.end_date), "MMM d")}`
+                          : "Available"}
                 </div>
               </div>
             );
@@ -192,7 +238,12 @@ export function TicketPricingTimeline({ eventId, isOrganizer }: { eventId: strin
         <div>
           {activeTier ? (
             <p className="font-mono text-sm text-black/70">
-              Current Tier: <strong>{activeTier.name}</strong> at ${(activeTier.price / 100).toFixed(2)}
+              Current Tier: <strong>{activeTier.name}</strong> at $
+              {(activeTier.price / 100).toFixed(2)} USD
+              <CurrencyEstimate
+                amountUsd={activeTier.price / 100}
+                preferredCurrency={preferredCurrency}
+              />
               {activeTier.capacity !== null && (
                 <span className="block mt-1">
                   Capacity: {activeTier.capacity - (activeTier.sold_count || 0)} remaining
@@ -205,14 +256,18 @@ export function TicketPricingTimeline({ eventId, isOrganizer }: { eventId: strin
             </p>
           )}
         </div>
-        
-        <Button 
-          size="lg" 
+
+        <Button
+          size="lg"
           className="w-full sm:w-auto font-display font-black uppercase tracking-widest bg-lime hover:bg-lime/80 text-black border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={handlePurchase}
           disabled={!activeTier || purchasing}
         >
-          {purchasing ? "Processing..." : (activeTier ? `Buy Ticket for $${(activeTier.price / 100).toFixed(2)}` : "Unavailable")}
+          {purchasing
+            ? "Processing..."
+            : activeTier
+              ? `Buy Ticket for $${(activeTier.price / 100).toFixed(2)} USD`
+              : "Unavailable"}
         </Button>
       </div>
     </div>

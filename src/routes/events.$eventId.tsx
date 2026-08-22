@@ -4,11 +4,16 @@ import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
 import { queueRsvpSubmission } from "@/lib/events/offlineRsvpSync";
+import {
+  consentChoiceToNoMediaConsent,
+  getMediaConsentValidationMessage,
+  MEDIA_CONSENT_COPY,
+  type MediaConsentChoice,
+} from "@/lib/mediaConsent";
 import { useOfflineRsvpSync } from "@/hooks/useOfflineRsvpSync";
-import { createClient } from "@/lib/supabase/client";
 import { incrementEventViews } from "@/lib/supabase/events";
 import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
-import { useState, useEffect, lazy, Suspense, useMemo, useRef } from "react";
+import { lazy, Suspense, useMemo, useRef } from "react";
 import { TableOfContents } from "@/components/events/TableOfContents";
 import { NotFound } from "@/components/NotFound";
 import { AttendeeVenueMap } from "@/components/events/AttendeeVenueMap";
@@ -28,7 +33,6 @@ import { calculateHaversineDistance } from "@/lib/scavengerHunt";
 import { Helmet } from "react-helmet-async";
 import { buildOpenGraphTags } from "@/lib/seo/eventMeta";
 const EventMap = lazy(() => import("@/components/EventMap").then((m) => ({ default: m.EventMap })));
-import { formatEventDateRange } from "@/lib/utils";
 import { AddToCalendarDropdown } from "@/components/events/AddToCalendarDropdown";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
 import { formatDateLong } from "@/lib/dateFormatter";
@@ -94,6 +98,7 @@ import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { ImageWithBlur } from "@/components/ui/ImageWithBlur";
 import { parseCoordinates } from "@/lib/eventUtils";
 import { EventFaqSection } from "@/components/events/EventFaqSection";
+import { EventMenuSection } from "@/components/events/EventMenuSection";
 import { AccessibilityBadges } from "@/components/events/AccessibilityBadges";
 import { ReportAccessibilityIssueDialog } from "@/components/events/ReportAccessibilityIssueDialog";
 import { ManageAccessibilityOverridesDialog } from "@/components/events/ManageAccessibilityOverridesDialog";
@@ -101,7 +106,6 @@ import EventFeedbackForm from "@/components/EventFeedbackForm";
 import EventMetricRatingForm from "@/components/events/EventMetricRatingForm";
 import { EventPhotoGallery } from "@/components/EventPhotoGallery";
 import SafeEventImage from "@/components/SafeEventImage";
-import { EventMap } from "@/components/EventMap";
 import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
 import { TournamentBracket } from "@/components/events/TournamentBracket";
 import {
@@ -134,18 +138,15 @@ import { DynamicEventPoster } from "@/components/events/DynamicEventPoster";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
 import { ActivePoll } from "@/components/polls/ActivePoll";
-import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
 import { CaptchaWidget } from "@/components/CaptchaWidget";
 import { Blurhash } from "react-blurhash";
 import { isValidBlurhash, DEFAULT_FALLBACK_BLURHASH } from "@/lib/blurhashUtils";
 import { EventDescriptionTranslation } from "@/components/events/EventDescriptionTranslation";
- feat/3293-dynamic-ticket-pricing
 import { TicketPricingTimeline } from "@/components/events/TicketPricingTimeline";
 
 import { LiveNowBadge } from "@/components/events/LiveNowBadge";
 import { isEventLive } from "@/lib/utils";
 import { LiveGPSBusTracker } from "@/components/events/LiveGPSBusTracker";
- main
 
 /**
  * Hero banner for the event detail page.
@@ -362,6 +363,7 @@ export default function EventDetailsPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [rsvpDialogOpen, setRsvpDialogOpen] = useState(false);
   const [needAccommodations, setNeedAccommodations] = useState(false);
+  const [mediaConsent, setMediaConsent] = useState<MediaConsentChoice | null>(null);
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const hasAttemptedAutoCheckInRef = useRef(false);
   const { checkIn: performAutoCheckIn } = useGeofencedCheckIn();
@@ -426,7 +428,9 @@ export default function EventDetailsPage() {
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
-  const { data: galleryPhotos = [], refetch: refetchGallery } = useQuery<{id: string; image_url: string; is_nsfw: boolean}[]>({
+  const { data: galleryPhotos = [], refetch: refetchGallery } = useQuery<
+    { id: string; image_url: string; is_nsfw: boolean }[]
+  >({
     queryKey: ["eventGallery", eventId],
     queryFn: async () => {
       if (eventId.startsWith("mock-")) return [];
@@ -505,13 +509,14 @@ export default function EventDetailsPage() {
         uploadImageWithSignedUrl("event-gallery", filePath, file)
           .then(async () => {
             clearInterval(progressInterval);
-            
+
             // Insert into event_gallery to trigger moderation
-            const publicUrl = supabase.storage.from("event-gallery").getPublicUrl(filePath).data.publicUrl;
+            const publicUrl = supabase.storage.from("event-gallery").getPublicUrl(filePath)
+              .data.publicUrl;
             await supabase.from("event_gallery").insert({
               event_id: eventId,
               club_id: event.club_id,
-              image_url: publicUrl
+              image_url: publicUrl,
             });
 
             setUploadingFiles((prev) =>
@@ -559,1272 +564,15 @@ export default function EventDetailsPage() {
         .select(
           `
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by, venue_id, accessibility_features,
+ feature/vendor-contract-nudges
           is_high_risk, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash,
-          latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline, prerequisite_event_id,
-          prerequisite_event:events!prerequisite_event_id(id, title),
-          rating_metrics,
-          profiles (full_name, email),
-          clubs (name, slug, logo_url, primary_color, secondary_color),
-          event_rsvps (id, user_id, checked_in, status),
-          attendee_count,
-          event_metrics (views),
-          venues (
-            name, building, capacity, accessibility_features, latitude, longitude, geofence_radius_meters
-          )
-        `,
-        )
-        .or(`short_id.eq.${eventId},id.eq.${eventId}`)
-        .single();
 
-      if (error) {
-        // Fallback to mock data in development if db fails or doesn't exist
-        if (import.meta.env.DEV && eventId.startsWith("mock-")) {
-          return {
-            id: eventId,
-            category_id: "cat-1",
-            created_by: "mock-user-1",
-            title:
-              eventId === "mock-1"
-                ? "Hackathon 2024"
-                : eventId === "mock-2"
-                  ? "Watercolor Workshop"
-                  : "Open Mic Night",
-            description:
-              eventId === "mock-1"
-                ? "Annual college hackathon. Build something awesome in 24 hours!"
-                : eventId === "mock-2"
-                  ? "Learn the basics of watercolor painting with live demonstrations."
-                  : "Showcase your music talent or just come to enjoy the acoustic performances.",
-            event_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-            start_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-            end_date: new Date(
-              Date.now() + 7 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
-            ).toISOString(),
-            location:
-              eventId === "mock-1"
-                ? "Main Auditorium, Thapar Institute of Engineering and Technology, Patiala, Punjab"
-                : eventId === "mock-2"
-                  ? "Art Block, Jawaharlal Nehru University, New Delhi"
-                  : "Student Activity Centre, IIT Bombay, Powai, Mumbai",
-            banner_url: null as string | null,
-            max_attendees: eventId === "mock-1" ? 1 : null,
-            latitude: eventId === "mock-1" ? 30.3564 : eventId === "mock-2" ? 28.5355 : 19.076,
-            longitude: eventId === "mock-1" ? 76.3647 : eventId === "mock-2" ? 77.209 : 72.8777,
-            geofencing_enabled: eventId === "mock-1",
-            geofence_radius_meters: 100,
-            clubs: [
-              {
-                name:
-                  eventId === "mock-1"
-                    ? "Tech Club"
-                    : eventId === "mock-2"
-                      ? "Art & Design"
-                      : "Music Society",
-                slug:
-                  eventId === "mock-1"
-                    ? "tech-club"
-                    : eventId === "mock-2"
-                      ? "art-design"
-                      : "music-society",
-              },
-            ],
-            requires_approval: true,
-            attendee_count: eventId === "mock-1" ? 1 : 0,
-            profiles: { full_name: "Mock Organizer", email: "mock@example.com" },
-            accommodation_deadline: null,
-            event_metrics: { views: 0 },
-          };
-        }
-        throw error;
-      }
-      return data;
-    },
-  });
-
-  const { data: venueMapData } = useQuery({
-    queryKey: ["eventVenueMap", event?.id],
-    enabled: !!event?.id,
-    queryFn: async () => {
-      if (!event?.id || event.id.startsWith("mock-")) return { map: null, nodes: [] };
-
-      const { data: mapData, error: mapError } = await supabase
-        .from("venue_maps")
-        .select("id, background_image_url")
-        .eq("event_id", event.id)
-        .maybeSingle();
-
-      if (mapError) throw mapError;
-      if (!mapData) return { map: null, nodes: [] };
-
-      const { data: nodesData, error: nodesError } = await supabase
-        .from("map_nodes")
-        .select("id, entity_name, type, x_coord, y_coord, width, height, rotation")
-        .eq("map_id", mapData.id);
-
-      if (nodesError) throw nodesError;
-
-      return {
-        map: mapData,
-        nodes: (nodesData || []).map((node) => ({
-          id: node.id,
-          entity_name: node.entity_name,
-          type: node.type as "table" | "stage" | "boundary" | "booth",
-          x_coord: Number(node.x_coord),
-          y_coord: Number(node.y_coord),
-          width: Number(node.width),
-          height: Number(node.height),
-          rotation: node.rotation,
-        })),
-      };
-    },
-  });
-
-  interface EventSignature {
-    id: string;
-    event_id: string;
-    signer_role: string;
-    signer_name: string;
-    signer_email: string;
-    signature_token: string;
-    signed_at: string | null;
-    ip_address: string | null;
-  }
-
-  const { data: overrides } = useQuery({
-    queryKey: ["venue_overrides", event?.venue_id],
-    queryFn: async () => {
-      if (!event?.venue_id) return [];
-      const { data, error } = await supabase
-        .from("venue_accessibility_overrides")
-        .select("*")
-        .eq("venue_id", event.venue_id)
-        .gt("expires_at", new Date().toISOString());
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!event?.venue_id,
-  });
-
-  const { data: signatures = [], refetch: refetchSignatures } = useQuery({
-    queryKey: ["event_signatures", eventId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("event_signatures")
-        .select("*")
-        .eq("event_id", eventId);
-      if (error) throw error;
-      return (data || []) as EventSignature[];
-    },
-    enabled: !!eventId,
-  });
-
-  const { data: myRsvp, refetch: refetchMyRsvp } = useQuery({
-    queryKey: ["my_rsvp", eventId, user?.id],
-    queryFn: async () => {
-      if (!user?.id || eventId.startsWith("mock-")) return null;
-      const { data, error } = await supabase
-        .from("event_rsvps")
-        .select("*")
-        .eq("event_id", eventId)
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id && !!eventId,
-  });
-
-  const { data: adminRsvps, refetch: refetchAdminRsvps } = useQuery({
-    queryKey: ["admin_rsvps", eventId],
-    queryFn: async () => {
-      if (eventId.startsWith("mock-") || !isOrganizer) return [];
-      const { data, error } = await supabase
-        .from("event_rsvps")
-        .select(
-          "id, user_id, status, checked_in, rsvp_at, accommodations_requested, profiles (first_name, last_name, avatar_url)",
-        )
-        .eq("event_id", eventId);
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!eventId && !!isOrganizer,
-  });
-
-  const { data: adminWaitlist, refetch: refetchAdminWaitlist } = useQuery({
-    queryKey: ["admin_waitlist", eventId],
-    queryFn: async () => {
-      if (eventId.startsWith("mock-") || !isOrganizer) return [];
-      const { data, error } = await supabase
-        .from("event_waitlist")
-        .select("id, user_id, created_at, profiles (first_name, last_name, avatar_url)")
-        .eq("event_id", eventId);
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!eventId && !!isOrganizer,
-  });
-
-  const { data: publicGuests, refetch: refetchPublicGuests } = useQuery({
-    queryKey: ["public_event_guests", eventId],
-    queryFn: async () => {
-      if (eventId.startsWith("mock-")) return [];
-      const { data, error } = await supabase.rpc("get_public_event_guests", {
-        p_event_id: eventId,
-      });
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!eventId,
-  });
-
-  const { waitlist, isOnWaitlist, waitlistPosition } = useMemo(() => {
-    return buildWaitlistInfo(adminWaitlist || [], user?.id);
-  }, [adminWaitlist, user]);
-
-  const { data: waitlistScore } = useQuery({
-    queryKey: ["waitlist_score", eventId, user?.id],
-    queryFn: async () => {
-      if (!user?.id || eventId.startsWith("mock-")) return null;
-      const { data, error } = await supabase.rpc("get_waitlist_score", {
-        p_event_id: eventId,
-        p_user_id: user.id,
-      });
-      if (error) {
-        console.error("Error fetching waitlist score:", error);
-        return null;
-      }
-      return data?.[0] || null;
-    },
-    enabled: !!user?.id && !!eventId && isOnWaitlist,
-  });
-
-  const { data: waitlistChurnPrediction } = useQuery({
-    queryKey: ["waitlist_churn_prediction", eventId, waitlistPosition],
-    queryFn: async () => {
-      if (!eventId || waitlistPosition <= 0) return null;
-      const { data, error } = await supabase.rpc("predict_waitlist_success", {
-        p_event_id: eventId,
-        p_user_waitlist_position: waitlistPosition,
-      });
-      if (error) {
-        console.error("Error predicting waitlist churn:", error);
-        return null;
-      }
-      return data?.[0] || null;
-    },
-    enabled: !!eventId && isOnWaitlist && waitlistPosition > 0,
-  });
-
-  // Extract headings from HTML description for TOC
-  const tocItems = useMemo(() => {
-    if (!event?.description) return [];
-
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(event.description, "text/html");
-    const headings = doc.querySelectorAll("h2, h3");
-
-    return Array.from(headings).map((heading) => {
-      const text = heading.textContent || "";
-      // Simple slugify for ID
-      const id = text
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
-      return { id, text, level: heading.tagName === "H2" ? 2 : 3 };
-    });
-  }, [event?.description]);
-
-  // Inject IDs into the rendered DOM nodes so the TOC can scroll to them
-  useEffect(() => {
-    const container = document.getElementById("event-description-container");
-    if (!container) return;
-
-    const headings = container.querySelectorAll("h2, h3");
-    headings.forEach((heading) => {
-      const text = heading.textContent || "";
-      const id = text
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
-      heading.id = id;
-    });
-  }, [event?.description]);
-
-  // Increment persistent view count in event_metrics once per page load.
-  // Skipped for mock/dev events (no real DB row).
-  //
-  // We store the canonical event UUID (event.id) rather than a boolean so that:
-  // - Short-id URLs resolve to their UUID before incrementing (avoids wrong PK)
-  // - Navigating between events while the component stays mounted still
-  //   increments each new event exactly once
-  const viewIncrementedRef = useRef<string | null>(null);
-  useEffect(() => {
-    // Wait until the query has resolved and we have the canonical UUID
-    const canonicalId = (event as any)?.id as string | undefined;
-    if (!canonicalId || canonicalId.startsWith("mock-")) return;
-    if (viewIncrementedRef.current === canonicalId) return;
-    viewIncrementedRef.current = canonicalId;
-
-    incrementEventViews(canonicalId).then(({ error }) => {
-      if (error) {
-        console.warn("[event view] increment failed silently:", error);
-        return;
-      }
-      // Refresh the cached query so the displayed view count is up-to-date.
-      const cached = event as any;
-      if (cached?.event_metrics) {
-        const currentViews = (cached.event_metrics as { views: number } | null)?.views ?? 0;
-        setQueryData(["event", eventId], {
-          ...cached,
-          event_metrics: { views: currentViews + 1 },
-        });
-      }
-    });
-  }, [(event as any)?.id, eventId]);
-
-  const toggleWaitlist = useMutation({
-    mutationFn: async ({ isOnWaitlist }: { isOnWaitlist: boolean }) => {
-      if (!user) throw new Error("Please log in to join waitlist");
-      if (eventId.startsWith("mock-")) {
-        return;
-      }
-
-      if (isOnWaitlist) {
-        const { error } = await supabase
-          .from("event_waitlist")
-          .delete()
-          .eq("event_id", eventId)
-          .eq("user_id", user.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("event_waitlist")
-          .insert({ event_id: eventId, user_id: user.id });
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      refetch();
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to update waitlist status. Please try again.");
-    },
-  });
-
-  const toggleRsvp = useMutation({
-    mutationFn: async ({
-      eventId,
-      hasRsvpd,
-      captchaToken,
-      accommodationsRequested,
-      referredBy,
-    }: {
-      eventId: string;
-      hasRsvpd: boolean;
-      captchaToken?: string;
-      accommodationsRequested?: string | null;
-      referredBy?: string | null;
-    }) => {
-      if (!user) throw new Error("Please log in to RSVP");
-      if (eventId.startsWith("mock-")) {
-        return;
-      }
-
-      const idempotencyKey = getRsvpIdempotencyKey(eventId);
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      let funcError = null;
-      try {
-        const { error } = await supabase.functions.invoke("toggle-rsvp", {
-          body: { eventId, hasRsvpd, captchaToken, accommodationsRequested, referredBy },
-          headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-            "Idempotency-Key": idempotencyKey,
-          },
-        });
-        funcError = error;
-      } catch (err: any) {
-        if (
-          !navigator.onLine ||
-          err.message.includes("fetch") ||
-          err.message.includes("network") ||
-          err.message.includes("Failed to fetch")
-        ) {
-          await queueRsvpSubmission({
-            eventId,
-            hasRsvpd,
-            captchaToken,
-            accommodationsRequested,
-            idempotencyKey,
-            queuedAt: Date.now(),
-          });
-          // Throw a specific error to show offline toast
-          throw new Error("OFFLINE_SAVED");
-        } else {
-          throw err;
-        }
-      }
-      if (funcError) throw funcError;
-
-      if (error) throw error;
-      clearRsvpIdempotencyKey(eventId);
-    },
-    onMutate: async ({ hasRsvpd }) => {
-      // Snapshot the previous value
-      const previousEvent = event;
-
-      // Optimistically update the cache
-      if (event) {
-        const eventRsvps = Array.isArray(event.event_rsvps) ? event.event_rsvps : [];
-        const updatedRsvps = hasRsvpd
-          ? eventRsvps.filter((r: any) => r.user_id !== user?.id)
-          : [...eventRsvps, { id: `temp-${Date.now()}`, user_id: user?.id || "" }];
-
-        const updatedEvent = {
-          ...event,
-          event_rsvps: updatedRsvps,
-          attendee_count: hasRsvpd
-            ? ((event as { attendee_count?: number }).attendee_count || 0) - 1
-            : ((event as { attendee_count?: number }).attendee_count || 0) + 1,
-        };
-
-        setQueryData(["event", eventId], updatedEvent);
-      }
-
-      // Return context with previous data for rollback
-      return { previousEvent };
-    },
-    onError: (
-      error: unknown,
-      _variables: unknown,
-      context: { previousEvent: unknown } | undefined,
-    ) => {
-      // Rollback to previous value on error
-      if (context?.previousEvent) {
-        setQueryData(["event", eventId], context.previousEvent);
-      }
-
-      const err = error as Record<string, unknown>;
-      if (err?.message === "OFFLINE_SAVED" || error?.message === "OFFLINE_SAVED") {
-        toast.success(
-          "You're offline. Your RSVP is saved and will sync automatically when you reconnect.",
-          { duration: 5000 },
-        );
-      } else if (
-        (typeof err?.message === "string" && err.message.includes("Rate limit")) ||
-        (typeof err?.details === "string" && err.details.includes("Rate limit")) ||
-        (typeof err?.context === "string" && err.context.includes("Rate limit")) ||
-        (typeof error === "string" && error.includes("Rate limit"))
-      ) {
-        toast.error("Please wait a minute before toggling RSVP again.");
-      } else {
-        toast.error(
-          (err?.message as string) ||
-            (error as Error)?.message ||
-            "Failed to update RSVP. Please try again.",
-        );
-      }
-    },
-    onSuccess: () => {
-      // Refetch to ensure server state matches
-      refetch();
-      setRsvpDialogOpen(false);
-      setNeedAccommodations(false);
-      setAccommodationsText("");
-      setValidationError("");
-    },
-  });
-
-  const exportCsv = useMutation({
-    mutationFn: async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const { data, error } = await supabase.functions.invoke("export-event-rsvps", {
-        body: { eventId: event!.id },
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-      });
-
-      if (error) throw error;
-
-      // Ensure we have a Blob
-      return data instanceof Blob ? data : new Blob([data], { type: "text/csv" });
-    },
-    onSuccess: (blob) => {
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `event_${event!.id}_rsvps.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      a.remove();
-      toast.success("RSVP list downloaded successfully!");
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to export RSVP list.");
-    },
-  });
-
-  const checkInRsvp = useMutation({
-    mutationFn: async ({ rsvpId }: { rsvpId: string }) => {
-      if (!user) throw new Error("Please log in to check in attendees");
-      if (!event || eventId.startsWith("mock-")) {
-        return { alreadyCheckedIn: false };
-      }
-
-      const { data: existingRsvp, error: fetchError } = await supabase
-        .from("event_rsvps")
-        .select("checked_in")
-        .eq("id", rsvpId)
-        .eq("event_id", eventId)
-        .maybeSingle();
-
-      if (fetchError) throw fetchError;
-      if (existingRsvp?.checked_in) {
-        return { alreadyCheckedIn: true };
-      }
-
-      const { error } = await supabase
-        .from("event_rsvps")
-        .update({ checked_in: true })
-        .eq("id", rsvpId)
-        .eq("event_id", eventId);
-
-      if (error) throw error;
-
-      try {
-        await supabase.from("event_attendance_logs").insert({
-          rsvp_id: rsvpId,
-          recorded_by: user.id,
-          // Distinguishes this manual/QR-adjacent organizer action from an
-          // attendee's own GPS-verified self check-in (see check_in_via_geofence).
-          verification_method: "organizer_override",
-        });
-      } catch {
-        // Attendance logging is optional if the table is unavailable in the current environment.
-      }
-
-      return { alreadyCheckedIn: false };
-    },
-    onSuccess: (result) => {
-      if (result?.alreadyCheckedIn) {
-        toast.success("This attendee is already checked in.");
-      } else {
-        toast.success("Attendee checked in successfully.");
-      }
-      refetch();
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to check in attendee.");
-    },
-  });
-
-  const submitFeedback = useMutation({
-    mutationFn: async () => {
-      if (!user) throw new Error("Please log in to submit feedback");
-      if (feedbackRating === 0) throw new Error("Please select a rating");
-      if (eventId.startsWith("mock-")) return;
-
-      const { error } = await supabase.from("event_feedbacks").insert({
-        event_id: eventId,
-        user_id: user.id,
-        rating: feedbackRating,
-        comment: feedbackComment.trim() || null,
-      });
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Thank you for your feedback!");
-      setFeedbackOpen(false);
-      setFeedbackRating(0);
-      setFeedbackComment("");
-      refetch();
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to submit feedback. Please try again.");
-    },
-  });
-
-  const isOrganizer = user && event?.created_by === user.id;
-  const isOrganizer = !!(user && event?.created_by === user.id);
-
-  useEffect(() => {
-    if (!eventId || eventId.startsWith("mock-") || !event) return;
-
-    const channel = supabase
-      .channel(`event-rsvps-${eventId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "event_rsvps",
-          filter: `event_id=eq.${eventId}`,
-        },
-        () => {
-          if (isOrganizer) {
-            toast.success("New RSVP received!");
-          }
-          refetch();
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [eventId, event?.created_by, user?.id, supabase, refetch, isOrganizer]);
-
-  // Local state for optimistic updates during dragging
-  const [columns, setColumns] = useState<{
-    waitlisted: {
-      id: string;
-      userId: string;
-      name: string;
-      avatarUrl: string | null;
-      rsvpId?: string;
-    }[];
-    approved: {
-      id: string;
-      userId: string;
-      name: string;
-      avatarUrl: string | null;
-      rsvpId?: string;
-    }[];
-    rejected: {
-      id: string;
-      userId: string;
-      name: string;
-      avatarUrl: string | null;
-      rsvpId?: string;
-    }[];
-  }>({ waitlisted: [], approved: [], rejected: [] });
-
-  useEffect(() => {
-    setColumns(buildKanbanColumns((adminWaitlist as any) || [], (adminRsvps as any) || []));
-  }, [adminWaitlist, adminRsvps]);
-
-  const updateRsvpStatus = useMutation({
-    mutationFn: async ({
-      userId,
-      rsvpId,
-      newStatus,
-    }: {
-      userId: string;
-      rsvpId?: string;
-      newStatus: "waitlisted" | "approved" | "rejected";
-    }) => {
-      if (eventId.startsWith("mock-")) {
-        return;
-      }
-
-      if (newStatus === "approved") {
-        if (rsvpId) {
-          const { error } = await supabase
-            .from("event_rsvps")
-            .update({ status: "approved" })
-            .eq("id", rsvpId);
-          if (error) throw error;
-        } else {
-          // Promote from event_waitlist to approved
-          const { error: insertError } = await supabase
-            .from("event_rsvps")
-            .insert({ event_id: eventId, user_id: userId, status: "approved" });
-          if (insertError) throw insertError;
-
-          const { error: deleteError } = await supabase
-            .from("event_waitlist")
-            .delete()
-            .eq("event_id", eventId)
-            .eq("user_id", userId);
-          if (deleteError) throw deleteError;
-        }
-      } else if (newStatus === "rejected") {
-        if (rsvpId) {
-          const { error } = await supabase
-            .from("event_rsvps")
-            .update({ status: "rejected" })
-            .eq("id", rsvpId);
-          if (error) throw error;
-        } else {
-          // Promote from event_waitlist to rejected
-          const { error: insertError } = await supabase
-            .from("event_rsvps")
-            .insert({ event_id: eventId, user_id: userId, status: "rejected" });
-          if (insertError) throw insertError;
-
-          const { error: deleteError } = await supabase
-            .from("event_waitlist")
-            .delete()
-            .eq("event_id", eventId)
-            .eq("user_id", userId);
-          if (deleteError) throw deleteError;
-        }
-      } else if (newStatus === "waitlisted") {
-        if (rsvpId) {
-          const { error } = await supabase
-            .from("event_rsvps")
-            .update({ status: "waitlisted" })
-            .eq("id", rsvpId);
-          if (error) throw error;
-        }
-      }
-    },
-    onSuccess: () => {
-      toast.success("RSVP status updated!");
-      refetchMyRsvp();
-      refetchAdminRsvps();
-      refetchPublicGuests();
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to update RSVP status.");
-      refetchMyRsvp();
-      refetchAdminRsvps();
-      refetchPublicGuests();
-    },
-  });
-
-  const onDragEnd = (result: DropResult) => {
-    const { source, destination } = result;
-
-    if (!destination) return;
-    if (source.droppableId === destination.droppableId && source.index === destination.index)
-      return;
-
-    const sourceColId = source.droppableId as keyof typeof columns;
-    const destColId = destination.droppableId as keyof typeof columns;
-
-    const sourceList = Array.from(columns[sourceColId]);
-    const destList = Array.from(columns[destColId]);
-
-    const [movedCard] = sourceList.splice(source.index, 1);
-    destList.splice(destination.index, 0, movedCard);
-
-    setColumns({
-      ...columns,
-      [sourceColId]: sourceList,
-      [destColId]: destList,
-    });
-
-    updateRsvpStatus.mutate({
-      userId: movedCard.userId,
-      rsvpId: movedCard.rsvpId,
-      newStatus: destColId as "waitlisted" | "approved" | "rejected",
-    });
-  };
-
-  if (isLoading) {
-    return <SkeletonEventDetails />;
-  }
-
-  if (!event) {
-    return (
-      <SiteShell>
-        <section className="bg-cream px-4 py-20 md:px-6">
-          <div className="mx-auto max-w-md neu-border bg-white p-8 text-center">
-            <h1 className="text-3xl font-black">Event Not Found</h1>
-            <p className="mt-4 font-mono text-sm leading-6">
-              The event you are looking for does not exist, has been removed, or the link is
-              incorrect.
-            </p>
-            <Link
-              to="/events"
-              className="neu-press mt-6 inline-flex items-center gap-2 border-2 border-black bg-lime px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider"
-            >
-              <ArrowLeft size={14} /> Back to Events
-            </Link>
-          </div>
-        </section>
-      </SiteShell>
-    );
-  }
-
-  const rsvps = adminRsvps || [];
-  const hasRsvpd = !!myRsvp && (myRsvp.status === "attending" || myRsvp.status === "waitlisted");
-  const isCheckedIn = !!myRsvp && myRsvp.checked_in;
-  const hasEnded = new Date().getTime() > new Date(event.end_date).getTime();
-  const myRsvpId = myRsvp?.id;
-  const rawFeedbacks = (event as Record<string, unknown>).event_feedbacks;
-  const { hasSubmittedFeedback } = buildFeedbackStatus(
-    Array.isArray(rawFeedbacks) ? (rawFeedbacks as { user_id: string }[]) : undefined,
-    user?.id,
-  );
-  const eventUrl =
-    typeof window !== "undefined"
-      ? window.location.href
-      : `${import.meta.env.VITE_SITE_URL ?? ""}/events/${event.short_id ?? event.id}`;
-
-  const ogTags = buildOpenGraphTags({
-    title: event.title,
-    description: event.description,
-    bannerUrl: event.banner_url,
-    eventDate: event.event_date,
-    location: event.location,
-    url: eventUrl,
-    eventId: event.id,
-  });
-
-  const rawWaitlist = adminWaitlist || [];
-
-  const club = event.clubs ? (Array.isArray(event.clubs) ? event.clubs[0] : event.clubs) : null;
-  const coordsCheck = event.location
-    ? parseCoordinates(event.location)
-    : { isCoordinates: false, isValid: true };
-
-  const isWithinCheckInWindow = useMemo(() => {
-    if (!event?.start_date) return false;
-    const now = new Date().getTime();
-    const startTime = new Date(event.start_date).getTime();
-    return now >= startTime - 60 * 60 * 1000 && !hasEnded;
-  }, [event?.start_date, hasEnded]);
-
-  const triggerAutoCheckIn = useCallback(() => {
-    if (typeof window === "undefined" || !navigator.geolocation) {
-      toast.error("Geolocation is not supported by your browser.");
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        const venueObj = Array.isArray(event.venues) ? event.venues[0] : event.venues;
-        const targetLat = venueObj?.latitude ?? event.latitude;
-        const targetLng = venueObj?.longitude ?? event.longitude;
-        const targetRadius = venueObj?.geofence_radius_meters ?? event.geofence_radius_meters ?? 100;
-
-        if (targetLat != null && targetLng != null) {
-          const distance = calculateHaversineDistance(latitude, longitude, targetLat, targetLng);
-          if (distance <= targetRadius) {
-            try {
-              const res = await performAutoCheckIn(myRsvpId!);
-              if (res.status === "success" || res.status === "already_checked_in") {
-                toast.success("Welcome! You have been automatically checked in.");
-                refetch();
-              }
-            } catch (err) {
-              console.error("Auto check-in verification failed:", err);
-            }
-          } else {
-            toast.error(`You are too far from the venue to check in (${Math.round(distance)}m away).`);
-          }
-        }
-      },
-      (error) => {
-        toast.error("Location access failed. Please check your browser location permissions.");
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
-  }, [event, myRsvpId, performAutoCheckIn, refetch]);
-
-  useEffect(() => {
-    if (
-      event?.geofencing_enabled &&
-      hasRsvpd &&
-      myRsvpId &&
-      !isCheckedIn &&
-      isWithinCheckInWindow &&
-      !hasAttemptedAutoCheckInRef.current
-    ) {
-      hasAttemptedAutoCheckInRef.current = true;
-      setShowLocationPrompt(true);
-    }
-  }, [event?.geofencing_enabled, hasRsvpd, myRsvpId, isCheckedIn, isWithinCheckInWindow]);
-
-  const captchaSiteKey =
-    import.meta.env.VITE_TURNSTILE_SITE_KEY || import.meta.env.VITE_HCAPTCHA_SITE_KEY;
-  const captchaSecretKey =
-    import.meta.env.VITE_TURNSTILE_SECRET_KEY || import.meta.env.VITE_HCAPTCHA_SECRET_KEY;
-  const captchaEnabled = isCaptchaConfigured(captchaSiteKey, captchaSecretKey);
-  const captchaProvider = import.meta.env.VITE_TURNSTILE_SITE_KEY ? "turnstile" : "hcaptcha";
-
-  const isAfterDeadline = useMemo(() => {
-    if (!event?.accommodation_deadline) return false;
-    return new Date().getTime() > new Date(event.accommodation_deadline).getTime();
-  }, [event?.accommodation_deadline]);
-
-  const [isWalletDownloading, setIsWalletDownloading] = useState(false);
-
-  const handleAddToAppleWallet = async () => {
-    if (!user || !event) return;
-    setIsWalletDownloading(true);
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const response = await fetch(
-        `${getSupabaseUrl()}/functions/v1/generate-wallet-pass?type=apple&passType=event&eventId=${event.id}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-        },
-      );
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to generate Apple Wallet pass");
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `ticket-${event.id}.pkpass`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      toast.success("Wallet ticket downloaded successfully!");
-    } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : "Failed to download Wallet ticket");
-    } finally {
-      setIsWalletDownloading(false);
-    }
-  };
-
-  const handleAddToGoogleWallet = async () => {
-    if (!user || !event) return;
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const response = await fetch(
-        `${getSupabaseUrl()}/functions/v1/generate-wallet-pass?type=google&passType=event&eventId=${event.id}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-        },
-      );
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to generate Google Wallet ticket");
-      }
-
-      const data = await response.json();
-      if (data.url) {
-        window.open(data.url, "_blank");
-        toast.success("Google Wallet link opened!");
-      } else {
-        throw new Error("No URL returned");
-      }
-    } catch (error: unknown) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to generate Google Wallet ticket",
-      );
-    }
-  };
-
-  const handleRsvpClick = () => {
-    if (!user) {
-      toast.error("Please log in to RSVP");
-      return;
-    }
-    if (!emailVerified) {
-      toast.error("Please verify your email to RSVP");
-      return;
-    }
-    if (hasRsvpd) {
-      setConfirmOpen(true);
-      return;
-    }
-
-    if (captchaEnabled && !shouldRequireCaptcha(captchaSiteKey, captchaSecretKey, captchaToken)) {
-      toast.error("Please complete the CAPTCHA challenge to RSVP.");
-      return;
-    }
-
-    // Open accommodations dialog instead of immediate submit
-    setNeedAccommodations(false);
-    setAccommodationsText("");
-    setValidationError("");
-    setRsvpDialogOpen(true);
-  };
-
-  const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl || window.location.href);
-      setCopied(true);
-      toast.success("Event link copied to clipboard!");
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error("Failed to copy link.");
-    }
-  };
-
-  const handleCopyEventId = async () => {
-    try {
-      await navigator.clipboard.writeText(event.id);
-      setIdCopied(true);
-      toast.success("Event ID copied to clipboard!");
-      setTimeout(() => setIdCopied(false), 2000);
-    } catch {
-      toast.error("Failed to copy event ID.");
-    }
-  };
-  const handleConfirmCancel = () => {
-    toggleRsvp.mutate({ eventId: event.id, hasRsvpd: true });
-    setConfirmOpen(false);
-  };
-
-  const attendeeCount =
-    ((event as Record<string, unknown>).attendee_count as number) ?? (publicGuests?.length || 0);
-  const maxAttendees = (event as Record<string, unknown>).max_attendees as
-    number | null | undefined;
-  const isAtCapacity =
-    maxAttendees !== null &&
-    maxAttendees !== undefined &&
-    maxAttendees > 0 &&
-    attendeeCount >= maxAttendees;
-
-  const isLive = isEventLive(event);
-
-  return (
-    <>
-      <Helmet>
-        <title>{ogTags.ogTitle}</title>
-
-        <meta name="description" content={ogTags.ogDescription} />
-
-        <meta property="og:type" content="website" />
-        <meta property="og:title" content={ogTags.ogTitle} />
-        <meta property="og:description" content={ogTags.ogDescription} />
-        <meta property="og:url" content={ogTags.ogUrl} />
-
-        {ogTags.ogImage && (
-          <>
-            <meta property="og:image" content={ogTags.ogImage} />
-            <meta property="og:image:width" content="1200" />
-            <meta property="og:image:height" content="630" />
-            <meta property="og:image:type" content="image/png" />
-          </>
-        )}
-
-        {ogTags.eventStartTime && (
-          <meta property="event:start_time" content={ogTags.eventStartTime} />
-        )}
-
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={ogTags.ogTitle} />
-        <meta name="twitter:description" content={ogTags.ogDescription} />
-
-        {ogTags.ogImage && <meta name="twitter:image" content={ogTags.ogImage} />}
-      </Helmet>
-
-      <SiteShell>
-        {" "}
-        {/* Breadcrumb nav */}
-        <nav className="border-b-2 border-black bg-white px-4 py-4 md:px-6" aria-label="Breadcrumb">
-          <div className="mx-auto max-w-4xl">
-            {/* Mobile: simple back link */}
-            <Link
-              to="/events"
-              className="inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider hover:underline sm:hidden"
-            >
-              <ArrowLeft size={14} /> Events
-            </Link>
-            {/* sm+: full breadcrumb */}
-            <Breadcrumb className="hidden sm:block">
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/" className="font-mono text-xs font-bold uppercase">
-                      Home
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link to="/events" className="font-mono text-xs font-bold uppercase">
-                      Events
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage className="font-mono text-xs font-bold uppercase">
-                    {event.title}
-                  </BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-        </nav>
-        {/* Hero Section */}
-        <section className="relative w-full overflow-hidden border-b-2 border-black bg-peach/30">
-          {event.banner_url ? (
-            <div className="absolute inset-0">
-              <EventHeroBanner
-                bannerUrl={event.banner_url}
-                blurhash={(event as { blurhash?: string | null }).blurhash}
-                title={event.title}
-              />
-              <div className="absolute inset-0 bg-black/50" />
-            </div>
-          ) : (
-            <div className="absolute inset-0 bg-linear-to-br from-peach via-pink-200 to-lime/40" />
-          )}
-
-          <div className="relative mx-auto flex min-h-[50vh] max-w-4xl flex-col justify-end px-4 py-16 md:min-h-[60vh] md:px-6 md:py-24">
-            <div className="mb-4 flex flex-wrap items-center gap-3">
-              <span className="neu-border inline-block bg-white px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider text-black">
-                Event Details
-              </span>
-              {isLive && <LiveNowBadge>Live Now</LiveNowBadge>}
-            </div>
-
-            <div className="flex items-center gap-3">
-              <h1
-                className={`text-4xl font-black tracking-tight md:text-6xl ${event.banner_url ? "text-white" : "text-black"}`}
-              >
-                {event.title}
-              </h1>
-<ShareMenu url={shareUrl} title={event.title} eventId={event.id} />              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      onClick={handleCopyEventId}
-                      variant="outline"
-                      size="icon"
-                      className="neu-border rounded-2xl h-8 w-8 shrink-0 bg-black text-white transition-all duration-300 hover:scale-105 active:scale-95"
-                      aria-label="Copy Event ID"
-                    >
-                      {idCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Copy Event ID</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-
-            {club && (
-              <p
-                className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"}`}
-              >
-                Organized by:{" "}
-                <Link to={`/clubs/${club.slug}`} className="underline hover:opacity-80">
-                  {club.name}
-                </Link>
-              </p>
-            )}
-
-            {!club && event.profiles && (
-              <div
-                className={`mt-4 font-mono text-base font-bold ${event.banner_url ? "text-white/90" : "text-black/80"} flex items-center gap-4`}
-              >
-                <span>Organized by: {(event.profiles as { full_name: string }).full_name}</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    import("@/lib/vcardUtils").then(({ downloadVCard }) => {
-                      downloadVCard(event.profiles as { full_name: string; email: string });
-                    });
-                  }}
-                  className="neu-border h-8 bg-white/20 hover:bg-white/40 text-xs px-3"
-                >
-                  <Download className="mr-2 h-3 w-3" />
-                  Download Contact (vCard)
-                </Button>
-              </div>
-            )}
-
-            <div
-              className={`mt-8 flex flex-wrap gap-4 font-mono text-sm font-bold sm:gap-8 ${event.banner_url ? "text-white" : "text-black"}`}
-            >
-              <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                <span>{formatEventDateRange(event)}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                <span>{event.location || "TBA"}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                <span>{attendeeCount} RSVP&apos;d</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Eye className="h-5 w-5" />
-                <span>
-                  {(
-                    ((event as any).event_metrics as { views: number } | null)?.views ?? 0
-                  ).toLocaleString()}{" "}
-                  views
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-6 max-w-md">
-              <EventCapacityGauge
-                eventId={event.id}
-                initialCapacity={attendeeCount}
-                maxAttendees={maxAttendees || null}
-                showDetails={true}
-              />
-            </div>
-            
-            <div className="mt-6 max-w-md">
-              <TicketPricingTimeline eventId={event.id} />
-            </div>
-
-            {hasRsvpd && myRsvpId && !isCheckedIn && !hasEnded && (
-              <div className="mt-6 max-w-md">
-                <GeofencedCheckInButton
-                  rsvpId={myRsvpId}
-                  geofencingEnabled={Boolean((event as any).geofencing_enabled)}
-                  onCheckedIn={() => refetch()}
-                />
-              </div>
-            )}
-
-            <div className="mt-8 hidden items-center gap-4 md:flex">
-              {hasRsvpd ? (
-                <Button
-                  onClick={handleRsvpClick}
-                  disabled={toggleRsvp.isPending}
-                  variant="secondary"
-                  size="lg"
-                >
-                  {toggleRsvp.isPending ? "Updating..." : "RSVP'd ✓"}
-                </Button>
-              ) : isAtCapacity ? (
-                <Button
-                  onClick={() => {
-                    if (!user) {
-                      toast.error("Please log in to join waitlist");
-                      return;
-                    }
-                    if (!prereqMet) {
-                      toast.error(`You must attend '${prereqTitle}' before joining waitlist.`);
-                      return;
-                    }
-                    toggleWaitlist.mutate({ isOnWaitlist });
-                  }}
                   disabled={toggleWaitlist.isPending || !prereqMet}
                   variant={isOnWaitlist ? "secondary" : "primary"}
                   size="lg"
                   title={!prereqMet ? `You must attend '${prereqTitle}' before registering for this event.` : undefined}
                   className={!prereqMet ? "opacity-50 cursor-not-allowed" : ""}
-                >
-                  {toggleWaitlist.isPending
-                    ? "Updating..."
-                    : isOnWaitlist
-                      ? "On Waitlist ✓"
+
                       : "Join Waitlist"}
                 </Button>
               ) : (
@@ -1960,18 +708,119 @@ export default function EventDetailsPage() {
                     <div className="flex flex-col gap-2">
                       <span
                         className={`font-mono text-xs font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
+
+                      : isWaitlistFull
+                        ? "Waitlist Full"
+                        : "Join Waitlist"}
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => {
+                    if (!prereqMet && !hasRsvpd) {
+                      toast.error(
+                        `You must attend '${prereqTitle}' before registering for this event.`,
+                      );
+                      return;
+                    }
+                    handleRsvpClick();
+                  }}
+                  disabled={toggleRsvp.isPending || !prereqMet}
+                  variant="primary"
+                  size="lg"
+                  title={
+                    !prereqMet && !hasRsvpd
+                      ? `You must attend '${prereqTitle}' before registering for this event.`
+                      : undefined
+                  }
+                  className={
+                    !prereqMet && !hasRsvpd ? "opacity-50 cursor-not-allowed relative group" : ""
+                  }
+                >
+                  {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
+                </Button>
+              )}
+              {isOnWaitlist && (
+                <div className="mt-4 flex flex-col items-center gap-2 rounded bg-amber-50 p-4 border-2 border-amber-300">
+                  <p className="font-mono text-sm font-bold text-amber-900">
+                    Priority Score: {waitlistScore?.total_score || "..."}
+                  </p>
+                  <p className="text-center text-xs text-amber-800/80 max-w-xs leading-relaxed">
+                    Your position is determined by:
+                    <br />
+                    • Time on waitlist
+                    <br />
+                    • Club membership
+                    <br />
+                    • Attendance streak
+                    <br />• Graduation status
+                  </p>
+
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-2 text-xs border-amber-400 text-amber-900 hover:bg-amber-100 font-bold tracking-tight"
+ main
                       >
-                        Verification required before RSVP
-                      </span>
-                      <CaptchaWidget
-                        siteKey={captchaSiteKey}
-                        provider={captchaProvider}
-                        onToken={(token) => setCaptchaToken(token)}
-                        onError={() => setCaptchaToken(undefined)}
-                        onExpire={() => setCaptchaToken(undefined)}
-                      />
-                    </div>
-                  )}
+                        View Score Breakdown
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md border-4 border-black shadow-[8px_8px_0_0_#000]">
+                      <DialogHeader>
+                        <DialogTitle className="font-display uppercase text-2xl tracking-tight text-black">
+                          Priority Score Breakdown
+                        </DialogTitle>
+                        <DialogDescription className="font-mono text-gray-600">
+                          How your waitlist priority is calculated.
+                        </DialogDescription>
+                      </DialogHeader>
+                      {waitlistScore ? (
+                        <div className="flex flex-col gap-3 font-mono text-sm my-4 text-black">
+                          <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
+                            <span>Time on waitlist ({waitlistScore.waitlist_hours}h)</span>
+                            <span className="font-bold text-blue-600">
+                              +{waitlistScore.time_score}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
+                            <span>Active club member</span>
+                            <span className="font-bold text-lime-600">
+                              +{waitlistScore.membership_score}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
+                            <span>Attendance streak</span>
+                            <span className="font-bold text-orange-600">
+                              +{waitlistScore.streak_score}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center border-b-2 border-black pb-2">
+                            <span>Graduating senior</span>
+                            <span className="font-bold text-purple-600">
+                              +{waitlistScore.senior_score}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center pt-2 text-lg font-black uppercase">
+                            <span>Total Score</span>
+                            <span>{waitlistScore.total_score}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-4 text-center font-mono text-gray-500">
+                          Loading score...
+                        </div>
+                      )}
+                      <DialogFooter className="sm:justify-start">
+                        <Button
+                          variant="outline"
+                          className="w-full font-bold uppercase border-2 border-black shadow-[4px_4px_0_0_#000]"
+                        >
+                          Close
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               )}
               <span
@@ -1983,11 +832,9 @@ export default function EventDetailsPage() {
             </div>
           </div>
         </section>
-
         <section className="bg-cream px-4 py-8 md:px-6">
           <TournamentBracket />
         </section>
-
         {/* Details Container */}
         <section className="bg-cream px-4 py-12 md:px-6">
           <div className="mx-auto max-w-4xl neu-border bg-white p-6 md:p-8">
@@ -2018,7 +865,12 @@ export default function EventDetailsPage() {
               {/* Download Ticket — visible to confirmed attendees of upcoming/ongoing events */}
               {hasRsvpd && !hasEnded && (
                 <Button
-                  onClick={() => downloadTicket(event)}
+                  onClick={() =>
+                    downloadTicket({
+                      ...event,
+                      noMediaConsent: myRsvp?.no_media_consent === true,
+                    })
+                  }
                   disabled={isTicketGenerating}
                   variant="outline"
                   className="neu-border neu-press h-12 bg-lime px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-60"
@@ -2441,7 +1293,9 @@ export default function EventDetailsPage() {
                   <EventMetricRatingForm
                     eventId={event.id}
                     user={user}
-                    metrics={(event as Record<string, unknown>).rating_metrics as string[] | undefined}
+                    metrics={
+                      (event as Record<string, unknown>).rating_metrics as string[] | undefined
+                    }
                   />
                   <EventFeedbackForm eventId={event.id} user={user} />
                 </div>
@@ -2639,14 +1493,14 @@ export default function EventDetailsPage() {
                   Share with Friends
                 </h3>
                 <div className="mt-4">
-<ShareMenu
-                url={shareUrl}
-                title={event.title}
-                text={`Check out this event: ${event.title}`}
-                eventId={event.id}
-              />                </div>
+                  <ShareMenu
+                    url={shareUrl}
+                    title={event.title}
+                    text={`Check out this event: ${event.title}`}
+                    eventId={event.id}
+                  />{" "}
+                </div>
               </div>
-
               <div className="border-t border-black/10 pt-4">
                 <h3 className="font-mono text-xs font-bold uppercase text-blue-900 mb-2">
                   Referral Invite Link 🎁
@@ -2672,7 +1526,6 @@ export default function EventDetailsPage() {
                   </p>
                 )}
               </div>
-
               {/* Event Live Support Reporting Card */}
               <div className="border-t border-black/10 pt-4 space-y-3 text-black">
                 <h3 className="font-mono text-xs font-bold uppercase text-red-600">
@@ -2730,419 +1583,432 @@ export default function EventDetailsPage() {
                   />
                 </div>
               </div>
-
               <div className="border-t border-black/10 pt-4">
                 <EventFaqSection eventId={event.id} isOrganizer={isOrganizer} userId={user?.id} />
               </div>
-            {/* Kanban Board for Organizer */}
-            {isOrganizer && (
-              <div className="mt-12 border-t-4 border-black pt-10">
-                <h2 className="font-display text-2xl font-black uppercase tracking-tight text-black mb-6">
-                  Attendee Manager
-                </h2>
-                <div className="mb-8 rounded-2xl border-4 border-black bg-white p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <h3 className="font-display text-xl font-black uppercase tracking-tight text-black">
-                        QR Check-in
-                      </h3>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        Verify a signed ticket from the camera or an uploaded image to mark the
-                        attendee as checked in.
-                      </p>
+              <EventMenuSection eventId={event.id} isOrganizer={isOrganizer} />{" "}
+              {/* Kanban Board for Organizer */}
+              {isOrganizer && (
+                <div className="mt-12 border-t-4 border-black pt-10">
+                  <h2 className="font-display text-2xl font-black uppercase tracking-tight text-black mb-6">
+                    Attendee Manager
+                  </h2>
+                  <div className="mb-8 rounded-2xl border-4 border-black bg-white p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-display text-xl font-black uppercase tracking-tight text-black">
+                          QR Check-in
+                        </h3>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          Verify a signed ticket from the camera or an uploaded image to mark the
+                          attendee as checked in.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-5">
+                      <SteganographicQRScanner
+                        onVerificationSuccess={(payload) => {
+                          checkInRsvp.mutate({ rsvpId: payload.rsvpId });
+                        }}
+                      />
                     </div>
                   </div>
-                  <div className="mt-5">
-                    <SteganographicQRScanner
-                      onVerificationSuccess={(payload) => {
-                        checkInRsvp.mutate({ rsvpId: payload.rsvpId });
-                      }}
-                    />
-                  </div>
+                  <DragDropContext onDragEnd={onDragEnd}>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {/* Waitlisted Column */}
+                      <div className="flex flex-col border-4 border-black bg-amber-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                        <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
+                          <span className="flex items-center gap-2">
+                            <Clock size={18} className="text-amber-600" /> Waitlisted
+                          </span>
+                          <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
+                            {columns.waitlisted.length}
+                          </span>
+                        </h3>
+                        <Droppable droppableId="waitlisted">
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.droppableProps}
+                              className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
+                                snapshot.isDraggingOver ? "bg-amber-100/50" : ""
+                              }`}
+                            >
+                              {columns.waitlisted.map((card, index) => (
+                                <Draggable key={card.id} draggableId={card.id} index={index}>
+                                  {(provided, snapshot) => (
+                                    <div
+                                      ref={provided.innerRef}
+                                      {...provided.draggableProps}
+                                      {...provided.dragHandleProps}
+                                      className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
+                                        snapshot.isDragging
+                                          ? "rotate-2 scale-105 z-50 bg-amber-50/90"
+                                          : ""
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        {card.avatarUrl ? (
+                                          <img
+                                            src={card.avatarUrl}
+                                            alt={card.name}
+                                            className="h-10 w-10 border-2 border-black object-cover rounded-none"
+                                          />
+                                        ) : (
+                                          <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
+                                            {card.name.substring(0, 2)}
+                                          </div>
+                                        )}
+                                        <div className="min-w-0">
+                                          <p className="truncate font-mono text-sm font-bold text-black">
+                                            {card.name}
+                                          </p>
+                                          <p className="font-mono text-[9px] text-black/60 uppercase">
+                                            {card.rsvpId ? "Requested" : "Waitlist"}
+                                          </p>
+                                          {card.hasAccommodation && card.rsvpId && (
+                                            <div className="mt-1 flex flex-col gap-0.5">
+                                              <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
+                                                🔴 Accessibility accommodation requested
+                                              </span>
+                                              <button
+                                                type="button"
+                                                className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
+                                                onClick={() =>
+                                                  handleViewAccommodation(card.rsvpId!)
+                                                }
+                                              >
+                                                [Decrypt / View]
+                                              </button>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="flex gap-1 ml-2">
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                size="icon"
+                                                variant="outline"
+                                                className="h-7 w-7 border border-black rounded-none bg-emerald-50 hover:bg-emerald-200"
+                                                onClick={() =>
+                                                  updateRsvpStatus.mutate({
+                                                    userId: card.userId,
+                                                    rsvpId: card.rsvpId,
+                                                    newStatus: "approved",
+                                                  })
+                                                }
+                                              >
+                                                <CheckCircle
+                                                  size={14}
+                                                  className="text-emerald-700"
+                                                />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p>Approve RSVP</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                size="icon"
+                                                variant="outline"
+                                                className="h-7 w-7 border border-black rounded-none bg-rose-50 hover:bg-rose-200"
+                                                onClick={() =>
+                                                  updateRsvpStatus.mutate({
+                                                    userId: card.userId,
+                                                    rsvpId: card.rsvpId,
+                                                    newStatus: "rejected",
+                                                  })
+                                                }
+                                              >
+                                                <X size={14} className="text-rose-700" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p>Reject RSVP</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      </div>
+                                    </div>
+                                  )}
+                                </Draggable>
+                              ))}
+                              {provided.placeholder}
+                            </div>
+                          )}
+                        </Droppable>
+                      </div>
+
+                      {/* Approved Column */}
+                      <div className="flex flex-col border-4 border-black bg-emerald-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                        <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
+                          <span className="flex items-center gap-2">
+                            <CheckCircle size={18} className="text-emerald-600" /> Approved
+                          </span>
+                          <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
+                            {columns.approved.length}
+                          </span>
+                        </h3>
+                        <Droppable droppableId="approved">
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.droppableProps}
+                              className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
+                                snapshot.isDraggingOver ? "bg-emerald-100/50" : ""
+                              }`}
+                            >
+                              {columns.approved.map((card, index) => (
+                                <Draggable key={card.id} draggableId={card.id} index={index}>
+                                  {(provided, snapshot) => (
+                                    <div
+                                      ref={provided.innerRef}
+                                      {...provided.draggableProps}
+                                      {...provided.dragHandleProps}
+                                      className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
+                                        snapshot.isDragging
+                                          ? "rotate-2 scale-105 z-50 bg-emerald-50/90"
+                                          : ""
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        {card.avatarUrl ? (
+                                          <img
+                                            src={card.avatarUrl}
+                                            alt={card.name}
+                                            className="h-10 w-10 border-2 border-black object-cover rounded-none"
+                                          />
+                                        ) : (
+                                          <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
+                                            {card.name.substring(0, 2)}
+                                          </div>
+                                        )}
+                                        <div className="min-w-0">
+                                          <p className="truncate font-mono text-sm font-bold text-black">
+                                            {card.name}
+                                          </p>
+                                          <p className="font-mono text-[9px] text-black/60 uppercase">
+                                            Approved
+                                          </p>
+                                          {card.hasAccommodation && card.rsvpId && (
+                                            <div className="mt-1 flex flex-col gap-0.5">
+                                              <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
+                                                🔴 Accessibility accommodation requested
+                                              </span>
+                                              <button
+                                                type="button"
+                                                className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
+                                                onClick={() =>
+                                                  handleViewAccommodation(card.rsvpId!)
+                                                }
+                                              >
+                                                [Decrypt / View]
+                                              </button>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="flex gap-1 ml-2">
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                size="icon"
+                                                variant="outline"
+                                                className="h-7 w-7 border border-black rounded-none bg-amber-50 hover:bg-amber-200"
+                                                onClick={() =>
+                                                  updateRsvpStatus.mutate({
+                                                    userId: card.userId,
+                                                    rsvpId: card.rsvpId,
+                                                    newStatus: "waitlisted",
+                                                  })
+                                                }
+                                              >
+                                                <Clock size={14} className="text-amber-700" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p>Move to Waitlist</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                size="icon"
+                                                variant="outline"
+                                                className="h-7 w-7 border border-black rounded-none bg-rose-50 hover:bg-rose-200"
+                                                onClick={() =>
+                                                  updateRsvpStatus.mutate({
+                                                    userId: card.userId,
+                                                    rsvpId: card.rsvpId,
+                                                    newStatus: "rejected",
+                                                  })
+                                                }
+                                              >
+                                                <X size={14} className="text-rose-700" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p>Reject RSVP</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      </div>
+                                    </div>
+                                  )}
+                                </Draggable>
+                              ))}
+                              {provided.placeholder}
+                            </div>
+                          )}
+                        </Droppable>
+                      </div>
+
+                      {/* Rejected Column */}
+                      <div className="flex flex-col border-4 border-black bg-rose-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                        <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
+                          <span className="flex items-center gap-2">
+                            <X size={18} className="text-rose-600" /> Rejected
+                          </span>
+                          <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
+                            {columns.rejected.length}
+                          </span>
+                        </h3>
+                        <Droppable droppableId="rejected">
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.droppableProps}
+                              className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
+                                snapshot.isDraggingOver ? "bg-rose-100/50" : ""
+                              }`}
+                            >
+                              {columns.rejected.map((card, index) => (
+                                <Draggable key={card.id} draggableId={card.id} index={index}>
+                                  {(provided, snapshot) => (
+                                    <div
+                                      ref={provided.innerRef}
+                                      {...provided.draggableProps}
+                                      {...provided.dragHandleProps}
+                                      className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
+                                        snapshot.isDragging
+                                          ? "rotate-2 scale-105 z-50 bg-rose-50/90"
+                                          : ""
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        {card.avatarUrl ? (
+                                          <img
+                                            src={card.avatarUrl}
+                                            alt={card.name}
+                                            className="h-10 w-10 border-2 border-black object-cover rounded-none"
+                                          />
+                                        ) : (
+                                          <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
+                                            {card.name.substring(0, 2)}
+                                          </div>
+                                        )}
+                                        <div className="min-w-0">
+                                          <p className="truncate font-mono text-sm font-bold text-black">
+                                            {card.name}
+                                          </p>
+                                          <p className="font-mono text-[9px] text-black/60 uppercase">
+                                            Rejected
+                                          </p>
+                                          {card.hasAccommodation && card.rsvpId && (
+                                            <div className="mt-1 flex flex-col gap-0.5">
+                                              <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
+                                                🔴 Accessibility accommodation requested
+                                              </span>
+                                              <button
+                                                type="button"
+                                                className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
+                                                onClick={() =>
+                                                  handleViewAccommodation(card.rsvpId!)
+                                                }
+                                              >
+                                                [Decrypt / View]
+                                              </button>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="flex gap-1 ml-2">
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                size="icon"
+                                                variant="outline"
+                                                className="h-7 w-7 border border-black rounded-none bg-amber-50 hover:bg-amber-200"
+                                                onClick={() =>
+                                                  updateRsvpStatus.mutate({
+                                                    userId: card.userId,
+                                                    rsvpId: card.rsvpId,
+                                                    newStatus: "waitlisted",
+                                                  })
+                                                }
+                                              >
+                                                <Clock size={14} className="text-amber-700" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p>Move to Waitlist</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                size="icon"
+                                                variant="outline"
+                                                className="h-7 w-7 border border-black rounded-none bg-emerald-50 hover:bg-emerald-200"
+                                                onClick={() =>
+                                                  updateRsvpStatus.mutate({
+                                                    userId: card.userId,
+                                                    rsvpId: card.rsvpId,
+                                                    newStatus: "approved",
+                                                  })
+                                                }
+                                              >
+                                                <CheckCircle
+                                                  size={14}
+                                                  className="text-emerald-700"
+                                                />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p>Approve RSVP</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      </div>
+                                    </div>
+                                  )}
+                                </Draggable>
+                              ))}
+                              {provided.placeholder}
+                            </div>
+                          )}
+                        </Droppable>
+                      </div>
+                    </div>
+                  </DragDropContext>
                 </div>
-                <DragDropContext onDragEnd={onDragEnd}>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Waitlisted Column */}
-                    <div className="flex flex-col border-4 border-black bg-amber-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                      <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
-                        <span className="flex items-center gap-2">
-                          <Clock size={18} className="text-amber-600" /> Waitlisted
-                        </span>
-                        <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
-                          {columns.waitlisted.length}
-                        </span>
-                      </h3>
-                      <Droppable droppableId="waitlisted">
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.droppableProps}
-                            className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
-                              snapshot.isDraggingOver ? "bg-amber-100/50" : ""
-                            }`}
-                          >
-                            {columns.waitlisted.map((card, index) => (
-                              <Draggable key={card.id} draggableId={card.id} index={index}>
-                                {(provided, snapshot) => (
-                                  <div
-                                    ref={provided.innerRef}
-                                    {...provided.draggableProps}
-                                    {...provided.dragHandleProps}
-                                    className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
-                                      snapshot.isDragging
-                                        ? "rotate-2 scale-105 z-50 bg-amber-50/90"
-                                        : ""
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-3 min-w-0">
-                                      {card.avatarUrl ? (
-                                        <img
-                                          src={card.avatarUrl}
-                                          alt={card.name}
-                                          className="h-10 w-10 border-2 border-black object-cover rounded-none"
-                                        />
-                                      ) : (
-                                        <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
-                                          {card.name.substring(0, 2)}
-                                        </div>
-                                      )}
-                                      <div className="min-w-0">
-                                        <p className="truncate font-mono text-sm font-bold text-black">
-                                          {card.name}
-                                        </p>
-                                        <p className="font-mono text-[9px] text-black/60 uppercase">
-                                          {card.rsvpId ? "Requested" : "Waitlist"}
-                                        </p>
-                                        {card.hasAccommodation && card.rsvpId && (
-                                          <div className="mt-1 flex flex-col gap-0.5">
-                                            <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
-                                              🔴 Accessibility accommodation requested
-                                            </span>
-                                            <button
-                                              type="button"
-                                              className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
-                                              onClick={() => handleViewAccommodation(card.rsvpId!)}
-                                            >
-                                              [Decrypt / View]
-                                            </button>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <div className="flex gap-1 ml-2">
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Button
-                                              size="icon"
-                                              variant="outline"
-                                              className="h-7 w-7 border border-black rounded-none bg-emerald-50 hover:bg-emerald-200"
-                                              onClick={() =>
-                                                updateRsvpStatus.mutate({
-                                                  userId: card.userId,
-                                                  rsvpId: card.rsvpId,
-                                                  newStatus: "approved",
-                                                })
-                                              }
-                                            >
-                                              <CheckCircle size={14} className="text-emerald-700" />
-                                            </Button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <p>Approve RSVP</p>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Button
-                                              size="icon"
-                                              variant="outline"
-                                              className="h-7 w-7 border border-black rounded-none bg-rose-50 hover:bg-rose-200"
-                                              onClick={() =>
-                                                updateRsvpStatus.mutate({
-                                                  userId: card.userId,
-                                                  rsvpId: card.rsvpId,
-                                                  newStatus: "rejected",
-                                                })
-                                              }
-                                            >
-                                              <X size={14} className="text-rose-700" />
-                                            </Button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <p>Reject RSVP</p>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                    </div>
-                                  </div>
-                                )}
-                              </Draggable>
-                            ))}
-                            {provided.placeholder}
-                          </div>
-                        )}
-                      </Droppable>
-                    </div>
-
-                    {/* Approved Column */}
-                    <div className="flex flex-col border-4 border-black bg-emerald-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                      <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
-                        <span className="flex items-center gap-2">
-                          <CheckCircle size={18} className="text-emerald-600" /> Approved
-                        </span>
-                        <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
-                          {columns.approved.length}
-                        </span>
-                      </h3>
-                      <Droppable droppableId="approved">
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.droppableProps}
-                            className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
-                              snapshot.isDraggingOver ? "bg-emerald-100/50" : ""
-                            }`}
-                          >
-                            {columns.approved.map((card, index) => (
-                              <Draggable key={card.id} draggableId={card.id} index={index}>
-                                {(provided, snapshot) => (
-                                  <div
-                                    ref={provided.innerRef}
-                                    {...provided.draggableProps}
-                                    {...provided.dragHandleProps}
-                                    className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
-                                      snapshot.isDragging
-                                        ? "rotate-2 scale-105 z-50 bg-emerald-50/90"
-                                        : ""
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-3 min-w-0">
-                                      {card.avatarUrl ? (
-                                        <img
-                                          src={card.avatarUrl}
-                                          alt={card.name}
-                                          className="h-10 w-10 border-2 border-black object-cover rounded-none"
-                                        />
-                                      ) : (
-                                        <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
-                                          {card.name.substring(0, 2)}
-                                        </div>
-                                      )}
-                                      <div className="min-w-0">
-                                        <p className="truncate font-mono text-sm font-bold text-black">
-                                          {card.name}
-                                        </p>
-                                        <p className="font-mono text-[9px] text-black/60 uppercase">
-                                          Approved
-                                        </p>
-                                        {card.hasAccommodation && card.rsvpId && (
-                                          <div className="mt-1 flex flex-col gap-0.5">
-                                            <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
-                                              🔴 Accessibility accommodation requested
-                                            </span>
-                                            <button
-                                              type="button"
-                                              className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
-                                              onClick={() => handleViewAccommodation(card.rsvpId!)}
-                                            >
-                                              [Decrypt / View]
-                                            </button>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <div className="flex gap-1 ml-2">
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Button
-                                              size="icon"
-                                              variant="outline"
-                                              className="h-7 w-7 border border-black rounded-none bg-amber-50 hover:bg-amber-200"
-                                              onClick={() =>
-                                                updateRsvpStatus.mutate({
-                                                  userId: card.userId,
-                                                  rsvpId: card.rsvpId,
-                                                  newStatus: "waitlisted",
-                                                })
-                                              }
-                                            >
-                                              <Clock size={14} className="text-amber-700" />
-                                            </Button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <p>Move to Waitlist</p>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Button
-                                              size="icon"
-                                              variant="outline"
-                                              className="h-7 w-7 border border-black rounded-none bg-rose-50 hover:bg-rose-200"
-                                              onClick={() =>
-                                                updateRsvpStatus.mutate({
-                                                  userId: card.userId,
-                                                  rsvpId: card.rsvpId,
-                                                  newStatus: "rejected",
-                                                })
-                                              }
-                                            >
-                                              <X size={14} className="text-rose-700" />
-                                            </Button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <p>Reject RSVP</p>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                    </div>
-                                  </div>
-                                )}
-                              </Draggable>
-                            ))}
-                            {provided.placeholder}
-                          </div>
-                        )}
-                      </Droppable>
-                    </div>
-
-                    {/* Rejected Column */}
-                    <div className="flex flex-col border-4 border-black bg-rose-50 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                      <h3 className="font-display text-lg font-bold uppercase tracking-wider text-black mb-4 border-b-2 border-black pb-2 flex items-center justify-between">
-                        <span className="flex items-center gap-2">
-                          <X size={18} className="text-rose-600" /> Rejected
-                        </span>
-                        <span className="bg-black text-white px-2 py-0.5 text-xs font-mono">
-                          {columns.rejected.length}
-                        </span>
-                      </h3>
-                      <Droppable droppableId="rejected">
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.droppableProps}
-                            className={`flex-1 min-h-[300px] space-y-3 p-1 transition-colors ${
-                              snapshot.isDraggingOver ? "bg-rose-100/50" : ""
-                            }`}
-                          >
-                            {columns.rejected.map((card, index) => (
-                              <Draggable key={card.id} draggableId={card.id} index={index}>
-                                {(provided, snapshot) => (
-                                  <div
-                                    ref={provided.innerRef}
-                                    {...provided.draggableProps}
-                                    {...provided.dragHandleProps}
-                                    className={`border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
-                                      snapshot.isDragging
-                                        ? "rotate-2 scale-105 z-50 bg-rose-50/90"
-                                        : ""
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-3 min-w-0">
-                                      {card.avatarUrl ? (
-                                        <img
-                                          src={card.avatarUrl}
-                                          alt={card.name}
-                                          className="h-10 w-10 border-2 border-black object-cover rounded-none"
-                                        />
-                                      ) : (
-                                        <div className="flex h-10 w-10 items-center justify-center border-2 border-black bg-lime text-xs font-mono font-bold uppercase text-black select-none">
-                                          {card.name.substring(0, 2)}
-                                        </div>
-                                      )}
-                                      <div className="min-w-0">
-                                        <p className="truncate font-mono text-sm font-bold text-black">
-                                          {card.name}
-                                        </p>
-                                        <p className="font-mono text-[9px] text-black/60 uppercase">
-                                          Rejected
-                                        </p>
-                                        {card.hasAccommodation && card.rsvpId && (
-                                          <div className="mt-1 flex flex-col gap-0.5">
-                                            <span className="font-mono text-[10px] font-bold text-red-600 flex items-center gap-1 select-none">
-                                              🔴 Accessibility accommodation requested
-                                            </span>
-                                            <button
-                                              type="button"
-                                              className="w-fit text-[10px] font-bold underline hover:text-black/60 font-mono uppercase text-left cursor-pointer"
-                                              onClick={() => handleViewAccommodation(card.rsvpId!)}
-                                            >
-                                              [Decrypt / View]
-                                            </button>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <div className="flex gap-1 ml-2">
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Button
-                                              size="icon"
-                                              variant="outline"
-                                              className="h-7 w-7 border border-black rounded-none bg-amber-50 hover:bg-amber-200"
-                                              onClick={() =>
-                                                updateRsvpStatus.mutate({
-                                                  userId: card.userId,
-                                                  rsvpId: card.rsvpId,
-                                                  newStatus: "waitlisted",
-                                                })
-                                              }
-                                            >
-                                              <Clock size={14} className="text-amber-700" />
-                                            </Button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <p>Move to Waitlist</p>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Button
-                                              size="icon"
-                                              variant="outline"
-                                              className="h-7 w-7 border border-black rounded-none bg-emerald-50 hover:bg-emerald-200"
-                                              onClick={() =>
-                                                updateRsvpStatus.mutate({
-                                                  userId: card.userId,
-                                                  rsvpId: card.rsvpId,
-                                                  newStatus: "approved",
-                                                })
-                                              }
-                                            >
-                                              <CheckCircle size={14} className="text-emerald-700" />
-                                            </Button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <p>Approve RSVP</p>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                    </div>
-                                  </div>
-                                )}
-                              </Draggable>
-                            ))}
-                            {provided.placeholder}
-                          </div>
-                        )}
-                      </Droppable>
-                    </div>
-                  </div>
-                </DragDropContext>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </section>
         {/* Sticky Mobile RSVP Bar */}
@@ -3185,22 +2051,36 @@ export default function EventDetailsPage() {
                 }
                 toggleWaitlist.mutate({ isOnWaitlist });
               }}
-              disabled={toggleWaitlist.isPending || !prereqMet}
+              disabled={toggleWaitlist.isPending || !prereqMet || (!isOnWaitlist && isWaitlistFull)}
               variant={isOnWaitlist ? "secondary" : "primary"}
-              title={!prereqMet ? `You must attend '${prereqTitle}' before registering for this event.` : undefined}
-              className={!prereqMet ? "opacity-50 cursor-not-allowed" : ""}
+              title={
+                !prereqMet
+                  ? `You must attend '${prereqTitle}' before registering for this event.`
+                  : undefined
+              }
+              className={
+                !prereqMet || (!isOnWaitlist && isWaitlistFull)
+                  ? "opacity-50 cursor-not-allowed"
+                  : ""
+              }
             >
               {toggleWaitlist.isPending
                 ? "Updating..."
                 : isOnWaitlist
                   ? "On Waitlist ✓"
-                  : "Join Waitlist"}
+                  : isWaitlistFull
+                    ? "Waitlist Full"
+                    : "Join Waitlist"}
             </Button>
           ) : (
             <Button
               onClick={() => {
                 if (!prereqMet && !hasRsvpd) {
                   toast.error(`You must attend '${prereqTitle}' before registering for this event.`);
+
+                  toast.error(
+                    `You must attend '${prereqTitle}' before registering for this event.`,
+                  );
                   return;
                 }
                 handleRsvpClick();
@@ -3208,6 +2088,12 @@ export default function EventDetailsPage() {
               disabled={toggleRsvp.isPending || !prereqMet}
               variant="primary"
               title={!prereqMet && !hasRsvpd ? `You must attend '${prereqTitle}' before registering for this event.` : undefined}
+
+              title={
+                !prereqMet && !hasRsvpd
+                  ? `You must attend '${prereqTitle}' before registering for this event.`
+                  : undefined
+              }
               className={!prereqMet && !hasRsvpd ? "opacity-50 cursor-not-allowed" : ""}
             >
               {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
@@ -3230,6 +2116,7 @@ export default function EventDetailsPage() {
               // Reset states when closed
               setNeedAccommodations(false);
               setAccommodationsText("");
+              setMediaConsent(null);
               setValidationError("");
             }
             setRsvpDialogOpen(open);
@@ -3246,6 +2133,56 @@ export default function EventDetailsPage() {
             </DialogHeader>
 
             <div className="space-y-4 py-4">
+              {event.has_photography && (
+                <fieldset
+                  className="space-y-3 rounded-md border-2 border-red-700 bg-red-50 p-4"
+                  aria-describedby="media-consent-help media-consent-error"
+                >
+                  <legend className="font-mono text-sm font-black uppercase text-red-900">
+                    Media Consent <span className="text-red-700">*</span>
+                  </legend>
+                  <p
+                    id="media-consent-help"
+                    className="font-mono text-xs leading-relaxed text-red-900"
+                  >
+                    {MEDIA_CONSENT_COPY.prompt} Your RSVP will be processed either way, but your
+                    choice tells the club and door staff how to protect your privacy.
+                  </p>
+                  <div className="space-y-2">
+                    {[
+                      { value: "yes" as const, label: MEDIA_CONSENT_COPY.yes },
+                      { value: "no" as const, label: MEDIA_CONSENT_COPY.no },
+                    ].map((option) => (
+                      <label
+                        key={option.value}
+                        className="flex cursor-pointer items-start gap-3 rounded border border-red-900 bg-white p-3 font-mono text-xs font-bold"
+                      >
+                        <input
+                          type="radio"
+                          name="media-consent"
+                          value={option.value}
+                          checked={mediaConsent === option.value}
+                          onChange={() => {
+                            setMediaConsent(option.value);
+                            setValidationError("");
+                          }}
+                          disabled={toggleRsvp.isPending}
+                          className="mt-0.5 h-4 w-4 accent-red-700"
+                        />
+                        <span>{option.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p
+                    id="media-consent-error"
+                    role="alert"
+                    className="min-h-4 font-mono text-[10px] font-bold text-red-700"
+                  >
+                    {mediaConsent === null ? "A choice is required to continue." : ""}
+                  </p>
+                </fieldset>
+              )}
+
               <div className="flex items-center gap-3">
                 <input
                   id="req-accommodations-checkbox"
@@ -3336,6 +2273,15 @@ export default function EventDetailsPage() {
               <Button
                 variant="primary"
                 onClick={() => {
+                  const consentError = getMediaConsentValidationMessage(
+                    event.has_photography,
+                    mediaConsent,
+                  );
+                  if (consentError) {
+                    setValidationError(consentError);
+                    return;
+                  }
+
                   if (needAccommodations) {
                     if (!accommodationsText.trim()) {
                       setValidationError("Accommodation description is required when requested.");
@@ -3352,6 +2298,10 @@ export default function EventDetailsPage() {
                     hasRsvpd: false,
                     captchaToken,
                     accommodationsRequested: needAccommodations ? accommodationsText : null,
+                    noMediaConsent:
+                      mediaConsent === null
+                        ? undefined
+                        : consentChoiceToNoMediaConsent(mediaConsent),
                     referredBy: ref,
                   });
                 }}
@@ -3455,10 +2405,13 @@ export default function EventDetailsPage() {
 
             <div className="space-y-4 py-4 text-sm text-black">
               <p className="leading-relaxed">
-                📍 <strong>Location Check:</strong> CampusConnect can automatically check you in to this event. We need to verify that you are physically present at the venue.
+                📍 <strong>Location Check:</strong> CampusConnect can automatically check you in to
+                this event. We need to verify that you are physically present at the venue.
               </p>
               <p className="text-xs text-black/60">
-                🔒 <strong>Privacy details:</strong> Your location coordinates are processed only in your browser to compute the distance from the venue. We never store, track, or share your GPS history.
+                🔒 <strong>Privacy details:</strong> Your location coordinates are processed only in
+                your browser to compute the distance from the venue. We never store, track, or share
+                your GPS history.
               </p>
             </div>
 

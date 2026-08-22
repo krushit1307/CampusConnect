@@ -302,13 +302,13 @@ export default function ClubProfile() {
   }, [club?.description]);
 
   if (isLoading) return <ClubProfileSkeleton />;
-  if (isError || !club) return <NotFound />;
   if (!club)
     return (
       <SiteShell>
-        <div className="p-10 font-mono text-gray-700">Club not found.</div>
+        <div className="p-10 font-mono text-gray-700 text-center">Club not found.</div>
       </SiteShell>
     );
+  if (isError) return <NotFound />;
 
   const members = Array.isArray(club.club_members)
     ? club.club_members.filter((m: ClubMember) => m.status === "approved")

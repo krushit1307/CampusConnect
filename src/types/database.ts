@@ -196,6 +196,50 @@ export interface EventSongRequest {
   created_at?: string;
 }
 
+export interface EventCatererContract {
+  id: string;
+  event_id: string;
+  caterer_name: string;
+  caterer_email: string;
+  caterer_phone?: string | null;
+  rfp_finalized_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CatererDietaryAlert {
+  id: string;
+  event_id: string;
+  user_id?: string | null;
+  attendee_name: string;
+  dietary_tag: string;
+  severity_level: string;
+  caterer_email: string;
+  caterer_phone?: string | null;
+  token: string;
+  alert_sent_at: string;
+  acknowledgment_status: "PENDING" | "ACKNOWLEDGED";
+  acknowledged_at?: string | null;
+  created_at?: string;
+}
+
+export interface RefundPolicyRule {
+  min_hours_before: number;
+  refund_percentage: number;
+}
+
+export interface RefundPolicy {
+  rules: RefundPolicyRule[];
+}
+
+export interface ProratedRefundCalculation {
+  hours_before_event: number;
+  refund_percentage: number;
+  refund_amount_dollars: number;
+  cancellation_fee_dollars: number;
+  policy_description: string;
+}
+
 /**
  * Database Table Enums
  */
@@ -217,6 +261,23 @@ export type DatabaseTable =
   | "posts"
   | "comments"
   | "certificates";
+
+export interface CrossClubMatch {
+  id: string;
+  draft_a_id: string;
+  draft_b_id: string;
+  club_a_id: string;
+  club_b_id: string;
+  club_a_name: string;
+  club_b_name: string;
+  similarity_score: number;
+  status: "PENDING" | "PROPOSED" | "ACCEPTED" | "DECLINED";
+  draft_a_budget: number;
+  draft_b_budget: number;
+  pooled_budget: number;
+  created_at: string;
+  updated_at?: string;
+}
 
 /**
  * Generic Row Type
