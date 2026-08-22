@@ -23,6 +23,7 @@ import { AudioReactiveBackground } from "@/components/media/AudioReactiveBackgro
 import LazyHydrate from "@/components/LazyHydrate";
 import { NotFoundPage as NotFound } from "@/components/NotFoundPage";
 import { MerchStore } from "@/components/Clubs/Merchandise/MerchStore";
+import { CrowdfundingCampaignSection } from "@/components/Clubs/Crowdfunding/CrowdfundingCampaignSection";
 import { ClubTransparencyLedger } from "@/components/Clubs/ClubTransparencyLedger";
 import {
   Breadcrumb,
@@ -741,6 +742,12 @@ export default function ClubProfile() {
         </section>
 
         <ClubTransparencyLedger clubId={club.id} />
+
+        <section className="px-4 py-12 md:px-6">
+          <div className="mx-auto max-w-6xl">
+            <CrowdfundingCampaignSection clubId={club.id} />
+          </div>
+        </section>
 
         <section className="px-4 py-12 md:px-6 bg-gray-50 border-t-2 border-black">
           <div className="mx-auto max-w-6xl">

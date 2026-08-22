@@ -2917,8 +2917,189 @@ export type Database = {
           },
         ];
       };
+      crowdfunding_campaigns: {
+        Row: {
+          id: string;
+          club_id: string;
+          title: string;
+          description: string | null;
+          target_amount_cents: number;
+          current_amount_cents: number;
+          end_date: string | null;
+          status: "active" | "completed" | "cancelled";
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          club_id: string;
+          title: string;
+          description?: string | null;
+          target_amount_cents: number;
+          current_amount_cents?: number;
+          end_date?: string | null;
+          status?: "active" | "completed" | "cancelled";
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          club_id?: string;
+          title?: string;
+          description?: string | null;
+          target_amount_cents?: number;
+          current_amount_cents?: number;
+          end_date?: string | null;
+          status?: "active" | "completed" | "cancelled";
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      campaign_donations: {
+        Row: {
+          id: string;
+          campaign_id: string;
+          donor_id: string | null;
+          display_name: string | null;
+          is_anonymous: boolean;
+          amount_cents: number;
+          currency: string;
+          stripe_checkout_session_id: string | null;
+          stripe_payment_intent_id: string | null;
+          status: "pending" | "succeeded" | "refunded" | "disputed";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          campaign_id: string;
+          donor_id?: string | null;
+          display_name?: string | null;
+          is_anonymous?: boolean;
+          amount_cents: number;
+          currency?: string;
+          stripe_checkout_session_id?: string | null;
+          stripe_payment_intent_id?: string | null;
+          status?: "pending" | "succeeded" | "refunded" | "disputed";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          campaign_id?: string;
+          donor_id?: string | null;
+          display_name?: string | null;
+          is_anonymous?: boolean;
+          amount_cents?: number;
+          currency?: string;
+          stripe_checkout_session_id?: string | null;
+          stripe_payment_intent_id?: string | null;
+          status?: "pending" | "succeeded" | "refunded" | "disputed";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      campaign_donation_matches: {
+        Row: {
+          id: string;
+          campaign_id: string;
+          source_donation_id: string;
+          alumni_user_id: string;
+          requested_amount_cents: number;
+          match_donation_id: string | null;
+          status: "invited" | "matched" | "declined" | "expired";
+          notification_attempts: number;
+          notification_sent_at: string | null;
+          created_at: string;
+          matched_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          campaign_id: string;
+          source_donation_id: string;
+          alumni_user_id: string;
+          requested_amount_cents: number;
+          match_donation_id?: string | null;
+          status?: "invited" | "matched" | "declined" | "expired";
+          notification_attempts?: number;
+          notification_sent_at?: string | null;
+          created_at?: string;
+          matched_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          campaign_id?: string;
+          source_donation_id?: string;
+          alumni_user_id?: string;
+          requested_amount_cents?: number;
+          match_donation_id?: string | null;
+          status?: "invited" | "matched" | "declined" | "expired";
+          notification_attempts?: number;
+          notification_sent_at?: string | null;
+          created_at?: string;
+          matched_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "campaign_donation_matches_campaign_id_fkey";
+            columns: ["campaign_id"];
+            isOneToOne: false;
+            referencedRelation: "crowdfunding_campaigns";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "campaign_donation_matches_source_donation_id_fkey";
+            columns: ["source_donation_id"];
+            isOneToOne: false;
+            referencedRelation: "campaign_donations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "campaign_donation_matches_alumni_user_id_fkey";
+            columns: ["alumni_user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "campaign_donation_matches_match_donation_id_fkey";
+            columns: ["match_donation_id"];
+            isOneToOne: false;
+            referencedRelation: "campaign_donations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
+      campaign_match_activity: {
+        Row: {
+          match_id: string;
+          campaign_id: string;
+          requested_amount_cents: number;
+          created_at: string;
+          matched_at: string;
+          source_display_name: string;
+          alumni_display_name: string;
+        };
+        Relationships: [];
+      };
+      campaign_match_invites: {
+        Row: {
+          match_id: string;
+          campaign_id: string;
+          requested_amount_cents: number;
+          status: "invited";
+          created_at: string;
+          source_display_name: string;
+        };
+        Relationships: [];
+      };
       club_analytics_view: {
         Row: {
           id: string;
@@ -2950,6 +3131,47 @@ export type Database = {
       };
     };
     Functions: {
+      create_campaign_donation_matches: {
+        Args: {
+          p_donation_id: string;
+          p_pool_size?: number;
+        };
+        Returns: {
+          match_id: string;
+          alumni_user_id: string;
+          requested_amount_cents: number;
+        }[];
+      };
+      get_campaign_match_invitation: {
+        Args: { p_match_id: string };
+        Returns: {
+          campaign_id: string;
+          requested_amount_cents: number;
+          source_display_name: string;
+        }[];
+      };
+      get_campaign_match_notifications: {
+        Args: { p_donation_id: string };
+        Returns: {
+          match_id: string;
+          campaign_title: string;
+          club_name: string;
+          club_slug: string;
+          recipient_email: string;
+          recipient_name: string;
+          source_amount_cents: number;
+          requested_amount_cents: number;
+          source_display_name: string;
+        }[];
+      };
+      link_campaign_donation_match: {
+        Args: { p_match_id: string; p_donation_id: string };
+        Returns: undefined;
+      };
+      record_campaign_match_notification: {
+        Args: { p_match_id: string; p_delivered: boolean };
+        Returns: undefined;
+      };
       check_in_via_geofence: {
         Args: {
           p_rsvp_id: string;
