@@ -431,6 +431,14 @@ export default function ClubProfile() {
                     Meeting Notes
                   </Link>
                 )}
+                {(membership?.role === "treasurer" || membership?.role === "admin") && (
+                  <Link
+                    to={`/clubs/${club.slug}/treasurer`}
+                    className="neu-border neu-press bg-green-400 px-5 py-3 font-mono text-sm font-bold uppercase transition-transform hover:-translate-y-1 inline-block shrink-0 text-center"
+                  >
+                    Treasurer Dashboard
+                  </Link>
+                )}
                 {can("club.manage") && (
                   <Link
                     to={`/clubs/${club.slug}/manage`}
