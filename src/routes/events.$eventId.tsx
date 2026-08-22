@@ -1,8 +1,7 @@
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
-import { useState, useEffect } from "react";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
+import { useEffect, useState, lazy, Suspense, useMemo, useRef } from "react";
 import { queueRsvpSubmission } from "@/lib/events/offlineRsvpSync";
 import {
   consentChoiceToNoMediaConsent,
@@ -13,7 +12,6 @@ import {
 import { useOfflineRsvpSync } from "@/hooks/useOfflineRsvpSync";
 import { incrementEventViews } from "@/lib/supabase/events";
 import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
-import { lazy, Suspense, useMemo, useRef } from "react";
 import { TableOfContents } from "@/components/events/TableOfContents";
 import { NotFound } from "@/components/NotFound";
 import { AttendeeVenueMap } from "@/components/events/AttendeeVenueMap";
@@ -565,25 +563,12 @@ export default function EventDetailsPage() {
         .select(
           `
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by, venue_id, accessibility_features,
- feature/waitlist-churn-predictor
- feature/waitlist-churn-predictor
- feature/waitlist-churn-predictor
 
- feature/club-lifecycle-monitor-3610
- feature/club-lifecycle-monitor-3610
- main
 
- feature/vendor-contract-nudges
- main
           is_high_risk, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash,
 
- feature/waitlist-churn-predictor
- feature/waitlist-churn-predictor
 
- feature/club-lifecycle-monitor-3610
- main
           has_photography, is_high_risk, status, short_id, max_attendees, waitlist_capacity, waitlist_count, requires_approval, category_id, tags, version, version_vector, blurhash,
- main
           latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline, prerequisite_event_id,
           prerequisite_event:events!prerequisite_event_id(id, title),
           rating_metrics,
@@ -907,6 +892,22 @@ export default function EventDetailsPage() {
       }
     });
   }, [(event as any)?.id, eventId]);
+
+  // Record one privacy-conscious traffic event after the canonical event loads.
+  // This never blocks the page and silently tolerates analytics outages.
+  const trafficTrackedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const canonicalId = (event as any)?.id as string | undefined;
+    if (!canonicalId || canonicalId.startsWith("mock-")) return;
+    if (trafficTrackedRef.current === canonicalId) return;
+    trafficTrackedRef.current = canonicalId;
+
+    void supabase
+      .rpc("record_event_traffic", { p_event_id: canonicalId, p_event_type: "event_view" })
+      .then(({ error }) => {
+        if (error) console.warn("[event traffic] tracking failed silently:", error);
+      });
+  }, [(event as any)?.id, supabase]);
 
   const toggleWaitlist = useMutation({
     mutationFn: async ({ isOnWaitlist }: { isOnWaitlist: boolean }) => {
@@ -1868,29 +1869,7 @@ export default function EventDetailsPage() {
                     }
                     toggleWaitlist.mutate({ isOnWaitlist });
                   }}
- feature/waitlist-churn-predictor
- feature/waitlist-churn-predictor
- feature/waitlist-churn-predictor
 
- feature/club-lifecycle-monitor-3610
- feature/club-lifecycle-monitor-3610
- main
-
- feature/vendor-contract-nudges
- main
-
- main
-                  disabled={toggleWaitlist.isPending || !prereqMet}
-                  variant={isOnWaitlist ? "secondary" : "primary"}
-                  size="lg"
-                  title={!prereqMet ? `You must attend '${prereqTitle}' before registering for this event.` : undefined}
-                  className={!prereqMet ? "opacity-50 cursor-not-allowed" : ""}
-
- feature/waitlist-churn-predictor
- feature/waitlist-churn-predictor
-
- feature/club-lifecycle-monitor-3610
- main
                   disabled={
                     toggleWaitlist.isPending || !prereqMet || (!isOnWaitlist && isWaitlistFull)
                   }
@@ -1906,165 +1885,12 @@ export default function EventDetailsPage() {
                       ? "opacity-50 cursor-not-allowed"
                       : ""
                   }
- main
                 >
                   {toggleWaitlist.isPending
                     ? "Updating..."
                     : isOnWaitlist
                       ? "On Waitlist ✓"
- feature/waitlist-churn-predictor
- feature/waitlist-churn-predictor
- feature/waitlist-churn-predictor
-
- feature/club-lifecycle-monitor-3610
- feature/club-lifecycle-monitor-3610
- main
-
- feature/vendor-contract-nudges
- main
-
- main
                       : "Join Waitlist"}
-                </Button>
-              ) : (
-                <Button
-                  onClick={() => {
-                    if (!prereqMet && !hasRsvpd) {
-                      toast.error(`You must attend '${prereqTitle}' before registering for this event.`);
-                      return;
-                    }
-                    handleRsvpClick();
-                  }}
-                  disabled={toggleRsvp.isPending || !prereqMet}
-                  variant="primary"
-                  size="lg"
-                  title={!prereqMet && !hasRsvpd ? `You must attend '${prereqTitle}' before registering for this event.` : undefined}
-                  className={!prereqMet && !hasRsvpd ? "opacity-50 cursor-not-allowed relative group" : ""}
-                >
-                  {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
-                </Button>
-              )}
-                  {isOnWaitlist && (
-                    <div className="mt-4 flex flex-col items-center gap-2 rounded bg-amber-50 p-4 border-2 border-amber-300">
-                      <p className="font-mono text-sm font-bold text-amber-900">
-                        Priority Score: {waitlistScore?.total_score || "..."}
-                      </p>
- feature/club-lifecycle-monitor-3610
-
-                      {waitlistChurnPrediction && (
-                        <p className={`font-mono text-xs font-bold ${
-                          waitlistChurnPrediction.probability_percentage >= 70 ? "text-emerald-700" :
-                          waitlistChurnPrediction.probability_percentage >= 30 ? "text-amber-700" :
-                          "text-rose-700"
-                        }`}>
-                          {waitlistChurnPrediction.message}
-                        </p>
-                      )} main
-                      <p className="text-center text-xs text-amber-800/80 max-w-xs leading-relaxed">
-                        Your position is determined by:
-                        <br />
-                        • Time on waitlist
-                        <br />
-                        • Club membership
-                        <br />
-                        • Attendance streak
-                        <br />• Graduation status
-                      </p>
-
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="mt-2 text-xs border-amber-400 text-amber-900 hover:bg-amber-100 font-bold tracking-tight"
-                          >
-                            View Score Breakdown
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md border-4 border-black shadow-[8px_8px_0_0_#000]">
-                          <DialogHeader>
-                            <DialogTitle className="font-display uppercase text-2xl tracking-tight text-black">
-                              Priority Score Breakdown
-                            </DialogTitle>
-                            <DialogDescription className="font-mono text-gray-600">
-                              How your waitlist priority is calculated.
-                            </DialogDescription>
-                          </DialogHeader>
-                          {waitlistScore ? (
-                            <div className="flex flex-col gap-3 font-mono text-sm my-4 text-black">
-                              <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
-                                <span>Time on waitlist ({waitlistScore.waitlist_hours}h)</span>
-                                <span className="font-bold text-blue-600">
-                                  +{waitlistScore.time_score}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
-                                <span>Active club member</span>
-                                <span className="font-bold text-lime-600">
-                                  +{waitlistScore.membership_score}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center border-b-2 border-dashed border-gray-300 pb-2">
-                                <span>Attendance streak</span>
-                                <span className="font-bold text-orange-600">
-                                  +{waitlistScore.streak_score}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center border-b-2 border-black pb-2">
-                                <span>Graduating senior</span>
-                                <span className="font-bold text-purple-600">
-                                  +{waitlistScore.senior_score}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center pt-2 text-lg font-black uppercase">
-                                <span>Total Score</span>
-                                <span>{waitlistScore.total_score}</span>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="p-4 text-center font-mono text-gray-500">
-                              Loading score...
-                            </div>
-                          )}
-                          <DialogFooter className="sm:justify-start">
-                            <Button
-                              variant="outline"
-                              className="w-full font-bold uppercase border-2 border-black shadow-[4px_4px_0_0_#000]"
-                            >
-                              Close
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col gap-1">
-                  <Button
-                    onClick={() => {
-                      if (!prereqMet && !hasRsvpd) {
-                        toast.error(`You must attend '${prereqTitle}' before registering for this event.`);
-                        return;
-                      }
-                      handleRsvpClick();
-                    }}
-                    disabled={toggleRsvp.isPending || !prereqMet}
-                    variant="primary"
-                    size="lg"
-                    title={!prereqMet && !hasRsvpd ? `You must attend '${prereqTitle}' before registering for this event.` : undefined}
-                    className={!prereqMet && !hasRsvpd ? "opacity-50 cursor-not-allowed relative group" : ""}
-                  >
-                    {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
-                  </Button>
-                  {captchaEnabled && (
-                    <div className="flex flex-col gap-2">
-                      <span
-                        className={`font-mono text-xs font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
-
-                      : isWaitlistFull
-                        ? "Waitlist Full"
-                        : "Join Waitlist"}
                 </Button>
               ) : (
                 <Button
@@ -2097,6 +1923,19 @@ export default function EventDetailsPage() {
                   <p className="font-mono text-sm font-bold text-amber-900">
                     Priority Score: {waitlistScore?.total_score || "..."}
                   </p>
+                  {waitlistChurnPrediction && (
+                    <p
+                      className={`font-mono text-xs font-bold ${
+                        waitlistChurnPrediction.probability_percentage >= 70
+                          ? "text-emerald-700"
+                          : waitlistChurnPrediction.probability_percentage >= 30
+                            ? "text-amber-700"
+                            : "text-rose-700"
+                      }`}
+                    >
+                      {waitlistChurnPrediction.message}
+                    </p>
+                  )}{" "}
                   <p className="text-center text-xs text-amber-800/80 max-w-xs leading-relaxed">
                     Your position is determined by:
                     <br />
@@ -2107,14 +1946,12 @@ export default function EventDetailsPage() {
                     • Attendance streak
                     <br />• Graduation status
                   </p>
-
                   <Dialog>
                     <DialogTrigger asChild>
                       <Button
                         variant="outline"
                         size="sm"
                         className="mt-2 text-xs border-amber-400 text-amber-900 hover:bg-amber-100 font-bold tracking-tight"
- main
                       >
                         View Score Breakdown
                       </Button>
@@ -3377,11 +3214,15 @@ export default function EventDetailsPage() {
                   Waitlist position: #{waitlistPosition}
                 </span>
                 {waitlistChurnPrediction && (
-                  <span className={`font-mono text-[10px] font-bold ${
-                    waitlistChurnPrediction.probability_percentage >= 70 ? "text-emerald-700" :
-                    waitlistChurnPrediction.probability_percentage >= 30 ? "text-amber-700" :
-                    "text-rose-700"
-                  }`}>
+                  <span
+                    className={`font-mono text-[10px] font-bold ${
+                      waitlistChurnPrediction.probability_percentage >= 70
+                        ? "text-emerald-700"
+                        : waitlistChurnPrediction.probability_percentage >= 30
+                          ? "text-amber-700"
+                          : "text-rose-700"
+                    }`}
+                  >
                     {waitlistChurnPrediction.message}
                   </span>
                 )}
@@ -3405,25 +3246,16 @@ export default function EventDetailsPage() {
                 }
                 toggleWaitlist.mutate({ isOnWaitlist });
               }}
- feature/waitlist-churn-predictor
- feature/waitlist-churn-predictor
- feature/waitlist-churn-predictor
- feature/waitlist-churn-predictor
 
- feature/club-lifecycle-monitor-3610
- feature/club-lifecycle-monitor-3610
- feature/club-lifecycle-monitor-3610
- main
-
- feature/vendor-contract-nudges
- main
               disabled={toggleWaitlist.isPending || !prereqMet}
               variant={isOnWaitlist ? "secondary" : "primary"}
-              title={!prereqMet ? `You must attend '${prereqTitle}' before registering for this event.` : undefined}
+              title={
+                !prereqMet
+                  ? `You must attend '${prereqTitle}' before registering for this event.`
+                  : undefined
+              }
               className={!prereqMet ? "opacity-50 cursor-not-allowed" : ""}
 
-
- main
               disabled={toggleWaitlist.isPending || !prereqMet || (!isOnWaitlist && isWaitlistFull)}
               variant={isOnWaitlist ? "secondary" : "primary"}
               title={
@@ -3449,21 +3281,9 @@ export default function EventDetailsPage() {
             <Button
               onClick={() => {
                 if (!prereqMet && !hasRsvpd) {
- feature/waitlist-churn-predictor
- feature/waitlist-churn-predictor
- feature/waitlist-churn-predictor
- feature/waitlist-churn-predictor
-
- feature/club-lifecycle-monitor-3610
- feature/club-lifecycle-monitor-3610
- feature/club-lifecycle-monitor-3610
- main
-
- feature/vendor-contract-nudges
- main
-
- main
-                  toast.error(`You must attend '${prereqTitle}' before registering for this event.`);
+                  toast.error(
+                    `You must attend '${prereqTitle}' before registering for this event.`,
+                  );
 
                   toast.error(
                     `You must attend '${prereqTitle}' before registering for this event.`,
@@ -3474,21 +3294,12 @@ export default function EventDetailsPage() {
               }}
               disabled={toggleRsvp.isPending || !prereqMet}
               variant="primary"
- feature/waitlist-churn-predictor
- feature/waitlist-churn-predictor
- feature/waitlist-churn-predictor
- feature/waitlist-churn-predictor
 
- feature/club-lifecycle-monitor-3610
- feature/club-lifecycle-monitor-3610
- feature/club-lifecycle-monitor-3610
- main
-
- feature/vendor-contract-nudges
- main
-
- main
-              title={!prereqMet && !hasRsvpd ? `You must attend '${prereqTitle}' before registering for this event.` : undefined}
+              title={
+                !prereqMet && !hasRsvpd
+                  ? `You must attend '${prereqTitle}' before registering for this event.`
+                  : undefined
+              }
 
               title={
                 !prereqMet && !hasRsvpd

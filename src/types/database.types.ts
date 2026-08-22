@@ -1141,6 +1141,48 @@ export type Database = {
           },
         ];
       };
+      event_traffic_events: {
+        Row: {
+          id: number;
+          event_type: "event_view" | "event_click";
+          event_id: string;
+          category_id: string | null;
+          user_id: string | null;
+          occurred_at: string;
+        };
+        Insert: {
+          id?: never;
+          event_type: "event_view" | "event_click";
+          event_id: string;
+          category_id?: string | null;
+          user_id?: string | null;
+          occurred_at?: string;
+        };
+        Update: {
+          id?: never;
+          event_type?: "event_view" | "event_click";
+          event_id?: string;
+          category_id?: string | null;
+          user_id?: string | null;
+          occurred_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_traffic_events_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "event_traffic_events_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "event_categories";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       event_categories: {
         Row: {
           id: string;
@@ -2951,6 +2993,26 @@ export type Database = {
           p_event_id: string;
         };
         Returns: void;
+      };
+      record_event_traffic: {
+        Args: {
+          p_event_id: string;
+          p_event_type?: string;
+        };
+        Returns: undefined;
+      };
+      get_event_traffic_heatmap: {
+        Args: {
+          p_start_date?: string | null;
+          p_end_date?: string | null;
+        };
+        Returns: {
+          category_id: string | null;
+          category_name: string;
+          hour_of_day: number;
+          traffic_count: number;
+          unique_viewers: number;
+        }[];
       };
       get_event_popularity_score: {
         Args: {
