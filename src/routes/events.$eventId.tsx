@@ -797,6 +797,24 @@ export default function EventDetailsPage() {
     },
     enabled: !!user?.id && !!eventId && isOnWaitlist,
   });
+
+  const { data: waitlistChurnPrediction } = useQuery({
+    queryKey: ["waitlist_churn_prediction", eventId, waitlistPosition],
+    queryFn: async () => {
+      if (!eventId || waitlistPosition <= 0) return null;
+      const { data, error } = await supabase.rpc("predict_waitlist_success", {
+        p_event_id: eventId,
+        p_user_waitlist_position: waitlistPosition,
+      });
+      if (error) {
+        console.error("Error predicting waitlist churn:", error);
+        return null;
+      }
+      return data?.[0] || null;
+    },
+    enabled: !!eventId && isOnWaitlist && waitlistPosition > 0,
+  });
+
   // Extract headings from HTML description for TOC
   const tocItems = useMemo(() => {
     if (!event?.description) return [];
@@ -1832,6 +1850,15 @@ export default function EventDetailsPage() {
                       <p className="font-mono text-sm font-bold text-amber-900">
                         Priority Score: {waitlistScore?.total_score || "..."}
                       </p>
+                      {waitlistChurnPrediction && (
+                        <p className={`font-mono text-xs font-bold ${
+                          waitlistChurnPrediction.probability_percentage >= 70 ? "text-emerald-700" :
+                          waitlistChurnPrediction.probability_percentage >= 30 ? "text-amber-700" :
+                          "text-rose-700"
+                        }`}>
+                          {waitlistChurnPrediction.message}
+                        </p>
+                      )}
                       <p className="text-center text-xs text-amber-800/80 max-w-xs leading-relaxed">
                         Your position is determined by:
                         <br />
@@ -3125,9 +3152,20 @@ export default function EventDetailsPage() {
               {attendeeCount} {maxAttendees ? `/ ${maxAttendees}` : ""} going
             </span>
             {isOnWaitlist && waitlistPosition > 0 && (
-              <span className="font-mono text-[10px] font-bold text-amber-700">
-                Waitlist position: #{waitlistPosition}
-              </span>
+              <div className="flex flex-col">
+                <span className="font-mono text-[10px] font-bold text-amber-700">
+                  Waitlist position: #{waitlistPosition}
+                </span>
+                {waitlistChurnPrediction && (
+                  <span className={`font-mono text-[10px] font-bold ${
+                    waitlistChurnPrediction.probability_percentage >= 70 ? "text-emerald-700" :
+                    waitlistChurnPrediction.probability_percentage >= 30 ? "text-amber-700" :
+                    "text-rose-700"
+                  }`}>
+                    {waitlistChurnPrediction.message}
+                  </span>
+                )}
+              </div>
             )}
           </div>
           {hasRsvpd ? (
