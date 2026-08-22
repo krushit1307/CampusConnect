@@ -565,6 +565,10 @@ export default function EventDetailsPage() {
           `
           id, title, description, event_date, start_date, end_date, location, banner_url, created_by, venue_id, accessibility_features,
  feature/club-lifecycle-monitor-3610
+ feature/club-lifecycle-monitor-3610
+
+ feature/vendor-contract-nudges
+ main
           is_high_risk, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash,
 
           has_photography, is_high_risk, status, short_id, max_attendees, waitlist_capacity, waitlist_count, requires_approval, category_id, tags, version, version_vector, blurhash,
@@ -808,6 +812,24 @@ export default function EventDetailsPage() {
     },
     enabled: !!user?.id && !!eventId && isOnWaitlist,
   });
+
+  const { data: waitlistChurnPrediction } = useQuery({
+    queryKey: ["waitlist_churn_prediction", eventId, waitlistPosition],
+    queryFn: async () => {
+      if (!eventId || waitlistPosition <= 0) return null;
+      const { data, error } = await supabase.rpc("predict_waitlist_success", {
+        p_event_id: eventId,
+        p_user_waitlist_position: waitlistPosition,
+      });
+      if (error) {
+        console.error("Error predicting waitlist churn:", error);
+        return null;
+      }
+      return data?.[0] || null;
+    },
+    enabled: !!eventId && isOnWaitlist && waitlistPosition > 0,
+  });
+
   // Extract headings from HTML description for TOC
   const tocItems = useMemo(() => {
     if (!event?.description) return [];
@@ -1836,6 +1858,10 @@ export default function EventDetailsPage() {
                     toggleWaitlist.mutate({ isOnWaitlist });
                   }}
  feature/club-lifecycle-monitor-3610
+ feature/club-lifecycle-monitor-3610
+
+ feature/vendor-contract-nudges
+ main
                   disabled={toggleWaitlist.isPending || !prereqMet}
                   variant={isOnWaitlist ? "secondary" : "primary"}
                   size="lg"
@@ -1864,6 +1890,10 @@ export default function EventDetailsPage() {
                     : isOnWaitlist
                       ? "On Waitlist ✓"
  feature/club-lifecycle-monitor-3610
+ feature/club-lifecycle-monitor-3610
+
+ feature/vendor-contract-nudges
+ main
                       : "Join Waitlist"}
                 </Button>
               ) : (
@@ -1889,6 +1919,17 @@ export default function EventDetailsPage() {
                       <p className="font-mono text-sm font-bold text-amber-900">
                         Priority Score: {waitlistScore?.total_score || "..."}
                       </p>
+ feature/club-lifecycle-monitor-3610
+
+                      {waitlistChurnPrediction && (
+                        <p className={`font-mono text-xs font-bold ${
+                          waitlistChurnPrediction.probability_percentage >= 70 ? "text-emerald-700" :
+                          waitlistChurnPrediction.probability_percentage >= 30 ? "text-amber-700" :
+                          "text-rose-700"
+                        }`}>
+                          {waitlistChurnPrediction.message}
+                        </p>
+                      )} main
                       <p className="text-center text-xs text-amber-800/80 max-w-xs leading-relaxed">
                         Your position is determined by:
                         <br />
@@ -3300,9 +3341,20 @@ export default function EventDetailsPage() {
               {attendeeCount} {maxAttendees ? `/ ${maxAttendees}` : ""} going
             </span>
             {isOnWaitlist && waitlistPosition > 0 && (
-              <span className="font-mono text-[10px] font-bold text-amber-700">
-                Waitlist position: #{waitlistPosition}
-              </span>
+              <div className="flex flex-col">
+                <span className="font-mono text-[10px] font-bold text-amber-700">
+                  Waitlist position: #{waitlistPosition}
+                </span>
+                {waitlistChurnPrediction && (
+                  <span className={`font-mono text-[10px] font-bold ${
+                    waitlistChurnPrediction.probability_percentage >= 70 ? "text-emerald-700" :
+                    waitlistChurnPrediction.probability_percentage >= 30 ? "text-amber-700" :
+                    "text-rose-700"
+                  }`}>
+                    {waitlistChurnPrediction.message}
+                  </span>
+                )}
+              </div>
             )}
           </div>
           {hasRsvpd ? (
@@ -3323,6 +3375,10 @@ export default function EventDetailsPage() {
                 toggleWaitlist.mutate({ isOnWaitlist });
               }}
  feature/club-lifecycle-monitor-3610
+ feature/club-lifecycle-monitor-3610
+
+ feature/vendor-contract-nudges
+ main
               disabled={toggleWaitlist.isPending || !prereqMet}
               variant={isOnWaitlist ? "secondary" : "primary"}
               title={!prereqMet ? `You must attend '${prereqTitle}' before registering for this event.` : undefined}
@@ -3355,6 +3411,10 @@ export default function EventDetailsPage() {
               onClick={() => {
                 if (!prereqMet && !hasRsvpd) {
  feature/club-lifecycle-monitor-3610
+ feature/club-lifecycle-monitor-3610
+
+ feature/vendor-contract-nudges
+ main
                   toast.error(`You must attend '${prereqTitle}' before registering for this event.`);
 
                   toast.error(
@@ -3368,6 +3428,10 @@ export default function EventDetailsPage() {
               disabled={toggleRsvp.isPending || !prereqMet}
               variant="primary"
  feature/club-lifecycle-monitor-3610
+ feature/club-lifecycle-monitor-3610
+
+ feature/vendor-contract-nudges
+ main
               title={!prereqMet && !hasRsvpd ? `You must attend '${prereqTitle}' before registering for this event.` : undefined}
 
               title={

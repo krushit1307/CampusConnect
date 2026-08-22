@@ -281,6 +281,10 @@ serve(async (req: Request) => {
       const { data: eventData, error: eventErr } = await supabase
         .from("events")
  feature/club-lifecycle-monitor-3610
+ feature/club-lifecycle-monitor-3610
+
+ feature/vendor-contract-nudges
+ main
         .select("prerequisite_event_id, title")
 
         .select("prerequisite_event_id, title, has_photography")
@@ -291,6 +295,10 @@ serve(async (req: Request) => {
       if (eventErr) throw eventErr;
 
  feature/club-lifecycle-monitor-3610
+ feature/club-lifecycle-monitor-3610
+
+ feature/vendor-contract-nudges
+ main
 
       if (eventData?.has_photography && noMediaConsent == null) {
         return respond(
@@ -313,6 +321,10 @@ serve(async (req: Request) => {
               error: `You must attend the prerequisite event before registering for this event.`,
             },
  feature/club-lifecycle-monitor-3610
+ feature/club-lifecycle-monitor-3610
+
+ feature/vendor-contract-nudges
+ main
             403
 
             403,
