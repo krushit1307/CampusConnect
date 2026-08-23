@@ -483,6 +483,7 @@ export default function SettingsPage() {
         role: (profile?.role as any) || "student",
         expectedGraduationDate: profile?.expected_graduation_date || "",
         preferredCurrency: profile?.preferred_currency || "USD",
+        showOnLeaderboard: profile?.show_on_leaderboard !== false,
       });
       // Hydrate skills from profile (text[])
       if (Array.isArray(profile?.skills)) {
@@ -611,6 +612,7 @@ export default function SettingsPage() {
         skills: dedupedSkills,
         expected_graduation_date: values.expectedGraduationDate || null,
         preferred_currency: values.preferredCurrency,
+        show_on_leaderboard: values.showOnLeaderboard,
         course_codes: [
           ...new Set(
             courseCodes.map((courseCode) => courseCode.trim().toUpperCase()).filter(Boolean),
@@ -760,14 +762,15 @@ export default function SettingsPage() {
             <div className="mb-6 border-2 border-black bg-lime/10 p-4 font-mono text-sm">
               <p className="font-bold text-black uppercase mb-2">Spotify</p>
               <p className="text-xs text-gray-700 mb-4">
-                Connect your Spotify account to easily export song requests from your events to playlists.
+                Connect your Spotify account to easily export song requests from your events to
+                playlists.
               </p>
               <button
                 type="button"
                 onClick={() => {
                   // In a real implementation, this would trigger an OAuth flow with Supabase or a custom endpoint
                   // supabase.auth.signInWithOAuth({ provider: 'spotify', options: { scopes: 'playlist-modify-public playlist-modify-private' } })
-                  toast.info('Spotify OAuth configuration required.');
+                  toast.info("Spotify OAuth configuration required.");
                 }}
                 className="neu-border flex items-center gap-2 bg-[#1DB954] text-white px-4 py-2 font-bold uppercase transition-all hover:scale-105 active:scale-95"
               >
@@ -1067,6 +1070,26 @@ export default function SettingsPage() {
                       </FormItem>
                     );
                   }}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="showOnLeaderboard"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center justify-between gap-4 border-b-2 border-black pb-4 pt-2">
+                      <div>
+                        <FormLabel className="eyebrow font-bold text-black">
+                          Show on Public Leaderboard
+                        </FormLabel>
+                        <p className="font-mono text-[10px] text-muted-foreground">
+                          Display your gamification points on the campus-wide leaderboard.
+                        </p>
+                      </div>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
                 />
 
                 {/* ── Skills Tags Editor ── */}

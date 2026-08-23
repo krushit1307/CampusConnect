@@ -20,6 +20,7 @@ import { EventFeedbackLlmSummaryCard } from "@/components/events/EventFeedbackLl
 import { EventWeatherWarningBanner } from "@/components/events/EventWeatherWarningBanner";
 import { ManageTicketTiers } from "@/components/events/ManageTicketTiers";
 import { OrganizerNoiseBroadcaster } from "@/components/events/OrganizerNoiseBroadcaster";
+import { EventBroadcastFallbackPanel } from "@/components/events/EventBroadcastFallbackPanel";
 
 const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));
 
@@ -608,6 +609,10 @@ function EventLiveSupportPanel({ eventId }: { eventId: string }) {
 
           <div className="mb-8">
             <OrganizerNoiseBroadcaster eventId={eventId!} />
+          </div>
+
+          <div className="mb-8">
+            <EventBroadcastFallbackPanel eventId={eventId!} isOrganizer />
           </div>
 
           <div className="mb-8">
