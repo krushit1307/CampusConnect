@@ -1,9 +1,9 @@
 // =============================================================================
 // Component: PanoramaViewer
---Issue: #3232 - Build an 'Interactive Venue 360-Tour' Embed
---Description: Integrates Photo Sphere Viewer to render equirectangular 360
---images.Implements progressive loading(blur - up) to prevent mobile freezing,
-    --and integrates the DeviceOrientation hook for AR - lite mobile panning.
+// Issue: #3232 - Build an 'Interactive Venue 360-Tour' Embed
+// Description: Integrates Photo Sphere Viewer to render equirectangular 360
+// images. Implements progressive loading (blur-up) to prevent mobile freezing,
+// and integrates the DeviceOrientation hook for AR-lite mobile panning.
 // =============================================================================
 
 import React, { useEffect, useRef, useState } from 'react';

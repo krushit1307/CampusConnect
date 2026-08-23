@@ -240,6 +240,43 @@ export interface ProratedRefundCalculation {
   policy_description: string;
 }
 
+export interface SeatMapConfig {
+  rows: number;
+  cols: number;
+  vip_rows: string[];
+  aisle_cols: number[];
+}
+
+export interface SeatNode {
+  seat_id: string;
+  row_label: string;
+  col_num: number;
+  seat_label: string;
+  section: "VIP" | "General" | "Balcony";
+  status: "AVAILABLE" | "SELECTED" | "LOCKED" | "RESERVED";
+}
+
+export interface EventSeat {
+  id: string;
+  event_id: string;
+  seat_id: string;
+  seat_label: string;
+  section: string;
+  status: "AVAILABLE" | "LOCKED" | "RESERVED";
+  reserved_by_user_id?: string | null;
+  rsvp_id?: string | null;
+  locked_until?: string | null;
+  created_at?: string;
+}
+
+export interface SeatLockResult {
+  success: boolean;
+  seat_id: string;
+  seat_label: string;
+  status: string;
+  error?: string;
+}
+
 /**
  * Database Table Enums
  */
@@ -277,6 +314,106 @@ export interface CrossClubMatch {
   pooled_budget: number;
   created_at: string;
   updated_at?: string;
+}
+
+export interface TicketBundle {
+  id: string;
+  club_id: string;
+  bundle_name: string;
+  description?: string | null;
+  price_dollars: number;
+  original_total_price: number;
+  discount_percentage: number;
+  status: "ACTIVE" | "ARCHIVED";
+  created_at: string;
+}
+
+export interface BundleEventItem {
+  bundle_id: string;
+  event_id: string;
+  event_title: string;
+  event_date?: string | null;
+  ticket_price: number;
+  max_attendees?: number | null;
+  rsvp_count: number;
+  is_sold_out: boolean;
+}
+
+export interface BundlePurchaseRecord {
+  id: string;
+  bundle_id: string;
+  user_id: string;
+  amount_paid: number;
+  stripe_session_id?: string | null;
+  status: "COMPLETED" | "REFUNDED";
+  created_at: string;
+}
+
+export interface BundleAvailabilityStatus {
+  available: boolean;
+  bundle: TicketBundle;
+  events: BundleEventItem[];
+  sold_out_event_name?: string | null;
+  total_savings_dollars: number;
+}
+
+export interface AlumniMentorshipAvailability {
+  id: string;
+  mentor_id: string;
+  day_of_week: string;
+  start_time: string;
+  end_time: string;
+  slot_duration_minutes: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface MentorshipSession {
+  id: string;
+  mentor_id: string;
+  mentee_id: string;
+  start_time: string;
+  end_time: string;
+  topic?: string | null;
+  meeting_link: string;
+  status: "scheduled" | "completed" | "cancelled";
+  created_at: string;
+}
+
+export interface BookMentorshipSessionResult {
+  success: boolean;
+  session_id?: string;
+  mentor_id?: string;
+  mentee_id?: string;
+  start_time?: string;
+  end_time?: string;
+  meeting_link?: string;
+  points_deducted?: number;
+  remaining_points?: number;
+  error?: string;
+}
+
+export interface CoHostRevenueSplitConfig {
+  clubId: string;
+  stripeAccountId: string;
+  pct: number;
+  isPrimary?: boolean;
+}
+
+export interface CoHostTransferItem {
+  club_id: string;
+  stripe_account_id: string;
+  pct: number;
+  amount_cents: number;
+  transfer_id: string;
+  status: "completed" | "refunded" | "failed";
+}
+
+export interface CoHostFinancialSplitResult {
+  success: boolean;
+  audit_id?: string;
+  message?: string;
+  transfers?: CoHostTransferItem[];
 }
 
 /**

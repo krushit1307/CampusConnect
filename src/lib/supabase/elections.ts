@@ -192,6 +192,33 @@ export async function addCandidate(input: {
   ballotPosition?: number;
 }): Promise<Result<Candidate>> {
   try {
+    // If candidate has a user ID, verify no Conflict of Interest exists
+    if (input.userId) {
+      const { data: electionData } = await supabase
+        .from("elections")
+        .select("club_id, title")
+        .eq("id", input.electionId)
+        .maybeSingle();
+
+      if (electionData?.club_id) {
+        const { data: coiCheck } = await supabase.rpc(
+          "verify_candidate_conflict_of_interest",
+          {
+            p_club_id: electionData.club_id,
+            p_candidate_user_id: input.userId,
+            p_position: electionData.title || "Executive",
+          }
+        );
+
+        if (coiCheck?.has_conflict) {
+          throw new Error(
+            coiCheck.message ||
+              `You cannot run for this position while holding an executive role in ${coiCheck.conflicting_club || "another club"}.`
+          );
+        }
+      }
+    }
+
     const { data, error } = await supabase
       .from("candidates")
       .insert({

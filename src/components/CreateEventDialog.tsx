@@ -18,7 +18,6 @@ import WifiOff from "lucide-react/dist/esm/icons/wifi-off";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import type { DateRange } from "react-day-picker";
-import { legacyRoleToLevel } from "@/lib/clubPermissions";
 
 import format from "date-fns/format";
 import { createClient } from "@/lib/supabase/client";
@@ -37,14 +36,7 @@ import {
   type EventFormValues,
 } from "@/lib/eventUtils";
 import { EventLogisticsService } from "@/services/eventLogisticsService";
-import { getEventSpamErrorMessage, isPendingSpamReview } from "@/lib/eventSpam";
-import { isTechHeavyEvent, sortVenuesForEvent, type VenueWifiMetrics } from "@/lib/venueWifi";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
-import {
-  calendarEventTypeLabel,
-  findCampusCalendarConflicts,
-  type CampusCalendarEvent,
-} from "@/lib/campusCalendar";
 import { queueOfflineEvent } from "@/lib/offlineSync";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -86,7 +78,6 @@ import {
   MIN_GEOFENCE_RADIUS_METERS,
   DEFAULT_GEOFENCE_RADIUS_METERS,
 } from "@/components/GeofenceMapPicker";
-import { VenueWifiOverlay } from "@/components/venue/VenueWifiOverlay";
 
 const STEPS = [
   { label: "Details", fields: ["title", "description"] as const },
@@ -106,7 +97,6 @@ interface LocalEventFormValues extends EventFormValues {
   maxAttendees?: number;
   offCampusSpeaker?: boolean;
   requiresApproval?: boolean;
-  has_photography?: boolean;
 }
 
 const defaultValues: LocalEventFormValues = {
@@ -132,11 +122,9 @@ const defaultValues: LocalEventFormValues = {
   maxAttendees: undefined,
   offCampusSpeaker: false,
   requiresApproval: false,
-  has_photography: false,
   isPrivate: false,
   tags: [],
   faqs: [],
-  ratingMetrics: [],
 };
 
 const DRAFT_KEY = "event_draft";
@@ -184,18 +172,14 @@ export function CreateEventDialog({
     if (!user) return;
     supabase
       .from("club_members")
-      .select("club_id, club_roles (permissions_level)")
+      .select("club_id")
       .eq("user_id", user.id)
+      .eq("role", "admin")
       .eq("status", "approved")
+      .limit(1)
+      .single()
       .then(({ data }) => {
-        const adminClubs = (data ?? []).filter((m: Record<string, unknown>) => {
-          const cr = m["club_roles"] as
-            { permissions_level?: number }[] | { permissions_level?: number } | null;
-          const level = Array.isArray(cr) ? cr[0]?.permissions_level : cr?.permissions_level;
-          const legacyRole = m["role"] as string | undefined;
-          return (level ?? legacyRoleToLevel(legacyRole)) >= 40;
-        });
-        if (adminClubs.length > 0) setClubId(adminClubs[0].club_id as string);
+        if (data) setClubId(data.club_id);
       });
   }, [user]);
 
@@ -218,21 +202,6 @@ export function CreateEventDialog({
   const watchedTitle = form.watch("title");
   const watchedDescription = form.watch("description");
   const watchedVenueId = form.watch("venue_id");
-  const watchedTags = form.watch("tags") || [];
-  const watchedCategory = form.watch("category") || "";
-  const watchedMaxAttendees = form.watch("maxAttendees");
-  const isTechHeavy = isTechHeavyEvent(
-    watchedTags,
-    watchedCategory,
-    watchedTitle,
-    watchedDescription,
-  );
-  const selectedVenue = venues?.find((venue: VenueWifiMetrics) => venue.id === watchedVenueId);
-  const orderedVenues = sortVenuesForEvent(
-    (venues ?? []) as VenueWifiMetrics[],
-    isTechHeavy,
-    watchedMaxAttendees,
-  );
   const control = form.control as never;
 
   useEffect(() => {
@@ -284,6 +253,7 @@ export function CreateEventDialog({
   } = useUndoableState(defaultValues, 1000);
 
   const watchedValues = form.watch();
+  const watchedValuesJson = JSON.stringify(watchedValues);
 
   // Reset/initialize undoable state when the modal opens/closes
   useEffect(() => {
@@ -298,8 +268,11 @@ export function CreateEventDialog({
       isUndoingRedoingRef.current = false;
       return;
     }
-    setUndoableState(watchedValues);
-  }, [watchedValues, setUndoableState]);
+    const currentUndoableJson = JSON.stringify(undoableState);
+    if (watchedValuesJson !== currentUndoableJson) {
+      setUndoableState(JSON.parse(watchedValuesJson));
+    }
+  }, [watchedValuesJson, undoableState, setUndoableState]);
 
   // Sync undoableState back to form values
   useEffect(() => {
@@ -398,7 +371,7 @@ export function CreateEventDialog({
           .from("events")
           .insert(payload)
           .select(
-            "id, status, event_date, start_date, max_attendees, capacity, has_catering, has_food, tags",
+            "id, event_date, start_date, max_attendees, capacity, has_catering, has_food, tags",
           )
           .single();
 
@@ -414,10 +387,7 @@ export function CreateEventDialog({
           }
         }
 
-        return {
-          isOffline: false,
-          isPendingSpamReview: isPendingSpamReview(createdData?.status),
-        };
+        return { isOffline: false };
       } catch (err: unknown) {
         const isNetworkError =
           !navigator.onLine ||
@@ -439,10 +409,6 @@ export function CreateEventDialog({
           "Event saved offline! It will sync automatically when connectivity is restored.",
           { duration: 6000 },
         );
-      } else if (data?.isPendingSpamReview) {
-        toast.info("Event submitted for moderation review. It will stay hidden until approved.", {
-          duration: 7000,
-        });
       } else {
         toast.success("Event created!");
       }
@@ -458,8 +424,7 @@ export function CreateEventDialog({
     },
     onError: (error: Error) => {
       console.error("[CreateEventDialog] Failed to create event:", error);
-      const message = error.message || "Couldn't create the event. Please try again.";
-      toast.error(getEventSpamErrorMessage(error) ?? message);
+      toast.error(error.message || "Couldn't create the event. Please try again.");
     },
   });
 
@@ -501,28 +466,6 @@ export function CreateEventDialog({
   const startDateStr = form.watch("startDate");
   const endDateStr = form.watch("endDate");
 
-  const { data: campusCalendarEvents = [] } = useQuery({
-    queryKey: ["campusCalendarEvents", startDateStr, endDateStr],
-    queryFn: async (): Promise<CampusCalendarEvent[]> => {
-      const { data, error } = await supabase
-        .from("campus_calendar_events")
-        .select("id, title, start_date, end_date, type")
-        .lte("start_date", endDateStr)
-        .gte("end_date", startDateStr)
-        .order("start_date", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as CampusCalendarEvent[];
-    },
-    enabled: open && step === 1 && Boolean(startDateStr && endDateStr),
-    staleTime: 1000 * 60 * 15,
-  });
-
-  const campusCalendarConflicts = findCampusCalendarConflicts(
-    campusCalendarEvents,
-    startDateStr,
-    endDateStr,
-  );
-
   const parsedStart = startDateStr ? new Date(startDateStr) : undefined;
   const parsedEnd = endDateStr ? new Date(endDateStr) : undefined;
 
@@ -554,7 +497,10 @@ export function CreateEventDialog({
                   description: "Would you like to resume where you left off?",
                   action: {
                     label: "Resume",
-                    onClick: () => form.reset(draftValues),
+                    onClick: () => {
+                      form.reset(draftValues);
+                      resetState(draftValues);
+                    },
                   },
                 });
               }
@@ -811,6 +757,33 @@ export function CreateEventDialog({
                 />
                 <FormField
                   control={control}
+                  name="dress_code"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Dress Code</FormLabel>
+                      <Select
+                        onValueChange={(val) => field.onChange(val === "none" ? "" : val)}
+                        value={field.value || "none"}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select event dress code (optional)" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">No Specific Dress Code</SelectItem>
+                          <SelectItem value="casual">Casual</SelectItem>
+                          <SelectItem value="smart_casual">Smart Casual</SelectItem>
+                          <SelectItem value="business_casual">Business Casual</SelectItem>
+                          <SelectItem value="formal">Formal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={control}
                   name="isPrivate"
                   render={({ field }) => (
                     <FormItem className="neu-border flex items-center justify-between bg-white p-3 shadow-none">
@@ -896,13 +869,9 @@ export function CreateEventDialog({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {orderedVenues.map((v) => (
+                          {venues?.map((v: any) => (
                             <SelectItem key={v.id} value={v.id}>
-                              {v.name} ({v.capacity} capacity
-                              {isTechHeavy && v.max_device_capacity
-                                ? ` • Wi-Fi ${v.max_device_capacity} devices`
-                                : ""}
-                              )
+                              {v.name} ({v.capacity} capacity)
                             </SelectItem>
                           ))}
                           <SelectItem value="custom">Custom Location</SelectItem>
@@ -912,15 +881,6 @@ export function CreateEventDialog({
                     </FormItem>
                   )}
                 />
-
-                {watchedVenueId && watchedVenueId !== "custom" && (
-                  <VenueWifiOverlay
-                    venue={selectedVenue}
-                    venues={(venues ?? []) as VenueWifiMetrics[]}
-                    techHeavy={isTechHeavy}
-                    attendeeCount={watchedMaxAttendees}
-                  />
-                )}
 
                 {isCustomVenue && (
                   <>
@@ -1051,26 +1011,6 @@ export function CreateEventDialog({
                 )}
                 <FormField
                   control={control}
-                  name="has_photography"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-red-50 p-4 shadow-sm">
-                      <FormControl>
-                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel className="font-bold cursor-pointer">
-                          Photography or filming planned
-                        </FormLabel>
-                        <p className="text-xs text-black/60">
-                          RSVP checkout will require attendees to choose Yes or No for media
-                          consent.
-                        </p>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={control}
                   name="geofencingEnabled"
                   render={({ field }) => (
                     <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black bg-white p-4 shadow-sm">
@@ -1195,27 +1135,6 @@ export function CreateEventDialog({
                     <p className="text-sm font-medium text-destructive">
                       {form.formState.errors.endDate.message}
                     </p>
-                  )}
-                  {campusCalendarConflicts.length > 0 && (
-                    <div
-                      role="status"
-                      className="neu-border flex gap-3 bg-amber-200 p-3 text-sm text-black"
-                    >
-                      <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
-                      <div className="space-y-1">
-                        <p className="font-bold">Academic calendar conflict</p>
-                        {campusCalendarConflicts.map((conflict) => (
-                          <p key={conflict.id}>
-                            Warning: This date falls during <strong>{conflict.title}</strong>.
-                            Expected attendance may be impacted. (
-                            {calendarEventTypeLabel(conflict.type)})
-                          </p>
-                        ))}
-                        <p className="text-xs font-semibold">
-                          You can still create this event; this warning is advisory only.
-                        </p>
-                      </div>
-                    </div>
                   )}
                 </div>
 
@@ -1359,54 +1278,6 @@ export function CreateEventDialog({
                 >
                   <Plus className="mr-1 h-3 w-3" /> Add Question
                 </Button>
-
-                <p className="font-mono text-xs font-bold text-black/50 uppercase">
-                  Post-event rating dimensions (optional)
-                </p>
-                {form.watch("ratingMetrics")?.map((metric: string, index: number) => (
-                  <div key={index} className="neu-border flex items-center gap-2 bg-white p-3">
-                    <Input
-                      placeholder="e.g. Food Quality"
-                      value={metric}
-                      onChange={(e) => {
-                        const current = form.getValues("ratingMetrics") || [];
-                        const next = [...current];
-                        next[index] = e.target.value;
-                        form.setValue("ratingMetrics", next);
-                      }}
-                      className="font-mono text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const current = form.getValues("ratingMetrics") || [];
-                        form.setValue(
-                          "ratingMetrics",
-                          current.filter((_, i) => i !== index),
-                        );
-                      }}
-                      className="text-destructive hover:text-destructive/80"
-                      aria-label={`Remove rating dimension ${metric || index + 1}`}
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    const current = form.getValues("ratingMetrics") || [];
-                    form.setValue("ratingMetrics", [...current, ""]);
-                  }}
-                  className="w-full border-dashed font-mono text-xs font-bold"
-                >
-                  <Plus className="mr-1 h-3 w-3" /> Add Rating Dimension
-                </Button>
-                <p className="text-xs text-black/50">
-                  After the event, attendees rate these categories on a 0-100 slider. Leave empty to
-                  use the default dimensions.
-                </p>
               </div>
             )}
 
@@ -1457,13 +1328,6 @@ export function CreateEventDialog({
                       <p className="font-bold">{form.getValues("faqs").length} question(s)</p>
                     </div>
                   )}
-                  {form.getValues("ratingMetrics") &&
-                    form.getValues("ratingMetrics").length > 0 && (
-                      <div>
-                        <p className="text-xs text-black/40">Rating Dimensions</p>
-                        <p className="font-bold">{form.getValues("ratingMetrics").join(", ")}</p>
-                      </div>
-                    )}
                 </div>
 
                 <FormField
@@ -1494,52 +1358,48 @@ export function CreateEventDialog({
               </p>
 
               <div className="grid grid-cols-2 gap-4">
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-black p-3 bg-white">
+                <div className="flex flex-row items-center justify-between rounded-lg border-2 border-black p-3 bg-white">
                   <div className="space-y-0.5">
-                    <FormLabel className="text-sm font-bold">Alcohol Present</FormLabel>
+                    <label className="text-sm font-bold">Alcohol Present</label>
                   </div>
-                  <FormControl>
-                    <input
-                      type="checkbox"
-                      className="h-5 w-5 border-2 border-black"
-                      checked={form.watch("alcoholPresent") || false}
-                      onChange={(e) => form.setValue("alcoholPresent", e.target.checked)}
-                    />
-                  </FormControl>
-                </FormItem>
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 border-2 border-black"
+                    checked={form.watch("alcoholPresent") || false}
+                    onChange={(e) => form.setValue("alcoholPresent", e.target.checked)}
+                  />
+                </div>
 
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-black p-3 bg-white">
+                <div className="flex flex-row items-center justify-between rounded-lg border-2 border-black p-3 bg-white">
                   <div className="space-y-0.5">
-                    <FormLabel className="text-sm font-bold">Off-Campus Speaker</FormLabel>
+                    <label className="text-sm font-bold">Off-Campus Speaker</label>
                   </div>
-                  <FormControl>
-                    <input
-                      type="checkbox"
-                      className="h-5 w-5 border-2 border-black"
-                      checked={form.watch("offCampusSpeaker") || false}
-                      onChange={(e) => form.setValue("offCampusSpeaker", e.target.checked)}
-                    />
-                  </FormControl>
-                </FormItem>
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 border-2 border-black"
+                    checked={form.watch("offCampusSpeaker") || false}
+                    onChange={(e) => form.setValue("offCampusSpeaker", e.target.checked)}
+                  />
+                </div>
               </div>
 
-              <FormItem>
-                <FormLabel>Expected Attendance / Capacity</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    placeholder="e.g. 150"
-                    className="border-2 border-black bg-white"
-                    value={form.watch("maxAttendees") || ""}
-                    onChange={(e) =>
-                      form.setValue(
-                        "maxAttendees",
-                        e.target.value ? Number(e.target.value) : undefined,
-                      )
-                    }
-                  />
-                </FormControl>
-              </FormItem>
+              <div>
+                <label className="font-mono text-xs font-bold uppercase text-black block mb-1">
+                  Expected Attendance / Capacity
+                </label>
+                <Input
+                  type="number"
+                  placeholder="e.g. 150"
+                  className="border-2 border-black bg-white"
+                  value={form.watch("maxAttendees") || ""}
+                  onChange={(e) =>
+                    form.setValue(
+                      "maxAttendees",
+                      e.target.value ? Number(e.target.value) : undefined,
+                    )
+                  }
+                />
+              </div>
             </div>
 
             <DialogFooter className="pt-2 flex gap-2">

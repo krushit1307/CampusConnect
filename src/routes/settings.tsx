@@ -1039,18 +1039,34 @@ export default function SettingsPage() {
                 <FormField
                   control={form.control}
                   name="bio"
-                  render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel className="eyebrow font-bold text-black">Bio</FormLabel>
-                      <FormControl>
-                        <input
-                          {...field}
-                          className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
-                        />
-                      </FormControl>
-                      <FormMessage className="font-mono text-xs text-destructive" />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const bioValue = field.value || "";
+                    const isLimitReached = bioValue.length >= 150;
+
+                    return (
+                      <FormItem className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <FormLabel className="eyebrow font-bold text-black">Bio</FormLabel>
+                          <span
+                            aria-label="Character limit"
+                            className={`font-mono text-xs font-bold transition-colors ${
+                              isLimitReached ? "text-red-600" : "text-muted-foreground"
+                            }`}
+                          >
+                            {bioValue.length}/150 characters
+                          </span>
+                        </div>
+                        <FormControl>
+                          <input
+                            {...field}
+                            maxLength={150}
+                            className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                          />
+                        </FormControl>
+                        <FormMessage className="font-mono text-xs text-destructive" />
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 {/* ── Skills Tags Editor ── */}

@@ -36,7 +36,7 @@ export function getMatchedDonationTier(
     }
   }
 
-  return currentTier || sorted[0];
+  return currentTier;
 }
 
 /**

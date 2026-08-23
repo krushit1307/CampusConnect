@@ -58,6 +58,22 @@ export const CreateElectionModal: React.FC<CreateElectionModalProps> = ({ clubId
         setIsSubmitting(true);
 
         try {
+            // Check conflict of interest for each candidate
+            for (const candidate of validCandidates) {
+                if (candidate.id && candidate.id.length > 5) { // User UUID
+                    const { data: coiCheck } = await supabase.rpc('verify_candidate_conflict_of_interest', {
+                        p_club_id: clubId,
+                        p_candidate_user_id: candidate.id,
+                        p_position: position
+                    });
+                    if (coiCheck?.has_conflict) {
+                        setError(coiCheck.message || `Candidate ${candidate.name} has a conflict of interest.`);
+                        setIsSubmitting(false);
+                        return;
+                    }
+                }
+            }
+
             const { error: insertError } = await supabase
                 .from('club_elections')
                 .insert({

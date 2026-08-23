@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, type Control } from "react-hook-form";
 import Edit3 from "lucide-react/dist/esm/icons/edit-3";
 import GitMerge from "lucide-react/dist/esm/icons/git-merge";
+import Lock from "lucide-react/dist/esm/icons/lock";
 import { toast } from "sonner";
-import type { User } from "@supabase/supabase-js";
+import type { User, RealtimeChannel } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -68,6 +69,10 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
   const [conflicts, setConflicts] = useState<FieldConflict[]>([]);
   const [mergedDoc, setMergedDoc] = useState<EventDocument | null>(null);
   const [baseSnapshot, setBaseSnapshot] = useState<EventDocument>(event);
+  const [lockedFields, setLockedFields] = useState<
+    Record<string, { userId: string; name: string }>
+  >({});
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   const supabase = createClient();
 
@@ -90,15 +95,14 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
     defaultValues: {
       title: event.title || "",
       description: event.description || "",
-      tldr_summary: event.tldr_summary || "",
       category: (event.category_id as string) || "",
       location: event.location || "",
       is_outdoor: event.is_outdoor || false,
-      has_photography: event.has_photography || false,
       backup_indoor_venue: event.backup_indoor_venue || "",
       startDate: event.start_date ? new Date(event.start_date).toISOString().slice(0, 16) : "",
       endDate: event.end_date ? new Date(event.end_date).toISOString().slice(0, 16) : "",
       tags: event.tags || [],
+      dress_code: event.dress_code || "",
     },
     mode: "onBlur",
   });
@@ -111,18 +115,71 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
       form.reset({
         title: event.title || "",
         description: event.description || "",
-        tldr_summary: event.tldr_summary || "",
         category: (event.category_id as string) || "",
         location: event.location || "",
         startDate: event.start_date ? new Date(event.start_date).toISOString().slice(0, 16) : "",
         endDate: event.end_date ? new Date(event.end_date).toISOString().slice(0, 16) : "",
         tags: event.tags || [],
-        has_photography: event.has_photography || false,
-        is_outdoor: event.is_outdoor || false,
-        backup_indoor_venue: event.backup_indoor_venue || "",
+        dress_code: event.dress_code || "",
       });
     }
   }, [open, event, form]);
+
+  useEffect(() => {
+    if (!open || !user || !event.id) return;
+
+    const channel = supabase.channel(`event-edit-presence:${event.id}`, {
+      config: { presence: { key: user.id } },
+    });
+    channelRef.current = channel;
+
+    channel.on("presence", { event: "sync" }, () => {
+      const state = channel.presenceState<{ id: string; name: string; field: string }>();
+      const locks: Record<string, { userId: string; name: string }> = {};
+
+      for (const [userId, presences] of Object.entries(state)) {
+        if (userId === user.id) continue;
+        const presence = presences[0];
+        if (presence && presence.field) {
+          locks[presence.field] = { userId: presence.id, name: presence.name };
+        }
+      }
+      setLockedFields(locks);
+    });
+
+    channel.subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        await channel.track({
+          id: user.id,
+          name: user.email?.split("@")[0] || "User",
+          field: null,
+        });
+      }
+    });
+
+    return () => {
+      channel.unsubscribe();
+      channelRef.current = null;
+    };
+  }, [open, event.id, user, supabase]);
+
+  const handleFieldFocus = (fieldName: string) => {
+    if (!channelRef.current || !user) return;
+    channelRef.current.track({
+      id: user.id,
+      name: user.email?.split("@")[0] || "User",
+      field: fieldName,
+    });
+  };
+
+  const handleFieldBlur = () => {
+    if (!channelRef.current || !user) return;
+    channelRef.current.track({
+      id: user.id,
+      name: user.email?.split("@")[0] || "User",
+      field: null,
+    });
+  };
 
   const executeSave = async (docToSave: EventDocument) => {
     if (!event.id) return;
@@ -139,18 +196,13 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
         .update({
           title: docToSave.title,
           description: docToSave.description,
-          tldr_summary: docToSave.tldr_summary?.toString().trim() || null,
-          tldr_summary_source: docToSave.tldr_summary?.toString().trim() ? "organizer" : "none",
-          tldr_summary_error: null,
           category_id: docToSave.category_id || null,
           location: docToSave.location || null,
-          is_outdoor: docToSave.is_outdoor || false,
-          has_photography: docToSave.has_photography || false,
-          backup_indoor_venue: docToSave.backup_indoor_venue || null,
           start_date: docToSave.start_date,
           end_date: docToSave.end_date,
           event_date: docToSave.start_date,
           tags: docToSave.tags || [],
+          dress_code: docToSave.dress_code || null,
           version_vector: docToSave.version_vector || {},
           version: docToSave.version || 1,
         })
@@ -239,15 +291,14 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
         ...baseSnapshot,
         title: values.title.trim(),
         description: values.description.trim(),
-        tldr_summary: values.tldr_summary?.trim() || null,
         category_id: values.category || null,
         location: values.location?.trim() || null,
         is_outdoor: values.is_outdoor || false,
-        has_photography: values.has_photography || false,
         backup_indoor_venue: values.backup_indoor_venue?.trim() || null,
         start_date: new Date(values.startDate).toISOString(),
         end_date: new Date(values.endDate).toISOString(),
         tags: values.tags || [],
+        dress_code: values.dress_code || null,
         version_vector: (baseSnapshot.version_vector || {}) as VersionVector,
       };
 
@@ -310,15 +361,35 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
               <FormField
                 control={control}
                 name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel required>Title</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Event title" maxLength={TITLE_MAX_LENGTH} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const lock = lockedFields["title"];
+                  return (
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <FormLabel required>Title</FormLabel>
+                        {lock && (
+                          <span className="text-xs text-amber-600 flex items-center gap-1 font-bold">
+                            <Lock className="w-3 h-3" /> {lock.name} is editing
+                          </span>
+                        )}
+                      </div>
+                      <FormControl>
+                        <Input
+                          placeholder="Event title"
+                          maxLength={TITLE_MAX_LENGTH}
+                          {...field}
+                          disabled={!!lock}
+                          onFocus={() => handleFieldFocus("title")}
+                          onBlur={() => {
+                            field.onBlur();
+                            handleFieldBlur();
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
 
               <FormField
@@ -344,24 +415,40 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
               <FormField
                 control={control}
                 name="tldr_summary"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Feed TL;DR</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Optional one-sentence summary for the event feed"
-                        maxLength={100}
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    </FormControl>
-                    <p className="text-xs text-muted-foreground">
-                      The automatic summary can be edited here before students see it. Leave blank
-                      to use the generated summary or fallback.
-                    </p>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const lock = lockedFields["tldr_summary"];
+                  return (
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <FormLabel>Feed TL;DR</FormLabel>
+                        {lock && (
+                          <span className="text-xs text-amber-600 flex items-center gap-1 font-bold">
+                            <Lock className="w-3 h-3" /> {lock.name} is editing
+                          </span>
+                        )}
+                      </div>
+                      <FormControl>
+                        <Input
+                          placeholder="Optional one-sentence summary for the event feed"
+                          maxLength={100}
+                          {...field}
+                          value={field.value || ""}
+                          disabled={!!lock}
+                          onFocus={() => handleFieldFocus("tldr_summary")}
+                          onBlur={() => {
+                            field.onBlur();
+                            handleFieldBlur();
+                          }}
+                        />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">
+                        The automatic summary can be edited here before students see it. Leave blank
+                        to use the generated summary or fallback.
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
 
               <FormField
@@ -415,16 +502,63 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
 
               <FormField
                 control={control}
-                name="location"
+                name="dress_code"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Location</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Location or Online" {...field} />
-                    </FormControl>
+                    <FormLabel>Dress Code</FormLabel>
+                    <Select
+                      onValueChange={(val) => field.onChange(val === "none" ? "" : val)}
+                      value={field.value || "none"}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select event dress code (optional)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">No Specific Dress Code</SelectItem>
+                        <SelectItem value="casual">Casual</SelectItem>
+                        <SelectItem value="smart_casual">Smart Casual</SelectItem>
+                        <SelectItem value="business_casual">Business Casual</SelectItem>
+                        <SelectItem value="formal">Formal</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
+              />
+
+              <FormField
+                control={control}
+                name="location"
+                render={({ field }) => {
+                  const lock = lockedFields["location"];
+                  return (
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <FormLabel>Location</FormLabel>
+                        {lock && (
+                          <span className="text-xs text-amber-600 flex items-center gap-1 font-bold">
+                            <Lock className="w-3 h-3" /> {lock.name} is editing
+                          </span>
+                        )}
+                      </div>
+                      <FormControl>
+                        <Input
+                          placeholder="Location or Online"
+                          {...field}
+                          disabled={!!lock}
+                          onFocus={() => handleFieldFocus("location")}
+                          onBlur={() => {
+                            field.onBlur();
+                            handleFieldBlur();
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
               <FormField
                 control={control}
@@ -443,31 +577,6 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                       <FormLabel className="cursor-pointer font-medium">Outdoor Event</FormLabel>
                       <p className="text-xs text-muted-foreground">
                         Mark this as an outdoor event to enable automated weather alerts.
-                      </p>
-                    </div>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={control}
-                name="has_photography"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
-                    <FormControl>
-                      <input
-                        type="checkbox"
-                        checked={field.value}
-                        onChange={field.onChange}
-                        className="mt-1"
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel className="cursor-pointer font-medium">
-                        Photography or filming planned
-                      </FormLabel>
-                      <p className="text-xs text-muted-foreground">
-                        RSVP checkout will require attendees to choose Yes or No for media consent.
                       </p>
                     </div>
                   </FormItem>
@@ -501,29 +610,67 @@ export function EditEventDialog({ event, user, onSuccess }: EditEventDialogProps
                 <FormField
                   control={control}
                   name="startDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel required>Start date</FormLabel>
-                      <FormControl>
-                        <DateTimePicker value={field.value || ""} onChange={field.onChange} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const lock = lockedFields["startDate"];
+                    return (
+                      <FormItem>
+                        <div className="flex items-center justify-between">
+                          <FormLabel required>Start date</FormLabel>
+                          {lock && (
+                            <span className="text-xs text-amber-600 flex items-center gap-1 font-bold">
+                              <Lock className="w-3 h-3" /> {lock.name} is editing
+                            </span>
+                          )}
+                        </div>
+                        <FormControl>
+                          <div
+                            onFocusCapture={() => handleFieldFocus("startDate")}
+                            onBlurCapture={() => handleFieldBlur()}
+                          >
+                            <DateTimePicker
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              disabled={!!lock}
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 <FormField
                   control={control}
                   name="endDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel required>End date</FormLabel>
-                      <FormControl>
-                        <DateTimePicker value={field.value || ""} onChange={field.onChange} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const lock = lockedFields["endDate"];
+                    return (
+                      <FormItem>
+                        <div className="flex items-center justify-between">
+                          <FormLabel required>End date</FormLabel>
+                          {lock && (
+                            <span className="text-xs text-amber-600 flex items-center gap-1 font-bold">
+                              <Lock className="w-3 h-3" /> {lock.name} is editing
+                            </span>
+                          )}
+                        </div>
+                        <FormControl>
+                          <div
+                            onFocusCapture={() => handleFieldFocus("endDate")}
+                            onBlurCapture={() => handleFieldBlur()}
+                          >
+                            <DateTimePicker
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              disabled={!!lock}
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
               </div>
 

@@ -17,6 +17,7 @@ import { EventPollsExportSection } from "@/components/polls/EventPollsExportSect
 
 import { EventAnnouncerBroadcast } from "@/components/events/EventAnnouncerBroadcast";
 import { ManageTicketTiers } from "@/components/events/ManageTicketTiers";
+import { OrganizerNoiseBroadcaster } from "@/components/events/OrganizerNoiseBroadcaster";
 
 const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));
 
@@ -587,6 +588,10 @@ function EventLiveSupportPanel({ eventId }: { eventId: string }) {
                 invite links!
               </p>
             )}
+          </div>
+
+          <div className="mb-8">
+            <OrganizerNoiseBroadcaster eventId={eventId!} />
           </div>
 
           <div className="mb-8">
