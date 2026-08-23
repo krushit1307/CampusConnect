@@ -409,6 +409,8 @@ export type Database = {
           role: "student" | "admin" | "faculty" | "owner" | "system_admin";
           skills: string[] | null;
           course_codes: string[];
+          dietary_restrictions?: string[] | null;
+          dietary_restrictions: string[] | null;
           notification_preferences: Json | null;
           is_banned: boolean;
           strike_count: number;
@@ -1262,6 +1264,8 @@ export type Database = {
           updated_at: string;
           accommodations_requested: string | null;
           no_media_consent: boolean;
+          dietary_restrictions?: string[] | null;
+          dietary_restrictions: string[] | null;
         };
         Insert: {
           id?: string;

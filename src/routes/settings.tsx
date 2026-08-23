@@ -106,6 +106,31 @@ export default function SettingsPage() {
   const [isSavingPrefs, setIsSavingPrefs] = useState(false);
   const { fontSize, increment, decrement, reset } = useFontSize();
 
+  // --- Dietary Restrictions state ---
+  const [dietaryRestrictions, setDietaryRestrictions] = useState<string[]>([]);
+  const [dietaryInput, setDietaryInput] = useState("");
+  const dietaryInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAddDietary = () => {
+    const trimmed = dietaryInput.trim();
+    if (trimmed && !dietaryRestrictions.includes(trimmed)) {
+      setDietaryRestrictions((prev) => [...prev, trimmed]);
+    }
+    setDietaryInput("");
+    dietaryInputRef.current?.focus();
+  };
+
+  const handleDietaryKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddDietary();
+    }
+  };
+
+  const handleRemoveDietary = (item: string) => {
+    setDietaryRestrictions((prev) => prev.filter((d) => d !== item));
+  };
+
   // --- Skills tags state ---
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState("");
@@ -484,6 +509,12 @@ export default function SettingsPage() {
         expectedGraduationDate: profile?.expected_graduation_date || "",
         preferredCurrency: profile?.preferred_currency || "USD",
       });
+
+      // Hydrate dietary restrictions from profile (text[])
+      if (Array.isArray(profile?.dietary_restrictions)) {
+        setDietaryRestrictions(profile.dietary_restrictions as string[]);
+      }
+
       // Hydrate skills from profile (text[])
       if (Array.isArray(profile?.skills)) {
         setSkills(profile.skills as string[]);
@@ -599,6 +630,8 @@ export default function SettingsPage() {
       // Update profiles table (including skills text[])
       const dedupedSkills = [...new Set(skills.map((s) => s.trim()).filter(Boolean))];
 
+      const dedupedDietary = [...new Set(dietaryRestrictions.map((s) => s.trim()).filter(Boolean))];
+
       // 1. Build dirty payload and strictly validate against allowlist
       const rawPayload = {
         avatar_theme: values.avatarTheme || null,
@@ -609,6 +642,7 @@ export default function SettingsPage() {
         linkedin_url: values.linkedinUrl || null,
         phone_number: values.phoneNumber || null,
         skills: dedupedSkills,
+        dietary_restrictions: dedupedDietary,
         expected_graduation_date: values.expectedGraduationDate || null,
         preferred_currency: values.preferredCurrency,
         course_codes: [
@@ -760,14 +794,15 @@ export default function SettingsPage() {
             <div className="mb-6 border-2 border-black bg-lime/10 p-4 font-mono text-sm">
               <p className="font-bold text-black uppercase mb-2">Spotify</p>
               <p className="text-xs text-gray-700 mb-4">
-                Connect your Spotify account to easily export song requests from your events to playlists.
+                Connect your Spotify account to easily export song requests from your events to
+                playlists.
               </p>
               <button
                 type="button"
                 onClick={() => {
                   // In a real implementation, this would trigger an OAuth flow with Supabase or a custom endpoint
                   // supabase.auth.signInWithOAuth({ provider: 'spotify', options: { scopes: 'playlist-modify-public playlist-modify-private' } })
-                  toast.info('Spotify OAuth configuration required.');
+                  toast.info("Spotify OAuth configuration required.");
                 }}
                 className="neu-border flex items-center gap-2 bg-[#1DB954] text-white px-4 py-2 font-bold uppercase transition-all hover:scale-105 active:scale-95"
               >
@@ -1068,6 +1103,55 @@ export default function SettingsPage() {
                     );
                   }}
                 />
+
+                {/* ── Dietary Restrictions Editor ── */}
+                <div className="space-y-2 pt-2">
+                  <p className="eyebrow font-bold text-black">Dietary & Accessibility Needs</p>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    Automatically applied to all your event RSVPs. You can hide them per-event if
+                    needed.
+                  </p>
+
+                  {dietaryRestrictions.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {dietaryRestrictions.map((item) => (
+                        <span
+                          key={item}
+                          className="neu-border inline-flex items-center gap-1 bg-yellow-200 px-2.5 py-1 font-mono text-xs font-bold"
+                        >
+                          {item}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveDietary(item)}
+                            className="ml-1 flex h-4 w-4 items-center justify-center bg-black text-white hover:bg-gray-800"
+                            aria-label={`Remove ${item}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex w-full gap-2 pt-1">
+                    <input
+                      ref={dietaryInputRef}
+                      type="text"
+                      className="neu-input flex-1 font-mono text-sm"
+                      placeholder="e.g. Vegan, Celiac, Peanut Allergy..."
+                      value={dietaryInput}
+                      onChange={(e) => setDietaryInput(e.target.value)}
+                      onKeyDown={handleDietaryKeyDown}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddDietary}
+                      className="neu-border bg-black px-4 font-mono font-bold text-white hover:bg-gray-800"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
 
                 {/* ── Skills Tags Editor ── */}
                 <div className="space-y-2 pt-2">
