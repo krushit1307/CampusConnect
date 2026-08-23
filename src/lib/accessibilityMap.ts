@@ -101,15 +101,31 @@ export function getAccessibilityNodes(nodes: AccessibilityMapNode[]) {
   return nodes.filter((node) => isAccessibilityNode(node.type));
 }
 
-export function createAccessibilityRouteSegments(nodes: AccessibilityMapNode[]): RouteSegment[] {
+export function mapFeatureToNodeType(feature: string): MapNodeType | null {
+  if (feature === "has_elevator") return "elevator";
+  if (feature === "wheelchair_ramp") return "ramp";
+  if (feature === "gender_neutral_restrooms") return "restroom";
+  return null;
+}
+
+export function createAccessibilityRouteSegments(
+  nodes: AccessibilityMapNode[],
+  brokenFeatures: string[] = [],
+): RouteSegment[] {
   const entrance = nodes.find((node) => node.type === "entrance");
   if (!entrance) return [];
+
+  const brokenNodeTypes = brokenFeatures
+    .map(mapFeatureToNodeType)
+    .filter((t): t is MapNodeType => t !== null);
 
   const entranceCenter = getNodeCenter(entrance);
   return nodes
     .filter(
       (node): node is AccessibilityMapNode & { type: AccessibilityNodeType } =>
-        node.id !== entrance.id && isAccessibilityNode(node.type),
+        node.id !== entrance.id &&
+        isAccessibilityNode(node.type) &&
+        !brokenNodeTypes.includes(node.type),
     )
     .map((node) => {
       const center = getNodeCenter(node);

@@ -2199,6 +2199,8 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                 <AttendeeVenueMap
                   nodes={venueMapData.nodes}
                   backgroundImageUrl={venueMapData.map?.background_image_url}
+                  venueId={event.venue_id}
+                  eventId={event.id}
                 />
               </div>
             ) : event.map_layout &&
