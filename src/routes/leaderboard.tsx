@@ -5,22 +5,28 @@
 // Features beautiful podium UI for top 3, tabs, and neubrutalist styling.
 // =============================================================================
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { SiteShell } from "@/components/site/SiteShell";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import {
   getTopUsersMonthlyLeaderboard,
   getTopClubsMonthlyLeaderboard,
 } from "@/services/gamificationLeaderboardService";
-import type { UserLeaderboardEntry, ClubLeaderboardEntry } from "@/types/database";
+import { computeUnderdogClubLeaderboard, getMockUnderdogClubData } from "@/services/underdogLeaderboardService";
+import type { LeaderboardMode } from "@/types/underdogLeaderboard";
 import Trophy from "lucide-react/dist/esm/icons/trophy";
 import Award from "lucide-react/dist/esm/icons/award";
 import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 import Users from "lucide-react/dist/esm/icons/users";
 import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import TrendingUp from "lucide-react/dist/esm/icons/trending-up";
+import Zap from "lucide-react/dist/esm/icons/zap";
+import Flame from "lucide-react/dist/esm/icons/flame";
+import { UnderdogLeaderboardToggle } from "@/components/leaderboard/UnderdogLeaderboardToggle";
 
 export default function GamificationLeaderboard() {
   const [activeTab, setActiveTab] = useState<"students" | "clubs">("students");
+  const [clubMode, setClubMode] = useState<LeaderboardMode>("underdog");
 
   const { data: users = [], isLoading: loadingUsers } = useQuery({
     queryKey: ["monthly_users_leaderboard"],
@@ -28,16 +34,23 @@ export default function GamificationLeaderboard() {
     refetchInterval: 10000, // Refresh every 10 seconds for real-time feel
   });
 
-  const { data: clubs = [], isLoading: loadingClubs } = useQuery({
+  const { data: rawClubs = [], isLoading: loadingClubs } = useQuery({
     queryKey: ["monthly_clubs_leaderboard"],
-    queryFn: () => getTopClubsMonthlyLeaderboard(50),
+    queryFn: async () => {
+      const dbClubs = await getTopClubsMonthlyLeaderboard(50);
+      return dbClubs && dbClubs.length > 0 ? dbClubs : getMockUnderdogClubData();
+    },
     refetchInterval: 10000,
   });
+
+  const processedClubs = useMemo(() => {
+    return computeUnderdogClubLeaderboard(rawClubs, clubMode);
+  }, [rawClubs, clubMode]);
 
   const isLoading = activeTab === "students" ? loadingUsers : loadingClubs;
 
   // Split top 3 for the podium
-  const currentList = activeTab === "students" ? users : (clubs as any[]);
+  const currentList = activeTab === "students" ? users : (processedClubs as any[]);
   const podiumEntries = currentList.slice(0, 3);
   const remainingEntries = currentList.slice(3);
 
@@ -57,14 +70,14 @@ export default function GamificationLeaderboard() {
           <div className="neu-border bg-purple-100 p-8 shadow-[4px_4px_0_0_#000] flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="space-y-3">
               <p className="eyebrow flex items-center gap-1.5 font-mono text-xs font-bold uppercase text-purple-900">
-                <Sparkles className="h-4 w-4 text-purple-700 animate-pulse" /> Real-Time Engagement
+                <Sparkles className="h-4 w-4 text-purple-700 animate-pulse" /> Real-Time Engagement Engine
               </p>
               <h1 className="font-display text-4xl font-black text-black md:text-5xl uppercase">
                 Campus Leaderboard
               </h1>
               <p className="max-w-xl font-mono text-sm text-black/70">
                 Showcasing active students earning gamification points, and clubs fostering the most
-                engagement on campus this month!
+                per-capita engagement on campus this month!
               </p>
             </div>
             <div className="p-4 bg-white border-2 border-black shadow-[2px_2px_0_0_#000] font-mono text-xs flex items-center gap-2 self-start md:self-auto">
@@ -90,15 +103,20 @@ export default function GamificationLeaderboard() {
             </button>
             <button
               onClick={() => setActiveTab("clubs")}
-              className={`px-6 py-2.5 font-mono text-sm font-black uppercase transition-all neu-border ${
+              className={`px-6 py-2.5 font-mono text-sm font-black uppercase transition-all neu-border flex items-center gap-2 ${
                 activeTab === "clubs"
                   ? "bg-black text-cream shadow-none translate-y-0.5"
                   : "bg-white text-black hover:-translate-y-0.5 shadow-[2px_2px_0_0_#000]"
               }`}
             >
-              🏛 Top Clubs
+              🏛 Top Clubs {clubMode === "underdog" && <Zap className="h-4 w-4 text-amber-400 fill-amber-400" />}
             </button>
           </div>
+
+          {/* Underdog Multiplier Mode Toggle (Visible when Clubs tab is active) */}
+          {activeTab === "clubs" && (
+            <UnderdogLeaderboardToggle mode={clubMode} onModeChange={setClubMode} />
+          )}
 
           {isLoading ? (
             <div className="flex h-64 items-center justify-center">
@@ -135,12 +153,19 @@ export default function GamificationLeaderboard() {
                           ? `${second.first_name} ${second.last_name}`
                           : second.club_name}
                       </p>
+                      {activeTab === "clubs" && second.underdog_multiplier && (
+                        <span className="font-mono text-[10px] font-bold text-amber-800 bg-amber-200 px-1.5 py-0.5 rounded border border-black my-1">
+                          ⚡ {second.underdog_multiplier}× Underdog Boost
+                        </span>
+                      )}
                       <div className="w-full bg-[#e2e8f0] neu-border shadow-[4px_4px_0_0_#000] p-4 text-center mt-2 h-28 flex flex-col justify-center">
                         <span className="font-mono text-xs font-bold text-gray-700 uppercase">
                           2nd Place
                         </span>
                         <h4 className="font-black text-xl font-mono text-gray-800">
-                          {second.monthly_points} pts
+                          {activeTab === "students"
+                            ? `${second.monthly_points} pts`
+                            : `${clubMode === "underdog" ? second.adjusted_score : second.raw_points} pts`}
                         </h4>
                       </div>
                     </div>
@@ -174,12 +199,19 @@ export default function GamificationLeaderboard() {
                           ? `${first.first_name} ${first.last_name}`
                           : first.club_name}
                       </p>
+                      {activeTab === "clubs" && first.underdog_multiplier && (
+                        <span className="font-mono text-[10px] font-bold text-amber-900 bg-amber-300 px-1.5 py-0.5 rounded border border-black my-1">
+                          ⚡ {first.underdog_multiplier}× Underdog Boost
+                        </span>
+                      )}
                       <div className="w-full bg-[#fef08a] neu-border border-amber-500 shadow-[4px_4px_0_0_#000] p-5 text-center mt-2 h-36 flex flex-col justify-center">
                         <span className="font-mono text-xs font-black text-amber-800 uppercase flex items-center justify-center gap-1">
                           👑 CHAMPION
                         </span>
                         <h4 className="font-black text-2xl font-mono text-amber-950">
-                          {first.monthly_points} pts
+                          {activeTab === "students"
+                            ? `${first.monthly_points} pts`
+                            : `${clubMode === "underdog" ? first.adjusted_score : first.raw_points} pts`}
                         </h4>
                       </div>
                     </div>
@@ -210,12 +242,19 @@ export default function GamificationLeaderboard() {
                           ? `${third.first_name} ${third.last_name}`
                           : third.club_name}
                       </p>
+                      {activeTab === "clubs" && third.underdog_multiplier && (
+                        <span className="font-mono text-[10px] font-bold text-amber-800 bg-amber-200 px-1.5 py-0.5 rounded border border-black my-1">
+                          ⚡ {third.underdog_multiplier}× Underdog Boost
+                        </span>
+                      )}
                       <div className="w-full bg-[#ffedd5] neu-border shadow-[4px_4px_0_0_#000] p-4 text-center mt-2 h-24 flex flex-col justify-center">
                         <span className="font-mono text-xs font-bold text-orange-700 uppercase">
                           3rd Place
                         </span>
                         <h4 className="font-black text-lg font-mono text-orange-950">
-                          {third.monthly_points} pts
+                          {activeTab === "students"
+                            ? `${third.monthly_points} pts`
+                            : `${clubMode === "underdog" ? third.adjusted_score : third.raw_points} pts`}
                         </h4>
                       </div>
                     </div>
@@ -230,8 +269,12 @@ export default function GamificationLeaderboard() {
                 <div className="neu-border bg-white shadow-[4px_4px_0_0_#000] overflow-hidden">
                   <div className="bg-black text-cream p-4 font-mono text-xs font-bold uppercase tracking-wider grid grid-cols-12">
                     <div className="col-span-2 text-center">Rank</div>
-                    <div className="col-span-6 md:col-span-7">Name / Club</div>
-                    <div className="col-span-4 md:col-span-3 text-right">Points Earned</div>
+                    <div className="col-span-6 md:col-span-6">Name / Club</div>
+                    <div className="col-span-4 md:col-span-4 text-right">
+                      {activeTab === "clubs" && clubMode === "underdog"
+                        ? "Score (Underdog Boost)"
+                        : "Points Earned"}
+                    </div>
                   </div>
 
                   <div className="divide-y divide-black" data-testid="leaderboard-list">
@@ -241,11 +284,16 @@ export default function GamificationLeaderboard() {
                           key={activeTab === "students" ? entry.user_id : entry.club_id}
                           className="p-4 grid grid-cols-12 items-center hover:bg-slate-50 transition-colors font-mono text-sm"
                         >
-                          <div className="col-span-2 text-center font-bold">
-                            #{entry.rank_position}
+                          <div className="col-span-2 text-center font-bold flex items-center justify-center gap-1">
+                            <span>#{entry.rank_position}</span>
+                            {activeTab === "clubs" && clubMode === "underdog" && entry.rank_delta > 0 && (
+                              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-1 rounded">
+                                ↑+{entry.rank_delta}
+                              </span>
+                            )}
                           </div>
 
-                          <div className="col-span-6 md:col-span-7 flex items-center gap-3">
+                          <div className="col-span-6 md:col-span-6 flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full border border-black overflow-hidden shrink-0 bg-slate-100">
                               <img
                                 src={
@@ -261,15 +309,33 @@ export default function GamificationLeaderboard() {
                                 className="w-full h-full object-cover"
                               />
                             </div>
-                            <span className="font-bold truncate">
-                              {activeTab === "students"
-                                ? `${entry.first_name} ${entry.last_name}`
-                                : entry.club_name}
-                            </span>
+                            <div className="truncate">
+                              <p className="font-bold truncate">
+                                {activeTab === "students"
+                                  ? `${entry.first_name} ${entry.last_name}`
+                                  : entry.club_name}
+                              </p>
+                              {activeTab === "clubs" && entry.member_count && (
+                                <p className="text-[11px] text-gray-500 font-normal">
+                                  {entry.member_count} members • {entry.per_capita_points} pts/mbr
+                                </p>
+                              )}
+                            </div>
                           </div>
 
-                          <div className="col-span-4 md:col-span-3 text-right font-bold text-purple-700">
-                            {entry.monthly_points} pts
+                          <div className="col-span-4 md:col-span-4 text-right font-bold text-purple-700">
+                            {activeTab === "students" ? (
+                              `${entry.monthly_points} pts`
+                            ) : clubMode === "underdog" ? (
+                              <div className="space-y-0.5">
+                                <div>{entry.adjusted_score} pts</div>
+                                <div className="text-[10px] font-normal text-amber-700 dark:text-amber-400">
+                                  ⚡ {entry.underdog_multiplier}× Multiplier
+                                </div>
+                              </div>
+                            ) : (
+                              `${entry.raw_points} pts`
+                            )}
                           </div>
                         </div>
                       ))
@@ -288,3 +354,4 @@ export default function GamificationLeaderboard() {
     </SiteShell>
   );
 }
+
