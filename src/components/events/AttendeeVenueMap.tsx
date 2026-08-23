@@ -1,8 +1,26 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Accessibility, ZoomIn, ZoomOut, RotateCcw, Search, MapPin } from "lucide-react";
+import {
+  Accessibility,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  Search,
+  MapPin,
+  AlertTriangle,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import QueueTrackerCard from "@/components/QueueTrackerCard";
 import { useAuth } from "@/components/Auth/AuthSecurityContext";
+import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   ACCESSIBILITY_NODE_LABELS,
   createAccessibilityRouteSegments,
@@ -26,11 +44,15 @@ export interface AttendeeMapNode {
 interface AttendeeVenueMapProps {
   nodes: AttendeeMapNode[];
   backgroundImageUrl?: string | null;
+  venueId?: string | null;
+  eventId?: string | null;
 }
 
 export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
   nodes,
   backgroundImageUrl,
+  venueId,
+  eventId,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [scale, setScale] = useState(1);
@@ -39,21 +61,125 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
-  const accessibilityNodes = getAccessibilityNodes(nodes);
-  const entrance = accessibilityNodes.find((node) => node.type === "entrance");
-  const routeSegments = createAccessibilityRouteSegments(nodes);
 
   const { user } = useAuth();
   const supabase = createClient();
-  const [queueNodes, setQueueNodes] = useState<Record<string, { id: string, status_color: 'green' | 'amber' | 'red' }>>({});
+
+  // Report dialog form states
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [reportFeatureType, setReportFeatureType] = useState<string>("has_elevator");
+  const [reportDescription, setReportDescription] = useState("");
+  const [reportPhotoUrl, setReportPhotoUrl] = useState("");
+
+  // Fetch active broken accessibility reports for the venue
+  const { data: reports = [], refetch: refetchReports } = useQuery({
+    queryKey: ["venue-accessibility-reports", venueId],
+    queryFn: async () => {
+      if (!venueId) return [];
+      const { data, error } = await supabase
+        .from("accessibility_reports")
+        .select("*")
+        .eq("venue_id", venueId)
+        .in("status", ["reported_broken", "verified_broken"])
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!venueId,
+  });
+
+  // Check if current user is a system admin
+  const { data: isAdmin = false } = useQuery({
+    queryKey: ["is-system-admin-for-accessibility", user?.id],
+    queryFn: async () => {
+      if (!user) return false;
+      const { data, error } = await supabase.rpc("is_system_admin");
+      if (error) return false;
+      return !!data;
+    },
+    enabled: !!user,
+  });
+
+  const accessibilityNodes = getAccessibilityNodes(nodes);
+  const entrance = accessibilityNodes.find((node) => node.type === "entrance");
+
+  // Dynamic accessibility routing segments calculation with broken feature exclusions
+  const brokenFeatures = reports.map((r: any) => r.feature);
+  const routeSegments = createAccessibilityRouteSegments(nodes, brokenFeatures);
+
+  // Helper to format Time-Ago string
+  const timeAgo = (dateString: string) => {
+    const diffMs = new Date().getTime() - new Date(dateString).getTime();
+    const diffMins = Math.max(1, Math.floor(diffMs / 60000));
+    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? "s" : ""} ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  // Submit Accessibility Report Mutation
+  const reportMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Please log in to submit a report.");
+      if (!eventId) throw new Error("Event context is required to submit a report.");
+      const { error } = await supabase.from("accessibility_reports").insert({
+        event_id: eventId,
+        venue_id: venueId || null,
+        feature: reportFeatureType,
+        feature_type:
+          reportFeatureType === "has_elevator"
+            ? "elevator"
+            : reportFeatureType === "wheelchair_ramp"
+              ? "ramp"
+              : "restroom",
+        description: reportDescription,
+        photo_url: reportPhotoUrl || "/uploads/broken-elevator.jpg",
+        status: "reported_broken",
+        user_id: user.id,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Accessibility report submitted successfully!");
+      setIsReportDialogOpen(false);
+      setReportDescription("");
+      setReportPhotoUrl("");
+      refetchReports();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to submit report.");
+    },
+  });
+
+  // Resolve Accessibility Report Mutation (Admin Action)
+  const markRepairedMutation = useMutation({
+    mutationFn: async (reportId: string) => {
+      const { error } = await supabase
+        .from("accessibility_reports")
+        .update({ status: "repaired" })
+        .eq("id", reportId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Accessibility feature marked as repaired!");
+      refetchReports();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to resolve report.");
+    },
+  });
+
+  const [queueNodes, setQueueNodes] = useState<
+    Record<string, { id: string; status_color: "green" | "amber" | "red" }>
+  >({});
   const [selectedQueueNodeId, setSelectedQueueNodeId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchQueues = async () => {
-      const { data } = await supabase.from('queue_nodes').select('id, booth_id, status_color');
+      const { data } = await supabase.from("queue_nodes").select("id, booth_id, status_color");
       if (data) {
         const queueMap: Record<string, any> = {};
-        data.forEach(q => {
+        data.forEach((q) => {
           queueMap[q.booth_id] = { id: q.id, status_color: q.status_color };
         });
         setQueueNodes(queueMap);
@@ -61,13 +187,18 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
     };
     fetchQueues();
 
-    const channel = supabase.channel('venue-queues')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'queue_nodes' }, (payload) => {
-        setQueueNodes(prev => ({
-          ...prev,
-          [payload.new.booth_id]: { id: payload.new.id, status_color: payload.new.status_color }
-        }));
-      })
+    const channel = supabase
+      .channel("venue-queues")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "queue_nodes" },
+        (payload) => {
+          setQueueNodes((prev) => ({
+            ...prev,
+            [payload.new.booth_id]: { id: payload.new.id, status_color: payload.new.status_color },
+          }));
+        },
+      )
       .subscribe();
 
     return () => {
@@ -163,6 +294,57 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
 
   return (
     <div className="w-full flex flex-col gap-4">
+      {/* Accessibility Warning Banner */}
+      {reports.length > 0 && (
+        <div className="border-2 border-red-900 bg-red-50 p-4 text-black shadow-[3px_3px_0_0_#ef4444] font-mono text-xs flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-red-700 font-bold uppercase text-sm">
+            <AlertTriangle className="w-5 h-5 shrink-0" />
+            <span>⚠ Accessibility Warning</span>
+          </div>
+          <div className="space-y-2 mt-1">
+            {reports.map((r: any) => (
+              <div
+                key={r.id}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-red-200 pb-2 last:border-0 last:pb-0"
+              >
+                <div>
+                  <span className="font-bold text-red-900 uppercase">
+                    {r.feature === "has_elevator"
+                      ? "Elevator"
+                      : r.feature === "wheelchair_ramp"
+                        ? "Accessible ramp"
+                        : "Accessible restroom"}
+                  </span>{" "}
+                  reported broken ({timeAgo(r.created_at)}).
+                  {r.description && (
+                    <p className="text-[10px] text-gray-700 mt-0.5">"{r.description}"</p>
+                  )}
+                  {r.photo_url && (
+                    <a
+                      href={r.photo_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[10px] text-blue-600 underline block mt-0.5"
+                    >
+                      View Photo Evidence
+                    </a>
+                  )}
+                </div>
+                {isAdmin && (
+                  <button
+                    onClick={() => markRepairedMutation.mutate(r.id)}
+                    disabled={markRepairedMutation.isPending}
+                    className="neu-border bg-emerald-500 hover:bg-emerald-400 text-white font-bold uppercase px-2 py-1 text-[10px] shadow-[1px_1px_0_0_#000] shrink-0"
+                  >
+                    {markRepairedMutation.isPending ? "Resolving..." : "Mark as Repaired"}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Search and Action Bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
         <div className="relative w-full sm:max-w-md">
@@ -193,6 +375,17 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
             <Accessibility className="h-4 w-4" />
             Accessibility Mode
           </button>
+
+          {eventId && (
+            <button
+              type="button"
+              onClick={() => setIsReportDialogOpen(true)}
+              className="flex items-center gap-2 border-2 border-black px-3 py-2 font-mono text-xs font-black uppercase shadow-[2px_2px_0_0_#000] bg-rose-600 hover:bg-rose-500 text-white focus:outline-none focus:ring-2 focus:ring-rose-600"
+            >
+              <AlertTriangle className="h-4 w-4" />
+              Report Broken Feature
+            </button>
+          )}
 
           {/* View Controls */}
           <div className="flex gap-2 shrink-0">
@@ -267,10 +460,10 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
           {/* Queue Tracker Floating Modal */}
           {selectedQueueNodeId && user && (
             <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/40 pointer-events-auto">
-              <QueueTrackerCard 
-                nodeId={selectedQueueNodeId} 
-                userId={user.id} 
-                onClose={() => setSelectedQueueNodeId(null)} 
+              <QueueTrackerCard
+                nodeId={selectedQueueNodeId}
+                userId={user.id}
+                onClose={() => setSelectedQueueNodeId(null)}
               />
             </div>
           )}
@@ -311,9 +504,15 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
             const queueInfo = queueNodes[node.id];
             let dynamicColorClass = colors[node.type] || "bg-white";
             if (queueInfo) {
-              if (queueInfo.status_color === 'red') dynamicColorClass = "bg-rose-500 text-white border-rose-700 ring-4 ring-rose-200 animate-pulse";
-              else if (queueInfo.status_color === 'amber') dynamicColorClass = "bg-amber-400 text-amber-900 border-amber-600 ring-2 ring-amber-200";
-              else if (queueInfo.status_color === 'green') dynamicColorClass = "bg-emerald-400 text-emerald-950 border-emerald-600 ring-2 ring-emerald-200";
+              if (queueInfo.status_color === "red")
+                dynamicColorClass =
+                  "bg-rose-500 text-white border-rose-700 ring-4 ring-rose-200 animate-pulse";
+              else if (queueInfo.status_color === "amber")
+                dynamicColorClass =
+                  "bg-amber-400 text-amber-900 border-amber-600 ring-2 ring-amber-200";
+              else if (queueInfo.status_color === "green")
+                dynamicColorClass =
+                  "bg-emerald-400 text-emerald-950 border-emerald-600 ring-2 ring-emerald-200";
             }
 
             return (
@@ -334,7 +533,13 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
                   width: `${node.width}%`,
                   height: `${node.height}%`,
                   transform: `rotate(${node.rotation}deg)`,
-                  zIndex: matchesQuery ? 50 : isAccessibilityInfrastructure ? 40 : queueInfo ? 30 : 10,
+                  zIndex: matchesQuery
+                    ? 50
+                    : isAccessibilityInfrastructure
+                      ? 40
+                      : queueInfo
+                        ? 30
+                        : 10,
                 }}
                 className={`border-2 border-black flex flex-col items-center justify-center p-1 text-center shadow-[1px_1px_0_0_#000] transition-colors duration-200 ${
                   matchesQuery
@@ -344,7 +549,7 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
                       : isAccessibilityMode
                         ? "opacity-25 grayscale"
                         : dynamicColorClass
-                } ${queueInfo ? 'cursor-pointer hover:scale-105' : ''}`}
+                } ${queueInfo ? "cursor-pointer hover:scale-105" : ""}`}
               >
                 <div className="flex flex-col items-center justify-center w-full h-full overflow-hidden">
                   <span className="font-mono text-[9px] md:text-[10px] font-black uppercase leading-tight truncate w-full px-0.5">
@@ -417,6 +622,85 @@ export const AttendeeVenueMap: React.FC<AttendeeVenueMapProps> = ({
           )}
         </section>
       )}
+
+      {/* Report Broken Feature Dialog */}
+      <Dialog open={isReportDialogOpen} onOpenChange={() => setIsReportDialogOpen(false)}>
+        <DialogContent className="neu-border border-black bg-cream rounded-none p-6 text-black">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl font-bold uppercase text-red-950 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+              Report Broken Feature
+            </DialogTitle>
+            <DialogDescription className="font-mono text-xs text-gray-700">
+              Crowdsource accessibility warnings. Submitting a report immediately updates the venue
+              layout route mapping for all attendees.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 font-mono text-sm my-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold uppercase text-gray-700">Feature Type</label>
+              <select
+                value={reportFeatureType}
+                onChange={(e) => setReportFeatureType(e.target.value)}
+                className="neu-border bg-white p-2 font-mono text-sm w-full focus:outline-none"
+              >
+                <option value="has_elevator">Elevator (has_elevator)</option>
+                <option value="wheelchair_ramp">Accessible Ramp (wheelchair_ramp)</option>
+                <option value="gender_neutral_restrooms">
+                  Accessible Restroom (gender_neutral_restrooms)
+                </option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold uppercase text-gray-700">
+                Description / Details
+              </label>
+              <textarea
+                value={reportDescription}
+                onChange={(e) => setReportDescription(e.target.value)}
+                placeholder="e.g. The library elevator has an 'Out of Order' sign on the ground floor."
+                rows={3}
+                className="neu-border bg-white p-2 font-mono text-sm w-full focus:outline-none"
+                required
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold uppercase text-gray-700">
+                Photo Evidence URL
+              </label>
+              <input
+                type="text"
+                value={reportPhotoUrl}
+                onChange={(e) => setReportPhotoUrl(e.target.value)}
+                placeholder="e.g. /uploads/broken-elevator.jpg"
+                className="neu-border bg-white p-2 font-mono text-sm w-full focus:outline-none"
+              />
+              <p className="text-[10px] text-gray-500 italic">
+                Leave empty to use default mock placeholder photo.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <button
+              onClick={() => setIsReportDialogOpen(false)}
+              className="neu-border border-black bg-white text-black hover:bg-gray-50 font-bold uppercase px-4 py-2 font-mono text-xs shadow-[2px_2px_0_0_#000] focus:outline-none"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => reportMutation.mutate()}
+              disabled={reportMutation.isPending || !reportDescription.trim()}
+              className="neu-border border-black bg-rose-600 hover:bg-rose-500 text-white font-bold uppercase px-4 py-2 font-mono text-xs shadow-[2px_2px_0_0_#000] disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
+            >
+              {reportMutation.isPending ? "Submitting..." : "Submit Report"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
