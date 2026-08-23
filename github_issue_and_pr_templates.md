@@ -2,20 +2,23 @@
 
 ## Feature: Real-Time Dynamic Pricing Flash Sale Engine & Automated Stripe Rollback
 - **Issue Number**: [#4292](https://github.com/krushit1307/CampusConnect/issues/4292)
+- **Pull Request**: [#4320](https://github.com/krushit1307/CampusConnect/pull/4320)
 - **Feature Title**: `feat(payments): build real-time dynamic pricing flash sale engine`
 - **Domain**: Financial Optimization & Payment Architecture
-- **Status**: Implemented & Ready for PR
+- **Status**: PR Submitted & Live
 - **Branch**: `feature/dynamic-pricing-flash-sale-4292`
 - **Components & Services**:
-  - `src/components/pricing/InteractiveFlashSaleOrchestrator.tsx`
-  - `src/components/pricing/PublicFlashSaleBannerOverlay.tsx`
-  - `src/services/dynamicPricingFlashSaleService.ts`
-  - `src/services/flashSaleCountdownWorker.ts`
-  - `src/routes/events.$id.flash-sale.tsx`
-  - `src/routes/clubs.$slug.dynamic-pricing.tsx`
-  - `src/types/dynamicPricingFlashSale.ts`
-  - `supabase/functions/stripe-flash-sale-mutator/index.ts`
-  - `supabase/migrations/20261231000030_dynamic_pricing_flash_sale.sql`
+  - `src/components/pricing/InteractiveFlashSaleOrchestrator.tsx` (540 lines)
+  - `src/components/pricing/PublicFlashSaleBannerOverlay.tsx` (139 lines)
+  - `src/components/pricing/DynamicPricingElasticitySimulator.tsx` (229 lines)
+  - `src/services/dynamicPricingFlashSaleService.ts` (408 lines)
+  - `src/services/flashSaleCountdownWorker.ts` (97 lines)
+  - `src/services/stripeDynamicWebhookHandler.ts` (93 lines)
+  - `src/routes/events.$id.flash-sale.tsx` (103 lines)
+  - `src/routes/clubs.$slug.dynamic-pricing.tsx` (49 lines)
+  - `src/types/dynamicPricingFlashSale.ts` (92 lines)
+  - `supabase/functions/stripe-flash-sale-mutator/index.ts` (78 lines)
+  - `supabase/migrations/20261231000030_dynamic_pricing_flash_sale.sql` (131 lines)
 - **Summary**:
   1-click dynamic pricing orchestrator automating short-term ticket discounts (e.g. 50% off for 60 mins), instantaneous Stripe Price ID mutation, waitlist marketing push broadcasts, high-precision millisecond countdown clocks, and automated post-sale price rollback cron workers.
 
