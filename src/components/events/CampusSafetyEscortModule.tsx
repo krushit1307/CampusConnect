@@ -107,7 +107,7 @@ export const CampusSafetyEscortModule: React.FC<CampusSafetyEscortModuleProps> =
             </div>
             <h3 className="text-xl font-black text-white mt-1">Walking Home Late Tonight?</h3>
             <p className="text-xs text-slate-300 mt-1 max-w-xl leading-relaxed">
-              Events ending after 10:00 PM offer instant Campus Security escorts and peer virtual
+              Events ending after 9:00 PM offer instant Campus Security escorts and peer virtual
               buddy alerts to ensure you arrive safely at your dorm.
             </p>
           </div>

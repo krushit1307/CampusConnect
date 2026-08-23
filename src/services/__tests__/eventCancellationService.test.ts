@@ -6,13 +6,11 @@ import {
   processBatchRefunds,
 } from "../eventCancellationService";
 
-const mockInvoke = vi.fn();
+const mockRpc = vi.fn();
 
 vi.mock("../../lib/supabase/client", () => ({
   createClient: () => ({
-    functions: {
-      invoke: mockInvoke,
-    },
+    rpc: mockRpc,
   }),
 }));
 
@@ -36,8 +34,8 @@ describe("eventCancellationService", () => {
   });
 
   describe("cancelEventAndRefund", () => {
-    it("invokes cancel-event-refunds Edge Function with eventId and reason", async () => {
-      mockInvoke.mockResolvedValueOnce({
+    it("invokes cancel_event_and_refund RPC with eventId and reason", async () => {
+      mockRpc.mockResolvedValueOnce({
         data: {
           success: true,
           total_rsvps_cancelled: 200,
@@ -49,8 +47,9 @@ describe("eventCancellationService", () => {
 
       const res = await cancelEventAndRefund("evt-902", "Blizzard Warning");
 
-      expect(mockInvoke).toHaveBeenCalledWith("cancel-event-refunds", {
-        body: { eventId: "evt-902", reason: "Blizzard Warning" },
+      expect(mockRpc).toHaveBeenCalledWith("cancel_event_and_refund", {
+        p_event_id: "evt-902",
+        p_reason: "Blizzard Warning",
       });
       expect(res.success).toBe(true);
       expect(res.total_rsvps_cancelled).toBe(200);

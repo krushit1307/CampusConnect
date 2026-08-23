@@ -35,13 +35,14 @@ export async function cancelEventAndRefund(
   reason: string = "Event cancelled by organizer due to unforeseen circumstances",
 ): Promise<EventCancellationResult> {
   const supabase = createClient();
-  const { data, error } = await supabase.functions.invoke("cancel-event-refunds", {
-    body: { eventId, reason },
+  const { data, error } = await supabase.rpc("cancel_event_and_refund", {
+    p_event_id: eventId,
+    p_reason: reason,
   });
 
   if (error) {
     console.error("Error executing event cancellation:", error);
-    return { success: false, error: error.message || "Failed to call Edge Function" };
+    return { success: false, error: error.message };
   }
 
   return data as EventCancellationResult;

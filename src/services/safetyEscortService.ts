@@ -29,7 +29,7 @@ export interface SafetyEscortRPCResult {
 
 /**
  * Evaluates whether an event's schedule or end time falls in the late-night window
- * between 22:00 (10:00 PM) and 05:00 (5:00 AM).
+ * between 21:00 (9:00 PM) and 05:00 (5:00 AM).
  */
 export function isLateNightEvent(eventTime?: string | Date): boolean {
   if (!eventTime) return true; // Default to true if unstated for safety
@@ -39,6 +39,7 @@ export function isLateNightEvent(eventTime?: string | Date): boolean {
     // If passed formatted string like "Friday, Oct 28 @ 10:00 PM"
     const str = String(eventTime).toLowerCase();
     return (
+      str.includes("9:") ||
       str.includes("10:") ||
       str.includes("11:") ||
       str.includes("12:") ||
@@ -52,8 +53,8 @@ export function isLateNightEvent(eventTime?: string | Date): boolean {
   }
 
   const hours = dateObj.getHours();
-  // 22:00 (10 PM) to 23:59 or 00:00 to 05:00 (5 AM)
-  return hours >= 22 || hours < 5;
+  // 21:00 (9 PM) to 23:59 or 00:00 to 05:00 (5 AM)
+  return hours >= 21 || hours < 5;
 }
 
 /**

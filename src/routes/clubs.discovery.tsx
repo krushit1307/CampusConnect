@@ -1,5 +1,8 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { createClient, SupabaseClient } from "@/lib/supabase/client";
+import {
+  createClient,
+  SupabaseClient,
+} from "@/lib/supabase/client";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -91,7 +94,7 @@ export default function ClubDiscovery() {
           `
           id, name, slug, description, banner_url, logo_url, category,
           club_settings(is_ledger_public)
-        `,
+        `
         )
         .eq("status", "approved")
         .neq("lifecycle_status", "hibernated")
@@ -132,7 +135,7 @@ export default function ClubDiscovery() {
     0,
     0,
     0,
-    0,
+    0
   );
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 7);
@@ -148,7 +151,7 @@ export default function ClubDiscovery() {
 
     const major = profile?.major;
 
-    const majorMatching: Club[] = [];
+    let majorMatching: Club[] = [];
     let remaining: Club[] = [];
 
     if (major && major.length > 0) {
@@ -156,7 +159,8 @@ export default function ClubDiscovery() {
       allClubs.forEach((club) => {
         if (subscribedClubIds.has(club.id)) return;
 
-        const categoryMatches = club.category?.toLowerCase() === major.toLowerCase();
+        const categoryMatches =
+          club.category?.toLowerCase() === major.toLowerCase();
 
         if (categoryMatches) {
           majorMatching.push(club);
@@ -173,12 +177,12 @@ export default function ClubDiscovery() {
     if (remaining.length > 0) {
       const clubIds = remaining.map((c) => c.id);
 
-      const { data: events, error: eventsError } = supabase
+      const { data: events, error: eventsError } = await supabase
         .from("events")
         .select(
           `
           id, title, event_date, club_id
-        `,
+        `
         )
         .in("club_id", clubIds);
 
@@ -187,7 +191,8 @@ export default function ClubDiscovery() {
       const eventClubs = new Map<string, Event[]>();
       (events || []).forEach((e: any) => {
         const eventDate = new Date(e.event_date);
-        const inWeek = eventDate >= weekStart && eventDate < weekEnd;
+        const inWeek =
+          eventDate >= weekStart && eventDate < weekEnd;
         if (!eventClubs.has(e.club_id)) eventClubs.set(e.club_id, []);
         if (inWeek) {
           eventClubs.get(e.club_id)!.push({
@@ -203,9 +208,9 @@ export default function ClubDiscovery() {
       remaining.forEach((club) => {
         const evts = eventClubs.get(club.id) || [];
         if (evts.length > 0) {
-          (club as any).hasEventThisWeek = true;
+          ;(club as any).hasEventThisWeek = true;
         } else {
-          (club as any).hasEventThisWeek = false;
+          ;(club as any).hasEventThisWeek = false;
         }
       });
     }
@@ -229,7 +234,7 @@ export default function ClubDiscovery() {
     setRankedClubs(
       majorMatching.length > 0
         ? [...majorMatching, ...shuffledEventThisWeek, ...shuffledRemainingAfterEvents]
-        : [...shuffledEventThisWeek, ...shuffledRemainingAfterEvents],
+        : [...shuffledEventThisWeek, ...shuffledRemainingAfterEvents]
     );
   }, [allClubs, profile, subscribedClubIds, weekStart, weekEnd]);
 
@@ -254,23 +259,27 @@ export default function ClubDiscovery() {
 
   // State
   const [activeIndex, setActiveIndex] = useState(0);
-  const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null);
+  const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(
+    null
+  );
   const [isUndoing, setIsUndoing] = useState(false);
   const [showExhaustion, setShowExhaustion] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
 
   const currentClub = rankedClubs[activeIndex];
 
-  // Mutation for subscribing (INSERT) on RIGHT swipe
+// Mutation for subscribing (INSERT) on RIGHT swipe
   const subscribeMutation = useMutation({
-    mutationFn: async (clubId) => {
+    mutationFn: async (clubId: string) => {
       if (!userId) return;
-      const { error } = await supabase.from("club_subscriptions").insert({
-        user_id: userId,
-        club_id: clubId,
-        notify_events: true,
-        notify_announcements: true,
-      });
+      const { error } = await supabase
+        .from("club_subscriptions")
+        .insert({
+          user_id: userId,
+          club_id: clubId,
+          notify_events: true,
+          notify_announcements: true,
+        });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -283,7 +292,7 @@ export default function ClubDiscovery() {
 
   // Mutation for unsubscribing (DELETE) on undo
   const unsubscribeMutation = useMutation({
-    mutationFn: async (clubId) => {
+    mutationFn: async (clubId: string) => {
       if (!userId) return;
       const { error } = await supabase
         .from("club_subscriptions")
@@ -359,7 +368,7 @@ export default function ClubDiscovery() {
 
       // Animate card away
       const card = document.querySelector(
-        `.discovery-card[data-index="${activeIndex}"]`,
+        `.discovery-card[data-index="${activeIndex}"]`
       ) as HTMLElement;
       if (card) {
         if (direction === "right") {
@@ -377,7 +386,7 @@ export default function ClubDiscovery() {
       setTimeout(() => {
         if (direction === "right" && userId) {
           // Subscribe to club using existing club_subscriptions mechanism
-          subscribeMutation.mutate(clubId);
+          subscribeMutation.mutate(clubId: string);
         } else if (direction === "left" && userId) {
           // No database mutation for left swipe (skip)
         }
@@ -392,7 +401,7 @@ export default function ClubDiscovery() {
         setSwipeDirection(null);
       }, 300);
     },
-    [activeIndex, rankedClubs, userId, subscribeMutation],
+    [activeIndex, rankedClubs, userId, subscribeMutation]
   );
 
   // Handle undo
@@ -424,21 +433,23 @@ export default function ClubDiscovery() {
     (e: React.MouseEvent | React.TouchEvent) => {
       if (isUndoing) return;
       setIsDragging(true);
-      const startX = e.clientX !== undefined ? e.clientX : e.touches[0].clientX;
+      const startX =
+        e.clientX !== undefined ? e.clientX : e.touches[0].clientX;
       setDragStartX(startX);
       setDragDeltaX(0);
     },
-    [isUndoing],
+    [isUndoing]
   );
 
   const handleDragMove = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
       if (!isDragging || isUndoing) return;
-      const currentX = e.clientX !== undefined ? e.clientX : e.touches[0].clientX;
+      const currentX =
+        e.clientX !== undefined ? e.clientX : e.touches[0].clientX;
       const delta = currentX - dragStartX;
       setDragDeltaX(delta);
     },
-    [isDragging, isUndoing, dragStartX],
+    [isDragging, isUndoing, dragStartX]
   );
 
   const handleDragEnd = useCallback(
@@ -447,8 +458,7 @@ export default function ClubDiscovery() {
       setIsDragging(false);
 
       const delta = dragDeltaX;
-      const direction =
-        delta > SWIPE_THRESHOLD ? "right" : delta < -SWIPE_THRESHOLD ? "left" : null;
+      const direction = delta > SWIPE_THRESHOLD ? "right" : delta < -SWIPE_THRESHOLD ? "left" : null;
 
       if (direction) {
         handleSwipeEnd(direction);
@@ -457,7 +467,7 @@ export default function ClubDiscovery() {
         setDragDeltaX(0);
       }
     },
-    [isDragging, isUndoing, SWIPE_THRESHOLD, handleSwipeEnd],
+    [isDragging, isUndoing, SWIPE_THRESHOLD, handleSwipeEnd]
   );
 
   // Cleanup event listeners on unmount
@@ -515,7 +525,9 @@ export default function ClubDiscovery() {
       <div className="max-w-2xl mx-auto p-4">
         {/* Header */}
         <div className="border-b-2 border-black pb-4 mb-6">
-          <h1 className="text-2xl font-bold uppercase tracking-wider text-black">Club Discovery</h1>
+          <h1 className="text-2xl font-bold uppercase tracking-wider text-black">
+            Club Discovery
+          </h1>
           {userId && profile.major ? (
             <p className="text-sm text-gray-500">
               Discover clubs matching your {profile.major} major
@@ -549,144 +561,146 @@ export default function ClubDiscovery() {
                 description="There are no clubs to discover at this time."
               />
             </div>
-          )
-        ) : (
-          <>
-            <div className="relative overflow-hidden space-y-2">
-              {rankedClubs.map((club, i) => {
-                const isActive = i === activeIndex;
+          ))
+        } : (
+          <div className="relative overflow-hidden space-y-2">
+            {rankedClubs.map((club, i) => {
+              const isActive = i === activeIndex;
 
-                return (
-                  <motion.div
-                    key={club.id}
-                    data-testid={`discovery-card-${club.id}`}
-                    data-index={i}
-                    className={cn(
-                      "discovery-card neu-border flex flex-col items-center justify-between bg-white p-6 shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all duration-300",
-                      isActive && "z-10",
-                      isActive && !swipeDirection ? "scale-100" : "scale-98",
-                    )}
-                    style={{ transition: "transform 0.2s ease" }}
-                  >
-                    <div className="relative w-full h-64 mb-4">
-                      {/* Banner image */}
-                      <LazyImage
-                        src={club.banner_url}
-                        alt={club.name}
-                        className="w-full h-full object-cover rounded-t-md"
-                        loading="lazy"
-                      />
-                      {/* Logo */}
-                      <LazyImage
-                        src={club.logo_url}
-                        alt={`${club.name} logo`}
-                        className="absolute -top-2 -right-2 w-12 h-12 rounded-full object-cover border-2 border-black"
-                        loading="lazy"
-                      />
-                      {/* Flip card wrapper */}
-                      <FlipCard
-                        ariaLabel={`View ${club.name} details`}
-                        isFlipped={isFlipped}
-                        onFlip={() => setIsFlipped((f) => !f)}
-                      >
-                        {/* Front face */}
-                        <div className="relative w-full h-full rounded-t-md overflow-hidden">
-                          <div className="absolute bottom-4 left-4 right-4">
-                            <h2 className="text-xl font-bold font-display text-black mb-1 flex items-center gap-1.5">
-                              {club.name}
-                              {club.club_settings?.[0]?.is_ledger_public && (
-                                <ShieldCheck
-                                  size={18}
-                                  className="text-emerald-500 fill-emerald-100"
-                                  title="Verified Transparent 🛡️"
-                                />
-                              )}
-                            </h2>
-                            {club.description && (
-                              <p className="text-sm text-gray-600 line-clamp-1">
-                                {club.description.split(".")[0] + "."}
+              return (
+                <motion.div
+                  key={club.id}
+                  data-testid={`discovery-card-${club.id}`}
+                  data-index={i}
+                  className={cn(
+                    "discovery-card neu-border flex flex-col items-center justify-between bg-white p-6 shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all duration-300",
+                    isActive && "z-10",
+                    isActive && !swipeDirection ? "scale-100" : "scale-98"
+                  )}
+                  style={{ transition: "transform 0.2s ease" }}
+                >
+                  <div className="relative w-full h-64 mb-4">
+                    {/* Banner image */}
+                    <LazyImage
+                      src={club.banner_url}
+                      alt={club.name}
+                      className="w-full h-full object-cover rounded-t-md"
+                      loading="lazy"
+                    />
+                    {/* Logo */}
+                    <LazyImage
+                      src={club.logo_url}
+                      alt={`${club.name} logo`}
+                      className="absolute -top-2 -right-2 w-12 h-12 rounded-full object-cover border-2 border-black"
+                      loading="lazy"
+                    />
+                    {/* Flip card wrapper */}
+                    <FlipCard
+                      ariaLabel={`View ${club.name} details`}
+                      isFlipped={isFlipped}
+                      onFlip={() => setIsFlipped((f) => !f)}
+                    >
+                      {/* Front face */}
+                      <div className="relative w-full h-full rounded-t-md overflow-hidden">
+                        <div className="absolute bottom-4 left-4 right-4">
+                          <h2 className="text-xl font-bold font-display text-black mb-1 flex items-center gap-1.5">
+                            {club.name}
+                            {club.club_settings?.[0]?.is_ledger_public && (
+                              <ShieldCheck 
+                                size={18} 
+                                className="text-emerald-500 fill-emerald-100" 
+                                title="Verified Transparent 🛡️"
+                              />
+                            )}
+                          </h2>
+                          {club.description && (
+                            <p className="text-sm text-gray-600 line-clamp-1">
+                              {club.description.split(".")[0] + "."}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Category badge */}
+                        {club.category && (
+                          <div className="absolute top-4 left-4">
+                            <span className="club-logo-badge border-2 border-black px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase">
+                              {club.category}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Back face */}
+                      <div className="absolute inset-0 p-6">
+                        <h3 className="font-bold text-lg uppercase tracking-wider text-black mb-4">
+                          {club.name}
+                        </h3>
+                        <p className="text-gray-600 mb-4 line-clamp-3">
+                          {club.description || "No description provided."}
+                        </p>
+
+                        {/* Upcoming events when flipped */}
+                        {isFlipped && (
+                          <>
+                            {club.hasEventThisWeek ? (
+                              <p className="text-sm text-gray-500 mb-2">
+                                🎉 Has an event this week!
+                              </p>
+                            ) : (
+                              <p className="text-gray-500 text-sm mb-2">
+                                No events this week
                               </p>
                             )}
-                          </div>
+                            <p className="text-xs text-gray-400">
+                              {club.description || "No description available."}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </FlipCard>
+                  </div>
 
-                          {/* Category badge */}
-                          {club.category && (
-                            <div className="absolute top-4 left-4">
-                              <span className="club-logo-badge border-2 border-black px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase">
-                                {club.category}
-                              </span>
-                            </div>
-                          )}
-                        </div>
+                  {/* Swipe area */}
+                  <div
+                    className="absolute inset-0 cursor-grab active:cursor-grabbing"
+                    onTouchStart={handleDragStart}
+                    onMouseDown={handleDragStart}
+                    onTouchMove={handleDragMove}
+                    onMouseMove={handleDragMove}
+                    onTouchEnd={handleDragEnd}
+                    onMouseUp={handleDragEnd}
+                  />
+                </motion.div>
+              );
+            })}
+          </div>
 
-                        {/* Back face */}
-                        <div className="absolute inset-0 p-6">
-                          <h3 className="font-bold text-lg uppercase tracking-wider text-black mb-4">
-                            {club.name}
-                          </h3>
-                          <p className="text-gray-600 mb-4 line-clamp-3">
-                            {club.description || "No description provided."}
-                          </p>
-
-                          {/* Upcoming events when flipped */}
-                          {isFlipped && (
-                            <>
-                              {club.hasEventThisWeek ? (
-                                <p className="text-sm text-gray-500 mb-2">
-                                  🎉 Has an event this week!
-                                </p>
-                              ) : (
-                                <p className="text-gray-500 text-sm mb-2">No events this week</p>
-                              )}
-                              <p className="text-xs text-gray-400">
-                                {club.description || "No description available."}
-                              </p>
-                            </>
-                          )}
-                        </div>
-                      </FlipCard>
-                    </div>
-
-                    {/* Swipe area */}
-                    <div
-                      className="absolute inset-0 cursor-grab active:cursor-grabbing"
-                      onTouchStart={handleDragStart}
-                      onMouseDown={handleDragStart}
-                      onTouchMove={handleDragMove}
-                      onMouseMove={handleDragMove}
-                      onTouchEnd={handleDragEnd}
-                      onMouseUp={handleDragEnd}
-                    />
-                  </motion.div>
-                );
-              })}
-            </div>
-
-            {/* Undo control */}
-            {swipeDirection && !isUndoing && activeIndex < rankedClubs.length - 1 && (
-              <div className="mt-4 flex gap-2">
-                <button
-                  onClick={handleUndo}
-                  disabled={isUndoing}
-                  className="font-mono text-xs font-bold uppercase border-2 border-black rounded-none bg-white hover:bg-gray-100 text-black px-4 py-2 transition-all"
+          {/* Undo control */}
+          {swipeDirection && !isUndoing && activeIndex < rankedClubs.length - 1 && (
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={handleUndo}
+                disabled={isUndoing}
+                className="font-mono text-xs font-bold uppercase border-2 border-black rounded-none bg-white hover:bg-gray-100 text-black px-4 py-2 transition-all"
+              >
+                <svg
+                  className="h-4 w-4 mr-2"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
                 >
-                  <svg
-                    className="h-4 w-4 mr-2"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path d="M5 12h14M12 5l7 7-7 7" />
-                  </svg>
-                  Undo
-                </button>
-                <span className="text-sm text-gray-500">
-                  {swipeDirection === "right" ? "Subscription removed" : "Club restored"}
-                </span>
-              </div>
-            )}
-          </>
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+                Undo
+              </button>
+              <span className="text-sm text-gray-500">
+                {swipeDirection === "right"
+                  ? "Subscription removed"
+                  : "Club restored"}
+              </span>
+            </div>
+          )}
         )}
 
         {/* Exhaustion state already handled above */}
