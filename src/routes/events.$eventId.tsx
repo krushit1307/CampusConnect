@@ -125,7 +125,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import DynamicQRCode from "@/components/events/DynamicQRCode";
-import { isCaptchaConfigured, shouldRequireCaptcha } from "@/lib/captcha";
+import { isHighDemandEvent, normalizeDeviceFingerprint } from "@/lib/ticketScalping";
 import { EditEventDialog } from "@/components/EditEventDialog";
 import { DynamicEventPoster } from "@/components/events/DynamicEventPoster";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
@@ -136,6 +136,7 @@ import { CaptchaWidget } from "@/components/CaptchaWidget";
 import { Blurhash } from "react-blurhash";
 import { isValidBlurhash, DEFAULT_FALLBACK_BLURHASH } from "@/lib/blurhashUtils";
 import { EventDescriptionTranslation } from "@/components/events/EventDescriptionTranslation";
+import { useDeviceFingerprint } from "@/hooks/useDeviceFingerprint";
 
 /**
  * Hero banner for the event detail page.
@@ -449,6 +450,7 @@ export default function EventDetailsPage() {
   const [decryptError, setDecryptError] = useState<string | null>(null);
   const [isDecryptedModalOpen, setIsDecryptedModalOpen] = useState(false);
   const { downloadTicket, isGenerating: isTicketGenerating } = useTicketDownload();
+  const { visitorId } = useDeviceFingerprint();
 
   const handleViewAccommodation = async (rsvpId: string) => {
     setIsDecrypting(true);
@@ -629,7 +631,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_rsv
           venues (
             name, building, capacity, accessibility_features
           )
-          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, is_high_risk, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash, latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline, dress_code,
+          id, title, description, event_date, start_date, end_date, location, banner_url, created_by, is_high_risk, is_high_demand, status, short_id, max_attendees, requires_approval, category_id, tags, version, version_vector, blurhash, latitude, longitude, geofencing_enabled, geofence_radius_meters, accommodation_deadline, dress_code,
           profiles (full_name, email),
 clubs (name, slug, logo_url, primary_color, secondary_color),          event_metrics (views)
         `,
@@ -669,6 +671,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                   : "Student Activity Centre, IIT Bombay, Powai, Mumbai",
             banner_url: null as string | null,
             max_attendees: eventId === "mock-1" ? 1 : null,
+            is_high_demand: false,
             latitude: eventId === "mock-1" ? 30.3564 : eventId === "mock-2" ? 28.5355 : 19.076,
             longitude: eventId === "mock-1" ? 76.3647 : eventId === "mock-2" ? 77.209 : 72.8777,
             geofencing_enabled: eventId === "mock-1",
@@ -974,6 +977,8 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
       }
 
       const idempotencyKey = getRsvpIdempotencyKey(eventId);
+      const deviceFingerprint = normalizeDeviceFingerprint(visitorId);
+      const highDemandClaim = !hasRsvpd && isHighDemandEvent(event);
 
       const {
         data: { session },
@@ -986,6 +991,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
           headers: {
             Authorization: `Bearer ${session?.access_token}`,
             "Idempotency-Key": idempotencyKey,
+            ...(deviceFingerprint ? { "X-Device-Fingerprint": deviceFingerprint } : {}),
           },
         });
         funcError = error;
@@ -996,6 +1002,9 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
           err.message.includes("network") ||
           err.message.includes("Failed to fetch")
         ) {
+          if (highDemandClaim) {
+            throw new Error("HIGH_DEMAND_REQUIRES_ONLINE");
+          }
           await queueRsvpSubmission({
             eventId,
             hasRsvpd,
@@ -1011,8 +1020,6 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
         }
       }
       if (funcError) throw funcError;
-
-      if (error) throw error;
       clearRsvpIdempotencyKey(eventId);
     },
     onMutate: async ({ hasRsvpd }) => {
@@ -1051,19 +1058,29 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
       }
 
       const err = error as Record<string, unknown>;
-      if (err?.message === "OFFLINE_SAVED" || error?.message === "OFFLINE_SAVED") {
+      if (err?.message === "HIGH_DEMAND_REQUIRES_ONLINE") {
+        toast.error(
+          "High-demand RSVPs require an active internet connection and fresh verification.",
+        );
+      } else if (
+        err?.message === "OFFLINE_SAVED" ||
+        (error as Error)?.message === "OFFLINE_SAVED"
+      ) {
         toast.success(
           "You're offline. Your RSVP is saved and will sync automatically when you reconnect.",
           { duration: 5000 },
         );
       } else if (
-        (typeof err?.message === "string" && err.message.includes("Rate limit")) ||
-        (typeof err?.details === "string" && err.details.includes("Rate limit")) ||
-        (typeof err?.context === "string" && err.context.includes("Rate limit")) ||
-        (typeof error === "string" && error.includes("Rate limit"))
+        (typeof err?.status === "number" && err.status === 429) ||
+        (typeof (err?.context as { status?: unknown })?.status === "number" &&
+          (err.context as { status: number }).status === 429) ||
+        (typeof err?.message === "string" &&
+          (err.message.includes("Rate limit") || err.message.includes("Too many ticket claims")))
       ) {
-        toast.error("Please wait a minute before toggling RSVP again.");
+        setCaptchaToken(undefined);
+        toast.error("Too many claims for this event. Please try again after the cooldown.");
       } else {
+        if (requiresHighDemandCaptcha) setCaptchaToken(undefined);
         toast.error(
           (err?.message as string) ||
             (error as Error)?.message ||
@@ -1078,6 +1095,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
       setNeedAccommodations(false);
       setAccommodationsText("");
       setValidationError("");
+      setCaptchaToken(undefined);
     },
   });
 
@@ -1419,11 +1437,10 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
     ? parseCoordinates(event.location)
     : { isCoordinates: false, isValid: true };
 
+  const requiresHighDemandCaptcha = isHighDemandEvent(event);
   const captchaSiteKey =
     import.meta.env.VITE_TURNSTILE_SITE_KEY || import.meta.env.VITE_HCAPTCHA_SITE_KEY;
-  const captchaSecretKey =
-    import.meta.env.VITE_TURNSTILE_SECRET_KEY || import.meta.env.VITE_HCAPTCHA_SECRET_KEY;
-  const captchaEnabled = isCaptchaConfigured(captchaSiteKey, captchaSecretKey);
+  const captchaConfigured = Boolean(captchaSiteKey);
   const captchaProvider = import.meta.env.VITE_TURNSTILE_SITE_KEY ? "turnstile" : "hcaptcha";
 
   const isAfterDeadline = useMemo(() => {
@@ -1521,15 +1538,17 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
       return;
     }
 
-    if (captchaEnabled && !shouldRequireCaptcha(captchaSiteKey, captchaSecretKey, captchaToken)) {
-      toast.error("Please complete the CAPTCHA challenge to RSVP.");
+    if (requiresHighDemandCaptcha && !captchaConfigured) {
+      toast.error("High-demand ticket verification is temporarily unavailable.");
       return;
     }
+    // The challenge is rendered in the RSVP dialog and checked again at submit time.
 
     // Open accommodations dialog instead of immediate submit
     setNeedAccommodations(false);
     setAccommodationsText("");
     setValidationError("");
+    setCaptchaToken(undefined);
     setRsvpDialogOpen(true);
   };
 
@@ -1895,22 +1914,6 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                   >
                     {toggleRsvp.isPending ? "Updating..." : "RSVP NOW"}
                   </Button>
-                  {captchaEnabled && (
-                    <div className="flex flex-col gap-2">
-                      <span
-                        className={`font-mono text-xs font-bold ${event.banner_url ? "text-white/80" : "text-black/60"}`}
-                      >
-                        Verification required before RSVP
-                      </span>
-                      <CaptchaWidget
-                        siteKey={captchaSiteKey}
-                        provider={captchaProvider}
-                        onToken={(token) => setCaptchaToken(token)}
-                        onError={() => setCaptchaToken(undefined)}
-                        onExpire={() => setCaptchaToken(undefined)}
-                      />
-                    </div>
-                  )}
                 </div>
               )}
               <span
@@ -3046,6 +3049,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
               setNeedAccommodations(false);
               setAccommodationsText("");
               setValidationError("");
+              setCaptchaToken(undefined);
             }
             setRsvpDialogOpen(open);
           }}
@@ -3061,6 +3065,26 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
             </DialogHeader>
 
             <div className="space-y-4 py-4">
+              {requiresHighDemandCaptcha && (
+                <div className="space-y-2 border-2 border-black bg-yellow-100 p-3">
+                  <p className="font-mono text-xs font-bold uppercase">
+                    High-demand event verification
+                  </p>
+                  {captchaConfigured ? (
+                    <CaptchaWidget
+                      siteKey={captchaSiteKey}
+                      provider={captchaProvider}
+                      onToken={(token) => setCaptchaToken(token)}
+                      onError={() => setCaptchaToken(undefined)}
+                      onExpire={() => setCaptchaToken(undefined)}
+                    />
+                  ) : (
+                    <p className="font-mono text-xs text-red-700">
+                      Verification is temporarily unavailable. Please try again later.
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="flex items-center gap-3">
                 <input
                   id="req-accommodations-checkbox"
@@ -3141,6 +3165,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                   setNeedAccommodations(false);
                   setAccommodationsText("");
                   setValidationError("");
+                  setCaptchaToken(undefined);
                   setRsvpDialogOpen(false);
                 }}
                 disabled={toggleRsvp.isPending}
@@ -3151,6 +3176,14 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
               <Button
                 variant="primary"
                 onClick={() => {
+                  if (requiresHighDemandCaptcha && !captchaConfigured) {
+                    setValidationError("High-demand verification is temporarily unavailable.");
+                    return;
+                  }
+                  if (requiresHighDemandCaptcha && !captchaToken) {
+                    setValidationError("Complete the CAPTCHA verification before confirming RSVP.");
+                    return;
+                  }
                   if (needAccommodations) {
                     if (!accommodationsText.trim()) {
                       setValidationError("Accommodation description is required when requested.");
@@ -3169,10 +3202,17 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                     accommodationsRequested: needAccommodations ? accommodationsText : null,
                   });
                 }}
-                disabled={toggleRsvp.isPending}
+                disabled={
+                  toggleRsvp.isPending ||
+                  (requiresHighDemandCaptcha && (!captchaConfigured || !captchaToken))
+                }
                 className="neu-border font-mono text-xs font-bold uppercase"
               >
-                {toggleRsvp.isPending ? "Submitting..." : "Confirm RSVP"}
+                {toggleRsvp.isPending
+                  ? "Submitting..."
+                  : requiresHighDemandCaptcha && !captchaToken
+                    ? "Complete verification"
+                    : "Confirm RSVP"}
               </Button>
             </DialogFooter>
           </DialogContent>

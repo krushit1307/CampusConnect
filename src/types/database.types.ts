@@ -951,6 +951,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      ticket_claim_attempts: {
+        Row: {
+          id: string;
+          event_id: string;
+          user_id: string;
+          ip_hash: string;
+          device_fingerprint_hash: string | null;
+          idempotency_key: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          user_id: string;
+          ip_hash: string;
+          device_fingerprint_hash?: string | null;
+          idempotency_key?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          user_id?: string;
+          ip_hash?: string;
+          device_fingerprint_hash?: string | null;
+          idempotency_key?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ticket_claim_attempts_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ticket_claim_attempts_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       events: {
         Row: {
           id: string;
@@ -970,6 +1015,7 @@ export type Database = {
           location_lat: number | null;
           location_lon: number | null;
           has_photography: boolean;
+          is_high_demand: boolean;
 
           location: any;
           metadata: Json | null;
@@ -1031,6 +1077,7 @@ export type Database = {
           location_lat?: number | null;
           location_lon?: number | null;
           has_photography?: boolean;
+          is_high_demand?: boolean;
 
           location?: any;
           metadata?: Json | null;
@@ -1091,6 +1138,7 @@ export type Database = {
           location_lat?: number | null;
           location_lon?: number | null;
           has_photography?: boolean;
+          is_high_demand?: boolean;
 
           location?: any;
           metadata?: Json | null;
@@ -3253,6 +3301,19 @@ export type Database = {
       };
     };
     Functions: {
+      enforce_ticket_claim_rate_limit: {
+        Args: {
+          p_event_id: string;
+          p_user_id: string;
+          p_ip_address: string;
+          p_device_fingerprint?: string | null;
+          p_idempotency_key?: string | null;
+          p_hash_secret?: string | null;
+          p_window_seconds?: number;
+          p_max_claims?: number;
+        };
+        Returns: Json;
+      };
       create_campaign_donation_matches: {
         Args: {
           p_donation_id: string;
