@@ -25,6 +25,7 @@ import { NotFoundPage as NotFound } from "@/components/NotFoundPage";
 import { MerchStore } from "@/components/Clubs/Merchandise/MerchStore";
 import { CrowdfundingCampaignSection } from "@/components/Clubs/Crowdfunding/CrowdfundingCampaignSection";
 import { ClubTransparencyLedger } from "@/components/Clubs/ClubTransparencyLedger";
+import { ClubKnowledgeBaseSection } from "@/components/Clubs/ClubKnowledgeBaseSection";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -984,6 +985,12 @@ export default function ClubProfile() {
         <section className="px-4 py-12 md:px-6">
           <div className="mx-auto max-w-6xl">
             <CrowdfundingCampaignSection clubId={club.id} />
+          </div>
+        </section>
+
+        <section className="px-4 py-6 md:px-6">
+          <div className="mx-auto max-w-6xl">
+            <ClubKnowledgeBaseSection clubId={club.id} />
           </div>
         </section>
 
