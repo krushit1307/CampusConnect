@@ -28,8 +28,6 @@ import { HelpQueueMentorDashboard } from "@/components/events/HelpQueueMentorDas
 import { HelpQueueAttendeeWidget } from "@/components/events/HelpQueueAttendeeWidget";
 import { DietaryForecastPanel } from "@/components/events/DietaryForecastPanel";
 import { User } from "@supabase/supabase-js";
-import { SongRequestSection } from "@/components/events/SongRequestSection";
-import { RealTimeEventParkingMap } from "@/components/events/RealTimeEventParkingMap";
 import { SponsorBountiesSection } from "@/components/events/SponsorBountiesSection";
 
 interface EventDetailRecord {
@@ -169,48 +167,6 @@ export default function EventDetail() {
           </div>
         )}
 
-        {/* ── NEW (Issue #3678): Live Task Board ────────────────── */}
-        {/* Organizer sees the push panel; every signed-in user
-            sees the attendee popup. */}
-        {isOrganizer && event.id && (
-          <div className="pt-6">
-            <LiveTaskOrganizerPanel eventId={event.id} />
-          </div>
-        )}
-
-        {/* ── NEW (Issue #3938): Help Desk Queue ────────────────── */}
-        {isOrganizer && event.id && (
-          <div className="pt-6">
-            <HelpQueueMentorDashboard eventId={event.id} />
-          </div>
-        )}
-        {user && event.id && (
-          <div className="pt-6">
-            <HelpQueueAttendeeWidget eventId={event.id} userId={user.id} />
-          </div>
-        )}
-
-        {/* ── NEW (Issue #3931): Dietary Forecast ──────────────── */}
-        {isOrganizer && event.id && (
-          <div className="pt-6">
-            <DietaryForecastPanel eventId={event.id} />
-          </div>
-        )}
-
-        {/* ── NEW (Issue #4052): Real-Time Parking Availability ── */}
-        {event.id && (
-          <div className="pt-6">
-            <RealTimeEventParkingMap
-              eventId={event.id}
-              eventName={event.title}
-              venueName={event.venues?.name || event.location || "Venue"}
-            />
-          </div>
-        )}
-      </div>
-
-      <div className="max-w-4xl mx-auto px-6 md:px-8 mb-8">
-        <SongRequestSection eventId={event.id} isOrganizer={false} />
         {event.id && <SponsorBountiesSection eventId={event.id} />}
       </div>
 

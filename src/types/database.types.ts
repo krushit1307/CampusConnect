@@ -29,6 +29,282 @@ export type Database = {
           created_at?: string;
         };
       };
+      club_transactions: {
+        Row: {
+          id: string;
+          club_id: string;
+          amount: number;
+          transaction_type: "INCOME" | "EXPENSE";
+          category: string;
+          description: string;
+          receipt_url: string | null;
+          funding_request_id: string | null;
+          co_sponsor_id: string | null;
+          event_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          club_id: string;
+          amount: number;
+          transaction_type: "INCOME" | "EXPENSE";
+          category: string;
+          description: string;
+          receipt_url?: string | null;
+          funding_request_id?: string | null;
+          co_sponsor_id?: string | null;
+          event_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          club_id?: string;
+          amount?: number;
+          transaction_type?: "INCOME" | "EXPENSE";
+          category?: string;
+          description?: string;
+          receipt_url?: string | null;
+          funding_request_id?: string | null;
+          co_sponsor_id?: string | null;
+          event_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "club_transactions_club_id_fkey";
+            columns: ["club_id"];
+            isOneToOne: false;
+            referencedRelation: "clubs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "club_transactions_co_sponsor_id_fkey";
+            columns: ["co_sponsor_id"];
+            isOneToOne: false;
+            referencedRelation: "co_sponsors";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      co_sponsors: {
+        Row: {
+          id: string;
+          event_id: string;
+          club_id: string;
+          requested_by: string;
+          contribution_amount: number;
+          status: "pending" | "approved" | "rejected" | "refunded";
+          approved_by: string | null;
+          approved_at: string | null;
+          refunded_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          club_id: string;
+          requested_by: string;
+          contribution_amount: number;
+          status?: "pending" | "approved" | "rejected" | "refunded";
+          approved_by?: string | null;
+          approved_at?: string | null;
+          refunded_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          club_id?: string;
+          requested_by?: string;
+          contribution_amount?: number;
+          status?: "pending" | "approved" | "rejected" | "refunded";
+          approved_by?: string | null;
+          approved_at?: string | null;
+          refunded_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "co_sponsors_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "co_sponsors_club_id_fkey";
+            columns: ["club_id"];
+            isOneToOne: false;
+            referencedRelation: "clubs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      event_escrow_ledger: {
+        Row: {
+          id: string;
+          event_id: string;
+          co_sponsor_id: string;
+          club_id: string;
+          amount: number;
+          entry_type: "deposit" | "refund";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          co_sponsor_id: string;
+          club_id: string;
+          amount: number;
+          entry_type: "deposit" | "refund";
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          co_sponsor_id?: string;
+          club_id?: string;
+          amount?: number;
+          entry_type?: "deposit" | "refund";
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_escrow_ledger_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "event_escrow_ledger_co_sponsor_id_fkey";
+            columns: ["co_sponsor_id"];
+            isOneToOne: false;
+            referencedRelation: "co_sponsors";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "event_escrow_ledger_club_id_fkey";
+            columns: ["club_id"];
+            isOneToOne: false;
+            referencedRelation: "clubs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      constitution_documents: {
+        Row: {
+          id: string;
+          club_id: string;
+          uploaded_by: string;
+          file_url: string;
+          raw_text: string | null;
+          status: "pending_review" | "approved" | "rejected" | "requires_revision";
+          overall_risk_score: number;
+          plagiarism_score: number;
+          plagiarism_review_required: boolean;
+          plagiarism_matches: Json;
+          plagiarism_scanned_at: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          club_id: string;
+          uploaded_by: string;
+          file_url: string;
+          raw_text?: string | null;
+          status?: "pending_review" | "approved" | "rejected" | "requires_revision";
+          overall_risk_score?: number;
+          plagiarism_score?: number;
+          plagiarism_review_required?: boolean;
+          plagiarism_matches?: Json;
+          plagiarism_scanned_at?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          club_id?: string;
+          uploaded_by?: string;
+          file_url?: string;
+          raw_text?: string | null;
+          status?: "pending_review" | "approved" | "rejected" | "requires_revision";
+          overall_risk_score?: number;
+          plagiarism_score?: number;
+          plagiarism_review_required?: boolean;
+          plagiarism_matches?: Json;
+          plagiarism_scanned_at?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "constitution_documents_club_id_fkey";
+            columns: ["club_id"];
+            isOneToOne: false;
+            referencedRelation: "clubs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "constitution_documents_uploaded_by_fkey";
+            columns: ["uploaded_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      constitution_violations: {
+        Row: {
+          id: string;
+          document_id: string;
+          clause_reference: string | null;
+          quote: string;
+          reason: string;
+          severity: "info" | "warning" | "severe";
+          is_resolved: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          document_id: string;
+          clause_reference?: string | null;
+          quote: string;
+          reason: string;
+          severity?: "info" | "warning" | "severe";
+          is_resolved?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          document_id?: string;
+          clause_reference?: string | null;
+          quote?: string;
+          reason?: string;
+          severity?: "info" | "warning" | "severe";
+          is_resolved?: boolean;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "constitution_violations_document_id_fkey";
+            columns: ["document_id"];
+            isOneToOne: false;
+            referencedRelation: "constitution_documents";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       constitution_signatures: {
         Row: {
           id: string;
@@ -109,8 +385,7 @@ export type Database = {
           promo_video_url: string | null;
           primary_color: string | null;
           secondary_color: string | null;
-          constitution_url: string | null;
-          bylaws_version: number;
+          widgets_config: Json | null;
           created_at: string;
           updated_at: string;
         };
@@ -142,8 +417,7 @@ export type Database = {
           promo_video_url?: string | null;
           primary_color?: string | null;
           secondary_color?: string | null;
-          constitution_url?: string | null;
-          bylaws_version?: number;
+          widgets_config?: Json | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -175,8 +449,7 @@ export type Database = {
           promo_video_url?: string | null;
           primary_color?: string | null;
           secondary_color?: string | null;
-          constitution_url?: string | null;
-          bylaws_version?: number;
+          widgets_config?: Json | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -957,6 +1230,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      ticket_claim_attempts: {
+        Row: {
+          id: string;
+          event_id: string;
+          user_id: string;
+          ip_hash: string;
+          device_fingerprint_hash: string | null;
+          idempotency_key: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          user_id: string;
+          ip_hash: string;
+          device_fingerprint_hash?: string | null;
+          idempotency_key?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          user_id?: string;
+          ip_hash?: string;
+          device_fingerprint_hash?: string | null;
+          idempotency_key?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ticket_claim_attempts_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ticket_claim_attempts_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       events: {
         Row: {
           id: string;
@@ -976,6 +1294,7 @@ export type Database = {
           location_lat: number | null;
           location_lon: number | null;
           has_photography: boolean;
+          is_high_demand: boolean;
 
           location: any;
           metadata: Json | null;
@@ -1037,6 +1356,7 @@ export type Database = {
           location_lat?: number | null;
           location_lon?: number | null;
           has_photography?: boolean;
+          is_high_demand?: boolean;
 
           location?: any;
           metadata?: Json | null;
@@ -1097,6 +1417,7 @@ export type Database = {
           location_lat?: number | null;
           location_lon?: number | null;
           has_photography?: boolean;
+          is_high_demand?: boolean;
 
           location?: any;
           metadata?: Json | null;
@@ -1446,6 +1767,156 @@ export type Database = {
         };
         Relationships: [];
       };
+      event_feedback_safety_alerts: {
+        Row: {
+          id: string;
+          event_id: string;
+          feedback_id: string | null;
+          raw_feedback: string;
+          detection_source: "llm_marker" | "deterministic_safety_language" | "both";
+          llm_output: string | null;
+          status: "open" | "acknowledged" | "resolved";
+          sms_sent_at: string | null;
+          email_sent_at: string | null;
+          last_delivery_error: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          feedback_id?: string | null;
+          raw_feedback: string;
+          detection_source: "llm_marker" | "deterministic_safety_language" | "both";
+          llm_output?: string | null;
+          status?: "open" | "acknowledged" | "resolved";
+          sms_sent_at?: string | null;
+          email_sent_at?: string | null;
+          last_delivery_error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          feedback_id?: string | null;
+          raw_feedback?: string;
+          detection_source?: "llm_marker" | "deterministic_safety_language" | "both";
+          llm_output?: string | null;
+          status?: "open" | "acknowledged" | "resolved";
+          sms_sent_at?: string | null;
+          email_sent_at?: string | null;
+          last_delivery_error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_feedback_safety_alerts_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "event_feedback_safety_alerts_feedback_id_fkey";
+            columns: ["feedback_id"];
+            isOneToOne: true;
+            referencedRelation: "event_feedback";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      event_broadcast_sessions: {
+        Row: {
+          id: string;
+          event_id: string;
+          presenter_user_id: string | null;
+          primary_stream_url: string | null;
+          fallback_slate_url: string;
+          active_source: "primary" | "fallback";
+          state: "primary" | "fallback" | "recovering" | "ended";
+          connection_state: "connected" | "disconnected" | "failed" | "checking";
+          failure_reason: string | null;
+          last_heartbeat_at: string | null;
+          fallback_activated_at: string | null;
+          recovered_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          presenter_user_id?: string | null;
+          primary_stream_url?: string | null;
+          fallback_slate_url?: string;
+          active_source?: "primary" | "fallback";
+          state?: "primary" | "fallback" | "recovering" | "ended";
+          connection_state?: "connected" | "disconnected" | "failed" | "checking";
+          failure_reason?: string | null;
+          last_heartbeat_at?: string | null;
+          fallback_activated_at?: string | null;
+          recovered_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          presenter_user_id?: string | null;
+          primary_stream_url?: string | null;
+          fallback_slate_url?: string;
+          active_source?: "primary" | "fallback";
+          state?: "primary" | "fallback" | "recovering" | "ended";
+          connection_state?: "connected" | "disconnected" | "failed" | "checking";
+          failure_reason?: string | null;
+          last_heartbeat_at?: string | null;
+          fallback_activated_at?: string | null;
+          recovered_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      event_broadcast_health_events: {
+        Row: {
+          id: string;
+          session_id: string;
+          event_id: string;
+          connection_state: "connected" | "disconnected" | "failed" | "checking";
+          requested_source: "primary" | "fallback";
+          av_check_passed: boolean;
+          provider_switch_status: "pending" | "succeeded" | "failed" | "not_configured";
+          provider_error: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          session_id: string;
+          event_id: string;
+          connection_state: "connected" | "disconnected" | "failed" | "checking";
+          requested_source: "primary" | "fallback";
+          av_check_passed?: boolean;
+          provider_switch_status?: "pending" | "succeeded" | "failed" | "not_configured";
+          provider_error?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          session_id?: string;
+          event_id?: string;
+          connection_state?: "connected" | "disconnected" | "failed" | "checking";
+          requested_source?: "primary" | "fallback";
+          av_check_passed?: boolean;
+          provider_switch_status?: "pending" | "succeeded" | "failed" | "not_configured";
+          provider_error?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       event_feedback: {
         Row: {
           id: string;
@@ -1472,6 +1943,50 @@ export type Database = {
           created_at?: string;
         };
         Relationships: [];
+      };
+      event_feedback_summaries: {
+        Row: {
+          id: string;
+          event_id: string;
+          executive_summary_markdown: string;
+          top_positives: Json;
+          top_improvements: Json;
+          review_count: number;
+          generated_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          executive_summary_markdown: string;
+          top_positives?: Json;
+          top_improvements?: Json;
+          review_count?: number;
+          generated_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          executive_summary_markdown?: string;
+          top_positives?: Json;
+          top_improvements?: Json;
+          review_count?: number;
+          generated_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_feedback_summaries_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: true;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       event_feedbacks: {
         Row: {
@@ -3259,6 +3774,69 @@ export type Database = {
       };
     };
     Functions: {
+      start_event_broadcast_session: {
+        Args: {
+          p_event_id: string;
+          p_presenter_user_id: string;
+          p_primary_stream_url?: string | null;
+          p_fallback_slate_url?: string;
+        };
+        Returns: Database["public"]["Tables"]["event_broadcast_sessions"]["Row"];
+      };
+      report_presenter_av_check: {
+        Args: {
+          p_session_id: string;
+          p_connection_state: "connected" | "disconnected" | "failed" | "checking";
+          p_av_check_passed: boolean;
+        };
+        Returns: Database["public"]["Tables"]["event_broadcast_sessions"]["Row"];
+      };
+      apply_broadcast_media_signal: {
+        Args: {
+          p_event_id: string;
+          p_connection_state: "connected" | "disconnected" | "failed" | "checking";
+          p_av_check_passed?: boolean;
+          p_failure_reason?: string | null;
+          p_metadata?: Json;
+        };
+        Returns: Database["public"]["Tables"]["event_broadcast_sessions"]["Row"];
+      };
+      get_open_feedback_safety_alerts: {
+        Args: Record<string, never>;
+        Returns: Database["public"]["Tables"]["event_feedback_safety_alerts"]["Row"][];
+      };
+      is_feedback_safety_reviewer: {
+        Args: { p_user_id: string };
+        Returns: boolean;
+      };
+      create_co_sponsor_request: {
+        Args: {
+          p_event_id: string;
+          p_club_id: string;
+          p_contribution_amount: number;
+        };
+        Returns: Json;
+      };
+      respond_to_co_sponsor_request: {
+        Args: {
+          p_request_id: string;
+          p_approved: boolean;
+        };
+        Returns: Json;
+      };
+      enforce_ticket_claim_rate_limit: {
+        Args: {
+          p_event_id: string;
+          p_user_id: string;
+          p_ip_address: string;
+          p_device_fingerprint?: string | null;
+          p_idempotency_key?: string | null;
+          p_hash_secret?: string | null;
+          p_window_seconds?: number;
+          p_max_claims?: number;
+        };
+        Returns: Json;
+      };
       create_campaign_donation_matches: {
         Args: {
           p_donation_id: string;
