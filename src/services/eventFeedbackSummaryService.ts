@@ -20,6 +20,7 @@ export interface EventFeedbackSummary {
 
 export interface FeedbackSummaryResponse {
   success: boolean;
+  criticalSafetyThreat?: boolean;
   summary?: EventFeedbackSummary;
   isDataScarcity?: boolean;
   message?: string;
@@ -113,9 +114,7 @@ export async function getExistingFeedbackSummary(
 /**
  * Invokes the Edge Function to generate or re-generate an LLM Executive Summary from raw event feedback.
  */
-export async function generateFeedbackSummary(
-  eventId: string,
-): Promise<FeedbackSummaryResponse> {
+export async function generateFeedbackSummary(eventId: string): Promise<FeedbackSummaryResponse> {
   try {
     const { data, error } = await supabase.functions.invoke("summarize-event-feedback", {
       body: { eventId },
@@ -125,6 +124,16 @@ export async function generateFeedbackSummary(
       return {
         success: false,
         error: error.message || "Failed to generate AI summary.",
+      };
+    }
+
+    if (data?.criticalSafetyThreat) {
+      return {
+        success: true,
+        criticalSafetyThreat: true,
+        message:
+          data.message ||
+          "Critical safety feedback was routed to the designated safety administrators.",
       };
     }
 

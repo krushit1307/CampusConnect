@@ -129,13 +129,12 @@ const MessagesRoute = lazy(() => import("./routes/messages"));
 const PendingClubsAdmin = lazy(() => import("./routes/admin.clubs.pending"));
 const AnalyticsAdmin = lazy(() => import("./routes/admin.analytics"));
 const ConstitutionReviewAdmin = lazy(() => import("./routes/admin.constitutions"));
+const FeedbackSafetyAdmin = lazy(() => import("./routes/admin.feedback-safety"));
 const AdminReportsPage = lazy(() => import("./routes/admin.reports"));
 const AdminUsersPage = lazy(() => import("./routes/admin.users"));
 const AdminRestorePage = lazy(() => import("./routes/admin.restore"));
 const AdminDlqPage = lazy(() => import("./routes/admin.dlq"));
 const AdminEmergencyBroadcast = lazy(() => import("./routes/admin.emergency-broadcast"));
-const AdminBadgesPage = lazy(() => import("./routes/admin.badges"));
-const NotFound = lazy(() => import("./routes/NotFound"));
 const AdminBadgesPage = lazy(() => import("./routes/admin.badges"));
 const NotFound = lazy(() => import("./routes/NotFound"));
 const ChallengeArena = lazy(() => import("./routes/challenge"));
@@ -344,6 +343,7 @@ const router = createBrowserRouter(
                 <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
                 <Route path="/admin/analytics" element={<AnalyticsAdmin />} />
                 <Route path="/admin/constitutions" element={<ConstitutionReviewAdmin />} />
+                <Route path="/admin/feedback-safety" element={<FeedbackSafetyAdmin />} />
                 <Route path="/verify-email" element={<VerifyEmail />} />
                 <Route path="/messages" element={<MessagesRoute />} />
                 <Route path="/admin/reports" element={<AdminReportsPage />} />
@@ -407,7 +407,6 @@ const router = createBrowserRouter(
 
             <Route path="/gallery" element={<GalleryPage />} />
           </Route>
-          feature/3022-club-hibernation-workflow
           <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
           <Route
             path="/events/:eventId/kiosk"

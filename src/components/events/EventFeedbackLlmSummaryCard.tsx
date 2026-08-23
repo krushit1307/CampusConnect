@@ -1,5 +1,13 @@
 import React, { useState } from "react";
-import { Sparkles, RefreshCw, ThumbsUp, Wrench, AlertCircle, CheckCircle2, FileText } from "lucide-react";
+import {
+  Sparkles,
+  RefreshCw,
+  ThumbsUp,
+  Wrench,
+  AlertCircle,
+  CheckCircle2,
+  FileText,
+} from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getExistingFeedbackSummary,
@@ -31,7 +39,14 @@ export const EventFeedbackLlmSummaryCard: React.FC<EventFeedbackLlmSummaryCardPr
   const generateMutation = useMutation({
     mutationFn: () => generateFeedbackSummary(eventId),
     onSuccess: (res) => {
-      if (res.success && res.summary) {
+      if (res.criticalSafetyThreat) {
+        setFeedbackNotice({
+          type: "error",
+          text:
+            res.message ||
+            "Critical safety feedback was routed to Campus Police and Student Union safety administrators.",
+        });
+      } else if (res.success && res.summary) {
         queryClient.setQueryData(["event_feedback_llm_summary", eventId], res.summary);
         setFeedbackNotice({
           type: "success",
@@ -80,7 +95,9 @@ export const EventFeedbackLlmSummaryCard: React.FC<EventFeedbackLlmSummaryCardPr
           disabled={generateMutation.isPending}
           className="inline-flex items-center justify-center gap-2 border-2 border-black bg-yellow-300 px-4 py-2 font-mono text-xs font-black uppercase shadow-[2px_2px_0_0_#000] transition-all hover:bg-yellow-400 hover:shadow-[3px_3px_0_0_#000] active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${generateMutation.isPending ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`h-3.5 w-3.5 ${generateMutation.isPending ? "animate-spin" : ""}`}
+          />
           {generateMutation.isPending
             ? "Analyzing..."
             : summary

@@ -1764,6 +1764,66 @@ export type Database = {
         };
         Relationships: [];
       };
+      event_feedback_safety_alerts: {
+        Row: {
+          id: string;
+          event_id: string;
+          feedback_id: string | null;
+          raw_feedback: string;
+          detection_source: "llm_marker" | "deterministic_safety_language" | "both";
+          llm_output: string | null;
+          status: "open" | "acknowledged" | "resolved";
+          sms_sent_at: string | null;
+          email_sent_at: string | null;
+          last_delivery_error: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          feedback_id?: string | null;
+          raw_feedback: string;
+          detection_source: "llm_marker" | "deterministic_safety_language" | "both";
+          llm_output?: string | null;
+          status?: "open" | "acknowledged" | "resolved";
+          sms_sent_at?: string | null;
+          email_sent_at?: string | null;
+          last_delivery_error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          feedback_id?: string | null;
+          raw_feedback?: string;
+          detection_source?: "llm_marker" | "deterministic_safety_language" | "both";
+          llm_output?: string | null;
+          status?: "open" | "acknowledged" | "resolved";
+          sms_sent_at?: string | null;
+          email_sent_at?: string | null;
+          last_delivery_error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_feedback_safety_alerts_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "event_feedback_safety_alerts_feedback_id_fkey";
+            columns: ["feedback_id"];
+            isOneToOne: true;
+            referencedRelation: "event_feedback";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       event_feedback: {
         Row: {
           id: string;
@@ -1790,6 +1850,50 @@ export type Database = {
           created_at?: string;
         };
         Relationships: [];
+      };
+      event_feedback_summaries: {
+        Row: {
+          id: string;
+          event_id: string;
+          executive_summary_markdown: string;
+          top_positives: Json;
+          top_improvements: Json;
+          review_count: number;
+          generated_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          executive_summary_markdown: string;
+          top_positives?: Json;
+          top_improvements?: Json;
+          review_count?: number;
+          generated_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          executive_summary_markdown?: string;
+          top_positives?: Json;
+          top_improvements?: Json;
+          review_count?: number;
+          generated_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_feedback_summaries_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: true;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       event_feedbacks: {
         Row: {
@@ -3577,6 +3681,14 @@ export type Database = {
       };
     };
     Functions: {
+      get_open_feedback_safety_alerts: {
+        Args: Record<string, never>;
+        Returns: Database["public"]["Tables"]["event_feedback_safety_alerts"]["Row"][];
+      };
+      is_feedback_safety_reviewer: {
+        Args: { p_user_id: string };
+        Returns: boolean;
+      };
       create_co_sponsor_request: {
         Args: {
           p_event_id: string;
