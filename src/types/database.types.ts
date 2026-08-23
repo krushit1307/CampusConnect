@@ -29,6 +29,116 @@ export type Database = {
           created_at?: string;
         };
       };
+      constitution_documents: {
+        Row: {
+          id: string;
+          club_id: string;
+          uploaded_by: string;
+          file_url: string;
+          raw_text: string | null;
+          status: "pending_review" | "approved" | "rejected" | "requires_revision";
+          overall_risk_score: number;
+          plagiarism_score: number;
+          plagiarism_review_required: boolean;
+          plagiarism_matches: Json;
+          plagiarism_scanned_at: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          club_id: string;
+          uploaded_by: string;
+          file_url: string;
+          raw_text?: string | null;
+          status?: "pending_review" | "approved" | "rejected" | "requires_revision";
+          overall_risk_score?: number;
+          plagiarism_score?: number;
+          plagiarism_review_required?: boolean;
+          plagiarism_matches?: Json;
+          plagiarism_scanned_at?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          club_id?: string;
+          uploaded_by?: string;
+          file_url?: string;
+          raw_text?: string | null;
+          status?: "pending_review" | "approved" | "rejected" | "requires_revision";
+          overall_risk_score?: number;
+          plagiarism_score?: number;
+          plagiarism_review_required?: boolean;
+          plagiarism_matches?: Json;
+          plagiarism_scanned_at?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "constitution_documents_club_id_fkey";
+            columns: ["club_id"];
+            isOneToOne: false;
+            referencedRelation: "clubs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "constitution_documents_uploaded_by_fkey";
+            columns: ["uploaded_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      constitution_violations: {
+        Row: {
+          id: string;
+          document_id: string;
+          clause_reference: string | null;
+          quote: string;
+          reason: string;
+          severity: "info" | "warning" | "severe";
+          is_resolved: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          document_id: string;
+          clause_reference?: string | null;
+          quote: string;
+          reason: string;
+          severity?: "info" | "warning" | "severe";
+          is_resolved?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          document_id?: string;
+          clause_reference?: string | null;
+          quote?: string;
+          reason?: string;
+          severity?: "info" | "warning" | "severe";
+          is_resolved?: boolean;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "constitution_violations_document_id_fkey";
+            columns: ["document_id"];
+            isOneToOne: false;
+            referencedRelation: "constitution_documents";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       constitution_signatures: {
         Row: {
           id: string;

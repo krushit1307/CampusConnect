@@ -128,6 +128,7 @@ const Directory = lazy(() => import("./routes/Directory"));
 const MessagesRoute = lazy(() => import("./routes/messages"));
 const PendingClubsAdmin = lazy(() => import("./routes/admin.clubs.pending"));
 const AnalyticsAdmin = lazy(() => import("./routes/admin.analytics"));
+const ConstitutionReviewAdmin = lazy(() => import("./routes/admin.constitutions"));
 const AdminReportsPage = lazy(() => import("./routes/admin.reports"));
 const AdminUsersPage = lazy(() => import("./routes/admin.users"));
 const AdminRestorePage = lazy(() => import("./routes/admin.restore"));
@@ -342,6 +343,7 @@ const router = createBrowserRouter(
                 <Route path="/network" element={<NetworkPage />} />
                 <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
                 <Route path="/admin/analytics" element={<AnalyticsAdmin />} />
+                <Route path="/admin/constitutions" element={<ConstitutionReviewAdmin />} />
                 <Route path="/verify-email" element={<VerifyEmail />} />
                 <Route path="/messages" element={<MessagesRoute />} />
                 <Route path="/admin/reports" element={<AdminReportsPage />} />
@@ -405,7 +407,7 @@ const router = createBrowserRouter(
 
             <Route path="/gallery" element={<GalleryPage />} />
           </Route>
- feature/3022-club-hibernation-workflow
+          feature/3022-club-hibernation-workflow
           <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
           <Route
             path="/events/:eventId/kiosk"
@@ -444,16 +446,12 @@ const router = createBrowserRouter(
           <Route path="/admin/dlq" element={<AdminDlqPage />} />
           <Route path="/admin/leadership-approvals" element={<AdminLeadershipApprovals />} />
           <Route path="/equipment-rentals" element={<EquipmentMarketplace />} />
-<<<<<<< Updated upstream
-=======
           <Route path="/wrapped/2026" element={<Wrapped2026 />} />
           <Route path="/skill-swap" element={<SkillSwapMarketplace />} />
-            <Route path="/wellness" element={<CampusWellnessHub />} />
->>>>>>> Stashed changes
+          <Route path="/wellness" element={<CampusWellnessHub />} />
           <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
           {/* Catch-all route for 404 errors */}
           <Route path="*" element={<NotFound />} />
-
         </Route>
       </Route>
     </>,
