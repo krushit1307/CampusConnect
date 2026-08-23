@@ -508,6 +508,7 @@ export default function SettingsPage() {
         role: (profile?.role as any) || "student",
         expectedGraduationDate: profile?.expected_graduation_date || "",
         preferredCurrency: profile?.preferred_currency || "USD",
+        showOnLeaderboard: profile?.show_on_leaderboard !== false,
       });
 
       // Hydrate dietary restrictions from profile (text[])
@@ -645,6 +646,7 @@ export default function SettingsPage() {
         dietary_restrictions: dedupedDietary,
         expected_graduation_date: values.expectedGraduationDate || null,
         preferred_currency: values.preferredCurrency,
+        show_on_leaderboard: values.showOnLeaderboard,
         course_codes: [
           ...new Set(
             courseCodes.map((courseCode) => courseCode.trim().toUpperCase()).filter(Boolean),
@@ -1104,54 +1106,25 @@ export default function SettingsPage() {
                   }}
                 />
 
-                {/* ── Dietary Restrictions Editor ── */}
-                <div className="space-y-2 pt-2">
-                  <p className="eyebrow font-bold text-black">Dietary & Accessibility Needs</p>
-                  <p className="font-mono text-xs text-muted-foreground">
-                    Automatically applied to all your event RSVPs. You can hide them per-event if
-                    needed.
-                  </p>
-
-                  {dietaryRestrictions.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {dietaryRestrictions.map((item) => (
-                        <span
-                          key={item}
-                          className="neu-border inline-flex items-center gap-1 bg-yellow-200 px-2.5 py-1 font-mono text-xs font-bold"
-                        >
-                          {item}
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveDietary(item)}
-                            className="ml-1 flex h-4 w-4 items-center justify-center bg-black text-white hover:bg-gray-800"
-                            aria-label={`Remove ${item}`}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
+                <FormField
+                  control={form.control}
+                  name="showOnLeaderboard"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center justify-between gap-4 border-b-2 border-black pb-4 pt-2">
+                      <div>
+                        <FormLabel className="eyebrow font-bold text-black">
+                          Show on Public Leaderboard
+                        </FormLabel>
+                        <p className="font-mono text-[10px] text-muted-foreground">
+                          Display your gamification points on the campus-wide leaderboard.
+                        </p>
+                      </div>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
                   )}
-
-                  <div className="flex w-full gap-2 pt-1">
-                    <input
-                      ref={dietaryInputRef}
-                      type="text"
-                      className="neu-input flex-1 font-mono text-sm"
-                      placeholder="e.g. Vegan, Celiac, Peanut Allergy..."
-                      value={dietaryInput}
-                      onChange={(e) => setDietaryInput(e.target.value)}
-                      onKeyDown={handleDietaryKeyDown}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddDietary}
-                      className="neu-border bg-black px-4 font-mono font-bold text-white hover:bg-gray-800"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
+                />
 
                 {/* ── Skills Tags Editor ── */}
                 <div className="space-y-2 pt-2">

@@ -76,9 +76,7 @@ export function getDefaultExpenseItems(): ExpenseItem[] {
 /**
  * Standard default financial inputs for an upcoming campus event.
  */
-export function getDefaultEventFinancialInputs(
-  eventId: string = "evt-demo-1",
-): EventFinancialInputs {
+export function getDefaultEventFinancialInputs(eventId: string = "evt-demo-1"): EventFinancialInputs {
   return {
     eventId,
     eventTitle: "Annual Spring Gala & Awards Night",
@@ -167,7 +165,7 @@ export function calculateEventBreakEven(inputs: EventFinancialInputs): BreakEven
 export function generateSensitivityMatrix(
   inputs: EventFinancialInputs,
   priceDeltas: number[] = [-10, -5, 0, 5, 10],
-  attendanceRates: number[] = [0.5, 0.65, 0.8, 0.9, 1.0],
+  attendanceRates: number[] = [0.5, 0.65, 0.8, 0.9, 1.0]
 ): {
   prices: number[];
   attendanceRates: number[];
@@ -235,7 +233,7 @@ export function generateScenarioComparisons(inputs: EventFinancialInputs): RoiSc
 export function exportEventBudgetRoiCSV(
   inputs: EventFinancialInputs,
   result: BreakEvenAnalysisResult,
-  fileName: string = "event_budget_roi_plan.csv",
+  fileName: string = "event_budget_roi_plan.csv"
 ): void {
   const lines = [
     `Event Financial Feasibility & Break-Even Analysis`,
@@ -278,7 +276,7 @@ export function exportEventBudgetRoiCSV(
  */
 export async function saveEventBudgetForecast(
   inputs: EventFinancialInputs,
-  result: BreakEvenAnalysisResult,
+  result: BreakEvenAnalysisResult
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const payload = {

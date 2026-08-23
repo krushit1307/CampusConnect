@@ -15,6 +15,8 @@ import WifiOff from "lucide-react/dist/esm/icons/wifi-off";
 import Bookmark from "lucide-react/dist/esm/icons/bookmark";
 import Search from "lucide-react/dist/esm/icons/search";
 import { useAuthHydration } from "@/hooks/useAuthHydration";
+import { useProfileCompleteness } from "@/hooks/useProfileCompleteness";
+import { ProfileCompletionAvatar } from "./ProfileCompletionAvatar";
 import { ProfileHeaderSkeleton } from "@/components/ProfileHeaderSkeleton";
 import { openCommandPalette } from "@/lib/commandPalette";
 import {
@@ -41,6 +43,7 @@ export function Navbar() {
   const { t, i18n } = useTranslation();
   const currentPath = location.pathname;
   const supabase = createClient();
+  const { data: completionPercentage } = useProfileCompleteness(user?.id ?? null);
 
   const navigate = useNavigate();
 
@@ -254,13 +257,10 @@ export function Navbar() {
           ) : user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="User menu"
-                  className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-lime font-mono text-xs font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 dark:focus-visible:ring-cream"
-                >
-                  {user.email?.[0]?.toUpperCase() ?? "U"}
-                </button>
+                <ProfileCompletionAvatar
+                  initials={user.email?.[0]?.toUpperCase() ?? "U"}
+                  percentage={completionPercentage}
+                />
               </DropdownMenuTrigger>
 
               <DropdownMenuContent align="end" className="w-56">
@@ -342,13 +342,10 @@ export function Navbar() {
         {user ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label="User menu"
-                className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-black bg-lime font-mono text-xs font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 dark:focus-visible:ring-cream"
-              >
-                {user.email?.[0]?.toUpperCase() ?? "U"}
-              </button>
+              <ProfileCompletionAvatar
+                initials={user.email?.[0]?.toUpperCase() ?? "U"}
+                percentage={completionPercentage}
+              />
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" className="w-56">

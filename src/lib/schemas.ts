@@ -107,7 +107,7 @@ export const profileSchema = z.object({
     }, "Please enter a valid phone number (minimum 10 digits)."),
   expectedGraduationDate: z.string().optional().or(z.literal("")),
   preferredCurrency: z.enum(SUPPORTED_CURRENCY_CODES).default("USD"),
-  dietaryRestrictions: z.array(z.string()).optional(),
+  showOnLeaderboard: z.boolean().default(true),
 });
 
 export type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -229,7 +229,7 @@ export const ProfileUpdateAllowlistSchema = z
     skills: z.array(z.string()).optional(),
     expected_graduation_date: z.string().nullable().optional().or(z.literal("")),
     preferred_currency: z.enum(SUPPORTED_CURRENCY_CODES),
-    dietary_restrictions: z.array(z.string()).optional(),
+    show_on_leaderboard: z.boolean().optional(),
   })
   .strict(); // Strips or rejects any unmapped properties
 
