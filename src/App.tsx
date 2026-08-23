@@ -170,7 +170,9 @@ const CampusWellnessHub = lazy(() => import("./pages/wellness/CampusWellnessHub"
 const ReferralDashboardRoute = lazy(() => import("./pages/ReferralDashboard"));
 const ReferralLeaderboardRoute = lazy(() => import("./pages/ReferralLeaderboard"));
 const AudioTourRoute = lazy(() => import("./routes/audio-tour"));
-const PollOverlayRoute = lazy(() => import("./routes/overlay.poll.$poll_id")); // ---------------------------------------------------------------------------
+const DynamicEarlyBirdAnalyticsRoute = lazy(() => import("./routes/events.$id.early-bird-analytics"));
+
+// ---------------------------------------------------------------------------
 // Animated Outlet Wrapper for Framer Motion transitions with Skeleton Fallback
 // ---------------------------------------------------------------------------
 function AnimatedOutlet() {
@@ -324,6 +326,7 @@ const router = createBrowserRouter(
                   }
                 />
                 <Route path="/events/:eventId/gantt" element={<EventGantt />} />
+                <Route path="/events/:eventId/early-bird-analytics" element={<DynamicEarlyBirdAnalyticsRoute />} />
                 {/* Events Map View with clustering */}
                 <Route path="events/map" element={<EventsMapPage />} />
                 {/* Campus Heatmap - Live Activity */}
