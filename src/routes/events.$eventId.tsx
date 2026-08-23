@@ -130,6 +130,7 @@ import { EditEventDialog } from "@/components/EditEventDialog";
 import { DynamicEventPoster } from "@/components/events/DynamicEventPoster";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { CreatePollDialog } from "@/components/polls/CreatePollDialog";
+import { EventCoSponsorshipPortal } from "@/components/events/EventCoSponsorshipPortal";
 import { ActivePoll } from "@/components/polls/ActivePoll";
 import { SteganographicQRScanner } from "@/components/SteganographicQRScanner";
 import { CaptchaWidget } from "@/components/CaptchaWidget";
@@ -2581,6 +2582,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
             </div>
 
             <EventFaqSection eventId={event.id} isOrganizer={isOrganizer} userId={user?.id} />
+            {user && <EventCoSponsorshipPortal eventId={event.id} isOrganizer={isOrganizer} />}
             {/* Kanban Board for Organizer */}
             {isOrganizer && (
               <div className="mt-12 border-t-4 border-black pt-10">

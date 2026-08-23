@@ -29,6 +29,172 @@ export type Database = {
           created_at?: string;
         };
       };
+      club_transactions: {
+        Row: {
+          id: string;
+          club_id: string;
+          amount: number;
+          transaction_type: "INCOME" | "EXPENSE";
+          category: string;
+          description: string;
+          receipt_url: string | null;
+          funding_request_id: string | null;
+          co_sponsor_id: string | null;
+          event_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          club_id: string;
+          amount: number;
+          transaction_type: "INCOME" | "EXPENSE";
+          category: string;
+          description: string;
+          receipt_url?: string | null;
+          funding_request_id?: string | null;
+          co_sponsor_id?: string | null;
+          event_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          club_id?: string;
+          amount?: number;
+          transaction_type?: "INCOME" | "EXPENSE";
+          category?: string;
+          description?: string;
+          receipt_url?: string | null;
+          funding_request_id?: string | null;
+          co_sponsor_id?: string | null;
+          event_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "club_transactions_club_id_fkey";
+            columns: ["club_id"];
+            isOneToOne: false;
+            referencedRelation: "clubs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "club_transactions_co_sponsor_id_fkey";
+            columns: ["co_sponsor_id"];
+            isOneToOne: false;
+            referencedRelation: "co_sponsors";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      co_sponsors: {
+        Row: {
+          id: string;
+          event_id: string;
+          club_id: string;
+          requested_by: string;
+          contribution_amount: number;
+          status: "pending" | "approved" | "rejected" | "refunded";
+          approved_by: string | null;
+          approved_at: string | null;
+          refunded_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          club_id: string;
+          requested_by: string;
+          contribution_amount: number;
+          status?: "pending" | "approved" | "rejected" | "refunded";
+          approved_by?: string | null;
+          approved_at?: string | null;
+          refunded_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          club_id?: string;
+          requested_by?: string;
+          contribution_amount?: number;
+          status?: "pending" | "approved" | "rejected" | "refunded";
+          approved_by?: string | null;
+          approved_at?: string | null;
+          refunded_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "co_sponsors_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "co_sponsors_club_id_fkey";
+            columns: ["club_id"];
+            isOneToOne: false;
+            referencedRelation: "clubs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      event_escrow_ledger: {
+        Row: {
+          id: string;
+          event_id: string;
+          co_sponsor_id: string;
+          club_id: string;
+          amount: number;
+          entry_type: "deposit" | "refund";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          co_sponsor_id: string;
+          club_id: string;
+          amount: number;
+          entry_type: "deposit" | "refund";
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          co_sponsor_id?: string;
+          club_id?: string;
+          amount?: number;
+          entry_type?: "deposit" | "refund";
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_escrow_ledger_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "event_escrow_ledger_co_sponsor_id_fkey";
+            columns: ["co_sponsor_id"];
+            isOneToOne: false;
+            referencedRelation: "co_sponsors";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "event_escrow_ledger_club_id_fkey";
+            columns: ["club_id"];
+            isOneToOne: false;
+            referencedRelation: "clubs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       constitution_documents: {
         Row: {
           id: string;
@@ -3411,6 +3577,21 @@ export type Database = {
       };
     };
     Functions: {
+      create_co_sponsor_request: {
+        Args: {
+          p_event_id: string;
+          p_club_id: string;
+          p_contribution_amount: number;
+        };
+        Returns: Json;
+      };
+      respond_to_co_sponsor_request: {
+        Args: {
+          p_request_id: string;
+          p_approved: boolean;
+        };
+        Returns: Json;
+      };
       enforce_ticket_claim_rate_limit: {
         Args: {
           p_event_id: string;
