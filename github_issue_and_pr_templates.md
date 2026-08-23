@@ -2,18 +2,21 @@
 
 ## Feature: Real-Time Hardware Resource Status Dashboard & AWS EC2 Kill Switch
 - **Issue Number**: [#4304](https://github.com/krushit1307/CampusConnect/issues/4304)
+- **Pull Request**: [#4318](https://github.com/krushit1307/CampusConnect/pull/4318)
 - **Feature Title**: `feat(architecture): build real-time hardware resource status dashboard`
 - **Domain**: Cloud Infrastructure & Compute Telemetry
-- **Status**: Implemented & Ready for PR
+- **Status**: PR Submitted & Live
 - **Branch**: `feature/hardware-resource-dashboard-4304`
 - **Components & Services**:
-  - `src/components/hardware/HardwareResourceDashboard.tsx`
-  - `src/services/hardwareTelemetryService.ts`
-  - `src/routes/admin.hardware-telemetry.tsx`
-  - `src/routes/events.$id.hardware-resources.tsx`
-  - `src/types/hardwareTelemetry.ts`
-  - `supabase/functions/hardware-telemetry-ingest/index.ts`
-  - `supabase/migrations/20261231000028_hardware_resource_telemetry.sql`
+  - `src/components/hardware/HardwareResourceDashboard.tsx` (811 lines)
+  - `src/components/hardware/InstanceProcessManagerModal.tsx` (210 lines)
+  - `src/services/hardwareTelemetryService.ts` (487 lines)
+  - `src/services/hardwareCostForecaster.ts` (185 lines)
+  - `src/routes/admin.hardware-telemetry.tsx` (50 lines)
+  - `src/routes/events.$id.hardware-resources.tsx` (103 lines)
+  - `src/types/hardwareTelemetry.ts` (110 lines)
+  - `supabase/functions/hardware-telemetry-ingest/index.ts` (79 lines)
+  - `supabase/migrations/20261231000028_hardware_resource_telemetry.sql` (138 lines)
 - **Summary**:
   Real-time cloud infrastructure monitoring dashboard connecting to AWS CloudWatch metric streams, evaluating CPU/GPU load, detecting unauthorized crypto-mining loops (`xmrig`), providing 1-click AWS EC2 kill switches, and enforcing hackathon compute budget limits.
 
