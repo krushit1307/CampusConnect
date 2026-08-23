@@ -29,9 +29,9 @@ import { BreadcrumbProvider } from "@/components/BreadcrumbsContext";
 import AriaAnnouncer from "@/components/accessibility/AriaAnnouncer";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { EmergencyBroadcastOverlay } from "@/components/EmergencyBroadcastOverlay";
-import { LoginRecoveryModal } from "@/components/auth/LoginRecoveryModal";
-import { MfaChallengeGuard } from "@/components/auth/MfaChallengeGuard";
-import { ComplianceCheckGuard } from "@/components/auth/ComplianceCheckGuard";
+import { LoginRecoveryModal } from "@/components/Auth/LoginRecoveryModal";
+import { MfaChallengeGuard } from "@/components/Auth/MfaChallengeGuard";
+import { ComplianceCheckGuard } from "@/components/Auth/ComplianceCheckGuard";
 import UnsubscribeRoute from "./routes/unsubscribe";
 function RemoteLoadingScreen() {
   return (
