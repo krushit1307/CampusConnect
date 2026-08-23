@@ -1,14 +1,11 @@
 import { Link, useParams } from "react-router-dom";
-import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
-import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
-import { useState, useEffect } from "react";
 import { useQuery, useMutation, setQueryData } from "@/hooks/useReactQueryReplacement";
+import { createClient, getSupabaseUrl } from "@/lib/supabase/client";
+import { useState, useEffect, lazy, Suspense, useMemo, useRef } from "react";
 import { queueRsvpSubmission } from "@/lib/events/offlineRsvpSync";
 import { useOfflineRsvpSync } from "@/hooks/useOfflineRsvpSync";
-import { createClient } from "@/lib/supabase/client";
 import { incrementEventViews } from "@/lib/supabase/events";
 import { uploadImageWithSignedUrl } from "@/lib/supabase/signedUpload";
-import { useState, useEffect, lazy, Suspense, useMemo, useRef } from "react";
 import { TableOfContents } from "@/components/events/TableOfContents";
 import { NotFound } from "@/components/NotFound";
 import { AttendeeVenueMap } from "@/components/events/AttendeeVenueMap";
@@ -18,6 +15,7 @@ import { useEmailVerification } from "@/hooks/useEmailVerification";
 import { SiteShell } from "@/components/site/SiteShell";
 import { SkeletonEventDetails } from "@/components/events/SkeletonEventDetails";
 import { EventSeatingManager } from "@/components/events/EventSeatingManager";
+import { SilentAuctionSection } from "@/components/events/SilentAuctionSection";
 import { InteractiveSeatingChart } from "@/components/events/InteractiveSeatingChart";
 import { formatEventDateRange, getGoogleCalendarUrl } from "@/lib/utils";
 import { useBannerColor } from "@/hooks/useBannerColor";
@@ -64,10 +62,12 @@ import {
 import LiveQA from "@/components/qa/LiveQA";
 import { CarpoolMatchingSection } from "@/components/events/carpool/CarpoolMatchingSection";
 import { EventLiveChat } from "@/components/events/EventLiveChat";
+import { EventBroadcastFallbackPanel } from "@/components/events/EventBroadcastFallbackPanel";
 import { EventSubmissions } from "@/components/EventSubmissions";
 import { ReportDialog } from "@/components/ReportDialog";
 import { GeofencedCheckInButton } from "@/components/GeofencedCheckInButton";
 import Ticket from "lucide-react/dist/esm/icons/ticket";
+import Send from "lucide-react/dist/esm/icons/send";
 import { useTicketDownload } from "@/hooks/useTicketDownload";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -452,6 +452,41 @@ export default function EventDetailsPage() {
   const [isDecryptedModalOpen, setIsDecryptedModalOpen] = useState(false);
   const { downloadTicket, isGenerating: isTicketGenerating } = useTicketDownload();
   const { visitorId } = useDeviceFingerprint();
+
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
+  const [transferEmail, setTransferEmail] = useState("");
+
+  const transferMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Please log in to transfer your ticket.");
+      if (!myRsvp?.ticket_id && !myRsvp?.id) {
+        throw new Error("You do not have a ticket to transfer.");
+      }
+
+      const ticketId = myRsvp.ticket_id || myRsvp.id;
+      const { data, error } = await supabase.rpc("transfer_ticket_transaction", {
+        p_ticket_id: ticketId,
+        p_sender_id: user.id,
+        p_recipient_email: transferEmail.trim(),
+      });
+
+      if (error) throw error;
+      if (data && !data.success) {
+        throw new Error(data.message || "Failed to transfer ticket.");
+      }
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Ticket transferred successfully!");
+      setIsTransferDialogOpen(false);
+      setTransferEmail("");
+      refetch();
+      refetchMyRsvp();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to transfer ticket.");
+    },
+  });
 
   const handleViewAccommodation = async (rsvpId: string) => {
     setIsDecrypting(true);
@@ -1955,15 +1990,25 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
 
               {/* Download Ticket — visible to confirmed attendees of upcoming/ongoing events */}
               {hasRsvpd && !hasEnded && (
-                <Button
-                  onClick={() => downloadTicket(event)}
-                  disabled={isTicketGenerating}
-                  variant="outline"
-                  className="neu-border neu-press h-12 bg-lime px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-60"
-                >
-                  <Ticket className="mr-2 h-4 w-4" />
-                  {isTicketGenerating ? "Generating…" : "Download Ticket"}
-                </Button>
+                <>
+                  <Button
+                    onClick={() => downloadTicket(event)}
+                    disabled={isTicketGenerating}
+                    variant="outline"
+                    className="neu-border neu-press h-12 bg-lime px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-60"
+                  >
+                    <Ticket className="mr-2 h-4 w-4" />
+                    {isTicketGenerating ? "Generating…" : "Download Ticket"}
+                  </Button>
+                  <Button
+                    onClick={() => setIsTransferDialogOpen(true)}
+                    variant="outline"
+                    className="neu-border neu-press h-12 bg-rose-600 hover:bg-rose-500 text-white px-5 font-mono text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 active:scale-95"
+                  >
+                    <Send className="mr-2 h-4 w-4 text-white" />
+                    Transfer Ticket
+                  </Button>
+                </>
               )}
 
               {isOrganizer && (
@@ -2034,6 +2079,69 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                   Report Event
                 </Button>
               )}
+
+              {/* Peer-to-Peer Ticket Transfer Dialog */}
+              <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
+                <DialogContent className="neu-border border-black bg-cream rounded-none p-6 text-black">
+                  <DialogHeader>
+                    <DialogTitle className="font-display text-xl font-bold uppercase text-rose-950 flex items-center gap-2">
+                      <Send className="w-5 h-5 text-rose-950" />
+                      Transfer Event Ticket
+                    </DialogTitle>
+                    <DialogDescription className="font-mono text-xs text-gray-700">
+                      Transfer your ticket to another student. This action is irreversible. The
+                      recipient must have an active account on CampusConnect.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="space-y-4 font-mono text-sm my-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold uppercase text-gray-700">
+                        Recipient Email Address
+                      </label>
+                      <input
+                        type="email"
+                        value={transferEmail}
+                        onChange={(e) => setTransferEmail(e.target.value)}
+                        placeholder="e.g. student@university.edu"
+                        className="neu-border bg-white p-2 font-mono text-sm w-full focus:outline-none"
+                        required
+                      />
+                    </div>
+
+                    <div className="border border-dashed border-red-400 bg-red-50/50 p-3 text-xs text-red-900 space-y-1">
+                      <p className="font-bold uppercase">⚠️ Scalper Prevention Policies:</p>
+                      <ul className="list-disc pl-4 space-y-0.5">
+                        <li>
+                          Only **Paid** tickets can be transferred. Free tickets cannot be
+                          transferred to prevent boarding/hoarding.
+                        </li>
+                        <li>
+                          Your current QR code / ticket PDF will be immediately and permanently
+                          invalidated.
+                        </li>
+                        <li>This transfer is completely free of charge on the platform.</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <DialogFooter className="flex gap-2">
+                    <button
+                      onClick={() => setIsTransferDialogOpen(false)}
+                      className="neu-border border-black bg-white text-black hover:bg-gray-50 font-bold uppercase px-4 py-2 font-mono text-xs shadow-[2px_2px_0_0_#000] focus:outline-none"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => transferMutation.mutate()}
+                      disabled={transferMutation.isPending || !transferEmail.trim()}
+                      className="neu-border border-black bg-rose-600 hover:bg-rose-500 text-white font-bold uppercase px-4 py-2 font-mono text-xs shadow-[2px_2px_0_0_#000] disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
+                    >
+                      {transferMutation.isPending ? "Transferring..." : "Confirm Transfer"}
+                    </button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
 
               {isCheckedIn && hasEnded && (
                 <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
@@ -2156,6 +2264,12 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
             <div className="mt-8">
               <EventLiveChat eventId={eventId} user={user} />
             </div>
+            {/* Realtime A/V failover broadcaster (Issue #4298) */}
+            <EventBroadcastFallbackPanel
+              eventId={eventId}
+              isOrganizer={isOrganizer}
+              presenterUserId={user?.id}
+            />
 
             {/* Public Guest List */}
             <div className="mt-8">
@@ -2199,6 +2313,13 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
 
             <EventSeatingManager eventId={event.id} isOrganizer={isOrganizer} />
 
+            <SilentAuctionSection
+              eventId={event.id}
+              eventEndDate={event.end_date}
+              userId={user?.id}
+              isOrganizer={Boolean(isOrganizer)}
+            />
+
             <InteractiveSeatingChart eventId={event.id} user={user} />
 
             {/* Interactive venue map layout for attendees */}
@@ -2210,6 +2331,8 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                 <AttendeeVenueMap
                   nodes={venueMapData.nodes}
                   backgroundImageUrl={venueMapData.map?.background_image_url}
+                  venueId={event.venue_id}
+                  eventId={event.id}
                 />
               </div>
             ) : event.map_layout &&

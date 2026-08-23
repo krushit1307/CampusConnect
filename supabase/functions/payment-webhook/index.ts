@@ -104,7 +104,51 @@ Deno.serve(async (req) => {
     if (stripeEvent.type === "checkout.session.completed") {
       const session = stripeEvent.data.object;
 
-      // 5a. Crowdfunding campaign donation
+      // 5a. Silent auction winner payment
+      if (session.metadata?.type === "auction_winner") {
+        const winnerId = session.metadata?.auction_winner_id;
+        const winnerUserId = session.metadata?.winner_user_id;
+        if (!winnerId || !winnerUserId) {
+          return new Response("Missing auction winner metadata", { status: 400 });
+        }
+
+        const { data: winner, error: winnerError } = await supabase
+          .from("auction_winners")
+          .select("id, winner_user_id, winning_bid, payment_status")
+          .eq("id", winnerId)
+          .maybeSingle();
+        if (
+          winnerError ||
+          !winner ||
+          winner.winner_user_id !== winnerUserId ||
+          winner.payment_status !== "pending" ||
+          (session.amount_total ?? 0) !== winner.winning_bid
+        ) {
+          console.error(`[Webhook Ingestion] Invalid auction winner payment ${winnerId}.`);
+          return new Response("Invalid auction winner payment", { status: 400 });
+        }
+
+        const { error: winnerUpdateError } = await supabase
+          .from("auction_winners")
+          .update({ payment_status: "paid" })
+          .eq("id", winnerId)
+          .eq("payment_status", "pending");
+        if (winnerUpdateError) {
+          console.error(
+            `[DB Error] Failed to mark auction winner ${winnerId} paid:`,
+            winnerUpdateError,
+          );
+          return new Response("Failed to record auction payment", { status: 500 });
+        }
+
+        console.log(`[Webhook Ingestion] Marked auction winner ${winnerId} as paid.`);
+        return new Response(JSON.stringify({ status: "success", eventId }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      // 5b. Crowdfunding campaign donation
       if (session.metadata?.type === "campaign_donation") {
         const campaignId = session.metadata?.campaign_id;
         if (!campaignId) {
