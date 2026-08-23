@@ -68,7 +68,7 @@ export async function checkAndTriggerCatererDietaryAlert(
     const eventTitle = (contract as any)?.events?.title || "Campus Event";
     const severeTagSummary = severeTags.map((t) => t.toUpperCase().replace(/_/g, " ")).join(", ");
 
-    const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    const token = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : (Math.random().toString(36).substring(2) + Date.now().toString(36));
     const alertMessage = `URGENT UPDATE: A new attendee (${attendeeName}) with a severe ${severeTagSummary} has registered for ${eventTitle}. Please acknowledge this critical health update immediately.`;
 
     // 3. Insert caterer dietary alert record in PENDING acknowledgment status

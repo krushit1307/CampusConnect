@@ -24,6 +24,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { DateRangePicker } from "@/components/ui/DateRangePicker";
 import { ChartSkeleton } from "@/components/ui/ChartSkeleton";
+import { EventTrafficHeatmap } from "@/components/admin/EventTrafficHeatmap";
 
 interface ProfileRole {
   role: string | null;
@@ -401,11 +402,17 @@ function EventCollisionMatrix() {
       <div className="h-12 border-2 border-black bg-yellow-50 p-3 font-mono text-xs flex items-center justify-between shadow-[2px_2px_0_0_#000]">
         {hoveredCell ? (
           <div>
-            <span className="font-bold text-red-600">{hoveredCell.day}s at {formatHourLabel(hoveredCell.hour)}:</span>{" "}
-            <span>{hoveredCell.count} concurrent events, {hoveredCell.attendees} total attendees.</span>
+            <span className="font-bold text-red-600">
+              {hoveredCell.day}s at {formatHourLabel(hoveredCell.hour)}:
+            </span>{" "}
+            <span>
+              {hoveredCell.count} concurrent events, {hoveredCell.attendees} total attendees.
+            </span>
           </div>
         ) : (
-          <span className="text-black/50 italic">Hover over any grid cell to view temporal event collisions.</span>
+          <span className="text-black/50 italic">
+            Hover over any grid cell to view temporal event collisions.
+          </span>
         )}
 
         <div className="flex items-center gap-1 text-[10px] uppercase font-bold">
@@ -446,7 +453,10 @@ function EventCollisionMatrix() {
               {DAYS.map((dayName, dayIndex) => {
                 const dayOfWeek = dayIndex + 1; // 1-indexed (isodow)
                 return (
-                  <div key={dayName} className="grid grid-cols-[100px_repeat(24,1fr)] gap-1 items-center">
+                  <div
+                    key={dayName}
+                    className="grid grid-cols-[100px_repeat(24,1fr)] gap-1 items-center"
+                  >
                     <div className="font-mono text-xs font-bold uppercase">{dayName}</div>
                     {Array.from({ length: 24 }).map((_, hour) => {
                       const key = `${dayOfWeek}-${hour}`;
@@ -464,7 +474,7 @@ function EventCollisionMatrix() {
                           }
                           onMouseLeave={() => setHoveredCell(null)}
                           className={`h-8 border border-black/35 cursor-pointer transition-transform hover:scale-110 hover:border-black hover:z-10 ${getCellBgColor(
-                            cell.count
+                            cell.count,
                           )}`}
                           title={`${dayName}s at ${formatHourLabel(hour)}: ${cell.count} events`}
                         />
@@ -676,6 +686,7 @@ export default function AnalyticsAdmin() {
               <Suspense fallback={<ChartSkeleton height="450px" />}>
                 <DauChartSection dateRange={dateRange} />
               </Suspense>
+              <EventTrafficHeatmap dateRange={dateRange} enabled={role === "system_admin"} />
               <EventCollisionMatrix />
             </div>
           )}

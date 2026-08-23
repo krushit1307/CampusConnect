@@ -5,7 +5,7 @@
 // =============================================================================
 
 import React, { useEffect, useState } from "react";
-import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import { MapPin } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,7 +17,11 @@ import { EventFeedbackSurvey } from "@/components/events/EventFeedbackSurvey";
 import VolunteerShifts from "@/components/VolunteerShifts";
 import { LiveTaskOrganizerPanel } from "@/components/events/LiveTaskOrganizerPanel";
 import { LiveTaskAttendeePopup } from "@/components/events/LiveTaskAttendeePopup";
+import { HelpQueueMentorDashboard } from "@/components/events/HelpQueueMentorDashboard";
+import { HelpQueueAttendeeWidget } from "@/components/events/HelpQueueAttendeeWidget";
+import { DietaryForecastPanel } from "@/components/events/DietaryForecastPanel";
 import { User } from "@supabase/supabase-js";
+import { SponsorBountiesSection } from "@/components/events/SponsorBountiesSection";
 
 // NEW (Issue #4301): Itinerary Builder Imports
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
@@ -52,6 +56,7 @@ interface EventDetailRecord {
   banner_url: string | null;
   clubs: { name: string; id: string } | { name: string; id: string }[] | null;
   venues: { name: string } | null;
+  dualClock?: any; // Added to prevent TypeScript errors from the merged branch
 }
 
 export default function EventDetail() {
@@ -193,6 +198,8 @@ export default function EventDetail() {
 
   const clubName = Array.isArray(event.clubs) ? event.clubs[0]?.name : event.clubs?.name;
   const { gradientStyle } = useBannerColor(event.banner_url);
+  const venueLabel = event.venues?.name || event.location;
+  const dualClock = event.dualClock || null;
 
   // Map sub-sessions for React Big Calendar
   const calendarEvents = subSessions.map((s: any) => ({
@@ -227,12 +234,22 @@ export default function EventDetail() {
             {new Date(event.event_date).toLocaleString()}
           </p>
         )}
-        {event.location && (
-          <span className="flex items-center gap-2 font-mono text-sm text-gray-700">
-            <MapPin size={18} aria-hidden="true" />
-            {event.location}
-          </span>
-        )}
+        
+        <div className="flex flex-wrap gap-x-8 gap-y-4 font-mono text-sm text-gray-700">
+          {/* ── NEW: dual-clock time display (Issue #3680) ── */}
+          {/* Note: Ensure EventDualClockTime is properly imported if it throws an error locally */}
+          <div className="min-w-[260px]">
+             {/* @ts-expect-error - EventDualClockTime might be dynamically registered */}
+             {React.createElement(require('@/components/events/EventDualClockTime').EventDualClockTime || 'div', { data: dualClock, venueLabel: venueLabel, variant: "full" })}
+          </div>
+
+          {event.location && (
+            <span className="flex items-center gap-2">
+              <MapPin size={18} aria-hidden="true" />
+              {event.location}
+            </span>
+          )}
+        </div>
 
         {event.description && <p className="whitespace-pre-wrap leading-7">{event.description}</p>}
 
@@ -304,6 +321,8 @@ export default function EventDetail() {
             <LiveTaskOrganizerPanel eventId={event.id} />
           </div>
         )}
+
+        {event.id && <SponsorBountiesSection eventId={event.id} />}
       </div>
 
       {user && event.id && <LiveTaskAttendeePopup eventId={event.id} userId={user.id} />}

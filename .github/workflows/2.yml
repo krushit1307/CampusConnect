@@ -97,11 +97,28 @@ jobs:
 
               const hasAssignees = prData.assignees && prData.assignees.length > 0;
               const hasECSoCLabel = currentLabels.some(l => l.toLowerCase().replace(/[^a-z0-9]/g, '').includes('ecsoc26'));
-              const hasDoNotMergeLabel = currentLabels.some(l => l.toLowerCase() === 'do-not-merge');
+              const hasErrorLabel = currentLabels.some(l => {
+                const lbl = l.trim().toLowerCase();
+                return lbl === 'error' || lbl.includes('do-not-merge') || lbl.includes('donotmerge');
+              });
 
-              if (hasDoNotMergeLabel) {
-                console.log(`PR #${prNumber} has 'do-not-merge' label. Skipping auto-merge.`);
+              if (hasErrorLabel) {
+                console.log(`PR #${prNumber} has 'error' label. Skipping auto-merge.`);
                 return false;
+              }
+
+              const totalChanges = prData.additions + prData.deletions;
+              let targetLabel = null;
+              if (totalChanges >= 1000 && totalChanges <= 1300) {
+                targetLabel = "good-issue";
+              } else if (totalChanges >= 1500 && totalChanges <= 1700) {
+                targetLabel = "good-pr";
+              }
+
+              if (targetLabel && !currentLabels.includes(targetLabel)) {
+                console.log(`PR #${prNumber} has ${totalChanges} line changes. Adding label: ${targetLabel}`);
+                await addLabel(targetLabel);
+                currentLabels.push(targetLabel);
               }
 
               if (!hasClosingKeyword || !hasAssignees || !hasECSoCLabel) {
@@ -142,7 +159,7 @@ jobs:
                   console.error(`❌ Failed to auto-merge PR #${prNumber}:`, e.message);
                 }
               } else {
-                console.log(`PR is not ready to merge yet (mergeable is ${mergeable}). Waiting for checks/approvals.`);
+                console.log(`PR is not ready to merge yet (mergeable is ${mergeable}, state is ${mergeableState}). Waiting for checks/approvals.`);
               }
               return false;
             }
@@ -150,18 +167,24 @@ jobs:
             console.log("Fetching all open PRs...");
             let page = 1;
             let hasMore = true;
+            const allPRs = [];
 
             while (hasMore) {
               const { data: openPRs } = await github.rest.pulls.list({
                 owner, repo, state: 'open', per_page: 100, page
               });
               
-              for (const pr of openPRs) {
-                await processPR(pr.number, pr.body, pr.title, pr);
-              }
-              
+              allPRs.push(...openPRs);
               if (openPRs.length < 100) hasMore = false;
               page++;
+            }
+
+            for (const pr of allPRs) {
+              try {
+                await processPR(pr.number, pr.body, pr.title, pr);
+              } catch (err) {
+                console.error(`❌ Error processing PR #${pr.number}:`, err.message);
+              }
             }
 
             console.log("✅ Finished processing all open PRs.");

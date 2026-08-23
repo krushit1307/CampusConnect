@@ -3,6 +3,7 @@ import { useEventWizardStore } from "../../../store/useEventWizardStore";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
 import { Checkbox } from "../../ui/checkbox";
+import { LocationAutocomplete } from "../../LocationAutocomplete";
 
 /**
  * Step 2: Date & Location.
@@ -47,16 +48,21 @@ export function DateLocationStepForm() {
 
       <div className="space-y-2">
         <Label htmlFor="location">Location *</Label>
-        <Input
-          id="location"
+        <LocationAutocomplete
           value={formData.location}
-          onChange={(e) => updateFormData({ location: e.target.value })}
-          placeholder="e.g. Student Union, Room 101"
-          aria-invalid={!!validationErrors.location}
+          latitude={formData.latitude}
+          longitude={formData.longitude}
+          required
+          placeholder='Search for a venue, address, or type "Online"'
+          onChange={(location, coordinates) =>
+            updateFormData({
+              location,
+              latitude: coordinates?.latitude ?? null,
+              longitude: coordinates?.longitude ?? null,
+            })
+          }
+          error={validationErrors.location}
         />
-        {validationErrors.location && (
-          <p className="text-sm text-red-600 dark:text-red-400">{validationErrors.location}</p>
-        )}
       </div>
 
       <div className="flex items-center space-x-2">

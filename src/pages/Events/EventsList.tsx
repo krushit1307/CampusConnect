@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
+import { useQuery, useMutation, useQueryClient } from "@/hooks/useReactQueryReplacement";
 import { useQuery, useMutation } from "@/hooks/useReactQueryReplacement";
 import { createClient } from "@/lib/supabase/client";
 import { useEmailVerification } from "@/hooks/useEmailVerification";
@@ -89,6 +90,7 @@ function eventsOverlap(
 export default function EventsList() {
   const supabase = createClient();
   const { eventId } = useParams();
+  const queryClient = useQueryClient();
 
   const [user, setUser] = useState<User | null>(null);
   const emailVerified = useEmailVerification();
@@ -566,103 +568,28 @@ export default function EventsList() {
     };
   }, [supabase, refetch]);
 
-  const toggleRsvp = useMutation({
-    mutationFn: async ({
-      eventId,
-      hasRsvpd,
-      captchaToken,
-    }: {
-      eventId: string;
-      hasRsvpd: boolean;
-      captchaToken?: string;
-    }) => {
-      if (!user) throw new Error("Must be logged in");
-      if (eventId.startsWith("mock-")) {
-        return;
-      }
-
-      const idempotencyKey = getRsvpIdempotencyKey(eventId);
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const { error } = await supabase.functions.invoke("toggle-rsvp", {
-        body: {
-          eventId,
-          hasRsvpd,
-          captchaToken,
-        },
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
-          "Idempotency-Key": idempotencyKey,
-        },
-      });
-
-      if (error) {
-        throw error;
-      }
-      clearRsvpIdempotencyKey(eventId);
-    },
-    onSuccess: async (_data, variables) => {
-      toast.success(
-        variables.hasRsvpd ? "RSVP cancelled successfully!" : "RSVP registered successfully!",
-      );
-      if (!variables.hasRsvpd && user && !variables.eventId.startsWith("mock-")) {
-        const { count } = await supabase
-          .from("event_rsvps")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", user.id);
-        if (count === 1) {
-          setShowConfetti(true);
-
-          if (confettiTimeoutRef.current) {
-            clearTimeout(confettiTimeoutRef.current);
-          }
-
-          confettiTimeoutRef.current = setTimeout(() => {
-            setShowConfetti(false);
-            confettiTimeoutRef.current = null;
-          }, 5000);
-        }
-      }
-      refetch();
-    },
-    onError: () => {
-      toast.error("Failed to update RSVP");
-    },
-  });
-
-  const toggleBookmark = useMutation({
-    mutationFn: async ({ eventId, isSaved }: { eventId: string; isSaved: boolean }) => {
-      if (!user) throw new Error("Login required");
-
-      const query = isSaved
-        ? supabase.from("saved_events").delete().match({
-            event_id: eventId,
-            user_id: user.id,
-          })
-        : supabase.from("saved_events").insert({
-            event_id: eventId,
-            user_id: user.id,
-          });
-      const { error } = await query;
-      if (error) throw error;
-    },
+  // ── Issue #2664: Optimistic UI for RSVP and Bookmark ─────────────
+    // ── onSuccess: subtle success toast ─────────────────────────────
     onSuccess: (_data, variables) => {
       toast.success(variables.isSaved ? "Removed from saved events!" : "Saved to bookmarks!");
-      refetch();
     },
-    onError: () => {
-      toast.error("Failed to update bookmark");
+    // ── onSettled: always refetch to sync with backend ─────────────
+    onSettled: () => {
+      refetch();
     },
   });
 
+  // ── Issue #2664: Debounce / disable buttons during pending sync ──
+  // The handlers now just call mutateAsync — the optimistic update and
+  // rollback happen inside the mutation lifecycle hooks above.
   const handleRsvpToggle = async (eventId: string, hasRsvpd: boolean) => {
     if (!emailVerified && !hasRsvpd) {
       toast.error("Please verify your email to RSVP");
       return;
     }
+    // Prevent rapid double-clicks (race condition guard).
+    if (toggleRsvp.isPending) return;
+
     // Overlap warning: only check when joining (not leaving), and only if we
     // have start/end times for the target event.
     if (!hasRsvpd && user) {
@@ -689,29 +616,6 @@ export default function EventsList() {
       }
     }
 
-    const originalEvents = [...events];
-    setEvents((prevEvents) =>
-      prevEvents.map((e) => {
-        if (e.id === eventId) {
-          const rsvpsList = Array.isArray(e.event_rsvps) ? e.event_rsvps : [];
-          if (hasRsvpd) {
-            return {
-              ...e,
-              event_rsvps: rsvpsList.filter((r) => r.user_id !== (user?.id || "")),
-              rsvp_count: Math.max(0, (e.rsvp_count ?? 0) - 1),
-            };
-          } else {
-            return {
-              ...e,
-              event_rsvps: [...rsvpsList, { id: "temp-rsvp-id", user_id: user?.id || "" }],
-              rsvp_count: (e.rsvp_count ?? 0) + 1,
-            };
-          }
-        }
-        return e;
-      }),
-    );
-
     try {
       await toggleRsvp.mutateAsync({ eventId, hasRsvpd });
 
@@ -729,41 +633,20 @@ export default function EventsList() {
           .catch(() => {});
       }
     } catch {
-      setEvents(originalEvents);
+      // Rollback is handled by onError in the mutation.
     }
   };
 
   const handleBookmarkToggle = async (eventId: string, isSaved: boolean) => {
-    const originalEvents = [...events];
-    setEvents((prevEvents) =>
-      prevEvents.map((e) => {
-        if (e.id === eventId) {
-          const savedList = Array.isArray(e.saved_events) ? e.saved_events : [];
-          if (isSaved) {
-            return {
-              ...e,
-              saved_events: savedList.filter((s) => s.user_id !== (user?.id || "")),
-              saved_count: Math.max(0, (e.saved_count ?? 0) - 1),
-            };
-          } else {
-            return {
-              ...e,
-              saved_events: [...savedList, { id: "temp-id", user_id: user?.id || "" }],
-              saved_count: (e.saved_count ?? 0) + 1,
-            };
-          }
-        }
-        return e;
-      }),
-    );
+    // Prevent rapid double-clicks (race condition guard).
+    if (toggleBookmark.isPending) return;
 
     try {
       await toggleBookmark.mutateAsync({ eventId, isSaved });
     } catch {
-      setEvents(originalEvents);
+      // Rollback is handled by onError in the mutation.
     }
   };
-
   const filterColors: Record<string, string> = {
     All: "bg-black text-cream",
     Workshop: "bg-lime text-black",

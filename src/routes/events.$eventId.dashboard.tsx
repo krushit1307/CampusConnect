@@ -16,7 +16,11 @@ import { WaitlistChurnPredictionCard } from "@/components/events/WaitlistChurnPr
 import { EventPollsExportSection } from "@/components/polls/EventPollsExportSection";
 
 import { EventAnnouncerBroadcast } from "@/components/events/EventAnnouncerBroadcast";
+import { EventFeedbackLlmSummaryCard } from "@/components/events/EventFeedbackLlmSummaryCard";
+import { EventWeatherWarningBanner } from "@/components/events/EventWeatherWarningBanner";
 import { ManageTicketTiers } from "@/components/events/ManageTicketTiers";
+import { OrganizerNoiseBroadcaster } from "@/components/events/OrganizerNoiseBroadcaster";
+import { EventBroadcastFallbackPanel } from "@/components/events/EventBroadcastFallbackPanel";
 
 const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));
 
@@ -406,6 +410,13 @@ function EventLiveSupportPanel({ eventId }: { eventId: string }) {
             <h1 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
               {eventData?.title ? `${eventData.title} Analytics` : "Event Analytics"}
             </h1>
+
+            <div className="mt-4">
+              <EventWeatherWarningBanner
+                eventId={eventId!}
+                eventTitle={eventData?.title || "Outdoor Event"}
+              />
+            </div>
             <div className="flex flex-wrap gap-3 items-center mt-4 sm:mt-0">
               {/* Public Showcase Toggle */}
               <label className="flex items-center gap-2 font-mono text-xs font-bold uppercase cursor-pointer select-none bg-blue-50 dark:bg-blue-950/20 border-2 border-black dark:border-white p-2 hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-colors">
@@ -488,6 +499,13 @@ function EventLiveSupportPanel({ eventId }: { eventId: string }) {
               <Star size={20} />
 
               <h2 className="font-display text-xl font-black uppercase">Post-Event Feedback</h2>
+            </div>
+
+            <div className="mt-4">
+              <EventFeedbackLlmSummaryCard
+                eventId={eventId!}
+                responseCount={feedbackSummary?.response_count ?? 0}
+              />
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -587,6 +605,14 @@ function EventLiveSupportPanel({ eventId }: { eventId: string }) {
                 invite links!
               </p>
             )}
+          </div>
+
+          <div className="mb-8">
+            <OrganizerNoiseBroadcaster eventId={eventId!} />
+          </div>
+
+          <div className="mb-8">
+            <EventBroadcastFallbackPanel eventId={eventId!} isOrganizer />
           </div>
 
           <div className="mb-8">

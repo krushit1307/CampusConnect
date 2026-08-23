@@ -15,6 +15,7 @@ import { createClient } from "@/lib/supabase/client";
 import { OptimizedImage } from "@/components/media/OptimizedImage";
 import { Switch } from "@/components/ui/switch";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
+import { SUPPORTED_CURRENCIES } from "@/lib/currency";
 
 import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@/hooks/useReactQueryReplacement";
@@ -426,6 +427,7 @@ export default function SettingsPage() {
       phoneNumber: "",
       role: "student",
       expectedGraduationDate: "",
+      preferredCurrency: "USD",
     },
   });
   const {
@@ -480,6 +482,7 @@ export default function SettingsPage() {
         phoneNumber: profile?.phone_number || "",
         role: (profile?.role as any) || "student",
         expectedGraduationDate: profile?.expected_graduation_date || "",
+        preferredCurrency: profile?.preferred_currency || "USD",
       });
       // Hydrate skills from profile (text[])
       if (Array.isArray(profile?.skills)) {
@@ -607,6 +610,7 @@ export default function SettingsPage() {
         phone_number: values.phoneNumber || null,
         skills: dedupedSkills,
         expected_graduation_date: values.expectedGraduationDate || null,
+        preferred_currency: values.preferredCurrency,
         course_codes: [
           ...new Set(
             courseCodes.map((courseCode) => courseCode.trim().toUpperCase()).filter(Boolean),
@@ -751,6 +755,26 @@ export default function SettingsPage() {
               </p>
             </div>
           </div>
+          {/* ------------------------------- */}
+          <Panel title="Integrations">
+            <div className="mb-6 border-2 border-black bg-lime/10 p-4 font-mono text-sm">
+              <p className="font-bold text-black uppercase mb-2">Spotify</p>
+              <p className="text-xs text-gray-700 mb-4">
+                Connect your Spotify account to easily export song requests from your events to playlists.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  // In a real implementation, this would trigger an OAuth flow with Supabase or a custom endpoint
+                  // supabase.auth.signInWithOAuth({ provider: 'spotify', options: { scopes: 'playlist-modify-public playlist-modify-private' } })
+                  toast.info('Spotify OAuth configuration required.');
+                }}
+                className="neu-border flex items-center gap-2 bg-[#1DB954] text-white px-4 py-2 font-bold uppercase transition-all hover:scale-105 active:scale-95"
+              >
+                Link Spotify Profile
+              </button>
+            </div>
+          </Panel>
           {/* ------------------------------- */}
           <Panel title="Profile">
             <AvatarUpload name={currentFullName || "User"} avatarTheme={currentAvatarTheme} />
@@ -930,6 +954,34 @@ export default function SettingsPage() {
 
                 <FormField
                   control={form.control}
+                  name="preferredCurrency"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="eyebrow font-bold text-black">
+                        Price display currency
+                      </FormLabel>
+                      <FormControl>
+                        <select
+                          {...field}
+                          className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                          aria-describedby="preferred-currency-help"
+                        >
+                          {SUPPORTED_CURRENCIES.map((currency) => (
+                            <option key={currency.code} value={currency.code}>
+                              {currency.code} — {currency.name}
+                            </option>
+                          ))}
+                        </select>
+                      </FormControl>
+                      <p id="preferred-currency-help" className="font-mono text-xs text-black/60">
+                        Ticket estimates use this currency when available. Checkout remains in USD.
+                      </p>
+                      <FormMessage className="font-mono text-xs text-destructive" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="phoneNumber"
                   render={({ field }) => (
                     <FormItem className="space-y-1">
@@ -987,18 +1039,34 @@ export default function SettingsPage() {
                 <FormField
                   control={form.control}
                   name="bio"
-                  render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel className="eyebrow font-bold text-black">Bio</FormLabel>
-                      <FormControl>
-                        <input
-                          {...field}
-                          className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
-                        />
-                      </FormControl>
-                      <FormMessage className="font-mono text-xs text-destructive" />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const bioValue = field.value || "";
+                    const isLimitReached = bioValue.length >= 150;
+
+                    return (
+                      <FormItem className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <FormLabel className="eyebrow font-bold text-black">Bio</FormLabel>
+                          <span
+                            aria-label="Character limit"
+                            className={`font-mono text-xs font-bold transition-colors ${
+                              isLimitReached ? "text-red-600" : "text-muted-foreground"
+                            }`}
+                          >
+                            {bioValue.length}/150 characters
+                          </span>
+                        </div>
+                        <FormControl>
+                          <input
+                            {...field}
+                            maxLength={150}
+                            className="w-full border-0 border-b-2 border-black bg-transparent px-1 py-2 font-mono text-sm outline-none focus:bg-lime/40"
+                          />
+                        </FormControl>
+                        <FormMessage className="font-mono text-xs text-destructive" />
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 {/* ── Skills Tags Editor ── */}
