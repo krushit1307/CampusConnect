@@ -2,20 +2,22 @@
 
 ## Feature: Real-Time Event Capacity Thermal Map & WiFi Crowd Density Tracker
 - **Issue Number**: [#4283](https://github.com/krushit1307/CampusConnect/issues/4283)
+- **Pull Request**: [#4319](https://github.com/krushit1307/CampusConnect/pull/4319)
 - **Feature Title**: `feat(architecture): build real-time event capacity thermal map`
 - **Domain**: Spatial Intelligence & Venue Safety
-- **Status**: Implemented & Ready for PR
+- **Status**: PR Submitted & Live
 - **Branch**: `feature/event-capacity-thermal-map-4283`
 - **Components & Services**:
-  - `src/components/capacity/InteractiveVenueThermalMap.tsx`
-  - `src/components/capacity/CrowdRedirectNotificationModal.tsx`
-  - `src/services/capacityThermalMapService.ts`
-  - `src/services/wifiTelemetryStreamSimulator.ts`
-  - `src/routes/events.$id.thermal-map.tsx`
-  - `src/routes/admin.campus-density.tsx`
-  - `src/types/capacityThermalMap.ts`
-  - `supabase/functions/wifi-telemetry-webhook/index.ts`
-  - `supabase/migrations/20261231000029_event_capacity_thermal_map.sql`
+  - `src/components/capacity/InteractiveVenueThermalMap.tsx` (630 lines)
+  - `src/components/capacity/CrowdRedirectNotificationModal.tsx` (240 lines)
+  - `src/components/capacity/VenueEgressSimulatorPanel.tsx` (237 lines)
+  - `src/services/capacityThermalMapService.ts` (452 lines)
+  - `src/services/wifiTelemetryStreamSimulator.ts` (103 lines)
+  - `src/routes/events.$id.thermal-map.tsx` (102 lines)
+  - `src/routes/admin.campus-density.tsx` (49 lines)
+  - `src/types/capacityThermalMap.ts` (100 lines)
+  - `supabase/functions/wifi-telemetry-webhook/index.ts` (83 lines)
+  - `supabase/migrations/20261231000029_event_capacity_thermal_map.sql` (137 lines)
 - **Summary**:
   2D spatial density thermal map visualizing live multi-gymnasium crowd concentrations from Cisco Meraki/Aruba enterprise WiFi access points, evaluating fire safety compliance limits, and triggering 1-click incentive push broadcasts (e.g. free swag in under-utilized Gym C) to eliminate severe bottlenecks.
 
