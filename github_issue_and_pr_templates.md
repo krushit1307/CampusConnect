@@ -2,21 +2,25 @@
 
 ## Feature: Dynamic Mental Health Peer Support Matcher & Ephemeral E2EE Chat
 - **Issue Number**: [#4296](https://github.com/krushit1307/CampusConnect/issues/4296)
+- **Pull Request**: [#4321](https://github.com/krushit1307/CampusConnect/pull/4321)
 - **Feature Title**: `feat(wellness): develop dynamic mental health peer support matcher`
 - **Domain**: Student Wellness & Cryptographic Safety
-- **Status**: Implemented & Ready for PR
+- **Status**: PR Submitted & Live
 - **Branch**: `feature/peer-support-matcher-4296`
 - **Components & Services**:
-  - `src/components/wellness/AnonymousPeerSupportMatcher.tsx`
-  - `src/components/wellness/CrisisSafetyEscalationDrawer.tsx`
-  - `src/components/wellness/PeerListenerDashboard.tsx`
-  - `src/services/peerSupportMatcherService.ts`
-  - `src/services/peerSupportQueueSimulator.ts`
-  - `src/routes/wellness.peer-support.tsx`
-  - `src/routes/admin.peer-listeners.tsx`
-  - `src/types/peerSupportMatcher.ts`
-  - `supabase/functions/peer-support-signaling/index.ts`
-  - `supabase/migrations/20261231000031_peer_support_matcher.sql`
+  - `src/components/wellness/AnonymousPeerSupportMatcher.tsx` (506 lines)
+  - `src/components/wellness/CrisisSafetyEscalationDrawer.tsx` (134 lines)
+  - `src/components/wellness/PeerListenerDashboard.tsx` (176 lines)
+  - `src/components/wellness/SafetyPlanInteractiveBuilder.tsx` (250 lines)
+  - `src/components/wellness/PeerListenerTrainingModule.tsx` (170 lines)
+  - `src/services/peerSupportMatcherService.ts` (231 lines)
+  - `src/services/peerSupportQueueSimulator.ts` (105 lines)
+  - `src/services/peerSupportFeedbackService.ts` (88 lines)
+  - `src/routes/wellness.peer-support.tsx` (30 lines)
+  - `src/routes/admin.peer-listeners.tsx` (29 lines)
+  - `src/types/peerSupportMatcher.ts` (68 lines)
+  - `supabase/functions/peer-support-signaling/index.ts` (66 lines)
+  - `supabase/migrations/20261231000031_peer_support_matcher.sql` (106 lines)
 - **Summary**:
   Anonymous peer listening matchmaking queue connecting distressed students with certified upperclassmen psychology peers via in-memory Web Crypto AES-GCM 256 E2EE chat, zero database message logging, automatic key destruction upon session termination, guided box-breathing waiting exercises, and 1-click 988 Crisis Lifeline escalation hotlines.
 
