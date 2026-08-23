@@ -97,6 +97,7 @@ import { AccessibilityBadges } from "@/components/events/AccessibilityBadges";
 import { ReportAccessibilityIssueDialog } from "@/components/events/ReportAccessibilityIssueDialog";
 import { ManageAccessibilityOverridesDialog } from "@/components/events/ManageAccessibilityOverridesDialog";
 import EventFeedbackForm from "@/components/EventFeedbackForm";
+import { EventSeriesCatchUpCard } from "@/components/events/EventSeriesCatchUpCard";
 import { EventPhotoGallery } from "@/components/EventPhotoGallery";
 import { EventMap } from "@/components/EventMap";
 import { PredictiveTurnout } from "@/components/events/PredictiveTurnout";
@@ -2361,6 +2362,15 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                 )}
               </div>
             )}
+
+            {/* Event Series Catch-Up Hub */}
+            <EventSeriesCatchUpCard
+              eventId={event.id}
+              eventTitle={event.title}
+              recordingUrl={(event as any).recording_url}
+              materialsUrl={(event as any).materials_url}
+              seriesId={(event as any).series_id}
+            />
 
             {/* Event Feedback (Only if ended and user RSVP'd) */}
             {user &&
