@@ -16,6 +16,7 @@ import { WaitlistChurnPredictionCard } from "@/components/events/WaitlistChurnPr
 import { EventPollsExportSection } from "@/components/polls/EventPollsExportSection";
 
 import { EventAnnouncerBroadcast } from "@/components/events/EventAnnouncerBroadcast";
+import { EventFeedbackLlmSummaryCard } from "@/components/events/EventFeedbackLlmSummaryCard";
 import { ManageTicketTiers } from "@/components/events/ManageTicketTiers";
 import { OrganizerNoiseBroadcaster } from "@/components/events/OrganizerNoiseBroadcaster";
 
@@ -489,6 +490,13 @@ function EventLiveSupportPanel({ eventId }: { eventId: string }) {
               <Star size={20} />
 
               <h2 className="font-display text-xl font-black uppercase">Post-Event Feedback</h2>
+            </div>
+
+            <div className="mt-4">
+              <EventFeedbackLlmSummaryCard
+                eventId={eventId!}
+                responseCount={feedbackSummary?.response_count ?? 0}
+              />
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
