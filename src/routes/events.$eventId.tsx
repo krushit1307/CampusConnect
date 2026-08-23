@@ -64,6 +64,7 @@ import {
 import LiveQA from "@/components/qa/LiveQA";
 import { CarpoolMatchingSection } from "@/components/events/carpool/CarpoolMatchingSection";
 import { EventLiveChat } from "@/components/events/EventLiveChat";
+import { EventBroadcastFallbackPanel } from "@/components/events/EventBroadcastFallbackPanel";
 import { EventSubmissions } from "@/components/EventSubmissions";
 import { ReportDialog } from "@/components/ReportDialog";
 import { GeofencedCheckInButton } from "@/components/GeofencedCheckInButton";
@@ -2156,6 +2157,12 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
             <div className="mt-8">
               <EventLiveChat eventId={eventId} user={user} />
             </div>
+            {/* Realtime A/V failover broadcaster (Issue #4298) */}
+            <EventBroadcastFallbackPanel
+              eventId={eventId}
+              isOrganizer={isOrganizer}
+              presenterUserId={user?.id}
+            />
 
             {/* Public Guest List */}
             <div className="mt-8">

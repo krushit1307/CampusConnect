@@ -1824,6 +1824,96 @@ export type Database = {
           },
         ];
       };
+      event_broadcast_sessions: {
+        Row: {
+          id: string;
+          event_id: string;
+          presenter_user_id: string | null;
+          primary_stream_url: string | null;
+          fallback_slate_url: string;
+          active_source: "primary" | "fallback";
+          state: "primary" | "fallback" | "recovering" | "ended";
+          connection_state: "connected" | "disconnected" | "failed" | "checking";
+          failure_reason: string | null;
+          last_heartbeat_at: string | null;
+          fallback_activated_at: string | null;
+          recovered_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          presenter_user_id?: string | null;
+          primary_stream_url?: string | null;
+          fallback_slate_url?: string;
+          active_source?: "primary" | "fallback";
+          state?: "primary" | "fallback" | "recovering" | "ended";
+          connection_state?: "connected" | "disconnected" | "failed" | "checking";
+          failure_reason?: string | null;
+          last_heartbeat_at?: string | null;
+          fallback_activated_at?: string | null;
+          recovered_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          presenter_user_id?: string | null;
+          primary_stream_url?: string | null;
+          fallback_slate_url?: string;
+          active_source?: "primary" | "fallback";
+          state?: "primary" | "fallback" | "recovering" | "ended";
+          connection_state?: "connected" | "disconnected" | "failed" | "checking";
+          failure_reason?: string | null;
+          last_heartbeat_at?: string | null;
+          fallback_activated_at?: string | null;
+          recovered_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      event_broadcast_health_events: {
+        Row: {
+          id: string;
+          session_id: string;
+          event_id: string;
+          connection_state: "connected" | "disconnected" | "failed" | "checking";
+          requested_source: "primary" | "fallback";
+          av_check_passed: boolean;
+          provider_switch_status: "pending" | "succeeded" | "failed" | "not_configured";
+          provider_error: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          session_id: string;
+          event_id: string;
+          connection_state: "connected" | "disconnected" | "failed" | "checking";
+          requested_source: "primary" | "fallback";
+          av_check_passed?: boolean;
+          provider_switch_status?: "pending" | "succeeded" | "failed" | "not_configured";
+          provider_error?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          session_id?: string;
+          event_id?: string;
+          connection_state?: "connected" | "disconnected" | "failed" | "checking";
+          requested_source?: "primary" | "fallback";
+          av_check_passed?: boolean;
+          provider_switch_status?: "pending" | "succeeded" | "failed" | "not_configured";
+          provider_error?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       event_feedback: {
         Row: {
           id: string;
@@ -3681,6 +3771,33 @@ export type Database = {
       };
     };
     Functions: {
+      start_event_broadcast_session: {
+        Args: {
+          p_event_id: string;
+          p_presenter_user_id: string;
+          p_primary_stream_url?: string | null;
+          p_fallback_slate_url?: string;
+        };
+        Returns: Database["public"]["Tables"]["event_broadcast_sessions"]["Row"];
+      };
+      report_presenter_av_check: {
+        Args: {
+          p_session_id: string;
+          p_connection_state: "connected" | "disconnected" | "failed" | "checking";
+          p_av_check_passed: boolean;
+        };
+        Returns: Database["public"]["Tables"]["event_broadcast_sessions"]["Row"];
+      };
+      apply_broadcast_media_signal: {
+        Args: {
+          p_event_id: string;
+          p_connection_state: "connected" | "disconnected" | "failed" | "checking";
+          p_av_check_passed?: boolean;
+          p_failure_reason?: string | null;
+          p_metadata?: Json;
+        };
+        Returns: Database["public"]["Tables"]["event_broadcast_sessions"]["Row"];
+      };
       get_open_feedback_safety_alerts: {
         Args: Record<string, never>;
         Returns: Database["public"]["Tables"]["event_feedback_safety_alerts"]["Row"][];
