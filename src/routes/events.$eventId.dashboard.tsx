@@ -21,6 +21,7 @@ import { EventWeatherWarningBanner } from "@/components/events/EventWeatherWarni
 import { ManageTicketTiers } from "@/components/events/ManageTicketTiers";
 import { OrganizerNoiseBroadcaster } from "@/components/events/OrganizerNoiseBroadcaster";
 import { EventBroadcastFallbackPanel } from "@/components/events/EventBroadcastFallbackPanel";
+import { MissingPhotoIncentiveWidget } from "@/components/events/MissingPhotoIncentiveWidget";
 
 const EChartsWrapper = lazy(() => import("@/components/analytics/EChartsWrapper"));
 
@@ -96,7 +97,7 @@ export default function EventDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
-        .select("title, is_public_showcase")
+        .select("title, is_public_showcase, cover_image_url")
         .eq("id", eventId!)
         .single();
       if (error) throw error;
@@ -415,6 +416,14 @@ function EventLiveSupportPanel({ eventId }: { eventId: string }) {
               <EventWeatherWarningBanner
                 eventId={eventId!}
                 eventTitle={eventData?.title || "Outdoor Event"}
+              />
+            </div>
+            <div className="mt-4">
+              <MissingPhotoIncentiveWidget
+                eventId={eventId!}
+                eventTitle={eventData?.title || "Event"}
+                hasPhoto={!!eventData?.cover_image_url}
+                onPhotoUploaded={() => refetchEventData()}
               />
             </div>
             <div className="flex flex-wrap gap-3 items-center mt-4 sm:mt-0">
