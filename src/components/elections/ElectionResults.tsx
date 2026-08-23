@@ -1,78 +1,104 @@
-// =============================================================================
-// Component: ElectionResults
-// Issue: #3554 - Implement 'Secure Executive Board Election Voting with Anonymity'
-// Description: Displays the live tally of anonymous ballots.Renders a bar
-// chart showing the vote count and percentage for each candidate.
-//  =============================================================================
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from "recharts";
+import { Lock, Trophy } from "lucide-react";
+import {
+  type Election,
+  type ElectionResultRow,
+  getElectionResults,
+} from "@/lib/supabase/elections";
 
-import React, { useState, useEffect } from 'react';
-import { useClubElections, ElectionResults as ResultsType } from '../../hooks/useClubElections';
-
-interface ElectionResultsProps {
-    electionId: string;
-    position: string;
-}
-
-export const ElectionResults: React.FC<ElectionResultsProps> = ({ electionId, position }) => {
-    const { fetchResults } = useClubElections(null); // Hook used just for the fetch function
-    const [results, setResults] = useState<ResultsType[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-
-    useEffect(() => {
-        const load = async () => {
-            setIsLoading(true);
-            const data = await fetchResults(electionId);
-            setResults(data);
-            setIsLoading(false);
-        };
-        load();
-    }, [electionId]);
-
-    const totalVotes = results.reduce((sum, r) => sum + r.vote_count, 0);
-
-    if (isLoading) {
-        return <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>;
-    }
-
-    if (totalVotes === 0) {
-        return (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                No votes have been cast yet.
-            </div>
-        );
-    }
-
-    return (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-                Live Results: {position}
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                Total Anonymous Ballots Cast: <span className="font-bold text-gray-900 dark:text-white">{totalVotes}</span>
-            </p>
-
-            <div className="space-y-4">
-                {results.map((result, idx) => (
-                    <div key={result.candidate_name}>
-                        <div className="flex justify-between items-baseline mb-1">
-                            <span className="font-medium text-gray-900 dark:text-white text-sm">
-                                {idx === 0 && <span className="text-yellow-500 mr-1">👑</span>}
-                                {result.candidate_name}
-                            </span>
-                            <span className="text-sm font-bold text-gray-700 dark:text-gray-300">
-                                {result.vote_count} votes ({result.percentage}%)
-                            </span>
-                        </div>
-                        <div className="w-full h-4 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                            <div
-                                className={`h-full rounded-full transition-all duration-1000 ease-out ${idx === 0 ? 'bg-gradient-to-r from-yellow-400 to-yellow-600' : 'bg-indigo-600'
-                                    }`}
-                                style={{ width: `${result.percentage}%` }}
-                            ></div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
+export type ElectionResultsProps = {
+  election: Election;
 };
+
+const BAR_COLORS = ["#a3e635", "#7dd3fc", "#fdba74", "#f0abfc", "#fca5a5", "#fde047"];
+
+/**
+ * Shows aggregate results for a closed election. This component never
+ * decides on its own whether results are "allowed" to be shown — it just
+ * displays whatever `election_results` returns, which is structurally
+ * empty until the election is actually closed and its end_time has
+ * passed (see the view's definition in the migration). There's no
+ * client-side date check to bypass here, by design.
+ */
+export function ElectionResults({ election }: ElectionResultsProps) {
+  const [results, setResults] = useState<ElectionResultRow[] | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const { data, error } = await getElectionResults(election.id);
+      if (cancelled) return;
+      if (error) toast.error("Couldn't load results.");
+      setResults(data ?? []);
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [election.id]);
+
+  if (loading) {
+    return (
+      <div className="neu-border bg-white p-8 text-center font-mono text-sm dark:bg-zinc-900">
+        Loading…
+      </div>
+    );
+  }
+
+  if (!results || results.length === 0) {
+    return (
+      <div className="neu-border flex flex-col items-center gap-2 bg-cream p-8 text-center dark:bg-zinc-900">
+        <Lock size={28} aria-hidden="true" />
+        <p className="font-mono text-sm font-bold uppercase">
+          {election.status === "closed"
+            ? "No votes were cast."
+            : "Results are hidden until the election closes."}
+        </p>
+        {election.status === "open" && (
+          <p className="font-mono text-xs text-gray-600 dark:text-zinc-400">
+            Closes {new Date(election.end_time).toLocaleString()}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  const sorted = [...results].sort((a, b) => b.vote_count - a.vote_count);
+  const topCount = sorted[0]?.vote_count ?? 0;
+  const winners = sorted.filter((r) => r.vote_count === topCount);
+  const totalVotes = sorted.reduce((sum, r) => sum + r.vote_count, 0);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="neu-border flex items-center gap-2 bg-lime p-3 font-mono text-xs font-bold uppercase dark:text-black">
+        <Trophy size={14} aria-hidden="true" />
+        {winners.length > 1
+          ? `Tie between ${winners.map((w) => w.candidate_name).join(" and ")}`
+          : `${winners[0].candidate_name} won with ${topCount} vote${topCount === 1 ? "" : "s"}`}
+        {election.tie_extension_count > 0 && " (after a runoff extension)"}
+      </div>
+
+      <div className="neu-border bg-white p-4 dark:bg-zinc-900">
+        <ResponsiveContainer width="100%" height={Math.max(200, sorted.length * 56)}>
+          <BarChart data={sorted} layout="vertical" margin={{ left: 24, right: 24 }}>
+            <XAxis type="number" allowDecimals={false} />
+            <YAxis type="category" dataKey="candidate_name" width={140} tick={{ fontSize: 12 }} />
+            <Bar dataKey="vote_count" radius={[0, 4, 4, 0]}>
+              {sorted.map((entry, index) => (
+                <Cell key={entry.candidate_id} fill={BAR_COLORS[index % BAR_COLORS.length]} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <p className="text-center font-mono text-xs text-gray-500 dark:text-zinc-400">
+        {totalVotes} total vote{totalVotes === 1 ? "" : "s"} cast
+      </p>
+    </div>
+  );
+}
