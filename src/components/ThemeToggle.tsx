@@ -1,5 +1,8 @@
-import { Moon, Settings2, Sun, Contrast } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import Moon from "lucide-react/dist/esm/icons/moon";
+import Settings2 from "lucide-react/dist/esm/icons/settings-2";
+import Sun from "lucide-react/dist/esm/icons/sun";
+import Contrast from "lucide-react/dist/esm/icons/contrast";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTheme } from "./theme-provider";
 
 export const ThemeToggle = () => {
@@ -27,23 +30,21 @@ export const ThemeToggle = () => {
           : "System theme (click to switch to light)";
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={cycleTheme}
-            aria-label={`Current theme: ${theme}. ${label}`}
-            className="neu-border neu-press flex h-10 w-10 items-center justify-center bg-white transition-colors hover:bg-black hover:text-white dark:bg-black dark:text-white dark:hover:bg-white dark:hover:text-black high-contrast:bg-black high-contrast:text-white high-contrast:hover:bg-white high-contrast:hover:text-black"
-          >
-            {theme === "light" && <Sun className="h-5 w-5" />}
-            {theme === "dark" && <Moon className="h-5 w-5" />}
-            {theme === "high-contrast" && <Contrast className="h-5 w-5" />}
-            {theme === "system" && <Settings2 className="h-5 w-5" />}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent className="font-mono text-xs capitalize">Theme: {theme}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={cycleTheme}
+          aria-label={`Current theme: ${theme}. ${label}`}
+          className="neu-border neu-press flex h-10 w-10 items-center justify-center bg-white transition-colors hover:bg-black hover:text-white dark:bg-black dark:text-white dark:hover:bg-white dark:hover:text-black high-contrast:bg-black high-contrast:text-white high-contrast:hover:bg-white high-contrast:hover:text-black"
+        >
+          {theme === "light" && <Sun className="h-5 w-5" />}
+          {theme === "dark" && <Moon className="h-5 w-5" />}
+          {theme === "high-contrast" && <Contrast className="h-5 w-5" />}
+          {theme === "system" && <Settings2 className="h-5 w-5" />}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent className="font-mono text-xs capitalize">Theme: {theme}</TooltipContent>
+    </Tooltip>
   );
 };
