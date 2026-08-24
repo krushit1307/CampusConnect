@@ -3888,6 +3888,111 @@ export type Database = {
         };
         Relationships: [];
       };
+      ticket_tiers: {
+        Row: {
+          id: string;
+          event_id: string;
+          name: string;
+          price: number;
+          capacity: number | null;
+          description: string | null;
+          is_early_bird: boolean;
+          early_bird_end_date: string | null;
+          price_schedule: Json;
+          discount_rules: Json;
+          start_date: string | null;
+          end_date: string | null;
+          stripe_price_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          name: string;
+          price: number;
+          capacity?: number | null;
+          description?: string | null;
+          is_early_bird?: boolean;
+          early_bird_end_date?: string | null;
+          price_schedule?: Json;
+          discount_rules?: Json;
+          start_date?: string | null;
+          end_date?: string | null;
+          stripe_price_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          name?: string;
+          price?: number;
+          capacity?: number | null;
+          description?: string | null;
+          is_early_bird?: boolean;
+          early_bird_end_date?: string | null;
+          price_schedule?: Json;
+          discount_rules?: Json;
+          start_date?: string | null;
+          end_date?: string | null;
+          stripe_price_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      event_flash_sales: {
+        Row: {
+          id: string;
+          event_id: string;
+          ticket_tier_id: string | null;
+          created_by: string;
+          discount_percent: number;
+          original_price_cents: number;
+          sale_price_cents: number;
+          original_stripe_price_id: string | null;
+          sale_stripe_price_id: string | null;
+          starts_at: string;
+          expires_at: string;
+          status: "pending" | "active" | "expired" | "cancelled";
+          created_at: string;
+          updated_at: string;
+          notification_sent_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          ticket_tier_id?: string | null;
+          created_by: string;
+          discount_percent: number;
+          original_price_cents: number;
+          sale_price_cents: number;
+          original_stripe_price_id?: string | null;
+          sale_stripe_price_id?: string | null;
+          starts_at?: string;
+          expires_at: string;
+          status?: "pending" | "active" | "expired" | "cancelled";
+          created_at?: string;
+          updated_at?: string;
+          notification_sent_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          ticket_tier_id?: string | null;
+          created_by?: string;
+          discount_percent?: number;
+          original_price_cents?: number;
+          sale_price_cents?: number;
+          original_stripe_price_id?: string | null;
+          sale_stripe_price_id?: string | null;
+          starts_at?: string;
+          expires_at?: string;
+          status?: "pending" | "active" | "expired" | "cancelled";
+          created_at?: string;
+          updated_at?: string;
+          notification_sent_at?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       auction_item_public_state: {
@@ -3998,6 +4103,20 @@ export type Database = {
           },
         ];
       };
+      active_event_flash_sales: {
+        Row: {
+          id: string;
+          event_id: string;
+          ticket_tier_id: string | null;
+          discount_percent: number;
+          original_price_cents: number;
+          sale_price_cents: number;
+          starts_at: string;
+          expires_at: string;
+          status: "active";
+        };
+        Relationships: [];
+      };
       buddy_waves: {
         Row: {
           id: string;
@@ -4042,6 +4161,39 @@ export type Database = {
       };
     };
     Functions: {
+      create_event_flash_sale: {
+        Args: {
+          p_event_id: string;
+          p_discount_percent: number;
+          p_duration_minutes: number;
+        };
+        Returns: Database["public"]["Tables"]["event_flash_sales"]["Row"];
+      };
+      activate_event_flash_sale: {
+        Args: { p_sale_id: string; p_sale_stripe_price_id: string };
+        Returns: Database["public"]["Tables"]["event_flash_sales"]["Row"];
+      };
+      revert_event_flash_sale: {
+        Args: { p_sale_id: string };
+        Returns: Database["public"]["Tables"]["event_flash_sales"]["Row"] | null;
+      };
+      queue_flash_sale_notifications: {
+        Args: { p_sale_id: string };
+        Returns: number;
+      };
+      get_active_event_flash_sale: {
+        Args: { p_event_id: string };
+        Returns: {
+          id: string;
+          event_id: string;
+          ticket_tier_id: string | null;
+          discount_percent: number;
+          original_price_cents: number;
+          sale_price_cents: number;
+          sale_stripe_price_id: string | null;
+          expires_at: string;
+        }[];
+      };
       place_silent_auction_bid: {
         Args: {
           p_item_id: string;

@@ -9,6 +9,7 @@ import { CurrencyEstimate } from "@/components/CurrencyEstimate";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { isFlashSaleRealtimePayload, type ActiveFlashSale } from "@/lib/flashSale";
 
 interface TicketTier {
   id: string;
@@ -35,6 +36,7 @@ export function TicketPricingTimeline({
   const [isDynamic, setIsDynamic] = useState(false);
   const [dynamicPrice, setDynamicPrice] = useState<number | null>(null);
   const [ticketsUntilIncrease, setTicketsUntilIncrease] = useState<number | null>(null);
+  const [flashSale, setFlashSale] = useState<ActiveFlashSale | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,6 +67,28 @@ export function TicketPricingTimeline({
   }, []);
 
   useEffect(() => {
+    let mounted = true;
+    const saleChannel = supabase
+      .channel(`event-flash-sale:${eventId}`)
+      .on("broadcast", { event: "flash-sale" }, ({ payload }) => {
+        if (!isFlashSaleRealtimePayload(payload) || payload.eventId !== eventId) return;
+        setFlashSale((previous) => ({
+          id: payload.saleId,
+          event_id: eventId,
+          ticket_tier_id: previous?.ticket_tier_id ?? null,
+          discount_percent: payload.discountPercent ?? previous?.discount_percent ?? 0,
+          original_price_cents: previous?.original_price_cents ?? 0,
+          sale_price_cents: payload.salePriceCents ?? previous?.sale_price_cents ?? 0,
+          starts_at: new Date().toISOString(),
+          expires_at: payload.expiresAt ?? previous?.expires_at ?? new Date().toISOString(),
+          status: "active",
+        }));
+      })
+      .on("broadcast", { event: "flash-sale-ended" }, ({ payload }) => {
+        if (isFlashSaleRealtimePayload(payload) && payload.eventId === eventId) setFlashSale(null);
+      })
+      .subscribe();
+
     const fetchTiers = async () => {
       setLoading(true);
       try {
@@ -74,19 +98,28 @@ export function TicketPricingTimeline({
           .select("base_price, surge_multiplier")
           .eq("id", eventId)
           .single();
-        
+
         if (!eventError && eventData && eventData.base_price !== null) {
           setIsDynamic(true);
           const { data: dynPrice } = await supabase.rpc("calculate_current_price", {
             p_event_id: eventId,
           });
           setDynamicPrice(dynPrice);
-          
+
           const { data: tUntilIncrease } = await supabase.rpc("tickets_until_price_increase", {
             p_event_id: eventId,
           });
           setTicketsUntilIncrease(tUntilIncrease);
         }
+
+        const { data: saleData } = await supabase
+          .from("active_event_flash_sales")
+          .select(
+            "id, event_id, ticket_tier_id, discount_percent, original_price_cents, sale_price_cents, starts_at, expires_at, status",
+          )
+          .eq("event_id", eventId)
+          .maybeSingle();
+        if (mounted) setFlashSale(saleData as ActiveFlashSale | null);
 
         const { data, error } = await supabase
           .from("ticket_tiers")
@@ -120,10 +153,14 @@ export function TicketPricingTimeline({
       } catch (err) {
         console.error("Failed to load ticket pricing info", err);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
     fetchTiers();
+    return () => {
+      mounted = false;
+      void saleChannel.unsubscribe();
+    };
   }, [eventId]);
 
   const handlePurchase = async () => {
@@ -160,7 +197,7 @@ export function TicketPricingTimeline({
     return <div className="h-32 bg-gray-100 animate-pulse rounded-lg border-2 border-black"></div>;
   }
 
-  if (tiers.length === 0 && !isDynamic) {
+  if (tiers.length === 0 && !isDynamic && !flashSale) {
     return null;
   }
 
@@ -194,7 +231,11 @@ export function TicketPricingTimeline({
         <div className="bg-amber-100 border-2 border-black p-3 mb-6 flex items-center gap-3 font-mono text-sm text-amber-950">
           <Flame className="w-5 h-5 text-orange-500 animate-pulse" />
           <span>
-            🔥 <strong>Price increases in {ticketsUntilIncrease} ticket{ticketsUntilIncrease > 1 ? "s" : ""}!</strong> Buy now.
+            🔥{" "}
+            <strong>
+              Price increases in {ticketsUntilIncrease} ticket{ticketsUntilIncrease > 1 ? "s" : ""}!
+            </strong>{" "}
+            Buy now.
           </span>
         </div>
       )}
@@ -214,13 +255,29 @@ export function TicketPricingTimeline({
         </div>
       )}
 
-      {isDynamic ? (
+      {flashSale ? (
+        <div className="my-6 border-4 border-black bg-red-600 p-4 font-mono text-white shadow-[4px_4px_0_0_#000]">
+          <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider">
+            <Flame className="h-4 w-4 animate-pulse" /> Flash sale pricing applied at checkout
+          </p>
+          <p className="mt-2 font-display text-3xl font-black uppercase">
+            {flashSale.discount_percent}% off
+          </p>
+          <p className="mt-1 text-sm">
+            Sale price: <strong>${(flashSale.sale_price_cents / 100).toFixed(2)} USD</strong>{" "}
+            <span className="ml-2 text-white/70 line-through">
+              ${(flashSale.original_price_cents / 100).toFixed(2)}
+            </span>
+          </p>
+        </div>
+      ) : isDynamic ? (
         <div className="my-6 bg-slate-50 border-2 border-black p-4 rounded-lg font-mono text-sm text-slate-800 flex items-start gap-3">
           <TrendingUp className="w-6 h-6 text-violet-600 shrink-0 mt-0.5" />
           <div>
             <p className="font-bold text-black uppercase mb-1">Algorithmic Demand-Based Pricing</p>
             <p className="text-xs text-slate-600 leading-relaxed">
-              This event uses real-time surge pricing. Prices adjust dynamically based on capacity demand and remaining tickets. Secure your spot early to lock in a lower rate!
+              This event uses real-time surge pricing. Prices adjust dynamically based on capacity
+              demand and remaining tickets. Secure your spot early to lock in a lower rate!
             </p>
           </div>
         </div>
@@ -280,9 +337,20 @@ export function TicketPricingTimeline({
 
       <div className="mt-8 pt-6 border-t-2 border-black/10 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
-          {isDynamic && dynamicPrice !== null ? (
+          {flashSale ? (
             <p className="font-mono text-sm text-black/70">
-              Current Surge Price: <strong className="text-lg text-black">${(dynamicPrice / 100).toFixed(2)} USD</strong>
+              Flash Sale:{" "}
+              <strong className="text-lg text-red-600">
+                ${(flashSale.sale_price_cents / 100).toFixed(2)} USD
+              </strong>
+              <span className="ml-2 text-black/50 line-through">
+                ${(flashSale.original_price_cents / 100).toFixed(2)}
+              </span>
+            </p>
+          ) : isDynamic && dynamicPrice !== null ? (
+            <p className="font-mono text-sm text-black/70">
+              Current Surge Price:{" "}
+              <strong className="text-lg text-black">${(dynamicPrice / 100).toFixed(2)} USD</strong>
               <CurrencyEstimate
                 amountUsd={dynamicPrice / 100}
                 preferredCurrency={preferredCurrency}
@@ -313,15 +381,17 @@ export function TicketPricingTimeline({
           size="lg"
           className="w-full sm:w-auto font-display font-black uppercase tracking-widest bg-lime hover:bg-lime/80 text-black border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={handlePurchase}
-          disabled={(!activeTier && !isDynamic) || purchasing}
+          disabled={(!activeTier && !isDynamic && !flashSale) || purchasing}
         >
           {purchasing
             ? "Processing..."
-            : isDynamic && dynamicPrice !== null
-              ? `Buy Ticket for $${(dynamicPrice / 100).toFixed(2)} USD`
-              : activeTier
-                ? `Buy Ticket for $${(activeTier.price / 100).toFixed(2)} USD`
-                : "Unavailable"}
+            : flashSale
+              ? `Buy Ticket for $${(flashSale.sale_price_cents / 100).toFixed(2)} USD`
+              : isDynamic && dynamicPrice !== null
+                ? `Buy Ticket for $${(dynamicPrice / 100).toFixed(2)} USD`
+                : activeTier
+                  ? `Buy Ticket for $${(activeTier.price / 100).toFixed(2)} USD`
+                  : "Unavailable"}
         </Button>
       </div>
     </div>
