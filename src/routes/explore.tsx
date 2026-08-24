@@ -10,6 +10,7 @@ import MapPin from "lucide-react/dist/esm/icons/map-pin";
 import Compass from "lucide-react/dist/esm/icons/compass";
 import GraduationCap from "lucide-react/dist/esm/icons/graduation-cap";
 import TrendingUp from "lucide-react/dist/esm/icons/trending-up";
+import { TagSubscribeButton } from "@/components/discovery/TagSubscribeButton";
 
 // MOCK DATA: We will replace this with the real backend API later
 const MOCK_TRENDING_TAGS = [
@@ -102,6 +103,15 @@ export default function ExploreShowcase() {
                 </button>
               )}
             </div>
+            {selectedTag && (
+              <div className="mb-3">
+                <TagSubscribeButton
+                  tagName={
+                    MOCK_TRENDING_TAGS.find((tag) => tag.id === selectedTag)?.name || selectedTag
+                  }
+                />
+              </div>
+            )}
             <div className="flex flex-wrap gap-3">
               {MOCK_TRENDING_TAGS.map((tag) => (
                 <button
