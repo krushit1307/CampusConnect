@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFloorplan } from "@/hooks/useFloorplan";
 import { FloorplanCanvas } from "@/components/events/floorplan/FloorplanCanvas";
 import { FloorplanEditor } from "@/components/events/floorplan/FloorplanEditor";
+import { EventCapacityThermalMap } from "@/components/events/EventCapacityThermalMap";
 import { describeAssignment } from "@/lib/floorplan/serialize";
 import type { FloorplanAsset } from "@/lib/floorplan/types";
 import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
@@ -25,9 +26,18 @@ export default function EventFloorplanPage() {
     let cancelled = false;
     supabase.auth
       .getUser()
-      .then(({ data }) => {
-        if (!cancelled) setCanEdit(Boolean(data.user));
+      .then(async ({ data }) => {
+        if (!data.user) {
+          if (!cancelled) setCanEdit(false);
+          return;
+        }
+        const { data: isOrganizer } = await supabase.rpc("is_event_organizer", {
+          p_event_id: eventId,
+          p_user_id: data.user.id,
+        });
+        if (!cancelled) setCanEdit(Boolean(isOrganizer));
       })
+
       .catch(() => {
         if (!cancelled) setCanEdit(false);
       });
@@ -99,19 +109,22 @@ export default function EventFloorplanPage() {
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-black border-t-transparent" />
             </div>
           ) : mode === "organizer" && canEdit ? (
-            <FloorplanEditor
-              eventId={eventId}
-              venue={floorplan.venue}
-              assets={floorplan.assets}
-              collidingIds={floorplan.collidingIds}
-              isSaving={floorplan.isSaving}
-              onAdd={floorplan.addAsset}
-              onMove={floorplan.moveAsset}
-              onUpdate={floorplan.updateAsset}
-              onRemove={floorplan.removeAsset}
-              onVenueSize={floorplan.setVenueSize}
-              onSave={floorplan.save}
-            />
+            <div className="space-y-6">
+              <FloorplanEditor
+                eventId={eventId}
+                venue={floorplan.venue}
+                assets={floorplan.assets}
+                collidingIds={floorplan.collidingIds}
+                isSaving={floorplan.isSaving}
+                onAdd={floorplan.addAsset}
+                onMove={floorplan.moveAsset}
+                onUpdate={floorplan.updateAsset}
+                onRemove={floorplan.removeAsset}
+                onVenueSize={floorplan.setVenueSize}
+                onSave={floorplan.save}
+              />
+              <EventCapacityThermalMap eventId={eventId} />
+            </div>
           ) : (
             <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
               <FloorplanCanvas

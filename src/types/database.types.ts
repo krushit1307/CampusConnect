@@ -4195,8 +4195,141 @@ export type Database = {
         };
         Relationships: [];
       };
+      event_wifi_access_points: {
+        Row: {
+          id: string;
+          event_id: string;
+          mac_address: string;
+          label: string;
+          area_name: string;
+          x_ft: number;
+          y_ft: number;
+          radius_ft: number;
+          max_device_capacity: number;
+          enabled: boolean;
+          last_device_count: number | null;
+          last_sampled_at: string | null;
+          last_alerted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          mac_address: string;
+          label: string;
+          area_name: string;
+          x_ft: number;
+          y_ft: number;
+          radius_ft?: number;
+          max_device_capacity: number;
+          enabled?: boolean;
+          last_device_count?: number | null;
+          last_sampled_at?: string | null;
+          last_alerted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          mac_address?: string;
+          label?: string;
+          area_name?: string;
+          x_ft?: number;
+          y_ft?: number;
+          radius_ft?: number;
+          max_device_capacity?: number;
+          enabled?: boolean;
+          last_device_count?: number | null;
+          last_sampled_at?: string | null;
+          last_alerted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      event_wifi_density_snapshots: {
+        Row: {
+          id: string;
+          access_point_id: string;
+          device_count: number;
+          sampled_at: string;
+          provider: "meraki" | "aruba" | "normalized";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          access_point_id: string;
+          device_count: number;
+          sampled_at: string;
+          provider: "meraki" | "aruba" | "normalized";
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          access_point_id?: string;
+          device_count?: number;
+          sampled_at?: string;
+          provider?: "meraki" | "aruba" | "normalized";
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
+      is_event_organizer: {
+        Args: { p_event_id: string; p_user_id?: string };
+        Returns: boolean;
+      };
+      upsert_event_wifi_access_point: {
+        Args: {
+          p_event_id: string;
+          p_access_point_id?: string;
+          p_mac_address?: string;
+          p_label?: string;
+          p_area_name?: string;
+          p_x_ft?: number;
+          p_y_ft?: number;
+          p_radius_ft?: number;
+          p_max_device_capacity?: number;
+          p_enabled?: boolean;
+        };
+        Returns: Database["public"]["Tables"]["event_wifi_access_points"]["Row"];
+      };
+      delete_event_wifi_access_point: {
+        Args: { p_access_point_id: string };
+        Returns: boolean;
+      };
+      get_event_capacity_thermal_map: {
+        Args: { p_event_id: string };
+        Returns: {
+          access_point_id: string;
+          mac_address: string;
+          label: string;
+          area_name: string;
+          x_ft: number;
+          y_ft: number;
+          radius_ft: number;
+          max_device_capacity: number;
+          device_count: number | null;
+          sampled_at: string | null;
+          over_capacity: boolean;
+        }[];
+      };
+      record_wifi_density_snapshot: {
+        Args: {
+          p_access_point_id: string;
+          p_device_count: number;
+          p_sampled_at: string;
+          p_provider: "meraki" | "aruba" | "normalized";
+        };
+        Returns: Database["public"]["Tables"]["event_wifi_density_snapshots"]["Row"];
+      };
+      mark_wifi_capacity_alerted: {
+        Args: { p_access_point_id: string };
+        Returns: boolean;
+      };
       create_event_flash_sale: {
         Args: {
           p_event_id: string;
