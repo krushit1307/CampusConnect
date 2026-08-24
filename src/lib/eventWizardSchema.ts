@@ -151,6 +151,7 @@ export const customizationsStepSchema = z.object({
   isFeatured: z.boolean().default(false),
   allowWaitlist: z.boolean().default(true),
   sendReminderEmails: z.boolean().default(true),
+  isLiveAlbumActive: z.boolean().default(false),
 });
 export type CustomizationsStepData = z.infer<typeof customizationsStepSchema>;
 
@@ -192,6 +193,7 @@ export const eventWizardMasterSchema = z
     isFeatured: customizationsStepSchema.shape.isFeatured,
     allowWaitlist: customizationsStepSchema.shape.allowWaitlist,
     sendReminderEmails: customizationsStepSchema.shape.sendReminderEmails,
+    isLiveAlbumActive: customizationsStepSchema.shape.isLiveAlbumActive,
   })
   // Cross-field refinement: end date > start date.
   .refine(
@@ -284,4 +286,5 @@ export const DEFAULT_EVENT_WIZARD_DATA: EventWizardFormData = {
   isFeatured: false,
   allowWaitlist: true,
   sendReminderEmails: true,
+  isLiveAlbumActive: false,
 };

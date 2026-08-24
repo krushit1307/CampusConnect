@@ -125,7 +125,7 @@ export const ROIDashboard: React.FC<ROIDashboardProps> = ({ eventId, sponsorId, 
       {/* Metrics Cards */}
       {roiData.isAnonymous && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Total Reach
@@ -145,6 +145,20 @@ export const ROIDashboard: React.FC<ROIDashboardProps> = ({ eventId, sponsorId, 
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Distinct Fields of Study
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Brand Engagement
+              </p>
+              <p className="text-4xl font-black text-blue-600 dark:text-blue-400 mt-2 flex items-baseline gap-2">
+                {roiData.hoverDurationMinutes || 0}{" "}
+                <span className="text-sm font-medium text-gray-500">min</span>
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Users hovered over your logo for a combined total of{" "}
+                {roiData.hoverDurationMinutes || 0} minutes.
               </p>
             </div>
 
