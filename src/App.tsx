@@ -128,6 +128,8 @@ const Directory = lazy(() => import("./routes/Directory"));
 const MessagesRoute = lazy(() => import("./routes/messages"));
 const PendingClubsAdmin = lazy(() => import("./routes/admin.clubs.pending"));
 const AnalyticsAdmin = lazy(() => import("./routes/admin.analytics"));
+const ConstitutionReviewAdmin = lazy(() => import("./routes/admin.constitutions"));
+const FeedbackSafetyAdmin = lazy(() => import("./routes/admin.feedback-safety"));
 const AdminReportsPage = lazy(() => import("./routes/admin.reports"));
 const AdminUsersPage = lazy(() => import("./routes/admin.users"));
 const AdminRestorePage = lazy(() => import("./routes/admin.restore"));
@@ -142,9 +144,7 @@ const EventDashboard = lazy(() => import("./routes/events.$eventId.dashboard"));
 const EventGantt = lazy(() => import("./routes/events.$eventId.gantt"));
 const EventFloorplan = lazy(() => import("./routes/events.$eventId.floorplan"));
 const LostFound = lazy(() => import("./routes/lost-found"));
-const Leaderboard = lazy(() =>
-  import("./components/Leaderboard").then((m) => ({ default: m.Leaderboard })),
-);
+const Leaderboard = lazy(() => import("./routes/leaderboard"));
 const Recap = lazy(() => import("./routes/recap"));
 const NetworkPage = lazy(() => import("@/pages/NetworkPage"));
 const ReviveClubPage = lazy(() => import("@/pages/ReviveClub"));
@@ -153,9 +153,11 @@ const AdminLeadershipApprovals = lazy(() => import("./routes/admin.leadership-ap
 const MfaChallenge = lazy(() => import("./routes/mfa-challenge"));
 const ComplianceCheck = lazy(() => import("./routes/compliance-check"));
 const VolunteerRecord = lazy(() => import("./routes/volunteer-record"));
+const FacilityDashboard = lazy(() => import("./routes/facility-dashboard"));
 
 const EventsLayout = lazy(() => import("./pages/Events/EventsLayout"));
 const LazyEventsIndex = lazy(() => import("./pages/Events/EventsList"));
+const LazyTicketingDemo = lazy(() => import("./pages/Events/CampusEventTicketingPage"));
 const LazyEventDetails = lazy(() => import("./pages/Events/EventDetail"));
 const EmptyState = lazy(() => import("./pages/Events/EmptyState"));
 const TourManager = lazy(() => import("./routes/tours.manage"));
@@ -163,16 +165,15 @@ const TourMode = lazy(() => import("./routes/tours.$tourId"));
 const BundleCheckoutRoute = lazy(() => import("./pages/BundleCheckoutPage"));
 const BundleDetailsRoute = lazy(() => import("./pages/BundleDetailsPage"));
 const EquipmentMarketplace = lazy(() => import("./routes/equipment"));
-<<<<<<< Updated upstream
-=======
 const Wrapped2026 = lazy(() => import("./routes/wrapped.2026"));
 const SkillSwapMarketplace = lazy(() => import("./routes/skill-swap"));
 const CampusWellnessHub = lazy(() => import("./pages/wellness/CampusWellnessHub"));
->>>>>>> Stashed changes
 const ReferralDashboardRoute = lazy(() => import("./pages/ReferralDashboard"));
 const ReferralLeaderboardRoute = lazy(() => import("./pages/ReferralLeaderboard"));
 const AudioTourRoute = lazy(() => import("./routes/audio-tour"));
-const PollOverlayRoute = lazy(() => import("./routes/overlay.poll.$poll_id")); // ---------------------------------------------------------------------------
+const DynamicEarlyBirdAnalyticsRoute = lazy(() => import("./routes/events.$id.early-bird-analytics"));
+
+// ---------------------------------------------------------------------------
 // Animated Outlet Wrapper for Framer Motion transitions with Skeleton Fallback
 // ---------------------------------------------------------------------------
 function AnimatedOutlet() {
@@ -205,7 +206,6 @@ const router = createBrowserRouter(
     <>
       <Route path="/overlay/poll/:poll_id" element={<PollOverlayRoute />} />
       <Route element={<Layout />} errorElement={<RouteErrorBoundary />}>
-        {" "}
         <Route element={<MfaChallengeGuard />}>
           <Route element={<AnimatedOutlet />}>
             <Route index element={<Index />} />
@@ -254,15 +254,14 @@ const router = createBrowserRouter(
                 </Suspense>
               }
             />
-
             <Route element={<ComplianceCheckGuard />}>
               <Route element={<AnimatedOutlet />}>
                 <Route index element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/mfa-challenge" element={<MfaChallenge />} />
-                <Route path="/compliance-check" element={<ComplianceCheck />} />
                 <Route path="/certificates" element={<Certificates />} />
                 <Route path="/verify" element={<VerifyCertificate />} />
+                <Route path="/audio-tour" element={<AudioTourRoute />} />
                 <Route path="/clubs" element={<ClubsLayout />}>
                   <Route index element={<ClubsIndex />} />
                   <Route path="fit" element={<ClubDiscoveryQuiz />} />
@@ -278,19 +277,22 @@ const router = createBrowserRouter(
                   <Route path=":slug/honorariums" element={<ClubHonorariumsRoute />} />
                   <Route path=":slug/resources" element={<ClubResourcesRoute />} />
                   <Route path=":slug/yearbook/2026" element={<ClubYearbookRoute />} />
+                  <Route path=":slug/revive" element={<ReviveClubPage />} />{" "}
                 </Route>
-                <Route path="/print/charter/:slug" element={<PrintableCharter />} />{" "}
+                <Route path="/print/charter/:slug" element={<PrintableCharter />} />
                 <Route path="/bundles/:bundleId" element={<BundleDetailsRoute />} />
                 <Route path="/bundles/:bundleId/checkout" element={<BundleCheckoutRoute />} />
                 <Route path="/referrals/dashboard" element={<ReferralDashboardRoute />} />
                 <Route path="/referrals/leaderboard" element={<ReferralLeaderboardRoute />} />
+                <Route path="/scavenger-hunts" element={<ScavengerHuntsList />} />
+                <Route path="/scavenger-hunts/:id" element={<ScavengerHuntGame />} />
+                <Route path="/explore" element={<ExploreShowcase />} />
                 <Route path="/dashboard" element={<Dashboard />}>
                   <Route index element={<DashboardOverview />} />
                   <Route path="rsvps" element={<DashboardRsvps />} />
                   <Route path="bookmarks" element={<DashboardBookmarks />} />
                   <Route path="calendar" element={<DashboardCalendar />} />
                 </Route>
-                {/* Events Layout with Split-Screen desktop and Mobile Bottom Sheet */}
                 <Route
                   path="/events"
                   element={
@@ -298,37 +300,9 @@ const router = createBrowserRouter(
                       <EventsLayout />
                     </Suspense>
                   }
-                >
-                  <Route
-                    index
-                    element={
-                      <Suspense fallback={<PageFallback />}>
-                        <EmptyState />
-                      </Suspense>
-                    }
-                  />
-                  <Route
-                    path=":eventId"
-                    element={
-                      <Suspense fallback={<PageFallback />}>
-                        <LazyEventDetails />
-                      </Suspense>
-                    }
-                  />
-                </Route>
-                <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
-                <Route
-                  path="/events/:eventId/kiosk"
-                  element={
-                    <Suspense fallback={<RemoteLoadingScreen />}>
-                      <EventKiosk />
-                    </Suspense>
-                  }
                 />
                 <Route path="/events/:eventId/gantt" element={<EventGantt />} />
-                {/* Events Map View with clustering */}
                 <Route path="events/map" element={<EventsMapPage />} />
-                {/* Campus Heatmap - Live Activity */}
                 <Route path="/map" element={<MapPage />} />
                 <Route path="/tours/manage" element={<TourManager />} />
                 <Route path="/tours/:tourId" element={<TourMode />} />{" "}
@@ -339,6 +313,7 @@ const router = createBrowserRouter(
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/facility-dashboard" element={<FacilityDashboard />} />
                 <Route path="/settings/data" element={<SettingsData />} />
                 <Route path="/recap" element={<Recap />} />
                 <Route path="/volunteer-record" element={<VolunteerRecord />} />
@@ -351,67 +326,13 @@ const router = createBrowserRouter(
                 <Route path="/admin/users" element={<AdminUsersPage />} />
                 <Route path="/admin/restore" element={<AdminRestorePage />} />
                 <Route path="/admin/dlq" element={<AdminDlqPage />} />
-                <Route
-                  path="/admin/emergency-broadcast"
-                  element={<AdminEmergencyBroadcast />}
-                />{" "}
-                <Route path="/admin/badges" element={<AdminBadgesPage />} />{" "}
+                <Route path="/admin/emergency-broadcast" element={<AdminEmergencyBroadcast />} />
+                <Route path="/admin/badges" element={<AdminBadgesPage />} />
                 <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
-                <Route path="/admin/badges" element={<AdminBadgesPage />} />{" "}
-                <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
-                {/* Catch-all route for 404 errors */}
                 <Route path="*" element={<NotFound />} />
               </Route>
-              <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
-              <Route
-                path="/events/:eventId/kiosk"
-                element={
-                  <Suspense fallback={<RemoteLoadingScreen />}>
-                    <EventKiosk />
-                  </Suspense>
-                }
-              />
-              <Route path="/events/:eventId/gantt" element={<EventGantt />} />
-              {/* Events Map View with clustering */}
-              <Route path="events/map" element={<EventsMapPage />} />
-              {/* Campus Heatmap - Live Activity */}
-              <Route path="/map" element={<MapPage />} />
-              <Route path="/tours/manage" element={<TourManager />} />
-              <Route path="/tours/:tourId" element={<TourMode />} />{" "}
-              <Route path="challenge" element={<ChallengeArena />} />
-              <Route path="leaderboard" element={<Leaderboard />} />
-              <Route path="/feed" element={<Feed />} />
-              <Route path="/lost-found" element={<LostFound />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/settings/data" element={<SettingsData />} />
-              <Route path="/recap" element={<Recap />} />
-              <Route path="/volunteer-record" element={<VolunteerRecord />} />
-              <Route path="/network" element={<NetworkPage />} />
-              <Route path="/admin/clubs/pending" element={<PendingClubsAdmin />} />
-              <Route path="/admin/clubs/revival-requests" element={<AdminRevivalRequestsPage />} />
-              <Route path="/admin/analytics" element={<AnalyticsAdmin />} />
-              <Route path="/verify-email" element={<VerifyEmail />} />
-              <Route path="/messages" element={<MessagesRoute />} />
-              <Route path="/admin/reports" element={<AdminReportsPage />} />
-              <Route path="/admin/users" element={<AdminUsersPage />} />
-              <Route path="/admin/restore" element={<AdminRestorePage />} />
-              <Route path="/admin/dlq" element={<AdminDlqPage />} />
-              <Route path="/admin/leadership-approvals" element={<AdminLeadershipApprovals />} />
-              <Route path="/equipment-rentals" element={<EquipmentMarketplace />} />
-              <Route path="/mentorship-dashboard" element={<MentorshipDashboard />} />
-              <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
-              {/* Catch-all route for 404 errors */}
-              <Route path="*" element={<NotFound />} />
             </Route>
-
-            <Route path="/gallery" element={<GalleryPage />} />
           </Route>
- feature/3022-club-hibernation-workflow
-          <Route path="/events/:eventId/dashboard" element={<EventDashboard />} />
-          <Route
-            path="/events/:eventId/kiosk"
             element={
               <Suspense fallback={<RemoteLoadingScreen />}>
                 <EventKiosk />
@@ -447,17 +368,14 @@ const router = createBrowserRouter(
           <Route path="/admin/dlq" element={<AdminDlqPage />} />
           <Route path="/admin/leadership-approvals" element={<AdminLeadershipApprovals />} />
           <Route path="/equipment-rentals" element={<EquipmentMarketplace />} />
-<<<<<<< Updated upstream
-=======
           <Route path="/wrapped/2026" element={<Wrapped2026 />} />
           <Route path="/skill-swap" element={<SkillSwapMarketplace />} />
-            <Route path="/wellness" element={<CampusWellnessHub />} />
->>>>>>> Stashed changes
+          <Route path="/wellness" element={<CampusWellnessHub />} />
           <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
           {/* Catch-all route for 404 errors */}
           <Route path="*" element={<NotFound />} />
-
         </Route>
+        <Route path="/gallery" element={<GalleryPage />} />
       </Route>
     </>,
   ),
