@@ -173,7 +173,7 @@ const ReferralDashboardRoute = lazy(() => import("./pages/ReferralDashboard"));
 const ReferralLeaderboardRoute = lazy(() => import("./pages/ReferralLeaderboard"));
 const AudioTourRoute = lazy(() => import("./routes/audio-tour"));
 const DynamicEarlyBirdAnalyticsRoute = lazy(() => import("./routes/events.$id.early-bird-analytics"));
-const TicketMarketplaceRoute = lazy(() => import("./routes/ticket-marketplace"));
+const AccessibilityTrackerRoute = lazy(() => import("./routes/accessibility-tracker"));
 
 // ---------------------------------------------------------------------------
 // Animated Outlet Wrapper for Framer Motion transitions with Skeleton Fallback
@@ -370,7 +370,7 @@ const router = createBrowserRouter(
           <Route path="/wrapped/2026" element={<Wrapped2026 />} />
           <Route path="/skill-swap" element={<SkillSwapMarketplace />} />
           <Route path="/wellness" element={<CampusWellnessHub />} />
-          <Route path="/ticket-marketplace" element={<TicketMarketplaceRoute />} />
+          <Route path="/accessibility-tracker" element={<AccessibilityTrackerRoute />} />
           <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
           {/* Catch-all route for 404 errors */}
           <Route path="*" element={<NotFound />} />

@@ -47,13 +47,15 @@ describe("eventCancellationService", () => {
         error: null,
       });
 
-      const res = await cancelEventAndRefund("evt-902", "Blizzard Warning");
+      const res = await cancelEventAndRefund("evt-902", "Blizzard Warning", "Fall Music Fest");
 
       expect(mockInvoke).toHaveBeenCalledWith("cancel-event-refunds", {
         body: { eventId: "evt-902", reason: "Blizzard Warning" },
       });
       expect(res.success).toBe(true);
       expect(res.total_rsvps_cancelled).toBe(200);
+      expect(res.vendor_summary).toBeDefined();
+      expect(res.vendor_summary?.totalVendorsNotified).toBeGreaterThan(0);
     });
   });
 
