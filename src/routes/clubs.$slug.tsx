@@ -992,6 +992,11 @@ export default function ClubProfile() {
         </section>
  feature/election-coi-detector-3952
  feature/election-coi-detector-3952
+ feature/election-coi-detector-3952
+
+ feature/geofenced-checkin-4035
+ feature/geofenced-checkin-4035
+ main
 
  feature/assistant-persistence-2044
  main

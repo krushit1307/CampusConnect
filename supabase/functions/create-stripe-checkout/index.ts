@@ -1,9 +1,9 @@
 // =============================================================================
 // Edge Function: Create Stripe Checkout Session (with Group Discounts)
---Issue: #2902 - Implement 'Group Discounts' for Event Ticketing
---Description: Creates a Stripe Checkout session.Validates the requested
---quantity against remaining capacity, calculates the group discount, and
---applies it as a negative line item(discount) in the Stripe session.
+// Issue: #2902 - Implement 'Group Discounts' for Event Ticketing
+// Description: Creates a Stripe Checkout session. Validates the requested
+// quantity against remaining capacity, calculates the group discount, and
+// applies it as a negative line item (discount) in the Stripe session.
     // =============================================================================
 
     import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -36,6 +36,10 @@ serve(async (req) => {
             Deno.env.get("SUPABASE_URL") ?? "",
             Deno.env.get("SUPABASE_ANON_KEY") ?? "",
             { global: { headers: { Authorization: authHeader } } }
+        );
+        const adminSupabase = createClient(
+            Deno.env.get("SUPABASE_URL") ?? "",
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
         );
 
         const { data: { user } } = await supabase.auth.getUser();
@@ -74,8 +78,25 @@ serve(async (req) => {
             throw new Error(`Only ${remainingCapacity} tickets remaining for the current tier.`);
         }
 
-        // 4. Calculate Discount
-        const rules: DiscountRule[] = tier.discount_rules || [];
+        const { data: tierPayment } = await adminSupabase
+            .from("ticket_tiers")
+            .select("stripe_price_id")
+            .eq("id", tier.id)
+            .maybeSingle();
+
+        const { data: activeFlashSale } = await adminSupabase
+            .from("event_flash_sales")
+            .select("id, sale_price_cents, sale_stripe_price_id, discount_percent, expires_at")
+            .eq("event_id", eventId)
+            .eq("status", "active")
+            .gt("expires_at", new Date().toISOString())
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        // 4. Calculate Discount. Flash sales are deliberately not stackable
+        // with group discounts so the organizer's advertised price is exact.
+        const rules: DiscountRule[] = activeFlashSale ? [] : tier.discount_rules || [];
         const sortedRules = [...rules].sort((a, b) => b.min_qty - a.min_qty);
 
         let applicableDiscount = 0;
@@ -105,24 +126,32 @@ serve(async (req) => {
             }
         }
 
+        if (activeFlashSale) basePriceCents = activeFlashSale.sale_price_cents;
+
         const subtotal = basePriceCents * quantity;
         const discountAmount = Math.round(subtotal * (applicableDiscount / 100));
         const totalAmount = subtotal - discountAmount;
 
-        // 5. Build Stripe Line Items
-        const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
-            {
+        // 5. Build Stripe Line Items. A sale Price is resolved only on the
+        // server; the browser never supplies an amount or Stripe Price ID.
+        const activeStripePriceId = activeFlashSale?.sale_stripe_price_id || tierPayment?.stripe_price_id;
+        const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = activeStripePriceId
+            ? [{ price: activeStripePriceId, quantity }]
+            : [{
                 price_data: {
                     currency: "usd",
                     product_data: {
-                        name: isDynamic ? `${event.title} (Dynamic Price)` : `${event.title} - ${tier.name}`,
+                        name: activeFlashSale
+                            ? `${event.title} (Flash Sale)`
+                            : isDynamic
+                                ? `${event.title} (Dynamic Price)`
+                                : `${event.title} - ${tier.name}`,
                         description: `${quantity} ticket(s)`,
                     },
                     unit_amount: basePriceCents,
                 },
-                quantity: quantity,
-            }
-        ];
+                quantity,
+            }];
 
         // Apply discount as a negative line item if applicable
         if (discountAmount > 0) {
@@ -150,6 +179,8 @@ serve(async (req) => {
                 tier_id: tier.id,
                 quantity: quantity.toString(),
                 discount_applied: applicableDiscount.toString(),
+                flash_sale_id: activeFlashSale?.id || "",
+                flash_sale_discount: activeFlashSale?.discount_percent?.toString() || "",
                 event_id: eventId
             },
             // Enforce "All or Nothing" refund policy for group purchases

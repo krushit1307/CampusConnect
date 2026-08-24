@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from "sonner";
 import {
   Briefcase,
   Plus,
@@ -23,6 +24,8 @@ import {
   formatRfpCategoryLabel,
 } from "@/lib/vendorRfp";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { VendorPortfolioViewer } from "./VendorPortfolioViewer";
 
 export interface VendorRfpManagerProps {
   clubId?: string;
@@ -88,6 +91,8 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [showVendorBidModal, setShowVendorBidModal] = useState<boolean>(false);
   const [awardedNotice, setAwardedNotice] = useState<string | null>(null);
+  const [portfolioBid, setPortfolioBid] = useState<RfpBid | null>(null);
+  const [supabase] = useState(() => createClient());
 
   // New RFP Form State
   const [title, setTitle] = useState("");
@@ -133,26 +138,44 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
     setShowCreateModal(false);
   };
 
-  const handleSubmitVendorBid = (e: React.FormEvent) => {
+  const handleSubmitVendorBid = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!vendorName.trim() || !vendorEmail.trim()) return;
 
-    const newBid: RfpBid = {
-      id: `bid-${Date.now()}`,
-      rfp_id: selectedRfpId,
-      vendor_name: vendorName.trim(),
-      vendor_email: vendorEmail.trim(),
-      quoted_price: quotedPrice,
-      proposal_pdf_url: proposalPdfUrl.trim() || null,
-      notes: notes.trim() || null,
-      status: "pending",
-    };
+    const isPersistedRfp = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(selectedRfpId);
+    if (isPersistedRfp) {
+      const { data, error } = await supabase.rpc("submit_vendor_rfp_bid", {
+        p_rfp_id: selectedRfpId,
+        p_vendor_name: vendorName.trim(),
+        p_vendor_email: vendorEmail.trim(),
+        p_quoted_price: quotedPrice,
+        p_proposal_pdf_url: proposalPdfUrl.trim() || null,
+        p_notes: notes.trim() || null,
+      });
+      if (error || !data) {
+        toast.error(error?.message || "Could not submit the vendor bid.");
+        return;
+      }
+      setBidsByRfp({
+        ...bidsByRfp,
+        [selectedRfpId]: [...(bidsByRfp[selectedRfpId] || []), data],
+      });
+    } else {
+      const newBid: RfpBid = {
+        id: `bid-${Date.now()}`,
+        rfp_id: selectedRfpId,
+        vendor_name: vendorName.trim(),
+        vendor_email: vendorEmail.trim(),
+        quoted_price: quotedPrice,
+        proposal_pdf_url: proposalPdfUrl.trim() || null,
+        notes: notes.trim() || null,
+        status: "pending",
+      };
+      const currentBids = bidsByRfp[selectedRfpId] || [];
+      setBidsByRfp({ ...bidsByRfp, [selectedRfpId]: [...currentBids, newBid] });
+    }
 
-    const currentBids = bidsByRfp[selectedRfpId] || [];
-    const updatedBids = { ...bidsByRfp, [selectedRfpId]: [...currentBids, newBid] };
-    setBidsByRfp(updatedBids);
-
-    // Reset Form
+    toast.success("Vendor bid submitted.");
     setVendorName("");
     setVendorEmail("");
     setProposalPdfUrl("");
@@ -362,6 +385,13 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
                           )}
 
                           <div className="flex items-center justify-between pt-1 border-t border-gray-100">
+                            <button
+                              type="button"
+                              onClick={() => setPortfolioBid(bid)}
+                              className="px-3 py-1.5 border-2 border-black bg-yellow-300 hover:bg-yellow-400 font-bold text-xs uppercase rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                            >
+                              View Portfolio
+                            </button>
                             {bid.proposal_pdf_url ? (
                               <a
                                 href={bid.proposal_pdf_url}
@@ -607,6 +637,7 @@ export const VendorRfpManager: React.FC<VendorRfpManagerProps> = ({
           </form>
         </div>
       )}
+      <VendorPortfolioViewer bid={portfolioBid} onClose={() => setPortfolioBid(null)} />
     </div>
   );
 };

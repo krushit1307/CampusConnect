@@ -1,6 +1,7 @@
 // =============================================================================
 // Utility: Floorplan serialization + attendee location descriptions
-// Issue: #4145 - Interactive "Event Layout" Floorplan Builder
+// Issues: #4145 - Interactive "Event Layout" Floorplan Builder
+//         #4157 - Interactive "Career Fair" Digital Map
 // Description: Pure helpers converting between the in-memory asset model and
 // the persisted wire JSON ({ x, y, width, height, type, assignment }), plus
 // human-readable quadrant descriptions ("Northwest corner") used on the
@@ -12,8 +13,36 @@ import {
   FloorplanAsset,
   FloorplanAssetJson,
   FloorplanState,
+  SponsorAssignment,
+  SponsorAssignmentJson,
   VenueBounds,
 } from "./types";
+
+/** In-memory -> wire for an assignment, including #4157 hiring_tags. */
+export function assignmentToWire(assignment: SponsorAssignment): SponsorAssignmentJson {
+  const wire: SponsorAssignmentJson = {
+    sponsorId: assignment.sponsorId ?? null,
+    companyName: assignment.companyName,
+  };
+  if (assignment.hiringTags && assignment.hiringTags.length > 0) {
+    wire.hiring_tags = assignment.hiringTags;
+  }
+  return wire;
+}
+
+/** Wire -> in-memory for an assignment; tolerates missing/malformed tags. */
+export function assignmentFromWire(
+  raw: Partial<SponsorAssignmentJson> | null,
+): SponsorAssignment | null {
+  if (!raw || typeof raw !== "object" || !raw.companyName) return null;
+  return {
+    sponsorId: typeof raw.sponsorId === "string" ? raw.sponsorId : null,
+    companyName: raw.companyName,
+    hiringTags: Array.isArray(raw.hiring_tags)
+      ? raw.hiring_tags.filter((t): t is string => typeof t === "string").map((t) => t.trim())
+      : undefined,
+  };
+}
 
 /** Serialize one asset to the #4145 wire contract. */
 export function toWireJson(asset: FloorplanAsset): FloorplanAssetJson {
@@ -25,7 +54,7 @@ export function toWireJson(asset: FloorplanAsset): FloorplanAssetJson {
     y: Math.round(asset.y * 100) / 100,
     width: Math.round(asset.width * 100) / 100,
     height: Math.round(asset.height * 100) / 100,
-    assignment: asset.assignment ?? null,
+    assignment: asset.assignment ? assignmentToWire(asset.assignment) : null,
   };
 }
 
@@ -73,7 +102,7 @@ export function parseFloorplanState(raw: unknown): {
           y: Number(a.y) || 0,
           width: Number(a.width) || 1,
           height: Number(a.height) || 1,
-          assignment: a.assignment ?? null,
+          assignment: assignmentFromWire(a.assignment),
         }))
     : [];
 

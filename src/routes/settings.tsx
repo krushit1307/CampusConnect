@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/form";
 import { ImageCropUpload } from "@/components/ImageCropUpload";
 import { AutoTaggingSettings } from "@/components/AutoTaggingSettings";
+import { VendorPortfolioEditor } from "@/components/vendors/VendorPortfolioEditor";
 import { useTheme } from "@/components/theme-provider";
 
 const FONT_SIZE_KEY = "campusconnect-font-size";
@@ -1242,6 +1243,10 @@ export default function SettingsPage() {
                 </div>
               </form>
             </Form>
+          </Panel>
+
+          <Panel title="Vendor Portfolio">
+            <VendorPortfolioEditor />
           </Panel>
 
           <Panel title="Appearance">

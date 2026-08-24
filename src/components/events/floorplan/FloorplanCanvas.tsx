@@ -1,11 +1,14 @@
 // =============================================================================
 // Component: FloorplanCanvas
 // Issues: #3675 / #4145 - Interactive "Event Layout" Floorplan Builder
+//         #4157 - Interactive "Career Fair" Digital Map
 // Description: SVG-based 2D canvas. Renders venue walls, fire-exit clearance
 // pathways and draggable assets. Assets intersecting a fire pathway turn red.
 // Pointer events convert screen deltas into feet using the FT_TO_PX scale.
 // In read-only mode (attendee view) dragging is disabled and assets become
 // clickable so attendees can look up "who is at this table".
+// When `highlightIds` is provided (#4157 career-fair search), every asset
+// outside the set is dimmed while matching booths pulse with an amber glow.
 // =============================================================================
 
 import React, { useRef, useState } from "react";
@@ -26,6 +29,8 @@ interface FloorplanCanvasProps {
   readOnly?: boolean;
   selectedId?: string | null;
   onSelect?: (asset: FloorplanAsset) => void;
+  /** Active search result ids (#4157); null/undefined = no filtering. */
+  highlightIds?: Set<string> | null;
 }
 
 export const FloorplanCanvas: React.FC<FloorplanCanvasProps> = ({
@@ -37,6 +42,7 @@ export const FloorplanCanvas: React.FC<FloorplanCanvasProps> = ({
   readOnly = false,
   selectedId = null,
   onSelect,
+  highlightIds = null,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
@@ -102,6 +108,14 @@ export const FloorplanCanvas: React.FC<FloorplanCanvasProps> = ({
               strokeWidth="1"
             />
           </pattern>
+          {/* #4157: bright pulse for booths matching the career-fair search */}
+          <style>{`
+            @keyframes fp-pulse {
+              0%, 100% { opacity: 1; }
+              50% { opacity: 0.45; }
+            }
+            .fp-pulse { animation: fp-pulse 1.1s ease-in-out infinite; }
+          `}</style>
         </defs>
         <rect width={viewW} height={viewH} fill="url(#fp-grid)" />
 
@@ -140,12 +154,23 @@ export const FloorplanCanvas: React.FC<FloorplanCanvasProps> = ({
           const isRound = asset.kind === "round_table";
           const isExit = asset.kind === "exit";
 
+          // #4157 career-fair search: dim everything outside the result set
+          // and make the matching booths pulse with an amber highlight.
+          const isFiltering = readOnly && highlightIds != null;
+          const isMatch = isFiltering ? (highlightIds?.has(asset.id) ?? false) : false;
+          const isDimmed = isFiltering && !isMatch;
+          const groupOpacity = isDimmed ? 0.12 : undefined;
+          const matchStroke = isMatch ? "#f59e0b" : null;
+
           return (
             <g
               key={asset.id}
               onPointerDown={(e) => handleAssetDown(e, asset)}
               className={`${readOnly ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"}`}
               data-testid={`floorplan-asset-${asset.id}`}
+              data-dimmed={isDimmed || undefined}
+              data-pulse={isMatch || undefined}
+              opacity={groupOpacity}
             >
               {isRound ? (
                 <ellipse
@@ -155,8 +180,9 @@ export const FloorplanCanvas: React.FC<FloorplanCanvasProps> = ({
                   ry={(asset.height / 2) * FT_TO_PX}
                   fill={color}
                   opacity={0.85}
-                  stroke={isSelected || colliding ? "#111827" : "transparent"}
+                  stroke={isSelected || colliding ? "#111827" : matchStroke}
                   strokeWidth={3}
+                  className={isMatch ? "fp-pulse" : undefined}
                 />
               ) : (
                 <rect
@@ -167,8 +193,9 @@ export const FloorplanCanvas: React.FC<FloorplanCanvasProps> = ({
                   rx={isExit ? 1 : 4}
                   fill={color}
                   opacity={isExit ? 1 : 0.85}
-                  stroke={isSelected || colliding ? "#111827" : "transparent"}
+                  stroke={isSelected || colliding ? "#111827" : matchStroke}
                   strokeWidth={3}
+                  className={isMatch ? "fp-pulse" : undefined}
                 />
               )}
               <text
@@ -247,6 +274,18 @@ export const FloorplanCanvas: React.FC<FloorplanCanvasProps> = ({
             <span className="inline-block">👆</span>
             Click any table to see who&apos;s there
           </span>
+        )}
+        {readOnly && highlightIds != null && (
+          <>
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-2 w-6 animate-pulse rounded-sm border-2 border-amber-500" />
+              Matching booth
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-3 w-3 rounded-sm bg-gray-400 opacity-30" />
+              Dimmed (no match)
+            </span>
+          </>
         )}
       </div>
     </div>
