@@ -992,6 +992,11 @@ export default function ClubProfile() {
         </section>
  feature/rsvp-prereq-blocker-3946
  feature/rsvp-prereq-blocker-3946
+ feature/rsvp-prereq-blocker-3946
+
+ feature/geofenced-checkin-4035
+ feature/geofenced-checkin-4035
+ main
 
  feature/assistant-persistence-2044
  main

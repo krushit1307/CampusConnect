@@ -1,10 +1,13 @@
 // =============================================================================
 // Types: Floorplan Domain Model
 // Issues: #3675 / #4145 - Interactive "Event Layout" Floorplan Builder
+//         #4157 - Interactive "Career Fair" Digital Map
 // Description: Shared types for the 2D drag-and-drop floorplan tool. All
 // coordinates are expressed in FEET so the canvas can scale to any venue.
 // The persisted shape is the JSON contract requested by #4145:
 //   { x, y, width, height, type, assignment }
+// Assignments may also carry `hiring_tags` (#4157) used by the career-fair
+// search ("Internship", "Software Engineer", majors, ...).
 // =============================================================================
 
 export type AssetKind = "rect_table" | "round_table" | "stage" | "speaker" | "chair_row" | "exit";
@@ -13,6 +16,16 @@ export type AssetKind = "rect_table" | "round_table" | "stage" | "speaker" | "ch
 export interface SponsorAssignment {
   sponsorId: string | null;
   companyName: string;
+  /** What this booth is hiring for, e.g. ["Internship", "Software Engineer"]. */
+  hiringTags?: string[];
+}
+
+/** Wire shape of an assignment as persisted in floorplan_json (#4157). */
+export interface SponsorAssignmentJson {
+  sponsorId: string | null;
+  companyName: string;
+  /** snake_case on the wire to match the rest of the JSON contract. */
+  hiring_tags?: string[];
 }
 
 export interface FloorplanAsset {
@@ -35,7 +48,7 @@ export interface FloorplanAssetJson {
   y: number;
   width: number;
   height: number;
-  assignment: SponsorAssignment | null;
+  assignment: SponsorAssignmentJson | null;
 }
 
 export interface FireExit {
