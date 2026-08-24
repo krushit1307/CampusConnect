@@ -126,6 +126,7 @@ const SettingsData = lazy(() => import("./routes/settings.data"));
 const VerifyEmail = lazy(() => import("./routes/verify-email"));
 const Directory = lazy(() => import("./routes/Directory"));
 const MessagesRoute = lazy(() => import("./routes/messages"));
+const PeerSupportRoute = lazy(() => import("./routes/peer-support"));
 const PendingClubsAdmin = lazy(() => import("./routes/admin.clubs.pending"));
 const AnalyticsAdmin = lazy(() => import("./routes/admin.analytics"));
 const ConstitutionReviewAdmin = lazy(() => import("./routes/admin.constitutions"));
@@ -172,6 +173,7 @@ const ReferralDashboardRoute = lazy(() => import("./pages/ReferralDashboard"));
 const ReferralLeaderboardRoute = lazy(() => import("./pages/ReferralLeaderboard"));
 const AudioTourRoute = lazy(() => import("./routes/audio-tour"));
 const DynamicEarlyBirdAnalyticsRoute = lazy(() => import("./routes/events.$id.early-bird-analytics"));
+const AccessibilityTrackerRoute = lazy(() => import("./routes/accessibility-tracker"));
 
 // ---------------------------------------------------------------------------
 // Animated Outlet Wrapper for Framer Motion transitions with Skeleton Fallback
@@ -322,6 +324,7 @@ const router = createBrowserRouter(
                 <Route path="/admin/analytics" element={<AnalyticsAdmin />} />
                 <Route path="/verify-email" element={<VerifyEmail />} />
                 <Route path="/messages" element={<MessagesRoute />} />
+                <Route path="/peer-support" element={<PeerSupportRoute />} />
                 <Route path="/admin/reports" element={<AdminReportsPage />} />
                 <Route path="/admin/users" element={<AdminUsersPage />} />
                 <Route path="/admin/restore" element={<AdminRestorePage />} />
@@ -333,15 +336,11 @@ const router = createBrowserRouter(
               </Route>
             </Route>
           </Route>
-            element={
-              <Suspense fallback={<RemoteLoadingScreen />}>
-                <EventKiosk />
-              </Suspense>
-            }
-          />
           <Route path="/events/:eventId/gantt" element={<EventGantt />} />
           {/* Events Map View with clustering */}
           <Route path="events/map" element={<EventsMapPage />} />
+          <Route path="events/ticketing" element={<LazyTicketingDemo />} />
+          <Route path="events/ticketing" element={<LazyTicketingDemo />} />
           {/* Campus Heatmap - Live Activity */}
           <Route path="/map" element={<MapPage />} />
           <Route path="/tours/manage" element={<TourManager />} />
@@ -371,6 +370,7 @@ const router = createBrowserRouter(
           <Route path="/wrapped/2026" element={<Wrapped2026 />} />
           <Route path="/skill-swap" element={<SkillSwapMarketplace />} />
           <Route path="/wellness" element={<CampusWellnessHub />} />
+          <Route path="/accessibility-tracker" element={<AccessibilityTrackerRoute />} />
           <Route path="/unsubscribe" element={<UnsubscribeRoute />} />
           {/* Catch-all route for 404 errors */}
           <Route path="*" element={<NotFound />} />

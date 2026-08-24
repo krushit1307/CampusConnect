@@ -27,6 +27,8 @@ import { formatEventDateRange } from "@/lib/utils";
 import { AddToCalendarDropdown } from "@/components/events/AddToCalendarDropdown";
 import { EventCapacityGauge } from "@/components/events/EventCapacityGauge";
 import { TicketPricingTimeline } from "@/components/events/TicketPricingTimeline";
+import { FlashSaleBanner } from "@/components/events/FlashSaleBanner";
+import { FlashSaleControl } from "@/components/events/FlashSaleControl";
 import { formatDateLong } from "@/lib/dateFormatter";
 import { getRsvpIdempotencyKey, clearRsvpIdempotencyKey } from "@/lib/rsvpIdempotency";
 import { toast } from "sonner";
@@ -1832,8 +1834,14 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
               />
             </div>
 
-            <div id="ticket-pricing-section" className="mt-6 max-w-md">
-              <TicketPricingTimeline eventId={event.id} />
+            <div id="ticket-pricing-section" className="mt-6 max-w-2xl">
+              <FlashSaleBanner eventId={event.id} />
+              <TicketPricingTimeline eventId={event.id} isOrganizer={isOrganizer} />
+              {isOrganizer && (
+                <div className="mt-4">
+                  <FlashSaleControl eventId={event.id} />
+                </div>
+              )}
             </div>
 
             {hasRsvpd && myRsvpId && !isCheckedIn && !hasEnded && (
@@ -1968,9 +1976,7 @@ clubs (name, slug, logo_url, primary_color, secondary_color),          event_met
                     </div>
                   )}
                 </div>
-              ) : hasTiersOrSurge ? (
-                null
-              ) : (
+              ) : hasTiersOrSurge ? null : (
                 <div className="flex flex-col gap-1">
                   <Button
                     onClick={handleRsvpClick}

@@ -1,9 +1,11 @@
 // =============================================================================
 // Component: FloorplanEditor
-// Issue: #4145 - Interactive "Event Layout" Floorplan Builder
+// Issues: #4145 - Interactive "Event Layout" Floorplan Builder
+//         #4157 - Interactive "Career Fair" Digital Map
 // Description: Organizer-facing editor. Palette chips can be dragged onto the
 // grid (or clicked) to add tables/stages/exits. A selection inspector edits
-// labels, sizes and sponsor assignments. Saves the layout to
+// labels, sizes and sponsor assignments (incl. comma-separated hiring_tags,
+// which power the attendee career-fair search). Saves the layout to
 // events.floorplan_json and can export the raw JSON contract.
 // =============================================================================
 
@@ -31,6 +33,7 @@ import {
   VenueBounds,
 } from "../../../lib/floorplan/types";
 import { describeAssignment, toFloorplanState } from "../../../lib/floorplan/serialize";
+import { parseHiringTags } from "../../../lib/floorplan/search";
 
 const PALETTE_KINDS: AssetKind[] = [
   "rect_table",
@@ -110,6 +113,7 @@ export const FloorplanEditor: React.FC<FloorplanEditorProps> = ({
   const selected = assets.find((a) => a.id === selectedId) ?? null;
   const [sponsorName, setSponsorName] = useState("");
   const [sponsorId, setSponsorId] = useState("");
+  const [hiringTagsRaw, setHiringTagsRaw] = useState("");
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -129,6 +133,7 @@ export const FloorplanEditor: React.FC<FloorplanEditorProps> = ({
     setSelectedId(asset.id);
     setSponsorName(asset.assignment?.companyName ?? "");
     setSponsorId(asset.assignment?.sponsorId ?? "");
+    setHiringTagsRaw((asset.assignment?.hiringTags ?? []).join(", "));
   }, []);
 
   /** Convert a screen point into feet-space using the live SVG box. */
@@ -192,11 +197,16 @@ export const FloorplanEditor: React.FC<FloorplanEditorProps> = ({
       toast.info("Sponsor assignment cleared");
       return;
     }
+    const tags = parseHiringTags(hiringTagsRaw);
     onUpdate(selected.id, {
-      assignment: { sponsorId: sponsorId.trim() || null, companyName: sponsorName.trim() },
+      assignment: {
+        sponsorId: sponsorId.trim() || null,
+        companyName: sponsorName.trim(),
+        ...(tags.length > 0 ? { hiringTags: tags } : {}),
+      },
     });
     toast.success(`Assigned ${sponsorName.trim()} to ${selected.label}`);
-  }, [selected, sponsorId, sponsorName, onUpdate]);
+  }, [selected, sponsorId, sponsorName, hiringTagsRaw, onUpdate]);
 
   /** Center the asset when the inspector resizes it past a wall. */
   const resize = useCallback(
@@ -395,6 +405,22 @@ export const FloorplanEditor: React.FC<FloorplanEditorProps> = ({
                       className="neu-border mt-1 w-24 px-2 py-1 font-sans text-sm"
                     />
                   </label>
+                </div>
+                {/* #4157 hiring tags powering the attendee career-fair search */}
+                <label className="block font-mono text-xs">
+                  Hiring tags (comma-separated)
+                  <input
+                    value={hiringTagsRaw}
+                    onChange={(e) => setHiringTagsRaw(e.target.value)}
+                    placeholder="Internship, Software Engineer, CS Major"
+                    data-testid="inspector-hiring-tags"
+                    className="neu-border mt-1 w-full px-2 py-1 font-sans text-sm"
+                  />
+                  <span className="mt-0.5 block font-normal normal-case text-gray-500">
+                    Attendees can search the map by these on the public view.
+                  </span>
+                </label>
+                <div className="flex flex-wrap items-end gap-2">
                   <button
                     type="button"
                     onClick={applyAssignment}
@@ -408,6 +434,7 @@ export const FloorplanEditor: React.FC<FloorplanEditorProps> = ({
                     onClick={() => {
                       setSponsorName("");
                       setSponsorId("");
+                      setHiringTagsRaw("");
                       onUpdate(selected.id, { assignment: null });
                     }}
                     className="neu-border neu-press h-8 bg-white px-3 font-mono text-[11px] font-bold uppercase shadow-[2px_2px_0_0_#000]"

@@ -86,6 +86,18 @@ export function CustomizationsStepForm() {
             Send reminder emails to attendees before the event
           </Label>
         </div>
+
+        {/* NEW: Live Album Toggle */}
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="isLiveAlbumActive"
+            checked={!!formData.isLiveAlbumActive}
+            onCheckedChange={(checked) => updateFormData({ isLiveAlbumActive: checked === true })}
+          />
+          <Label htmlFor="isLiveAlbumActive" className="cursor-pointer font-medium text-blue-600 dark:text-blue-400">
+            Enable Live Event Album (Attendees can upload photos to a projector view)
+          </Label>
+        </div>
       </div>
     </div>
   );

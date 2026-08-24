@@ -1,0 +1,1 @@
+ALTER TABLE events ADD COLUMN is_live_album_active BOOLEAN DEFAULT FALSE;

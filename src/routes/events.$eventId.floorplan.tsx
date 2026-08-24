@@ -1,14 +1,30 @@
+// =============================================================================
+// Route: events/$eventId/floorplan
+// Issues: #4145 - Interactive "Event Layout" Floorplan Builder
+//         #4157 - Interactive "Career Fair" Digital Map
+// Description: Public attendee map + organizer editor. The attendee view
+// (#4157) adds a career-fair search bar ("Search by Major, Role, or Company"):
+// matching booths pulse while everything else dims, and selecting a booth
+// surfaces its hiring tags plus the sponsor's Digital Swag Bag and Lead
+// Scanner links.
+// =============================================================================
+
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
 import { useFloorplan } from "@/hooks/useFloorplan";
 import { FloorplanCanvas } from "@/components/events/floorplan/FloorplanCanvas";
 import { FloorplanEditor } from "@/components/events/floorplan/FloorplanEditor";
+import { EventCapacityThermalMap } from "@/components/events/EventCapacityThermalMap";
 import { describeAssignment } from "@/lib/floorplan/serialize";
+import { buildSearchIndex, searchBooths } from "@/lib/floorplan/search";
 import type { FloorplanAsset } from "@/lib/floorplan/types";
 import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Gift from "lucide-react/dist/esm/icons/gift";
 import Pencil from "lucide-react/dist/esm/icons/pencil";
+import ScanLine from "lucide-react/dist/esm/icons/scan-line";
+import Search from "lucide-react/dist/esm/icons/search";
 
 type Mode = "attendee" | "organizer";
 
@@ -19,15 +35,26 @@ export default function EventFloorplanPage() {
   const [mode, setMode] = useState<Mode>("attendee");
   const [canEdit, setCanEdit] = useState(false);
   const [selected, setSelected] = useState<FloorplanAsset | null>(null);
+  // #4157 career-fair search over company / role / major hiring tags
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Editing is available to signed-in users (organizers); attendees get the map.
   useEffect(() => {
     let cancelled = false;
     supabase.auth
       .getUser()
-      .then(({ data }) => {
-        if (!cancelled) setCanEdit(Boolean(data.user));
+      .then(async ({ data }) => {
+        if (!data.user) {
+          if (!cancelled) setCanEdit(false);
+          return;
+        }
+        const { data: isOrganizer } = await supabase.rpc("is_event_organizer", {
+          p_event_id: eventId,
+          p_user_id: data.user.id,
+        });
+        if (!cancelled) setCanEdit(Boolean(isOrganizer));
       })
+
       .catch(() => {
         if (!cancelled) setCanEdit(false);
       });
@@ -47,6 +74,15 @@ export default function EventFloorplanPage() {
     () => floorplan.assets.filter((a) => a.assignment?.companyName && a.kind !== "exit"),
     [floorplan.assets],
   );
+
+  // #4157: index booths once per layout change, then resolve the live query
+  const searchIndex = useMemo(() => buildSearchIndex(floorplan.assets), [floorplan.assets]);
+  const highlightIds = useMemo(
+    () => searchBooths(floorplan.assets, searchQuery, searchIndex),
+    [floorplan.assets, searchQuery, searchIndex],
+  );
+  const isSearching = highlightIds != null;
+  const matchCount = highlightIds?.size ?? 0;
 
   return (
     <SiteShell>
@@ -90,7 +126,7 @@ export default function EventFloorplanPage() {
             <p className="mt-1 font-mono text-xs text-gray-600">
               {mode === "organizer"
                 ? "Drag palette items onto the grid, assign sponsors to tables, then save. The layout is stored as JSON and shown to attendees here."
-                : "Find your way around: click any table to see which sponsor is stationed there."}
+                : "Search booths by major, role or company, then click a table to see who's there and grab their swag."}
             </p>
           </div>
 
@@ -99,28 +135,67 @@ export default function EventFloorplanPage() {
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-black border-t-transparent" />
             </div>
           ) : mode === "organizer" && canEdit ? (
-            <FloorplanEditor
-              eventId={eventId}
-              venue={floorplan.venue}
-              assets={floorplan.assets}
-              collidingIds={floorplan.collidingIds}
-              isSaving={floorplan.isSaving}
-              onAdd={floorplan.addAsset}
-              onMove={floorplan.moveAsset}
-              onUpdate={floorplan.updateAsset}
-              onRemove={floorplan.removeAsset}
-              onVenueSize={floorplan.setVenueSize}
-              onSave={floorplan.save}
-            />
-          ) : (
-            <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
-              <FloorplanCanvas
+            <div className="space-y-6">
+              <FloorplanEditor
+                eventId={eventId}
                 venue={floorplan.venue}
                 assets={floorplan.assets}
-                readOnly
-                selectedId={selected?.id ?? null}
-                onSelect={(asset) => setSelected(asset)}
+                collidingIds={floorplan.collidingIds}
+                isSaving={floorplan.isSaving}
+                onAdd={floorplan.addAsset}
+                onMove={floorplan.moveAsset}
+                onUpdate={floorplan.updateAsset}
+                onRemove={floorplan.removeAsset}
+                onVenueSize={floorplan.setVenueSize}
+                onSave={floorplan.save}
               />
+              <EventCapacityThermalMap eventId={eventId} />
+            </div>
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
+              <div className="space-y-3">
+                {/* #4157 career-fair search bar */}
+                <div>
+                  <label htmlFor="floorplan-search" className="sr-only">
+                    Search by Major, Role, or Company
+                  </label>
+                  <div
+                    className="neu-border flex h-11 items-center gap-2 bg-white px-3 shadow-[2px_2px_0_0_#000]"
+                    data-testid="floorplan-search-bar"
+                  >
+                    <Search size={16} className="shrink-0 text-gray-500" />
+                    <input
+                      id="floorplan-search"
+                      type="search"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search by Major, Role, or Company"
+                      data-testid="floorplan-search"
+                      className="h-full w-full bg-transparent font-mono text-sm outline-none placeholder:text-gray-400"
+                    />
+                  </div>
+                  {isSearching && (
+                    <p
+                      className="mt-1.5 font-mono text-xs text-gray-600 dark:text-gray-300"
+                      data-testid="floorplan-search-results"
+                      role="status"
+                    >
+                      {matchCount === 0
+                        ? `No booths match “${searchQuery.trim()}” — try “Internship”, a major, or a company name.`
+                        : `${matchCount} booth${matchCount === 1 ? "" : "s"} match “${searchQuery.trim()}”`}
+                    </p>
+                  )}
+                </div>
+
+                <FloorplanCanvas
+                  venue={floorplan.venue}
+                  assets={floorplan.assets}
+                  readOnly
+                  selectedId={selected?.id ?? null}
+                  onSelect={(asset) => setSelected(asset)}
+                  highlightIds={highlightIds}
+                />
+              </div>
 
               <aside className="space-y-3">
                 {/* Selected asset callout */}
@@ -131,9 +206,47 @@ export default function EventFloorplanPage() {
                   >
                     <p className="font-bold">{describeAssignment(selected, floorplan.venue)}</p>
                     {selected.assignment?.companyName && (
-                      <p className="mt-1 text-xs uppercase text-gray-500">
-                        Sponsor ID: {selected.assignment.sponsorId ?? "—"}
-                      </p>
+                      <>
+                        <p className="mt-1 text-xs uppercase text-gray-500">
+                          Sponsor ID: {selected.assignment.sponsorId ?? "—"}
+                        </p>
+
+                        {/* #4157 hiring tags for this booth */}
+                        {(selected.assignment.hiringTags?.length ?? 0) > 0 && (
+                          <ul
+                            className="mt-2 flex flex-wrap gap-1.5"
+                            data-testid="callout-hiring-tags"
+                          >
+                            {selected.assignment.hiringTags!.map((tag) => (
+                              <li
+                                key={tag}
+                                data-testid="hiring-tag-chip"
+                                className="neu-border bg-lime px-2 py-0.5 font-mono text-[10px] font-bold uppercase shadow-[2px_2px_0_0_#000]"
+                              >
+                                {tag}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+
+                        {/* #4157 sponsor actions: Digital Swag Bag + Lead Scanner */}
+                        <div className="mt-3 flex flex-wrap gap-2 border-t-2 border-dashed pt-3">
+                          <Link
+                            to={`/events/${eventId}/swag-bag?sponsor=${selected.assignment.sponsorId ?? ""}`}
+                            data-testid="callout-swag-bag-link"
+                            className="neu-border neu-press flex h-8 items-center gap-1.5 bg-white px-2.5 font-mono text-[10px] font-bold uppercase tracking-wide shadow-[2px_2px_0_0_#000]"
+                          >
+                            <Gift size={13} /> Digital Swag Bag
+                          </Link>
+                          <Link
+                            to={`/sponsor/events/${eventId}?sponsor=${selected.assignment.sponsorId ?? ""}`}
+                            data-testid="callout-lead-scanner-link"
+                            className="neu-border neu-press flex h-8 items-center gap-1.5 bg-white px-2.5 font-mono text-[10px] font-bold uppercase tracking-wide shadow-[2px_2px_0_0_#000]"
+                          >
+                            <ScanLine size={13} /> Lead Scanner
+                          </Link>
+                        </div>
+                      </>
                     )}
                   </div>
                 ) : (
@@ -161,6 +274,11 @@ export default function EventFloorplanPage() {
                           <span className="font-bold">{asset.assignment!.companyName}</span>
                           {" — "}
                           {describeAssignment(asset, floorplan.venue)}
+                          {(asset.assignment!.hiringTags?.length ?? 0) > 0 && (
+                            <span className="block text-[10px] uppercase text-gray-500">
+                              Hiring: {asset.assignment!.hiringTags!.join(" · ")}
+                            </span>
+                          )}
                         </li>
                       ))}
                     </ul>

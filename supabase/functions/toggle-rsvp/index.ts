@@ -269,6 +269,11 @@ serve(async (req: Request) => {
         .from("events")
  feature/club-vitality-monitor-3949
  feature/club-vitality-monitor-3949
+ feature/club-vitality-monitor-3949
+
+ feature/geofenced-checkin-4035
+ feature/geofenced-checkin-4035
+ main
 
  feature/assistant-persistence-2044
  main
@@ -374,6 +379,11 @@ serve(async (req: Request) => {
             },
  feature/club-vitality-monitor-3949
  feature/club-vitality-monitor-3949
+ feature/club-vitality-monitor-3949
+
+ feature/geofenced-checkin-4035
+ feature/geofenced-checkin-4035
+ main
 
  feature/assistant-persistence-2044
  main

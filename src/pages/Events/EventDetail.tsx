@@ -2,6 +2,7 @@
 // PATCH: src/pages/Events/EventDetail.tsx
 // Issue: #3678 — Real-Time "Micro-Volunteering" Task Board
 // Issue: #4301 — Interactive "Event Schedule" Custom Itinerary Builder
+// Issue: #4265 — Real-Time "Event Photography" Collaborative Album
 // =============================================================================
 
 import React, { useEffect, useState } from "react";
@@ -35,6 +36,10 @@ import { toast } from "sonner";
 import { hasTemporalConflict } from "@/utils/timeConflicts";
 import { generateItineraryPDF } from "@/utils/generateItineraryPDF";
 
+// NEW (Issue #4265): Live Album Imports
+import { LiveAlbumUploader } from "@/components/events/LiveAlbumUploader";
+import { broadcastNewPhoto } from "@/components/events/ProjectorView";
+
 // Setup React Big Calendar Localizer
 const locales = {
   "en-US": enUS,
@@ -57,6 +62,7 @@ interface EventDetailRecord {
   clubs: { name: string; id: string } | { name: string; id: string }[] | null;
   venues: { name: string } | null;
   dualClock?: any; // Added to prevent TypeScript errors from the merged branch
+  is_live_album_active: boolean | null; // NEW: Live album toggle
 }
 
 export default function EventDetail() {
@@ -80,7 +86,7 @@ export default function EventDetail() {
       const { data, error } = await supabase
         .from("events")
         .select(
-          "id, title, description, event_date, location, banner_url, clubs(id, name), venues(name)",
+          "id, title, description, event_date, location, banner_url, clubs(id, name), venues(name), is_live_album_active"
         )
         .eq("id", eventId)
         .maybeSingle();
@@ -240,6 +246,7 @@ export default function EventDetail() {
           {/* Note: Ensure EventDualClockTime is properly imported if it throws an error locally */}
           <div className="min-w-[260px]">
              {/* @ts-expect-error - EventDualClockTime might be dynamically registered */}
+             {/* eslint-disable-next-line @typescript-eslint/no-require-imports */}
              {React.createElement(require('@/components/events/EventDualClockTime').EventDualClockTime || 'div', { data: dualClock, venueLabel: venueLabel, variant: "full" })}
           </div>
 
@@ -252,6 +259,37 @@ export default function EventDetail() {
         </div>
 
         {event.description && <p className="whitespace-pre-wrap leading-7">{event.description}</p>}
+
+        {/* ── NEW (Issue #4265): Live Event Album Section ──────────────── */}
+        {event.is_live_album_active && event.id && (
+          <div className="pt-8 mt-8 border-t-2 border-black">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+              <div>
+                <h2 className="font-display text-2xl font-bold">Live Event Album</h2>
+                <p className="text-gray-600 text-sm mt-1">Snap photos and they will appear on the big screen instantly!</p>
+              </div>
+              
+              {isOrganizer && (
+                <a
+                  href={`/events/${event.id}/projector`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-blue-600 text-white text-sm font-bold px-4 py-2 rounded-lg shadow-md hover:bg-blue-700 transition-colors whitespace-nowrap"
+                >
+                  Open Projector View ↗
+                </a>
+              )}
+            </div>
+            
+            <LiveAlbumUploader 
+              eventId={event.id} 
+              onUploadComplete={(url) => {
+                broadcastNewPhoto(event.id, url);
+                toast.success("Awesome shot! Sent to the projector.", { icon: "📸" });
+              }} 
+            />
+          </div>
+        )}
 
         {/* ── NEW (Issue #4301): Interactive Timeline Builder ──────────────── */}
         {subSessions.length > 0 && (
