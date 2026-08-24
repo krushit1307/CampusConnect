@@ -991,6 +991,10 @@ export default function ClubProfile() {
           </div>
         </section>
  feature/rsvp-prereq-blocker-3946
+ feature/rsvp-prereq-blocker-3946
+
+ feature/assistant-persistence-2044
+ main
 
 
         <section className="px-4 py-6 md:px-6">
