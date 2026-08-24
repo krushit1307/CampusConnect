@@ -2,11 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from "recharts";
 import { Lock, Trophy } from "lucide-react";
-import {
-  type Election,
-  type ElectionResultRow,
-  getElectionResults,
-} from "@/lib/supabase/elections";
+import { type Election, type ElectionResultRow, getElectionResults } from "@/lib/supabase/elections";
 
 export type ElectionResultsProps = {
   election: Election;

@@ -55,18 +55,40 @@ export function ConstitutionManager({
       const { data: userAuth } = await supabase.auth.getUser();
       if (!userAuth.user) throw new Error("Not authenticated");
 
-      const { data: rpcData, error: rpcError } = await supabase.rpc(
-        "upload_club_document",
-        {
-          p_club_id: clubId,
-          p_file_url: uploadData.path,
-          p_uploaded_by: userAuth.user.id,
-        },
-      );
+      const { data: rpcData, error: rpcError } = await supabase.rpc("upload_club_document", {
+        p_club_id: clubId,
+        p_file_url: uploadData.path,
+        p_uploaded_by: userAuth.user.id,
+      });
 
       if (rpcError) {
         await supabase.storage.from("club_documents").remove([uploadData.path]);
         throw rpcError;
+      }
+
+      const { data: publicFile } = supabase.storage
+        .from("club_documents")
+        .getPublicUrl(uploadData.path);
+      const { data: reviewDocument, error: reviewInsertError } = await supabase
+        .from("constitution_documents")
+        .insert({
+          club_id: clubId,
+          uploaded_by: userAuth.user.id,
+          file_url: publicFile.publicUrl,
+          status: "pending_review",
+        })
+        .select("id")
+        .single();
+
+      if (!reviewInsertError && reviewDocument) {
+        const { error: scanError } = await supabase.functions.invoke("lint-constitution", {
+          body: { document_id: reviewDocument.id, file_url: publicFile.publicUrl },
+        });
+        if (scanError) {
+          toast.warning("Constitution uploaded; automated review is still pending.");
+        }
+      } else {
+        toast.warning("Constitution uploaded; automated review could not be started.");
       }
 
       toast.success("Constitution uploaded successfully!");
@@ -82,9 +104,7 @@ export function ConstitutionManager({
   const handleDownloadCurrent = async () => {
     if (!localFileUrl) return;
     try {
-      const { data, error } = await supabase.storage
-        .from("club_documents")
-        .download(localFileUrl);
+      const { data, error } = await supabase.storage.from("club_documents").download(localFileUrl);
       if (error) throw error;
 
       const blobUrl = URL.createObjectURL(data);

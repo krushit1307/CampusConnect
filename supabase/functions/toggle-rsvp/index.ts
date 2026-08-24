@@ -22,7 +22,7 @@ const toggleRsvpSchema = z
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, idempotency-key",
+    "authorization, x-client-info, apikey, content-type, idempotency-key, x-device-fingerprint",
 };
 
 async function fetchWithRetry(
@@ -54,6 +54,25 @@ const IDEMPOTENCY_TTL_SECONDS = 86400;
 const redisUrl = Deno.env.get("UPSTASH_REDIS_REST_URL");
 const redisToken = Deno.env.get("UPSTASH_REDIS_REST_TOKEN");
 const redis = redisUrl && redisToken ? new Redis({ url: redisUrl, token: redisToken }) : null;
+
+function getCanonicalClientIp(req: Request): string | null {
+  const forwarded = req.headers.get("x-forwarded-for")?.split(",", 1)[0]?.trim();
+  const candidate = forwarded || req.headers.get("x-real-ip")?.trim() || "";
+  return candidate && candidate.length <= 64 && /^[0-9a-f:.]+$/i.test(candidate) ? candidate : null;
+}
+
+function normalizeDeviceFingerprint(value: string | null): string | null {
+  const normalized = value?.trim() ?? "";
+  if (
+    !normalized ||
+    normalized === "fallback-anonymous-id" ||
+    normalized.length > 128 ||
+    !/^[A-Za-z0-9._:-]{8,128}$/.test(normalized)
+  ) {
+    return null;
+  }
+  return normalized;
+}
 
 /**
  * Handles RSVP toggling with rate limiting and idempotent duplicate prevention.
@@ -93,8 +112,7 @@ serve(async (req: Request) => {
 
   try {
     // 1. Pre-auth IP Limiter
-    const xForwardedFor = req.headers.get("x-forwarded-for");
-    const ip = xForwardedFor ? xForwardedFor.split(",")[0].trim() : "127.0.0.1";
+    const ip = getCanonicalClientIp(req) ?? "unknown";
 
     let ipLimitRes;
     try {
@@ -167,47 +185,16 @@ serve(async (req: Request) => {
     const { eventId, hasRsvpd, captchaToken, accommodationsRequested, noMediaConsent, referredBy } =
       parsed.data;
 
-    const siteKey = Deno.env.get("TURNSTILE_SITE_KEY") || Deno.env.get("HCAPTCHA_SITE_KEY");
-    const secretKey = Deno.env.get("TURNSTILE_SECRET_KEY") || Deno.env.get("HCAPTCHA_SECRET_KEY");
-    const captchaEnabled = Boolean(siteKey && secretKey);
-
-    if (captchaEnabled && typeof captchaToken === "string" && captchaToken.trim()) {
-      const provider = Deno.env.get("TURNSTILE_SECRET_KEY") ? "turnstile" : "hcaptcha";
-      const verificationUrl =
-        provider === "turnstile"
-          ? "https://challenges.cloudflare.com/turnstile/v0/siteverify"
-          : "https://hcaptcha.com/siteverify";
-
-      const verificationResponse = await fetch(verificationUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          secret: secretKey ?? "",
-          response: captchaToken,
-          remoteip: req.headers.get("x-forwarded-for") ?? "",
-        }).toString(),
-      });
-
-      const verificationResult = await verificationResponse.json();
-      if (!verificationResult?.success) {
-        return new Response(JSON.stringify({ error: "CAPTCHA verification failed." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    } else if (captchaEnabled) {
-      return new Response(JSON.stringify({ error: "CAPTCHA verification required." }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const idempotencyKey = req.headers.get("Idempotency-Key");
     idempotencyRedisKey = idempotencyKey ? `rsvp_idempotency_${idempotencyKey}` : null;
 
     // Serialize a response and, when an idempotency key is present, cache the
     // final payload so retries replay the exact same result.
-    const respond = async (body: unknown, status: number): Promise<Response> => {
+    const respond = async (
+      body: unknown,
+      status: number,
+      extraHeaders: Record<string, string> = {},
+    ): Promise<Response> => {
       if (idempotencyRedisKey && redis) {
         try {
           await redis.set(idempotencyRedisKey, JSON.stringify({ status, body }), {
@@ -219,7 +206,7 @@ serve(async (req: Request) => {
       }
       return new Response(JSON.stringify(body), {
         status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json", ...extraHeaders },
       });
     };
 
@@ -280,7 +267,89 @@ serve(async (req: Request) => {
       // 1.5 Pre-flight Prerequisite Verification
       const { data: eventData, error: eventErr } = await supabase
         .from("events")
+ feature/rsvp-prereq-blocker-3946
 
+
+        .select("prerequisite_event_id, title, has_photography, is_high_demand")
+        .eq("id", eventId)
+        .single();
+
+      if (eventErr) throw eventErr;
+
+      const isHighDemand = eventData?.is_high_demand === true;
+      const deviceFingerprint = normalizeDeviceFingerprint(req.headers.get("x-device-fingerprint"));
+      const clientIp = getCanonicalClientIp(req);
+
+      if (isHighDemand) {
+        const claimHashSecret = Deno.env.get("TICKET_CLAIM_HASH_SECRET");
+        const captchaSecret =
+          Deno.env.get("TURNSTILE_SECRET_KEY") || Deno.env.get("HCAPTCHA_SECRET_KEY");
+        const captchaProvider = Deno.env.get("TURNSTILE_SECRET_KEY") ? "turnstile" : "hcaptcha";
+
+        if (!clientIp || !claimHashSecret || claimHashSecret.length < 16 || !captchaSecret) {
+          return respond(
+            { error: "High-demand ticket protection is temporarily unavailable." },
+            503,
+            { "Retry-After": "60" },
+          );
+        }
+
+        if (!captchaToken?.trim()) {
+          return respond({ error: "CAPTCHA verification is required for this event." }, 400);
+        }
+
+        const verificationUrl =
+          captchaProvider === "turnstile"
+            ? "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+            : "https://hcaptcha.com/siteverify";
+        const verificationResponse = await fetch(verificationUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            secret: captchaSecret,
+            response: captchaToken,
+            remoteip: clientIp,
+          }).toString(),
+        });
+        const verificationResult = await verificationResponse.json();
+        if (!verificationResult?.success) {
+          return respond({ error: "CAPTCHA verification failed." }, 400);
+        }
+
+        const { data: claimResult, error: claimError } = await supabase.rpc(
+          "enforce_ticket_claim_rate_limit",
+          {
+            p_event_id: eventId,
+            p_user_id: user.id,
+            p_ip_address: clientIp,
+            p_device_fingerprint: deviceFingerprint,
+            p_idempotency_key: idempotencyKey,
+            p_hash_secret: claimHashSecret,
+            p_window_seconds: 60,
+            p_max_claims: 2,
+          },
+        );
+
+        if (claimError) {
+          console.error("High-demand claim guard failed:", claimError.message);
+          return respond(
+            { error: "High-demand ticket protection is temporarily unavailable." },
+            503,
+            { "Retry-After": "60" },
+          );
+        }
+
+        if (!claimResult?.allowed) {
+          const retryAfter = Math.max(1, Number(claimResult?.retry_after_seconds || 60));
+          return respond(
+            { error: claimResult?.message || "Too many ticket claims. Please try again shortly." },
+            429,
+            { "Retry-After": String(retryAfter) },
+          );
+        }
+      }
+
+ main
       if (eventData?.has_photography && noMediaConsent == null) {
         return respond(
           { error: "Media consent choice is required for this photography event." },
@@ -298,13 +367,10 @@ serve(async (req: Request) => {
           return respond(
             {
               error: `You must attend the prerequisite event before registering for this event.`,
- feature/waitlist-churn-predictor
-           },
- feature/waitlist-churn-predictor
-
             },
-<<<<<<< HEAD
-=======
+ feature/rsvp-prereq-blocker-3946
+ HEAD
+
  feature/waitlist-churn-predictor
  feature/waitlist-churn-predictor
 
@@ -319,7 +385,9 @@ serve(async (req: Request) => {
 
 
  main
->>>>>>> upstream/main
+ upstream/main
+
+ main
             403,
           );
         }

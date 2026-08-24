@@ -72,6 +72,25 @@ export function Navbar() {
     };
   }, []);
 
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setUserRole(null);
+      return;
+    }
+    supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setUserRole(data.role);
+        }
+      });
+  }, [user, supabase]);
+
   const links = [
     {
       to: localizedPath(i18n.language, "/events"),
@@ -106,6 +125,14 @@ export function Navbar() {
       label: t("navbar.messages"),
     },
   ];
+
+  const dynamicLinks = [...links];
+  if (userRole === "facility_manager" || userRole === "system_admin") {
+    dynamicLinks.push({
+      to: localizedPath(i18n.language, "/facility-dashboard"),
+      label: "Facility",
+    });
+  }
 
   const landingLinks = [
     { href: "#features", label: t("navbar.features") },
@@ -207,7 +234,7 @@ export function Navbar() {
             ))}
 
           {/* Route links */}
-          {links.map((link) => {
+          {dynamicLinks.map((link) => {
             const isActive = currentPath === link.to || currentPath.startsWith(link.to + "/");
 
             return (
@@ -412,7 +439,7 @@ export function Navbar() {
                 </a>
               ))}
 
-            {links.map((link) => {
+            {dynamicLinks.map((link) => {
               const isActive = currentPath === link.to || currentPath.startsWith(link.to + "/");
 
               return (
