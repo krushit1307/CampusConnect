@@ -139,7 +139,8 @@ serve(async (req: Request) => {
         span.end();
       });
 
-      // 4. Fetch all active RSVPs
+      // 4. Fetch ticket holders only. Waitlisted users are queried after refunds
+      //    (Issue #4422) so they are not mixed into the ticket-holder path.
       const rsvps = await tracer.startActiveSpan("supabase.fetch_rsvps", async (span) => {
         span.setAttribute("db.system", "postgresql");
         span.setAttribute("db.operation", "SELECT");
@@ -148,7 +149,7 @@ serve(async (req: Request) => {
           .from("event_rsvps")
           .select("id, user_id, status, payment_intent_id, paid_amount_cents, profiles(email)")
           .eq("event_id", eventId)
-          .in("status", ["attending", "approved", "waitlisted", "swapping"]);
+          .in("status", ["attending", "approved", "swapping"]);
 
         if (error) {
           span.recordException(error as any);
@@ -169,25 +170,15 @@ serve(async (req: Request) => {
         ? null
         : new Stripe(stripeSecretKey, { apiVersion: "2023-10-16" });
 
-      // 5. Iterate and process refunds / notifications
-      await tracer.startActiveSpan("process_refunds_and_notifications", async (span) => {
+      // 5. Refund ticket holders without flipping RSVP status yet. Cancelling
+      //    attending rows first would fire promote_waitlist_on_cancel and move
+      //    waitlisted users onto this already-cancelled event.
+      await tracer.startActiveSpan("process_refunds", async (span) => {
         span.setAttribute("app.rsvps_to_process", rsvps?.length || 0);
         for (const rsvp of rsvps || []) {
-          await tracer.startActiveSpan("process_single_rsvp", async (rsvpSpan) => {
+          await tracer.startActiveSpan("process_single_refund", async (rsvpSpan) => {
             rsvpSpan.setAttribute("app.rsvp_id", rsvp.id);
             rsvpSpan.setAttribute("app.user_id", rsvp.user_id);
-
-            // Mark RSVP as cancelled (invalidates ticket)
-            await tracer.startActiveSpan("supabase.update_rsvp", async (dbSpan) => {
-              dbSpan.setAttribute("db.system", "postgresql");
-              dbSpan.setAttribute("db.operation", "UPDATE");
-              dbSpan.setAttribute("db.sql.table", "event_rsvps");
-              await supabase
-                .from("event_rsvps")
-                .update({ status: "cancelled", updated_at: new Date().toISOString() })
-                .eq("id", rsvp.id);
-              dbSpan.end();
-            });
 
             let stripeRefundId = null;
 
@@ -239,7 +230,98 @@ serve(async (req: Request) => {
               }
             }
 
-            // 6. Dispatch Notification / Email
+            rsvpSpan.end();
+          });
+        }
+        span.end();
+      });
+
+      // 6. After refunding ticket holders, query waitlisted users, bulk-cancel
+      //    them, and send the waitlist-specific cancellation email (#4422).
+      const waitlisted = await tracer.startActiveSpan("supabase.fetch_waitlisted", async (span) => {
+        span.setAttribute("db.system", "postgresql");
+        span.setAttribute("db.operation", "SELECT");
+        span.setAttribute("db.sql.table", "event_rsvps");
+        const { data, error } = await supabase
+          .from("event_rsvps")
+          .select("id, user_id")
+          .eq("event_id", eventId)
+          .eq("status", "waitlisted");
+
+        if (error) {
+          span.recordException(error as any);
+          span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+          throw error;
+        }
+        span.setAttribute("app.waitlisted_count", data?.length || 0);
+        span.end();
+        return data;
+      });
+
+      await tracer.startActiveSpan("supabase.bulk_cancel_waitlist", async (span) => {
+        span.setAttribute("db.system", "postgresql");
+        span.setAttribute("db.operation", "UPDATE");
+        span.setAttribute("db.sql.table", "event_rsvps");
+        const { error } = await supabase
+          .from("event_rsvps")
+          .update({ status: "cancelled", updated_at: new Date().toISOString() })
+          .eq("event_id", eventId)
+          .eq("status", "waitlisted");
+
+        if (error) {
+          span.recordException(error as any);
+          span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+          throw error;
+        }
+        span.setAttribute("app.waitlisted_cleared", waitlisted?.length || 0);
+        span.end();
+      });
+
+      const waitlistMessage =
+        "The event you were waitlisted for has been completely cancelled. You have been removed from the queue.";
+
+      await tracer.startActiveSpan("dispatch_waitlist_cancellation_emails", async (span) => {
+        span.setAttribute("app.waitlisted_count", waitlisted?.length || 0);
+        for (const entry of waitlisted || []) {
+          await tracer.startActiveSpan("supabase.insert_waitlist_notification", async (dbSpan) => {
+            dbSpan.setAttribute("db.system", "postgresql");
+            dbSpan.setAttribute("db.operation", "INSERT");
+            dbSpan.setAttribute("db.sql.table", "notifications");
+            await supabase.from("notifications").insert({
+              user_id: entry.user_id,
+              type: "waitlist_cancelled",
+              title: `Event Cancelled: ${event.title}`,
+              message: waitlistMessage,
+              link: "/events",
+            });
+            dbSpan.end();
+          });
+          console.log(`[Email Dispatched] To: User ${entry.user_id} | Message: ${waitlistMessage}`);
+        }
+        span.end();
+      });
+
+      // 7. Invalidate ticket-holder RSVPs and notify them (waitlist already cleared).
+      await tracer.startActiveSpan("process_ticket_holder_cancellations", async (span) => {
+        span.setAttribute("app.rsvps_to_process", rsvps?.length || 0);
+        for (const rsvp of rsvps || []) {
+          await tracer.startActiveSpan("process_single_rsvp", async (rsvpSpan) => {
+            rsvpSpan.setAttribute("app.rsvp_id", rsvp.id);
+            rsvpSpan.setAttribute("app.user_id", rsvp.user_id);
+
+            // Mark RSVP as cancelled (invalidates ticket)
+            await tracer.startActiveSpan("supabase.update_rsvp", async (dbSpan) => {
+              dbSpan.setAttribute("db.system", "postgresql");
+              dbSpan.setAttribute("db.operation", "UPDATE");
+              dbSpan.setAttribute("db.sql.table", "event_rsvps");
+              await supabase
+                .from("event_rsvps")
+                .update({ status: "cancelled", updated_at: new Date().toISOString() })
+                .eq("id", rsvp.id);
+              dbSpan.end();
+            });
+
+            // Dispatch Notification / Email
             await tracer.startActiveSpan("supabase.insert_notification", async (dbSpan) => {
               dbSpan.setAttribute("db.system", "postgresql");
               dbSpan.setAttribute("db.operation", "INSERT");
@@ -270,6 +352,7 @@ serve(async (req: Request) => {
       rootSpan.setAttribute("http.status_code", 200);
       rootSpan.setAttribute("app.refunded_count", refundedCount);
       rootSpan.setAttribute("app.total_refunded_cents", totalRefundedCents);
+      rootSpan.setAttribute("app.waitlisted_cleared", waitlisted?.length || 0);
       rootSpan.setStatus({ code: SpanStatusCode.OK });
       rootSpan.end();
 
