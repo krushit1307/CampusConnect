@@ -86,7 +86,25 @@ serve(async (req) => {
             }
         }
 
-        const basePriceCents = tier.price; // Assuming stored in cents
+        // Check if dynamic pricing is active on this event
+        const { data: eventDetails, error: eventDetailsError } = await supabase
+            .from("events")
+            .select("base_price, surge_multiplier")
+            .eq("id", eventId)
+            .single();
+
+        let basePriceCents = tier.price;
+        let isDynamic = false;
+        if (!eventDetailsError && eventDetails && eventDetails.base_price !== null) {
+            const { data: dynamicPrice, error: priceError } = await supabase.rpc('calculate_current_price', {
+                p_event_id: eventId
+            });
+            if (!priceError && dynamicPrice !== null) {
+                basePriceCents = dynamicPrice;
+                isDynamic = true;
+            }
+        }
+
         const subtotal = basePriceCents * quantity;
         const discountAmount = Math.round(subtotal * (applicableDiscount / 100));
         const totalAmount = subtotal - discountAmount;
@@ -97,7 +115,7 @@ serve(async (req) => {
                 price_data: {
                     currency: "usd",
                     product_data: {
-                        name: `${event.title} - ${tier.name}`,
+                        name: isDynamic ? `${event.title} (Dynamic Price)` : `${event.title} - ${tier.name}`,
                         description: `${quantity} ticket(s)`,
                     },
                     unit_amount: basePriceCents,
