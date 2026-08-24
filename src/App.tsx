@@ -126,6 +126,7 @@ const SettingsData = lazy(() => import("./routes/settings.data"));
 const VerifyEmail = lazy(() => import("./routes/verify-email"));
 const Directory = lazy(() => import("./routes/Directory"));
 const MessagesRoute = lazy(() => import("./routes/messages"));
+const PeerSupportRoute = lazy(() => import("./routes/peer-support"));
 const PendingClubsAdmin = lazy(() => import("./routes/admin.clubs.pending"));
 const AnalyticsAdmin = lazy(() => import("./routes/admin.analytics"));
 const ConstitutionReviewAdmin = lazy(() => import("./routes/admin.constitutions"));
@@ -322,6 +323,7 @@ const router = createBrowserRouter(
                 <Route path="/admin/analytics" element={<AnalyticsAdmin />} />
                 <Route path="/verify-email" element={<VerifyEmail />} />
                 <Route path="/messages" element={<MessagesRoute />} />
+                <Route path="/peer-support" element={<PeerSupportRoute />} />
                 <Route path="/admin/reports" element={<AdminReportsPage />} />
                 <Route path="/admin/users" element={<AdminUsersPage />} />
                 <Route path="/admin/restore" element={<AdminRestorePage />} />
@@ -333,12 +335,6 @@ const router = createBrowserRouter(
               </Route>
             </Route>
           </Route>
-            element={
-              <Suspense fallback={<RemoteLoadingScreen />}>
-                <EventKiosk />
-              </Suspense>
-            }
-          />
           <Route path="/events/:eventId/gantt" element={<EventGantt />} />
           {/* Events Map View with clustering */}
           <Route path="events/map" element={<EventsMapPage />} />
