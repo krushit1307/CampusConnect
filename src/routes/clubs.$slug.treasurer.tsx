@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { SiteShell } from "@/components/site/SiteShell";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, ArrowLeft, DollarSign, TrendingDown, BookOpen } from "lucide-react";
+import { Loader2, ArrowLeft, DollarSign, TrendingDown, BookOpen, ShieldCheck, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TaxExemptComplianceExportModal } from "@/components/finance/TaxExemptComplianceExportModal";
 
 export default function TreasurerDashboardRoute() {
   const { slug } = useParams();
@@ -12,6 +13,7 @@ export default function TreasurerDashboardRoute() {
   const [loading, setLoading] = useState(true);
   const [club, setClub] = useState<any>(null);
   const [balanceSheet, setBalanceSheet] = useState<any>(null);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -62,7 +64,7 @@ export default function TreasurerDashboardRoute() {
   return (
     <SiteShell>
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <Button
               variant="ghost"
@@ -73,9 +75,25 @@ export default function TreasurerDashboardRoute() {
             </Button>
             <h1 className="text-3xl font-bold">Treasurer's Dashboard</h1>
             <p className="text-muted-foreground">
-              Financial overview and GAAP-compliant balance sheet
+              Financial overview, GAAP-compliant balance sheet & Tax-Exempt compliance audit engine
             </p>
           </div>
+
+          <Button
+            onClick={() => setExportModalOpen(true)}
+            className="neu-border bg-purple-600 hover:bg-purple-700 text-white font-mono text-xs font-bold uppercase gap-2 self-start sm:self-auto shadow-[3px_3px_0_0_#000]"
+          >
+            <ShieldCheck className="w-4 h-4 text-emerald-300" />
+            1-Click Compliance Export
+          </Button>
+
+          <TaxExemptComplianceExportModal
+            open={exportModalOpen}
+            onClose={() => setExportModalOpen(false)}
+            clubId={club.id}
+            clubName={club.name}
+            treasurerName="Club Treasurer"
+          />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
